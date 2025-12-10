@@ -1756,189 +1756,174 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	return nil
 }
 
-func UpdateCLIAction(c *cli.Context) error {
-	var localVersion string
-	var latestVersion string
-	if needsUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
-		infof(c.App.ErrWriter, "Your CLI is already up to date (version %s).", localVersion)
+func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
+	// updateError wraps an error with a standard "CLI update failed" prefix
+	updateError := func(err error) error {
+		if err == nil {
+			return nil
+		}
+		return errors.Errorf("CLI update failed: %v", err)
+	}
+	// 1. check CLI to see if update needed, if this fails then try update anyways
+	needsUpdate, localVersion, _, err := needsUpdate(c)
+	if err == nil && !needsUpdate {
+		infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion)
+		return nil
 	}
 
-	// try brew first 
-	// 
+	// 2. check if cli managed by brew, if so attempt update. If it fails, don't
+	// continue with binary to avoid putting brew out of sync
+	success, err := checkAndTryBrewUpdate()
+	if err != nil {
+		return updateError(err)
+	}
+	// if successful, tells user and returns
+	// if not, then try downloading binary to manually replace
+	if !success {
+		// 3. get the local version binary path (use full path if no symlinks)
+		execPath, err := os.Executable()
+		if err != nil {
+			return updateError(errors.Errorf("failed to get executable path: %v", err))
+		}
+		localBinaryPath, err := filepath.EvalSymlinks(execPath)
+		if err != nil {
+			localBinaryPath = execPath
+		}
+		directoryPath := filepath.Dir(localBinaryPath)
 
+		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+		latestBinaryPath, err := downloadBinaryIntoDir(directoryPath)
+		if err != nil {
+			return updateError(err)
+		}
+		// if replaceBinary succeeds, file is moved so Remove fails (harmless);
+		// if replaceBinary fails, file still exists so Remove cleans it up
+		defer os.Remove(latestBinaryPath) //nolint:errcheck
+
+		// 5. replace the old binary with the new one
+		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+			return updateError(err)
+		}
+	}
+	infof(c.App.Writer, "Your CLI has been successfully updated")
+	return nil
 }
 
-// SelfUpdateAction downloads different binary URLs based on the OS
-// This separate var is also necessary for testing with file:// URLs
-var (
-	buildBinaryURL = func(goos, goarch string) string {
-		binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
-			goos + "-" + goarch
-		if goos == "windows" {
-			binaryURL += ".exe"
-		}
-		return binaryURL
-	}
-	osExecutable   = os.Executable
-	execLookPath   = exec.LookPath
-	execRunCommand = func(cmd *exec.Cmd) error {
-		return cmd.Run()
-	}
-)
-
-func SelfUpdateAction(c *cli.Context, args emptyArgs) error {
-
-	// Try brew upgrade first (if brew is available)
+func checkAndTryBrewUpdate() (bool, error) {
 	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
-		if _, err := execLookPath("brew"); err == nil {
+		if _, err := exec.LookPath("brew"); err == nil {
 			// Check if viam is actually managed by brew
 			cmd := exec.Command("brew", "list", "viam")
-			if err := execRunCommand(cmd); err == nil {
+			if err := cmd.Run(); err == nil {
 				// viam is managed by brew - try upgrade
 				cmd = exec.Command("brew", "upgrade", "viam")
-				if err := execRunCommand(cmd); err == nil {
-					infof(c.App.Writer, "Your CLI has been successfully updated")
-					return nil
+				if err := cmd.Run(); err == nil {
+					return true, nil
 				}
-				// brew upgrade failed, but viam IS managed by brew - don't fall back to avoid putting brew out of sync
-				return errors.Errorf("failed to upgrade CLI via brew: %v", err)
+				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
 			}
 		}
 	}
+	return false, nil
+}
 
-	// Get executable path for direct binary replacement
-	execPath, err := osExecutable()
-	if err != nil {
-		return errors.Errorf("failed to get executable path: %v", err)
-	}
-	realPath, err := filepath.EvalSymlinks(execPath)
-	if err != nil {
-		realPath = execPath // Use original path if symlink resolution fails
-	}
-	binaryDir := filepath.Dir(realPath)
-
+func downloadBinaryIntoDir(directoryPath string) (string, error) {
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
 	// Determine binary URL based on OS and architecture
-	binaryURL := buildBinaryURL(runtime.GOOS, runtime.GOARCH)
-	tempPattern := "viam-cli-update-*"
-	if runtime.GOOS == "windows" {
-		tempPattern += ".exe"
+	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
+		goos + "-" + goarch
+	if goos == "windows" {
+		binaryURL += ".exe"
 	}
 
-	// Download the binary (file:// URLS used only for testing)
-	var body io.ReadCloser
-	if strings.HasPrefix(binaryURL, "file://") {
-		filePath := strings.TrimPrefix(binaryURL, "file://")
-		file, err := os.Open(filePath)
-		if err != nil {
-			return errors.Errorf("failed to open test file: %v", err)
-		}
-		body = file
-	} else {
-		resp, err := http.Get(binaryURL)
-		if err != nil {
-			return errors.Errorf("binary download failed: %v", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			defer utils.UncheckedError(resp.Body.Close())
-			return errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
-		}
-		body = resp.Body
+	// Download the binary
+	resp, err := http.Get(binaryURL)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
 	}
-	defer utils.UncheckedError(body.Close())
+	if resp.StatusCode != http.StatusOK {
+		defer utils.UncheckedError(resp.Body.Close())
+		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
+	}
+	defer utils.UncheckedError(resp.Body.Close())
 
-	// Create temp file in binary directory to replace
-	tmpFile, err := os.CreateTemp(binaryDir, tempPattern)
+	// create a temp file that we write the downloaded binary into
+	tempFileName := "viam-cli-update-"
+	if goos == "windows" {
+		tempFileName += ".exe"
+	}
+	tempFileName += ".new"
+
+	// Create the temp file in the same directory as the binary
+	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
+	latestBinaryFile, err := os.Create(latestBinaryPath)
 	if err != nil {
 		if os.IsPermission(err) {
-			if runtime.GOOS == "windows" {
-				return errors.New("permission denied: run PowerShell as Administrator")
+			if goos == "windows" {
+				return "", errors.New("permission denied: run PowerShell as Administrator")
 			}
-			return errors.New("permission denied: run 'sudo viam self-update'")
+			return "", errors.New("permission denied: run 'sudo viam self-update'")
 		}
-		// Fall back to system temp directory
-		tmpFile, err = os.CreateTemp("", tempPattern)
-		if err != nil {
-			return errors.Errorf("failed to create temp file: %v", err)
-		}
+		return "", errors.Errorf("failed to create temp file: %v", err)
 	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath) //nolint:errcheck
 
 	// Write downloaded content to temp file
-	_, err = io.Copy(tmpFile, body)
-	tmpFile.Close() //nolint:errcheck
+	_, err = io.Copy(latestBinaryFile, resp.Body)
+	latestBinaryFile.Close() //nolint:errcheck
 	if err != nil {
-		return errors.Errorf("failed to write downloaded binary: %v", err)
+		return "", errors.Errorf("failed to write downloaded binary: %v", err)
 	}
 
 	// Make executable on Unix-like systems, if permissions are improperly set then no
 	// change will be made and user has to run sudo
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(tmpPath, 0o755); err != nil {
+	if goos != "windows" {
+		if err := os.Chmod(latestBinaryPath, 0o755); err != nil {
 			if os.IsPermission(err) {
-				return errors.New("permission denied: run 'sudo viam self-update'")
+				return "", errors.New("permission denied: run 'sudo viam self-update'")
 			}
-			return errors.Errorf("failed to make binary executable: %v", err)
+			return "", errors.Errorf("failed to make binary executable: %v", err)
 		}
 	}
+	return latestBinaryPath, nil
+}
 
-	// Replace the old binary with the newly downloaded one
-	// On Windows, handle file locking and cross-drive issues
+func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	// Windows doesn't allow renaming running executables, so we rename the old one
+	// and put the new one in the original location to be used next run
 	if runtime.GOOS == "windows" {
-		// Use a three-step process to avoid leaving realPath empty:
-		// 1. Move new binary to realPath.new (same directory, ensures same filesystem)
-		// 2. Rename old binary to .old
-		// 3. Rename .new to realPath
-		// This way, if any step fails, we can recover without leaving user without a binary
-		oldPath := realPath + ".old"
-		newPath := realPath + ".new"
-		// go from temp to real right away
-
-		// Remove any existing .old or .new files from previous failed updates
+		// make sure no leftover binary files with .old
+		oldPath := localBinaryPath + ".old"
 		os.Remove(oldPath) //nolint:errcheck
-		os.Remove(newPath) //nolint:errcheck
-
-		// Step 1: Move new binary to .new (in same directory as realPath)
-		if err := os.Rename(tmpPath, newPath); err != nil {
-			if os.IsPermission(err) {
-				return errors.New("permission denied: run PowerShell as Administrator")
-			}
-			return errors.Errorf("failed to move new binary to .new: %v", err)
-		}
-
-		// Step 2: Rename old binary to .old (Windows allows renaming running executables)
-		if err := os.Rename(realPath, oldPath); err != nil {
-			// If this fails, new binary is at .new, old is still at realPath - safe state
-			os.Remove(newPath) //nolint:errcheck
+		// 1. rename old binary to .old
+		if err := os.Rename(localBinaryPath, oldPath); err != nil {
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run PowerShell as Administrator")
 			}
 			return errors.Errorf("failed to rename old binary: %v", err)
 		}
 
-		// Step 3: Rename .new to realPath (final step)
-		if err := os.Rename(newPath, realPath); err != nil {
-			// If this fails, restore old binary from .old
-			if restoreErr := os.Rename(oldPath, realPath); restoreErr != nil {
-				// Both failed - user has old at .old and new at .new, can manually fix
-				return errors.Errorf("failed to replace binary: %v; failed to restore old binary: %v (old binary is at %s, new binary is at %s)", err, restoreErr, oldPath, newPath)
-			}
+		// 2. rename new binary to original path
+		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run PowerShell as Administrator")
 			}
-			return errors.Errorf("failed to replace binary: %v (old binary restored)", err)
+			// If this fails, try to restore old binary by renaming back (removing .old)
+			if restoreErr := os.Rename(oldPath, localBinaryPath); restoreErr != nil {
+				return errors.Errorf("failure in self-update: please redownload the CLI binary at https://docs.viam.com/cli/#install")
+			}
+			return errors.Errorf("failed to replace old binary: %v", err)
 		}
-		// .old file will be cleaned up on next run or can be manually deleted
+		// Clean up .old file after successful update
+		os.Remove(oldPath) //nolint:errcheck
 	} else {
-		// Unix-like systems: direct rename
-		if err := os.Rename(tmpPath, realPath); err != nil {
+		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run 'sudo viam self-update'")
 			}
 			return errors.Errorf("failed to replace binary: %v", err)
 		}
 	}
-	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
 }
 
@@ -3443,21 +3428,4 @@ func enabledGrantsToProto(enabledGrants []string) ([]apppb.EnabledGrant, error) 
 		enabledGrantsProto = append(enabledGrantsProto, enabledGrant)
 	}
 	return enabledGrantsProto, nil
-}
-
-// this lives in the clinet_win.go file
-func replaceBinary(binaryPath string) error {
-	currBinPath := os.Executable()
-	if err := os.Rename(currBinPath, currBinPath+".old"); err != nil {
-		return err
-	}
-	if err := os.Rename(binaryPath, currBinPath); err != nil {
-		return err
-	}
-	return nil
-}
-
-// this lives in the clinet_unix.go file
-func replaceBinary(binaryPath string) error {
-
 }
