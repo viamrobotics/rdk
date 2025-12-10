@@ -24,6 +24,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -1800,13 +1801,19 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, armClient.Close(ctx), test.ShouldBeNil)
 		utils.UncheckedErrorFunc(conn.Close)
+
+		// Wait for two logs indicating the connection closure: one from the client-side
+		// ("webrtc.client") and one from the server-side ("networking"):
+		var observedCSChangedLogs *observer.ObservedLogs
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			test.That(tb, web.PCIsClosed(conn.PeerConn()), test.ShouldBeTrue)
+			observedCSChangedLogs = logs.FilterMessageSnippet("connection state changed")
+			test.That(tb, observedCSChangedLogs.Len(), test.ShouldEqual, 2)
 		})
-		// It will take ~1s for pion to register the connection as closed on the server. We
-		// can't _only_ assert on conn.PeerConn().ConnectionState() here because that's the
-		// client-side.
-		time.Sleep(3 * time.Second)
+		csChangedLogs := observedCSChangedLogs.All()
+		test.That(t, strings.HasSuffix(csChangedLogs[0].LoggerName, "webrtc.client"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[0].ContextMap()["conn_state"], test.ShouldEqual, "closed")
+		test.That(t, strings.HasSuffix(csChangedLogs[1].LoggerName, "networking"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[1].ContextMap()["conn_state"], test.ShouldEqual, "closed")
 
 		// Create a new client, and invoke EndPosition in a goroutine on the arm resource.
 		// This EndPosition call should block and should add to rc.requestsPerPC and

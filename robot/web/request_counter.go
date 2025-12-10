@@ -205,9 +205,9 @@ type ClientInformation struct {
 	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
 
-// PCIsClosed returns whether the passed in peer connection has a connection state indicating that it
+// Returns whether the passed in peer connection has a connection state indicating that it
 // has closed.
-func PCIsClosed(pc *webrtc.PeerConnection) bool {
+func pcIsClosed(pc *webrtc.PeerConnection) bool {
 	cs := pc.ConnectionState()
 	if cs == webrtc.PeerConnectionStateClosed || cs == webrtc.PeerConnectionStateDisconnected ||
 		cs == webrtc.PeerConnectionStateFailed {
@@ -225,7 +225,7 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	if pc == nil {
 		return nil
 	}
-	if PCIsClosed(pc) {
+	if pcIsClosed(pc) {
 		rc.requestsPerPC.Delete(pc)
 		rc.pcToClientMetadata.Delete(pc)
 		return nil
