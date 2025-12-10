@@ -1,13 +1,17 @@
 {
-   "audioin": {
+   "audio_in": {
     "func": "Properties",
     "packagePath": "go.viam.com/rdk/components",
-    "args": ["context.Background()", "map[string]interface{}{}" ]
+    "args": ["context.Background()", "map[string]interface{}{}" ],
+    "packageName": "audioin",
+    "importName": "audioin"
   },
-  "audioout": {
+  "audio_out": {
     "func": "Properties",
     "packagePath": "go.viam.com/rdk/components",
-    "args": ["context.Background()", "map[string]interface{}{}" ]
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "packageName": "audioout",
+    "importName": "audioout"
   },
   "base": {
     "func": "IsMoving",
