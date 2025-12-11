@@ -18,6 +18,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -1631,41 +1632,66 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if !hasDiff {
 		return
 	}
-	if !newTracingCfg.Enabled {
+	if !newTracingCfg.IsEnabled() {
 		prevExporters := trace.ClearExporters()
 		for _, ex := range prevExporters {
 			//nolint: errcheck, gosec
 			ex.Shutdown(ctx)
 		}
 		r.traceClient = nil
-	} else {
-		partID := "local-config"
-		if newConfig.Cloud != nil {
-			partID = newConfig.Cloud.ID
-		}
-		tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
-		if err := os.MkdirAll(tracesDir, 0o700); err != nil {
-			r.logger.Errorw("failed to create directory to store traces", "err", err)
-			return
-		}
-		r.logger.Infow("created trace storage dir", "dir", tracesDir)
-		traceClient, err := otlpfile.NewClient(tracesDir, "traces")
-		if err != nil {
-			r.logger.Errorw("failed to create OLTP client", "err", err)
-			return
-		}
-		exporter, err := otlptrace.New(
-			context.Background(),
-			traceClient,
-		)
-		if err != nil {
-			r.logger.Errorw("failed to create trace exporter", "err", err)
-			return
-		}
-
-		trace.AddExporters(exporter)
-		r.traceClient = traceClient
+		return
 	}
+	var exporters []sdktrace.SpanExporter
+	if newTracingCfg.Disk {
+		func() {
+			partID := "local-config"
+			if newConfig.Cloud != nil {
+				partID = newConfig.Cloud.ID
+			}
+			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
+			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
+				r.logger.Errorw("failed to create directory to store traces", "err", err)
+				return
+			}
+			r.logger.Infow("created trace storage dir", "dir", tracesDir)
+			traceClient, err := otlpfile.NewClient(tracesDir, "traces")
+			if err != nil {
+				r.logger.Errorw("failed to create OLTP client", "err", err)
+				return
+			}
+			exporter, err := otlptrace.New(
+				context.Background(),
+				traceClient,
+			)
+			if err != nil {
+				r.logger.Errorw("failed to create trace exporter", "err", err)
+				return
+			}
+
+			r.traceClient = traceClient
+			exporters = append(exporters, exporter)
+		}()
+	}
+	if newTracingCfg.OTLPEndpoint != "" {
+		func() {
+			otlpClient := otlptracegrpc.NewClient(
+				otlptracegrpc.WithEndpoint(newTracingCfg.OTLPEndpoint),
+				otlptracegrpc.WithInsecure(),
+			)
+			if err := otlpClient.Start(ctx); err != nil {
+				r.logger.Errorw("Failed to start OTLP gRPC client while reconfiguring tracing", "err", err)
+				return
+			}
+
+			exporter, err := otlptrace.New(ctx, otlpClient)
+			if err != nil {
+				r.logger.Errorw("Faild to create OTLP gRPC exporter while reconfiguring tracing", "err", err)
+				return
+			}
+			exporters = append(exporters, exporter)
+		}()
+	}
+	trace.AddExporters(exporters...)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.

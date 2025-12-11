@@ -88,7 +88,15 @@ type Config struct {
 
 // A TracingConfig describes the tracing configuration for a robot
 type TracingConfig struct {
-	Enabled bool
+	Enabled      bool
+	Disk         bool
+	OTLPEndpoint string
+}
+
+// IsEnabled returns true if Enabled is true and at least one export location
+// is enabled and false otherwise.
+func (cfg TracingConfig) IsEnabled() bool {
+	return cfg.Enabled && (cfg.Disk || cfg.OTLPEndpoint != "")
 }
 
 // MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
