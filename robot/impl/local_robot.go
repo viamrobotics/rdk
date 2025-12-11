@@ -454,33 +454,6 @@ func newWithResources(
 		}
 	}
 
-	var traceClient *otlpfile.Client
-	if rOpts.tracing.enabled {
-		func() {
-			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
-			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
-				logger.Errorw("failed to create directory to store traces", "err", err)
-				return
-			}
-			logger.Infow("created trace storage dir", "dir", tracesDir)
-			traceClient, err = otlpfile.NewClient(tracesDir, "traces")
-			if err != nil {
-				logger.Errorw("failed to create OLTP client", "err", err)
-				return
-			}
-			exporter, err := otlptrace.New(
-				context.Background(),
-				traceClient,
-			)
-			if err != nil {
-				logger.Errorw("failed to create trace exporter", "err", err)
-				return
-			}
-
-			trace.AddExporters(exporter)
-		}()
-	}
-
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -491,7 +464,7 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
-				tracingEnabled:     rOpts.tracing.enabled,
+				tracingEnabled:     cfg.Tracing.Enabled,
 			},
 			logger,
 		),
@@ -508,10 +481,12 @@ func newWithResources(
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
-		traceClient:                traceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})
+
+	r.reconfigureTracing(ctx, &config.Config{})
+
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
 		heartbeatWindow = config.DefaultSessionHeartbeatWindow
@@ -1433,6 +1408,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.reconfiguring.Store(false)
 	}()
 
+	r.reconfigureTracing(ctx, newConfig)
+
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
@@ -1645,6 +1622,49 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
 	} else {
 		r.logger.CInfow(ctx, "Robot (re)configured")
+	}
+}
+
+func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.Config) {
+	newTracingCfg := newConfig.Tracing
+	hasDiff := newTracingCfg != r.mostRecentCfg.Load().(config.Config).Tracing
+	if !hasDiff {
+		return
+	}
+	if !newTracingCfg.Enabled {
+		prevExporters := trace.ClearExporters()
+		for _, ex := range prevExporters {
+			//nolint: errcheck, gosec
+			ex.Shutdown(ctx)
+		}
+		r.traceClient = nil
+	} else {
+		partID := "local-config"
+		if newConfig.Cloud != nil {
+			partID = newConfig.Cloud.ID
+		}
+		tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
+		if err := os.MkdirAll(tracesDir, 0o700); err != nil {
+			r.logger.Errorw("failed to create directory to store traces", "err", err)
+			return
+		}
+		r.logger.Infow("created trace storage dir", "dir", tracesDir)
+		traceClient, err := otlpfile.NewClient(tracesDir, "traces")
+		if err != nil {
+			r.logger.Errorw("failed to create OLTP client", "err", err)
+			return
+		}
+		exporter, err := otlptrace.New(
+			context.Background(),
+			traceClient,
+		)
+		if err != nil {
+			r.logger.Errorw("failed to create trace exporter", "err", err)
+			return
+		}
+
+		trace.AddExporters(exporter)
+		r.traceClient = traceClient
 	}
 }
 
