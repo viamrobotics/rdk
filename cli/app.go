@@ -1946,7 +1946,7 @@ Note: There is no progress meter while copying is in progress.
 							Flags: []cli.Flag{
 								&cli.BoolFlag{
 									Name:  mlTrainingFlagIncludeURIs,
-									Usage: "adding this flag will show container URIs",
+									Usage: "show container URIs with the list of containers",
 								},
 							},
 							Action: createCommandWithT[mlListContainersArgs](MLListContainers),
