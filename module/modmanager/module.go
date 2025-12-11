@@ -41,12 +41,13 @@ import (
 )
 
 type module struct {
-	cfg        config.Module
-	dataDir    string
-	process    pexec.ManagedProcess
-	handles    modlib.HandlerMap
-	sharedConn rdkgrpc.SharedConn
-	client     pb.ModuleServiceClient
+	cfg         config.Module
+	dataDir     string
+	process     pexec.ManagedProcess
+	prevProcess pexec.ManagedProcess
+	handles     modlib.HandlerMap
+	sharedConn  rdkgrpc.SharedConn
+	client      pb.ModuleServiceClient
 	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
 	robotClient robotpb.RobotServiceClient
 	addr        string
@@ -285,6 +286,7 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, "--tcp-mode")
 	}
 
+	m.prevProcess = m.process
 	m.process = pexec.NewManagedProcess(pconf, m.logger)
 
 	if err := m.process.Start(context.Background()); err != nil {
@@ -371,6 +373,18 @@ func (m *module) stopProcess() error {
 	}
 
 	return nil
+}
+
+// wait waits on a module's managedProcesses' goroutines to finish. stopProcess should be called before calling this,
+// so it can call restartCancel to cancel the OUE.
+func (m *module) wait() {
+	// if we are stuck in a restart loop, the OUE attempting the restarts is here
+	if m.prevProcess != nil {
+		m.prevProcess.Wait()
+	}
+	if m.process != nil {
+		m.process.Wait()
+	}
 }
 
 func (m *module) killProcessGroup() {
