@@ -111,6 +111,7 @@ const (
 	mlTrainingFlagURL              = "url"
 	mlTrainingFlagArgs             = "args"
 	mlTrainingFlagContainerVersion = "container-version"
+	mlTrainingFlagIncludeURIs      = "include-uris"
 
 	dataFlagDataType                       = "data-type"
 	dataFlagOrgIDs                         = "org-ids"
@@ -1942,7 +1943,13 @@ Note: There is no progress meter while copying is in progress.
 							Name:      "list",
 							Usage:     "lists supported containers for custom training",
 							UsageText: createUsageText("train containers list", nil, false, false),
-							Action:    createCommandWithT[emptyArgs](MLListContainers),
+							Flags: []cli.Flag{
+								&cli.BoolFlag{
+									Name:  mlTrainingFlagIncludeURIs,
+									Usage: "adding this flag will show container URIs",
+								},
+							},
+							Action: createCommandWithT[mlListContainersArgs](MLListContainers),
 						},
 					},
 				},
