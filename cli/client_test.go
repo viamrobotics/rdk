@@ -1607,7 +1607,7 @@ func TestCLIUpdateAction(t *testing.T) {
 
 	// Set local version to 0.100.0 (older than mockLatestVersion 0.104.0)
 	robotconfig.Version = "0.100.0"
-	needsUpdateResult, localVersion, latestVersion, err := needsUpdate(cCtx)
+	needsUpdateResult, localVersion, latestVersion, err := isOutdated(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	// Should detect that update is needed (0.100.0 < 0.104.0)
 	test.That(t, needsUpdateResult, test.ShouldBeTrue)
@@ -1681,7 +1681,7 @@ func TestCLIUpdateAction(t *testing.T) {
 
 	// Test that needsUpdate called again and says no update needed (as we just updated it)
 	robotconfig.Version = mockLatestVersion
-	needsUpdateResult2, localVersion2, _, err := needsUpdate(cCtx)
+	needsUpdateResult2, localVersion2, _, err := isOutdated(cCtx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, needsUpdateResult2, test.ShouldBeFalse) // Should be false (no update needed)
 	test.That(t, localVersion2, test.ShouldEqual, mockLatestVersion)

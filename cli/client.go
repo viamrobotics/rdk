@@ -1666,7 +1666,7 @@ var getLatestReleaseVersionFunc = func() (string, error) {
 var errVersionUnavailable = errors.New("failed to parse local or latest version")
 
 // if local version is less than latest version, return true with local and latest version
-func needsUpdate(c *cli.Context) (bool, string, string, error) {
+func isOutdated(c *cli.Context) (bool, string, string, error) {
 	globalArgs, err := getGlobalArgs(c)
 	if err != nil {
 		return false, "", "", err
@@ -1727,7 +1727,7 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	}
 
 	var latestVersion string
-	if shouldUpdate, localVersion, latestVersion, err := needsUpdate(c); err != nil {
+	if shouldUpdate, localVersion, latestVersion, err := isOutdated(c); err != nil {
 		// if versions couldn't be parsed, don't return andcontinue to check if the local build is more than a week old
 		if !errors.Is(err, errVersionUnavailable) {
 			return err
@@ -1767,8 +1767,8 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 // UpdateCLIAction updates the CLI to the latest version.
 func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	// 1. check CLI to see if update needed, if this fails then try update anyways
-	needsUpdate, localVersion, _, err := needsUpdate(c)
-	if err == nil && !needsUpdate {
+	isOutdated, localVersion, _, err := isOutdated(c)
+	if err == nil && !isOutdated {
 		infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion)
 		return nil
 	}
