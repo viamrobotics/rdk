@@ -455,8 +455,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	ctx, cancel := context.WithCancel(ctx)
 
 	hungShutdownDeadline := 60 * time.Second
+	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
+	// viam-server stack traces by default on app.viam.com.
+	stackTraceLogger := s.rootLogger.Sublogger("stack_traces")
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.rootLogger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
 
 	doneServing := make(chan struct{})
 
@@ -714,6 +717,9 @@ func dumpResourceRegistrations(outputPath string) error {
 }
 
 func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
+	// viam-server stack traces by default on app.viam.com.
+	logger = logger.Sublogger("stack_traces")
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)
