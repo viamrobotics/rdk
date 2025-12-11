@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -35,8 +34,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 	nc "go.viam.com/rdk/web/networkcheck"
 )
-
-var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
 
 // Arguments for the command.
 type Arguments struct {
@@ -87,6 +84,18 @@ func logViamEnvVariables(logger logging.Logger) {
 	}
 	if rutils.PlatformHomeDir() != "" {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
+	}
+	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
+	value, alreadySet := os.LookupEnv("VIAM_HOME")
+	err := os.Setenv("VIAM_HOME", rutils.ViamDotDir)
+	// if we successfully overwrite VIAM_HOME, log
+	if err == nil && alreadySet {
+		logger.Infof("Environment variable VIAM_HOME was overwritten from %v to %v", value, rutils.ViamDotDir)
+	} else if err != nil && !alreadySet {
+		logger.Infof("Unable to set VIAM_HOME environment variable, continuing with startup")
+	}
+	if value, exists := os.LookupEnv("VIAM_HOME"); exists {
+		viamEnvVariables = append(viamEnvVariables, "VIAM_HOME", value)
 	}
 	if len(viamEnvVariables) != 0 {
 		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
@@ -336,7 +345,7 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
-		out.PackagePath = path.Join(viamDotDir, "packages")
+		out.PackagePath = path.Join(rutils.ViamDotDir, "packages")
 	}
 
 	return out, nil
