@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest"
+	"go.viam.com/utils"
 )
 
 var (
@@ -596,18 +597,24 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 func (imp *impl) Fatal(args ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.format(ERROR, emptyTraceKey, args...))
+	// Sync all appenders before exiting the process.
+	utils.UncheckedErrorFunc(imp.Sync)
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalf(template string, args ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.formatf(ERROR, emptyTraceKey, template, args...))
+	// Sync all appenders before exiting the process.
+	utils.UncheckedErrorFunc(imp.Sync)
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
+	// Sync all appenders before exiting the process.
+	utils.UncheckedErrorFunc(imp.Sync)
 	os.Exit(1)
 }
 

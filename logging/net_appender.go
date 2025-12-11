@@ -430,8 +430,9 @@ func (nl *NetAppender) sync() error {
 	}
 }
 
-// Sync is a no-op. sync is not exposed as multiple calls at the same time will cause double logs and panics.
+// Sync invokes Close and is used at shutdown due to fatal logging.
 func (nl *NetAppender) Sync() error {
+	nl.Close()
 	return nil
 }
 

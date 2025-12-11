@@ -66,11 +66,6 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
-
-	// netAppender is only stored on robotServer to be Closed in the event that we have to
-	// logger.Fatal() due to a hung shutdown. In that case, we should attempt to sync all
-	// net appender logs with Close to get stack traces up to app.viam.com.
-	netAppender *logging.NetAppender
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -244,9 +239,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
-	var netAppender *logging.NetAppender
 	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		netAppender, err = logging.NewNetAppender(
+		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
 				AppAddress: cfgFromDisk.Cloud.AppAddress,
 				ID:         cfgFromDisk.Cloud.ID,
@@ -282,7 +276,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
-		netAppender:      netAppender,
 	}
 
 	// Run the server with remote logging enabled.
@@ -513,12 +506,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					theRobotLock.Unlock()
 					if robot != nil {
 						robot.Kill()
-					}
-					// Close the netAppender if it exists before fatally logging. That way, we have
-					// a much better chance of getting final logs (like stack traces) up to
-					// app.viam.com.
-					if s.netAppender != nil {
-						s.netAppender.Close()
 					}
 					s.rootLogger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
