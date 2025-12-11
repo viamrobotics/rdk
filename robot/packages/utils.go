@@ -45,6 +45,8 @@ func partialDownloadPath(parentDir, rawURL string) (string, error) {
 // installCallback is the function signature that gets passed to installPackage.
 type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
+// the common logic that wraps an `installCallback` function across different package managers.
+// when `supportsPartial` is true, this goes to `partialDownloadPath` instead of `LocalDownloadPath`.
 func installPackage(
 	ctx context.Context,
 	logger logging.Logger,
@@ -84,7 +86,7 @@ func installPackage(
 	if supportsPartial {
 		var err error
 		if dstPath, err = partialDownloadPath(parentDir, url); err != nil {
-			return errw.Wrap(err, "creating temp dir")
+			return errw.Wrap(err, "creating partials dir")
 		}
 	} else {
 		dstPath = p.LocalDownloadPath(packagesDir)
