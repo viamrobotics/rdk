@@ -137,15 +137,20 @@ type mlSubmitTrainingJobArgs struct {
 	ModelVersion   string
 }
 
+type mlListContainersArgs struct {
+	IncludeURIs bool
+}
+
 type prettyPrintContainer struct {
 	Name        string
 	EndOfLife   string
 	Description string
 	Framework   string
+	URI         string `json:",omitempty"`
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
-func MLListContainers(c *cli.Context, args emptyArgs) error {
+func MLListContainers(c *cli.Context, args mlListContainersArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -158,12 +163,16 @@ func MLListContainers(c *cli.Context, args emptyArgs) error {
 
 	var returnContainers []prettyPrintContainer
 	for _, v := range supportedContainers.ContainerMap {
-		returnContainers = append(returnContainers, prettyPrintContainer{
+		container := prettyPrintContainer{
 			Name:        v.Key,
 			Description: v.Description,
 			Framework:   v.Framework,
 			EndOfLife:   v.Eol.AsTime().Format(time.RFC1123),
-		})
+		}
+		if args.IncludeURIs {
+			container.URI = v.Uri
+		}
+		returnContainers = append(returnContainers, container)
 	}
 	b, err := json.MarshalIndent(returnContainers, "", "  ")
 	if err != nil {
