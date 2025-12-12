@@ -612,6 +612,14 @@ func TestTrimLeadingZeroes(t *testing.T) {
 	}
 }
 
+func TestLogProgressWriter(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	writer := newLogProgressWriter(logger, "job", 1e6)
+	test.That(t, writer.Update(0), test.ShouldContainSubstring, "downloaded 0.00 / 1.00 MB (0%)")
+	test.That(t, writer.Update(5e5), test.ShouldContainSubstring, "downloaded 0.50 / 1.00 MB (50%)")
+	test.That(t, writer.Update(1e6), test.ShouldContainSubstring, "downloaded 1.00 MB (100%)")
+}
+
 type testHandler struct {
 	modTime time.Time
 	content string

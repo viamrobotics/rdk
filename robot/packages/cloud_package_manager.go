@@ -359,12 +359,14 @@ func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int6
 	}
 }
 
-func (wc *logProgressWriter) Update(curSize int64) {
+// log progress at Info level, update lastLogTime, return logged message.
+func (wc *logProgressWriter) Update(curSize int64) string {
 	currentTime := time.Now()
 	if currentTime.Equal(wc.startTime) {
-		return
+		return ""
 	}
 
+	var msg string
 	if curSize < wc.totalBytes || wc.totalBytes == 0 {
 		// unknown pct if totalBytes is 0. Log what's available.
 		var pctStr string
@@ -374,19 +376,22 @@ func (wc *logProgressWriter) Update(curSize int64) {
 			pctStr = fmt.Sprintf("%.0f%%", float64(curSize)/float64(wc.totalBytes)*100)
 		}
 		// todo: more useful to compute data rate from last tick, rather than from start
-		wc.logger.Infof("%s: downloaded %.2f / %.2f MB (%s) [%.0f KB/s]",
+		msg = fmt.Sprintf("%s: downloaded %.2f / %.2f MB (%s) [%.0f KB/s]",
 			wc.name,
 			float64(curSize)/1e6,
 			float64(wc.totalBytes)/1e6,
 			pctStr,
 			float64(curSize)/currentTime.Sub(wc.startTime).Seconds()/1024)
+		wc.logger.Info(msg)
 		wc.lastLogTime = currentTime
 	} else {
-		wc.logger.Infof("%s: downloaded %.2f MB (100%%) in %v",
+		msg = fmt.Sprintf("%s: downloaded %.2f MB (100%%) in %v",
 			wc.name,
 			float64(curSize)/1e6,
 			currentTime.Sub(wc.startTime))
+		wc.logger.Info(msg)
 	}
+	return msg
 }
 
 // downloader with header-based checksum logic and partials support.

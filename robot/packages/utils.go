@@ -523,7 +523,7 @@ func fileSizeProgress(ctx context.Context, httpClient *http.Client, logger loggi
 	}
 	res.Body.Close() //nolint:errcheck,gosec
 
-	writer := newLogProgressWriter(logger, "TODO", res.ContentLength)
+	writer := newLogProgressWriter(logger, dest, res.ContentLength)
 
 	ticker := time.NewTicker(writer.logFrequency)
 	for {
