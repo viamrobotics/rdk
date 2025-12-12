@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -59,6 +60,7 @@ import (
 
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	osWindows     = "windows"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
 	defaultNumLogs = 100
@@ -1627,7 +1629,7 @@ type getLatestReleaseResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
-func getLatestReleaseVersion() (string, error) {
+func getLatestRelease() (getLatestReleaseResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1635,22 +1637,58 @@ func getLatestReleaseVersion() (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
+	return resp, nil
+}
+
+// getLatestReleaseVersionFunc can be overridden in tests to mock GitHub API calls
+var getLatestReleaseVersionFunc = func() (string, error) {
+	resp, err := getLatestRelease()
+	if err != nil {
+		return "", err
+	}
 	return resp.TagName, err
+}
+
+func localVersion() (semver.Version, error) {
+	appVersion := rconfig.Version
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		return semver.Version{}, errors.New("failed to parse local version")
+	}
+	if localVersion == nil || localVersion.Original() == "" {
+		return semver.Version{}, errors.New("local version is empty")
+	}
+	return *localVersion, nil
+}
+
+func latestVersion() (semver.Version, error) {
+	latestRelease, err := getLatestReleaseVersionFunc()
+	if err != nil {
+		return semver.Version{}, errors.New("failed to get latest release information")
+	}
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		return semver.Version{}, errors.New("failed to parse latest release version")
+	}
+	if latestVersion == nil || latestVersion.Original() == "" {
+		return semver.Version{}, errors.New("latest version is empty")
+	}
+	return *latestVersion, nil
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
@@ -1687,33 +1725,20 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	appVersion := rconfig.Version
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-
-	// failure to parse `latestRelease` is expected for local builds; we don't want overly
-	// noisy warnings here so only alert in these cases if debug flag is on
-	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
-	}
-	localVersion, err := semver.NewVersion(appVersion)
-	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
-	}
-
-	// we know both the local version and the latest version so we can make a determination
-	// from that alone on whether or not to alert users to update
-	if localVersion != nil && latestVersion != nil {
-		// the local version is out of date, so we know to warn
-		if localVersion.LessThan(latestVersion) {
-			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+	var latestBuildVersion semver.Version
+	if latestBuildVersion, err := latestVersion(); err != nil {
+		if localVersion, err := localVersion(); err != nil {
+			if localVersion.LessThan(&latestBuildVersion) {
+				warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+					"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestBuildVersion.Original())
+			}
+			return nil
 		}
-		return nil
+	}
+
+	// there was an error in comparing versions, so try to see if build is old and warn
+	if globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to compare local and latest version: %w", err)
 	}
 
 	dateCompiledRaw := rconfig.DateCompiled
@@ -1732,13 +1757,188 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	// the local build is more than a week old, so we should warn
 	if time.Since(dateCompiled) > time.Hour*24*7 {
 		var updateInstructions string
-		if latestVersion != nil {
-			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
+		if latestBuildVersion.Original() != "" {
+			updateInstructions = fmt.Sprintf(" to version: %s", latestBuildVersion)
 		}
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+	}
+	return nil
+}
+
+// UpdateCLIAction updates the CLI to the latest version.
+func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
+	// 1. check CLI to see if update needed, if this fails then try update anyways
+	if latestBuildVersion, err := latestVersion(); err != nil {
+		if localVersion, err := localVersion(); err != nil {
+			if localVersion.LessThan(&latestBuildVersion) {
+				infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
+				return nil
+			}
+		}
 	}
 
+	// 2. check if cli managed by brew, if so attempt update. If it fails
+	// dont continue with binary to avoid putting brew out of sync
+	success, err := checkAndTryBrewUpdate()
+	if err != nil {
+		return errors.Errorf("CLI update failed: %v", err)
+	}
+	// brew update not returning false (not successful) but no error means not managed by brew
+	if !success {
+		// 3. get the local version binary path (use full path if no symlinks)
+		execPath, err := os.Executable()
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+		}
+		localBinaryPath, err := filepath.EvalSymlinks(execPath)
+		if err != nil {
+			localBinaryPath = execPath
+		}
+		directoryPath := filepath.Dir(localBinaryPath)
+
+		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+		binaryURL := binaryURL()
+		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
+		}
+
+		// if replaceBinary succeeds, file is moved so Remove fails (harmless);
+		// if replaceBinary fails, file still exists so Remove cleans it up
+		defer os.Remove(latestBinaryPath) //nolint:errcheck
+
+		// 5. replace the old binary with the new one
+		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+		}
+	}
+	infof(c.App.Writer, "Your CLI has been successfully updated")
+	return nil
+}
+
+func checkAndTryBrewUpdate() (bool, error) {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+		if _, err := exec.LookPath("brew"); err == nil {
+			// Check if viam is actually managed by brew
+			cmd := exec.Command("brew", "list", "viam")
+			if err := cmd.Run(); err == nil {
+				// viam is managed by brew - try upgrade
+				cmd = exec.Command("brew", "upgrade", "viam")
+				if err := cmd.Run(); err == nil {
+					return true, nil
+				}
+				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+			}
+		}
+	}
+	return false, nil
+}
+
+func binaryURL() string {
+	// Determine binary URL based on OS and architecture
+	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
+		runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == osWindows {
+		binaryURL += ".exe" //nolint:goconst
+	}
+	return binaryURL
+}
+
+func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
+	// Download the binary
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		utils.UncheckedError(resp.Body.Close())
+		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
+	}
+
+	// create a temp file that we write the downloaded binary into
+	goos := runtime.GOOS
+	tempFileName := "viam-cli-update"
+	if goos == osWindows {
+		tempFileName += ".exe"
+	}
+	tempFileName += ".new"
+
+	// Create the temp file in the same directory as the binary
+	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
+	latestBinaryFile, err := os.Create(latestBinaryPath) //nolint:gosec
+	if err != nil {
+		utils.UncheckedError(resp.Body.Close())
+		if os.IsPermission(err) {
+			if goos == osWindows {
+				return "", errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return "", errors.New("permission denied: run 'sudo viam self-update'")
+		}
+		return "", errors.Errorf("failed to create temp file: %v", err)
+	}
+
+	// Write downloaded content to temp file
+	_, err = io.Copy(latestBinaryFile, resp.Body)
+	utils.UncheckedError(resp.Body.Close())
+	utils.UncheckedError(latestBinaryFile.Close())
+	if err != nil {
+		return "", errors.Errorf("failed to write downloaded binary: %v", err)
+	}
+
+	// Make executable on Unix-like systems, if permissions are improperly set then no
+	// change will be made and user has to run sudo
+	if goos != osWindows {
+		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
+			if os.IsPermission(err) {
+				return "", errors.New("permission denied: run 'sudo viam self-update'")
+			}
+			return "", errors.Errorf("failed to make binary executable: %v", err)
+		}
+	}
+	return latestBinaryPath, nil
+}
+
+func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	// Windows doesn't allow renaming running executables, so we rename the old one
+	// and put the new one in the original location to be used next run
+	if runtime.GOOS == osWindows {
+		// make sure no leftover binary files with .old
+		oldPath := localBinaryPath + ".old"
+		os.Remove(oldPath) //nolint:errcheck, gosec
+		// 1. rename old binary to .old
+		if err := os.Rename(localBinaryPath, oldPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to rename old binary: %v", err)
+		}
+
+		// 2. rename new binary to original path
+		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			// If this fails, try to restore old binary by renaming back (removing .old)
+			if restoreErr := os.Rename(oldPath, localBinaryPath); restoreErr != nil {
+				return errors.Errorf("failure in self-update: please redownload the CLI binary at https://docs.viam.com/cli/#install")
+			}
+			return errors.Errorf("failed to replace old binary: %v", err)
+		}
+		// Clean up .old file after successful update
+		os.Remove(oldPath) //nolint:errcheck, gosec
+	} else {
+		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run 'sudo viam self-update'")
+			}
+			return errors.Errorf("failed to replace binary: %v", err)
+		}
+	}
 	return nil
 }
 
