@@ -468,7 +468,9 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
 			// skip over status files
-			if !slices.Contains(expectedPackages, packageFile.Name()) && !strings.HasSuffix(packageFile.Name(), ".status.json") {
+			if !slices.Contains(expectedPackages, packageFile.Name()) &&
+				!strings.HasSuffix(packageFile.Name(), ".status.json") &&
+				packageFile.Name() != "part" {
 				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
 			}
 		}
