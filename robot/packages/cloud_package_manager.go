@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-getter"
-
 	errw "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
@@ -37,6 +36,9 @@ const (
 var (
 	_ Manager       = (*cloudManager)(nil)
 	_ ManagerSyncer = (*cloudManager)(nil)
+
+	// the test suite can set this to non-zero to test resume behavior
+	maxBytesForTesting int64
 )
 
 type cloudManager struct {
@@ -184,7 +186,6 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		// download package from a http endpoint
 		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
-				println("TODO DONOTMERGE: figure out what to do about status file in partial mode")
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,
 					Version:         p.Version,
@@ -339,60 +340,53 @@ func sanitizeURLForLogs(u string) string {
 
 // LogProgressWriter is a writer that logs progress.
 type logProgressWriter struct {
-	totalWrittenBytes int64
-	totalBytes        int64
-	name              string
-	startTime         time.Time
-	lastLogTime       time.Time
-	logFrequency      time.Duration
-	logger            logging.Logger
+	totalBytes   int64
+	name         string
+	startTime    time.Time
+	lastLogTime  time.Time
+	logFrequency time.Duration
+	logger       logging.Logger
 }
 
 func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int64) *logProgressWriter {
 	return &logProgressWriter{
-		totalWrittenBytes: 0,
-		totalBytes:        totalBytes,
-		startTime:         time.Now(),
-		lastLogTime:       time.Now(),
-		name:              jobName,
-		logFrequency:      time.Second * 5,
-		logger:            logger,
+		totalBytes:   totalBytes,
+		startTime:    time.Now(),
+		lastLogTime:  time.Now(),
+		name:         jobName,
+		logFrequency: time.Second * 5,
+		logger:       logger,
 	}
 }
 
-func (wc *logProgressWriter) Write(p []byte) (int, error) {
+func (wc *logProgressWriter) Update(curSize int64) {
 	currentTime := time.Now()
-	bytesWritten := len(p)
-	wc.totalWrittenBytes += int64(bytesWritten)
+	if currentTime.Equal(wc.startTime) {
+		return
+	}
 
-	if wc.totalWrittenBytes < wc.totalBytes || wc.totalBytes == 0 {
-		if currentTime.Sub(wc.lastLogTime) > wc.logFrequency {
-			// unknown pct if totalBytes is 0. Log what's available.
-			var pctStr string
-			if wc.totalBytes == 0 {
-				pctStr = "?%"
-			} else {
-				pctStr = fmt.Sprintf("%.0f%%", float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100)
-			}
-			// Prevent NPE if logFrequency is also 0. non-exact is fine for display purposes
-			if currentTime == wc.startTime {
-				currentTime = currentTime.Add(time.Second)
-			}
-			wc.logger.Infof("%s: downloaded %d / %d bytes (%s) [%.0f KB/s]",
-				wc.name,
-				wc.totalWrittenBytes,
-				wc.totalBytes,
-				pctStr,
-				float64(wc.totalWrittenBytes)/currentTime.Sub(wc.startTime).Seconds()/1024)
-			wc.lastLogTime = currentTime
+	if curSize < wc.totalBytes || wc.totalBytes == 0 {
+		// unknown pct if totalBytes is 0. Log what's available.
+		var pctStr string
+		if wc.totalBytes == 0 {
+			pctStr = "?%"
+		} else {
+			pctStr = fmt.Sprintf("%.0f%%", float64(curSize)/float64(wc.totalBytes)*100)
 		}
-	} else {
-		wc.logger.Infof("%s: downloaded %d bytes (100%%) in %v",
+		// todo: more useful to compute data rate from last tick, rather than from start
+		wc.logger.Infof("%s: downloaded %.2f / %.2f MB (%s) [%.0f KB/s]",
 			wc.name,
-			wc.totalWrittenBytes,
+			float64(curSize)/1e6,
+			float64(wc.totalBytes)/1e6,
+			pctStr,
+			float64(curSize)/currentTime.Sub(wc.startTime).Seconds()/1024)
+		wc.lastLogTime = currentTime
+	} else {
+		wc.logger.Infof("%s: downloaded %.2f MB (100%%) in %v",
+			wc.name,
+			float64(curSize)/1e6,
 			currentTime.Sub(wc.startTime))
 	}
-	return bytesWritten, nil
 }
 
 // downloader with header-based checksum logic and partials support.
@@ -410,11 +404,12 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", err
 	}
 
+	//nolint:bodyclose /// closed in UncheckedErrorFunc
 	resp, err := m.httpClient.Do(getReq)
 	if err != nil {
 		return "", "", err
 	}
-	defer resp.Body.Close()
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
@@ -437,20 +432,23 @@ func (m *cloudManager) downloadFileWithChecksum(
 	}
 
 	g := getter.HttpGetter{
-		// MaxBytes: 10e6, // set maxbytes for testing
-		Header: http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
+		MaxBytes: maxBytesForTesting,
+		Header:   http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
 	}
 	g.SetClient(&getter.Client{Ctx: ctx})
+	progressCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go utils.PanicCapturingGo(func() { fileSizeProgress(progressCtx, m.logger, rawURL, downloadPath) })
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
 	}
 
 	hash := crc32Hash()
-	destFile, err := os.Open(downloadPath)
+	destFile, err := os.Open(downloadPath) //nolint:gosec
 	if err != nil {
 		return "", "", err
 	}
-	defer destFile.Close()
+	defer utils.UncheckedErrorFunc(destFile.Close)
 	_, err = io.Copy(hash, destFile)
 	if err != nil {
 		return "", "", err

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 	"time"
 
 	errw "github.com/pkg/errors"
-
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -36,7 +36,7 @@ func partialDownloadPath(parentDir, rawURL string) (string, error) {
 	}
 
 	partialsDir := filepath.Join(parentDir, "part", rutils.HashString(rawURL, 7))
-	if err := os.MkdirAll(parentDir, 0o755); err != nil {
+	if err := os.MkdirAll(parentDir, 0o750); err != nil {
 		return "", err
 	}
 	return filepath.Join(partialsDir, filename+".part"), nil
@@ -375,6 +375,7 @@ func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string
 type syncStatus string
 
 const (
+	// note: there is no syncStatus for resumable downloads; the stored state for a resumable download is the `.part` file.
 	syncStatusDownloading syncStatus = "downloading"
 	syncStatusDone        syncStatus = "done"
 	syncStatusFailed      syncStatus = "failed"
@@ -472,4 +473,43 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	}
 
 	return nil
+}
+
+// starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
+func fileSizeProgress(ctx context.Context, logger logging.Logger, url, dest string) {
+	// note: go-getter is also doing a HEAD request internally, so this is redundant, but we don't have access to it.
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	if err != nil {
+		logger.Warnw("progress bar failed", "err", err)
+		return
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logger.Warnw("progress bar failed", "err", err)
+		return
+	}
+	if res.ContentLength <= 0 {
+		logger.Info("download has no Content-Length, not logging progress")
+	}
+	res.Body.Close() //nolint:errcheck,gosec
+
+	writer := newLogProgressWriter(logger, "TODO", res.ContentLength)
+
+	ticker := time.NewTicker(writer.logFrequency)
+	for {
+		select {
+		case <-ticker.C:
+			stat, err := os.Stat(dest)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					// we don't warn if the file is missing because that means completion
+					logger.Warnw("progress bar stat error", "err", err)
+				}
+				return
+			}
+			writer.Update(stat.Size())
+		case <-ctx.Done():
+			return
+		}
+	}
 }
