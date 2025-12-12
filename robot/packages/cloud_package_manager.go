@@ -434,11 +434,14 @@ func (m *cloudManager) downloadFileWithChecksum(
 	g := getter.HttpGetter{
 		MaxBytes: maxBytesForTesting,
 		Header:   http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
+		Client:   &m.httpClient,
 	}
 	g.SetClient(&getter.Client{Ctx: ctx})
 	progressCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	go utils.PanicCapturingGo(func() { fileSizeProgress(progressCtx, m.logger, rawURL, downloadPath) })
+	go utils.PanicCapturingGo(func() {
+		fileSizeProgress(progressCtx, &m.httpClient, m.logger, rawURL, downloadPath)
+	})
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
 	}

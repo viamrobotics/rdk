@@ -4,11 +4,15 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -604,4 +608,63 @@ func TestTrimLeadingZeroes(t *testing.T) {
 			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
 		})
 	}
+}
+
+type testHandler struct {
+	modTime time.Time
+	content string
+	lengths []string // history of Content-Length
+}
+
+func (th *testHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	hash := crc32Hash()
+	hash.Write([]byte(th.content))
+	w.Header().Add("x-goog-hash", "crc32c="+base64.StdEncoding.EncodeToString(hash.Sum(nil)))
+	http.ServeContent(w, req, "mydownload", th.modTime, strings.NewReader(th.content))
+	if req.Method == http.MethodGet {
+		th.lengths = append(th.lengths, w.Header().Get("Content-Length"))
+	}
+}
+
+func TestDownloadFileWithChecksum(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	packagesDir := t.TempDir()
+	pm := &cloudManager{
+		Named:           InternalServiceName.AsNamed(),
+		httpClient:      *http.DefaultClient,
+		packagesDir:     packagesDir,
+		packagesDataDir: filepath.Join(packagesDir, "data"),
+		logger:          logger,
+	}
+
+	handler := &testHandler{
+		modTime: time.Now(),
+		content: strings.Repeat("hello ", 10),
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	t.Run("complete", func(t *testing.T) {
+		dest := filepath.Join(packagesDir, "download1")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest, "id", "secret")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("resumable", func(t *testing.T) {
+		maxBytesForTesting = int64(len(handler.content)/2) + 1
+		t.Cleanup(func() { maxBytesForTesting = 0 })
+
+		dest := filepath.Join(packagesDir, "download2")
+
+		// first attempt fails midway because of maxBytesForTesting
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "short write")
+
+		// second attempt finishes
+		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		test.That(t, err, test.ShouldBeNil)
+		// check the length
+		test.That(t, handler.lengths[len(handler.lengths)-1], test.ShouldEqual,
+			strconv.Itoa(len(handler.content)-int(maxBytesForTesting)))
+	})
 }

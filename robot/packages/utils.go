@@ -476,14 +476,14 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 }
 
 // starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
-func fileSizeProgress(ctx context.Context, logger logging.Logger, url, dest string) {
+func fileSizeProgress(ctx context.Context, httpClient *http.Client, logger logging.Logger, url, dest string) {
 	// note: go-getter is also doing a HEAD request internally, so this is redundant, but we don't have access to it.
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		logger.Warnw("progress bar failed", "err", err)
 		return
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		logger.Warnw("progress bar failed", "err", err)
 		return
