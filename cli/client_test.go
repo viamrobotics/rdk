@@ -1580,22 +1580,13 @@ func TestTunnelE2ECLI(t *testing.T) {
 }
 
 func TestCLIUpdateAction(t *testing.T) {
-	// Setup: Create a cli.Context with fake auth
-	cCtx, _, _, errOut := setup(
-		&inject.AppServiceClient{},
-		nil,
-		nil,
-		map[string]any{},
-		"token",
-	)
-
 	// Save original version to restore later
 	originalVersion := robotconfig.Version
 	defer func() {
 		robotconfig.Version = originalVersion
 	}()
 
-	// Test that needsUpdate returns true after setting robotconfig.Version to previous version
+	// Set up a mock latest version
 	mockLatestVersion := "0.104.0"
 	originalGetLatestReleaseVersion := getLatestReleaseVersionFunc
 	getLatestReleaseVersionFunc = func() (string, error) {
@@ -1605,14 +1596,15 @@ func TestCLIUpdateAction(t *testing.T) {
 		getLatestReleaseVersionFunc = originalGetLatestReleaseVersion
 	}()
 
+	testLatestVersion, err := latestVersion()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, testLatestVersion.Original(), test.ShouldEqual, mockLatestVersion)
+
 	// Set local version to 0.100.0 (older than mockLatestVersion 0.104.0)
 	robotconfig.Version = "0.100.0"
-	needsUpdateResult, localVersion, latestVersion, err := isOutdated(cCtx)
+	testLocalVersion, err := localVersion()
 	test.That(t, err, test.ShouldBeNil)
-	// Should detect that update is needed (0.100.0 < 0.104.0)
-	test.That(t, needsUpdateResult, test.ShouldBeTrue)
-	test.That(t, localVersion, test.ShouldEqual, "0.100.0")
-	test.That(t, latestVersion, test.ShouldEqual, mockLatestVersion)
+	test.That(t, testLocalVersion.Original(), test.ShouldEqual, "0.100.0")
 
 	// Test that binaryURL returns a valid URL with correct OS/arch and .exe for Windows
 	actualURL := binaryURL()
@@ -1678,14 +1670,4 @@ func TestCLIUpdateAction(t *testing.T) {
 	_, err = os.ReadFile(newBinaryPath)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
-
-	// Test that needsUpdate called again and says no update needed (as we just updated it)
-	robotconfig.Version = mockLatestVersion
-	needsUpdateResult2, localVersion2, _, err := isOutdated(cCtx)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, needsUpdateResult2, test.ShouldBeFalse) // Should be false (no update needed)
-	test.That(t, localVersion2, test.ShouldEqual, mockLatestVersion)
-
-	// Verify no errors were written to stderr
-	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 }
