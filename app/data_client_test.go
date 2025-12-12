@@ -541,18 +541,61 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("BinaryDataByIDs", func(t *testing.T) {
-		grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
-			opts ...grpc.CallOption,
-		) (*pb.BinaryDataByIDsResponse, error) {
-			test.That(t, in.IncludeBinary, test.ShouldBeTrue)
-			test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
-			expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
+		t.Run("default behavior (backward compatible)", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeTrue)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
 
-			return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
-		}
-		respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+		})
+
+		t.Run("with IncludeBinary true", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeTrue)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
+
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs, &BinaryDataByIDsOptions{IncludeBinary: true})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+		})
+
+		t.Run("with IncludeBinary false", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeFalse)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				// When IncludeBinary is false, return metadata without binary data
+				expectedBinaryDataList := []*pb.BinaryData{
+					{
+						Binary:   nil,
+						Metadata: binaryMetadataToProto(binaryData.Metadata),
+					},
+				}
+
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs, &BinaryDataByIDsOptions{IncludeBinary: false})
+			test.That(t, err, test.ShouldBeNil)
+			// Expected result should have empty binary when IncludeBinary is false
+			expectedBinaryData := BinaryData{
+				Binary:   nil,
+				Metadata: binaryData.Metadata,
+			}
+			test.That(t, respBinaryData[0], test.ShouldResemble, &expectedBinaryData)
+		})
 	})
 
 	t.Run("CreateBinaryDataSignedURL", func(t *testing.T) {
