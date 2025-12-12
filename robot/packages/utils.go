@@ -25,6 +25,11 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const partialsDirName = "part"
+
+// cleanup partial downloads that were started this long ago
+const maxPartialAge = 72 * time.Hour
+
 // create a partials folder for this URL and return a destination path for the file.
 func partialDownloadPath(parentDir, rawURL string) (string, error) {
 	var filename string
@@ -34,7 +39,7 @@ func partialDownloadPath(parentDir, rawURL string) (string, error) {
 		filename = rutils.RIndex(strings.Split(parsed.Path, "/"), -1, "UNPARSED")
 	}
 
-	partialsDir := filepath.Join(parentDir, "part", rutils.HashString(rawURL, 7))
+	partialsDir := filepath.Join(parentDir, partialsDirName, rutils.HashString(rawURL, 7))
 	if err := os.MkdirAll(parentDir, 0o750); err != nil {
 		return "", err
 	}
@@ -327,16 +332,42 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 		for _, entry := range packageDirs {
+			if entry.Name() == partialsDirName {
+				continue
+			}
 			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-			if deletePackageEntry(expectedPackageEntries, entryPath) {
+			if shouldDeletePackageEntry(expectedPackageEntries, entryPath) {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
 				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
+
+		partialsFolder := filepath.Join(packageTypeDirName, partialsDirName)
+		now := time.Now()
+		if _, err := os.Stat(partialsFolder); err == nil {
+			entries, err := os.ReadDir(partialsFolder)
+			if err != nil {
+				allErrors = errors.Join(err)
+				continue
+			}
+			for _, entry := range entries {
+				info, err := entry.Info()
+				if err != nil {
+					allErrors = errors.Join(err)
+					continue
+				}
+				age := now.Sub(info.ModTime())
+				if age >= maxPartialAge {
+					logger.Debugf("deleting partial %q with age %s >= %s", entry.Name(), age, maxPartialAge)
+					allErrors = errors.Join(allErrors, os.RemoveAll(filepath.Join(partialsFolder, entry.Name())))
+				}
+			}
+		}
+
 		// re-read the directory, if there is nothing left in it, delete the directory
 		packageDirs, err = os.ReadDir(packageTypeDirName)
 		if err != nil {
@@ -350,8 +381,8 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 	return allErrors
 }
 
-// deletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
-func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
+// shouldDeletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
+func shouldDeletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
 	// check if directory corresponds to a module version that is still managed by the package
 	// manager - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[entryPath]; ok {

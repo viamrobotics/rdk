@@ -669,4 +669,26 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		test.That(t, handler.lengths[len(handler.lengths)-1], test.ShouldEqual,
 			strconv.Itoa(len(handler.content)-int(maxBytesForTesting)))
 	})
+
+	t.Run("partial-cleanups", func(t *testing.T) {
+		// create two partial download folders, one over the max age limit, the other under
+		p1 := filepath.Join(pm.packagesDataDir, "packagetype", partialsDirName, "partial1")
+		p2 := filepath.Join(pm.packagesDataDir, "packagetype", partialsDirName, "partial2")
+		err := errors.Join(
+			os.MkdirAll(p1, 0o750),
+			os.MkdirAll(p2, 0o750),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		now := time.Now()
+		err = os.Chtimes(p1, now.Add(-maxPartialAge-time.Hour), now.Add(-maxPartialAge-time.Hour))
+		test.That(t, err, test.ShouldBeNil)
+
+		err = commonCleanup(logger, nil, pm.packagesDataDir)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(p1)
+		var pathError *os.PathError
+		test.That(t, errors.As(err, &pathError), test.ShouldBeTrue)
+		_, err = os.Stat(p2)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }
