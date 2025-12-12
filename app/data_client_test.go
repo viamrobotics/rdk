@@ -577,13 +577,24 @@ func TestDataClient(t *testing.T) {
 			) (*pb.BinaryDataByIDsResponse, error) {
 				test.That(t, in.IncludeBinary, test.ShouldBeFalse)
 				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
-				expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
+				// When IncludeBinary is false, return metadata without binary data
+				expectedBinaryDataList := []*pb.BinaryData{
+					{
+						Binary:   nil,
+						Metadata: binaryMetadataToProto(binaryData.Metadata),
+					},
+				}
 
 				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
 			}
 			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs, &BinaryDataByIDsOptions{IncludeBinary: false})
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+			// Expected result should have empty binary when IncludeBinary is false
+			expectedBinaryData := BinaryData{
+				Binary:   nil,
+				Metadata: binaryData.Metadata,
+			}
+			test.That(t, respBinaryData[0], test.ShouldResemble, &expectedBinaryData)
 		})
 	})
 
