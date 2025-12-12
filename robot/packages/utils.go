@@ -27,7 +27,6 @@ import (
 
 // create a partials folder for this URL and return a destination path for the file.
 func partialDownloadPath(parentDir, rawURL string) (string, error) {
-	// func CreatePartialPath(rawURL string) string {
 	var filename string
 	if parsed, err := url.Parse(rawURL); err != nil {
 		filename = "UNPARSED"

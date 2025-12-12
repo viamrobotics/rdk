@@ -4,7 +4,7 @@ go 1.25.1
 
 // This must be a replace because a bunch of our deps also use it + `go mod tidy` fails from the conflict
 // if you switch it out in the require block.
-// We fork this bc the stock version doubles binary size from 25mb -> 50mb.
+// We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
 require (
