@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -506,24 +505,12 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 }
 
 // starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
-func fileSizeProgress(ctx context.Context, httpClient *http.Client, logger logging.Logger, url, dest string) {
-	// note: go-getter is also doing a HEAD request internally, so this is redundant, but we don't have access to it.
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
-	if err != nil {
-		logger.Warnw("progress bar failed", "err", err)
-		return
-	}
-	res, err := httpClient.Do(req)
-	if err != nil {
-		logger.Warnw("progress bar failed", "err", err)
-		return
-	}
-	if res.ContentLength <= 0 {
+func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64) {
+	if length <= 0 {
 		logger.Info("download has no Content-Length, not logging progress")
 	}
-	res.Body.Close() //nolint:errcheck,gosec
 
-	writer := newLogProgressWriter(logger, dest, res.ContentLength)
+	writer := newLogProgressWriter(logger, dest, length)
 
 	ticker := time.NewTicker(writer.logFrequency)
 	for {

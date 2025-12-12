@@ -445,7 +445,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 	progressCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go utils.PanicCapturingGo(func() {
-		fileSizeProgress(progressCtx, &m.httpClient, m.logger, rawURL, downloadPath)
+		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength)
 	})
 	if err := g.GetFile(downloadPath, parsedURL); err != nil {
 		return "", "", errw.Wrap(err, "downloading file")
