@@ -1760,7 +1760,6 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		if latestBuildVersion.Original() != "" {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestBuildVersion)
 		}
-		// if the self update fails or user declines, warn them to manually update
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
 			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
 	}
