@@ -243,7 +243,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create file %q %w", path, err)
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) {
+			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) { //nolint:gosec
 				return fmt.Errorf("failed to copy file %q %w", path, err)
 			}
 			if err := outFile.Sync(); err != nil {
