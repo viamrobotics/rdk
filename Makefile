@@ -113,6 +113,7 @@ clean-all:
 	git clean -fxd
 
 license-check:
+	license_finder version
 	license_finder
 
 FFMPEG_ROOT ?= etc/FFmpeg

@@ -182,7 +182,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
@@ -274,7 +274,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
 			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err)
 		}
