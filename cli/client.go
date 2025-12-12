@@ -1721,7 +1721,6 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-
 	if globalArgs.Quiet {
 		return nil
 	}
