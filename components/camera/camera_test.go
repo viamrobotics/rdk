@@ -502,7 +502,7 @@ func TestImages(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rimage.ImagesExactlyEqual(img, respImg), test.ShouldBeTrue)
 			test.That(t, images[0].SourceName, test.ShouldEqual, source1Name)
-			test.That(t, images[0].Annotations(), test.ShouldResemble, annotations1)
+			test.That(t, images[0].Annotations, test.ShouldResemble, annotations1)
 		})
 
 		t.Run("error when no extra params", func(t *testing.T) {
@@ -592,7 +592,7 @@ func TestImages(t *testing.T) {
 			test.That(t, len(imgs), test.ShouldEqual, 1)
 			test.That(t, imgs[0].SourceName, test.ShouldEqual, source2Name)
 			test.That(t, imgs[0].MimeType(), test.ShouldEqual, rutils.MimeTypeRawDepth)
-			test.That(t, imgs[0].Annotations(), test.ShouldResemble, annotations2)
+			test.That(t, imgs[0].Annotations, test.ShouldResemble, annotations2)
 			img, err := imgs[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rimage.ImagesExactlyEqual(img, img2), test.ShouldBeTrue)
@@ -610,13 +610,13 @@ func TestImages(t *testing.T) {
 			test.That(t, returnedSources[source1Name], test.ShouldBeTrue)
 
 			test.That(t, imgs[0].MimeType(), test.ShouldEqual, rutils.MimeTypeJPEG)
-			test.That(t, imgs[0].Annotations(), test.ShouldResemble, annotations3)
+			test.That(t, imgs[0].Annotations, test.ShouldResemble, annotations3)
 			img, err := imgs[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rimage.ImagesExactlyEqual(img, img3), test.ShouldBeTrue)
 
 			test.That(t, imgs[1].MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
-			test.That(t, imgs[1].Annotations(), test.ShouldResemble, annotations1)
+			test.That(t, imgs[1].Annotations, test.ShouldResemble, annotations1)
 			img, err = imgs[1].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rimage.ImagesExactlyEqual(img, img1), test.ShouldBeTrue)
@@ -656,7 +656,7 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
 			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
-			test.That(t, ni.Annotations(), test.ShouldResemble, annotations)
+			test.That(t, ni.Annotations, test.ShouldResemble, annotations)
 		})
 		t.Run("error on nil data", func(t *testing.T) {
 			_, err := camera.NamedImageFromBytes(nil, sourceName, rutils.MimeTypePNG, annotations)
@@ -674,7 +674,7 @@ func TestNamedImage(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
 			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
-			test.That(t, ni.Annotations(), test.ShouldResemble, annotations)
+			test.That(t, ni.Annotations, test.ShouldResemble, annotations)
 			img, err := ni.Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rimage.ImagesExactlyEqual(img, testImg), test.ShouldBeTrue)
@@ -814,10 +814,10 @@ func TestNamedImage(t *testing.T) {
 	t.Run("Annotations method", func(t *testing.T) {
 		ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, annotations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ni.Annotations(), test.ShouldResemble, annotations)
+		test.That(t, ni.Annotations, test.ShouldResemble, annotations)
 
 		ni, err = camera.NamedImageFromBytes(testImgPNGBytes, sourceName, rutils.MimeTypePNG, data.Annotations{})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ni.Annotations().Empty(), test.ShouldBeTrue)
+		test.That(t, ni.Annotations.Empty(), test.ShouldBeTrue)
 	})
 }

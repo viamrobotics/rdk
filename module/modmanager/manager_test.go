@@ -88,9 +88,12 @@ func setupModManager(
 		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 		for _, m := range modules {
-			// managedProcess.Stop waits on the process lock and for all logging to
-			// end before returning.
-			m.process.Stop()
+			// stopProcess stops both OUE from trying to restart and also calls managedProcess.Stop,
+			// which will wait on the process lock and for all longging to end before returning.
+			err = m.stopProcess()
+
+			// wait for any modules' goroutines to complete
+			m.process.Wait()
 		}
 	})
 	return mgr
@@ -180,7 +183,7 @@ func TestModManagerFunctions(t *testing.T) {
 				logger:  logger,
 			}
 
-			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			test.That(t, err, test.ShouldBeNil)
 
 			err = mod.dial()
@@ -201,7 +204,7 @@ func TestModManagerFunctions(t *testing.T) {
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
-			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
 			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
@@ -209,14 +212,14 @@ func TestModManagerFunctions(t *testing.T) {
 
 			// Test that VIAM_MODULE_ID is unset and VIAM_MODULE_ROOT is set correctly for local modules
 			mod.cfg.Type = config.ModuleTypeLocal
-			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			_, ok = modEnv["VIAM_MODULE_ID"]
 			test.That(t, ok, test.ShouldBeFalse)
 			test.That(t, modEnv["VIAM_MODULE_ROOT"], test.ShouldNotBeEmpty)
 
 			originalPath := mod.cfg.ExePath
 			mod.cfg.ExePath = filepath.Join(originalPath, "fake.tar.gz")
-			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			test.That(t, strings.Contains(modEnv["VIAM_MODULE_ROOT"], filepath.Join(viamHomeTemp, "packages-local")), test.ShouldBeTrue)
 			mod.cfg.ExePath = originalPath
 
@@ -224,7 +227,7 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false))
 			err = mod.dial()
 			test.That(t, err, test.ShouldBeNil)
 

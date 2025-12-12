@@ -91,7 +91,7 @@ type NamedImage struct {
 	img         image.Image
 	SourceName  string
 	mimeType    string
-	annotations data.Annotations
+	Annotations data.Annotations
 }
 
 // NamedImageFromBytes constructs a NamedImage from a byte slice, source name, mime type, and annotations.
@@ -103,7 +103,7 @@ func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations d
 	if mimeType == "" {
 		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
 	}
-	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, annotations: annotations}, nil
+	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
 // NamedImageFromImage constructs a NamedImage from an image.Image, source name, mime type, and annotations.
@@ -115,7 +115,7 @@ func NamedImageFromImage(img image.Image, sourceName, mimeType string, annotatio
 	if mimeType == "" {
 		mimeType = utils.MimeTypeJPEG
 	}
-	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType, annotations: annotations}, nil
+	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
 // Image returns the image.Image of the NamedImage.
@@ -165,11 +165,6 @@ func (ni *NamedImage) Bytes(ctx context.Context) ([]byte, error) {
 // MimeType returns the mime type of the NamedImage.
 func (ni *NamedImage) MimeType() string {
 	return ni.mimeType
-}
-
-// Annotations returns the annotations of the NamedImage.
-func (ni *NamedImage) Annotations() data.Annotations {
-	return ni.annotations
 }
 
 // ImageMetadata contains useful information about returned image bytes such as its mimetype
@@ -301,7 +296,7 @@ func GetImageFromGetImages(
 			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 		}
 		mimeType = namedImages[0].MimeType()
-		annotations = namedImages[0].Annotations()
+		annotations = namedImages[0].Annotations
 	} else {
 		for _, i := range namedImages {
 			if i.SourceName == *sourceName {
@@ -310,7 +305,7 @@ func GetImageFromGetImages(
 					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 				}
 				mimeType = i.MimeType()
-				annotations = i.Annotations()
+				annotations = i.Annotations
 				break
 			}
 		}

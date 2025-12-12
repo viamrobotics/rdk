@@ -110,15 +110,15 @@ var defaultBuildInfo = manifestBuildInfo{
 	Arch:  []string{"linux/amd64", "linux/arm64"},
 }
 
-// moduleManifest is used to create & parse manifest.json.
+// ModuleManifest is used to create & parse manifest.json.
 // Detailed user-facing docs for this are in module.schema.json.
-type moduleManifest struct {
+type ModuleManifest struct {
 	Schema       string            `json:"$schema"`
 	ModuleID     string            `json:"module_id"`
 	Visibility   moduleVisibility  `json:"visibility"`
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
-	Models       []ModuleComponent `json:"models"`
+	Models       []ModuleComponent `json:"models,omitempty"`
 	Apps         []AppComponent    `json:"applications"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
@@ -208,14 +208,10 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 	}
 
 	if shouldWriteNewEmptyManifest {
-		emptyManifest := moduleManifest{
+		emptyManifest := ModuleManifest{
 			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
-			// This is done so that the json has an empty example
-			Models: []ModuleComponent{
-				{},
-			},
 		}
 		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 			return err
@@ -385,7 +381,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 }
 
 // call validateModelAPI on all models in manifest and warn if violations.
-func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 	for _, model := range manifest.Models {
 		if err := validateModelAPI(model.API); err != nil {
 			warningf(errWriter, "error validating API string %s: %s", model.API, err)
@@ -426,6 +422,21 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 		return err
 	}
 
+	// Get the directory containing the meta.json file
+	manifestDir := filepath.Dir(args.Module)
+
+	// For each model, check if a corresponding markdown file exists
+	for i := range newModels {
+		markdownFilename := modelTripleToMarkdownFilename(newModels[i].Model)
+		markdownPath := filepath.Join(manifestDir, markdownFilename)
+
+		// Check if the markdown file exists
+		if _, err := os.Stat(markdownPath); err == nil {
+			// File exists, set the markdown link
+			newModels[i].MarkdownLink = &markdownFilename
+		}
+	}
+
 	if sameModels(newModels, manifest.Models) {
 		return nil
 	}
@@ -449,7 +460,7 @@ func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, err
 	return c.client.GetModule(c.c.Context, &req)
 }
 
-func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *viamClient) updateModule(moduleID moduleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
@@ -807,24 +818,24 @@ func isValidOrgID(str string) bool {
 	return err == nil
 }
 
-func loadManifest(manifestPath string) (moduleManifest, error) {
+func loadManifest(manifestPath string) (ModuleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return moduleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return ModuleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
-		return moduleManifest{}, err
+		return ModuleManifest{}, err
 	}
-	var manifest moduleManifest
+	var manifest ModuleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return moduleManifest{}, err
+		return ModuleManifest{}, err
 	}
 	return manifest, nil
 }
 
 // loadManifestOrNil doesn't throw error on missing.
-func loadManifestOrNil(path string) (*moduleManifest, error) {
+func loadManifestOrNil(path string) (*ModuleManifest, error) {
 	manifest, err := loadManifest(path)
 	if err == nil {
 		return &manifest, nil
@@ -836,7 +847,7 @@ func loadManifestOrNil(path string) (*moduleManifest, error) {
 	return nil, err
 }
 
-func writeManifest(manifestPath string, manifest moduleManifest) error {
+func writeManifest(manifestPath string, manifest ModuleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
@@ -974,6 +985,14 @@ func sameModels(a, b []ModuleComponent) bool {
 	}
 
 	return true
+}
+
+// modelTripleToMarkdownFilename converts a model triple (namespace:module_name:model_name)
+// to the corresponding markdown filename (namespace_module_name_model_name.md).
+func modelTripleToMarkdownFilename(modelTriple string) string {
+	// Replace colons with underscores
+	filename := strings.ReplaceAll(modelTriple, ":", "_")
+	return filename + ".md"
 }
 
 type sender[RequestT any] interface {

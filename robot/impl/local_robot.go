@@ -7,6 +7,8 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"sync"
@@ -15,10 +17,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	rdktrace "go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -31,6 +38,7 @@ import (
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
@@ -104,6 +112,8 @@ type localRobot struct {
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
+
+	traceClient *otlpfile.Client
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -117,6 +127,14 @@ func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, 
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
+}
+
+// WriteTraceMessages writes trace spans to any configured exporters.
+func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
+	if r.traceClient == nil {
+		return nil
+	}
+	return r.traceClient.UploadTraces(ctx, spans)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -214,6 +232,8 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.ftdc != nil {
 		r.ftdc.StopAndJoin(ctx)
 	}
+
+	err = multierr.Combine(err, rdktrace.Shutdown(ctx))
 
 	return err
 }
@@ -380,12 +400,13 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
+	partID := "local-config"
+	if cfg.Cloud != nil {
+		partID = cfg.Cloud.ID
+	}
+
 	var ftdcWorker *ftdc.FTDC
 	if rOpts.enableFTDC {
-		partID := "local-config"
-		if cfg.Cloud != nil {
-			partID = cfg.Cloud.ID
-		}
 		// CloudID is also known as the robot part id.
 		//
 		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
@@ -414,6 +435,40 @@ func newWithResources(
 		}
 	}
 
+	var traceClient *otlpfile.Client
+	if rOpts.tracing.enabled {
+		func() {
+			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
+			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
+				logger.Errorw("failed to create directory to store traces", "err", err)
+				return
+			}
+			logger.Infow("created trace storage dir", "dir", tracesDir)
+			traceClient, err = otlpfile.NewClient(tracesDir, "traces")
+			if err != nil {
+				logger.Errorw("failed to create OLTP client", "err", err)
+				return
+			}
+			exporter, err := otlptrace.New(
+				context.Background(),
+				traceClient,
+			)
+			if err != nil {
+				logger.Errorw("failed to create trace exporter", "err", err)
+				return
+			}
+
+			rdktrace.SetTracerWithExporters(
+				otelresource.NewWithAttributes(
+					semconv.SchemaURL,
+					semconv.ServiceName("rdk"),
+					semconv.ServiceNamespace("viam.com"),
+				),
+				exporter,
+			)
+		}()
+	}
+
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -424,6 +479,7 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
+				tracingEnabled:     rOpts.tracing.enabled,
 			},
 			logger,
 		),
@@ -440,6 +496,7 @@ func newWithResources(
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
+		traceClient:                traceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})

@@ -36,6 +36,17 @@ func TestUpdateModelsAction(t *testing.T) {
 	_, err = metaFile.WriteString("{}")
 	test.That(t, err, test.ShouldBeNil)
 
+	// Create a test markdown file for one of the models
+	testMarkdownPath := dir + "/../module/testmodule/rdk_test_helper.md"
+	testMarkdownFile, err := os.Create(testMarkdownPath)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, testMarkdownFile.Close(), test.ShouldBeNil)
+		test.That(t, os.Remove(testMarkdownPath), test.ShouldBeNil)
+	}()
+	_, err = testMarkdownFile.WriteString("# Test Model Documentation")
+	test.That(t, err, test.ShouldBeNil)
+
 	flags := map[string]any{"binary": binaryPath, "module": metaPath}
 	cCtx, _, _, errOut := setup(&inject.AppServiceClient{}, nil, nil, flags, "")
 	test.That(t, UpdateModelsAction(cCtx, parseStructFromCtx[updateModelsArgs](cCtx)), test.ShouldBeNil)
@@ -49,6 +60,20 @@ func TestUpdateModelsAction(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, sameModels(metaModels.Models, expectedMetaModels.Models), test.ShouldBeTrue)
+
+	// Verify that the markdown_link field is set for the model that has a markdown file
+	foundHelperModel := false
+	for _, model := range metaModels.Models {
+		if model.Model == "rdk:test:helper" {
+			foundHelperModel = true
+			test.That(t, model.MarkdownLink, test.ShouldNotBeNil)
+			test.That(t, *model.MarkdownLink, test.ShouldEqual, "rdk_test_helper.md")
+		} else if model.Model == "rdk:test:slow" {
+			// This model should not have a markdown link since we didn't create a file for it
+			test.That(t, model.MarkdownLink, test.ShouldBeNil)
+		}
+	}
+	test.That(t, foundHelperModel, test.ShouldBeTrue)
 }
 
 func TestValidateModelAPI(t *testing.T) {
@@ -66,6 +91,42 @@ func TestValidateModelAPI(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	err = validateModelAPI("other:component:x_")
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModelTripleToMarkdownFilename(t *testing.T) {
+	tests := []struct {
+		name        string
+		modelTriple string
+		expected    string
+	}{
+		{
+			name:        "simple model triple",
+			modelTriple: "namespace:module:model",
+			expected:    "namespace_module_model.md",
+		},
+		{
+			name:        "model triple with hyphens",
+			modelTriple: "my-namespace:my-module:my-model",
+			expected:    "my-namespace_my-module_my-model.md",
+		},
+		{
+			name:        "model triple with underscores",
+			modelTriple: "my_namespace:my_module:my_model",
+			expected:    "my_namespace_my_module_my_model.md",
+		},
+		{
+			name:        "real example",
+			modelTriple: "rdk:test:helper",
+			expected:    "rdk_test_helper.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := modelTripleToMarkdownFilename(tt.modelTriple)
+			test.That(t, result, test.ShouldEqual, tt.expected)
+		})
+	}
 }
 
 func TestVersionHasOnlyApps(t *testing.T) {
@@ -399,7 +460,7 @@ func TestParseMetaJSONWithBrandingFields(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			metaPath := filepath.Join(tempDir, "meta.json")
-			meta := moduleManifest{
+			meta := ModuleManifest{
 				Schema:      "https://dl.viam.dev/module.schema.json",
 				ModuleID:    "test-namespace:test-module",
 				Visibility:  moduleVisibilityPublic,

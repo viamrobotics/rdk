@@ -17,7 +17,6 @@ linters:
     - copyloopvar # TODO(go1.23): reenable in follow-up
     - cyclop
     - depguard
-    - execinquery
     - exhaustruct
     - exportloopref
     - fatcontext # TODO(go1.23): reenable in follow-up
@@ -32,7 +31,6 @@ linters:
     - godot # A comment included a table. This added a period to the end of the table.
     - gofmt
     - goimports
-    - gomnd
     - importas
     - inamedparam
     # ineffassign creates subtle bugs. See

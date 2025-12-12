@@ -214,6 +214,7 @@ func (m *module) startProcess(
 	oue pexec.UnexpectedExitHandler,
 	viamHomeDir string,
 	packagesDir string,
+	tracingEnabled bool,
 ) error {
 	var err error
 
@@ -243,7 +244,7 @@ func (m *module) startProcess(
 	if err != nil {
 		return err
 	}
-	moduleEnvironment := m.getFullEnvironment(viamHomeDir, packagesDir)
+	moduleEnvironment := m.getFullEnvironment(viamHomeDir, packagesDir, tracingEnabled)
 	// Prefer VIAM_MODULE_ROOT as the current working directory if present but fallback to the directory of the exepath
 	moduleWorkingDirectory, ok := moduleEnvironment["VIAM_MODULE_ROOT"]
 	if !ok {
@@ -453,8 +454,8 @@ func (m *module) cleanupAfterCrash(mgr *Manager) {
 	}
 }
 
-func (m *module) getFullEnvironment(viamHomeDir, packagesDir string) map[string]string {
-	return getFullEnvironment(m.cfg, packagesDir, m.dataDir, viamHomeDir)
+func (m *module) getFullEnvironment(viamHomeDir, packagesDir string, tracingEnabled bool) map[string]string {
+	return getFullEnvironment(m.cfg, packagesDir, m.dataDir, viamHomeDir, tracingEnabled)
 }
 
 func (m *module) getFTDCName() string {

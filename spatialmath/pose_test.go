@@ -203,3 +203,20 @@ func randPose(r *rand.Rand) Pose {
 	ov := &OrientationVector{2 * math.Pi * (r.Float64() - 0.5), r.Float64() - 0.5, r.Float64() - 0.5, r.Float64() - 0.5}
 	return NewPose(r3.Vector{300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5)}, ov)
 }
+
+func TestInterpolateSand1(t *testing.T) {
+	a := NewPose(
+		r3.Vector{X: -290.100000, Y: 720.000000, Z: -185.600000},
+		&OrientationVectorDegrees{OZ: -1.000000, Theta: -90.000000},
+	)
+
+	b := NewPose(
+		r3.Vector{X: -370.100000, Y: 720.000000, Z: -185.600000},
+		&OrientationVectorDegrees{OZ: -1.000000, Theta: -90.000136},
+	)
+
+	x := Interpolate(a, b, .5)
+	y := Interpolate(a, b, .75)
+
+	test.That(t, x.Point().Distance(y.Point()), test.ShouldAlmostEqual, y.Point().Distance(b.Point()), .00001)
+}
