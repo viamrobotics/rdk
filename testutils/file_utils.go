@@ -61,7 +61,7 @@ func BuildViamServer(tb testing.TB) string {
 			command = "server"
 		}
 		builder = exec.Command("make", command)
-		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath, "BUILD_DEBUG", "true")
 	} else {
 		// we don't have access to make on Windows, so copy the build command from the Makefile.
 		serverPath += ".exe"

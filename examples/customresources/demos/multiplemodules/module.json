@@ -33,5 +33,10 @@
 	],
 	"network": {
 		"bind_address": ":8080"
+	},
+	"tracing": {
+		"enabled": true,
+		"stdOut": true,
+		"disk": true
 	}
 }

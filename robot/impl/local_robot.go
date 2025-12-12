@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -133,7 +134,7 @@ type localRobot struct {
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
 
-	traceClient *otlpfile.Client
+	traceClients atomic.Pointer[[]otlptrace.Client]
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -151,10 +152,15 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 
 // WriteTraceMessages writes trace spans to any configured exporters.
 func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
-	if r.traceClient == nil {
+	traceClients := r.traceClients.Load()
+	if traceClients == nil {
 		return nil
 	}
-	return r.traceClient.UploadTraces(ctx, spans)
+	var err error
+	for _, c := range *traceClients {
+		err = stderrors.Join(err, c.UploadTraces(ctx, spans))
+	}
+	return err
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -465,7 +471,6 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
-				tracingEnabled:     cfg.Tracing.Enabled,
 			},
 			logger,
 		),
@@ -1638,10 +1643,11 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			//nolint: errcheck, gosec
 			ex.Shutdown(ctx)
 		}
-		r.traceClient = nil
+		r.traceClients.Store(nil)
 		return
 	}
 	var exporters []sdktrace.SpanExporter
+	var robotTraceClients []otlptrace.Client
 	if newTracingCfg.Disk {
 		func() {
 			partID := "local-config"
@@ -1668,8 +1674,8 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 				return
 			}
 
-			r.traceClient = traceClient
 			exporters = append(exporters, exporter)
+			robotTraceClients = append(robotTraceClients, traceClient)
 		}()
 	}
 	if newTracingCfg.OTLPEndpoint != "" {
@@ -1688,11 +1694,52 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 				r.logger.Errorw("Faild to create OTLP gRPC exporter while reconfiguring tracing", "err", err)
 				return
 			}
+			robotTraceClients = append(robotTraceClients, otlpClient)
 			exporters = append(exporters, exporter)
 		}()
 	}
 	if newTracingCfg.Stdout {
-		exporters = append(exporters, perf.NewOtelDevelopmentExporter())
+		devExporter := perf.NewOtelDevelopmentExporter()
+		exporters = append(exporters, devExporter)
+		// Don't add the development exporter to the local robot. It is written to
+		// assume that child spans are always delivered before their parents, which
+		// won't be true for spans sent in from module processes.
+	}
+
+	// First remove all the exporters from the global tracer provider so spans
+	// stop getting sent to them.
+	for _, prevExporter := range trace.ClearExporters() {
+		if err := prevExporter.Shutdown(ctx); err != nil {
+			r.logger.Warnw("Error while shutting down old trace exporter", "err", err)
+		}
+	}
+
+	// Now remove the same underlying clients from the local robot and attempt to
+	// cleanly shut them down. Some clients such as the grpcotlp client may try
+	// to flush any buffered spans during this. Swap in nil during this time so
+	// that any incoming spans are just dropped rather than sent to exporters
+	// that are shutting down, potentially producing an error. This may lead to
+	// loss of tracing data during reconfiguration. We don't start and swap in
+	// the new trace clients at this point because the new file exporter instance
+	// may fight with the old one over the output file.
+	prevTraceClients := r.traceClients.Swap(nil)
+	if prevTraceClients != nil {
+		for _, c := range *prevTraceClients {
+			if err := c.Stop(ctx); err != nil {
+				r.logger.Warnw("Error while stopping old otlp client during reconfiguration", "err", err)
+			}
+		}
+	}
+
+	// Start the new trace clients and install them on the local robot and the
+	// global tracer provider. Tracing is fully functional at this point.
+	if len(robotTraceClients) > 0 {
+		for _, c := range robotTraceClients {
+			if err := c.Start(ctx); err != nil {
+				r.logger.Errorw("Error while starting new otlp client; reconfiguration will continue but tracing may not be functional", "err", err)
+			}
+		}
+		r.traceClients.Store(&robotTraceClients)
 	}
 	trace.AddExporters(exporters...)
 }

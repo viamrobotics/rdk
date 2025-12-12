@@ -42,7 +42,7 @@ func TestMultipleModules(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger,
-			robottestutils.WithViamHome(testViamHome), robottestutils.WithTracing())
+			robottestutils.WithViamHome(testViamHome))
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
