@@ -90,13 +90,14 @@ type Config struct {
 type TracingConfig struct {
 	Enabled      bool
 	Disk         bool
+	Stdout       bool
 	OTLPEndpoint string
 }
 
 // IsEnabled returns true if Enabled is true and at least one export location
 // is enabled and false otherwise.
 func (cfg TracingConfig) IsEnabled() bool {
-	return cfg.Enabled && (cfg.Disk || cfg.OTLPEndpoint != "")
+	return cfg.Enabled && (cfg.Disk || cfg.Stdout || cfg.OTLPEndpoint != "")
 }
 
 // MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.

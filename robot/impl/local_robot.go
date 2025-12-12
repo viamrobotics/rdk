@@ -26,6 +26,7 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
@@ -64,7 +65,6 @@ func init() {
 	// Unfortunately Otel SDK doesn't have a way to reconfigure the resource
 	// information so we need to set it here before any of the gRPC servers
 	// access the global tracer provider.
-	//nolint: errcheck, gosec
 	trace.SetProvider(
 		context.Background(),
 		sdktrace.WithResource(
@@ -1690,6 +1690,9 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			}
 			exporters = append(exporters, exporter)
 		}()
+	}
+	if newTracingCfg.Stdout {
+		exporters = append(exporters, perf.NewOtelDevelopmentExporter())
 	}
 	trace.AddExporters(exporters...)
 }
