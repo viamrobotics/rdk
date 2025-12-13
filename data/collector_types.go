@@ -352,6 +352,15 @@ type BoundingBox struct {
 	YMaxNormalized float64
 }
 
+func (bb BoundingBox) String() string {
+	confString := ""
+	if bb.Confidence != nil {
+		confString = fmt.Sprintf(" %0.1f%%", 100**bb.Confidence)
+	}
+	return fmt.Sprintf("%s%s (%0.2f, %0.2f) (%0.2f, %0.2f)", bb.Label, confString,
+		bb.XMinNormalized, bb.YMinNormalized, bb.XMaxNormalized, bb.YMaxNormalized)
+}
+
 // Classification represents a labeled classification
 // with an optional confidence interval between 0 and 1.
 type Classification struct {

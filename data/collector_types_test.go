@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -438,4 +439,25 @@ func TestGetFileExt(t *testing.T) {
 		map[string]interface{}{"codec": rutils.CodecPCM32Float}), test.ShouldResemble, ".wav")
 	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
 		map[string]interface{}{"codec": rutils.CodecMP3}), test.ShouldResemble, ".mp3")
+}
+
+func TestBoundingBoxString(t *testing.T) {
+	x := .5
+	bb := BoundingBox{
+		"foo",
+		&x,
+		.1, .1, .8, .8,
+	}
+
+	s := fmt.Sprintf("%v", bb)
+	test.That(t, s, test.ShouldEqual, "foo 50.0% (0.10, 0.10) (0.80, 0.80)")
+
+	bb = BoundingBox{
+		"foo",
+		nil,
+		.1, .1, .8, .8,
+	}
+
+	s = fmt.Sprintf("%v", bb)
+	test.That(t, s, test.ShouldEqual, "foo (0.10, 0.10) (0.80, 0.80)")
 }
