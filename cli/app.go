@@ -35,8 +35,9 @@ const (
 	logsFlagErrors     = "errors"
 	logsFlagTail       = "tail"
 
-	runFlagData   = "data"
-	runFlagStream = "stream"
+	runFlagData      = "data"
+	runFlagStream    = "stream"
+	runFlagComponent = "component"
 
 	loginFlagDisableBrowser = "disable-browser-open"
 	loginFlagKeyID          = "key-id"
@@ -2534,8 +2535,13 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:     generalFlagMethod,
-									Usage:    "service method formatted as: '<service>.<method>' or '<service>/<method>'",
+									Usage:    "method name (e.g., 'DoCommand') or full service method (e.g., 'viam.component.camera.v1.CameraService.DoCommand')",
 									Required: false, // should be required but set as false to ensure backwards capability
+								},
+								&cli.StringFlag{
+									Name:    runFlagComponent,
+									Aliases: []string{"c"},
+									Usage:   "component name - automatically sets 'name' in data and resolves short method names",
 								},
 							},
 							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
