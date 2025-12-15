@@ -1901,38 +1901,14 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 }
 
 func replaceBinary(localBinaryPath, latestBinaryPath string) error {
-	// Windows doesn't allow renaming running executables, so we rename the old one
-	// and put the new one in the original location to be used next run
-	if runtime.GOOS == osWindows {
-		// make sure no leftover binary files with .old
-		oldPath := localBinaryPath + ".old"
-		defer os.Remove(oldPath) //nolint:errcheck, gosec
-		// 1. rename old binary to .old
-		if err := os.Rename(localBinaryPath, oldPath); err != nil {
-			if os.IsPermission(err) {
+	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+		if os.IsPermission(err) {
+			if runtime.GOOS == osWindows {
 				return errors.New("permission denied: run PowerShell as Administrator")
 			}
-			return errors.Errorf("failed to rename old binary: %v", err)
+			return errors.New("permission denied: run 'sudo viam update'")
 		}
-
-		// 2. rename new binary to original path
-		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
-			if os.IsPermission(err) {
-				return errors.New("permission denied: run PowerShell as Administrator")
-			}
-			// If this fails, try to restore old binary by renaming back (removing .old)
-			if restoreErr := os.Rename(oldPath, localBinaryPath); restoreErr != nil {
-				return errors.Errorf("failure in update: please redownload the CLI binary at https://docs.viam.com/cli/#install")
-			}
-			return errors.Errorf("failed to replace old binary: %v", err)
-		}
-	} else {
-		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
-			if os.IsPermission(err) {
-				return errors.New("permission denied: run 'sudo viam update'")
-			}
-			return errors.Errorf("failed to replace binary: %v", err)
-		}
+		return errors.Errorf("failed to replace binary: %v", err)
 	}
 	return nil
 }
