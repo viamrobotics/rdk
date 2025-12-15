@@ -26,8 +26,12 @@ type Client struct {
 // NewClient creates a new [Client].
 func NewClient(dirPath, filename string) (*Client, error) {
 	logger := &lumberjack.Logger{
-		Filename:   filepath.Join(dirPath, filename),
-		MaxSize:    1024,
+		Filename: filepath.Join(dirPath, filename),
+		// 2GB, estimated based on manual testing. Fine for machines only recording
+		// errors but complex machines recording all traces will likely rotate
+		// several times per hour. Runs of the vino demo created ~100MB each. May
+		// want to make this configurable in the future.
+		MaxSize:    1_000 * 2,
 		MaxBackups: 2,
 		Compress:   true,
 	}

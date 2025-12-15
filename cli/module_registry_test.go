@@ -460,7 +460,7 @@ func TestParseMetaJSONWithBrandingFields(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tempDir := t.TempDir()
 			metaPath := filepath.Join(tempDir, "meta.json")
-			meta := moduleManifest{
+			meta := ModuleManifest{
 				Schema:      "https://dl.viam.dev/module.schema.json",
 				ModuleID:    "test-namespace:test-module",
 				Visibility:  moduleVisibilityPublic,

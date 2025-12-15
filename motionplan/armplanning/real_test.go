@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -407,4 +408,21 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 	}
 	logger.Infof("zeros: %v / %v", zeros, len(traj))
 	test.That(t, zeros, test.ShouldBeLessThanOrEqualTo, 0)
+}
+
+func BenchmarkBigPlanRequest(b *testing.B) {
+	if IsTooSmallForCache() {
+		b.Skip()
+		return
+	}
+	filename := "data/sanding-large-move1.json"
+
+	req, err := ReadRequestFromFile(filename)
+	test.That(b, err, test.ShouldBeNil)
+	dir := os.TempDir()
+
+	b.ResetTimer()
+	for b.Loop() {
+		test.That(b, req.WriteToFile(filepath.Join(dir, "tmp.json")), test.ShouldBeNil)
+	}
 }
