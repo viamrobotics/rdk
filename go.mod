@@ -2,6 +2,11 @@ module go.viam.com/rdk
 
 go 1.25.1
 
+// This must be a replace because a bunch of our deps also use it + `go mod tidy` fails from the conflict
+// if you switch it out in the require block.
+// We fork this bc the stock version of this library is over 20mb.
+replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.1
@@ -16,7 +21,7 @@ require (
 	github.com/charmbracelet/huh v0.6.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
 	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
-	github.com/creack/pty v1.1.19-0.20220421211855-0d412c9fbeb1
+	github.com/creack/pty v1.1.20
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
@@ -35,7 +40,6 @@ require (
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
 	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/goccy/go-graphviz v0.1.3
-	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20230421003525-6adc56603217
@@ -44,6 +48,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.2
+	github.com/hashicorp/go-getter v1.8.3
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.6.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
@@ -60,10 +65,10 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/interceptor v0.1.40
+	github.com/pion/interceptor v0.1.41
 	github.com/pion/logging v0.2.4
-	github.com/pion/mediadevices v0.6.4
-	github.com/pion/rtp v1.8.21
+	github.com/pion/mediadevices v0.8.0
+	github.com/pion/rtp v1.8.25
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
 	github.com/pterm/pterm v0.12.82
@@ -86,6 +91,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0
 	go.opentelemetry.io/otel v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.opentelemetry.io/proto/otlp v1.9.0
@@ -93,7 +99,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.496
+	go.viam.com/api v0.1.499
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.4.1-0.20251209223117-33cb4ed2717f
 	goji.io v2.0.2+incompatible
@@ -104,7 +110,7 @@ require (
 	golang.org/x/term v0.37.0
 	golang.org/x/text v0.31.0
 	golang.org/x/time v0.6.0
-	golang.org/x/tools v0.38.0
+	golang.org/x/tools v0.39.0
 	gonum.org/v1/gonum v0.16.0
 	gonum.org/v1/plot v0.15.2
 	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5
@@ -150,6 +156,7 @@ require (
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aws/aws-sdk-go v1.38.20 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
+	github.com/bgentry/go-netrc v0.0.0-20140422174119-9fd32a8b3d3d // indirect
 	github.com/bitfield/gotestdox v0.2.2 // indirect
 	github.com/blackjack/webcam v0.6.1 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.9.1 // indirect
@@ -161,6 +168,7 @@ require (
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
+	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/bubbles v0.20.0 // indirect
@@ -173,11 +181,12 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/chewxy/hm v1.0.0 // indirect
 	github.com/chewxy/math32 v1.0.8 // indirect
-	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
+	github.com/clipperhouse/stringish v0.1.1 // indirect
+	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20250501225837-2ac532fd4443 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
@@ -195,7 +204,7 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/fgprof v0.9.4 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gen2brain/malgo v0.11.21 // indirect
+	github.com/gen2brain/malgo v0.11.24 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
@@ -207,6 +216,7 @@ require (
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gofrs/uuid/v5 v5.0.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gonuts/binary v0.2.0 // indirect
@@ -220,6 +230,8 @@ require (
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/improbable-eng/grpc-web v0.15.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
@@ -255,17 +267,22 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
-	github.com/pion/ice/v2 v2.3.34 // indirect
+	github.com/pion/dtls/v3 v3.0.7 // indirect
+	github.com/pion/ice/v4 v4.0.10 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
+	github.com/pion/mdns/v2 v2.0.7 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.15 // indirect
-	github.com/pion/sctp v1.8.39 // indirect
-	github.com/pion/sdp/v3 v3.0.15 // indirect
+	github.com/pion/rtcp v1.2.16 // indirect
+	github.com/pion/sctp v1.8.40 // indirect
+	github.com/pion/sdp/v3 v3.0.16 // indirect
 	github.com/pion/srtp/v2 v2.0.20 // indirect
+	github.com/pion/srtp/v3 v3.0.8 // indirect
+	github.com/pion/stun/v3 v3.0.0 // indirect
 	github.com/pion/transport/v2 v2.2.10 // indirect
-	github.com/pion/transport/v3 v3.0.7 // indirect
+	github.com/pion/transport/v3 v3.0.8 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
-	github.com/pion/webrtc/v3 v3.2.36 // indirect
+	github.com/pion/turn/v4 v4.1.1 // indirect
+	github.com/pion/webrtc/v4 v4.1.6 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -276,8 +293,8 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/spf13/cobra v1.9.1 // indirect
-	github.com/spf13/pflag v1.0.7 // indirect
+	github.com/spf13/cobra v1.10.1 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/srikrsna/protoc-gen-gotag v0.6.2 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
@@ -285,6 +302,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/viamrobotics/ice/v2 v2.3.40 // indirect
 	github.com/viamrobotics/zeroconf v1.0.13 // indirect
@@ -306,12 +324,11 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
+	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
-	golang.org/x/mod v0.29.0 // indirect
+	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
-	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
-	golang.org/x/tools/go/packages/packagestest v0.1.1-deprecated // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.196.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
@@ -328,5 +345,5 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/yosuke-furukawa/json5 v0.1.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
+	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )

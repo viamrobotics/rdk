@@ -224,7 +224,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		defer manifestFile.Close()
 		bytes, err := io.ReadAll(manifestFile)
 		test.That(t, err, test.ShouldBeNil)
-		var manifest moduleManifest
+		var manifest ModuleManifest
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)

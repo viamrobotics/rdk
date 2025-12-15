@@ -198,7 +198,9 @@ func (c *FakePackagesClientAndGCSServer) servePackage(w http.ResponseWriter, r *
 	id := r.URL.Query().Get("id")
 	version := r.URL.Query().Get("version")
 
-	c.downloadRequestCount++
+	if r.Method != http.MethodHead {
+		c.downloadRequestCount++
+	}
 
 	if c.invalidHTTPRes {
 		w.WriteHeader(http.StatusInternalServerError)

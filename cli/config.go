@@ -18,20 +18,19 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
 	robotClient "go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
-
 func getCLICachePath() string {
-	return filepath.Join(viamDotDir, "cached_cli_config.json")
+	return filepath.Join(rutils.ViamDotDir, "cached_cli_config.json")
 }
 
 func getCLIProfilesPath() string {
-	return filepath.Join(viamDotDir, "cli_profiles.json")
+	return filepath.Join(rutils.ViamDotDir, "cli_profiles.json")
 }
 
 func getCLIProfilePath(profileName string) string {
-	return filepath.Join(viamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
+	return filepath.Join(rutils.ViamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
 }
 
 func configFromCacheInner(configPath string) (_ *Config, err error) {
@@ -113,7 +112,7 @@ func storeConfigToCache(cfg *Config) error {
 	} else {
 		path = getCLICachePath()
 	}
-	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
 	}
 	md, err := json.MarshalIndent(cfg, "", "  ")

@@ -12,10 +12,13 @@ import (
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
@@ -27,6 +30,17 @@ import (
 
 // NewServer returns a new (module specific) rpc.Server.
 func NewServer(opts ...grpc.ServerOption) rpc.Server {
+	// Some modules depend on being able to propagate trace context even if
+	// viam-server isn't recording anything. Set up propagation here to avoid
+	// breaking that use case.
+	traceProvider := trace.GetProvider()
+	otelHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(traceProvider),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+	grpcHandler := grpc.StatsHandler(otelHandler)
+	opts = append(opts, grpcHandler)
+
 	s := &Server{server: grpc.NewServer(opts...)}
 	reflection.Register(s.server)
 	return s

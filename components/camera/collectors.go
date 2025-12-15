@@ -161,7 +161,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if err != nil {
 				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
-			annotations := img.Annotations()
+			annotations := img.Annotations
 			annotations.Classifications = append(annotations.Classifications, data.Classification{Label: img.SourceName})
 			binaries = append(binaries, data.Binary{
 				Annotations: annotations,

@@ -32,7 +32,7 @@ func TestWebcamValidation(t *testing.T) {
 	webCfg.Width = -200
 	deps, _, err = webCfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldEqual,
-		"got illegal negative dimensions for width_px and height_px (0, -200) fields set for webcam camera")
+		"got illegal negative dimensions for width_px and height_px (-200, 0) fields set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a negative height
@@ -40,7 +40,7 @@ func TestWebcamValidation(t *testing.T) {
 	webCfg.Height = -200
 	deps, _, err = webCfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldEqual,
-		"got illegal negative dimensions for width_px and height_px (-200, 200) fields set for webcam camera")
+		"got illegal negative dimensions for width_px and height_px (200, -200) fields set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a negative frame rate
@@ -48,6 +48,6 @@ func TestWebcamValidation(t *testing.T) {
 	webCfg.FrameRate = -100
 	deps, _, err = webCfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldEqual,
-		"got illegal non-positive dimension for frame rate (-100.00) field set for webcam camera")
+		"got illegal negative frame rate (-100.00) field set for webcam camera")
 	test.That(t, deps, test.ShouldBeNil)
 }

@@ -73,7 +73,7 @@ func ModuleBuildStartAction(cCtx *cli.Context, args moduleBuildStartArgs) error 
 }
 
 func (c *viamClient) moduleBuildStartForRepo(
-	cCtx *cli.Context, args moduleBuildStartArgs, manifest *moduleManifest, repo string,
+	cCtx *cli.Context, args moduleBuildStartArgs, manifest *ModuleManifest, repo string,
 ) (string, error) {
 	version := args.Version
 	if manifest.Build == nil || manifest.Build.Build == "" {
@@ -142,7 +142,7 @@ func ModuleBuildLocalAction(cCtx *cli.Context, args moduleBuildLocalArgs) error 
 	return moduleBuildLocalAction(cCtx, &manifest, nil)
 }
 
-func moduleBuildLocalAction(cCtx *cli.Context, manifest *moduleManifest, environment map[string]string) error {
+func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environment map[string]string) error {
 	if manifest.Build == nil || manifest.Build.Build == "" {
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
@@ -784,7 +784,7 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, error) {
+func (c *viamClient) inferOrgIDFromManifest(manifest ModuleManifest) (string, error) {
 	moduleID, err := parseModuleID(manifest.ModuleID)
 	if err != nil {
 		return "", err
@@ -800,7 +800,7 @@ func (c *viamClient) inferOrgIDFromManifest(manifest moduleManifest) (string, er
 func (c *viamClient) triggerCloudReloadBuild(
 	ctx *cli.Context,
 	args reloadModuleArgs,
-	manifest moduleManifest,
+	manifest ModuleManifest,
 	archivePath, partID string,
 ) (string, error) {
 	stream, err := c.buildClient.StartReloadBuild(ctx.Context)
@@ -912,7 +912,7 @@ func (c *viamClient) moduleCloudReload(
 	ctx *cli.Context,
 	args reloadModuleArgs,
 	platform string,
-	manifest moduleManifest,
+	manifest ModuleManifest,
 	partID string,
 	pm *ProgressManager,
 ) (*moduleCloudBuildInfo, error) {
@@ -1403,7 +1403,7 @@ type reloadingDestinationArgs struct {
 }
 
 // this chooses a destination path for the module archive.
-func reloadingDestination(c *cli.Context, manifest *moduleManifest) string {
+func reloadingDestination(c *cli.Context, manifest *ModuleManifest) string {
 	args := parseStructFromCtx[reloadingDestinationArgs](c)
 	return filepath.Join(args.Home,
 		".viam", config.PackagesDirName+config.LocalPackagesSuffix,
@@ -1555,7 +1555,7 @@ type resolveTargetModuleArgs struct {
 }
 
 // resolveTargetModule looks at name / id flags and packs a RestartModuleRequest.
-func resolveTargetModule(c *cli.Context, manifest *moduleManifest) (*robot.RestartModuleRequest, error) {
+func resolveTargetModule(c *cli.Context, manifest *ModuleManifest) (*robot.RestartModuleRequest, error) {
 	args := parseStructFromCtx[resolveTargetModuleArgs](c)
 	modName := args.Name
 	modID := args.ID
@@ -1614,7 +1614,7 @@ func restartModule(
 	c *cli.Context,
 	vc *viamClient,
 	part *apppb.RobotPart,
-	manifest *moduleManifest,
+	manifest *ModuleManifest,
 	logger logging.Logger,
 ) error {
 	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg

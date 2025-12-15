@@ -16,12 +16,13 @@ import (
 )
 
 const (
-	datasetFlagName          = "name"
-	datasetFlagDatasetID     = "dataset-id"
-	datasetFlagDatasetIDs    = "dataset-ids"
-	dataFlagLocationID       = "location-id"
-	dataFlagBinaryDataIDs    = "binary-data-ids"
-	datasetFlagOnlyJSONLines = "only-jsonl"
+	datasetFlagName           = "name"
+	datasetFlagDatasetID      = "dataset-id"
+	datasetFlagDatasetIDs     = "dataset-ids"
+	dataFlagLocationID        = "location-id"
+	dataFlagBinaryDataIDs     = "binary-data-ids"
+	datasetFlagOnlyJSONLines  = "only-jsonl"
+	datasetFlagForceLinuxPath = "force-linux-path"
 )
 
 type datasetCreateArgs struct {
@@ -196,11 +197,12 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 }
 
 type datasetDownloadArgs struct {
-	Destination string
-	DatasetID   string
-	OnlyJSONl   bool
-	Parallel    uint
-	Timeout     uint
+	Destination    string
+	DatasetID      string
+	OnlyJSONl      bool
+	ForceLinuxPath bool
+	Parallel       uint
+	Timeout        uint
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
@@ -210,14 +212,14 @@ func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 		return err
 	}
 	if err := client.downloadDataset(args.Destination, args.DatasetID,
-		args.OnlyJSONl, args.Parallel, args.Timeout); err != nil {
+		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
 	return nil
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, parallelDownloads, timeout uint) error {
+func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines, forceLinuxPath bool, parallelDownloads, timeout uint) error {
 	var datasetFile *os.File
 	var err error
 	datasetPath := filepath.Join(dst, "dataset.jsonl")
@@ -252,7 +254,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines bool, 
 				downloadErr = c.downloadBinary(dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id)
+			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id, forceLinuxPath)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -294,7 +296,7 @@ type BBoxAnnotation struct {
 }
 
 func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
-	id string,
+	id string, forceLinuxPath bool,
 ) error {
 	var resp *datapb.BinaryDataByIDsResponse
 	var err error
@@ -318,6 +320,9 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	datum := data[0]
 
 	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
+	if forceLinuxPath {
+		fileName = filepath.ToSlash(fileName)
+	}
 	ext := datum.GetMetadata().GetFileExt()
 	// If the file is gzipped, unzip.
 	if ext != gzFileExt && filepath.Ext(fileName) != ext {
