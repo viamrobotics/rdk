@@ -2160,8 +2160,9 @@ Note: There is no progress meter while copying is in progress.
 											DefaultText: "current timestamp",
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagFramework,
-											Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Name:     mlTrainingFlagFramework,
+											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Required: true,
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
@@ -3503,8 +3504,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "version of the ML training script to upload",
 						},
 						&cli.StringFlag{
-							Name:  mlTrainingFlagFramework,
-							Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Name:     mlTrainingFlagFramework,
+							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
