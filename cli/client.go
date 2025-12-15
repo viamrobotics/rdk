@@ -737,46 +737,73 @@ func (c *viamClient) listLocationRobots(ctx *cli.Context, orgStr, locStr string)
 	return nil
 }
 
-func (c *viamClient) lookupMachineIDByName(name string) (string, error) {
+func (c *viamClient) lookupMachineByName(name, locStr, orgStr string) (*apppb.Robot, error) {
 	if _, err := uuid.Parse(name); err == nil { // a robot ID was passed as the name
-		return name, nil
+		req := apppb.GetRobotRequest{Id: name}
+		resp, err := c.client.GetRobot(c.c.Context, &req)
+		if err != nil {
+			return nil, err
+		}
+		return resp.Robot, nil
 	}
 	orgs, err := c.listOrganizations()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	robots := map[string]*apppb.Robot{}
-	var id string
 
 	for _, org := range orgs {
+		if orgStr != "" && org.Id != orgStr && org.Name != orgStr {
+			continue
+		}
 		locs, err := c.listLocations(org.Id)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		for _, loc := range locs {
-			if robot, err := c.robot(org.Id, loc.Id, name); err == nil {
-				robots[robot.Id] = robot
-				id = robot.Id
+			if locStr != "" && loc.Id != locStr && loc.Name != locStr {
+				continue
+			}
+			if foundRobot, err := c.robot(org.Id, loc.Id, name); err == nil {
+				robots[foundRobot.Id] = foundRobot
 			}
 		}
 	}
 	if len(robots) == 0 {
-		return "", fmt.Errorf("unable to find robot with name %s", name)
+		return nil, fmt.Errorf("unable to find robot with name %s", name)
 	} else if len(robots) != 1 {
-		return "", fmt.Errorf("multiple robots match %s: %v", name, robots)
+		return nil, fmt.Errorf("multiple robots match %s: %v", name, robots)
 	}
 
-	return id, nil
+	var robot *apppb.Robot
+	for _, bot := range robots {
+		robot = bot
+	}
+	return robot, nil
 }
 
-func (c *viamClient) lookupLocationID(locStr string) (string, error) {
+func (c *viamClient) lookupLocationID(locStr, orgStr string) (string, error) {
+	var err error
 	foundLocs := []*apppb.Location{}
-	orgs, err := c.listOrganizations()
-	if err != nil {
-		return "", err
+	orgs := []*apppb.Organization{}
+	if orgStr != "" {
+		org, err := c.getOrg(orgStr)
+		if err != nil {
+			return "", err
+		}
+		orgs = append(orgs, org)
+	} else {
+		orgs, err = c.listOrganizations()
+		if err != nil {
+			return "", err
+		}
 	}
 	for _, org := range orgs {
+		// an org has been specified and this isn't it
+		if orgStr != "" && orgStr != org.Id && orgStr != org.Name {
+			continue
+		}
 		locs, err := c.listLocations(org.Id)
 		if err != nil {
 			return "", err
@@ -793,7 +820,11 @@ func (c *viamClient) lookupLocationID(locStr string) (string, error) {
 	}
 
 	if len(foundLocs) == 0 {
-		return "", errors.Errorf("no location found for %q", locStr)
+		var orgAddenda string
+		if orgStr != "" {
+			orgAddenda = fmt.Sprintf(" in organization %q", orgStr)
+		}
+		return "", errors.Errorf("no location found for %q%q", locStr, orgAddenda)
 	}
 	if len(foundLocs) != 1 {
 		return "", errors.Errorf("multiple locations match %q: %v", locStr, foundLocs)
@@ -803,8 +834,9 @@ func (c *viamClient) lookupLocationID(locStr string) (string, error) {
 }
 
 type createMachineActionArgs struct {
-	Name     string
-	Location string
+	Name         string
+	Location     string
+	Organization string
 }
 
 // CreateMachineAction is the corresponding action for 'machines create'.
@@ -814,7 +846,7 @@ func CreateMachineAction(c *cli.Context, args createMachineActionArgs) error {
 		return err
 	}
 
-	locID, err := client.lookupLocationID(args.Location)
+	locID, err := client.lookupLocationID(args.Location, args.Organization)
 	if err != nil {
 		return err
 	}
@@ -830,7 +862,9 @@ func CreateMachineAction(c *cli.Context, args createMachineActionArgs) error {
 }
 
 type deleteMachineActionArgs struct {
-	Machine string
+	Machine      string
+	Location     string
+	Organization string
 }
 
 // DeleteMachineAction is the corresponding action for 'machines delete'.
@@ -840,7 +874,8 @@ func DeleteMachineAction(c *cli.Context, args deleteMachineActionArgs) error {
 		return err
 	}
 
-	robotID, err := client.lookupMachineIDByName(args.Machine)
+	robot, err := client.lookupMachineByName(args.Machine, args.Location, args.Organization)
+	robotID := robot.Id
 	if err != nil {
 		return err
 	}
@@ -855,9 +890,11 @@ func DeleteMachineAction(c *cli.Context, args deleteMachineActionArgs) error {
 }
 
 type updateMachineActionArgs struct {
-	Machine  string
-	NewName  string
-	Location string
+	Machine      string
+	NewName      string
+	NewLocation  string
+	Location     string
+	Organization string
 }
 
 // UpdateMachineAction is the corresponding action for 'machines move'.
@@ -869,17 +906,32 @@ func UpdateMachineAction(c *cli.Context, args updateMachineActionArgs) error {
 	if err != nil {
 		return err
 	}
-	id, err := client.lookupMachineIDByName(args.Machine)
+	robot, err := client.lookupMachineByName(args.Machine, args.Location, args.Organization)
 	if err != nil {
 		return err
 	}
 
-	locID, err := client.lookupLocationID(args.Location)
+	id := robot.Id
+	locStr := robot.GetLocation()
+	currLocation, err := client.client.GetLocation(c.Context, &apppb.GetLocationRequest{LocationId: locStr})
 	if err != nil {
 		return err
 	}
 
-	req := apppb.UpdateRobotRequest{Id: id, Location: locID, Name: args.NewName}
+	var orgID string
+	for _, org := range currLocation.GetLocation().GetOrganizations() {
+		if org.Primary {
+			orgID = org.OrganizationId
+			break
+		}
+	}
+
+	newLocID, err := client.lookupLocationID(args.NewLocation, orgID)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotRequest{Id: id, Location: newLocID, Name: args.NewName}
 
 	if _, err = client.client.UpdateRobot(c.Context, &req); err != nil {
 		return err

@@ -47,6 +47,7 @@ const (
 	generalFlagAliasOrgName      = "org-name"
 	generalFlagOrgID             = "org-id"
 	generalFlagLocation          = "location"
+	generalFlagNewLocation       = "new-location"
 	generalFlagAliasLocationName = "location-name"
 	generalFlagLocationID        = "location-id"
 	generalFlagMachine           = "machine"
@@ -2153,19 +2154,38 @@ var app = &cli.App{
 								Required: true,
 							},
 						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrganization,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+								Usage:   "disambiguate between identically named locations in different organizations",
+							},
+						},
 					},
 					Action: createCommandWithT(CreateMachineAction),
 				},
 				{
 					Name:      "delete",
-					Usage:     "Delete a machine",
-					UsageText: createUsageText("machines delete", []string{generalFlagID}, true, false),
+					Usage:     "Delete a machine. Passing location and organization is unnecessary but speeds up the process",
+					UsageText: createUsageText("machines delete", []string{generalFlagMachine}, true, false),
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:     generalFlagMachine,
 								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 								Required: true,
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagLocation,
+								Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrganization,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 							},
 						},
 					},
@@ -2187,6 +2207,15 @@ var app = &cli.App{
 							cli.StringFlag{
 								Name:    generalFlagLocation,
 								Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+							},
+						},
+						&cli.StringFlag{
+							Name: generalFlagNewLocation,
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrganization,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 							},
 						},
 						&cli.StringFlag{
