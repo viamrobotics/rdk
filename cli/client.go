@@ -1197,6 +1197,59 @@ type machinesPartRunArgs struct {
 	Data         string
 	Stream       time.Duration
 	Method       string
+	Component    string
+}
+
+// apiToGRPCServiceName converts a resource API to its gRPC service name.
+// For example: rdk:component:camera -> viam.component.camera.v1.CameraService
+func apiToGRPCServiceName(api resource.API) string {
+	// Convert subtype from snake_case to lowercase (remove underscores)
+	subtypeLower := strings.ReplaceAll(api.SubtypeName, "_", "")
+
+	// Convert subtype to PascalCase for service name
+	// e.g., "movement_sensor" -> "MovementSensor"
+	parts := strings.Split(api.SubtypeName, "_")
+	var pascalParts []string
+	for _, p := range parts {
+		if len(p) > 0 {
+			pascalParts = append(pascalParts, strings.ToUpper(p[:1])+p[1:])
+		}
+	}
+	subtypePascal := strings.Join(pascalParts, "")
+
+	// Build the full service name
+	// Format: viam.<type>.<subtype_no_underscore>.v1.<SubtypePascal>Service
+	return fmt.Sprintf("viam.%s.%s.v1.%sService", api.Type.Name, subtypeLower, subtypePascal)
+}
+
+// isShortMethodName returns true if the method name is a short form (no dots or slashes).
+func isShortMethodName(method string) bool {
+	return !strings.Contains(method, ".") && !strings.Contains(method, "/")
+}
+
+// mergeComponentNameIntoData merges the component name into the data JSON.
+// If data is empty, it creates a new JSON object with just the name.
+// If data already has a "name" field, it is preserved (not overwritten).
+func mergeComponentNameIntoData(data, componentName string) (string, error) {
+	var dataMap map[string]interface{}
+	if data == "" {
+		dataMap = make(map[string]interface{})
+	} else {
+		if err := json.Unmarshal([]byte(data), &dataMap); err != nil {
+			return "", errors.Wrap(err, "failed to parse --data as JSON")
+		}
+	}
+
+	// Only set name if not already present
+	if _, exists := dataMap["name"]; !exists {
+		dataMap["name"] = componentName
+	}
+
+	result, err := json.Marshal(dataMap)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to serialize data JSON")
+	}
+	return string(result), nil
 }
 
 // MachinesPartRunAction is the corresponding Action for 'machines part run'.
@@ -1205,11 +1258,11 @@ func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
 	if svcMethod == "" {
 		svcMethod = c.Args().First()
 	}
-	if svcMethod == "" {
+	if svcMethod == "" && args.Component == "" {
 		return errors.New("service method required")
 	}
 
-	client, err := newViamClient(c)
+	viamClient, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
@@ -1224,13 +1277,61 @@ func MachinesPartRunAction(c *cli.Context, args machinesPartRunArgs) error {
 		logger = logging.NewDebugLogger("cli")
 	}
 
-	return client.runRobotPartCommand(
+	data := args.Data
+
+	// If component is specified, resolve the method and merge name into data
+	if args.Component != "" {
+		// Connect to the robot to get resource information
+		dialCtx, fqdn, rpcOpts, err := viamClient.prepareDial(
+			args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+		if err != nil {
+			return err
+		}
+
+		robotClient, err := viamClient.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			utils.UncheckedError(robotClient.Close(c.Context))
+		}()
+
+		// Find the component by name
+		var foundAPI *resource.API
+		for _, name := range robotClient.ResourceNames() {
+			if name.Name == args.Component {
+				apiCopy := name.API
+				foundAPI = &apiCopy
+				break
+			}
+		}
+		if foundAPI == nil {
+			return errors.Errorf("component %q not found on machine", args.Component)
+		}
+
+		// If method is a short name, expand it
+		if svcMethod == "" {
+			return errors.New("method is required when using --component")
+		}
+		if isShortMethodName(svcMethod) {
+			serviceName := apiToGRPCServiceName(*foundAPI)
+			svcMethod = fmt.Sprintf("%s.%s", serviceName, svcMethod)
+		}
+
+		// Merge component name into data
+		data, err = mergeComponentNameIntoData(data, args.Component)
+		if err != nil {
+			return err
+		}
+	}
+
+	return viamClient.runRobotPartCommand(
 		args.Organization,
 		args.Location,
 		args.Machine,
 		args.Part,
 		svcMethod,
-		args.Data,
+		data,
 		args.Stream,
 		globalArgs.Debug,
 		logger,
