@@ -1815,7 +1815,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 }
 
 func checkAndTryBrewUpdate() (bool, error) {
-	if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("brew"); err == nil {
 			// Check if viam is actually managed by brew
 			cmd := exec.Command("brew", "list", "viam")
