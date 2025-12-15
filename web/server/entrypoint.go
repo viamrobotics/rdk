@@ -86,16 +86,16 @@ func logViamEnvVariables(logger logging.Logger) {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
 	}
 	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
-	value, alreadySet := os.LookupEnv("VIAM_HOME")
-	err := os.Setenv("VIAM_HOME", rutils.ViamDotDir)
+	value, alreadySet := os.LookupEnv(rutils.HomeEnvVar)
+	err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir)
 	// if we successfully overwrite VIAM_HOME, log
 	if err == nil && alreadySet {
-		logger.Infof("Environment variable VIAM_HOME was overwritten from %v to %v", value, rutils.ViamDotDir)
+		logger.Infof("Environment variable %v was overwritten from %v to %v", rutils.HomeEnvVar, value, rutils.ViamDotDir)
 	} else if err != nil && !alreadySet {
-		logger.Infof("Unable to set VIAM_HOME environment variable, continuing with startup")
+		logger.Infof("Unable to set %v environment variable, continuing with startup", rutils.HomeEnvVar)
 	}
-	if value, exists := os.LookupEnv("VIAM_HOME"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_HOME", value)
+	if value, exists := os.LookupEnv(rutils.HomeEnvVar); exists {
+		viamEnvVariables = append(viamEnvVariables, rutils.HomeEnvVar, value)
 	}
 	if len(viamEnvVariables) != 0 {
 		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)

@@ -205,7 +205,7 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
-			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
+			test.That(t, modEnv[rutils.HomeEnvVar], test.ShouldEqual, viamHomeTemp)
 			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
 			test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")

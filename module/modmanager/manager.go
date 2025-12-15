@@ -1085,7 +1085,7 @@ func getFullEnvironment(
 	tracingEnabled bool,
 ) map[string]string {
 	environment := map[string]string{
-		"VIAM_HOME":        viamHomeDir,
+		rutils.HomeEnvVar:  viamHomeDir,
 		"VIAM_MODULE_DATA": dataDir,
 		"VIAM_MODULE_NAME": cfg.Name,
 	}
