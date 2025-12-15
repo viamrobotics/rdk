@@ -364,6 +364,12 @@ type StreamingDataCaptureUploadOptions struct {
 	DataRequestTimes *[2]time.Time
 }
 
+// BinaryDataByIDsOptions contains optional parameters for BinaryDataByIDs.
+type BinaryDataByIDsOptions struct {
+	// IncludeBinary controls whether binary data is included in the response.
+	IncludeBinary bool
+}
+
 // FileUploadOptions represents optional parameters for the FileUploadFromPath & FileUploadFromBytes methods.
 type FileUploadOptions struct {
 	ComponentType    *string
@@ -711,9 +717,14 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string) ([]*BinaryData, error) {
+// opts is optional; if not provided, IncludeBinary defaults to true for backward compatibility.
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string, opts ...*BinaryDataByIDsOptions) ([]*BinaryData, error) {
+	includeBinary := true // default for backward compatibility
+	if len(opts) > 0 && opts[0] != nil {
+		includeBinary = opts[0].IncludeBinary
+	}
 	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
-		IncludeBinary: true,
+		IncludeBinary: includeBinary,
 		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {

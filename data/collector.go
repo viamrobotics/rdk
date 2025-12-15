@@ -415,7 +415,7 @@ func NewDoCommandCaptureFunc[T interface {
 			if payloadAny.TypeUrl == "" && len(payloadAny.Value) == 0 {
 				payload = make(map[string]interface{})
 			} else {
-				unmarshaledPayload, err := unmarshalToValueOrString(payloadAny)
+				unmarshaledPayload, err := UnmarshalToValueOrString(payloadAny)
 				if err != nil {
 					return result, err
 				}
@@ -443,9 +443,9 @@ func NewDoCommandCaptureFunc[T interface {
 	}
 }
 
-// unmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
+// UnmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
 // or extracts the string value if it's a string type.
-func unmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
+func UnmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
 	// Try to unmarshal to Struct first
 	structVal := &structpb.Struct{}
 	if err := v.UnmarshalTo(structVal); err == nil {

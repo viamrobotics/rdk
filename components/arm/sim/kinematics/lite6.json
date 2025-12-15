@@ -1,5 +1,5 @@
 {
-    "name": "xArm6",
+    "name": "lite6",
     "links": [
         {
             "id": "base",
@@ -8,9 +8,6 @@
                 "x": 0,
                 "y": 0,
                 "z": 0
-            },
-            "geometry": {
-                "r": 1
             }
         },
         {
@@ -19,15 +16,15 @@
             "translation": {
                 "x": 0,
                 "y": 0,
-                "z": 267
+                "z": 243.3
             },
             "geometry": {
-                "r": 50,
-                "l": 320,
+                "r": 40,
+                "l": 290,
                 "translation": {
                     "x": 0,
                     "y": 0,
-                    "z": 160
+                    "z": 145
                 }
             }
         },
@@ -35,18 +32,17 @@
             "id": "upper_arm",
             "parent": "shoulder",
             "translation": {
-                "x": 53.5,
+                "x": 0,
                 "y": 0,
-                "z": 284.5
+                "z": 200
             },
             "geometry": {
-                "x": 110,
-                "y": 190,
-                "z": 370,
+                "r": 40,
+                "l": 280,
                 "translation": {
                     "x": 0,
-                    "y": 0,
-                    "z": 135
+                    "y": 105,
+                    "z": 140
                 }
             }
         },
@@ -54,54 +50,55 @@
             "id": "upper_forearm",
             "parent": "elbow",
             "translation": {
-                "x": 77.5,
+                "x": 87,
                 "y": 0,
-                "z": -172.5
+                "z": 0
             },
             "geometry": {
-                "x": 100,
-                "y": 190,
-                "z": 250,
+                "x": 165,
+                "y": 85,
+                "z": 85,
                 "translation": {
-                    "x": 49.49,
+                    "x": 43.5,
                     "y": 0,
-                    "z": -49.49
-                },
-                "orientation": {
-                    "type": "ov_degrees",
-                    "value": {
-                        "x": 0.707106,
-                        "y": 0,
-                        "z": -0.707106,
-                        "th": 0
-                    }
+                    "z": 0
+                }
+            }
+        },
+        {
+            "id": "lower_forearm_filler",
+            "parent": "forearm_rot",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "geometry": {
+                "r": 40,
+                "l": 200,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": -30
                 }
             }
         },
         {
             "id": "lower_forearm",
-            "parent": "forearm_rot",
+            "parent": "lower_forearm_filler",
             "translation": {
                 "x": 0,
                 "y": 0,
-                "z": -170
+                "z": -227.6
             },
             "geometry": {
-                "r": 45,
-                "l": 285,
+                "x": 75,
+                "y": 35,
+                "z": 180,
                 "translation": {
                     "x": 0,
-                    "y": -27.5,
-                    "z": -104.8
-                },
-                "orientation": {
-                    "type": "ov_degrees",
-                    "value": {
-                        "th": -90,
-                        "x": 0,
-                        "y": 0.2537568,
-                        "z": 0.9672615
-                    }
+                    "y": 60,
+                    "z": -175
                 }
             }
         },
@@ -109,18 +106,18 @@
             "id": "wrist_link",
             "parent": "wrist",
             "translation": {
-                "x": 76,
+                "x": 0,
                 "y": 0,
-                "z": -97
+                "z": -61.5
             },
             "geometry": {
-                "x": 150,
-                "y": 100,
-                "z": 135,
+                "x": 75,
+                "y": 75,
+                "z": 100,
                 "translation": {
-                    "x": 75,
-                    "y": 10,
-                    "z": -67.5
+                    "x": 0,
+                    "y": 0,
+                    "z": -50
                 }
             }
         },
@@ -140,9 +137,6 @@
                     "z": -1,
                     "th": 0
                 }
-            },
-            "geometry": {
-                "r": 1
             }
         }
     ],
@@ -168,8 +162,8 @@
                 "y": 1,
                 "z": 0
             },
-            "max": 120,
-            "min": -118
+            "max": 149,
+            "min": -149
         },
         {
             "id": "elbow",
@@ -177,11 +171,11 @@
             "parent": "upper_arm",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
-            "max": 10,
-            "min": -225
+            "max": 299,
+            "min": -3
         },
         {
             "id": "forearm_rot",
@@ -204,8 +198,8 @@
                 "y": 1,
                 "z": 0
             },
-            "max": 179,
-            "min": -97
+            "max": 124,
+            "min": -124
         },
         {
             "id": "gripper_rot",

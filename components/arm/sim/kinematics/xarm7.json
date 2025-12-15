@@ -1,5 +1,5 @@
 {
-    "name": "xArm6",
+    "name": "xArm7",
     "links": [
         {
             "id": "base",
@@ -8,9 +8,6 @@
                 "x": 0,
                 "y": 0,
                 "z": 0
-            },
-            "geometry": {
-                "r": 1
             }
         },
         {
@@ -32,21 +29,49 @@
             }
         },
         {
-            "id": "upper_arm",
+            "id": "base_arm_link",
             "parent": "shoulder",
             "translation": {
-                "x": 53.5,
+                "x": 0,
                 "y": 0,
-                "z": 284.5
+                "z": 200
             },
             "geometry": {
                 "x": 110,
                 "y": 190,
-                "z": 370,
+                "z": 220,
                 "translation": {
                     "x": 0,
-                    "y": 0,
-                    "z": 135
+                    "y": 30,
+                    "z": 100
+                }
+            }
+        },
+        {
+            "id": "upper_arm",
+            "parent": "upper_arm_rot",
+            "translation": {
+                "x": 52.5,
+                "y": 0,
+                "z": 93
+            },
+            "geometry": {
+                "x": 100,
+                "y": 130,
+                "z": 180,
+                "translation": {
+                    "x": 32.88,
+                    "y": -10,
+                    "z": 32.88
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0.707106,
+                        "y": 0,
+                        "z": 0.707106,
+                        "th": 0
+                    }
                 }
             }
         },
@@ -60,12 +85,12 @@
             },
             "geometry": {
                 "x": 100,
-                "y": 190,
+                "y": 150,
                 "z": 250,
                 "translation": {
-                    "x": 49.49,
-                    "y": 0,
-                    "z": -49.49
+                    "x": 60.98,
+                    "y": -37.5,
+                    "z": -60.98
                 },
                 "orientation": {
                     "type": "ov_degrees",
@@ -119,7 +144,7 @@
                 "z": 135,
                 "translation": {
                     "x": 75,
-                    "y": 10,
+                    "y": 0,
                     "z": -67.5
                 }
             }
@@ -140,9 +165,6 @@
                     "z": -1,
                     "th": 0
                 }
-            },
-            "geometry": {
-                "r": 1
             }
         }
     ],
@@ -169,7 +191,19 @@
                 "z": 0
             },
             "max": 120,
-            "min": -118
+            "min": -117.5
+        },
+        {
+            "id": "upper_arm_rot",
+            "type": "revolute",
+            "parent": "base_arm_link",
+            "axis": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+            },
+            "max": 359,
+            "min": -359
         },
         {
             "id": "elbow",
@@ -177,11 +211,11 @@
             "parent": "upper_arm",
             "axis": {
                 "x": 0,
-                "y": 1,
+                "y": -1,
                 "z": 0
             },
-            "max": 10,
-            "min": -225
+            "max": 225,
+            "min": -11
         },
         {
             "id": "forearm_rot",
