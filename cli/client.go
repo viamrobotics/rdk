@@ -1771,7 +1771,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	if latestBuildVersion, err := latestVersion(); err != nil {
 		if localVersion, err := localVersion(); err != nil {
-			if localVersion.LessThan(&latestBuildVersion) {
+			if localVersion.GreaterThanEqual(&latestBuildVersion) {
 				infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
 				return nil
 			}
@@ -1780,12 +1780,12 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 
 	// 2. check if cli managed by brew, if so attempt update. If it fails
 	// dont continue with binary to avoid putting brew out of sync
-	success, err := checkAndTryBrewUpdate()
+	managedByBrew, err := checkAndTryBrewUpdate()
 	if err != nil {
 		return errors.Errorf("CLI update failed: %v", err)
 	}
 	// brew update not returning false (not successful) but no error means not managed by brew
-	if !success {
+	if !managedByBrew {
 		// 3. get the local version binary path (use full path if no symlinks)
 		execPath, err := os.Executable()
 		if err != nil {
@@ -1877,7 +1877,7 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 			if goos == osWindows {
 				return "", errors.New("permission denied: run PowerShell as Administrator")
 			}
-			return "", errors.New("permission denied: run 'sudo viam self-update'")
+			return "", errors.New("permission denied: run 'sudo viam update'")
 		}
 		return "", errors.Errorf("failed to create temp file: %v", err)
 	}
@@ -1895,7 +1895,7 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	if goos != osWindows {
 		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
 			if os.IsPermission(err) {
-				return "", errors.New("permission denied: run 'sudo viam self-update'")
+				return "", errors.New("permission denied: run 'sudo viam update'")
 			}
 			return "", errors.Errorf("failed to make binary executable: %v", err)
 		}
@@ -1925,7 +1925,7 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 			}
 			// If this fails, try to restore old binary by renaming back (removing .old)
 			if restoreErr := os.Rename(oldPath, localBinaryPath); restoreErr != nil {
-				return errors.Errorf("failure in self-update: please redownload the CLI binary at https://docs.viam.com/cli/#install")
+				return errors.Errorf("failure in update: please redownload the CLI binary at https://docs.viam.com/cli/#install")
 			}
 			return errors.Errorf("failed to replace old binary: %v", err)
 		}
@@ -1934,7 +1934,7 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 	} else {
 		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 			if os.IsPermission(err) {
-				return errors.New("permission denied: run 'sudo viam self-update'")
+				return errors.New("permission denied: run 'sudo viam update'")
 			}
 			return errors.Errorf("failed to replace binary: %v", err)
 		}
