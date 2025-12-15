@@ -148,10 +148,9 @@ func TestUniqueCollisions(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t,
+	test.That(
+		t,
 		collisionListsAlmostEqual(cg.collisions(defaultCollisionBufferMM), expectedCollisions[:len(expectedCollisions)-1]),
 		test.ShouldBeTrue,
-		test.ShouldContain,
-		expectedCollisions[len(expectedCollisions)-1],
 	)
 }
