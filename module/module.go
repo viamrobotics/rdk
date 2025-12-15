@@ -436,6 +436,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		if moduleLogger, ok := m.logger.(*moduleLogger); ok {
 			moduleLogger.startLoggingViaGRPC(m)
 		}
+		m.logger.Debug("successfully created module connection to parent")
 	}
 
 	resp.Ready = m.ready

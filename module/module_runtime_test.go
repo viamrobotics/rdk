@@ -66,6 +66,8 @@ func TestModularMain(t *testing.T) {
 			}
 			gServer := grpc.NewServer()
 			robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+			logger.Infof("starting robot server at %v", robotServerListener.Addr().String())
 			var wg sync.WaitGroup
 			wg.Go(func() { gServer.Serve(robotServerListener) })
 			defer gServer.Stop()
@@ -88,10 +90,10 @@ func TestModularMain(t *testing.T) {
 				} else {
 					port, err = utils.TryReserveRandomPort()
 					test.That(t, err, test.ShouldBeNil)
-					modAddr = fmt.Sprintf(":%d", port)
+					modAddr = fmt.Sprintf("127.0.0.1:%d", port)
 				}
 
-				mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger)
+				mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger.Sublogger("module_server"))
 				if err != nil && strings.Contains(err.Error(), "address already in use") {
 					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
 					continue
@@ -111,13 +113,14 @@ func TestModularMain(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			defer conn.Close()
-			modClient := pb.NewModuleServiceClient(conn)
 
 			// This test depends on the module server not returning a response for Ready until its parent connection has
 			// been established.
+			logger.Infof("calling Ready on module server")
+			modClient := pb.NewModuleServiceClient(conn)
 			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
 			test.That(t, err, test.ShouldBeNil)
-
+			logger.Infof("Ready response received from module server")
 			gServer.Stop()
 			wg.Wait()
 			<-modCtx.Done()
