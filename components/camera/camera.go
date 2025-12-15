@@ -223,12 +223,13 @@ type Camera interface {
 	resource.Resource
 	resource.Shaped
 
-	// DEPRECATED: Image is deprecated. Please use Images instead. For resource implementers, you can use
+	// Deprecated: Image is deprecated. Please use Images instead. For resource implementers, you can use
 	// GetImageFromGetImages to implement this easily from an existing Images method, then remove once
 	// Image is deleted from the Go SDK/RDK.
 	//
 	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
 	// Image also may return metadata about the frame.
+	//nolint:revive // ignore exported comment check
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
@@ -246,7 +247,6 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// DEPRECATED: please use the images method and serialize the NamedImage using the .Image method.
 // DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
 func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
 	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
