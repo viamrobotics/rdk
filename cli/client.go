@@ -1800,13 +1800,10 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
 		binaryURL := binaryURL()
 		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
+		defer os.Remove(latestBinaryPath) //nolint:errcheck
 		if err != nil {
 			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
 		}
-
-		// if replaceBinary succeeds, file is moved so Remove fails (harmless);
-		// if replaceBinary fails, file still exists so Remove cleans it up
-		defer os.Remove(latestBinaryPath) //nolint:errcheck
 
 		// 5. replace the old binary with the new one
 		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
@@ -1909,7 +1906,7 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 	if runtime.GOOS == osWindows {
 		// make sure no leftover binary files with .old
 		oldPath := localBinaryPath + ".old"
-		os.Remove(oldPath) //nolint:errcheck, gosec
+		defer os.Remove(oldPath) //nolint:errcheck, gosec
 		// 1. rename old binary to .old
 		if err := os.Rename(localBinaryPath, oldPath); err != nil {
 			if os.IsPermission(err) {
@@ -1929,8 +1926,6 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 			}
 			return errors.Errorf("failed to replace old binary: %v", err)
 		}
-		// Clean up .old file after successful update
-		os.Remove(oldPath) //nolint:errcheck, gosec
 	} else {
 		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 			if os.IsPermission(err) {
