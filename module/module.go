@@ -137,6 +137,9 @@ type Module struct {
 	pcClosed             <-chan struct{}
 	pcFailed             <-chan struct{}
 
+	// for testing only
+	parentClientOptions []client.RobotClientOption
+
 	logger logging.Logger
 }
 
@@ -335,6 +338,9 @@ func (m *Module) connectParent(ctx context.Context) error {
 
 	connectOptions := []client.RobotClientOption{
 		client.WithDisableSessions(),
+	}
+	if m.parentClientOptions != nil {
+		connectOptions = append(connectOptions, m.parentClientOptions...)
 	}
 
 	// Modules compiled against newer SDKs may be running against older `viam-server`s that do not

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -100,6 +102,10 @@ func TestModularMain(t *testing.T) {
 				}
 				test.That(t, err, test.ShouldBeNil)
 				defer mod.Close(context.Background())
+				// Check module connection more often to speed up the test (default is every 10s)
+				mod.parentClientOptions = []client.RobotClientOption{
+					client.WithCheckConnectedEvery(10 * time.Millisecond),
+				}
 				break
 			}
 			if tc.UdsMode {
