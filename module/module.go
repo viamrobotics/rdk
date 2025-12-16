@@ -17,6 +17,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -193,16 +194,20 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		if err != nil {
 			return nil, err
 		}
-		trace.SetTracerWithExporters(
-			otelresource.NewWithAttributes(
-				semconv.SchemaURL,
-				attribute.String("viam.module.name", modName),
-				semconv.ServiceName(modName),
-				semconv.ServiceNamespace("viam.com"),
-				semconv.ServerAddress(address),
+		//nolint: errcheck, gosec
+		trace.SetProvider(
+			ctx,
+			sdktrace.WithResource(
+				otelresource.NewWithAttributes(
+					semconv.SchemaURL,
+					attribute.String("viam.module.name", modName),
+					semconv.ServiceName(modName),
+					semconv.ServiceNamespace("viam.com"),
+					semconv.ServerAddress(address),
+				),
 			),
-			otelExporter,
 		)
+		trace.AddExporters(otelExporter)
 	}
 
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)

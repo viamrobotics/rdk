@@ -131,8 +131,7 @@ func TestLogLevelChange(t *testing.T) {
 			},
 		},
 	}
-	ctx, ctxCancelFunc := context.WithCancel(context.Background())
-	defer ctxCancelFunc()
+	ctx := context.Background()
 	lr := setupLocalRobot(t, ctx, cfg, logger)
 
 	time.Sleep(7 * time.Second)
@@ -267,8 +266,7 @@ func TestJobManagerHistory(t *testing.T) {
 		},
 	}
 
-	ctx, ctxCancelFunc := context.WithCancel(context.Background())
-	defer ctxCancelFunc()
+	ctx := context.Background()
 	lr := setupLocalRobot(t, ctx, cfg, logger)
 	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := lr.StartWeb(ctx, o)
@@ -368,8 +366,7 @@ func TestJobContinuousSchedule(t *testing.T) {
 			},
 		},
 	}
-	ctx, ctxCancelFunc := context.WithCancel(context.Background())
-	defer ctxCancelFunc()
+	ctx := context.Background()
 	lr := setupLocalRobot(t, ctx, cfg, logger)
 	o, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := lr.StartWeb(ctx, o)
