@@ -381,6 +381,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 					{Frame1: "xArmVgripper", Frame2: "theWall"},
 					{Frame1: "xArm6:wrist_link", Frame2: "theWall"},
 					{Frame1: "xArm6:lower_forearm", Frame2: "theWall"},
+					{Frame1: "xArm6:gripper_mount", Frame2: "theWall"},
 				},
 			},
 		},

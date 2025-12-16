@@ -1579,6 +1579,122 @@ func TestTunnelE2ECLI(t *testing.T) {
 	wg.Wait()
 }
 
+func TestAPIToGRPCServiceName(t *testing.T) {
+	tests := []struct {
+		name     string
+		api      resource.API
+		expected string
+	}{
+		{
+			name:     "simple component camera",
+			api:      resource.APINamespaceRDK.WithComponentType("camera"),
+			expected: "viam.component.camera.v1.CameraService",
+		},
+		{
+			name:     "simple component arm",
+			api:      resource.APINamespaceRDK.WithComponentType("arm"),
+			expected: "viam.component.arm.v1.ArmService",
+		},
+		{
+			name:     "compound component movement_sensor",
+			api:      resource.APINamespaceRDK.WithComponentType("movement_sensor"),
+			expected: "viam.component.movementsensor.v1.MovementSensorService",
+		},
+		{
+			name:     "compound component input_controller",
+			api:      resource.APINamespaceRDK.WithComponentType("input_controller"),
+			expected: "viam.component.inputcontroller.v1.InputControllerService",
+		},
+		{
+			name:     "simple service vision",
+			api:      resource.APINamespaceRDK.WithServiceType("vision"),
+			expected: "viam.service.vision.v1.VisionService",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := apiToGRPCServiceName(tt.api)
+			test.That(t, result, test.ShouldEqual, tt.expected)
+		})
+	}
+}
+
+func TestIsShortMethodName(t *testing.T) {
+	tests := []struct {
+		method   string
+		expected bool
+	}{
+		{"DoCommand", true},
+		{"GetPosition", true},
+		{"viam.component.camera.v1.CameraService.DoCommand", false},
+		{"CameraService.DoCommand", false},
+		{"CameraService/DoCommand", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			result := isShortMethodName(tt.method)
+			test.That(t, result, test.ShouldEqual, tt.expected)
+		})
+	}
+}
+
+func TestMergeComponentNameIntoData(t *testing.T) {
+	tests := []struct {
+		name          string
+		data          string
+		componentName string
+		expected      string
+		shouldErr     bool
+	}{
+		{
+			name:          "empty data",
+			data:          "",
+			componentName: "my-camera",
+			expected:      `{"name":"my-camera"}`,
+			shouldErr:     false,
+		},
+		{
+			name:          "existing data without name",
+			data:          `{"foo":"bar"}`,
+			componentName: "my-camera",
+			expected:      `{"foo":"bar","name":"my-camera"}`,
+			shouldErr:     false,
+		},
+		{
+			name:          "existing data with name should not override",
+			data:          `{"name":"existing","foo":"bar"}`,
+			componentName: "my-camera",
+			expected:      `{"foo":"bar","name":"existing"}`,
+			shouldErr:     false,
+		},
+		{
+			name:          "invalid json should error",
+			data:          `{invalid`,
+			componentName: "my-camera",
+			expected:      "",
+			shouldErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := mergeComponentNameIntoData(tt.data, tt.componentName)
+			if tt.shouldErr {
+				test.That(t, err, test.ShouldNotBeNil)
+			} else {
+				test.That(t, err, test.ShouldBeNil)
+				// Parse both JSONs and compare as maps since key order may vary
+				var expectedMap, resultMap map[string]interface{}
+				test.That(t, json.Unmarshal([]byte(tt.expected), &expectedMap), test.ShouldBeNil)
+				test.That(t, json.Unmarshal([]byte(result), &resultMap), test.ShouldBeNil)
+				test.That(t, resultMap, test.ShouldResemble, expectedMap)
+			}
+		})
+	}
+}
+
 func TestCLIUpdateAction(t *testing.T) {
 	// Save original version to restore later
 	originalVersion := robotconfig.Version

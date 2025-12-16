@@ -112,7 +112,7 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 56
+		numReg := 57
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
 			numReg = 47

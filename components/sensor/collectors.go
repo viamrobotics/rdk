@@ -42,7 +42,11 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		argMap := make(map[string]interface{})
 		argMap[data.FromDMString] = true
 		for k, v := range arg {
-			argMap[k] = v
+			unmarshaledValue, err := data.UnmarshalToValueOrString(v)
+			if err != nil {
+				return res, err
+			}
+			argMap[k] = unmarshaledValue
 		}
 
 		values, err := sensorResource.Readings(ctx, argMap)

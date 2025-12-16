@@ -28,4 +28,5 @@ type Options struct {
 	// gRPC API calls can choose to respond with data over the PeerConnection. Such is the case with
 	// video streams.
 	ModPeerConnTracker *grpc.ModPeerConnTracker
+	TracingEnabled     bool
 }

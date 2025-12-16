@@ -308,7 +308,7 @@ func TestResolvePartId(t *testing.T) {
 
 func TestMutateModuleConfig(t *testing.T) {
 	c := newTestContext(t, map[string]any{"local": true})
-	manifest := moduleManifest{
+	manifest := ModuleManifest{
 		ModuleID:     "viam-labs:test-module",
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
