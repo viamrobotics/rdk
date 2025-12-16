@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -66,6 +68,8 @@ func TestModularMain(t *testing.T) {
 			}
 			gServer := grpc.NewServer()
 			robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+			logger.Infof("starting robot server at %v", robotServerListener.Addr().String())
 			var wg sync.WaitGroup
 			wg.Go(func() { gServer.Serve(robotServerListener) })
 			defer gServer.Stop()
@@ -88,16 +92,20 @@ func TestModularMain(t *testing.T) {
 				} else {
 					port, err = utils.TryReserveRandomPort()
 					test.That(t, err, test.ShouldBeNil)
-					modAddr = fmt.Sprintf(":%d", port)
+					modAddr = fmt.Sprintf("127.0.0.1:%d", port)
 				}
 
-				mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger)
+				mod, err = moduleStart(modAddr)(modCtx, nil, modCancel, logger.Sublogger("module_server"))
 				if err != nil && strings.Contains(err.Error(), "address already in use") {
 					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
 					continue
 				}
 				test.That(t, err, test.ShouldBeNil)
 				defer mod.Close(context.Background())
+				// Check module connection more often to speed up the test (default is every 10s)
+				mod.parentClientOptions = []client.RobotClientOption{
+					client.WithCheckConnectedEvery(10 * time.Millisecond),
+				}
 				break
 			}
 			if tc.UdsMode {
@@ -111,13 +119,14 @@ func TestModularMain(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			defer conn.Close()
-			modClient := pb.NewModuleServiceClient(conn)
 
 			// This test depends on the module server not returning a response for Ready until its parent connection has
 			// been established.
+			logger.Infof("calling Ready on module server")
+			modClient := pb.NewModuleServiceClient(conn)
 			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
 			test.That(t, err, test.ShouldBeNil)
-
+			logger.Infof("Ready response received from module server")
 			gServer.Stop()
 			wg.Wait()
 			<-modCtx.Done()
