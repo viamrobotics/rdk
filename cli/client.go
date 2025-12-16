@@ -1740,11 +1740,6 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		}
 	}
 
-	// there was an error in comparing versions, so try to see if build is old and warn
-	if globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to compare local and latest version: %w", err)
-	}
-
 	dateCompiledRaw := rconfig.DateCompiled
 
 	// `go build` will not set the compilation flags needed for this check
