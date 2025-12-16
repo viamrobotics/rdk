@@ -1664,31 +1664,25 @@ var getLatestReleaseVersionFunc = func() (string, error) {
 	return resp.TagName, err
 }
 
-func localVersion() (semver.Version, error) {
+func localVersion() (*semver.Version, error) {
 	appVersion := rconfig.Version
 	localVersion, err := semver.NewVersion(appVersion)
 	if err != nil {
-		return semver.Version{}, errors.New("failed to parse local version")
+		return nil, errors.New("failed to parse local version")
 	}
-	if localVersion == nil || localVersion.Original() == "" {
-		return semver.Version{}, errors.New("local version is empty")
-	}
-	return *localVersion, nil
+	return localVersion, nil
 }
 
-func latestVersion() (semver.Version, error) {
+func latestVersion() (*semver.Version, error) {
 	latestRelease, err := getLatestReleaseVersionFunc()
 	if err != nil {
-		return semver.Version{}, errors.New("failed to get latest release information")
+		return nil, errors.New("failed to get latest release information")
 	}
 	latestVersion, err := semver.NewVersion(latestRelease)
 	if err != nil {
-		return semver.Version{}, errors.New("failed to parse latest release version")
+		return nil, errors.New("failed to parse latest release version")
 	}
-	if latestVersion == nil || latestVersion.Original() == "" {
-		return semver.Version{}, errors.New("latest version is empty")
-	}
-	return *latestVersion, nil
+	return latestVersion, nil
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
@@ -1725,13 +1719,23 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	var latestBuildVersion semver.Version
-	if latestBuildVersion, err := latestVersion(); err != nil {
-		if localVersion, err := localVersion(); err != nil {
-			if localVersion.LessThan(&latestBuildVersion) {
-				warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-					"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestBuildVersion.Original())
-			}
+	latestVersion, latestVersionErr := latestVersion()
+	// failure to parse `latestRelease` is expected for local builds; we don't want overly
+	// noisy warnings here so only alert in these cases if debug flag is on
+	if latestVersionErr != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+	}
+	localVersion, localVersionErr := localVersion()
+	if localVersionErr != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+	}
+	// we know both the local version and the latest version so we can make a determination
+	// from that alone on whether or not to alert users to update
+	if localVersion != nil && latestVersion != nil {
+		// the local version is out of date, so we know to warn
+		if localVersion.LessThan(latestVersion) {
+			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
+				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
 			return nil
 		}
 	}
@@ -1757,8 +1761,8 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	// the local build is more than a week old, so we should warn
 	if time.Since(dateCompiled) > time.Hour*24*7 {
 		var updateInstructions string
-		if latestBuildVersion.Original() != "" {
-			updateInstructions = fmt.Sprintf(" to version: %s", latestBuildVersion)
+		if latestVersion.Original() != "" {
+			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
 			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
@@ -1769,22 +1773,27 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 // UpdateCLIAction updates the CLI to the latest version.
 func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	// 1. check CLI to see if update needed, if this fails then try update anyways
-	if latestBuildVersion, err := latestVersion(); err != nil {
-		if localVersion, err := localVersion(); err != nil {
-			if localVersion.GreaterThanEqual(&latestBuildVersion) {
-				infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
-				return nil
-			}
+	latestVersion, latestVersionErr := latestVersion()
+	if latestVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+	}
+	localVersion, localVersionErr := localVersion()
+	if localVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+	}
+	if localVersionErr == nil && latestVersionErr == nil {
+		if localVersion.GreaterThanEqual(latestVersion) {
+			infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
+			return nil
 		}
 	}
-
 	// 2. check if cli managed by brew, if so attempt update. If it fails
 	// dont continue with binary to avoid putting brew out of sync
 	managedByBrew, err := checkAndTryBrewUpdate()
 	if err != nil {
 		return errors.Errorf("CLI update failed: %v", err)
 	}
-	// brew update not returning false (not successful) but no error means not managed by brew
+	// brew update returning false (not successful) but no error means not managed by brew
 	if !managedByBrew {
 		// 3. get the local version binary path (use full path if no symlinks)
 		execPath, err := os.Executable()
@@ -1810,7 +1819,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 		}
 	}
-	infof(c.App.Writer, "Your CLI has been successfully updated")
+	infof(c.App.Writer, "Your CLI has been successfully updated to version %s", latestVersion.Original())
 	return nil
 }
 
