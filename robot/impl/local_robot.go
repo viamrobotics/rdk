@@ -40,6 +40,7 @@ import (
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -1061,11 +1062,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
 		if isModular {
-			var depStrings []string
-			for dep := range deps {
-				depStrings = append(depStrings, dep.String())
-			}
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, depStrings)
+			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
 		} else {
 			err = res.Reconfigure(ctx, deps, conf)
 		}
