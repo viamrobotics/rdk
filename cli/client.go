@@ -1668,7 +1668,7 @@ func localVersion() (*semver.Version, error) {
 	appVersion := rconfig.Version
 	localVersion, err := semver.NewVersion(appVersion)
 	if err != nil {
-		return nil, errors.New("failed to parse local version")
+		return nil, errors.New("failed to parse local build version")
 	}
 	return localVersion, nil
 }
@@ -1676,7 +1676,7 @@ func localVersion() (*semver.Version, error) {
 func latestVersion() (*semver.Version, error) {
 	latestRelease, err := getLatestReleaseVersionFunc()
 	if err != nil {
-		return nil, errors.New("failed to get latest release information")
+		return nil, fmt.Errorf("failed to get latest release information: %w", err)
 	}
 	latestVersion, err := semver.NewVersion(latestRelease)
 	if err != nil {
@@ -1719,15 +1719,15 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	latestVersion, latestVersionErr := latestVersion()
+	latestVersion, err := latestVersion()
 	// failure to parse `latestRelease` is expected for local builds; we don't want overly
 	// noisy warnings here so only alert in these cases if debug flag is on
-	if latestVersionErr != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
-	localVersion, localVersionErr := localVersion()
-	if localVersionErr != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+	localVersion, err := localVersion()
+	if err != nil && globalArgs.Debug {
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
 	// we know both the local version and the latest version so we can make a determination
 	// from that alone on whether or not to alert users to update
@@ -1761,7 +1761,7 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	// the local build is more than a week old, so we should warn
 	if time.Since(dateCompiled) > time.Hour*24*7 {
 		var updateInstructions string
-		if latestVersion.Original() != "" {
+		if latestVersion != nil {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
