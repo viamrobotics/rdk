@@ -580,13 +580,13 @@ func (g *singleAxis) Stop(ctx context.Context, extra map[string]interface{}) err
 
 // Close calls stop.
 func (g *singleAxis) Close(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	if err := g.Stop(ctx, nil); err != nil {
 		return err
 	}
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	if g.cancelFunc != nil {
+		g.cancelFunc()
+		g.activeBackgroundWorkers.Wait()
+	}
 	return nil
 }
 
