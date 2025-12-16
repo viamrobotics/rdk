@@ -238,10 +238,6 @@ func tracePrintLocal(
 	defer traceReader.Close()
 
 	devExporter := perf.NewOtelDevelopmentExporter()
-	if err := devExporter.Start(); err != nil {
-		return err
-	}
-	defer devExporter.Stop()
 	var msg tracepb.ResourceSpans
 	err = nil
 	for resource := range traceReader.AllWithMemory(&msg) {

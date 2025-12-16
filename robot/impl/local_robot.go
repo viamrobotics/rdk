@@ -19,13 +19,14 @@ import (
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	rdktrace "go.viam.com/utils/trace"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -57,6 +58,23 @@ import (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
+
+func init() {
+	// Unfortunately Otel SDK doesn't have a way to reconfigure the resource
+	// information so we need to set it here before any of the gRPC servers
+	// access the global tracer provider.
+	//nolint: errcheck, gosec
+	trace.SetProvider(
+		context.Background(),
+		sdktrace.WithResource(
+			otelresource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceName("rdk"),
+				semconv.ServiceNamespace("viam.com"),
+			),
+		),
+	)
+}
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -234,7 +252,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		r.ftdc.StopAndJoin(ctx)
 	}
 
-	err = multierr.Combine(err, rdktrace.Shutdown(ctx))
+	err = multierr.Combine(err, trace.Shutdown(ctx))
 
 	return err
 }
@@ -459,14 +477,7 @@ func newWithResources(
 				return
 			}
 
-			rdktrace.SetTracerWithExporters(
-				otelresource.NewWithAttributes(
-					semconv.SchemaURL,
-					semconv.ServiceName("rdk"),
-					semconv.ServiceNamespace("viam.com"),
-				),
-				exporter,
-			)
+			trace.AddExporters(exporter)
 		}()
 	}
 

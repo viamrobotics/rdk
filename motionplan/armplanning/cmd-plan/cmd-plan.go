@@ -18,7 +18,10 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
+	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.viam.com/utils/perf"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -119,13 +122,24 @@ func realMain() error {
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
-	exporter := perf.NewOtelDevelopmentExporter()
-	if err := exporter.Start(); err != nil {
+	metricsExporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
+		ReportingInterval: time.Second * 10,
+		TracesDisabled:    true,
+	})
+	if err := metricsExporter.Start(); err != nil {
 		return err
 	}
 
+	spansExporter := perf.NewOtelDevelopmentExporter()
+	//nolint: errcheck, gosec
+	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
+	trace.AddExporters(spansExporter)
+
 	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
-	exporter.Stop()
+	if err := trace.Shutdown(ctx); err != nil {
+		logger.Errorw("Got error while shutting down tracing", "err", err)
+	}
+	metricsExporter.Stop()
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
