@@ -1736,8 +1736,8 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		if localVersion.LessThan(latestVersion) {
 			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
 				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
-			return nil
 		}
+		return nil
 	}
 
 	dateCompiledRaw := rconfig.DateCompiled
