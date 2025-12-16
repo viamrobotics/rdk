@@ -2127,7 +2127,8 @@ func checkAndTryBrewUpdate() (bool, error) {
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("brew"); err == nil {
 			// Check if viam is actually managed by brew
-			err := exec.Command("brew", "list", "viam").Run(); if err == nil {
+			err := exec.Command("brew", "list", "viam").Run()
+			if err == nil {
 				// viam is managed by brew - try upgrade
 				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 				if err == nil {
