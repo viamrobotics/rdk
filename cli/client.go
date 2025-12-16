@@ -1783,7 +1783,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
-			infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
+			infof(c.App.Writer, "Your CLI is already up to date (version %s)", localVersion.Original())
 			return nil
 		}
 	}
@@ -1819,7 +1819,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 		}
 	}
-	infof(c.App.Writer, "Your CLI has been successfully updated to version %s", latestVersion.Original())
+	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
 }
 
@@ -1827,11 +1827,14 @@ func checkAndTryBrewUpdate() (bool, error) {
 	if runtime.GOOS == "darwin" {
 		if _, err := exec.LookPath("brew"); err == nil {
 			// Check if viam is actually managed by brew
-			cmd := exec.Command("brew", "list", "viam")
-			if err := cmd.Run(); err == nil {
+			err := exec.Command("brew", "list", "viam").Run(); if err == nil {
 				// viam is managed by brew - try upgrade
-				cmd = exec.Command("brew", "upgrade", "viam")
-				if err := cmd.Run(); err == nil {
+				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
+				if err == nil {
+					if strings.Contains(string(out), "already installed") {
+						// edge case: latest version released but brew has not updated yet
+						return false, errors.New("the latest version is not on brew yet")
+					}
 					return true, nil
 				}
 				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
