@@ -1635,6 +1635,7 @@ func TestCLIUpdateAction(t *testing.T) {
 	downloadURL := server.URL + filename
 	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir)
 	test.That(t, err, test.ShouldBeNil)
+
 	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
 	expectedFileName := "viam-cli-update"
 	if runtime.GOOS == osWindows {

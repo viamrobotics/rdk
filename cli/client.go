@@ -1781,19 +1781,19 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	if localVersionErr != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
 	}
-	if localVersionErr == nil && latestVersionErr == nil {
+	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
 			infof(c.App.Writer, "Your CLI is already up to date (version %s).", localVersion.Original())
 			return nil
 		}
 	}
 	// 2. check if cli managed by brew, if so attempt update. If it fails
-	// dont continue with binary to avoid putting brew out of sync
+	// dont continue with binary replacement to avoid putting brew out of sync
 	managedByBrew, err := checkAndTryBrewUpdate()
 	if err != nil {
 		return errors.Errorf("CLI update failed: %v", err)
 	}
-	// brew update returning false (not successful) but no error means not managed by brew
+	// try the binary replacement process because not managed by brew
 	if !managedByBrew {
 		// 3. get the local version binary path (use full path if no symlinks)
 		execPath, err := os.Executable()
