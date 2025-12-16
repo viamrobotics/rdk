@@ -184,8 +184,6 @@ func readFromCloud(
 	logger.Debug("reading configuration from the cloud")
 	cloudCfg := originalCfg.Cloud
 	unprocessedConfig, cached, err := getFromCloudOrCache(ctx, cloudCfg, shouldReadFromCache, logger, conn)
-	// TODO: remove this after merging changes for app to serve tracing config.
-	unprocessedConfig.Tracing = originalCfg.Tracing
 	if err != nil {
 		return nil, err
 	}
