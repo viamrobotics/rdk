@@ -41,9 +41,13 @@ import (
 )
 
 type module struct {
-	cfg         config.Module
-	dataDir     string
-	process     pexec.ManagedProcess
+	cfg     config.Module
+	dataDir string
+	process pexec.ManagedProcess
+	// prevProcess, if not nil, will contain the previously running process. If the current process came from a restart by an
+	// OnUnexpectedExitHandler, prevProcess will be the process that launched the OUE. If the process was started through
+	// stopProcess and startProcess, it will simply be the previous (stopped) process.
+	// This is used with wait to enforce clean shutdown without goroutine leaks.
 	prevProcess pexec.ManagedProcess
 	handles     modlib.HandlerMap
 	sharedConn  rdkgrpc.SharedConn
