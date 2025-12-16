@@ -137,6 +137,9 @@ type Module struct {
 	pcClosed             <-chan struct{}
 	pcFailed             <-chan struct{}
 
+	// for testing only
+	parentClientOptions []client.RobotClientOption
+
 	logger logging.Logger
 }
 
@@ -336,6 +339,9 @@ func (m *Module) connectParent(ctx context.Context) error {
 	connectOptions := []client.RobotClientOption{
 		client.WithDisableSessions(),
 	}
+	if m.parentClientOptions != nil {
+		connectOptions = append(connectOptions, m.parentClientOptions...)
+	}
 
 	// Modules compiled against newer SDKs may be running against older `viam-server`s that do not
 	// provide the module name as an env variable.
@@ -436,6 +442,7 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 		if moduleLogger, ok := m.logger.(*moduleLogger); ok {
 			moduleLogger.startLoggingViaGRPC(m)
 		}
+		m.logger.Debug("successfully created connection to parent")
 	}
 
 	resp.Ready = m.ready
