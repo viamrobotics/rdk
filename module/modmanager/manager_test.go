@@ -23,7 +23,6 @@ import (
 	v1 "go.viam.com/api/module/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
@@ -94,8 +93,7 @@ func setupModManager(
 			err = m.stopProcess()
 
 			// wait for any modules' managedProcesses goroutines to complete.
-			// note as OUE replaces existing m.process, this will only wait for the most recent one.
-			m.process.Wait()
+			m.wait()
 		}
 	})
 	return mgr
@@ -705,16 +703,6 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
 
-		mod, ok := mgr.modules.Load("test-module")
-		test.That(t, ok, test.ShouldBeTrue)
-
-		// save the managedProcess's waitgroup before we kill the module, so we can wait on it later to prevent goroutine leak failures.
-		// OUE will swap out mod.process with a new one each time it attempts to restart (regardless of success/fail),
-		// so we do this to keep the full history.
-		var modProcs []pexec.ManagedProcess
-		// save original process
-		modProcs = append(modProcs, mod.process)
-
 		// Remove testmodule binary, so process cannot be successfully restarted
 		// after crash.
 		err = os.Remove(modCfg.ExePath)
@@ -741,10 +729,6 @@ func TestModuleReloading(t *testing.T) {
 				test.ShouldEqual, 1)
 		})
 
-		// attemptRestart has swapped the old managedProcess with a new one.
-		// (and it is now blocked on oueRestartInterval for the remainder of the test)
-		modProcs = append(modProcs, mod.process)
-
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
@@ -758,17 +742,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that HandleOrphanedResources was not called
 		test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
-
-		// cancel OUE
-		if mod.restartCancel != nil {
-			mod.restartCancel()
-		}
-
-		// wait on original and new OUE processes
-		modProcs = append(modProcs, mod.process)
-		for _, modProc := range modProcs {
-			modProc.Wait()
-		}
 	})
 	t.Run("do not restart if context canceled", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
