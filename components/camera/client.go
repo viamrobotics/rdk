@@ -181,6 +181,10 @@ func (c *client) Stream(
 	return stream, nil
 }
 
+func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
+	return nil, ImageMetadata{}, errors.New("method GetImage is deprecated; please utilize GetImages instead")
+}
+
 func (c *client) Images(
 	ctx context.Context,
 	filterSourceNames []string,

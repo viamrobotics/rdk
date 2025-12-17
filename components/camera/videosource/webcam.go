@@ -388,6 +388,10 @@ func (c *webcam) Monitor() {
 	})
 }
 
+func (c *webcam) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
+	return nil, camera.ImageMetadata{}, errors.New("method GetImage is deprecated; please utilize GetImages instead")
+}
+
 func (c *webcam) Images(
 	ctx context.Context,
 	filterSourceNames []string,

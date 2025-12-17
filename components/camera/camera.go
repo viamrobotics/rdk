@@ -169,23 +169,11 @@ type ImageMetadata struct {
 // A Camera is a resource that can capture frames.
 // For more information, see the [camera component docs].
 //
-// Image example:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
-//
-// Or try to directly decode as an image.Image:
-//
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
-//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
-//
-// For more information, see the [Image method docs].
-//
 // Images example:
 //
 //	myCamera, err := camera.FromRobot(machine, "my_camera")
 //
-//	images, metadata, err := myCamera.Images(context.Background(), nil)
+//	images, metadata, err := myCamera.Images(context.Background(), []string{}, nil)
 //
 // For more information, see the [Images method docs].
 //
@@ -207,13 +195,20 @@ type ImageMetadata struct {
 // For more information, see the [Close method docs].
 //
 // [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
-// [Image method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimage
 // [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
 // [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
 // [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
 type Camera interface {
 	resource.Resource
 	resource.Shaped
+
+	// Deprecated: Image is deprecated. Please use Images instead. For resource implementers, you can use
+	// GetImageFromGetImages to implement this easily from an existing Images method, then remove once
+	// Image is deleted from the Go SDK/RDK.
+	//
+	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
+	// Image also may return metadata about the frame.
+	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
 	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
