@@ -1234,7 +1234,7 @@ func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
