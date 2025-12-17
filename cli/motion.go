@@ -94,7 +94,7 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 		return err
 	}
 
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}
@@ -148,7 +148,7 @@ func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
 		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}
@@ -200,7 +200,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 		utils.UncheckedError(robotClient.Close(ctx))
 	}()
 
-	myMotion, err := motion.FromRobot(robotClient, "builtin")
+	myMotion, err := motion.FromProvider(robotClient, "builtin")
 	if err != nil || myMotion == nil {
 		return fmt.Errorf("no motion: %w", err)
 	}

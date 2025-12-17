@@ -30,6 +30,7 @@ type Options struct {
 	BaseURL     string
 	Entity      string
 	Credentials rpc.Credentials
+	DialOptions []rpc.DialOption
 }
 
 var dialDirectGRPC = rpc.DialDirectGRPC
@@ -49,16 +50,30 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 		return nil, err
 	}
 
-	if options.Credentials.Payload == "" || options.Entity == "" {
-		return nil, errors.New("entity and payload cannot be empty")
-	}
-	opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
-
-	conn, err := dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
-	if err != nil {
-		return nil, err
+	var conn rpc.ClientConn
+	if len(options.DialOptions) > 0 {
+		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, options.DialOptions...)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if options.Credentials.Payload == "" || options.Entity == "" {
+			return nil, errors.New("entity and payload cannot be empty")
+		}
+		opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
+		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &ViamClient{conn: conn}, nil
+}
+
+// WithDialOptions creates a new Options struct with the given dial options.
+func WithDialOptions(opts ...rpc.DialOption) Options {
+	return Options{
+		DialOptions: opts,
+	}
 }
 
 // CreateViamClientWithAPIKey creates a ViamClient with an API key.

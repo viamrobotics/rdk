@@ -18,19 +18,25 @@ import (
 	"sync/atomic"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"go.viam.com/utils/trace"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -38,6 +44,7 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
@@ -260,8 +267,28 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
 
+	// Attach the Viam client info to the handler context. Can be accessed via
+	// client.GetViamClientInfo. Helpful for seeing the language, SDK version, and API
+	// version of the module.
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
+
+	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
+	// request manages to cause an internal panic.
+	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%v", p)
+			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%s", p)
+			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
@@ -270,12 +297,22 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []googlegrpc.ServerOption{
 		googlegrpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
+		googlegrpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
+			PermitWithoutStream: true,
+		}),
+		googlegrpc.StatsHandler(otelStatsHandler),
 	}
 	server := module.NewServer(opts...)
 	if tcpMode {
@@ -337,6 +374,7 @@ func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	svc.closeStreamServer()
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 }
@@ -461,7 +499,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		svc.closeStreamServer()
 	})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -551,6 +588,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		streamInterceptors []googlegrpc.StreamServerInterceptor
 	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
@@ -971,14 +1010,23 @@ func (svc *webService) Stats() any {
 // RestartStatusResponse is the JSON response of the `restart_status` HTTP
 // endpoint.
 type RestartStatusResponse struct {
-	// RestartAllowed represents whether this instance of the viam-server can be
+	// RestartAllowed represents whether this instance of the viamserver can be
 	// safely restarted.
 	RestartAllowed bool `json:"restart_allowed"`
+	// DoesNotHandleNeedsRestart represents whether this instance of the viamserver does
+	// not check for the need to restart against app itself and, thus, needs agent to do so.
+	// Newer versions of viamserver (>= v0.9x.0) will report true for this value, while
+	// older versions won't report it at all, and agent should let viamserver handle
+	// NeedsRestart logic.
+	DoesNotHandleNeedsRestart bool `json:"does_not_handle_needs_restart,omitempty"`
 }
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
-	response := RestartStatusResponse{RestartAllowed: svc.r.RestartAllowed()}
+	response := RestartStatusResponse{
+		RestartAllowed:            svc.r.RestartAllowed(),
+		DoesNotHandleNeedsRestart: true,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	// Only log errors from encoding here. A failure to encode should never

@@ -10,11 +10,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
@@ -172,7 +172,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	// return error if resource is neither a camera nor audioinput
 	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
-	_, isAudioErr := audioinput.FromRobot(server.robot, streamStateToAdd.Stream.Name())
+	_, isAudioErr := audioinput.FromProvider(server.robot, streamStateToAdd.Stream.Name())
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
 	}
@@ -271,7 +271,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	}
 
 	streamName := streamToRemove.Stream.Name()
-	_, isAudioResourceErr := audioinput.FromRobot(server.robot, streamName)
+	_, isAudioResourceErr := audioinput.FromProvider(server.robot, streamName)
 	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
@@ -310,7 +310,7 @@ func (server *Server) GetStreamOptions(
 	if req.Name == "" {
 		return nil, errors.New("stream name is required")
 	}
-	cam, err := camera.FromRobot(server.robot, req.Name)
+	cam, err := camera.FromProvider(server.robot, req.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
@@ -403,7 +403,7 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
 	}
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		server.logger.Errorf("error getting camera %q from robot", name)
 		return err
@@ -435,7 +435,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
 	}
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		server.logger.Errorf("error getting camera %q from robot", name)
 	}
@@ -578,13 +578,13 @@ func (server *Server) removeMissingStreams() {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
 		shortName := resource.SDPTrackNameToShortName(camName)
-		if _, err := audioinput.FromRobot(server.robot, shortName); err == nil {
+		if _, err := audioinput.FromProvider(server.robot, shortName); err == nil {
 			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
 			// stream in place if its an audio resource.
 			continue
 		}
 
-		_, err := camera.FromRobot(server.robot, shortName)
+		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
 			// Cameras can go through transient states during reconfigure that don't necessarily
 			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
@@ -632,7 +632,7 @@ func (server *Server) removeMissingStreams() {
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
 func (server *Server) refreshVideoSources(ctx context.Context) {
 	for _, name := range camera.NamesFromRobot(server.robot) {
-		cam, err := camera.FromRobot(server.robot, name)
+		cam, err := camera.FromProvider(server.robot, name)
 		if err != nil {
 			continue
 		}
@@ -685,7 +685,7 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 // refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
 func (server *Server) refreshAudioSources() {
 	for _, name := range audioinput.NamesFromRobot(server.robot) {
-		input, err := audioinput.FromRobot(server.robot, name)
+		input, err := audioinput.FromProvider(server.robot, name)
 		if err != nil {
 			continue
 		}
@@ -746,7 +746,7 @@ func (server *Server) startAudioStream(ctx context.Context, source gostream.Audi
 }
 
 func (server *Server) getFramerateFromCamera(name string) (int, error) {
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
 	}

@@ -36,6 +36,7 @@ jobs:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   full-static:
     needs: test
@@ -64,7 +65,7 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
-    if: ${{ failure() }}
+    if: ${{ !success() }}
     name: Post Workflow Status To Slack
     needs:
       - test

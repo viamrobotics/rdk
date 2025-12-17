@@ -7,17 +7,22 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	gtestutils "go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/testutils"
@@ -27,7 +32,7 @@ import (
 
 func TestMultipleModules(t *testing.T) {
 	logger, observer := logging.NewObservedTestLogger(t)
-
+	testViamHome := t.TempDir()
 	var port int
 	success := false
 	for portTryNum := 0; portTryNum < 10; portTryNum++ {
@@ -36,7 +41,8 @@ func TestMultipleModules(t *testing.T) {
 		port = portLocal
 		test.That(t, err, test.ShouldBeNil)
 
-		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger)
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger,
+			robottestutils.WithViamHome(testViamHome), robottestutils.WithTracing())
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -92,6 +98,12 @@ func TestMultipleModules(t *testing.T) {
 		ret4, err = giz.DoTwo(context.Background(), false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ret4, test.ShouldEqual, "sum=5")
+
+		// Test that spans from both modules are sent to viam-server and eventually
+		// exported to its traces file on disk.
+		gtestutils.WaitForAssertionWithSleep(t, time.Second, 10, func(t testing.TB) {
+			checkTraceContents(t, testViamHome, "rdk", "GizmoModule", "SummationModule")
+		})
 	})
 
 	// Summation is a custom service model and API.
@@ -157,4 +169,29 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 		return "", 0, err
 	}
 	return cfgFilename, port, file.Close()
+}
+
+// Check that all the specified services exist in the viam trace file
+func checkTraceContents(t testing.TB, viamHome string, services ...string) {
+	tracesPath := filepath.Join(viamHome, ".viam", "trace", "local-config", "traces")
+	tracesFile, err := os.Open(tracesPath)
+	test.That(t, err, test.ShouldBeNil)
+	defer tracesFile.Close()
+
+	protosReader := protoutils.NewDelimitedProtoReader[otlpv1.ResourceSpans](tracesFile)
+	seenServices := map[string]struct{}{}
+	for resourceSpan := range protosReader.All() {
+		attrs := resourceSpan.Resource.Attributes
+		for _, attr := range attrs {
+			keyStr := attr.Key
+			if keyStr == string(semconv.ServiceNameKey) {
+				serviceName := attr.Value.GetStringValue()
+				seenServices[serviceName] = struct{}{}
+			}
+		}
+	}
+
+	for _, service := range services {
+		test.That(t, seenServices, test.ShouldContainKey, service)
+	}
 }

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -50,9 +50,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-
-		pc, err := camera.NextPointCloud(ctx)
+		pc, err := camera.NextPointCloud(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -157,8 +155,9 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			TimeReceived:  resMetadata.CapturedAt,
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			MimeType: mimeType,
-			Payload:  imgBytes,
+			MimeType:    mimeType,
+			Payload:     imgBytes,
+			Annotations: img.Annotations,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
@@ -189,8 +188,10 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if err != nil {
 				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
+			annotations := img.Annotations
+			annotations.Classifications = append(annotations.Classifications, data.Classification{Label: img.SourceName})
 			binaries = append(binaries, data.Binary{
-				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
+				Annotations: annotations,
 				Payload:     imgBytes,
 				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
 			})

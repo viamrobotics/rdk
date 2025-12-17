@@ -5,11 +5,11 @@ import (
 	"context"
 	"image"
 
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"

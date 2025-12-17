@@ -4,11 +4,15 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -464,7 +468,9 @@ func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) 
 		test.That(t, err, test.ShouldBeNil)
 		for _, packageFile := range foundFiles {
 			// skip over status files
-			if !slices.Contains(expectedPackages, packageFile.Name()) && !strings.HasSuffix(packageFile.Name(), ".status.json") {
+			if !slices.Contains(expectedPackages, packageFile.Name()) &&
+				!strings.HasSuffix(packageFile.Name(), ".status.json") &&
+				packageFile.Name() != "part" {
 				t.Errorf("found unknown file in package %s dir %s", typeFile.Name(), packageFile.Name())
 			}
 		}
@@ -604,4 +610,93 @@ func TestTrimLeadingZeroes(t *testing.T) {
 			test.That(t, trimLeadingZeroes(tc.input), test.ShouldResemble, tc.expected)
 		})
 	}
+}
+
+func TestLogProgressWriter(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	writer := newLogProgressWriter(logger, "job", 1e6)
+	test.That(t, writer.Update(0), test.ShouldContainSubstring, "downloaded 0.00 / 1.00 MB (0%)")
+	test.That(t, writer.Update(5e5), test.ShouldContainSubstring, "downloaded 0.50 / 1.00 MB (50%)")
+	test.That(t, writer.Update(1e6), test.ShouldContainSubstring, "downloaded 1.00 MB (100%)")
+}
+
+type testHandler struct {
+	modTime time.Time
+	content string
+	lengths []string // history of Content-Length
+}
+
+func (th *testHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	hash := crc32Hash()
+	hash.Write([]byte(th.content))
+	w.Header().Add("x-goog-hash", "crc32c="+base64.StdEncoding.EncodeToString(hash.Sum(nil)))
+	http.ServeContent(w, req, "mydownload", th.modTime, strings.NewReader(th.content))
+	if req.Method == http.MethodGet {
+		th.lengths = append(th.lengths, w.Header().Get("Content-Length"))
+	}
+}
+
+func TestDownloadFileWithChecksum(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	packagesDir := t.TempDir()
+	pm := &cloudManager{
+		Named:           InternalServiceName.AsNamed(),
+		httpClient:      *http.DefaultClient,
+		packagesDir:     packagesDir,
+		packagesDataDir: filepath.Join(packagesDir, "data"),
+		logger:          logger,
+	}
+
+	handler := &testHandler{
+		modTime: time.Now(),
+		content: strings.Repeat("hello ", 10),
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	t.Run("complete", func(t *testing.T) {
+		dest := filepath.Join(packagesDir, "download1")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest, "id", "secret")
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("resumable", func(t *testing.T) {
+		maxBytesForTesting = int64(len(handler.content)/2) + 1
+		t.Cleanup(func() { maxBytesForTesting = 0 })
+
+		dest := filepath.Join(packagesDir, "download2")
+
+		// first attempt fails midway because of maxBytesForTesting
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "short write")
+
+		// second attempt finishes
+		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		test.That(t, err, test.ShouldBeNil)
+		// check the length
+		test.That(t, handler.lengths[len(handler.lengths)-1], test.ShouldEqual,
+			strconv.Itoa(len(handler.content)-int(maxBytesForTesting)))
+	})
+
+	t.Run("partial-cleanups", func(t *testing.T) {
+		// create two partial download folders, one over the max age limit, the other under
+		p1 := filepath.Join(pm.packagesDataDir, "packagetype", partialsDirName, "partial1")
+		p2 := filepath.Join(pm.packagesDataDir, "packagetype", partialsDirName, "partial2")
+		err := errors.Join(
+			os.MkdirAll(p1, 0o750),
+			os.MkdirAll(p2, 0o750),
+		)
+		test.That(t, err, test.ShouldBeNil)
+		now := time.Now()
+		err = os.Chtimes(p1, now.Add(-maxPartialAge-time.Hour), now.Add(-maxPartialAge-time.Hour))
+		test.That(t, err, test.ShouldBeNil)
+
+		err = commonCleanup(logger, nil, pm.packagesDataDir)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = os.Stat(p1)
+		var pathError *os.PathError
+		test.That(t, errors.As(err, &pathError), test.ShouldBeTrue)
+		_, err = os.Stat(p2)
+		test.That(t, err, test.ShouldBeNil)
+	})
 }

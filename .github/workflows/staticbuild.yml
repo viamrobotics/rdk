@@ -18,6 +18,8 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+      SLACK_BOT_TOKEN:
+        required: false
 
 jobs:
   static:
@@ -146,6 +148,7 @@ jobs:
         echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-windows-x86_64" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
   static_test:
@@ -234,4 +237,43 @@ jobs:
         echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-windows-x86_64" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
+
+
+  send-slack-msg:
+    name: 'Send Slack Message'
+    needs: static_deploy
+    runs-on: ubuntu-latest
+    if: ${{ inputs.release_type == 'latest' && !inputs.no-upload && needs.static_deploy.result == 'success' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get dev version
+        id: dev-version
+        run: |
+          echo "version=$(./etc/dev-version.sh)" >> $GITHUB_OUTPUT
+
+      - name: Send slack message
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "${{ vars.SLACK_CHANNEL_ID }}",
+              "text": "Dev RDK release *published* :white_check_mark:",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Dev RDK release *published* :white_check_mark:\n\n• Dev version: `${{ steps.dev-version.outputs.version }}`\n\n*Versioned Binaries (${{ steps.dev-version.outputs.version }}):*\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-aarch64|Linux ARM64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-x86_64|Linux x86_64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-windows-x86_64|Windows x86_64>\nYou can use this dev release by setting your agent config viam-server version to one of the URLs above.\n\n*Build Info:*\n• <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow run>\n• Commit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                  }
+                }
+              ]
+            }
+      

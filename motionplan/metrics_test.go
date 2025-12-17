@@ -13,13 +13,12 @@ import (
 func TestSqNormMetric(t *testing.T) {
 	p1 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 0})
 	p2 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 10})
-	sqMet := NewSquaredNormMetric(p1)
 
-	d1 := sqMet(&State{Position: p1})
+	// Test using WeightedSquaredNormDistance function
+	d1 := WeightedSquaredNormDistance(p1, p1)
 	test.That(t, d1, test.ShouldAlmostEqual, 0)
-	sqMet = NewSquaredNormMetric(p2)
-	d2 := sqMet(&State{Position: p1})
-	test.That(t, d2, test.ShouldAlmostEqual, 100)
+	d2 := WeightedSquaredNormDistance(p1, p2)
+	test.That(t, d2, test.ShouldAlmostEqual, 1.0) // 10^2 * 0.01 = 1.0
 }
 
 func TestBasicMetric(t *testing.T) {
@@ -36,16 +35,15 @@ func TestBasicMetric(t *testing.T) {
 
 var (
 	ov     = &spatial.OrientationVector{math.Pi / 2, 0, 0, -1}
-	p1b    = &State{Position: spatial.NewPose(r3.Vector{1, 2, 3}, ov)}
+	p1b    = spatial.NewPose(r3.Vector{1, 2, 3}, ov)
 	p2b    = spatial.NewPose(r3.Vector{2, 3, 4}, ov)
 	result float64
 )
 
 func BenchmarkDeltaPose1(b *testing.B) {
 	var r float64
-	weightedSqNormDist := NewSquaredNormMetric(p2b)
 	for n := 0; n < b.N; n++ {
-		r = weightedSqNormDist(p1b)
+		r = WeightedSquaredNormDistance(p1b, p2b)
 	}
 	// Prevent compiler optimizations interfering with benchmark
 	result = r

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,27 +11,36 @@ import (
 	"testing"
 	"time"
 
+	"github.com/viamrobotics/webrtc/v3"
+	"go.viam.com/utils/rpc"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/utils/ssync"
 )
+
+// ReqLimitExceededURL is the URL for the troubleshooting steps for request limit exceeded errors.
+const ReqLimitExceededURL = "https://docs.viam.com/dev/tools/common-errors/#req-limit-exceeded"
 
 // RequestLimitExceededError is an error returned when a request is rejected
 // because it would exceed the limit for concurrent requests to a given
 // resource.
 type RequestLimitExceededError struct {
-	resource string
-	limit    int64
+	resource                            string
+	limit, numInFlightRequestsForClient int64
 }
 
 func (e RequestLimitExceededError) Error() string {
-	return fmt.Sprintf("exceeded request limit %v on resource %v", e.limit, e.resource)
+	return fmt.Sprintf(
+		"exceeded request limit %v on resource %v (your client is responsible for %v). See %v for troubleshooting steps",
+		e.limit, e.resource, e.numInFlightRequestsForClient, ReqLimitExceededURL)
 }
 
 // GRPCStatus allows this error to be converted to a [status.Status].
@@ -58,6 +68,17 @@ type requestStats struct {
 	dataSent  atomic.Int64
 }
 
+type counterName string
+
+const (
+	inFlightCounterName counterName = "inFlight"
+	rejectedCounterName counterName = "rejected"
+)
+
+type inFlightAndRejectedRequests struct {
+	inFlightRequests, rejectedRequests *atomic.Int64
+}
+
 // RequestCounter is used to track and limit incoming requests. It instruments
 // every unary and streaming request coming in from both external clients and
 // internal modules.
@@ -69,7 +90,7 @@ type RequestCounter struct {
 	// their own set of stats.
 	requestKeyToStats ssync.Map[string, *requestStats]
 
-	// inFlightRequests maps resource names to how many in flight requests are
+	// inFlightRequests maps resource names to how many in-flight requests are
 	// currently targeting that resource name. There can only be `limit` API
 	// calls for any resource. E.g: `motor-foo` can have 50 `IsPowered`
 	// concurrent calls with 50 more `GoFor` calls, or instead 100 `IsPowered`
@@ -79,11 +100,31 @@ type RequestCounter struct {
 	// environment variable.
 	inFlightRequests ssync.Map[string, *atomic.Int64]
 	inFlightLimit    int64
+
+	// RSDK-12608:
+	//
+	// The two maps below exist so that diagnostic information (which client is flooding a
+	// resource with requests) may be output when a "Resource limit exceeded for resource"
+	// error is output.
+
+	// requestsPerPC maps WebRTC connections (pcs) to _another_ map. That second map is a
+	// mapping of resource names to how many in-flight and rejected (exceeded
+	// `inFlightLimit`) requests the WebRTC connection is responsible for.
+	requestsPerPC ssync.Map[*webrtc.PeerConnection, *ssync.Map[string, *inFlightAndRejectedRequests]]
+
+	// pcToClientMetadata maps WebRTC connections (pcs) to the metadata of the connecting
+	// client. This will be in the form "[type-of-sdk];[sdk-version];[api-version]"
+	// potentially prefixed with "module-[name-of-module]-" to represent a module's
+	// connection back to the RDK.
+	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
 }
 
-// decrInFlight decrements the in flight request counter for a given resource.
-func (rc *RequestCounter) decrInFlight(resource string) {
+// decrInFlight decrements the in-flight request counters for a given resource and pc.
+func (rc *RequestCounter) decrInFlight(resource string, pc *webrtc.PeerConnection) {
 	rc.ensureInFlightCounterForResource(resource).Add(-1)
+	if pc != nil {
+		rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(-1)
+	}
 }
 
 func (rc *RequestCounter) preRequestIncrement(key string) {
@@ -135,23 +176,222 @@ func (rc *RequestCounter) Stats() any {
 	return ret
 }
 
+// ClientInformation represents the metadata, connection information, and request counts
+// of a connected client. Useful for logging client information when request limits are
+// exceeded.
+type ClientInformation struct {
+	// ClientMetadata represents the type and version of SDK connected and potentially the
+	// name of the module if it is a module->RDK connection. This will be in the form
+	// "[type-of-sdk];[sdk-version];[api-version]" potentially prefixed with
+	// "module-[name-of-module]-" to represent a module's connection back to the RDK.
+	ClientMetadata string `json:"client_metadata"`
+	// ConnectionID is the WebRTC peer connection ID of the connection; useful to associate
+	// with other WebRTC logs.
+	ConnectionID string `json:"connection_id"`
+	// ConnectTime is the timestamp around which the client initially connected.
+	ConnectTime string `json:"connect_time"`
+	// TimeSinceConnect is the amount of time that has passed since `ConnectTime`.
+	TimeSinceConnect string `json:"time_since_connect"`
+	// ServerIP is the IP address used by the client to connect to this server.
+	ServerIP string `json:"server_ip"`
+	// ClientIP is the IP address of the client.
+	ClientIP string `json:"client_ip"`
+	// InFlightRequests is a map of resource names to the number of in-flight requests
+	// against that resource this client is responsible for.
+	InFlightRequests map[string]int64 `json:"inflight_requests"`
+	// RejectedRequests is a map of resource names to the number of requests against that
+	// resource that have exceeded the in-flight limit this client is responsible for (how
+	// many times has this client caused a request limit exceeded error).
+	RejectedRequests map[string]int64 `json:"rejected_requests"`
+}
+
+// Returns whether the passed in peer connection has a connection state indicating that it
+// has closed.
+func pcIsClosed(pc *webrtc.PeerConnection) bool {
+	cs := pc.ConnectionState()
+	if cs == webrtc.PeerConnectionStateClosed || cs == webrtc.PeerConnectionStateDisconnected ||
+		cs == webrtc.PeerConnectionStateFailed {
+		return true
+	}
+	return false
+}
+
+// Creates a client information object for logging from a passed in peer connection.
+// Returns nil if passed in pc is nil or the passed in pc has been closed (pc will be
+// pruned from appropriate maps in that case).
+func (rc *RequestCounter) createClientInformationFromPC(
+	pc *webrtc.PeerConnection,
+) *ClientInformation {
+	if pc == nil {
+		return nil
+	}
+	if pcIsClosed(pc) {
+		rc.requestsPerPC.Delete(pc)
+		rc.pcToClientMetadata.Delete(pc)
+		return nil
+	}
+
+	ci := &ClientInformation{}
+
+	if clientMetadata, ok := rc.pcToClientMetadata.Load(pc); ok {
+		ci.ClientMetadata = clientMetadata
+	}
+
+	// Code to grab selected ICE candidate pair copied from goutils.
+	if connectionState := pc.ICEConnectionState(); connectionState == webrtc.ICEConnectionStateConnected &&
+		pc.SCTP() != nil &&
+		pc.SCTP().Transport() != nil &&
+		pc.SCTP().Transport().ICETransport() != nil {
+		selectedCandPair, err := pc.SCTP().Transport().ICETransport().GetSelectedCandidatePair()
+
+		// RSDK-8527: Surprisingly, `GetSelectedCandidatePair` can return `nil, nil` when the
+		// ice agent has been shut down.
+		if selectedCandPair != nil && err == nil {
+			if selectedCandPair.Remote != nil {
+				ci.ClientIP = selectedCandPair.Remote.Address
+			}
+			if selectedCandPair.Local != nil {
+				ci.ServerIP = selectedCandPair.Local.Address
+			}
+		}
+	}
+
+	// The selected ICE candidate pair object above does _not_ have an associated timestamp.
+	// That object also does _not_ expose its `statsID`. We loop through all peer connection
+	// stats below, find the first candidate pair that's been nominated, and grab the ID of
+	// its local candidate. We then use the `Timestamp` of the candidate associated with
+	// that ID (when the local candidate was gathered) as a guess at the time the client
+	// "connected." This guess could be wrong if multiple candidate pairs were nominated,
+	// and does not really represent the point at which the client could start sending
+	// requests. Those caveats are probably OK.
+	//
+	// TL;DR this is a hacky way to guess the connection time of the client.
+	var localCandID string
+	allCandsByID := make(map[string]webrtc.ICECandidateStats)
+	stats := pc.GetStats()
+	for _, stat := range stats {
+		if candPairStat, ok := stat.(webrtc.ICECandidatePairStats); ok && candPairStat.Nominated {
+			localCandID = candPairStat.LocalCandidateID
+		} else if candStat, ok := stat.(webrtc.ICECandidateStats); ok {
+			allCandsByID[candStat.ID] = candStat
+		} else if pcStat, ok := stat.(webrtc.PeerConnectionStats); ok {
+			ci.ConnectionID = pcStat.ID
+		}
+	}
+	var timeSinceConnect time.Duration
+	if localCand, ok := allCandsByID[localCandID]; ok {
+		connectTime := localCand.Timestamp.Time()
+		timeSinceConnect = time.Since(connectTime)
+		ci.ConnectTime = connectTime.String()
+		ci.TimeSinceConnect = timeSinceConnect.String()
+	}
+
+	ci.InFlightRequests = make(map[string]int64)
+	ci.RejectedRequests = make(map[string]int64)
+	if requestsForPC, ok := rc.requestsPerPC.Load(pc); ok {
+		requestsForPC.Range(func(
+			resourceName string,
+			ifarr *inFlightAndRejectedRequests,
+		) bool {
+			if ifr := ifarr.inFlightRequests.Load(); ifr > 0 {
+				ci.InFlightRequests[resourceName] = ifr
+			}
+			if rr := ifarr.rejectedRequests.Load(); rr > 0 {
+				ci.RejectedRequests[resourceName] = rr
+			}
+
+			return true
+		})
+	}
+
+	return ci
+}
+
+// Logs that a particular request limit was exceeded. Outputs the following information
+// (where possible):
+//   - Which API method invocation was attempted
+//   - Which resource the API method was invoked upon
+//   - All fields of the `ClientInformation` struct for both the offending client and all
+//     other clients
+//
+// The method also returns the number of in-flight requests against the invoked resource
+// for the offending client (to be included in returned error).
+func (rc *RequestCounter) logRequestLimitExceeded(
+	apiMethodString, resource string,
+	pc *webrtc.PeerConnection,
+) int64 {
+	var offendingClientInformationJSON []byte
+	offendingClientInformation := rc.createClientInformationFromPC(pc)
+	// offendingClientInformation will be nil if offending client's pc has already been
+	// closed. Leave offendingClientInformationJSON empty in that case.
+	if offendingClientInformation != nil {
+		var err error
+		offendingClientInformationJSON, err = json.Marshal(offendingClientInformation)
+		if err != nil {
+			rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
+		}
+	}
+
+	var allOtherClientInformationStrs []string
+	rc.requestsPerPC.Range(func(
+		pcKey *webrtc.PeerConnection,
+		_ *ssync.Map[string, *inFlightAndRejectedRequests],
+	) bool {
+		// Do not include offending client.
+		if pc != pcKey {
+			clientInformation := rc.createClientInformationFromPC(pcKey)
+			if clientInformation == nil {
+				// clientInformation will be nil if client's pc has already been closed. Do not
+				// include clientInformation in allOtherClientInformationStrs in that case.
+				return true
+			}
+			clientInformationJSON, err := json.Marshal(clientInformation)
+			if err != nil {
+				rc.logger.Errorf("Failed to marshal client information %+v", clientInformation)
+				return true
+			}
+			allOtherClientInformationStrs = append(allOtherClientInformationStrs, string(clientInformationJSON))
+		}
+		return true
+	})
+
+	msg := fmt.Sprintf(
+		"Request limit exceeded for resource. See %s for troubleshooting steps. "+
+			`{"method":%q,"resource":%q,"offending_client_information":%v,"all_other_client_information":%v}`,
+		ReqLimitExceededURL,
+		apiMethodString,
+		resource,
+		string(offendingClientInformationJSON),
+		fmt.Sprintf("[%v]", strings.Join(allOtherClientInformationStrs, ",")),
+	)
+	rc.logger.Warnw(msg)
+
+	return offendingClientInformation.InFlightRequests[resource]
+}
+
 // UnaryInterceptor returns an incoming server interceptor that will pull method information and
 // optionally resource information to bump the request counters.
 func (rc *RequestCounter) UnaryInterceptor(
 	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
 ) (resp any, err error) {
 	apiMethod := extractViamAPI(info.FullMethod)
+	pc, pcSet := rpc.ContextPeerConnection(ctx)
+	if pcSet {
+		rc.setClientMetadataForPC(ctx, pc)
+	}
+
 	if resource := buildResourceLimitKey(req, apiMethod); resource != "" {
-		if ok := rc.incrInFlight(resource); !ok {
-			rc.logger.Warnw("Request limit exceeded for resource",
-				"method", apiMethod.full, "resource", resource)
+		if ok := rc.incrInFlight(resource, pc); !ok {
+			numInFlightRequestsForClient := rc.logRequestLimitExceeded(apiMethod.full, resource, pc)
 			return nil, &RequestLimitExceededError{
-				resource: resource,
-				limit:    rc.inFlightLimit,
+				resource:                     resource,
+				limit:                        rc.inFlightLimit,
+				numInFlightRequestsForClient: numInFlightRequestsForClient,
 			}
 		}
-		defer rc.decrInFlight(resource)
+		defer rc.decrInFlight(resource, pc)
 	}
+
 	requestCounterKey := buildRCKey(req, apiMethod)
 	// Storing in FTDC: `web.motor-name.MotorService/IsMoving: <count>`.
 	if apiMethod.shortPath != "" {
@@ -211,14 +451,78 @@ func (rc *RequestCounter) ensureInFlightCounterForResource(resource string) *ato
 	return counter
 }
 
-// incrInFlight attempts to increment the in flight request counter for a given
+func (rc *RequestCounter) ensureCounterForResourceForPC(
+	resource string,
+	pc *webrtc.PeerConnection,
+	cn counterName,
+) *atomic.Int64 {
+	// The same Load/LoadOrStore reasoning applies in this method as in
+	// ensureInFlightCounterForResource.
+	requestsForConnection, ok := rc.requestsPerPC.Load(pc)
+	if !ok {
+		requestsForConnection, _ = rc.requestsPerPC.LoadOrStore(
+			pc,
+			&ssync.Map[string, *inFlightAndRejectedRequests]{},
+		)
+	}
+	requestsForConnectionForResource, ok := requestsForConnection.Load(resource)
+	if !ok {
+		requestsForConnectionForResource, _ = requestsForConnection.LoadOrStore(
+			resource,
+			&inFlightAndRejectedRequests{
+				&atomic.Int64{},
+				&atomic.Int64{},
+			})
+	}
+
+	switch cn {
+	case inFlightCounterName:
+		return requestsForConnectionForResource.inFlightRequests
+	case rejectedCounterName:
+		return requestsForConnectionForResource.rejectedRequests
+	default:
+		rc.logger.Errorf("unrecognized counter name %s for PC; returning nil", cn)
+		return nil
+	}
+}
+
+// Sets the client metadata for the passed in peer connection given the passed in ctx if
+// the metadata has not been set already. We assume that peer connection metadata does
+// vary over the connection's lifetime.
+func (rc *RequestCounter) setClientMetadataForPC(ctx context.Context, pc *webrtc.PeerConnection) {
+	_, ok := rc.pcToClientMetadata.Load(pc)
+	if ok {
+		return
+	}
+
+	clientMetadata, clientMetadataSet := client.GetViamClientInfo(ctx)
+	if !clientMetadataSet {
+		// The Typescript SDK does not seem to be correctly attaching the `viam_client`
+		// metadata, so absence here may mean typescript.
+		clientMetadata = "maybe-typescript;unknown;unknown"
+	}
+
+	if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
+		clientMetadata = "module-" + moduleName + "-" + clientMetadata
+	}
+
+	rc.pcToClientMetadata.Store(pc, clientMetadata)
+}
+
+// incrInFlight attempts to increment the in-flight request counters for a given
 // resource. It returns true if it was successful and false if an additional
 // request would exceed the configured limit.
-func (rc *RequestCounter) incrInFlight(resource string) bool {
+func (rc *RequestCounter) incrInFlight(resource string, pc *webrtc.PeerConnection) bool {
 	counter := rc.ensureInFlightCounterForResource(resource)
 	if newCount := counter.Add(1); newCount > rc.inFlightLimit {
 		counter.Add(-1)
+		if pc != nil {
+			rc.ensureCounterForResourceForPC(resource, pc, rejectedCounterName).Add(1)
+		}
 		return false
+	}
+	if pc != nil {
+		rc.ensureCounterForResourceForPC(resource, pc, inFlightCounterName).Add(1)
 	}
 	return true
 }

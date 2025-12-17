@@ -596,18 +596,39 @@ func (imp *impl) CErrorw(ctx context.Context, msg string, keysAndValues ...inter
 func (imp *impl) Fatal(args ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.format(ERROR, emptyTraceKey, args...))
+	// Close all net appenders before exiting the process to force one last sync to the
+	// cloud.
+	for _, appender := range imp.appenders {
+		if netAppender, ok := appender.(*NetAppender); ok {
+			netAppender.Close()
+		}
+	}
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalf(template string, args ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.formatf(ERROR, emptyTraceKey, template, args...))
+	// Close all net appenders before exiting the process to force one last sync to the
+	// cloud.
+	for _, appender := range imp.appenders {
+		if netAppender, ok := appender.(*NetAppender); ok {
+			netAppender.Close()
+		}
+	}
 	os.Exit(1)
 }
 
 func (imp *impl) Fatalw(msg string, keysAndValues ...interface{}) {
 	imp.testHelper()
 	imp.Write(imp.formatw(ERROR, emptyTraceKey, msg, keysAndValues...))
+	// Close all net appenders before exiting the process to force one last sync to the
+	// cloud.
+	for _, appender := range imp.appenders {
+		if netAppender, ok := appender.(*NetAppender); ok {
+			netAppender.Close()
+		}
+	}
 	os.Exit(1)
 }
 

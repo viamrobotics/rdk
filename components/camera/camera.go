@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 // ErrMIMETypeBytesMismatch indicates that the NamedImage's mimeType does not match the image bytes header.
@@ -84,32 +85,35 @@ type Properties struct {
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
 type NamedImage struct {
-	data       []byte
-	img        image.Image
-	SourceName string
-	mimeType   string
+	data        []byte
+	img         image.Image
+	SourceName  string
+	mimeType    string
+	Annotations data.Annotations
 }
 
-// NamedImageFromBytes constructs a NamedImage from a byte slice, source name, and mime type.
-func NamedImageFromBytes(data []byte, sourceName, mimeType string) (NamedImage, error) {
+// NamedImageFromBytes constructs a NamedImage from a byte slice, source name, mime type, and annotations.
+func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations data.Annotations,
+) (NamedImage, error) {
 	if data == nil {
 		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
 	}
 	if mimeType == "" {
 		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
 	}
-	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType}, nil
+	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
-// NamedImageFromImage constructs a NamedImage from an image.Image, source name, and mime type.
-func NamedImageFromImage(img image.Image, sourceName, mimeType string) (NamedImage, error) {
+// NamedImageFromImage constructs a NamedImage from an image.Image, source name, mime type, and annotations.
+func NamedImageFromImage(img image.Image, sourceName, mimeType string, annotations data.Annotations,
+) (NamedImage, error) {
 	if img == nil {
 		return NamedImage{}, fmt.Errorf("must provide image to construct a named image from image")
 	}
 	if mimeType == "" {
-		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
+		mimeType = utils.MimeTypeJPEG
 	}
-	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType}, nil
+	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
 // Image returns the image.Image of the NamedImage.
@@ -161,9 +165,11 @@ func (ni *NamedImage) MimeType() string {
 	return ni.mimeType
 }
 
-// ImageMetadata contains useful information about returned image bytes such as its mimetype.
+// ImageMetadata contains useful information about returned image bytes such as its mimetype
+// and any annotations associated with the image.
 type ImageMetadata struct {
-	MimeType string
+	MimeType    string
+	Annotations data.Annotations
 }
 
 // A Camera is a resource that can capture frames.
@@ -171,7 +177,7 @@ type ImageMetadata struct {
 //
 // Images example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	images, metadata, err := myCamera.Images(context.Background(), []string{}, nil)
 //
@@ -179,16 +185,16 @@ type ImageMetadata struct {
 //
 // NextPointCloud example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	// gets the next point cloud from a camera
-//	pointCloud, err := myCamera.NextPointCloud(context.Background())
+//	pointCloud, err := myCamera.NextPointCloud(context.Background(), nil)
 //
 // For more information, see the [NextPointCloud method docs].
 //
 // Close example:
 //
-//	myCamera, err := camera.FromRobot(machine, "my_camera")
+//	myCamera, err := camera.FromProvider(machine, "my_camera")
 //
 //	err = myCamera.Close(context.Background())
 //
@@ -218,7 +224,7 @@ type Camera interface {
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one
 	// a part of a sequence. In the future, there could be streaming of point clouds.
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 
 	// Properties returns properties that are intrinsic to the particular
 	// implementation of a camera.
@@ -255,7 +261,7 @@ func ReadImage(ctx context.Context, src gostream.VideoSource) (image.Image, func
 
 // A PointCloudSource is a source that can generate pointclouds.
 type PointCloudSource interface {
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 }
 
 // A ImagesSource is a source that can return a list of images with timestamp.
@@ -268,15 +274,25 @@ func NewPropertiesError(cameraIdentifier string) error {
 	return errors.Errorf("failed to get properties from %s", cameraIdentifier)
 }
 
-// FromDependencies is a helper for getting the named camera from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named camera from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Camera, error) {
 	return resource.FromDependencies[Camera](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named Camera from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Camera from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Camera, error) {
 	return robot.ResourceFromRobot[Camera](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Camera from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Camera, error) {
+	return resource.FromProvider[Camera](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.

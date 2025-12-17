@@ -89,9 +89,9 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	// use robot/impl/data/fake.json as config input
 	ctx := context.Background()
 	emptyIn := []referenceframe.Input{}
-	zeroIn := []referenceframe.Input{{Value: 0.0}}
-	blankPos := make(referenceframe.FrameSystemInputs)
-	blankPos["pieceArm"] = zeroIn
+	zeroIn := []referenceframe.Input{0.0}
+	blankPos := referenceframe.NewLinearInputs()
+	blankPos.Put("pieceArm", zeroIn)
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -256,7 +256,8 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		fsCfg, err := r.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		fs, err := referenceframe.NewFrameSystem("", fsCfg.Parts, transforms)
-		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError("frame2", "noParent"))
+		test.That(t, err.Error(), test.ShouldEqual,
+			"Cannot construct frame system. Some parts are not linked to the world frame. Parts: [frame2]")
 		test.That(t, fs, test.ShouldBeNil)
 	})
 

@@ -13,7 +13,7 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
     @classmethod
     def new(cls, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]) -> Self:
         """This method creates a new instance of this {{ .ResourceSubtype }}.
-        The default implementation sets the name from the `config` parameter and then calls `reconfigure`.
+        The default implementation sets the name from the `config` parameter.
 
         Args:
             config (ComponentConfig): The configuration for this resource
@@ -38,12 +38,3 @@ class {{ .ModelPascal  }}({{ .ResourceSubtypePascal }}, EasyResource):
                 second element is a list of optional dependencies
         """
         return [], []
-
-    def reconfigure(self, config: ComponentConfig, dependencies: Mapping[ResourceName, ResourceBase]):
-        """This method allows you to dynamically update your service when it receives a new `config` object.
-
-        Args:
-            config (ComponentConfig): The new configuration
-            dependencies (Mapping[ResourceName, ResourceBase]): Any dependencies (both required and optional)
-        """
-        return super().reconfigure(config, dependencies)

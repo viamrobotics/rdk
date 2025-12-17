@@ -407,6 +407,7 @@ func GetHysteresisThresholds(mag, nms *mat.Dense, ratioHigh, ratioLow float64) (
 	}
 	sort.Float64s(x)
 	// Compute histogram of magnitude image
+	//nolint: revive
 	max := floats.Max(x)
 	// Get one bin per possible pixel value
 	nBins := int(math.Round(max))

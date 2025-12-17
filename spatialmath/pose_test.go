@@ -66,7 +66,7 @@ func ptCompare(t *testing.T, p1, p2 r3.Vector) {
 func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
 	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
-	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
+	tr := &DualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
 	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
 	trAA := NewPose(r3.Vector{4., 2., 6.}, &R4AA{math.Pi, 1, 0, 0}) // same transformation from axis angle
@@ -109,11 +109,11 @@ func TestPoseInterpolation(t *testing.T) {
 	// Set up from/to dual quats with the same real orientation but flipped signs
 	// p1 and p2 have a OV of OX: -1
 	// And so should all intermediate poses
-	p1 = &dualQuaternion{dualquat.Number{
+	p1 = &DualQuaternion{dualquat.Number{
 		Real: quat.Number{0, 0.7071, 0, -0.7071},
 		Dual: quat.Number{352.1382097850126, -5.310529463390053, -66.47154194130341, -5.30562208840844},
 	}}
-	p3 := &dualQuaternion{dualquat.Number{
+	p3 := &DualQuaternion{dualquat.Number{
 		Real: quat.Number{0, -0.7071, 0, 0.7071},
 		Dual: quat.Number{-253.144227664784, 5.303300858899092, 165.46298679765218, 5.303300858899096},
 	}}
@@ -202,4 +202,21 @@ func BenchmarkCompose(b *testing.B) {
 func randPose(r *rand.Rand) Pose {
 	ov := &OrientationVector{2 * math.Pi * (r.Float64() - 0.5), r.Float64() - 0.5, r.Float64() - 0.5, r.Float64() - 0.5}
 	return NewPose(r3.Vector{300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5), 300 * (r.Float64() - 0.5)}, ov)
+}
+
+func TestInterpolateSand1(t *testing.T) {
+	a := NewPose(
+		r3.Vector{X: -290.100000, Y: 720.000000, Z: -185.600000},
+		&OrientationVectorDegrees{OZ: -1.000000, Theta: -90.000000},
+	)
+
+	b := NewPose(
+		r3.Vector{X: -370.100000, Y: 720.000000, Z: -185.600000},
+		&OrientationVectorDegrees{OZ: -1.000000, Theta: -90.000136},
+	)
+
+	x := Interpolate(a, b, .5)
+	y := Interpolate(a, b, .75)
+
+	test.That(t, x.Point().Distance(y.Point()), test.ShouldAlmostEqual, y.Point().Distance(b.Point()), .00001)
 }

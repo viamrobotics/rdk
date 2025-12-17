@@ -5,13 +5,17 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gantry/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -22,12 +26,14 @@ const (
 )
 
 var (
-	errPositionFailed       = errors.New("couldn't get position")
-	errHomingFailed         = errors.New("homing unsuccessful")
-	errMoveToPositionFailed = errors.New("couldn't move to position")
-	errLengthsFailed        = errors.New("couldn't get lengths")
-	errStopFailed           = errors.New("couldn't stop")
-	errGantryNotFound       = errors.New("not found")
+	errPositionFailed          = errors.New("couldn't get position")
+	errHomingFailed            = errors.New("homing unsuccessful")
+	errMoveToPositionFailed    = errors.New("couldn't move to position")
+	errLengthsFailed           = errors.New("couldn't get lengths")
+	errStopFailed              = errors.New("couldn't stop")
+	errGantryNotFound          = errors.New("not found")
+	errKinematicsUnimplemented = errors.New("Kinematics unimplemented")
+	errGeometriesUnimplemented = errors.New("Geometries unimplemented")
 )
 
 func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
@@ -50,6 +56,15 @@ func TestServer(t *testing.T) {
 
 	var gantryPos []float64
 	var gantrySpeed []float64
+
+	goodKinematicsJSON := func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.json"), "foo")
+		if err != nil {
+			return nil, err
+		}
+
+		return model, nil
+	}
 
 	pos1 := []float64{1.0, 2.0, 3.0}
 	speed1 := []float64{100.0, 200.0, 300.0}
@@ -77,6 +92,10 @@ func TestServer(t *testing.T) {
 		extra1 = extra
 		return nil
 	}
+	injectGantry.KinematicsFunc = goodKinematicsJSON
+	injectGantry.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, errGeometriesUnimplemented
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
@@ -97,6 +116,9 @@ func TestServer(t *testing.T) {
 	}
 	injectGantry2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return errStopFailed
+	}
+	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 
 	//nolint:dupl
@@ -213,4 +235,52 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())
 	})
+
+	t.Run("kinematics", func(t *testing.T) {
+		_, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: missingGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
+
+		resp, err := gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldNotBeNil)
+		test.That(t, resp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+
+		_, err = gantryServer.GetKinematics(context.Background(), &commonpb.GetKinematicsRequest{Name: failGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errKinematicsUnimplemented.Error())
+	})
+
+	t.Run("geometries", func(t *testing.T) {
+		// geometries only works for single axis (multi-axis is a controller of multiple single-axis gantries)
+		injectGantry.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
+			return []float64{51.0}, nil
+		}
+		geometries, err := gantryServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(geometries.Geometries), test.ShouldEqual, 1)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[0].Center,
+				&commonpb.Pose{
+					X:     1.0,
+					Y:     0.0,
+					Z:     5.0,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 0.0,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+	})
+}
+
+func AssertPosesClose(expected, actual *commonpb.Pose) bool {
+	return spatialmath.PoseAlmostEqual(
+		spatialmath.NewPoseFromProtobuf(expected),
+		spatialmath.NewPoseFromProtobuf(actual),
+	)
 }

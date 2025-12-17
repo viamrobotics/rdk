@@ -5,7 +5,7 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -60,7 +60,7 @@ func NewService(
 	}
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromDependencies(deps, cameraName)
+		return camera.FromProvider(deps, cameraName)
 	}
 
 	return &vizModel{
@@ -106,7 +106,7 @@ func DeprecatedNewService(
 	logger := r.Logger()
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromRobot(r, cameraName)
+		return camera.FromProvider(r, cameraName)
 	}
 
 	return &vizModel{

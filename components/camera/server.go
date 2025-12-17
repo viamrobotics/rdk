@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -69,9 +69,10 @@ func (s *serviceServer) GetImages(
 			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
 		imgMes := &pb.Image{
-			SourceName: img.SourceName,
-			MimeType:   img.MimeType(),
-			Image:      imgBytes,
+			SourceName:  img.SourceName,
+			MimeType:    img.MimeType(),
+			Image:       imgBytes,
+			Annotations: img.Annotations.ToProto(),
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
@@ -97,7 +98,11 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
-	pc, err := camera.NextPointCloud(ctx)
+	if camClient, ok := camera.(*client); ok {
+		return camClient.client.GetPointCloud(ctx, req)
+	}
+
+	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

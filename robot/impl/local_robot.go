@@ -6,17 +6,27 @@ package robotimpl
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -29,7 +39,9 @@ import (
 	"go.viam.com/rdk/ftdc"
 	"go.viam.com/rdk/ftdc/sys"
 	icloud "go.viam.com/rdk/internal/cloud"
+	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -46,6 +58,23 @@ import (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
+
+func init() {
+	// Unfortunately Otel SDK doesn't have a way to reconfigure the resource
+	// information so we need to set it here before any of the gRPC servers
+	// access the global tracer provider.
+	//nolint: errcheck, gosec
+	trace.SetProvider(
+		context.Background(),
+		sdktrace.WithResource(
+			otelresource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceName("rdk"),
+				semconv.ServiceNamespace("viam.com"),
+			),
+		),
+	)
+}
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
@@ -102,6 +131,8 @@ type localRobot struct {
 	// returned by the MachineStatus endpoint (initializing if true, running if false.)
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
+
+	traceClient *otlpfile.Client
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -115,6 +146,14 @@ func (r *localRobot) ExportResourcesAsDot(index int) (resource.GetSnapshotInfo, 
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.manager.RemoteByName(name)
+}
+
+// WriteTraceMessages writes trace spans to any configured exporters.
+func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
+	if r.traceClient == nil {
+		return nil
+	}
+	return r.traceClient.UploadTraces(ctx, spans)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -212,6 +251,8 @@ func (r *localRobot) Close(ctx context.Context) error {
 	if r.ftdc != nil {
 		r.ftdc.StopAndJoin(ctx)
 	}
+
+	err = multierr.Combine(err, trace.Shutdown(ctx))
 
 	return err
 }
@@ -378,12 +419,13 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
+	partID := "local-config"
+	if cfg.Cloud != nil {
+		partID = cfg.Cloud.ID
+	}
+
 	var ftdcWorker *ftdc.FTDC
 	if rOpts.enableFTDC {
-		partID := "local-config"
-		if cfg.Cloud != nil {
-			partID = cfg.Cloud.ID
-		}
 		// CloudID is also known as the robot part id.
 		//
 		// RSDK-9369: We create a new FTDC worker, but do not yet start it. This is because the
@@ -412,6 +454,33 @@ func newWithResources(
 		}
 	}
 
+	var traceClient *otlpfile.Client
+	if rOpts.tracing.enabled {
+		func() {
+			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
+			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
+				logger.Errorw("failed to create directory to store traces", "err", err)
+				return
+			}
+			logger.Infow("created trace storage dir", "dir", tracesDir)
+			traceClient, err = otlpfile.NewClient(tracesDir, "traces")
+			if err != nil {
+				logger.Errorw("failed to create OLTP client", "err", err)
+				return
+			}
+			exporter, err := otlptrace.New(
+				context.Background(),
+				traceClient,
+			)
+			if err != nil {
+				logger.Errorw("failed to create trace exporter", "err", err)
+				return
+			}
+
+			trace.AddExporters(exporter)
+		}()
+	}
+
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
 		manager: newResourceManager(
@@ -422,6 +491,7 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
+				tracingEnabled:     rOpts.tracing.enabled,
 			},
 			logger,
 		),
@@ -438,6 +508,7 @@ func newWithResources(
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
+		traceClient:                traceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})
@@ -486,7 +557,7 @@ func newWithResources(
 	if r.ftdc != nil {
 		r.ftdc.Add("web", r.webSvc.RequestCounter())
 	}
-	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger)
+	r.frameSvc, err = framesystem.New(ctx, resource.Dependencies{}, logger.Sublogger("framesystem"))
 	if err != nil {
 		return nil, err
 	}
@@ -800,7 +871,14 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered", resName.API, conf.Model)
+		failedModules := r.manager.moduleManager.FailedModules()
+		var modules string
+		if len(failedModules) > 0 {
+			sort.Strings(failedModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		}
+		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
+			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
 	}
 
 	deps, err := r.getDependencies(resName, gNode)
@@ -995,11 +1073,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
 		if isModular {
-			var depStrings []string
-			for dep := range deps {
-				depStrings = append(depStrings, dep.String())
-			}
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, depStrings)
+			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
 		} else {
 			err = res.Reconfigure(ctx, deps, conf)
 		}
@@ -1110,10 +1184,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 		switch component.ResourceName().API.SubtypeName {
 		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
 			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
-			if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			if resource.IsNotAvailableError(err) || resource.IsNotFoundError(err) {
 				// When we have non-nil errors here, it is because the resource is not yet available.
 				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
 				continue
+			}
+
+			if err != nil {
+				// If there is an error getting kinematics unrelated to resource availability, log a
+				// warning. It probably impacts correct operation of the application.
+				r.logger.Warnw(
+					"Error getting kinematics. Resource is added to the frame system, but modeling may not work correctly.",
+					"res", component, "err", err)
 			}
 		default:
 		}
@@ -1498,6 +1580,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}()
 
+	if r.manager.moduleManager != nil {
+		r.manager.moduleManager.ClearFailedModules()
+	}
+
 	if diff.ResourcesEqual {
 		return
 	}
@@ -1563,7 +1649,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
-func (r *localRobot) checkMaxInstance(api resource.API, max int) error {
+func (r *localRobot) checkMaxInstance(api resource.API, max int) error { //nolint: revive
 	maxInstance := 0
 	for _, n := range r.ResourceNames() {
 		if n.API == api && !n.ContainsRemoteNames() {
@@ -1703,12 +1789,27 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 	if r.initializing.Load() {
 		result.State = robot.StateInitializing
 	}
+
+	if r.jobManager != nil {
+		if n := r.jobManager.NumJobHistories.Load(); n > 0 {
+			if result.JobStatuses == nil {
+				result.JobStatuses = make(map[string]robot.JobStatus)
+			}
+			for jobName, jobHistory := range r.jobManager.JobHistories.Range {
+				result.JobStatuses[jobName] = robot.JobStatus{
+					RecentSuccessfulRuns: jobHistory.Successes(),
+					RecentFailedRuns:     jobHistory.Failures(),
+				}
+			}
+		}
+	}
+
 	return result, nil
 }
 
 // Version returns version information about the robot.
 func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error) {
-	return robot.Version()
+	return robot.Version, nil
 }
 
 // reconfigureAllowed returns whether the local robot can reconfigure.
@@ -1812,4 +1913,9 @@ func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpo
 		return cfg.Network.NetworkConfigData.TrafficTunnelEndpoints, nil
 	}
 	return nil, nil
+}
+
+// GetResource implements resource.Provider for a localRobot by looking up a resource by name.
+func (r *localRobot) GetResource(name resource.Name) (resource.Resource, error) {
+	return r.ResourceByName(name)
 }

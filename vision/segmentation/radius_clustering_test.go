@@ -55,7 +55,7 @@ func TestRadiusClusteringValidate(t *testing.T) {
 func TestPixelSegmentation(t *testing.T) {
 	t.Parallel()
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	// do segmentation
@@ -80,7 +80,7 @@ func TestPixelSegmentation(t *testing.T) {
 func TestPixelSegmentationNoFiltering(t *testing.T) {
 	t.Parallel()
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	// do segmentation with no mean k filtering
@@ -122,7 +122,7 @@ func testSegmentation(t *testing.T, segments []*vision.Object, expectedLabel str
 
 func BenchmarkRadiusClustering(b *testing.B) {
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 	var pts []*vision.Object

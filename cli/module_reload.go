@@ -18,7 +18,10 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-const reloadVersion = "reload"
+const (
+	reloadVersionPrefix       = "reload"
+	reloadSourceVersionPrefix = "reload-source"
+)
 
 // ModuleMap is a type alias to indicate where a map represents a module config.
 // We don't convert to rdkConfig.Module because it can get out of date with what's in the db.
@@ -31,7 +34,7 @@ type ResourceMap map[string]any
 // addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
 // Returns an error if the modelName isn't in the manifest, or if the specified resourceName already exists.
 func (c *viamClient) addResourceFromModule(
-	ctx *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
+	ctx *cli.Context, part *apppb.RobotPart, manifest *ModuleManifest, modelName, resourceName string,
 ) error {
 	if manifest == nil {
 		return errors.New("unable to add resource from config without a meta.json")
@@ -107,10 +110,11 @@ func (c *viamClient) addResourceFromModule(
 }
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
-func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait bool) error {
+// Returns (wasAdded, error) where wasAdded indicates if the shell service was newly added.
+func addShellService(c *cli.Context, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool) (bool, error) {
 	args, err := getGlobalArgs(c)
 	if err != nil {
-		return err
+		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
 	if _, ok := partMap["services"]; !ok {
@@ -119,39 +123,40 @@ func addShellService(c *cli.Context, vc *viamClient, part *apppb.RobotPart, wait
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
 	)
-	if slices.ContainsFunc(services, func(service ResourceMap) bool { return service["type"] == "shell" }) {
+	if slices.ContainsFunc(services, func(service ResourceMap) bool {
+		return service["type"] == "shell" || service["api"] == "rdk:service:shell"
+	}) {
 		debugf(c.App.Writer, args.Debug, "shell service found on target machine, not installing")
-		return nil
+		return false, nil
 	}
-	services = append(services, ResourceMap{"name": "shell", "type": "shell"})
+	services = append(services, ResourceMap{"name": "shell", "api": "rdk:service:shell"})
 	asAny, _ := rutils.MapOver(services, func(service ResourceMap) (any, error) { //nolint:errcheck
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
 	if err := writeBackConfig(part, partMap); err != nil {
-		return err
+		return false, err
 	}
-	infof(c.App.Writer, "installing shell service on target machine for file transfer")
 	if err := vc.updateRobotPart(part, partMap); err != nil {
-		return err
+		return false, err
 	}
 	if !wait {
-		return nil
+		return true, nil
 	}
 	// note: we wait up to 11 seconds; that's the 10 second default Cloud.RefreshInterval plus padding.
 	// If we don't wait, the reload command will usually fail on first run.
 	for i := 0; i < 11; i++ {
 		time.Sleep(time.Second)
-		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logging.NewLogger("shellsvc"))
+		_, closeClient, err := vc.connectToShellServiceFqdn(part.Fqdn, args.Debug, logger)
 		if err == nil {
 			goutils.UncheckedError(closeClient(c.Context))
-			return nil
+			return true, nil
 		}
 		if !errors.Is(err, errNoShellService) {
-			return err
+			return false, err
 		}
 	}
-	return errors.New("timed out waiting for shell service to start")
+	return false, errors.New("timed out waiting for shell service to start")
 }
 
 // writeBackConfig mutates part.RobotConfig with an edited config; this is necessary so that changes
@@ -168,7 +173,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // configureModule is the configuration step of module reloading. Returns (updated robotPartpart, needsRestart, error).
 // Mutates the passed part.RobotConfig.
 func configureModule(
-	c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool,
+	c *cli.Context, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
@@ -233,7 +238,7 @@ func localizeModuleID(moduleID string) string {
 func mutateModuleConfig(
 	c *cli.Context,
 	modules []ModuleMap,
-	manifest moduleManifest,
+	manifest ModuleManifest,
 	local bool,
 ) ([]ModuleMap, bool, error) {
 	var dirty bool

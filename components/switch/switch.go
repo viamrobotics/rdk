@@ -36,6 +36,36 @@ func Named(name string) resource.Name {
 }
 
 // A Switch represents a physical multi-position switch.
+// For more information, see the [Switch component docs].
+//
+// SetPosition example:
+//
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
+//
+//	err := mySwitch.SetPosition(context.Background(), 0 , nil)
+//
+// For more information, see the [SetPosition method docs].
+//
+// GetPosition example:
+//
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
+//
+//	position, err := mySwitch.GetPosition(context.Background(), nil)
+//
+// For more information, see the [GetPosition method docs].
+//
+// GetNumberOfPositions example:
+//
+//	mySwitch, err := switch.FromProvider(machine, "my_switch")
+//
+//	positions, err := mySwitch.GetNumberOfPositions(context.Background(), nil)
+//
+// For more information, see the [GetNumberOfPositions method docs].
+//
+// [Switch component docs]: https://docs.viam.com/dev/reference/apis/components/switch/
+// [SetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#setposition
+// [GetPosition method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getposition
+// [GetNumberOfPositions method docs]: https://docs.viam.com/dev/reference/apis/components/switch/#getnumberofpositions
 type Switch interface {
 	resource.Resource
 
@@ -51,14 +81,25 @@ type Switch interface {
 	GetNumberOfPositions(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 }
 
-// FromRobot is a helper for getting the named Switch from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Switch from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Switch, error) {
 	return robot.ResourceFromRobot[Switch](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named button component from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named switch component from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Switch, error) {
 	return resource.FromDependencies[Switch](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Switch from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Switch, error) {
+	return resource.FromProvider[Switch](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all switch names from the given Robot.

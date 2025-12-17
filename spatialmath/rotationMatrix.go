@@ -38,7 +38,7 @@ func (rm *RotationMatrix) AxisAngles() *R4AA {
 }
 
 // Quaternion returns orientation in quaternion representation.
-// reference: http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
+// reference: https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/index.htm
 func (rm *RotationMatrix) Quaternion() quat.Number {
 	var q quat.Number
 	m := rm.mat
@@ -150,4 +150,13 @@ func (rm *RotationMatrix) RightMatMul(rmm RotationMatrix) *RotationMatrix {
 		rmm.mat[6]*rm.mat[2] + rmm.mat[7]*rm.mat[5] + rmm.mat[8]*rm.mat[8],
 	}
 	return &RotationMatrix{mat: mat}
+}
+
+// Hash returns a hash value for this rotation matrix.
+func (rm *RotationMatrix) Hash() int {
+	hash := 0
+	for i, val := range rm.mat {
+		hash += ((i + 5) * (int(val*1000) + 1000)) * (i + 2)
+	}
+	return hash
 }

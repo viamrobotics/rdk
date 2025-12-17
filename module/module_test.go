@@ -70,7 +70,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 	validServiceModel := mysum.Model
 	validComponentModel := mygizmo.Model
 
-	resourceError := "resource with API %s and model %s not yet registered"
+	resourceError := "resource with API %q and model %q not yet registered"
 	testCases := []struct {
 		api   resource.API
 		model resource.Model
@@ -923,7 +923,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 	testName := resource.NewName(testAPI, "arm1")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName(): []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName.ShortName(): []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {

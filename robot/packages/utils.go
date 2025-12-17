@@ -9,12 +9,14 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	errw "github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -22,15 +24,39 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+const partialsDirName = "part"
+
+// cleanup partial downloads that were started this long ago
+const maxPartialAge = 72 * time.Hour
+
+// create a partials folder for this URL and return a destination path for the file.
+func partialDownloadPath(parentDir, rawURL string) (string, error) {
+	var filename string
+	if parsed, err := url.Parse(rawURL); err != nil {
+		filename = "UNPARSED"
+	} else {
+		filename = rutils.RIndex(strings.Split(parsed.Path, "/"), -1, "UNPARSED")
+	}
+
+	partialsDir := filepath.Join(parentDir, partialsDirName, rutils.HashString(rawURL, 7))
+	if err := os.MkdirAll(parentDir, 0o750); err != nil {
+		return "", err
+	}
+	return filepath.Join(partialsDir, filename+".part"), nil
+}
+
 // installCallback is the function signature that gets passed to installPackage.
 type installCallback func(ctx context.Context, url, dstPath string) (checksum, contentType string, err error)
 
+// the common logic that wraps an `installCallback` function across different package managers.
+// when `supportsPartial` is true, this goes to `partialDownloadPath` instead of `LocalDownloadPath`.
 func installPackage(
 	ctx context.Context,
 	logger logging.Logger,
 	packagesDir string,
 	url string,
 	p config.PackageConfig,
+	supportsPartial bool,
 	installFn installCallback,
 ) error {
 	// Create the parent directory for the package type if it doesn't exist
@@ -52,7 +78,22 @@ func installPackage(
 		}
 	}
 
-	dstPath := p.LocalDownloadPath(packagesDir)
+	// The paths here are:
+	// LocalDownloadPath: the destination of the download
+	// PartialDownloadPath: the download destination for partials, which have different cleanup logic
+	// tmpDataPath: a successful download is unpacked into here
+	// renameDest: after unpacking, we rename atomically to the final location
+
+	parentDir := p.LocalDataParentDirectory(packagesDir)
+	var dstPath string
+	if supportsPartial {
+		var err error
+		if dstPath, err = partialDownloadPath(parentDir, url); err != nil {
+			return errw.Wrap(err, "creating partials dir")
+		}
+	} else {
+		dstPath = p.LocalDownloadPath(packagesDir)
+	}
 	checksum, contentType, err := installFn(ctx, url, dstPath)
 	if err != nil {
 		return err
@@ -64,9 +105,9 @@ func installPackage(
 	}
 
 	// unpack to temp directory to ensure we do an atomic rename once finished.
-	tmpDataPath, err := os.MkdirTemp(p.LocalDataParentDirectory(packagesDir), "*.tmp")
+	tmpDataPath, err := os.MkdirTemp(parentDir, "*.tmp")
 	if err != nil {
-		return fmt.Errorf("failed to create temp data dir path %w", err)
+		return err
 	}
 
 	defer func() {
@@ -206,7 +247,7 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			if err != nil {
 				return fmt.Errorf("failed to create file %q %w", path, err)
 			}
-			if _, err := io.CopyN(outFile, tarReader, maxPackageSize); err != nil && !errors.Is(err, io.EOF) {
+			if _, err := io.Copy(outFile, tarReader); err != nil && !errors.Is(err, io.EOF) { //nolint:gosec
 				return fmt.Errorf("failed to copy file %q %w", path, err)
 			}
 			if err := outFile.Sync(); err != nil {
@@ -256,6 +297,12 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool, packagesDataDir string) error {
 	topLevelFiles, err := os.ReadDir(packagesDataDir)
 	if err != nil {
+		var fsPathErr *fs.PathError
+		if errors.Is(err, fsPathErr) {
+			// Directory doesn't exist. Nothing to clean up.
+			return nil
+		}
+
 		return err
 	}
 
@@ -284,16 +331,42 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 			continue
 		}
 		for _, entry := range packageDirs {
+			if entry.Name() == partialsDirName {
+				continue
+			}
 			entryPath, err := rutils.SafeJoinDir(packageTypeDirName, entry.Name())
 			if err != nil {
 				allErrors = errors.Join(allErrors, err)
 				continue
 			}
-			if deletePackageEntry(expectedPackageEntries, entryPath) {
+			if shouldDeletePackageEntry(expectedPackageEntries, entryPath) {
 				logger.Debugf("Removing old package file(s) %s", entryPath)
 				allErrors = errors.Join(allErrors, os.RemoveAll(entryPath))
 			}
 		}
+
+		partialsFolder := filepath.Join(packageTypeDirName, partialsDirName)
+		now := time.Now()
+		if _, err := os.Stat(partialsFolder); err == nil {
+			entries, err := os.ReadDir(partialsFolder)
+			if err != nil {
+				allErrors = errors.Join(err)
+				continue
+			}
+			for _, entry := range entries {
+				info, err := entry.Info()
+				if err != nil {
+					allErrors = errors.Join(err)
+					continue
+				}
+				age := now.Sub(info.ModTime())
+				if age >= maxPartialAge {
+					logger.Debugf("deleting partial %q with age %s >= %s", entry.Name(), age, maxPartialAge)
+					allErrors = errors.Join(allErrors, os.RemoveAll(filepath.Join(partialsFolder, entry.Name())))
+				}
+			}
+		}
+
 		// re-read the directory, if there is nothing left in it, delete the directory
 		packageDirs, err = os.ReadDir(packageTypeDirName)
 		if err != nil {
@@ -307,8 +380,8 @@ func commonCleanup(logger logging.Logger, expectedPackageEntries map[string]bool
 	return allErrors
 }
 
-// deletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
-func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
+// shouldDeletePackageEntry checks if a file or directory in the modules data directory should be deleted or not.
+func shouldDeletePackageEntry(expectedPackageEntries map[string]bool, entryPath string) bool {
 	// check if directory corresponds to a module version that is still managed by the package
 	// manager - if so DO NOT delete it.
 	if _, ok := expectedPackageEntries[entryPath]; ok {
@@ -331,6 +404,7 @@ func deletePackageEntry(expectedPackageEntries map[string]bool, entryPath string
 type syncStatus string
 
 const (
+	// note: there is no syncStatus for resumable downloads; the stored state for a resumable download is the `.part` file.
 	syncStatusDownloading syncStatus = "downloading"
 	syncStatusDone        syncStatus = "done"
 	syncStatusFailed      syncStatus = "failed"
@@ -362,6 +436,8 @@ func packageIsSynced(pkg config.PackageConfig, packagesDir string, logger loggin
 		logger.Debugf("Package already downloaded at %s, skipping.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	case syncFile.PackageID == pkg.Package && syncFile.Version == pkg.Version && syncFile.Status == syncStatusFailed:
+		// packageIsSynced returns true here because we don't want to infinitely retry. This will fail
+		// later in reconfigure + get cleaned up when you upgrade the package. See PR 5260 for more info.
 		logger.Debugf("Package failed to unzip at %s.", pkg.LocalDataDirectory(packagesDir))
 		return true
 	default:
@@ -426,4 +502,31 @@ func writeStatusFile(pkg config.PackageConfig, statusFile packageSyncFile, packa
 	}
 
 	return nil
+}
+
+// starts a goroutine that watches `dest` file size, logs progress until `dest` no longer exists or `done` is closed.
+func fileSizeProgress(ctx context.Context, logger logging.Logger, dest string, length int64) {
+	if length <= 0 {
+		logger.Info("download has no Content-Length, not logging progress")
+	}
+
+	writer := newLogProgressWriter(logger, dest, length)
+
+	ticker := time.NewTicker(writer.logFrequency)
+	for {
+		select {
+		case <-ticker.C:
+			stat, err := os.Stat(dest)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					// we don't warn if the file is missing because that means completion
+					logger.Warnw("progress bar stat error", "err", err)
+				}
+				return
+			}
+			writer.Update(stat.Size())
+		case <-ctx.Done():
+			return
+		}
+	}
 }

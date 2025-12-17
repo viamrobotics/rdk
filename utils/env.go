@@ -17,7 +17,7 @@ import (
 const (
 	// DefaultResourceConfigurationTimeout is the default resource configuration
 	// timeout.
-	DefaultResourceConfigurationTimeout = time.Minute
+	DefaultResourceConfigurationTimeout = 2 * time.Minute
 
 	// ResourceConfigurationTimeoutEnvVar is the environment variable that can
 	// be set to override DefaultResourceConfigurationTimeout as the duration
@@ -72,6 +72,9 @@ const (
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
 
+	// HomeEnvVar is the environment variable that contains the VIAM_HOME directory of the machine.
+	HomeEnvVar = "VIAM_HOME"
+
 	// ViamResourceRequestsLimitEnvVar is the environment that controls the
 	// per-resource gRPC request limit. If it is unset or invalid the limit
 	// defaults to 100.
@@ -79,6 +82,16 @@ const (
 
 	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
 	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
+
+	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
+	// set before starting viam-server to indicate that agent is a new enough version to
+	// have its own background loop that runs NeedsRestart against app.viam.com to determine
+	// if the system needs a restart. MUST be kept in line with the equivalent value in the
+	// agent repo.
+	//
+	// TODO(RSDK-12057): Remove sensitivity to this environment variable once we fully
+	// remove all NeedsRestart checking logic from viam-server.
+	ViamAgentHandlesNeedsRestartChecking = "VIAM_AGENT_HANDLES_NEEDS_RESTART_CHECKING"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -183,6 +196,16 @@ func GetenvInt(v string, def int) int {
 	}
 
 	return num
+}
+
+// GetenvBool gets a variable from the environment, and returns as bool, if can't, then uses default.
+func GetenvBool(v string, def bool) bool {
+	x := os.Getenv(v)
+	if x == "" {
+		return def
+	}
+
+	return x[0] == 't' || x[0] == 'T' || x[0] == '1'
 }
 
 // GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.

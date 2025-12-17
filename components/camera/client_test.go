@@ -78,7 +78,10 @@ func TestClient(t *testing.T) {
 	expectedDepth := rimage.NewEmptyDepthMap(10, 20)
 
 	// color camera
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+		if val, ok := extra["empty"].(bool); ok && val {
+			return pointcloud.NewBasicEmpty(), nil
+		}
 		return pcA, nil
 	}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -90,6 +93,8 @@ func TestClient(t *testing.T) {
 	injectCamera.ProjectorFunc = func(ctx context.Context) (transform.Projector, error) {
 		return projA, nil
 	}
+	annotations1 := data.Annotations{BoundingBoxes: []data.BoundingBox{{Label: "annotation1"}}}
+	annotations2 := data.Annotations{BoundingBoxes: []data.BoundingBox{{Label: "annotation2"}}}
 	injectCamera.ImagesFunc = func(
 		ctx context.Context,
 		filterSourceNames []string,
@@ -97,13 +102,13 @@ func TestClient(t *testing.T) {
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 		images := []camera.NamedImage{}
 		// one color image
-		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+		namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA, annotations1)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
 		images = append(images, namedImgColor)
 		// one depth image
-		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+		namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth, annotations2)
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -123,7 +128,7 @@ func TestClient(t *testing.T) {
 	depthImg.Set(5, 6, rimage.Depth(190))
 	depthImg.Set(9, 12, rimage.Depth(3000))
 	depthImg.Set(5, 9, rimage.MaxDepth-rimage.Depth(1))
-	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCameraDepth.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
 	injectCameraDepth.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -148,7 +153,7 @@ func TestClient(t *testing.T) {
 	}
 	// bad camera
 	injectCamera2 := &inject.Camera{}
-	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera2.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return nil, errGeneratePointCloudFailed
 	}
 	injectCamera2.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
@@ -201,10 +206,14 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
-		pcB, err := camera1Client.NextPointCloud(context.Background())
+		pcB, err := camera1Client.NextPointCloud(context.Background(), nil)
 		test.That(t, err, test.ShouldBeNil)
 		_, got := pcB.At(5, 5, 5)
 		test.That(t, got, test.ShouldBeTrue)
+
+		emptyPc, err := camera1Client.NextPointCloud(context.Background(), map[string]interface{}{"empty": true})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, emptyPc.Size(), test.ShouldEqual, 0)
 
 		propsB, err := camera1Client.Properties(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -216,6 +225,7 @@ func TestClient(t *testing.T) {
 		test.That(t, meta.CapturedAt, test.ShouldEqual, time.UnixMilli(12345))
 		test.That(t, len(images), test.ShouldEqual, 2)
 		test.That(t, images[0].SourceName, test.ShouldEqual, "color")
+		test.That(t, images[0].Annotations, test.ShouldResemble, annotations1)
 		img, err := images[0].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 40)
@@ -223,6 +233,7 @@ func TestClient(t *testing.T) {
 		test.That(t, img, test.ShouldHaveSameTypeAs, &image.NRGBA{})
 		test.That(t, img.ColorModel(), test.ShouldHaveSameTypeAs, color.RGBAModel)
 		test.That(t, images[1].SourceName, test.ShouldEqual, "depth")
+		test.That(t, images[1].Annotations, test.ShouldResemble, annotations2)
 		img, err = images[1].Image(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, img.Bounds().Dx(), test.ShouldEqual, 10)
@@ -273,7 +284,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGetImageFailed.Error())
 
-		_, err = client2.NextPointCloud(context.Background())
+		_, err = client2.NextPointCloud(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errGeneratePointCloudFailed.Error())
 
@@ -358,11 +369,11 @@ func TestClient(t *testing.T) {
 			filterSourceNames []string,
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA)
+			namedImgColor, err := camera.NamedImageFromImage(expectedColor, "color", rutils.MimeTypeRawRGBA, data.Annotations{})
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
-			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth)
+			namedImgDepth, err := camera.NamedImageFromImage(expectedDepth, "depth", rutils.MimeTypeRawDepth, data.Annotations{})
 			if err != nil {
 				return nil, resource.ResponseMetadata{}, err
 			}
@@ -594,7 +605,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	k, v := "hello", "world"
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		var grpcMetadata metadata.MD = make(map[string][]string)
 		grpcMetadata.Set(k, v)
 		grpc.SendHeader(ctx, grpcMetadata)
@@ -631,7 +642,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	// interceptor correctly injected the metadata from the gRPC response header into the
 	// context.
 	ctx, md := contextutils.ContextWithMetadata(context.Background())
-	pcB, err := camera1Client.NextPointCloud(ctx)
+	pcB, err := camera1Client.NextPointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pcB.At(5, 5, 5)
 	test.That(t, got, test.ShouldBeTrue)
@@ -780,7 +791,7 @@ func TestMultiplexOverRemoteConnection(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "remote:rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "remote:rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx, nil, nil)
@@ -853,7 +864,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx, nil, nil)
@@ -937,7 +948,7 @@ func TestWhyMustTimeoutOnReadRTP(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	cameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
+	cameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := cameraClient.Images(mainCtx, nil, nil)
@@ -1073,7 +1084,7 @@ func TestGrandRemoteRebooting(t *testing.T) {
 	defer mainRobot.Close(mainCtx)
 	defer mainWebSvc.Close(mainCtx)
 
-	mainCameraClient, err := camera.FromRobot(mainRobot, "rtpPassthroughCamera")
+	mainCameraClient, err := camera.FromProvider(mainRobot, "rtpPassthroughCamera")
 	test.That(t, err, test.ShouldBeNil)
 
 	image, _, err := mainCameraClient.Images(mainCtx, nil, nil)

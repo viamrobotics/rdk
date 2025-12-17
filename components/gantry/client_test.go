@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -52,6 +53,9 @@ func TestClient(t *testing.T) {
 		extra1 = extra
 		return true, nil
 	}
+	injectGantry.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
+	}
 
 	pos2 := []float64{4.0, 5.0, 6.0}
 	speed2 := []float64{100.0, 80.0, 120.0}
@@ -79,6 +83,9 @@ func TestClient(t *testing.T) {
 	injectGantry2.HomeFunc = func(ctx context.Context, extra map[string]interface{}) (bool, error) {
 		extra2 = extra
 		return false, errHomingFailed
+	}
+	injectGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 
 	gantrySvc, err := resource.NewAPIResourceCollection(

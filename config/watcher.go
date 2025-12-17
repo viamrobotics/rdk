@@ -54,7 +54,7 @@ const checkForNewCertInterval = time.Hour
 // module with `--log-level=debug` (assuming the module does not have a log level set
 // already).
 func alignModuleLogLevels(config *Config) {
-	if globalLogger.logger != nil && globalLogger.logger.GetLevel() != logging.DEBUG && config.Debug {
+	if globalLogger.actualGlobalLogger != nil && globalLogger.actualGlobalLogger.GetLevel() != logging.DEBUG && config.Debug {
 		for i, moduleCfg := range config.Modules {
 			if moduleCfg.LogLevel == "" {
 				config.Modules[i].LogLevel = moduleLogLevelDebug

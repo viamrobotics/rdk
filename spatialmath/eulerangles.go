@@ -61,3 +61,12 @@ func (ea *EulerAngles) AxisAngles() *R4AA {
 func (ea *EulerAngles) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(ea.Quaternion())
 }
+
+// Hash returns a hash value for these Euler angles.
+func (ea *EulerAngles) Hash() int {
+	hash := 0
+	hash += (5 * (int(ea.Roll*1000) + 1000)) * 2
+	hash += (6 * (int(ea.Pitch*1000) + 2000)) * 3
+	hash += (7 * (int(ea.Yaw*1000) + 3000)) * 4
+	return hash
+}

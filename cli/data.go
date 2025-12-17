@@ -19,6 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
+	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -409,7 +410,7 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 ) error {
 	ids := make(chan string, parallelActions)
 	// Give channel buffer of 1+parallelActions because that is the number of goroutines that may be passing an
-	// error into this channel (1 get ids routine + parallelActions download routines).
+	// error into this channel (1 get ids routine + parallelActions worker routines).
 	errs := make(chan error, 1+parallelActions)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -427,65 +428,48 @@ func (c *viamClient) performActionOnBinaryDataFromFilter(actionOnBinaryData func
 		}
 	}()
 
-	// In parallel, read from ids and perform the action on the binary data for each id in batches of parallelActions.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var nextBinaryDataID string
-		var done bool
-		var numFilesProcessed atomic.Int32
-		var downloadWG sync.WaitGroup
-		for {
-			for i := uint(0); i < parallelActions; i++ {
-				if err := ctx.Err(); err != nil {
-					errs <- err
-					cancel()
-					done = true
-					break
-				}
+	// Read from ids and perform the action on the binary data for each id.
+	var downloadWG sync.WaitGroup
+	var numFilesProcessed atomic.Int32
 
-				binaryDataID, ok := <-ids
-
-				// If nextID is nil, the channel has been closed and there are no more IDs to be read.
-				if !ok {
-					done = true
-					break
-				}
-				nextBinaryDataID = binaryDataID
-
-				downloadWG.Add(1)
-				go func(id string) {
-					defer downloadWG.Done()
-					// Perform the desired action on the binary data
+	for i := uint(0); i < parallelActions; i++ {
+		downloadWG.Add(1)
+		go func() {
+			defer downloadWG.Done()
+			for {
+				select {
+				case id, ok := <-ids:
+					if !ok {
+						return
+					}
 					err := actionOnBinaryData(id)
 					if err != nil {
 						errs <- err
 						cancel()
-						done = true
+						return
 					}
 					numFilesProcessed.Add(1)
 					if numFilesProcessed.Load()%logEveryN == 0 {
 						printStatement(numFilesProcessed.Load())
 					}
-				}(nextBinaryDataID)
+				case <-ctx.Done():
+					return
+				}
 			}
-			downloadWG.Wait()
-			if done {
-				break
-			}
-		}
-		if numFilesProcessed.Load()%logEveryN != 0 {
-			printStatement(numFilesProcessed.Load())
-		}
-	}()
+		}()
+	}
 	wg.Wait()
+	downloadWG.Wait()
+	if numFilesProcessed.Load()%logEveryN != 0 {
+		printStatement(numFilesProcessed.Load())
+	}
 	close(errs)
 
-	if err := <-errs; err != nil {
-		return err
+	var allErrs error
+	for err := range errs {
+		allErrs = multierr.Append(allErrs, err)
 	}
-
-	return nil
+	return allErrs
 }
 
 // getMatchingBinaryIDs queries client for all BinaryData matching filter, and passes each of their ids into ids.
@@ -539,7 +523,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 			IncludeBinary: !largeFile,
 		})
 		// If any file is too large, we break and try a different pathway for downloading
-		if err == nil || status.Code(err) == codes.ResourceExhausted {
+		if err == nil || status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable {
 			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 			break
 		}
@@ -547,7 +531,9 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 	}
 	// For large files, we get the metadata but not the binary itself
 	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
-	if err != nil && status.Code(err) == codes.ResourceExhausted {
+	// Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
+	// can also be returned when the file is too large.
+	if err != nil && (status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable) {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
@@ -692,14 +678,14 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 // transform datum's filename to a destination path on this computer.
 func filenameForDownload(meta *datapb.BinaryMetadata) string {
 	timeRequested := meta.GetTimeRequested().AsTime().Format(time.RFC3339Nano)
+	timeRequested = data.CaptureFilePathWithReplacedReservedChars(timeRequested)
 	fileName := meta.GetFileName()
 
-	// If there is no file name, this is a data capture file.
 	if fileName == "" {
 		//nolint:staticcheck
 		fileName = timeRequested + "_" + meta.GetId() + meta.GetFileExt()
 	} else if filepath.Dir(fileName) == "." {
-		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted.
+		// If the file name does not contain a directory, prepend if with a requested time so that it is sorted (if it is not already prepended)
 		// Otherwise, keep the file name as-is to maintain the directory structure that the user uploaded the file with.
 		fileName = timeRequested + "_" + fileName
 	}

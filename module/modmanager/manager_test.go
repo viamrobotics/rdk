@@ -88,12 +88,56 @@ func setupModManager(
 		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 		for _, m := range modules {
-			// managedProcess.Stop waits on the process lock and for all logging to
-			// end before returning.
-			m.process.Stop()
+			// stopProcess stops both OUE from trying to restart and also calls managedProcess.Stop,
+			// which will wait on the process lock and for all longging to end before returning.
+			err = m.stopProcess()
+
+			// wait for any modules' goroutines to complete
+			m.process.Wait()
 		}
 	})
 	return mgr
+}
+
+// Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
+// in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
+func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
+	modPath := filepath.Join(t.TempDir(), "run.sh")
+	err := os.WriteFile(modPath, []byte("#!/bin/sh\n\nsleep 2\nexit 1"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, mode := range []string{"unix", "tcp"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logging.NewTestLogger(t)
+
+			if mode == "tcp" {
+				os.Setenv("VIAM_TCP_SOCKETS", "yes")
+				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
+			}
+
+			parentAddr := setupSocketWithRobot(t)
+
+			viamHomeTemp := t.TempDir()
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+
+			err = mgr.Add(context.Background(), config.Module{
+				Name:     "test",
+				ExePath:  modPath,
+				Type:     config.ModuleTypeLocal,
+				ModuleID: "will:crash",
+			})
+			test.That(t, err, test.ShouldNotBeNil)
+			if mode == "unix" {
+				// exits with err from startModuleProcess
+				test.That(t, err.Error(), test.ShouldContainSubstring, "module test exited too quickly after attempted startup")
+			} else {
+				// exits with err from checkReady (short circuit after detecting module crashed)
+				test.That(t, err.Error(), test.ShouldContainSubstring,
+					"error while waiting for module to be ready test: module process exited unexpectedly")
+			}
+		})
+	}
 }
 
 func TestModManagerFunctions(t *testing.T) {
@@ -139,7 +183,7 @@ func TestModManagerFunctions(t *testing.T) {
 				logger:  logger,
 			}
 
-			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			err = mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			test.That(t, err, test.ShouldBeNil)
 
 			err = mod.dial()
@@ -160,22 +204,22 @@ func TestModManagerFunctions(t *testing.T) {
 
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
-			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
-			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
+			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
+			test.That(t, modEnv[rutils.HomeEnvVar], test.ShouldEqual, viamHomeTemp)
 			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
 			test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
 
 			// Test that VIAM_MODULE_ID is unset and VIAM_MODULE_ROOT is set correctly for local modules
 			mod.cfg.Type = config.ModuleTypeLocal
-			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			_, ok = modEnv["VIAM_MODULE_ID"]
 			test.That(t, ok, test.ShouldBeFalse)
 			test.That(t, modEnv["VIAM_MODULE_ROOT"], test.ShouldNotBeEmpty)
 
 			originalPath := mod.cfg.ExePath
 			mod.cfg.ExePath = filepath.Join(originalPath, "fake.tar.gz")
-			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
+			modEnv = mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false)
 			test.That(t, strings.Contains(modEnv["VIAM_MODULE_ROOT"], filepath.Join(viamHomeTemp, "packages-local")), test.ShouldBeTrue)
 			mod.cfg.ExePath = originalPath
 
@@ -183,7 +227,7 @@ func TestModManagerFunctions(t *testing.T) {
 			oldAddr := mod.addr
 			oldClient := mod.client
 
-			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages")))
+			utils.UncheckedError(mod.startProcess(ctx, parentAddr, nil, viamHomeTemp, filepath.Join(viamHomeTemp, "packages"), false))
 			err = mod.dial()
 			test.That(t, err, test.ShouldBeNil)
 
@@ -1031,7 +1075,11 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		dataFullPath, ok := resp["fullpath"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+		// Assert that file path for module data is believable. Because we are in a test
+		// environment, the path will be in an unknown temporary directory and there will be a
+		// random string in the middle to avoid collisions with other tests.
+		test.That(t, strings.Contains(dataFullPath, filepath.Join("module-data", "local-testing-")), test.ShouldBeTrue)
+		test.That(t, strings.HasSuffix(dataFullPath, filepath.Join("test-module", "data.txt")), test.ShouldBeTrue)
 		dataFileContents, err := os.ReadFile(dataFullPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
@@ -1249,6 +1297,7 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1459,6 +1508,7 @@ func TestRTPPassthrough(t *testing.T) {
 }
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1573,6 +1623,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}

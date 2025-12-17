@@ -15,6 +15,10 @@ func (tF *trivialFrame) Name() string {
 	return ""
 }
 
+func (tF *trivialFrame) Hash() int {
+	return 123
+}
+
 func (tF *trivialFrame) Transform([]Input) (spatial.Pose, error) {
 	return nil, nil
 }

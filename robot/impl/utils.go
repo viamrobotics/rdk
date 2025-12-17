@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/testutils"
 )
 
+// test helper that creates an in-process robot from the given config.
 func setupLocalRobot(
 	t *testing.T,
 	ctx context.Context,
@@ -27,7 +28,7 @@ func setupLocalRobot(
 	var conn rpc.ClientConn
 	var err error
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		conn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, logger)
+		conn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, logger.Sublogger("appconn"))
 		test.That(t, err, test.ShouldBeNil)
 	}
 
@@ -36,9 +37,10 @@ func setupLocalRobot(
 	var rOpts []Option
 	rOpts = append(rOpts, opts...)
 	rOpts = append(rOpts, WithViamHomeDir(t.TempDir()))
-	r, err := New(ctx, cfg, conn, logger, rOpts...)
+	r, err := New(ctx, cfg, conn, logger.Sublogger("rdk"), rOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
+		logger.Info("starting local robot cleanup")
 		test.That(t, r.Close(ctx), test.ShouldBeNil)
 		// Wait for reconfigureWorkers here because localRobot.Close does not.
 		lRobot, ok := r.(*localRobot)

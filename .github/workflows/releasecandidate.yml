@@ -44,7 +44,7 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   slack-workflow-status:
-    if: ${{ failure() }}
+    if: ${{ !success() }}
     name: Post Workflow Status To Slack
     needs:
       - test
@@ -70,7 +70,7 @@ jobs:
       rc_number: ${{ steps.extract-rc-version.outputs.rc_number }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Extract version and RC number
         id: extract-rc-version
         run: |

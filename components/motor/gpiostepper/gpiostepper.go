@@ -118,7 +118,7 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	b, err := board.FromDependencies(deps, mc.BoardName)
+	b, err := board.FromProvider(deps, mc.BoardName)
 	if err != nil {
 		return nil, err
 	}

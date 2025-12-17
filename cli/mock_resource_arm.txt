@@ -57,7 +57,7 @@ func Named(name string) resource.Name {
 //
 // EndPosition example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //	// Get the end position of the arm as a Pose.
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
@@ -65,7 +65,7 @@ func Named(name string) resource.Name {
 //
 // MoveToPosition example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
@@ -79,7 +79,7 @@ func Named(name string) resource.Name {
 //
 // MoveToJointPositions example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Declare an array of values with your desired rotational value (in radians) for each joint on the arm.
 //	inputs := referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
@@ -91,7 +91,7 @@ func Named(name string) resource.Name {
 //
 // MoveThroughJointPositions example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Declare a 2D array of values with your desired rotational value (in radians) for each joint on the arm.
 //	inputs := [][]referenceframe.Input{
@@ -106,7 +106,7 @@ func Named(name string) resource.Name {
 //
 // JointPositions example:
 //
-//	myArm , err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
@@ -144,15 +144,11 @@ type Arm interface {
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
 }
 
-// FromDependencies is a helper for getting the named arm from a collection of
-// dependencies.
-func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
-	return resource.FromDependencies[Arm](deps, Named(name))
-}
-
-// FromRobot is a helper for getting the named Arm from the given Robot.
-func FromRobot(r robot.Robot, name string) (Arm, error) {
-	return robot.ResourceFromRobot[Arm](r, Named(name))
+// FromProvider is a helper for getting the named Arm from either a collection of dependencies
+// or the given robot.
+// FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Arm, error) {
+	return resource.FromProvider[Arm](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.

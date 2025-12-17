@@ -77,7 +77,7 @@ func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependenc
 	if err != nil {
 		return err
 	}
-	summer, err := resource.FromDependencies[summationapi.Summation](deps, summationapi.Named(gizmoConfig.Summer))
+	summer, err := resource.FromProvider[summationapi.Summation](deps, summationapi.Named(gizmoConfig.Summer))
 	if err != nil {
 		return err
 	}

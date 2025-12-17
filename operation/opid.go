@@ -31,9 +31,10 @@ type Operation struct {
 	Arguments interface{}
 	Started   time.Time
 
-	myManager *Manager
-	cancel    context.CancelFunc
-	labels    []string
+	myManager  *Manager
+	cancel     context.CancelFunc
+	labelsLock sync.Mutex
+	labels     []string
 }
 
 // Cancel cancel the context associated with an operation.
@@ -43,6 +44,8 @@ func (o *Operation) Cancel() {
 
 // HasLabel returns true if this operation has a specific label.
 func (o *Operation) HasLabel(label string) bool {
+	o.labelsLock.Lock()
+	defer o.labelsLock.Unlock()
 	for _, l := range o.labels {
 		if l == label {
 			return true
@@ -55,7 +58,7 @@ func (o *Operation) HasLabel(label string) bool {
 func (o *Operation) CancelOtherWithLabel(label string) {
 	all := o.myManager.All()
 	for _, op := range all {
-		if op == o {
+		if op == nil || op == o {
 			continue
 		}
 		if op.HasLabel(label) {
@@ -63,6 +66,8 @@ func (o *Operation) CancelOtherWithLabel(label string) {
 		}
 	}
 
+	o.labelsLock.Lock()
+	defer o.labelsLock.Unlock()
 	o.labels = append(o.labels, label)
 }
 

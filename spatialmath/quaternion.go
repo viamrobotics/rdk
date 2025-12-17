@@ -310,3 +310,13 @@ func quaternionJSONFromQuaternion(q *Quaternion) quaternionJSON {
 		Z: q.Kmag,
 	}
 }
+
+// Hash returns a hash value for this quaternion.
+func (q *Quaternion) Hash() int {
+	hash := 0
+	hash += (5 * (int(q.Real*1000) + 1000)) * 2
+	hash += (6 * (int(q.Imag*1000) + 2000)) * 3
+	hash += (7 * (int(q.Jmag*1000) + 3000)) * 4
+	hash += (8 * (int(q.Kmag*1000) + 4000)) * 5
+	return hash
+}

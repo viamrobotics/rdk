@@ -314,13 +314,13 @@ func (s *serviceServer) SetPowerMode(ctx context.Context,
 	}
 
 	if req.Duration == nil {
-		err = b.SetPowerMode(ctx, req.PowerMode, nil)
+		err = b.SetPowerMode(ctx, req.PowerMode, nil, req.Extra.AsMap())
 	} else {
 		if err := req.Duration.CheckValid(); err != nil {
 			return nil, err
 		}
 		duration := req.Duration.AsDuration()
-		err = b.SetPowerMode(ctx, req.PowerMode, &duration)
+		err = b.SetPowerMode(ctx, req.PowerMode, &duration, req.Extra.AsMap())
 	}
 
 	if err != nil {

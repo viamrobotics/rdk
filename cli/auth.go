@@ -611,8 +611,12 @@ func (c *viamClient) prepareDialInner(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	if _, ok := c.conf.Auth.(*token); ok {
+	if t, ok := c.conf.Auth.(*token); ok {
 		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+		if t.TokenType == tokenTypeUserOAuthToken {
+			// TODO(RSDK-12818): mDNS connections cannot handle fusion-auth tokens
+			rpcOpts = append(rpcOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: true}))
+		}
 	}
 
 	if debug {
@@ -680,7 +684,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 		oidcDiscoveryEndpoint: fmt.Sprintf("%s%s", authDomain, defaultOpenIDDiscoveryPath),
 
 		disableBrowserOpen: disableBrowserOpen,
-		httpClient:         &http.Client{Timeout: time.Second * 30},
+		httpClient:         &http.Client{Timeout: time.Minute * 5},
 		logger:             logging.NewLogger("cli"),
 		console:            console,
 	}

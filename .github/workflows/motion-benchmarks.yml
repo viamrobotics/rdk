@@ -19,16 +19,16 @@ jobs:
     steps:
     - name: Check out main branch code
       if: github.event_name != 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Check out code in motion-testing repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: viamrobotics/motion-testing
         path: motion-testing

@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -51,6 +52,7 @@ func TestReconfigure(t *testing.T) {
 	a, err := NewArm(ctx, nil, conf0, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	fakeArm, _ := a.(*Arm)
+	test.That(t, fakeArm.armModel, test.ShouldResemble, "")
 
 	model, err := fakeArm.Kinematics(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -63,6 +65,7 @@ func TestReconfigure(t *testing.T) {
 	modelJoints := make([]referenceframe.Input, len(model.DoF()))
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
+	test.That(t, fakeArm.armModel, test.ShouldResemble, xArm6Model)
 
 	err = fakeArm.Reconfigure(ctx, nil, conf2)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -94,7 +97,7 @@ func TestJointPositions(t *testing.T) {
 	// Round trip test for MoveToJointPositions -> JointPositions
 	arm, err := NewArm(ctx, nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	samplePositions := []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}}
+	samplePositions := []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi}
 	test.That(t, arm.MoveToJointPositions(ctx, samplePositions, nil), test.ShouldBeNil)
 	positions, err := arm.JointPositions(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -111,4 +114,46 @@ func TestJointPositions(t *testing.T) {
 	inputs, err := arm.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, sampleInputs, test.ShouldResemble, inputs)
+}
+
+func TestGet3DModels(t *testing.T) {
+	ctx := context.Background()
+	confNo3DModels := resource.Config{
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ArmModel: xArm7Model,
+		},
+	}
+	a, err := NewArm(ctx, nil, confNo3DModels, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+	fakeArm, _ := a.(*Arm)
+	models, err := fakeArm.Get3DModels(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(models), test.ShouldEqual, 0)
+
+	confWith3DModels := resource.Config{
+		Name: "testArm",
+		ConvertedAttributes: &Config{
+			ArmModel: ur5eModel,
+		},
+	}
+	err = fakeArm.Reconfigure(ctx, nil, confWith3DModels)
+	test.That(t, err, test.ShouldBeNil)
+	models, err = fakeArm.Get3DModels(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(models), test.ShouldEqual, 7)
+	test.That(t, models["ee_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "ee_link").Mesh)
+	test.That(t, models["ee_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["forearm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "forearm_link").Mesh)
+	test.That(t, models["forearm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["upper_arm_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "upper_arm_link").Mesh)
+	test.That(t, models["upper_arm_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["wrist_1_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_1_link").Mesh)
+	test.That(t, models["wrist_1_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["wrist_2_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "wrist_2_link").Mesh)
+	test.That(t, models["wrist_2_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["base_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "base_link").Mesh)
+	test.That(t, models["base_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
+	test.That(t, models["shoulder_link"].Mesh, test.ShouldResemble, models3d.ThreeDMeshFromName("ur5e", "shoulder_link").Mesh)
+	test.That(t, models["shoulder_link"].ContentType, test.ShouldResemble, "model/gltf-binary")
 }

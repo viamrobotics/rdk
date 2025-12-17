@@ -1,6 +1,8 @@
 package referenceframe
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // ErrNeedOneEndEffector is an error indicating that exactly one end effector is required.
 var ErrNeedOneEndEffector = errors.New("need exactly one end effector")

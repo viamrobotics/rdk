@@ -25,7 +25,7 @@ if test -n "$GITHUB_RUN_ID"; then
 fi
 
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=no_skip $RACE $COVER $TEST_TARGET
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=no_skip -timeout 40m $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then

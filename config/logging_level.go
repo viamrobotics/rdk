@@ -11,8 +11,11 @@ import (
 
 var globalLogger struct {
 	// These variables are initialized once at startup. No need for special synchronization.
-	logger           logging.Logger
-	cmdLineDebugFlag bool
+	// actualGlobalLogger is a pointer to the logger that our functions will atomically set
+	// the level on. levelChangeLogger is used to log that the level has been initialized or
+	// modified.
+	actualGlobalLogger, levelChangeLogger logging.Logger
+	cmdLineDebugFlag                      bool
 
 	// These variables can be changed while the `viam-server` is running. Additionally, every time one
 	// of these is changed, we re-evaluate the log level. This mutex synchronizes the reads and writes
@@ -23,19 +26,23 @@ var globalLogger struct {
 }
 
 // InitLoggingSettings initializes the global logging settings.
-func InitLoggingSettings(logger logging.Logger, cmdLineDebugFlag bool) {
-	globalLogger.logger = logger
+func InitLoggingSettings(actualGlobalLogger, levelChangeLogger logging.Logger, cmdLineDebugFlag bool) {
+	globalLogger.mu.Lock()
+	defer globalLogger.mu.Unlock()
+
+	globalLogger.actualGlobalLogger = actualGlobalLogger
+	globalLogger.levelChangeLogger = levelChangeLogger
 	globalLogger.cmdLineDebugFlag = cmdLineDebugFlag
 
 	if cmdLineDebugFlag {
 		logging.GlobalLogLevel.SetLevel(zapcore.DebugLevel)
-		logger.SetLevel(logging.DEBUG)
+		actualGlobalLogger.SetLevel(logging.DEBUG)
 	} else {
 		logging.GlobalLogLevel.SetLevel(zapcore.InfoLevel)
-		logger.SetLevel(logging.INFO)
+		actualGlobalLogger.SetLevel(logging.INFO)
 	}
 
-	globalLogger.logger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
+	globalLogger.levelChangeLogger.Info("Log level initialized:", logging.GlobalLogLevel.Level())
 }
 
 // UpdateFileConfigDebug is used to update the debug flag whenever a file-based viam config is
@@ -79,8 +86,8 @@ func refreshLogLevelInLock() {
 	if logging.GlobalLogLevel.Level() == newLevelZap {
 		return
 	}
-	globalLogger.logger.Info("New log level:", newLevelZap)
+	globalLogger.levelChangeLogger.Info("New log level:", newLevelZap)
 
 	logging.GlobalLogLevel.SetLevel(newLevelZap)
-	globalLogger.logger.SetLevel(newLevel)
+	globalLogger.actualGlobalLogger.SetLevel(newLevel)
 }

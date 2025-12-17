@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -25,10 +25,6 @@ import (
 
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
-
-// FromDMContextKey is used to check whether the context is from data management.
-// Deprecated: use a camera.Extra with camera.NewContext instead.
-type FromDMContextKey struct{}
 
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
@@ -419,7 +415,7 @@ func NewDoCommandCaptureFunc[T interface {
 			if payloadAny.TypeUrl == "" && len(payloadAny.Value) == 0 {
 				payload = make(map[string]interface{})
 			} else {
-				unmarshaledPayload, err := unmarshalToValueOrString(payloadAny)
+				unmarshaledPayload, err := UnmarshalToValueOrString(payloadAny)
 				if err != nil {
 					return result, err
 				}
@@ -447,9 +443,9 @@ func NewDoCommandCaptureFunc[T interface {
 	}
 }
 
-// unmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
+// UnmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
 // or extracts the string value if it's a string type.
-func unmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
+func UnmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
 	// Try to unmarshal to Struct first
 	structVal := &structpb.Struct{}
 	if err := v.UnmarshalTo(structVal); err == nil {

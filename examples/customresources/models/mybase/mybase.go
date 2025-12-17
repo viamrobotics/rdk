@@ -57,12 +57,12 @@ func (b *myBase) Reconfigure(ctx context.Context, deps resource.Dependencies, co
 		return err
 	}
 
-	b.left, err = motor.FromDependencies(deps, baseConfig.LeftMotor)
+	b.left, err = motor.FromProvider(deps, baseConfig.LeftMotor)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.LeftMotor)
 	}
 
-	b.right, err = motor.FromDependencies(deps, baseConfig.RightMotor)
+	b.right, err = motor.FromProvider(deps, baseConfig.RightMotor)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get motor %v for mybase", baseConfig.RightMotor)
 	}

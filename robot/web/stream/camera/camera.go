@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	rutils "go.viam.com/rdk/utils"
@@ -55,8 +54,8 @@ func cropToEvenDimensions(img image.Image) (image.Image, error) {
 // an error if it has no camera.
 func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	// Stream names are slightly modified versions of the resource short name
-	shortName := resource.SDPTrackNameToShortName(stream.Name())
-	cam, err := camera.FromRobot(robot, shortName)
+	shortName := stream.Name()
+	cam, err := camera.FromProvider(robot, shortName)
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +156,15 @@ func VideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.Vid
 		return img, func() {}, nil
 	})
 
-	img, _, err := reader(ctx)
-	if err != nil {
-		// Okay to return empty prop because processInputFrames will tick and set them
-		return gostream.NewVideoSource(reader, prop.Video{}), nil //nolint:nilerr
-	}
-
-	return gostream.NewVideoSource(reader, prop.Video{Width: img.Bounds().Dx(), Height: img.Bounds().Dy()}), nil
+	// Return empty prop because there are no downstream consumers of the video props anyways.
+	// The video encoder's actual properties are set by processInputFrames by sniffing a returned image.
+	// We no longer ask the camera for an image in this code path to fill in video props because if the camera
+	// hangs on this call, we can potentially block the resource reconfiguration due
+	// to the tight coupling of refreshing streams and the resource graph.
+	//
+	// Blocking the resource reconfiguration is a known issue: https://viam.atlassian.net/browse/RSDK-12744
+	//
+	// If we ever start relying on the video props for other purposes, we should think of a way to set them
+	// without blocking the resource reconfiguration.
+	return gostream.NewVideoSource(reader, prop.Video{}), nil
 }

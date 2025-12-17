@@ -16,12 +16,12 @@ jobs:
 
     steps:
     - name: Authorize GCP
-      uses: google-github-actions/auth@v1.1.1
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
+      uses: google-github-actions/setup-gcloud@v2
 
     - name: Remove Failed Test AppImages/Binaries
       run: |
