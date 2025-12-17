@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -72,7 +73,7 @@ func TestDefaultCameraSettings(t *testing.T) {
 			sourceImg := image.NewRGBA(image.Rect(0, 0, 3, 3))
 			imgBytes, err := rimage.EncodeImage(ctx, sourceImg, utils.MimeTypePNG)
 			test.That(t, err, test.ShouldBeNil)
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", utils.MimeTypePNG)
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", utils.MimeTypePNG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		},

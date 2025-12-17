@@ -34,6 +34,7 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -1222,9 +1223,9 @@ func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			t.Helper()
-			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, utils.MimeTypeJPEG)
 			test.That(t, err, test.ShouldBeNil)
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType)
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		},

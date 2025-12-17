@@ -476,11 +476,11 @@ func TestSync(t *testing.T) {
 							filterSourceNames []string,
 							extra map[string]interface{},
 						) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-							outBytes, err := rimage.EncodeImage(ctx, imgPng, "image/jpeg")
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}
-							namedImg, err := camera.NamedImageFromBytes(outBytes, "", "image/jpeg")
+							namedImg, err := camera.NamedImageFromBytes(outBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}

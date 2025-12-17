@@ -151,7 +151,7 @@ func TestServer(t *testing.T) {
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		namedImg, err := camera.NamedImageFromImage(depthImage, "", utils.MimeTypeRawDepth)
+		namedImg, err := camera.NamedImageFromImage(depthImage, "", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}

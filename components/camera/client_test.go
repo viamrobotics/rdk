@@ -145,7 +145,7 @@ func TestClient(t *testing.T) {
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		namedImg, err := camera.NamedImageFromImage(depthImg, "", rutils.MimeTypeRawDepth)
+		namedImg, err := camera.NamedImageFromImage(depthImg, "", rutils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -885,7 +885,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}

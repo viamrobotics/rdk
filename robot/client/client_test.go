@@ -53,6 +53,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -352,7 +353,7 @@ func TestStatusClient(t *testing.T) {
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG)
+		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}

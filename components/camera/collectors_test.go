@@ -199,7 +199,7 @@ func newCamera(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		namedImg, err := camera.NamedImageFromBytes(viamLogoJpegBytes, "", utils.MimeTypeJPEG)
+		namedImg, err := camera.NamedImageFromBytes(viamLogoJpegBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
