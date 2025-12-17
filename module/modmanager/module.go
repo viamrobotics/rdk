@@ -377,6 +377,7 @@ func (m *module) stopProcess() error {
 
 // wait waits on a module's managedProcesses' goroutines to finish. stopProcess should be called before calling this,
 // so it can call restartCancel to cancel the OUE.
+// Can be used in testing to ensure that all of a module's associated goroutines complete before the test completes.
 func (m *module) wait() {
 	// if we are stuck in a restart loop, the OUE attempting the restarts is here
 	if m.prevProcess != nil {
