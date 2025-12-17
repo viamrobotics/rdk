@@ -107,7 +107,8 @@ func TestCollectors(t *testing.T) {
 			collector: camera.NewReadImageCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+					MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+					Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}}},
 				},
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			}},
