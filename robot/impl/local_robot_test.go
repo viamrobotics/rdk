@@ -2958,24 +2958,16 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
-	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
 
 	// Manually define models, as importing them can cause double registration.
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	helper2Model := resource.NewModel("rdk", "test", "helper2")
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
 
 	cfg4 := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-		},
 		Components: []resource.Config{
 			{
-				Name:  "h",
-				Model: helperModel,
-				API:   generic.API,
+				Name:  "s4",
+				Model: fakeModel,
+				API:   sensor.API,
 			},
 		},
 	}
@@ -2992,16 +2984,16 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod2",
-				ExePath: test2Path,
+				Name:    "mod",
+				ExePath: testPath,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:      "h3",
-				Model:     helper2Model,
-				API:       generic.API,
-				DependsOn: []string{"h"},
+				Name:       "s3",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
 			},
 		},
 	}
@@ -3018,17 +3010,16 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod2",
-				ExePath: test2Path,
+				Name:    "mod",
+				ExePath: testPath,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:  "h2",
-				Model: helper2Model,
-				API:   generic.API,
-				// ensure DependsOn works with simple name (implicit remotes)
-				DependsOn: []string{"h"},
+				Name:       "s2",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
 			},
 		},
 	}
@@ -3045,42 +3036,40 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod2",
-				ExePath: test2Path,
+				Name:    "mod",
+				ExePath: testPath,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:  "h1",
-				Model: helper2Model,
-				API:   generic.API,
-				// ensure DependsOn works with simple name (implicit remotes)
-				DependsOn: []string{"h"},
+				Name:       "s1",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
 			},
 		},
 	}
 	robot1 := setupLocalRobot(t, ctx, cfg1, logger)
 
-	// Ensure "h1", "h2", and "h3" can all be retrieved from their
+	// Ensure "s1", "s2", and "s3" can all be retrieved from their
 	// respective robots and can use their dependency.
+	s3, err := sensor.FromProvider(robot3, "s3")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s3.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
 
-	h3, err := robot3.ResourceByName(generic.Named("h3"))
+	s2, err := sensor.FromProvider(robot2, "s2")
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := h3.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err = s2.Readings(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
 
-	h2, err := robot2.ResourceByName(generic.Named("h2"))
+	s1, err := sensor.FromProvider(robot1, "s1")
 	test.That(t, err, test.ShouldBeNil)
-	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err = s1.Readings(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
-
-	h1, err := robot1.ResourceByName(generic.Named("h1"))
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = h1.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
 }
 
 func TestCloudMetadata(t *testing.T) {
