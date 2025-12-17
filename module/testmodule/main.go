@@ -486,7 +486,6 @@ func newSensorDependent(
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("deps: %v\n", deps)
 	s, err := sensor.FromProvider(deps, config.Sensor)
 	if err != nil {
 		return nil, err
