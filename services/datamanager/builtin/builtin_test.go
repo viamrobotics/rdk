@@ -488,7 +488,7 @@ func TestSync(t *testing.T) {
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}
-							namedImg, err := camera.NamedImageFromBytes(outBytes, "", "image/jpeg")
+							namedImg, err := camera.NamedImageFromBytes(outBytes, "", "image/jpeg", data.Annotations{})
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}
