@@ -2930,13 +2930,13 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
-	// robot4 has an generic "h", ensure that a modular generic "h1" on robot1,
-	// a modular generic "h2" on robot2, and a modular generic "h3" on robot3
-	// can depend on "h".
+	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
+	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
+	// can depend on "s4".
 
 	startWeb := func(r robot.LocalRobot) string {
 		var boundAddress string
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
 
