@@ -228,7 +228,7 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 	fallbackNamedImage, err := camera.NamedImageFromImage(sourceImg2, "fallback", utils.MimeTypeJPEG, data.Annotations{})
 	test.That(t, err, test.ShouldBeNil)
 
-	firstSourceFailed := false
+	goodSourceCallCount := 0
 	cam := &inject.Camera{
 		ImagesFunc: func(
 			ctx context.Context,
@@ -236,7 +236,7 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			if len(sourceNames) == 0 { // GetStreamableNamedImageFromCamera call
-				if !firstSourceFailed {
+				if goodSourceCallCount == 0 {
 					return []camera.NamedImage{goodNamedImage}, resource.ResponseMetadata{}, nil
 				}
 				return []camera.NamedImage{fallbackNamedImage}, resource.ResponseMetadata{}, nil
@@ -244,11 +244,11 @@ func TestVideoSourceFromCamera_Recovery(t *testing.T) {
 
 			// getImageBySourceName call
 			if sourceNames[0] == "good" {
-				if !firstSourceFailed {
-					firstSourceFailed = true
-					return []camera.NamedImage{goodNamedImage}, resource.ResponseMetadata{}, nil
+				goodSourceCallCount++
+				if goodSourceCallCount == 1 {
+					return nil, resource.ResponseMetadata{}, errors.New("source 'good' is gone")
 				}
-				return nil, resource.ResponseMetadata{}, errors.New("source 'good' is gone")
+				return nil, resource.ResponseMetadata{}, fmt.Errorf("unexpected call to source 'good' after failure")
 			}
 			if sourceNames[0] == "fallback" {
 				return []camera.NamedImage{fallbackNamedImage}, resource.ResponseMetadata{}, nil
@@ -425,13 +425,19 @@ func TestVideoSourceFromCamera_FilterNoImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	// First Next() corresponds to the first filtered read; expect failure
-	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.New("no images found for requested source name: good"))
-	// Next Next() should recover and serve fallback
+	// First Next() selects "good" source
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	diffVal, _, err := rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
+	// Second Next() tries to get "good" but filter returns no images; expect failure
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeError, errors.New("no images found for requested source name: good"))
+	// Third Next() should recover and serve fallback
+	img, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err = rimage.CompareImages(img, src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
@@ -513,21 +519,27 @@ func TestVideoSourceFromCamera_FilterMultipleImages_NoMatchingSource(t *testing.
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	// The first call to `VideoSourceFromCamera` will select "source1". The first call to `stream.Next()`
-	// will then request "source1" and receive two "source2" images, causing an error.
-	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldBeError,
-		errors.New(`no matching source name found for multiple returned images: requested "source1", got ["source2" "source2"]`))
-
-	// On the next call, the stream should recover by performing an unfiltered images call.
-	// The mock will return only the second image, and the stream should succeed.
+	// First Next() performs unfiltered selection and picks "source1"
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	diffVal, _, err := rimage.CompareImages(img, src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diffVal, test.ShouldEqual, 0)
 
-	// Subsequent calls should also succeed.
+	// Second Next() requests "source1" but receives two "source2" images, causing an error
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeError,
+		errors.New(`no matching source name found for multiple returned images: requested "source1", got ["source2" "source2"]`))
+
+	// Third Next() should recover by performing an unfiltered images call
+	// The mock will return only the second image, and the stream should succeed
+	img, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err = rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
+
+	// Subsequent calls should also succeed
 	img, _, err = stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	diffVal, _, err = rimage.CompareImages(img, src)
@@ -634,13 +646,19 @@ func TestVideoSourceFromCamera_FilterMismatchedSourceName(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	// First Next(): filtered mismatch should fail
-	_, _, err = stream.Next(context.Background())
-	test.That(t, err, test.ShouldBeError, errors.New(`mismatched source name: requested "good", got "bad"`))
-	// Second Next(): should recover and deliver the correct image
+	// First Next(): unfiltered selection picks "good"
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	diffVal, _, err := rimage.CompareImages(img, src)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, diffVal, test.ShouldEqual, 0)
+	// Second Next(): filtered request for "good" returns mismatched source name and should fail
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeError, errors.New(`mismatched source name: requested "good", got "bad"`))
+	// Third Next(): should recover and deliver the correct image
+	img, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	diffVal, _, err = rimage.CompareImages(img, src)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
