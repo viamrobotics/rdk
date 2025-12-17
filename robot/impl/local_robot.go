@@ -791,7 +791,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 	optDeps := make(resource.Dependencies)
 
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
-		matchingResourceNames := r.manager.resources.FindNodesByShortName(optionalDepNameString)
+		matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
 		switch len(matchingResourceNames) {
 		case 0:
 			r.logger.Infow(
@@ -815,6 +815,9 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		}
 
 		resolvedOptionalDepName := matchingResourceNames[0]
+
+		// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
+		resolvedOptionalDepName.Name = optionalDepNameString
 
 		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
 		if err != nil {
