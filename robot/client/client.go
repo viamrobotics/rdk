@@ -747,7 +747,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return nil, err
 	}
 
-	// if the request is for the public framesystem, 
+	// if the request is for the public framesystem,
 	// return the robot client since it implements framesystem
 	if name == framesystem.PublicServiceName {
 		return rc, nil
