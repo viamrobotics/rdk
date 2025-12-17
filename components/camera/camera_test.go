@@ -190,10 +190,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	namedImages, _, err := noProj2.Images(context.Background(), nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
-	img, err := namedImages[0].Image(context.Background())
+	img, err := camera.DecodeImageFromCamera(context.Background(), noProj2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)
@@ -241,10 +238,7 @@ func TestCameraWithProjector(t *testing.T) {
 	_, got := pc.At(0, 0, 0)
 	test.That(t, got, test.ShouldBeTrue)
 
-	namedImages, _, err := cam2.Images(context.Background(), nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
-	img, err := namedImages[0].Image(context.Background())
+	img, err := camera.DecodeImageFromCamera(context.Background(), cam2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, img.Bounds().Dx(), test.ShouldEqual, 1280)

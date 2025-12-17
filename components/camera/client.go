@@ -148,13 +148,7 @@ func (c *client) Stream(
 				return
 			}
 
-			namedImages, _, err := c.Images(streamCtx, nil, nil)
-			var img image.Image
-			if err == nil && len(namedImages) > 0 {
-				img, err = namedImages[0].Image(streamCtx)
-			} else if err == nil {
-				err = errors.New("no images returned from camera")
-			}
+			img, err := DecodeImageFromCamera(streamCtx, c, nil, nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)

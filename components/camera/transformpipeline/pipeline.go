@@ -137,20 +137,15 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// check if the source produces a depth image or color image
-	namedImages, _, err := source.Images(ctx, nil, nil)
+	img, err := camera.DecodeImageFromCamera(ctx, source, nil, nil)
 
 	var streamType camera.ImageType
-	if err != nil || len(namedImages) == 0 {
+	if err != nil {
 		streamType = camera.UnspecifiedStream
+	} else if _, ok := img.(*image.Gray16); ok {
+		streamType = camera.DepthStream
 	} else {
-		img, err := namedImages[0].Image(ctx)
-		if err != nil {
-			streamType = camera.UnspecifiedStream
-		} else if _, ok := img.(*image.Gray16); ok {
-			streamType = camera.DepthStream
-		} else {
-			streamType = camera.ColorStream
-		}
+		streamType = camera.ColorStream
 	}
 	// loop through the pipeline and create the image flow
 	pipeline := make([]camera.VideoSource, 0, len(cfg.Pipeline))
@@ -191,14 +186,7 @@ type transformPipeline struct {
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
-	namedImages, _, err := tp.src.Images(ctx, nil, nil)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	if len(namedImages) == 0 {
-		return nil, func() {}, errors.New("no images returned from camera")
-	}
-	img, err := namedImages[0].Image(ctx)
+	img, err := camera.DecodeImageFromCamera(ctx, tp.src, nil, nil)
 	if err != nil {
 		return nil, func() {}, err
 	}

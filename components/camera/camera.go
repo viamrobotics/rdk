@@ -225,6 +225,22 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
+// DecodeImageFromCamera gets images from a camera resource and returns the first image as a decoded image.Image.
+func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []string, extra map[string]interface{}) (image.Image, error) {
+	namedImages, _, err := cam.Images(ctx, filterSourceNames, extra)
+	if err != nil {
+		return nil, fmt.Errorf("could not get images from camera: %w", err)
+	}
+	if len(namedImages) == 0 {
+		return nil, errors.New("no images returned from camera")
+	}
+	img, err := namedImages[0].Image(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
+	}
+	return img, nil
+}
+
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
 // Note that generally, when writing camera components from scratch, embedding `Stream` is an anti-pattern.
 type VideoSource interface {
