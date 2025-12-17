@@ -3,7 +3,6 @@ package webstream
 import (
 	"context"
 	"fmt"
-	"image"
 	"runtime"
 	"sync"
 	"time"
@@ -790,46 +789,6 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 // sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
 // pull a frame, and returns the width and height.
 func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
-	if rutils.GetImagesInStreamServer() {
-		return sampleFrameSize2(ctx, cam, logger)
-	}
-	return sampleFrameSize1(ctx, cam, logger)
-}
-
-func sampleFrameSize1(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
-	logger.Debug("sampling frame size")
-	// Attempt to get a frame from the stream with a maximum of 5 retries.
-	// This is useful if cameras have a warm-up period before they can start streaming.
-	var frame image.Image
-	var err error
-retryLoop:
-	for i := 0; i < 5; i++ {
-		select {
-		case <-ctx.Done():
-			return 0, 0, ctx.Err()
-		default:
-			namedImages, _, imgErr := cam.Images(ctx, nil, nil)
-			if imgErr == nil && len(namedImages) > 0 {
-				frame, err = namedImages[0].Image(ctx)
-				if err == nil {
-					break retryLoop // Break out of the for loop, not just the select.
-				}
-			} else if imgErr != nil {
-				err = imgErr
-			} else {
-				err = fmt.Errorf("no images returned from camera")
-			}
-			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
-			time.Sleep(retryDelay)
-		}
-	}
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
-	}
-	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
-}
-
-func sampleFrameSize2(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
