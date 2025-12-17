@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -280,10 +281,11 @@ func traceImportLocal(
 	if endpoint == "" {
 		endpoint = "localhost:4317"
 	}
-	otlpClient := otlptracegrpc.NewClient(
-		otlptracegrpc.WithEndpoint(endpoint),
-		otlptracegrpc.WithInsecure(),
-	)
+	opts := []otlptracegrpc.Option{ otlptracegrpc.WithEndpoint(endpoint) }
+	if strings.HasPrefix(endpoint, "localhost:") {
+		opts = append(opts, otlptracegrpc.WithInsecure())
+	}
+	otlpClient := otlptracegrpc.NewClient(opts...)
 	if err := otlpClient.Start(ctx.Context); err != nil {
 		return err
 	}
