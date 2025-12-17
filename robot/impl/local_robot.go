@@ -1635,6 +1635,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 }
 
 func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.Config) {
+	logger := r.logger.Sublogger("tracing")
 	newTracingCfg := newConfig.Tracing
 	hasDiff := newTracingCfg != r.mostRecentCfg.Load().(config.Config).Tracing
 	if !hasDiff {
@@ -1659,13 +1660,13 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			}
 			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
 			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
-				r.logger.Errorw("failed to create directory to store traces", "err", err)
+				logger.Errorw("failed to create directory to store traces", "err", err)
 				return
 			}
-			r.logger.Infow("created trace storage dir", "dir", tracesDir)
+			logger.Infow("created trace storage dir", "dir", tracesDir)
 			traceClient, err := otlpfile.NewClient(tracesDir, "traces")
 			if err != nil {
-				r.logger.Errorw("failed to create OLTP client", "err", err)
+				logger.Errorw("failed to create OLTP client", "err", err)
 				return
 			}
 			exporter, err := otlptrace.New(
@@ -1673,7 +1674,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 				traceClient,
 			)
 			if err != nil {
-				r.logger.Errorw("failed to create trace exporter", "err", err)
+				logger.Errorw("failed to create trace exporter", "err", err)
 				return
 			}
 
@@ -1689,13 +1690,13 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			}
 			otlpClient := otlptracegrpc.NewClient(opts...)
 			if err := otlpClient.Start(ctx); err != nil {
-				r.logger.Errorw("Failed to start OTLP gRPC client while reconfiguring tracing", "err", err)
+				logger.Errorw("Failed to start OTLP gRPC client while reconfiguring tracing", "err", err)
 				return
 			}
 
 			exporter, err := otlptrace.New(ctx, otlpClient)
 			if err != nil {
-				r.logger.Errorw("Faild to create OTLP gRPC exporter while reconfiguring tracing", "err", err)
+				logger.Errorw("Faild to create OTLP gRPC exporter while reconfiguring tracing", "err", err)
 				return
 			}
 			robotTraceClients = append(robotTraceClients, otlpClient)
@@ -1714,7 +1715,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	// stop getting sent to them.
 	for _, prevExporter := range trace.ClearExporters() {
 		if err := prevExporter.Shutdown(ctx); err != nil {
-			r.logger.Warnw("Error while shutting down old trace exporter", "err", err)
+			logger.Warnw("Error while shutting down old trace exporter", "err", err)
 		}
 	}
 
