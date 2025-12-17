@@ -2,6 +2,7 @@
 package camera
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"image"
@@ -76,7 +77,20 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 		if _, ok := streamableImageMIMETypes[namedImage.MimeType()]; ok {
 			return namedImage, nil
 		}
-		
+
+		imgBytes, err := namedImage.Bytes(ctx)
+		if err != nil {
+			continue
+		}
+
+		_, format, err := image.DecodeConfig(bytes.NewReader(imgBytes))
+		if err != nil {
+			continue
+		}
+
+		if _, ok := streamableImageMIMETypes[format]; ok {
+			return namedImage, nil
+		}
 	}
 	return camera.NamedImage{}, fmt.Errorf("no images were found with a streamable mime type for camera %q", cam.Name())
 }
