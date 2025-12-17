@@ -603,7 +603,10 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	if orgStr == "" {
 		orgStr = c.Args().First()
 	}
-	if orgStr == "" {
+	if orgStr == "" { // first, see if we have a default set
+		orgStr, _ = getDefaultOrg(c) // if there's an error then we'll just fall back to the old logic
+	}
+	if orgStr == "" { // if there's still not an orgStr, then we can fall back to the alphabetically first
 		orgs, err := client.listOrganizations()
 		if err != nil {
 			return errors.Wrap(err, "could not list organizations")

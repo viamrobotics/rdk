@@ -470,6 +470,49 @@ var app = &cli.App{
 	},
 	Commands: []*cli.Command{
 		{
+			Name:      "defaults",
+			Usage:     "Set or clear default argument values",
+			UsageText: createUsageText("defaults", nil, false, false),
+			Subcommands: []*cli.Command{
+				{
+					Name:  "set-org",
+					Usage: "Set default organization argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetOrgAction),
+				},
+				{
+					Name:   "clear-org",
+					Usage:  "Clear default organization argument",
+					Action: createCommandWithT(defaultsClearOrgAction),
+				},
+				{
+					Name:  "set-location",
+					Usage: "Set default location argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetLocationAction),
+				},
+				{
+					Name:   "clear-location",
+					Usage:  "Clear default location argument",
+					Action: createCommandWithT(defaultsClearLocationAction),
+				},
+			},
+		},
+		{
 			Name:      "traces",
 			Usage:     "Work with viam-server traces",
 			UsageText: createUsageText("traces", nil, false, true),
@@ -1001,9 +1044,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations api-key create", []string{generalFlagOrgID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to create an api key for",
+									Name:        generalFlagOrgID,
+									Usage:       "the org to create an api key for",
+									DefaultText: "the default org set with `viam defaults set-org`",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagName,
@@ -1034,7 +1077,7 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the org set by `viam defaults set-org` if it exists, else the first one alphabetically",
 							},
 						},
 					},

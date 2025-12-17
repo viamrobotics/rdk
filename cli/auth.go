@@ -313,7 +313,13 @@ func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKey
 }
 
 func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
+	var err error
 	orgID := args.OrgID
+	if orgID == "" {
+		if orgID, err = getDefaultOrg(cCtx); err != nil {
+			return errors.New("must specify an org ID to create an API key for")
+		}
+	}
 	keyName := args.Name
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
