@@ -19,6 +19,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
@@ -1737,12 +1738,14 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	// Start the new trace clients and install them on the local robot and the
 	// global tracer provider. Tracing is fully functional at this point.
 	if len(robotTraceClients) > 0 {
-		for _, c := range robotTraceClients {
-			if err := c.Start(ctx); err != nil {
+		successfulClients := lo.Filter(robotTraceClients, func(client otlptrace.Client, _ int) bool {
+			if err := client.Start(ctx); err != nil {
 				r.logger.Errorw("Error while starting new otlp client; reconfiguration will continue but tracing may not be functional", "err", err)
+				return false
 			}
-		}
-		r.traceClients.Store(&robotTraceClients)
+			return true
+		})
+		r.traceClients.Store(&successfulClients)
 	}
 	trace.AddExporters(exporters...)
 }
