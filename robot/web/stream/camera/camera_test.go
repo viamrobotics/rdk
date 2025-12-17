@@ -91,7 +91,6 @@ func TestFormatStringToMimeType(t *testing.T) {
 		})
 	}
 }
-
 func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
 	unstreamableImg, err := camera.NamedImageFromImage(sourceImg, "unstreamable", "image/undefined", data.Annotations{})
