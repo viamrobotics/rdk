@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1679,12 +1680,13 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			robotTraceClients = append(robotTraceClients, traceClient)
 		}()
 	}
-	if newTracingCfg.OTLPEndpoint != "" {
+	if endpoint := newTracingCfg.OTLPEndpoint; endpoint != "" {
 		func() {
-			otlpClient := otlptracegrpc.NewClient(
-				otlptracegrpc.WithEndpoint(newTracingCfg.OTLPEndpoint),
-				otlptracegrpc.WithInsecure(),
-			)
+			opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(newTracingCfg.OTLPEndpoint)}
+			if strings.HasPrefix(endpoint, "localhost:") {
+				opts = append(opts, otlptracegrpc.WithInsecure())
+			}
+			otlpClient := otlptracegrpc.NewClient(opts...)
 			if err := otlpClient.Start(ctx); err != nil {
 				r.logger.Errorw("Failed to start OTLP gRPC client while reconfiguring tracing", "err", err)
 				return
