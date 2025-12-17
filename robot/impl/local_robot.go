@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -132,7 +134,8 @@ type localRobot struct {
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
 
-	traceClient *otlpfile.Client
+	traceClient     *otlpfile.Client
+	otlpTraceClient otlptrace.Client
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -150,10 +153,14 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 
 // WriteTraceMessages writes trace spans to any configured exporters.
 func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
-	if r.traceClient == nil {
-		return nil
+	var err error
+	if r.traceClient != nil {
+		err = stderrors.Join(err, r.traceClient.UploadTraces(ctx, spans))
 	}
-	return r.traceClient.UploadTraces(ctx, spans)
+	if r.otlpTraceClient != nil {
+		err = stderrors.Join(err, r.otlpTraceClient.UploadTraces(ctx, spans))
+	}
+	return err
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -455,7 +462,22 @@ func newWithResources(
 	}
 
 	var traceClient *otlpfile.Client
+	var otlptraceClient otlptrace.Client
 	if rOpts.tracing.enabled {
+		func() {
+			exporter, err := otlptracegrpc.New(ctx)
+			if err != nil {
+				logger.Errorw("failed to create otlp grpc exporter", "err", err)
+				return
+			}
+			otlptraceClient = otlptracegrpc.NewClient()
+			if err := otlptraceClient.Start(ctx); err != nil {
+				logger.Errorw("failed to create otlp grpc exporter", "err", err)
+				return
+			}
+
+			trace.AddExporters(exporter)
+		}()
 		func() {
 			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
 			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
@@ -509,6 +531,7 @@ func newWithResources(
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
 		traceClient:                traceClient,
+		otlpTraceClient:            otlptraceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})
