@@ -373,6 +373,9 @@ func LocationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs
 
 func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
 	locationID := args.LocationID
+	if locationID == "" {
+		locationID, _ = getDefaultLocation(cCtx) // if there's an error we just fallback to the old logic
+	}
 	orgID := args.OrgID
 	keyName := args.Name
 

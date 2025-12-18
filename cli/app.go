@@ -1094,9 +1094,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("locations api-key create", []string{generalFlagLocationID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagLocationID,
-									Required: true,
-									Usage:    "id of the location to create an api-key for",
+									Name:        generalFlagLocationID,
+									Usage:       "id of the location to create an api-key for",
+									DefaultText: "the default location set with `viam defaults set-location`",
 								},
 								&cli.StringFlag{
 									Name:  generalFlagName,
@@ -2360,14 +2360,14 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the default org argument if set, else the first organization alphabetically",
 							},
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:        generalFlagLocation,
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-								DefaultText: "first location alphabetically",
+								DefaultText: "the default location argument if set, else the first location alphabetically",
 							},
 						},
 						&cli.BoolFlag{

@@ -952,6 +952,12 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	}
 	orgStr := args.Organization
 	locStr := args.Location
+	if orgStr == "" {
+		orgStr, _ = getDefaultOrg(c) // if there's an error we fallback to old logic
+	}
+	if locStr == "" {
+		locStr, _ = getDefaultLocation(c) // if there's an error we fallback to old logic
+	}
 	if args.All {
 		return client.listAllRobotsInOrg(c, orgStr)
 	}

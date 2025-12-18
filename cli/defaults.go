@@ -20,6 +20,15 @@ func getDefaultOrg(cCtx *cli.Context) (string, error) {
 	return config.DefaultOrg, nil
 }
 
+func getDefaultLocation(cCtx *cli.Context) (string, error) {
+	config, err := ConfigFromCache(cCtx)
+	if err != nil {
+		return "", err
+	}
+
+	return config.DefaultLocation, nil
+}
+
 func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
 	// we're setting a new default org, so try to verify that it actually exists and there's
 	// permission to access it
@@ -143,11 +152,11 @@ func defaultsClearOrgAction(cCtx *cli.Context, args emptyArgs) error {
 }
 
 type defaultsSetLocationArgs struct {
-	Location string
+	LocationID string
 }
 
 func defaultsSetLocationAction(cCtx *cli.Context, args defaultsSetLocationArgs) error {
-	return writeDefaultLocation(cCtx, args.Location)
+	return writeDefaultLocation(cCtx, args.LocationID)
 }
 
 func defaultsClearLocationAction(cCtx *cli.Context, args emptyArgs) error {
