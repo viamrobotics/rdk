@@ -643,7 +643,8 @@ func newWithResources(
 		if !found {
 			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		return r.manager.ResourceByName(match)
+		_, resource, err := r.manager.ResourceByName(match)
+		return resource, err
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -756,11 +757,11 @@ func (r *localRobot) getDependencies(
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
-		r, err := r.manager.ResourceByName(dep)
+		prefixedName, res, err := r.manager.ResourceByName(dep)
 		if err != nil {
 			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[dep] = r
+		allDeps[prefixedName] = res
 	}
 	nodeConf := gNode.Config()
 	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {

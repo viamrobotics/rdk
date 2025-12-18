@@ -2971,7 +2971,7 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 			},
 		},
 	}
-	robot4 := setupLocalRobot(t, ctx, cfg4, logger)
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
 	addr4 := startWeb(robot4)
 	test.That(t, addr4, test.ShouldNotBeBlank)
 
@@ -2997,7 +2997,7 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 			},
 		},
 	}
-	robot3 := setupLocalRobot(t, ctx, cfg3, logger)
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
 	addr3 := startWeb(robot3)
 	test.That(t, addr3, test.ShouldNotBeBlank)
 
@@ -3023,7 +3023,7 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 			},
 		},
 	}
-	robot2 := setupLocalRobot(t, ctx, cfg2, logger)
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
 	addr2 := startWeb(robot2)
 	test.That(t, addr2, test.ShouldNotBeBlank)
 
@@ -3049,7 +3049,156 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 			},
 		},
 	}
-	robot1 := setupLocalRobot(t, ctx, cfg1, logger)
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
+
+	// Ensure "s1", "s2", and "s3" can all be retrieved from their
+	// respective robots and can use their dependency.
+	s3, err := sensor.FromProvider(robot3, "s3")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s3.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s2, err := sensor.FromProvider(robot2, "s2")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s2.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s1, err := sensor.FromProvider(robot1, "s1")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s1.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+}
+
+func TestModuleDependencyToRemotesWithPrefix(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
+	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
+	// can depend on "s4", even with prefixes.
+
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	cfg4 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "s4",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+				Prefix:  "r4-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s3",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r4-s4"},
+			},
+		},
+	}
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+				Prefix:  "r3-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s2",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r3-r4-s4"},
+			},
+		},
+	}
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
+
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+				Prefix:  "r2-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s1",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r2-r3-r4-s4"},
+			},
+		},
+	}
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
 
 	// Ensure "s1", "s2", and "s3" can all be retrieved from their
 	// respective robots and can use their dependency.
