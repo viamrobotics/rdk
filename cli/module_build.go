@@ -915,10 +915,11 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 
 // moduleCloudBuildInfo contains information needed to download a cloud build artifact.
 type moduleCloudBuildInfo struct {
-	ID          string
+	ModuleID    string
 	Version     string
 	Platform    string
 	ArchivePath string // Path to the temporary archive that should be deleted after download
+	OrgID       string
 }
 
 // moduleCloudReload triggers a cloud build and returns info needed to download the artifact.
@@ -932,6 +933,18 @@ func (c *viamClient) moduleCloudReload(
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
+		return nil, err
+	}
+
+	part, err := c.getRobotPart(partID)
+	if err != nil {
+		return nil, err
+	}
+	if part.Part == nil {
+		return nil, fmt.Errorf("part with id=%s not found", partID)
+	}
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
 		return nil, err
 	}
 
@@ -952,11 +965,6 @@ func (c *viamClient) moduleCloudReload(
 	}
 	if err := pm.Complete("register"); err != nil {
 		return nil, err
-	}
-
-	id := ctx.String(generalFlagID)
-	if id == "" {
-		id = manifest.ModuleID
 	}
 
 	if err := pm.Start("archive"); err != nil {
@@ -1025,11 +1033,16 @@ func (c *viamClient) moduleCloudReload(
 
 	// Return build info so the caller can download the artifact with a spinner
 	return &moduleCloudBuildInfo{
-		ID:          id,
+		ModuleID:    manifest.ModuleID,
+		OrgID:       orgID,
 		Version:     getReloadVersion(reloadVersionPrefix, partID),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
+}
+
+func IsReloadVersion(version string) bool {
+	return strings.HasPrefix(version, reloadVersionPrefix)
 }
 
 // ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
@@ -1188,7 +1201,8 @@ func reloadModuleActionInner(
 				return err
 			}
 			downloadArgs := downloadModuleFlags{
-				ID:          buildInfo.ID,
+				ModuleID:    buildInfo.ModuleID,
+				OrgID:       buildInfo.OrgID,
 				Version:     buildInfo.Version,
 				Platform:    buildInfo.Platform,
 				Destination: ".",
