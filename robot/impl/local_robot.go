@@ -643,8 +643,7 @@ func newWithResources(
 		if !found {
 			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		_, resource, err := r.manager.ResourceByName(match)
-		return resource, err
+		return r.ResourceByName(match)
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
