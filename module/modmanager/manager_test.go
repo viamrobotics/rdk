@@ -92,8 +92,8 @@ func setupModManager(
 			// which will wait on the process lock and for all longging to end before returning.
 			err = m.stopProcess()
 
-			// wait for any modules' goroutines to complete
-			m.process.Wait()
+			// wait for any modules' managedProcesses goroutines to complete.
+			m.wait()
 		}
 	})
 	return mgr
@@ -665,6 +665,13 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
+		// limit to 1 OUE restart attempt for this test
+		originalInterval := oueRestartInterval
+		t.Cleanup(func() {
+			oueRestartInterval = originalInterval
+		})
+		oueRestartInterval = time.Hour
+
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
@@ -708,10 +715,18 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
+		// wait for OUE launch
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
+				test.ShouldEqual, 1)
+		})
+
+		// wait for OUE -> attemptRestart error
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
-				test.ShouldBeGreaterThanOrEqualTo, 1)
+				test.ShouldEqual, 1)
 		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)
@@ -722,8 +737,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
-		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
-			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 
