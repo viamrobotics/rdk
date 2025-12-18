@@ -489,6 +489,11 @@ func (c *viamClient) ensureLoggedInInner() error {
 		return nil
 	}
 
+	globalArgs, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
+
 	if c.conf.Auth == nil {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
@@ -503,10 +508,7 @@ func (c *viamClient) ensureLoggedInInner() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			debugFlag := false
-			if globalArgs, err := getGlobalArgs(c.c); err == nil {
-				debugFlag = globalArgs.Debug
-			}
+			debugFlag := globalArgs.Debug
 			debugf(c.c.App.Writer, debugFlag, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
@@ -542,6 +544,23 @@ func (c *viamClient) ensureLoggedInInner() error {
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
 	c.mlInferenceClient = mlinferencepb.NewMLInferenceServiceClient(conn)
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
+
+	// if there's no default org and we're in a profile, there should only be the one org
+	// so we can automatically set that as the default
+	if c.conf.DefaultOrg == "" {
+		whichProfile, _ := whichProfile(globalArgs)
+		if !globalArgs.DisableProfiles && whichProfile != nil {
+			orgs, err := c.listOrganizations()
+			if err != nil && !globalArgs.Quiet {
+				warningf(c.c.App.ErrWriter, "no default org set for profile and unable to infer one")
+				// this should always be true for now, but might change if/when user level API keys exist
+			} else if len(orgs) == 1 {
+				if err = writeDefaultOrgInner(c.c, c, orgs[0].Id); err != nil && !globalArgs.Quiet {
+					warningf(c.c.App.ErrWriter, "unable to set default org for profile %s", *whichProfile)
+				}
+			}
+		}
+	}
 
 	return nil
 }

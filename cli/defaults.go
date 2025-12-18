@@ -29,15 +29,10 @@ func getDefaultLocation(cCtx *cli.Context) (string, error) {
 	return config.DefaultLocation, nil
 }
 
-func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
+func writeDefaultOrgInner(cCtx *cli.Context, client *viamClient, orgStr string) error {
 	// we're setting a new default org, so try to verify that it actually exists and there's
 	// permission to access it
 	if orgStr != "" {
-		client, err := newViamClient(cCtx)
-		if err != nil {
-			return err
-		}
-
 		if orgs, err := client.listOrganizations(); err != nil {
 			warningf(cCtx.App.ErrWriter, "unable to verify existence of org %s: %v", orgStr, err)
 		} else {
@@ -69,7 +64,15 @@ func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
 	config.DefaultOrg = orgStr
 
 	return storeConfigToCache(config)
+}
 
+func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return writeDefaultOrgInner(cCtx, client, orgStr)
 }
 
 func writeDefaultLocation(cCtx *cli.Context, locStr string) error {
