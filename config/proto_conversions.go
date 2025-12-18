@@ -687,15 +687,15 @@ func TracingConfigFromProto(proto *pb.TracingConfig, _ logging.Logger) (TracingC
 	return tcfg, nil
 }
 
-// TracingConfigFromProto converts a [TracingConfig] to the proto equivalent.
+// TracingConfigToProto converts a [TracingConfig] to the proto equivalent.
 func TracingConfigToProto(cfg *TracingConfig) (*pb.TracingConfig, error) {
 	if cfg == nil {
 		return nil, nil
 	}
 	protoConfig := &pb.TracingConfig{
-		Enabled: cfg.Enabled,
-		Disk: cfg.Disk,
-		Stdout: cfg.Stdout,
+		Enabled:      cfg.Enabled,
+		Disk:         cfg.Disk,
+		Stdout:       cfg.Stdout,
 		OtlpEndpoint: cfg.OTLPEndpoint,
 	}
 	return protoConfig, nil

@@ -281,7 +281,7 @@ func traceImportLocal(
 	if endpoint == "" {
 		endpoint = "localhost:4317"
 	}
-	opts := []otlptracegrpc.Option{ otlptracegrpc.WithEndpoint(endpoint) }
+	opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(endpoint)}
 	if strings.HasPrefix(endpoint, "localhost:") {
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
