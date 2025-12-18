@@ -811,22 +811,47 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	orgID, err := c.inferOrgIDFromManifest(manifest)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
-
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
+	}
+
+	// get the org id by going all the way through location
+	// and primary org id because apparently nothing has organization
+	// in the protos until that point?
+
+	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: part.Part.GetRobot(),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+		LocationId: robot.Robot.Location,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// use the primary org id for the machine as the reload
+	// module org
+	var orgID string
+	for _, org := range location.Location.Organizations {
+		if org.Primary {
+			orgID = org.OrganizationId
+			break
+		}
+	}
+	if orgID == "" {
+		orgID = location.Location.Organizations[0].OrganizationId
 	}
 
 	// App expects `BuildInfo` as the first request
