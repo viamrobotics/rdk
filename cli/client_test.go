@@ -1694,7 +1694,7 @@ func TestMergeComponentNameIntoData(t *testing.T) {
 	}
 }
 
-func TestRetryableCopyToPart(t *testing.T) {
+func TestRetryableCopy(t *testing.T) {
 	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
@@ -1712,6 +1712,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
+		// Copy to part
 		err = vc.retryableCopy(
 			cCtx,
 			"test-part-123",
@@ -1725,6 +1726,35 @@ func TestRetryableCopyToPart(t *testing.T) {
 
 		// Verify no retry steps were created
 		retryStepFound := false
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "copy-attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
+
+		// Copy from part
+		err = vc.retryableCopy(
+			cCtx,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+		// Verify no retry steps were created for the second
+		retryStepFound = false
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "copy-attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
 		for _, step := range pm.steps {
 			if strings.Contains(step.ID, "copy-attempt-") {
 				retryStepFound = true
@@ -1756,6 +1786,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
+		// Copy to part
 		err = vc.retryableCopy(
 			cCtx,
 			"test-part-123",
@@ -1780,6 +1811,36 @@ func TestRetryableCopyToPart(t *testing.T) {
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 2/6 failed:")
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		err = vc.retryableCopy(
+			cCtx,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 3)
+
+		// Verify retry steps were created (attempt 1, 2, and 3)
+		retryStepCount = 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "copy-attempt-") {
+				retryStepCount++
+				// Verify IndentLevel is 2 for deeper nesting
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		// 3 from first call + 3 from second call
+		test.That(t, retryStepCount, test.ShouldEqual, 3) 
+
+		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
+		errMsg = strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 1/6 failed:")
 		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 2/6 failed:")
 	})
@@ -1830,6 +1891,34 @@ func TestRetryableCopyToPart(t *testing.T) {
 		// No duplicate warning messages should appear (only permission denied warnings)
 		errMsg := strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt")
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		err = vc.retryableCopy(
+			cCtx,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Verify all retry steps were created (attempt 1 through 6)
+		retryStepCount = 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "copy-attempt-") {
+				retryStepCount++
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		// 6 from first call + 6 from second call
+		test.That(t, retryStepCount, test.ShouldEqual, 12) 
+
+		// No duplicate warning messages should appear (only permission denied warnings)
+		errMsg = strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt")
 	})
 
 	t.Run("AllAttemptsFail", func(t *testing.T) {
@@ -1860,8 +1949,21 @@ func TestRetryableCopyToPart(t *testing.T) {
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "all 6 copy attempts failed")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "viam module reload --no-build --part-id test-part-123")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		err = vc.retryableCopy(
+			cCtx,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
 		test.That(t, attemptCount, test.ShouldEqual, 6)
 	})
 
@@ -1897,5 +1999,20 @@ func TestRetryableCopyToPart(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't write to the default file copy destination")
 		test.That(t, errMsg, test.ShouldContainSubstring, "--home")
 		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
+
+		// Copy from part
+		err = vc.retryableCopy(
+			cCtx,
+			"test-part-123",
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Verify permission denied specific warning appears
+		errMsg = strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't read the source files on the machine.")
 	})
 }
