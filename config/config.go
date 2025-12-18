@@ -88,10 +88,22 @@ type Config struct {
 
 // A TracingConfig describes the tracing configuration for a robot
 type TracingConfig struct {
-	Enabled      bool
-	Disk         bool
-	Stdout       bool
-	OTLPEndpoint string
+	// Enabled globally enables or disables tracing.
+	Enabled bool `json:"enabled"`
+
+	// Disk enables saving trace data to disk in the VIAM_HOME directory. Data
+	// recorded this way can later be retrieved with the viam cli.
+	Disk bool `json:"disk,omitempty"`
+
+	// Stdout enables printing traces to viam-server's stdout as they occur.
+	Stdout bool `json:"stdout,omitempty"`
+
+	// OTLPEndpoint specifies an endpoint that trace spans should be sent to
+	// using OTLP over gRPC. Environment variables can be used to specify auth
+	// headers or other options. See
+	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+	// for more information.
+	OTLPEndpoint string `json:"otlpendpoint,omitempty"`
 }
 
 // IsEnabled returns true if Enabled is true and at least one export location
