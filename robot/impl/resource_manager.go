@@ -1333,7 +1333,7 @@ func (manager *resourceManager) updateResources(
 // resources associated with gRPC requests should go through
 // [robot.LocalRobot.FindBySimpleNameAndAPI] instead.
 //
-// Because names in the dependency graph does not have a prefix and thus
+// Because names in the dependency graph do not have prefixes and thus
 // might have a name that's different from what is expected by the user,
 // return the prefixed name as well that can be used by the caller.
 func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Name, resource.Resource, error) {
