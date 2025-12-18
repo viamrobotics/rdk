@@ -1837,7 +1837,7 @@ func TestRetryableCopy(t *testing.T) {
 			}
 		}
 		// 3 from first call + 3 from second call
-		test.That(t, retryStepCount, test.ShouldEqual, 3) 
+		test.That(t, retryStepCount, test.ShouldEqual, 6) 
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg = strings.Join(errOut.messages, "")
