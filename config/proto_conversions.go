@@ -682,7 +682,7 @@ func TracingConfigFromProto(proto *pb.TracingConfig, _ logging.Logger) (TracingC
 	}
 	tcfg.Enabled = proto.Enabled
 	tcfg.Disk = proto.Disk
-	tcfg.Stdout = proto.Stdout
+	tcfg.Console = proto.Console
 	tcfg.OTLPEndpoint = proto.OtlpEndpoint
 	return tcfg, nil
 }
@@ -695,7 +695,7 @@ func TracingConfigToProto(cfg *TracingConfig) (*pb.TracingConfig, error) {
 	protoConfig := &pb.TracingConfig{
 		Enabled:      cfg.Enabled,
 		Disk:         cfg.Disk,
-		Stdout:       cfg.Stdout,
+		Console:      cfg.Console,
 		OtlpEndpoint: cfg.OTLPEndpoint,
 	}
 	return protoConfig, nil

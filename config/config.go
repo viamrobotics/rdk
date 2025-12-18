@@ -95,8 +95,8 @@ type TracingConfig struct {
 	// recorded this way can later be retrieved with the viam cli.
 	Disk bool `json:"disk,omitempty"`
 
-	// Stdout enables printing traces to viam-server's stdout as they occur.
-	Stdout bool `json:"stdout,omitempty"`
+	// Console enables printing traces to the console as they occur.
+	Console bool `json:"console,omitempty"`
 
 	// OTLPEndpoint specifies an endpoint that trace spans should be sent to
 	// using OTLP over gRPC. Environment variables can be used to specify auth
@@ -109,7 +109,7 @@ type TracingConfig struct {
 // IsEnabled returns true if Enabled is true and at least one export location
 // is enabled and false otherwise.
 func (cfg TracingConfig) IsEnabled() bool {
-	return cfg.Enabled && (cfg.Disk || cfg.Stdout || cfg.OTLPEndpoint != "")
+	return cfg.Enabled && (cfg.Disk || cfg.Console || cfg.OTLPEndpoint != "")
 }
 
 // MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.

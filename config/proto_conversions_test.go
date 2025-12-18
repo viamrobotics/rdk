@@ -1139,7 +1139,7 @@ func TestTracingConfigToProtoEmpty(t *testing.T) {
 			cfg: &TracingConfig{
 				Enabled:      true,
 				Disk:         true,
-				Stdout:       true,
+				Console:      true,
 				OTLPEndpoint: "localhost:4317",
 			},
 		},
@@ -1148,7 +1148,7 @@ func TestTracingConfigToProtoEmpty(t *testing.T) {
 			cfg: &TracingConfig{
 				Enabled:      false,
 				Disk:         true,
-				Stdout:       true,
+				Console:      true,
 				OTLPEndpoint: "localhost:4317",
 			},
 		},
@@ -1180,7 +1180,7 @@ func TestTracingConfigToProtoEmpty(t *testing.T) {
 
 			test.That(t, protoCfg.Enabled, test.ShouldResemble, cfg.Enabled)
 			test.That(t, protoCfg.Disk, test.ShouldResemble, cfg.Disk)
-			test.That(t, protoCfg.Stdout, test.ShouldResemble, cfg.Stdout)
+			test.That(t, protoCfg.Console, test.ShouldResemble, cfg.Console)
 			test.That(t, protoCfg.OtlpEndpoint, test.ShouldResemble, cfg.OTLPEndpoint)
 		})
 	}
@@ -1204,7 +1204,7 @@ func TestTracingConfigFromProto(t *testing.T) {
 			cfg: &pb.TracingConfig{
 				Enabled:      true,
 				Disk:         true,
-				Stdout:       true,
+				Console:      true,
 				OtlpEndpoint: "localhost:4317",
 			},
 		},
@@ -1213,7 +1213,7 @@ func TestTracingConfigFromProto(t *testing.T) {
 			cfg: &pb.TracingConfig{
 				Enabled:      false,
 				Disk:         true,
-				Stdout:       true,
+				Console:      true,
 				OtlpEndpoint: "localhost:4317",
 			},
 		},
@@ -1247,7 +1247,7 @@ func TestTracingConfigFromProto(t *testing.T) {
 
 			test.That(t, traceCfg.Enabled, test.ShouldResemble, cfg.Enabled)
 			test.That(t, traceCfg.Disk, test.ShouldResemble, cfg.Disk)
-			test.That(t, traceCfg.Stdout, test.ShouldResemble, cfg.Stdout)
+			test.That(t, traceCfg.Console, test.ShouldResemble, cfg.Console)
 			test.That(t, traceCfg.OTLPEndpoint, test.ShouldResemble, cfg.OtlpEndpoint)
 		})
 	}

@@ -1702,7 +1702,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			exporters = append(exporters, exporter)
 		}()
 	}
-	if newTracingCfg.Stdout {
+	if newTracingCfg.Console {
 		devExporter := perf.NewOtelDevelopmentExporter()
 		exporters = append(exporters, devExporter)
 		// Don't add the development exporter to the local robot. It is written to
