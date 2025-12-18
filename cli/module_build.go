@@ -781,17 +781,39 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(manifest ModuleManifest) (string, error) {
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return "", err
-	}
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
+	// get the org id by going all the way through location
+	// and primary org id because apparently nothing has organization
+	// in the protos until that point?
+
+	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: part.GetRobot(),
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return org.GetId(), nil
+	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+		LocationId: robot.Robot.GetLocation(),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	// use the primary org id for the machine as the reload
+	// module org
+	var orgID string
+	for _, org := range location.Location.Organizations {
+		if org.Primary {
+			orgID = org.GetOrganizationId()
+			break
+		}
+	}
+	if orgID == "" {
+		orgID = location.Location.Organizations[0].GetOrganizationId()
+	}
+
+	return orgID, nil
 }
 
 func (c *viamClient) triggerCloudReloadBuild(
@@ -823,35 +845,9 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", errors.New("unable to determine platform for part")
 	}
 
-	// get the org id by going all the way through location
-	// and primary org id because apparently nothing has organization
-	// in the protos until that point?
-
-	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
-		Id: part.Part.GetRobot(),
-	})
+	orgID, err := c.getOrgIDForPart(part.Part)
 	if err != nil {
 		return "", err
-	}
-
-	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
-		LocationId: robot.Robot.Location,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	// use the primary org id for the machine as the reload
-	// module org
-	var orgID string
-	for _, org := range location.Location.Organizations {
-		if org.Primary {
-			orgID = org.OrganizationId
-			break
-		}
-	}
-	if orgID == "" {
-		orgID = location.Location.Organizations[0].OrganizationId
 	}
 
 	// App expects `BuildInfo` as the first request
