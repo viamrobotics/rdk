@@ -1721,33 +1721,55 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	}
 
 	doCopy := func() error {
+		var copyFunc func() error
 		if isFrom {
-			return c.copyFilesFromMachine(
-				flagArgs.Organization,
-				flagArgs.Location,
-				flagArgs.Machine,
-				flagArgs.Part,
-				globalArgs.Debug,
-				flagArgs.Recursive,
-				flagArgs.Preserve,
-				paths,
-				destination,
-				logger,
-			)
+			copyFunc = func() error {
+				return c.copyFilesFromMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+				)
+			}
+		} else {
+			copyFunc = func() error {
+				return c.copyFilesToMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+					flagArgs.NoProgress,
+				)
+			}
 		}
-
-		return c.copyFilesToMachine(
-			flagArgs.Organization,
-			flagArgs.Location,
-			flagArgs.Machine,
+		var pm *ProgressManager
+		if !flagArgs.NoProgress {
+			pm = NewProgressManager([]*Step{
+				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+			})
+			if err := pm.Start("copy"); err != nil {
+				return err
+			}
+			defer pm.Stop()
+		}
+		return c.retryableCopy(
+			ctx,
 			flagArgs.Part,
-			globalArgs.Debug,
-			flagArgs.Recursive,
-			flagArgs.Preserve,
-			paths,
-			destination,
-			logger,
-			flagArgs.NoProgress,
+			pm,
+			copyFunc,
+			isFrom,
 		)
 	}
 	if err := doCopy(); err != nil {
@@ -2912,6 +2934,98 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopy attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+func (c *viamClient) retryableCopy(
+	ctx *cli.Context,
+	partID string,
+	pm *ProgressManager,
+	copyFunc func() error,
+	isFrom bool,
+) error {
+	var hadPreviousFailure bool
+	var copyErr error
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("copy-attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("copy attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("copy attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "copy" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		copyErr = copyFunc()
+
+		if copyErr == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(copyErr); ok && s.Code() == codes.PermissionDenied {
+			if isFrom {
+				warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
+					"The RDK process on the remote machine may not have read permissions on the files you're trying to copy from. "+
+					"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
+					"temporarily changing file permissions with 'chmod', "+
+					"or run the RDK on the machine as root/admin.")
+			} else {
+				warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+					"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+					"Alternatively, run the RDK as root.")
+			}
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "copy-attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("copy attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "copy attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+	}
+
+	// All attempts failed - return the error from the copy function
+	return copyErr
 }
 
 func (c *viamClient) copyFilesToMachine(

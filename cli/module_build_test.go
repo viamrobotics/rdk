@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -245,9 +244,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
 
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
+		mockCopyFunc := func() error {
 			return nil // Success immediately
 		}
 
@@ -260,17 +257,12 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("upload")
 		test.That(t, err, test.ShouldBeNil)
 
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
+		err = vc.retryableCopy(
 			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
 			"test-part-123",
 			pm,
 			mockCopyFunc,
+			false,
 		)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -292,9 +284,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 			map[string]any{}, "token")
 
 		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
+		mockCopyFunc := func() error {
 			attemptCount++
 			if attemptCount <= 2 {
 				return errors.New("copy failed")
@@ -311,17 +301,12 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("upload")
 		test.That(t, err, test.ShouldBeNil)
 
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
+		err = vc.retryableCopy(
 			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
 			"test-part-123",
 			pm,
 			mockCopyFunc,
+			false,
 		)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -349,9 +334,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 			map[string]any{}, "token")
 
 		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
+		mockCopyFunc := func() error {
 			attemptCount++
 			if attemptCount <= 5 {
 				return errors.New("copy failed")
@@ -368,17 +351,12 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("upload")
 		test.That(t, err, test.ShouldBeNil)
 
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
+		err = vc.retryableCopy(
 			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
 			"test-part-123",
 			pm,
 			mockCopyFunc,
+			false,
 		)
 
 		test.That(t, err, test.ShouldBeNil)
@@ -404,9 +382,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 			map[string]any{}, "token")
 
 		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
+		mockCopyFunc := func() error {
 			attemptCount++
 			return errors.New("persistent copy failure")
 		}
@@ -420,17 +396,12 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("upload")
 		test.That(t, err, test.ShouldBeNil)
 
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
+		err = vc.retryableCopy(
 			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
 			"test-part-123",
 			pm,
 			mockCopyFunc,
+			false,
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
@@ -443,9 +414,7 @@ func TestRetryableCopyToPart(t *testing.T) {
 		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
 			map[string]any{}, "token")
 
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
+		mockCopyFunc := func() error {
 			return status.Error(codes.PermissionDenied, "permission denied")
 		}
 
@@ -458,17 +427,12 @@ func TestRetryableCopyToPart(t *testing.T) {
 		err := pm.Start("upload")
 		test.That(t, err, test.ShouldBeNil)
 
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
+		err = vc.retryableCopy(
 			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
 			"test-part-123",
 			pm,
 			mockCopyFunc,
+			false,
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
