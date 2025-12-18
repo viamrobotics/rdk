@@ -34,7 +34,7 @@ type ResourceMap map[string]any
 // addResourceFromModule adds a resource to the components or services slice if missing. Mutates part.RobotConfig.
 // Returns an error if the modelName isn't in the manifest, or if the specified resourceName already exists.
 func (c *viamClient) addResourceFromModule(
-	ctx *cli.Context, part *apppb.RobotPart, manifest *moduleManifest, modelName, resourceName string,
+	ctx *cli.Context, part *apppb.RobotPart, manifest *ModuleManifest, modelName, resourceName string,
 ) error {
 	if manifest == nil {
 		return errors.New("unable to add resource from config without a meta.json")
@@ -173,7 +173,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // configureModule is the configuration step of module reloading. Returns (updated robotPartpart, needsRestart, error).
 // Mutates the passed part.RobotConfig.
 func configureModule(
-	c *cli.Context, vc *viamClient, manifest *moduleManifest, part *apppb.RobotPart, local bool,
+	c *cli.Context, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
@@ -238,7 +238,7 @@ func localizeModuleID(moduleID string) string {
 func mutateModuleConfig(
 	c *cli.Context,
 	modules []ModuleMap,
-	manifest moduleManifest,
+	manifest ModuleManifest,
 	local bool,
 ) ([]ModuleMap, bool, error) {
 	var dirty bool

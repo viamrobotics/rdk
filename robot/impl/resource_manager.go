@@ -63,6 +63,9 @@ type moduleManager interface {
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
+	FailedModules() []string
+	ClearFailedModules()
+	AddToFailedModules(moduleName string)
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -85,6 +88,7 @@ type resourceManagerOptions struct {
 	untrustedEnv       bool
 	tlsConfig          *tls.Config
 	ftdc               *ftdc.FTDC
+	tracingEnabled     bool
 }
 
 // newResourceManager returns a properly initialized set of parts.
@@ -137,6 +141,7 @@ func (manager *resourceManager) startModuleManager(
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
+		TracingEnabled:          manager.opts.tracingEnabled,
 	}
 	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
@@ -1252,6 +1257,7 @@ func (manager *resourceManager) updateResources(
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
 			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
+			manager.moduleManager.AddToFailedModules(mod.Name)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)

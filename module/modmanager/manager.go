@@ -65,6 +65,8 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
+		tracingEnabled:          options.TracingEnabled,
+		failedModules:           make(map[string]bool),
 	}
 	return ret, nil
 }
@@ -134,6 +136,8 @@ type Manager struct {
 	parentAddrs  config.ParentSockAddrs
 	rMap         resourceModuleMap
 	untrustedEnv bool
+	// Whether viam-server has tracing enabled so modules should forward spans to be collected.
+	tracingEnabled bool
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
@@ -151,6 +155,9 @@ type Manager struct {
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
+
+	failedModulesMu sync.RWMutex
+	failedModules   map[string]bool
 }
 
 // Close terminates module connections and processes.
@@ -256,6 +263,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
+			mgr.AddToFailedModules(conf.Name)
 			errs[i] = err
 			continue
 		}
@@ -270,9 +278,12 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
 			}
+			// module started successfully, remove it from failedModules
+			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -341,6 +352,7 @@ func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHand
 		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
+		mgr.tracingEnabled,
 	)
 }
 
@@ -428,9 +440,14 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
+		// could not start module during reconfiguration, add it to failedModules
+		mgr.AddToFailedModules(conf.Name)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
+
+	// reconfiguration successful, remove from failed modules
+	mgr.deleteFromFailedModules(conf.Name)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -847,6 +864,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
+		// Add to failedModules when crash is detected
+		mgr.AddToFailedModules(mod.cfg.Name)
+
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
@@ -899,8 +919,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
+				// restart successful, remove module from failedModules
+				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
+			// could not restart crashed module, add it to failedModules
+			mgr.AddToFailedModules(mod.cfg.Name)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1007,6 +1031,22 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
+	// Backup module's current managedProcesses and restore them if the restart attempt fails.
+	currentOUEPrevManagedProcess := mod.prevProcess
+	currentOUEManagedProcess := mod.process
+	defer func() {
+		if success {
+			// mod.process (assigned by mod.startProcess) is a new MP. prevProcess is the MP that launched the current OUE.
+			// this line is redundant if the first restart attempt succeeds, but not if there are restart attempt failures in between
+			// (the failed MPs are discarded).
+			mod.prevProcess = currentOUEManagedProcess
+		} else {
+			// if fail: restore module processes state. The failed managedProcess is dormant and will be GC'ed.
+			mod.prevProcess = currentOUEPrevManagedProcess
+			mod.process = currentOUEManagedProcess
+		}
+	}()
+
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
@@ -1048,7 +1088,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir, mgr.tracingEnabled)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
@@ -1058,12 +1098,17 @@ func getFullEnvironment(
 	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
+	tracingEnabled bool,
 ) map[string]string {
 	environment := map[string]string{
-		"VIAM_HOME":        viamHomeDir,
+		rutils.HomeEnvVar:  viamHomeDir,
 		"VIAM_MODULE_DATA": dataDir,
 		"VIAM_MODULE_NAME": cfg.Name,
 	}
+	if tracingEnabled {
+		environment["VIAM_MODULE_TRACING"] = "1"
+	}
+
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
@@ -1119,4 +1164,36 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+// AddToFailedModules adds a failing module to the failedModules map.
+func (mgr *Manager) AddToFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules[moduleName] = true
+	mgr.failedModulesMu.Unlock()
+}
+
+func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	delete(mgr.failedModules, moduleName)
+	mgr.failedModulesMu.Unlock()
+}
+
+// FailedModules returns the names of all failing modules.
+func (mgr *Manager) FailedModules() []string {
+	mgr.failedModulesMu.RLock()
+	defer mgr.failedModulesMu.RUnlock()
+	var failedModuleNames []string
+	for moduleName := range mgr.failedModules {
+		failedModuleNames = append(failedModuleNames, moduleName)
+	}
+	return failedModuleNames
+}
+
+// ClearFailedModules clears the failedModules map at the start of reconfigure.
+// Modules will be added to failedModules as they fail during the reconfigure process.
+func (mgr *Manager) ClearFailedModules() {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules = make(map[string]bool)
+	mgr.failedModulesMu.Unlock()
 }

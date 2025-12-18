@@ -87,32 +87,35 @@ type Properties struct {
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
 type NamedImage struct {
-	data       []byte
-	img        image.Image
-	SourceName string
-	mimeType   string
+	data        []byte
+	img         image.Image
+	SourceName  string
+	mimeType    string
+	Annotations data.Annotations
 }
 
-// NamedImageFromBytes constructs a NamedImage from a byte slice, source name, and mime type.
-func NamedImageFromBytes(data []byte, sourceName, mimeType string) (NamedImage, error) {
+// NamedImageFromBytes constructs a NamedImage from a byte slice, source name, mime type, and annotations.
+func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations data.Annotations,
+) (NamedImage, error) {
 	if data == nil {
 		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
 	}
 	if mimeType == "" {
 		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
 	}
-	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType}, nil
+	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
-// NamedImageFromImage constructs a NamedImage from an image.Image, source name, and mime type.
-func NamedImageFromImage(img image.Image, sourceName, mimeType string) (NamedImage, error) {
+// NamedImageFromImage constructs a NamedImage from an image.Image, source name, mime type, and annotations.
+func NamedImageFromImage(img image.Image, sourceName, mimeType string, annotations data.Annotations,
+) (NamedImage, error) {
 	if img == nil {
 		return NamedImage{}, fmt.Errorf("must provide image to construct a named image from image")
 	}
 	if mimeType == "" {
-		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
+		mimeType = utils.MimeTypeJPEG
 	}
-	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType}, nil
+	return NamedImage{img: img, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
 
 // Image returns the image.Image of the NamedImage.
@@ -164,9 +167,11 @@ func (ni *NamedImage) MimeType() string {
 	return ni.mimeType
 }
 
-// ImageMetadata contains useful information about returned image bytes such as its mimetype.
+// ImageMetadata contains useful information about returned image bytes such as its mimetype
+// and any annotations associated with the image.
 type ImageMetadata struct {
-	MimeType string
+	MimeType    string
+	Annotations data.Annotations
 }
 
 // A Camera is a resource that can capture frames.
@@ -284,12 +289,14 @@ func GetImageFromGetImages(
 
 	var img image.Image
 	var mimeType string
+	var annotations data.Annotations
 	if sourceName == nil {
 		img, err = namedImages[0].Image(ctx)
 		if err != nil {
 			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 		}
 		mimeType = namedImages[0].MimeType()
+		annotations = namedImages[0].Annotations
 	} else {
 		for _, i := range namedImages {
 			if i.SourceName == *sourceName {
@@ -298,6 +305,7 @@ func GetImageFromGetImages(
 					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
 				}
 				mimeType = i.MimeType()
+				annotations = i.Annotations
 				break
 			}
 		}
@@ -314,7 +322,7 @@ func GetImageFromGetImages(
 	if err != nil {
 		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
 	}
-	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
+	return imgBytes, ImageMetadata{MimeType: mimeType, Annotations: annotations}, nil
 }
 
 // GetImagesFromGetImage will be deprecated after RSDK-11726.
@@ -345,7 +353,7 @@ func GetImagesFromGetImage(
 		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
 	}
 
-	namedImg, err := NamedImageFromBytes(resBytes, "", resMetadata.MimeType)
+	namedImg, err := NamedImageFromBytes(resBytes, "", resMetadata.MimeType, resMetadata.Annotations)
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not create named image: %w", err)
 	}

@@ -72,6 +72,9 @@ const (
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
 
+	// HomeEnvVar is the environment variable that contains the VIAM_HOME directory of the machine.
+	HomeEnvVar = "VIAM_HOME"
+
 	// ViamResourceRequestsLimitEnvVar is the environment that controls the
 	// per-resource gRPC request limit. If it is unset or invalid the limit
 	// defaults to 100.

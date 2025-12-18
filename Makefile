@@ -60,7 +60,9 @@ tool-install:
 		github.com/rhysd/actionlint/cmd/actionlint \
 		golang.org/x/tools/cmd/stringer
 
-lint: lint-go
+lint: lint-go actionlint
+
+actionlint:
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
@@ -111,6 +113,7 @@ clean-all:
 	git clean -fxd
 
 license-check:
+	license_finder version
 	license_finder
 
 FFMPEG_ROOT ?= etc/FFmpeg
