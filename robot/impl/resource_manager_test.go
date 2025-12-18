@@ -411,10 +411,59 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 		config.Remote{Name: "remote2"},
 	)
 
-	_, _, err := manager.ResourceByName(arm.Named("arm1"))
+	resName, _, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+	resName, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+	resName, _, err = manager.ResourceByName(arm.Named("remote2:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+}
+
+func TestManagerWithSameNameInRemoteWithPrefix(t *testing.T) {
+	// The test tests that the resource manager handles prefixes correctly.
+	//
+	// Prefixes are set on the graph node, so querying manager.ResourceByName
+	// with the prefix is not expected to work for internal usage.
+	//
+	// Callers have to specify the remote the resource came from in order to
+	// find the resource.
+	//
+	// The returned resource name should contain the prefix but not the remote name.
+	logger := logging.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	manager := managerForDummyRobot(t, injectRobot)
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(t, setupInjectRobot(logger)),
+		nil,
+		config.Remote{Name: "remote1", Prefix: "r1-"},
+	)
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(t, setupInjectRobot(logger)),
+		nil,
+		config.Remote{Name: "remote2", Prefix: "r2-"},
+	)
+
+	resName, _, err := manager.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+
+	_, _, err = manager.ResourceByName(arm.Named("remote1:r1-arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("remote1:r1-arm1")))
+	resName, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("r1-arm1"))
+
+	_, _, err = manager.ResourceByName(arm.Named("remote2:r2-arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("remote2:r2-arm1")))
+	resName, _, err = manager.ResourceByName(arm.Named("remote2:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("r2-arm1"))
 }
 
 func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
