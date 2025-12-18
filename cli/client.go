@@ -604,7 +604,8 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 		orgStr = c.Args().First()
 	}
 	if orgStr == "" { // first, see if we have a default set
-		orgStr, _ = getDefaultOrg(c) //nolint:errcheck if there's an error then we'll just fall back to the old logic
+		//nolint:errcheck if there's an error then we'll just fall back to the old logic
+		orgStr, _ = getDefaultOrg(c)
 	}
 	if orgStr == "" { // if there's still not an orgStr, then we can fall back to the alphabetically first
 		orgs, err := client.listOrganizations()
@@ -953,10 +954,12 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	orgStr := args.Organization
 	locStr := args.Location
 	if orgStr == "" {
-		orgStr, _ = getDefaultOrg(c) //nolint:errcheck if there's an error we fallback to old logic
+		//nolint:errcheck if there's an error we fallback to old logic
+		orgStr, _ = getDefaultOrg(c)
 	}
 	if locStr == "" {
-		locStr, _ = getDefaultLocation(c) //nolint:errcheck if there's an error we fallback to old logic
+		//nolint:errcheck if there's an error we fallback to old logic
+		locStr, _ = getDefaultLocation(c)
 	}
 	if args.All {
 		return client.listAllRobotsInOrg(c, orgStr)

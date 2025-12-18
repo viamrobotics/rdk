@@ -18,7 +18,9 @@ func TestSetOrg(t *testing.T) {
 			Id: orgID,
 		},
 	}
-	listOrgsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest, opts ...grpc.CallOption) (*apppb.ListOrganizationsResponse, error) {
+	listOrgsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
 		return &apppb.ListOrganizationsResponse{Organizations: organizations}, nil
 	}
 
@@ -66,7 +68,9 @@ func TestSetLocation(t *testing.T) {
 			Id: orgID,
 		},
 	}
-	listOrgsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest, opts ...grpc.CallOption) (*apppb.ListOrganizationsResponse, error) {
+	listOrgsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
 		return &apppb.ListOrganizationsResponse{Organizations: organizations}, nil
 	}
 	locations := []*apppb.Location{
@@ -74,7 +78,9 @@ func TestSetLocation(t *testing.T) {
 			Id: "my-loc-id",
 		},
 	}
-	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest, opts ...grpc.CallOption) (*apppb.ListLocationsResponse, error) {
+	listLocationsFunc := func(ctx context.Context, in *apppb.ListLocationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListLocationsResponse, error) {
 		return &apppb.ListLocationsResponse{Locations: locations}, nil
 	}
 
