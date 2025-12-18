@@ -817,7 +817,10 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		resolvedOptionalDepName := matchingResourceNames[0]
 
 		// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
+		// Pop the remote name off since callers won't be expecting it when accessing it in the resource
+		// dependency map in a resource constructor.
 		resolvedOptionalDepName.Name = optionalDepNameString
+		resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 
 		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
 		if err != nil {
@@ -854,7 +857,9 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 		}
 		for _, matcher := range weakDepMatchers {
 			if matcher.IsMatch(res) {
-				deps[n] = res
+				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
+				// dependency map in a resource constructor.
+				deps[n.PopRemote()] = res
 			}
 		}
 	}
