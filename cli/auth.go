@@ -555,7 +555,7 @@ func (c *viamClient) ensureLoggedInInner() error {
 				warningf(c.c.App.ErrWriter, "no default org set for profile and unable to infer one")
 				// this should always be true for now, but might change if/when user level API keys exist
 			} else if len(orgs) == 1 {
-				if err = writeDefaultOrgInner(c.c, c, orgs[0].Id); err != nil && !globalArgs.Quiet {
+				if err = c.writeDefaultOrg(c.c, c.conf, orgs[0].Id); err != nil && !globalArgs.Quiet {
 					warningf(c.c.App.ErrWriter, "unable to set default org for profile %s", *whichProfile)
 				}
 			}

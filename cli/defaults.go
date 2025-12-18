@@ -8,7 +8,7 @@ import (
 )
 
 type defaultsSetOrgArgs struct {
-	Organization string
+	OrgID string
 }
 
 func getDefaultOrg(cCtx *cli.Context) (string, error) {
@@ -29,7 +29,8 @@ func getDefaultLocation(cCtx *cli.Context) (string, error) {
 	return config.DefaultLocation, nil
 }
 
-func writeDefaultOrgInner(cCtx *cli.Context, client *viamClient, orgStr string) error {
+// verifies that a passed org exists and is accessible, then sets it as the default within the config
+func (client *viamClient) setDefaultOrg(cCtx *cli.Context, config *Config, orgStr string) (*Config, error) {
 	// we're setting a new default org, so try to verify that it actually exists and there's
 	// permission to access it
 	if orgStr != "" {
@@ -51,17 +52,20 @@ func writeDefaultOrgInner(cCtx *cli.Context, client *viamClient, orgStr string) 
 						profileWarning = ". You are currently logged in with profile %s. Did you mean to add a default to top level config?"
 					}
 				}
-				return fmt.Errorf("no org found matching name or ID %s%s", orgStr, profileWarning)
+				return nil, fmt.Errorf("no org found matching ID %s%s", orgStr, profileWarning)
 			}
 		}
 	}
 
-	config, err := ConfigFromCache(cCtx)
+	config.DefaultOrg = orgStr
+	return config, nil
+}
+
+func (client *viamClient) writeDefaultOrg(cCtx *cli.Context, config *Config, orgStr string) error {
+	config, err := client.setDefaultOrg(cCtx, config, orgStr)
 	if err != nil {
 		return err
 	}
-
-	config.DefaultOrg = orgStr
 
 	return storeConfigToCache(config)
 }
@@ -72,22 +76,20 @@ func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
 		return err
 	}
 
-	return writeDefaultOrgInner(cCtx, client, orgStr)
-}
-
-func writeDefaultLocation(cCtx *cli.Context, locStr string) error {
 	config, err := ConfigFromCache(cCtx)
 	if err != nil {
 		return err
 	}
 
+	return client.writeDefaultOrg(cCtx, config, orgStr)
+
+}
+
+func (client *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locStr string) (*Config, error) {
+	var err error
 	// we're setting a new default location arg, so verify that the location exists and is
 	// accessible given the current auth settings and default org argument.
 	if locStr != "" {
-		client, err := newViamClient(cCtx)
-		if err != nil {
-			return err
-		}
 		orgs := []*apppb.Organization{}
 
 		if config.DefaultOrg == "" {
@@ -130,24 +132,46 @@ func writeDefaultLocation(cCtx *cli.Context, locStr string) error {
 			if gArgs, err := getGlobalArgs(cCtx); err == nil {
 				currProfile, _ := whichProfile(gArgs)
 				if currProfile != nil && *currProfile != "" {
-					profileWarning = "You are currently logged in with profile %s. Did you mean to add a default to top level config?"
+					profileWarning = ". You are currently logged in with profile %s. Did you mean to add a default to top level config?"
 				}
 			}
 			var forOrgWarning string
 			if config.DefaultOrg != "" {
 				forOrgWarning = fmt.Sprintf(" in default org %s", config.DefaultOrg)
 			}
-			return fmt.Errorf("no location found matching name or ID %s%s. %s", locStr, forOrgWarning, profileWarning)
+			return nil, fmt.Errorf("no location found matching ID %s%s%s", locStr, forOrgWarning, profileWarning)
 		}
 	}
 
 	config.DefaultLocation = locStr
-	return storeConfigToCache(config)
+	return config, nil
+}
 
+func (client *viamClient) writeDefaultLocation(cCtx *cli.Context, config *Config, locationStr string) error {
+	config, err := client.setDefaultLocation(cCtx, config, locationStr)
+	if err != nil {
+		return err
+	}
+
+	return storeConfigToCache(config)
+}
+
+func writeDefaultLocation(cCtx *cli.Context, locationStr string) error {
+	client, err := newViamClient(cCtx)
+	if err != nil {
+		return err
+	}
+
+	config, err := ConfigFromCache(cCtx)
+	if err != nil {
+		return err
+	}
+
+	return client.writeDefaultLocation(cCtx, config, locationStr)
 }
 
 func defaultsSetOrgAction(cCtx *cli.Context, args defaultsSetOrgArgs) error {
-	return writeDefaultOrg(cCtx, args.Organization)
+	return writeDefaultOrg(cCtx, args.OrgID)
 }
 
 func defaultsClearOrgAction(cCtx *cli.Context, args emptyArgs) error {
