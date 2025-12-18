@@ -23,12 +23,13 @@ import (
 )
 
 var (
-	helperModel          = resource.NewModel("rdk", "test", "helper")
-	otherModel           = resource.NewModel("rdk", "test", "other")
-	testMotorModel       = resource.NewModel("rdk", "test", "motor")
-	testSlowModel        = resource.NewModel("rdk", "test", "slow")
-	testFSDependentModel = resource.NewModel("rdk", "test", "fsdep")
-	myMod                *module.Module
+	helperModel              = resource.NewModel("rdk", "test", "helper")
+	otherModel               = resource.NewModel("rdk", "test", "other")
+	testMotorModel           = resource.NewModel("rdk", "test", "motor")
+	testSlowModel            = resource.NewModel("rdk", "test", "slow")
+	testFSDependentModel     = resource.NewModel("rdk", "test", "fsdep")
+	testSensorDependentModel = resource.NewModel("rdk", "test", "sensordep")
+	myMod                    *module.Module
 )
 
 func main() {
@@ -90,6 +91,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		testFSDependentModel,
 		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
 	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterComponent(
+		sensor.API,
+		testSensorDependentModel,
+		resource.Registration[resource.Resource, *sensorDepConfig]{Constructor: newSensorDependent})
+	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
 		return err
 	}
@@ -446,7 +456,7 @@ func (fd *fsDependent) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	fs, err := framesystem.FromDependencies(deps)
+	fs, err := framesystem.FromProvider(deps)
 	if err != nil {
 		return err
 	}
@@ -467,4 +477,45 @@ func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) 
 		return nil, err
 	}
 	return map[string]interface{}{"fsCfg": fsCfg.String()}, nil
+}
+
+func newSensorDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	config, err := resource.NativeConfig[*sensorDepConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+	s, err := sensor.FromProvider(deps, config.Sensor)
+	if err != nil {
+		return nil, err
+	}
+	return &sensorDependent{
+		Named:  conf.ResourceName().AsNamed(),
+		sensor: s,
+	}, nil
+}
+
+type sensorDepConfig struct {
+	Sensor string `json:"sensor"`
+}
+
+// Validate will ensure that sensor
+func (sc *sensorDepConfig) Validate(_ string) ([]string, []string, error) {
+	if sc.Sensor == "" {
+		return nil, nil, errors.New("empty sensor")
+	}
+	return []string{sc.Sensor}, []string{}, nil
+}
+
+type sensorDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+	sensor resource.Sensor
+}
+
+// Readings always returns Readings from the sensor held inside the struct.
+func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return sd.sensor.Readings(ctx, map[string]interface{}{})
 }
