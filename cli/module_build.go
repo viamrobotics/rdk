@@ -782,10 +782,6 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 }
 
 func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
-	// get the org id by going all the way through location
-	// and primary org id because apparently nothing has organization
-	// in the protos until that point?
-
 	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
 		Id: part.GetRobot(),
 	})
