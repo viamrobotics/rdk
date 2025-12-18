@@ -16,7 +16,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-var streamableImageMIMETypes = map[string]interface{}{
+var StreamableImageMIMETypes = map[string]interface{}{
 	rutils.MimeTypeRawRGBA:  nil,
 	rutils.MimeTypeRawDepth: nil,
 	rutils.MimeTypeJPEG:     nil,
@@ -63,6 +63,12 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	return cam, nil
 }
 
+// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
+// it to a utils mime type.
+func FormatStringToMimeType(format string) string {
+	return fmt.Sprintf("image/%s", format)
+}
+
 // GetStreamableNamedImageFromCamera returns the first named image it finds from the camera that is supported for streaming.
 func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
 	namedImages, _, err := cam.Images(ctx, nil, nil)
@@ -74,7 +80,7 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 	}
 
 	for _, namedImage := range namedImages {
-		if _, ok := streamableImageMIMETypes[namedImage.MimeType()]; ok {
+		if _, ok := StreamableImageMIMETypes[namedImage.MimeType()]; ok {
 			return namedImage, nil
 		}
 
@@ -87,8 +93,7 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 		if err != nil {
 			continue
 		}
-
-		if _, ok := streamableImageMIMETypes[format]; ok {
+		if _, ok := StreamableImageMIMETypes[FormatStringToMimeType(format)]; ok {
 			return namedImage, nil
 		}
 	}
