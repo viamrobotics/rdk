@@ -16,6 +16,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
+// StreamableImageMIMETypes is the set of all mime types the stream server supports.
 var StreamableImageMIMETypes = map[string]interface{}{
 	rutils.MimeTypeRawRGBA:  nil,
 	rutils.MimeTypeRawDepth: nil,
