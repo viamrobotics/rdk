@@ -772,16 +772,16 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 
-					var prefix string
+					verb := "construct"
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
 						gNode.InitializeLogger(
 							manager.logger, resName.String(),
 						)
 					} else {
-						prefix = "re"
+						verb = "reconfigur"
 					}
-					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName, "model", conf.Model)
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 
 					// The config was already validated, but we must check again before attempting
 					// to add.
@@ -832,7 +832,7 @@ func (manager *resourceManager) completeConfig(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName, "model", conf.Model)
+							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
 						}
 
 					default:

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1588,10 +1589,16 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	r.logger.CInfo(ctx, "(Re)configuring robot")
+	logVerb := "Construct"
+	logNoun := "construction"
+	if !r.initializing.Load() {
+		logVerb = "Reconfigur"
+		logNoun = "reconfiguration"
+	}
+	r.logger.CInfof(ctx, "%ving robot", logVerb)
 
 	if r.revealSensitiveConfigDiffs {
-		r.logger.CDebugf(ctx, "(re)configuring with %+v", diff)
+		r.logger.CDebugf(ctx, "%ving with %+v", logVerb, diff)
 	}
 
 	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
@@ -1642,9 +1649,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	if allErrs != nil {
-		r.logger.CErrorw(ctx, "The following errors were gathered during reconfiguration", "errors", allErrs)
+		r.logger.CErrorw(ctx, fmt.Sprintf("The following errors were gathered during %v", logNoun), "errors", allErrs)
 	} else {
-		r.logger.CInfow(ctx, "Robot (re)configured")
+		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
 	}
 }
 
