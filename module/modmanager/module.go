@@ -41,12 +41,17 @@ import (
 )
 
 type module struct {
-	cfg        config.Module
-	dataDir    string
-	process    pexec.ManagedProcess
-	handles    modlib.HandlerMap
-	sharedConn rdkgrpc.SharedConn
-	client     pb.ModuleServiceClient
+	cfg     config.Module
+	dataDir string
+	process pexec.ManagedProcess
+	// prevProcess, if not nil, will contain the previously running process. If the current process came from a restart by an
+	// OnUnexpectedExitHandler, prevProcess will be the process that launched the OUE. If the process was started through
+	// stopProcess and startProcess, it will simply be the previous (stopped) process.
+	// This is used with wait to enforce clean shutdown without goroutine leaks.
+	prevProcess pexec.ManagedProcess
+	handles     modlib.HandlerMap
+	sharedConn  rdkgrpc.SharedConn
+	client      pb.ModuleServiceClient
 	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
 	robotClient robotpb.RobotServiceClient
 	addr        string
@@ -286,6 +291,7 @@ func (m *module) startProcess(
 		pconf.Args = append(pconf.Args, "--tcp-mode")
 	}
 
+	m.prevProcess = m.process
 	m.process = pexec.NewManagedProcess(pconf, m.logger)
 
 	if err := m.process.Start(context.Background()); err != nil {
@@ -372,6 +378,19 @@ func (m *module) stopProcess() error {
 	}
 
 	return nil
+}
+
+// wait waits on a module's managedProcesses' goroutines to finish. stopProcess should be called before calling this,
+// so it can call restartCancel to cancel the OUE.
+// Can be used in testing to ensure that all of a module's associated goroutines complete before the test completes.
+func (m *module) wait() {
+	// if we are stuck in a restart loop, the OUE attempting the restarts is here
+	if m.prevProcess != nil {
+		m.prevProcess.Wait()
+	}
+	if m.process != nil {
+		m.process.Wait()
+	}
 }
 
 func (m *module) killProcessGroup() {
