@@ -1,6 +1,7 @@
 package camera_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -18,6 +19,72 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
+
+func TestFormatStringToMimeType(t *testing.T) {
+	testRect := image.Rect(0, 0, 100, 100)
+
+	type testCase struct {
+		mimeType       string
+		createImage    func() image.Image
+		expectedFormat string
+	}
+
+	testCases := []testCase{
+		{
+			mimeType: utils.MimeTypeRawRGBA,
+			createImage: func() image.Image {
+				return image.NewRGBA(testRect)
+			},
+			expectedFormat: "vnd.viam.rgba",
+		},
+		{
+			mimeType: utils.MimeTypeRawDepth,
+			createImage: func() image.Image {
+				return image.NewGray16(testRect)
+			},
+			expectedFormat: "vnd.viam.dep",
+		},
+		{
+			mimeType: utils.MimeTypeJPEG,
+			createImage: func() image.Image {
+				return image.NewRGBA(testRect)
+			},
+			expectedFormat: "jpeg",
+		},
+		{
+			mimeType: utils.MimeTypePNG,
+			createImage: func() image.Image {
+				return image.NewRGBA(testRect)
+			},
+			expectedFormat: "png",
+		},
+		{
+			mimeType: utils.MimeTypeQOI,
+			createImage: func() image.Image {
+				return image.NewRGBA(testRect)
+			},
+			expectedFormat: "qoi",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.mimeType, func(t *testing.T) {
+			sourceImg := tc.createImage()
+			imgBytes, err := rimage.EncodeImage(context.Background(), sourceImg, tc.mimeType)
+			test.That(t, err, test.ShouldBeNil)
+
+			_, format, err := image.DecodeConfig(bytes.NewReader(imgBytes))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, format, test.ShouldEqual, tc.expectedFormat)
+
+			resultMimeType := camerautils.FormatStringToMimeType(format)
+			test.That(t, resultMimeType, test.ShouldEqual, tc.mimeType)
+
+			_, ok := camerautils.StreamableImageMIMETypes[resultMimeType]
+			test.That(t, ok, test.ShouldBeTrue)
+		})
+	}
+}
 
 func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
@@ -97,6 +164,69 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 		}
 		_, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
 		test.That(t, err, test.ShouldBeError, expectedErr)
+	})
+
+	t.Run("all streamable mime types are accepted", func(t *testing.T) {
+		sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
+
+		streamableMIMETypes := map[string]interface{}{
+			utils.MimeTypeRawRGBA:  nil,
+			utils.MimeTypeRawDepth: nil,
+			utils.MimeTypeJPEG:     nil,
+			utils.MimeTypePNG:      nil,
+			utils.MimeTypeQOI:      nil,
+		}
+
+		for mimeType := range streamableMIMETypes {
+			t.Run(mimeType, func(t *testing.T) {
+				streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", mimeType, data.Annotations{})
+				test.That(t, err, test.ShouldBeNil)
+
+				cam := &inject.Camera{
+					ImagesFunc: func(
+						ctx context.Context,
+						sourceNames []string,
+						extra map[string]interface{},
+					) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+						return []camera.NamedImage{streamableImg}, resource.ResponseMetadata{}, nil
+					},
+				}
+				img, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, img.SourceName, test.ShouldEqual, "streamable")
+				test.That(t, img.MimeType(), test.ShouldEqual, mimeType)
+			})
+		}
+	})
+
+	t.Run("image.DecodeConfig fails and continues to next streamable image", func(t *testing.T) {
+		malformedBytes := []byte("malformed")
+
+		malformedNamedImage, err := camera.NamedImageFromBytes(malformedBytes, "malformed", "image/wtf", data.Annotations{})
+		test.That(t, err, test.ShouldBeNil)
+
+		goodImg := image.NewRGBA(image.Rect(0, 0, 2, 2))
+		goodImgBytes, err := rimage.EncodeImage(context.Background(), goodImg, utils.MimeTypeJPEG)
+		test.That(t, err, test.ShouldBeNil)
+		streamableNamedImage, err := camera.NamedImageFromBytes(goodImgBytes, "good", "image/wtf", data.Annotations{})
+		test.That(t, err, test.ShouldBeNil)
+
+		cam := &inject.Camera{
+			ImagesFunc: func(
+				ctx context.Context,
+				sourceNames []string,
+				extra map[string]interface{},
+			) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+				return []camera.NamedImage{malformedNamedImage, streamableNamedImage}, resource.ResponseMetadata{}, nil
+			},
+		}
+
+		img, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, img.SourceName, test.ShouldEqual, "good")
+		resBytes, err := img.Bytes(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resBytes, test.ShouldResemble, goodImgBytes)
 	})
 }
 
