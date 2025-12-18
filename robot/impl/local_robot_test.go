@@ -63,6 +63,7 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -5274,4 +5275,110 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 
 	test.That(t, logs.FilterMessageSnippet("panicked while calling unary server method for module request").Len(),
 		test.ShouldEqual, 1)
+}
+
+func TestWeakDependenciesWithPrefix(t *testing.T) {
+	// This test tests that weak dependencies are properly populated in the dependencies map with the remote prefix
+	// attached to any remote resources.
+	//
+	// In this case, the shell resource will be constructed with the remote resource as a
+	// weak dependency since it will be available at the time of construction. The shell
+	// resource will then also be _reconfigured_ with the weak dependency (a noop).
+	// This redundant reconfigure is not great, but is part of the design of our system.
+	t.Parallel()
+	logger, logs := logging.NewObservedTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	successLog := "found remote-sensor"
+	dummyShell := inject.NewShellService("sensor")
+	dummyShell.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+		if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
+			return err
+		}
+		logger.Info(successLog)
+		return nil
+	}
+	resource.RegisterService(
+		shell.API,
+		model,
+		resource.Registration[shell.Service, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (shell.Service, error) {
+				if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
+					return nil, err
+				}
+				logger.Info(successLog)
+				return dummyShell, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{resource.APITypeComponentName}},
+		},
+	)
+
+	defer func() {
+		resource.Deregister(shell.API, model)
+	}()
+
+	ctx := context.Background()
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	remCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: fakeModel,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+	}
+	remoteRobot := setupLocalRobot(t, ctx, remCfg, logger.Sublogger("remoteRobot"))
+	addr := startWeb(remoteRobot)
+	test.That(t, addr, test.ShouldNotBeBlank)
+
+	cfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+				Prefix:  "remote-",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Model: model,
+				Name:  "shell",
+				API:   shell.API,
+			},
+		},
+	}
+	setupLocalRobot(t, ctx, cfg, logger.Sublogger("robot"))
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(successLog).Len(),
+			test.ShouldEqual, 2)
+	})
 }
