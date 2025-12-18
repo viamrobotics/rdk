@@ -1044,6 +1044,7 @@ func (c *viamClient) moduleCloudReload(
 	}, nil
 }
 
+// IsReloadVersion checks if the version is a reload version.
 func IsReloadVersion(version string) bool {
 	return strings.HasPrefix(version, reloadVersionPrefix)
 }
