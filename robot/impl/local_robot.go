@@ -494,8 +494,6 @@ func newWithResources(
 
 	r.mostRecentCfg.Store(config.Config{})
 
-	r.reconfigureTracing(ctx, &config.Config{})
-
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
 		heartbeatWindow = config.DefaultSessionHeartbeatWindow
@@ -1417,8 +1415,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.reconfiguring.Store(false)
 	}()
 
-	r.reconfigureTracing(ctx, newConfig)
-
 	r.configRevisionMu.Lock()
 	r.configRevision = config.Revision{
 		Revision:    newConfig.Revision,
@@ -1428,12 +1424,24 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
+		return
+	}
+
+	// Reconfigure tracing first so it is possible to use tracing to debug later
+	// steps in the reconfigure code path.
+	if !initialDiff.TracingEqual {
+		r.reconfigureTracing(ctx, newConfig)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	err = r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// The returned error is rich, detailing each individual packages error. The underlying
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
@@ -1457,12 +1465,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
-	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
-	if err != nil {
-		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
-		return
-	}
-	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
+	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
@@ -1637,10 +1640,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.Config) {
 	logger := r.logger.Sublogger("tracing")
 	newTracingCfg := newConfig.Tracing
-	hasDiff := newTracingCfg != r.mostRecentCfg.Load().(config.Config).Tracing
-	if !hasDiff {
-		return
-	}
 	if !newTracingCfg.IsEnabled() {
 		prevExporters := trace.ClearExporters()
 		for _, ex := range prevExporters {
