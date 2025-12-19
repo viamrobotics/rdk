@@ -62,6 +62,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const localConfigPartID = "local-config"
+
 var _ = robot.LocalRobot(&localRobot{})
 
 func init() {
@@ -429,7 +431,7 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
-	partID := "local-config"
+	partID := localConfigPartID
 	if cfg.Cloud != nil {
 		partID = cfg.Cloud.ID
 	}

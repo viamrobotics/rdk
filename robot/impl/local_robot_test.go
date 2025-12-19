@@ -5381,75 +5381,107 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 }
 
 func TestReconfigureTracing(t *testing.T) {
-	emptyCfg := &config.Config{}
-	logger, _ := logging.NewObservedTestLogger(t)
-	viamHome := t.TempDir()
-	originalViamDotDir := rutils.ViamDotDir
-	rutils.ViamDotDir = filepath.Join(viamHome, ".viam")
-	t.Cleanup(func() {
-		rutils.ViamDotDir = originalViamDotDir
-	})
-
-	r := setupLocalRobot(
-		t, context.Background(), emptyCfg, logger, WithViamHomeDir(viamHome),
-	).(*localRobot)
-	test.That(t, r.traceClients.Load(), test.ShouldBeNil)
-	tracePath := filepath.Join(rutils.ViamDotDir, "trace")
-	_, err := os.Stat(tracePath)
-	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
-
-	cfgWithTracing := &config.Config{
-		Tracing: config.TracingConfig{
-			Enabled:      true,
-			Disk:         true,
-			Console:      true,
-			OTLPEndpoint: "localhost:4317",
-		},
-	}
-	r.reconfigureTracing(t.Context(), cfgWithTracing)
-	// Expect 2 instead of 3 because we don't add the development exporter.
-	test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 2)
-	spanName := "test file exporter"
-	_, span := trace.StartSpan(t.Context(), spanName)
-	span.End()
-
-	// The file exporter is the easiest to verify: make sure it has been created
-	// and contains the span we just made.
-	testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
-		tracesFilePath := filepath.Join(tracePath, "local-config", "traces")
-		_, err := os.Stat(tracesFilePath)
-		test.That(t, err, test.ShouldBeNil)
-		if err != nil {
-			return
+	testReconfigureTracing := func(t *testing.T, cloudID string) {
+		var cloudConfig *config.Cloud
+		expectedTraceSubdir := localConfigPartID
+		if cloudID != "" {
+			cloudConfig = &config.Cloud{ID: cloudID}
+			expectedTraceSubdir = cloudID
 		}
-		tracesFile, err := os.Open(tracesFilePath)
-		test.That(t, err, test.ShouldBeNil)
-		if err != nil {
-			return
+
+		// First test: configure robot without any tracing enabled, make sure no
+		// files are created and no clients are stored on localRobot.
+		emptyCfg := &config.Config{
+			Cloud: cloudConfig,
 		}
-		defer tracesFile.Close()
-		reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
-		defer reader.Close()
-		for resourceSpan := range reader.All() {
-			for _, scopeSpan := range resourceSpan.ScopeSpans {
-				for _, span := range scopeSpan.Spans {
-					if span.Name == spanName {
-						return
+		logger, _ := logging.NewObservedTestLogger(t)
+		viamHome := t.TempDir()
+		originalViamDotDir := rutils.ViamDotDir
+		rutils.ViamDotDir = filepath.Join(viamHome, ".viam")
+		t.Cleanup(func() {
+			rutils.ViamDotDir = originalViamDotDir
+		})
+
+		// localRobot.Close shuts down the global trace objects. Reset them here to
+		// make sure tracing will work after the first test.
+		trace.SetProvider(t.Context())
+
+		r := setupLocalRobot(
+			t, context.Background(), emptyCfg, logger, WithViamHomeDir(viamHome),
+		).(*localRobot)
+
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+		tracePath := filepath.Join(rutils.ViamDotDir, "trace")
+		_, err := os.Stat(tracePath)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+		// Second test: enable tracing. Check that clients are stored on localRobot
+		// and the disk exporter exports spans to the expected location.
+		cfgWithTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled: true,
+				Disk:    true,
+				Console: true,
+			},
+		}
+		r.reconfigureTracing(t.Context(), cfgWithTracing)
+		// Expect 1 instead of 2 because we don't add the development exporter.
+		test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 1)
+		spanName := "test file exporter " + t.Name()
+		_, span := trace.StartSpan(t.Context(), spanName)
+		span.End()
+
+		// The file exporter is the easiest to verify: make sure it has been created
+		// and contains the span we just made.
+		testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+			tracesFilePath := filepath.Join(tracePath, expectedTraceSubdir, "traces")
+			_, err := os.Stat(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			tracesFile, err := os.Open(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			defer tracesFile.Close()
+			reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
+			defer reader.Close()
+			for resourceSpan := range reader.All() {
+				for _, scopeSpan := range resourceSpan.ScopeSpans {
+					for _, span := range scopeSpan.Spans {
+						if span.Name == spanName {
+							return
+						}
 					}
 				}
 			}
+			t.Error("Trace export file did not contain expected span")
+		})
+
+		// Third test: leave all exporters enabled but disable tracing with
+		// `Enabled: false`. Check that the clients are all removed from
+		// localrobot.
+		cfgWithDisabledTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled:      false,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
 		}
-		t.Error("Trace export file did not contain expected span")
+		r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+	}
+
+	t.Run("with local config", func(t *testing.T) {
+		testReconfigureTracing(t, "")
 	})
 
-	cfgWithDisabledTracing := &config.Config{
-		Tracing: config.TracingConfig{
-			Enabled:      false,
-			Disk:         true,
-			Console:      true,
-			OTLPEndpoint: "localhost:4317",
-		},
-	}
-	r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
-	test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+	t.Run("with cloud config", func(t *testing.T) {
+		testReconfigureTracing(t, "fake-cloud-id")
+	})
 }
