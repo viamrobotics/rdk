@@ -18,7 +18,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -4377,9 +4377,6 @@ func TestModuleLogging(t *testing.T) {
 	// fields themselves. Even if the RDK is configured at INFO level, assert
 	// that modular resources can log at their own, configured levels.
 
-	// Set up a real trace provider + exporter so we get real trace IDs.
-	sdktrace.NewTracerProvider()
-
 	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
 	defer span.End()
 	traceID := span.SpanContext().TraceID().String()
@@ -5380,5 +5377,104 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage(successLog).Len(),
 			test.ShouldEqual, 2)
+	})
+}
+
+func TestReconfigureTracing(t *testing.T) {
+	testReconfigureTracing := func(t *testing.T, cloudID string) {
+		var cloudConfig *config.Cloud
+		expectedTraceSubdir := localConfigPartID
+		if cloudID != "" {
+			cloudConfig = &config.Cloud{ID: cloudID}
+			expectedTraceSubdir = cloudID
+		}
+
+		// First test: configure robot without any tracing enabled, make sure no
+		// files are created and no clients are stored on localRobot.
+		emptyCfg := &config.Config{
+			Cloud: cloudConfig,
+		}
+		logger, _ := logging.NewObservedTestLogger(t)
+
+		// localRobot.Close shuts down the global trace objects. Reset them here to
+		// make sure tracing will work after the first test.
+		trace.SetProvider(t.Context())
+
+		r := setupLocalRobot(t, context.Background(), emptyCfg, logger).(*localRobot)
+		viamHome := r.homeDir
+
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+		tracePath := filepath.Join(viamHome, "trace")
+		_, err := os.Stat(tracePath)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+		// Second test: enable tracing. Check that clients are stored on localRobot
+		// and the disk exporter exports spans to the expected location.
+		cfgWithTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled: true,
+				Disk:    true,
+				Console: true,
+			},
+		}
+		r.reconfigureTracing(t.Context(), cfgWithTracing)
+		// Expect 1 instead of 2 because we don't add the development exporter.
+		test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 1)
+		spanName := "test file exporter " + t.Name()
+		_, span := trace.StartSpan(t.Context(), spanName)
+		span.End()
+
+		// The file exporter is the easiest to verify: make sure it has been created
+		// and contains the span we just made.
+		testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+			tracesFilePath := filepath.Join(tracePath, expectedTraceSubdir, "traces")
+			_, err := os.Stat(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			tracesFile, err := os.Open(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			defer tracesFile.Close()
+			reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
+			defer reader.Close()
+			for resourceSpan := range reader.All() {
+				for _, scopeSpan := range resourceSpan.ScopeSpans {
+					for _, span := range scopeSpan.Spans {
+						if span.Name == spanName {
+							return
+						}
+					}
+				}
+			}
+			t.Error("Trace export file did not contain expected span")
+		})
+
+		// Third test: leave all exporters enabled but disable tracing with
+		// `Enabled: false`. Check that the clients are all removed from
+		// localrobot.
+		cfgWithDisabledTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled:      false,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		}
+		r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+	}
+
+	t.Run("with local config", func(t *testing.T) {
+		testReconfigureTracing(t, "")
+	})
+
+	t.Run("with cloud config", func(t *testing.T) {
+		testReconfigureTracing(t, "fake-cloud-id")
 	})
 }

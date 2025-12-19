@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"go.viam.com/test"
@@ -1045,6 +1046,72 @@ func TestDiffJobCfg(t *testing.T) {
 			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsEqual)
+		})
+	}
+}
+
+func TestDiffTracing(t *testing.T) {
+	cases := []struct {
+		name  string
+		left  config.TracingConfig
+		right config.TracingConfig
+	}{
+		{
+			name:  "Both empty",
+			left:  config.TracingConfig{},
+			right: config.TracingConfig{},
+		},
+		{
+			name: "Both full",
+			left: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+			right: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "differ, left empty",
+			left: config.TracingConfig{},
+			right: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "differ, right empty",
+			left: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+			right: config.TracingConfig{},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Not much to test, at time of writing the implementation is just
+			// checking `!=` between two structs. Use reflect.DeepEqual to determine
+			// the expected result. If the struct changes in a way that requires a
+			// deep equality check in the future this test should fail.
+			shouldEqual := reflect.DeepEqual(c.left, c.right)
+			diff, err := config.DiffConfigs(
+				config.Config{Tracing: c.left},
+				config.Config{Tracing: c.right},
+				true,
+			)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, diff.TracingEqual, test.ShouldEqual, shouldEqual)
 		})
 	}
 }
