@@ -1721,6 +1721,9 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if newTracingCfg.Console {
 		devExporter := perf.NewOtelDevelopmentExporter()
 		exporters = append(exporters, devExporter)
+		r.logger.Info("Tracing console logger enabled. " +
+			"Note that traces printed to console will not include spans from modules. " +
+			"Use disk or otlpEndpoint trace exporters if module tracing is required.")
 		// Don't add the development exporter to the local robot. It is written to
 		// assume that child spans are always delivered before their parents, which
 		// won't be true for spans sent in from module processes.
