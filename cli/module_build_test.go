@@ -235,4 +235,3 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
-

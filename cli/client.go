@@ -1766,7 +1766,6 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		}
 		return c.retryableCopy(
 			ctx,
-			flagArgs.Part,
 			pm,
 			copyFunc,
 			isFrom,
@@ -2944,7 +2943,6 @@ const maxCopyAttempts = 6
 // The copyFunc parameter allows for mocking in tests.
 func (c *viamClient) retryableCopy(
 	ctx *cli.Context,
-	partID string,
 	pm *ProgressManager,
 	copyFunc func() error,
 	isFrom bool,
@@ -2987,18 +2985,29 @@ func (c *viamClient) retryableCopy(
 		// Handle error
 		hadPreviousFailure = true
 
-		// Print special warning for permission denied errors (in addition to regular error)
-		if s, ok := status.FromError(copyErr); ok && s.Code() == codes.PermissionDenied {
-			if isFrom {
-				warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
-					"The RDK process on the remote machine may not have read permissions on the files you're trying to copy from. "+
-					"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
-					"temporarily changing file permissions with 'chmod', "+
-					"or run the RDK on the machine as root/admin.")
-			} else {
-				warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
-					"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-					"Alternatively, run the RDK as root.")
+		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(copyErr); ok {
+			// don't retry if the arguments are invalid because they will just keep failing
+			if s.Code() == codes.InvalidArgument {
+				if isFrom {
+					warningf(ctx.App.ErrWriter, "Invalid source path on the machine. "+
+						"Check that the source path exists and is accessible, then try again.")
+				} else {
+					warningf(ctx.App.ErrWriter, "Invalid destination path. "+
+						"Check that the destination path is valid and accessible, then try again.")
+				}
+				return copyErr
+			}
+			if s.Code() == codes.PermissionDenied {
+				if isFrom {
+					warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
+						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
+						"temporarily changing file permissions with 'chmod'.")
+				} else {
+					warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
 			}
 		}
 

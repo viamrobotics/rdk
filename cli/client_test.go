@@ -1715,7 +1715,6 @@ func TestRetryableCopy(t *testing.T) {
 		// Copy to part
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			false,
@@ -1737,7 +1736,6 @@ func TestRetryableCopy(t *testing.T) {
 		// Copy from part
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			true,
@@ -1789,7 +1787,6 @@ func TestRetryableCopy(t *testing.T) {
 		// Copy to part
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			false,
@@ -1818,7 +1815,6 @@ func TestRetryableCopy(t *testing.T) {
 		attemptCount = 0
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			true,
@@ -1837,7 +1833,7 @@ func TestRetryableCopy(t *testing.T) {
 			}
 		}
 		// 3 from first call + 3 from second call
-		test.That(t, retryStepCount, test.ShouldEqual, 6) 
+		test.That(t, retryStepCount, test.ShouldEqual, 6)
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg = strings.Join(errOut.messages, "")
@@ -1869,7 +1865,6 @@ func TestRetryableCopy(t *testing.T) {
 
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			false,
@@ -1896,7 +1891,6 @@ func TestRetryableCopy(t *testing.T) {
 		attemptCount = 0
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			true,
@@ -1914,7 +1908,7 @@ func TestRetryableCopy(t *testing.T) {
 			}
 		}
 		// 6 from first call + 6 from second call
-		test.That(t, retryStepCount, test.ShouldEqual, 12) 
+		test.That(t, retryStepCount, test.ShouldEqual, 12)
 
 		// No duplicate warning messages should appear (only permission denied warnings)
 		errMsg = strings.Join(errOut.messages, "")
@@ -1942,7 +1936,6 @@ func TestRetryableCopy(t *testing.T) {
 
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			false,
@@ -1956,7 +1949,6 @@ func TestRetryableCopy(t *testing.T) {
 		attemptCount = 0
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			true,
@@ -1986,7 +1978,6 @@ func TestRetryableCopy(t *testing.T) {
 
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			false,
@@ -2003,7 +1994,6 @@ func TestRetryableCopy(t *testing.T) {
 		// Copy from part
 		err = vc.retryableCopy(
 			cCtx,
-			"test-part-123",
 			pm,
 			mockCopyFunc,
 			true,

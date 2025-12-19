@@ -28,9 +28,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
-	// "google.golang.org/grpc/codes"
-	// "google.golang.org/grpc/status"
-
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/robot"
@@ -1320,7 +1317,6 @@ func reloadModuleActionInner(
 		}
 		err = vc.retryableCopy(
 			c,
-			partID,
 			pm,
 			copyFunc,
 			false,
