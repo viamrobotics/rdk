@@ -63,7 +63,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a service. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, captureAllFromCamera.String(), err)
