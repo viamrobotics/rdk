@@ -111,9 +111,9 @@ func logVersion(logger logging.Logger) {
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
+		logger.Infow("viam-server", versionFields...)
 	} else {
-		logger.Info("Viam RDK built from source; version unknown")
+		logger.Info("viam-server built from source; version unknown")
 	}
 }
 
@@ -381,7 +381,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.configLogger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
+	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():

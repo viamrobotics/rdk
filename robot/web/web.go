@@ -193,7 +193,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
-	logger.Info("Viam RDK shutting down")
+	logger.Info("viam-server shutting down")
 	return ctx.Err()
 }
 
