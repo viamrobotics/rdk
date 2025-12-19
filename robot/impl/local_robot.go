@@ -86,6 +86,9 @@ func init() {
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
+	// TODO: replace all usage of [utils.ViamDotDir] with this configurable value.
+	homeDir string
+
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
@@ -466,8 +469,14 @@ func newWithResources(
 		}
 	}
 
+	homeDir := utils.ViamDotDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
+	}
+
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
+		homeDir: homeDir,
 		manager: newResourceManager(
 			resourceManagerOptions{
 				debug:              cfg.Debug,
@@ -580,10 +589,6 @@ func newWithResources(
 		cloudID = cfg.Cloud.ID
 	}
 
-	homeDir := utils.ViamDotDir
-	if rOpts.viamHomeDir != "" {
-		homeDir = rOpts.viamHomeDir
-	}
 	// Once web service is started, start module manager
 	if err := r.manager.startModuleManager(
 		closeCtx,
@@ -1668,7 +1673,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			if newConfig.Cloud != nil {
 				partID = newConfig.Cloud.ID
 			}
-			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
+			tracesDir := filepath.Join(r.homeDir, "trace", partID)
 			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
 				logger.Errorw("failed to create directory to store traces", "err", err)
 				return

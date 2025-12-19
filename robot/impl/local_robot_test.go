@@ -5395,23 +5395,16 @@ func TestReconfigureTracing(t *testing.T) {
 			Cloud: cloudConfig,
 		}
 		logger, _ := logging.NewObservedTestLogger(t)
-		viamHome := t.TempDir()
-		originalViamDotDir := rutils.ViamDotDir
-		rutils.ViamDotDir = filepath.Join(viamHome, ".viam")
-		t.Cleanup(func() {
-			rutils.ViamDotDir = originalViamDotDir
-		})
 
 		// localRobot.Close shuts down the global trace objects. Reset them here to
 		// make sure tracing will work after the first test.
 		trace.SetProvider(t.Context())
 
-		r := setupLocalRobot(
-			t, context.Background(), emptyCfg, logger, WithViamHomeDir(viamHome),
-		).(*localRobot)
+		r := setupLocalRobot(t, context.Background(), emptyCfg, logger).(*localRobot)
+		viamHome := r.homeDir
 
 		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
-		tracePath := filepath.Join(rutils.ViamDotDir, "trace")
+		tracePath := filepath.Join(viamHome, "trace")
 		_, err := os.Stat(tracePath)
 		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
