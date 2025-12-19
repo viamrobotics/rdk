@@ -34,8 +34,10 @@ const FromDMString = "fromDataManagement"
 var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var errNoCaptureToStoreMsg = "no capture from filter module"
-var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, errNoCaptureToStoreMsg)
+var (
+	errNoCaptureToStoreMsg = "no capture from filter module"
+	ErrNoCaptureToStore    = status.Error(codes.FailedPrecondition, errNoCaptureToStoreMsg)
+)
 
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
@@ -503,6 +505,7 @@ func flattenValue(val *structpb.Value) interface{} {
 	}
 }
 
+// IsNoCaptureToStoreError returns true if the error is NoCaptureToStoreError. Use this instead of errors.Is.
 func IsNoCaptureToStoreError(err error) bool {
 	return status.Code(err) == codes.FailedPrecondition && strings.Contains(err.Error(), errNoCaptureToStoreMsg)
 }
