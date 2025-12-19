@@ -5162,7 +5162,7 @@ func TestReconfigureTracing(t *testing.T) {
 		},
 	}
 	r.reconfigureTracing(t.Context(), cfgWithTracing)
-	// Expect 2 instead of 3 because we don't add the develompent exporter.
+	// Expect 2 instead of 3 because we don't add the development exporter.
 	test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 2)
 	spanName := "test file exporter"
 	_, span := trace.StartSpan(t.Context(), spanName)

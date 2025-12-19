@@ -1647,6 +1647,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 			ex.Shutdown(ctx)
 		}
 		r.traceClients.Store(nil)
+		r.logger.Info("Disabled tracing")
 		return
 	}
 	var exporters []sdktrace.SpanExporter
@@ -1730,7 +1731,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if prevTraceClients != nil {
 		for _, c := range *prevTraceClients {
 			if err := c.Stop(ctx); err != nil {
-				r.logger.Warnw("Error while stopping old otlp client during reconfiguration", "err", err)
+				logger.Warnw("Error while stopping old otlp client during reconfiguration", "err", err)
 			}
 		}
 	}
@@ -1740,7 +1741,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if len(robotTraceClients) > 0 {
 		successfulClients := lo.Filter(robotTraceClients, func(client otlptrace.Client, _ int) bool {
 			if err := client.Start(ctx); err != nil {
-				r.logger.Errorw("Error while starting new otlp client; reconfiguration will continue but tracing may not be functional", "err", err)
+				logger.Errorw("Error while starting new otlp client; reconfiguration will continue but tracing may not be functional", "err", err)
 				return false
 			}
 			return true
@@ -1748,6 +1749,15 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 		r.traceClients.Store(&successfulClients)
 	}
 	trace.AddExporters(exporters...)
+	prevConfig := r.Config().Tracing
+	r.logger.Infow("Reconfigured tracing with exporters",
+		"previousConsole", prevConfig.Console,
+		"newConsole", newConfig.Tracing.Console,
+		"previousDisk", prevConfig.Disk,
+		"newDisk", newConfig.Tracing.Disk,
+		"prevOtlpEndpoint", prevConfig.OTLPEndpoint,
+		"newOtlpEndpoint", newConfig.Tracing.OTLPEndpoint,
+	)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.
