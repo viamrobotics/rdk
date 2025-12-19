@@ -49,9 +49,6 @@ func (c *Client) Start(ctx context.Context) error {
 
 // Stop implements [otlptrace.Client]. It closes underlying resources.
 func (c *Client) Stop(ctx context.Context) error {
-	if c == nil || c.writer == nil {
-		return nil
-	}
 	return c.writer.Close()
 }
 
