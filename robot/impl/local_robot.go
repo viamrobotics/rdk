@@ -1441,7 +1441,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
-		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
+		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
 		return
 	}
 
