@@ -359,7 +359,10 @@ func (c *collector) logCaptureErrs() {
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
 			var failedToReadError *FailedToReadError
-			if errors.As(err, &failedToReadError) {
+			if errors.As(err, &ErrNoCaptureToStore) {
+				// ErrNoCaptureToStore comes from when the filtered resource does not capture data, don't log.
+				continue
+			} else if errors.As(err, &failedToReadError) {
 				c.logger.Warn(err)
 			} else {
 				c.logger.Error((err))
