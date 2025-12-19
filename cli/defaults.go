@@ -82,7 +82,6 @@ func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
 	}
 
 	return client.writeDefaultOrg(cCtx, config, orgStr)
-
 }
 
 func (c *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locStr string) (*Config, error) {
