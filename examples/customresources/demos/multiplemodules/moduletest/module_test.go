@@ -128,6 +128,18 @@ func TestMultipleModules(t *testing.T) {
 					rpcMethod:  "DoTwo",
 				},
 				spanExpectation{
+					service:    "GizmoModule",
+					kind:       otlpv1.Span_SPAN_KIND_CLIENT,
+					rpcService: "acme.service.summation.v1.SummationService",
+					rpcMethod:  "Sum",
+				},
+				spanExpectation{
+					service:    "rdk",
+					kind:       otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService: "acme.service.summation.v1.SummationService",
+					rpcMethod:  "Sum",
+				},
+				spanExpectation{
 					service:    "SummationModule",
 					kind:       otlpv1.Span_SPAN_KIND_SERVER,
 					rpcService: "acme.service.summation.v1.SummationService",
