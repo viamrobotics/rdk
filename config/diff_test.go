@@ -1111,7 +1111,7 @@ func TestDiffTracing(t *testing.T) {
 				true,
 			)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, diff, test.ShouldEqual, shouldEqual)
+			test.That(t, diff.TracingEqual, test.ShouldEqual, shouldEqual)
 		})
 	}
 }
