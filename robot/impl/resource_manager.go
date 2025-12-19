@@ -1330,13 +1330,19 @@ func (manager *resourceManager) updateResources(
 // exists; returns an error otherwise. Only for internal use. Lookups for
 // resources associated with gRPC requests should go through
 // [robot.LocalRobot.FindBySimpleNameAndAPI] instead.
-func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Resource, error) {
+//
+// Because names in the dependency graph do not have prefixes and thus
+// might have a name that's different from what is expected by the user,
+// return the prefixed name so that it can be used by the caller.
+func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Name, resource.Resource, error) {
+	// Pop the remote name off for the return since callers won't be expecting it when accessing it in the resource
+	// dependency map in a resource constructor.
 	if gNode, ok := manager.resources.Node(name); ok {
 		res, err := gNode.Resource()
 		if err != nil {
-			return nil, resource.NewNotAvailableError(name, err)
+			return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
 		}
-		return res, nil
+		return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
 	// This is kind of weird and arguably you could have a ResourcesByPartialName that would match against
@@ -1344,20 +1350,20 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Res
 	if !name.ContainsRemoteNames() {
 		keys := manager.resources.FindNodesByShortNameAndAPI(name)
 		if len(keys) > 1 {
-			return nil, rutils.NewRemoteResourceClashError(name.Name)
+			return resource.Name{}, nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
 		if len(keys) == 1 {
 			gNode, ok := manager.resources.Node(keys[0])
 			if ok {
 				res, err := gNode.Resource()
 				if err != nil {
-					return nil, resource.NewNotAvailableError(name, err)
+					return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
 				}
-				return res, nil
+				return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
 			}
 		}
 	}
-	return nil, resource.NewNotFoundError(name)
+	return resource.Name{}, nil, resource.NewNotFoundError(name)
 }
 
 // PartsMergeResult is the result of merging in parts together.

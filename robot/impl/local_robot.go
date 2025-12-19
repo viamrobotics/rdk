@@ -625,7 +625,7 @@ func newWithResources(
 		if !found {
 			return nil, errors.Errorf("could not find the resource for name %s", res)
 		}
-		return r.manager.ResourceByName(match)
+		return r.ResourceByName(match)
 	}
 
 	jobManager, err := jobmanager.New(ctx, logger, getResource, r.webSvc.ModuleAddresses())
@@ -738,11 +738,11 @@ func (r *localRobot) getDependencies(
 		// Specifically call ResourceByName and not directly to the manager since this
 		// will only return fully configured and available resources (not marked for removal
 		// and no last error).
-		r, err := r.manager.ResourceByName(dep)
+		prefixedName, res, err := r.manager.ResourceByName(dep)
 		if err != nil {
 			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
-		allDeps[dep] = r
+		allDeps[prefixedName] = res
 	}
 	nodeConf := gNode.Config()
 	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {
@@ -773,7 +773,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 	optDeps := make(resource.Dependencies)
 
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
-		matchingResourceNames := r.manager.resources.FindNodesByShortName(optionalDepNameString)
+		matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
 		switch len(matchingResourceNames) {
 		case 0:
 			r.logger.Infow(
@@ -797,6 +797,12 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		}
 
 		resolvedOptionalDepName := matchingResourceNames[0]
+
+		// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
+		// Pop the remote name off since callers won't be expecting it when accessing it in the resource
+		// dependency map in a resource constructor.
+		resolvedOptionalDepName.Name = optionalDepNameString
+		resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 
 		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
 		if err != nil {
@@ -833,7 +839,9 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 		}
 		for _, matcher := range weakDepMatchers {
 			if matcher.IsMatch(res) {
-				deps[n] = res
+				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
+				// dependency map in a resource constructor.
+				deps[n.PopRemote()] = res
 			}
 		}
 	}

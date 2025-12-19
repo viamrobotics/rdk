@@ -1027,6 +1027,22 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
+	// Backup module's current managedProcesses and restore them if the restart attempt fails.
+	currentOUEPrevManagedProcess := mod.prevProcess
+	currentOUEManagedProcess := mod.process
+	defer func() {
+		if success {
+			// mod.process (assigned by mod.startProcess) is a new MP. prevProcess is the MP that launched the current OUE.
+			// this line is redundant if the first restart attempt succeeds, but not if there are restart attempt failures in between
+			// (the failed MPs are discarded).
+			mod.prevProcess = currentOUEManagedProcess
+		} else {
+			// if fail: restore module processes state. The failed managedProcess is dormant and will be GC'ed.
+			mod.prevProcess = currentOUEPrevManagedProcess
+			mod.process = currentOUEManagedProcess
+		}
+	}()
+
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
@@ -1110,7 +1126,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
+		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
 }
