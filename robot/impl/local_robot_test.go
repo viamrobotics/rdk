@@ -18,6 +18,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -5132,4 +5133,78 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 
 	test.That(t, logs.FilterMessageSnippet("panicked while calling unary server method for module request").Len(),
 		test.ShouldEqual, 1)
+}
+
+func TestReconfigureTracing(t *testing.T) {
+	emptyCfg := &config.Config{}
+	logger, _ := logging.NewObservedTestLogger(t)
+	viamHome := t.TempDir()
+	originalViamDotDir := rutils.ViamDotDir
+	rutils.ViamDotDir = filepath.Join(viamHome, ".viam")
+	t.Cleanup(func() {
+		rutils.ViamDotDir = originalViamDotDir
+	})
+
+	r := setupLocalRobot(
+		t, context.Background(), emptyCfg, logger, WithViamHomeDir(viamHome),
+	).(*localRobot)
+	test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+	tracePath := filepath.Join(rutils.ViamDotDir, "trace")
+	_, err := os.Stat(tracePath)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+	cfgWithTracing := &config.Config{
+		Tracing: config.TracingConfig{
+			Enabled:      true,
+			Disk:         true,
+			Console:      true,
+			OTLPEndpoint: "localhost:4317",
+		},
+	}
+	r.reconfigureTracing(t.Context(), cfgWithTracing)
+	// Expect 2 instead of 3 because we don't add the develompent exporter.
+	test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 2)
+	spanName := "test file exporter"
+	_, span := trace.StartSpan(t.Context(), spanName)
+	span.End()
+
+	// The file exporter is the easiest to verify: make sure it has been created
+	// and contains the span we just made.
+	testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+		tracesFilePath := filepath.Join(tracePath, "local-config", "traces")
+		_, err := os.Stat(tracesFilePath)
+		test.That(t, err, test.ShouldBeNil)
+		if err != nil {
+			return
+		}
+		tracesFile, err := os.Open(tracesFilePath)
+		test.That(t, err, test.ShouldBeNil)
+		if err != nil {
+			return
+		}
+		defer tracesFile.Close()
+		reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
+		defer reader.Close()
+		for resourceSpan := range reader.All() {
+			for _, scopeSpan := range resourceSpan.ScopeSpans {
+				for _, span := range scopeSpan.Spans {
+					if span.Name == spanName {
+						return
+					}
+				}
+			}
+		}
+		t.Error("Trace export file did not contain expected span")
+	})
+
+	cfgWithDisabledTracing := &config.Config{
+		Tracing: config.TracingConfig{
+			Enabled:      false,
+			Disk:         true,
+			Console:      true,
+			OTLPEndpoint: "localhost:4317",
+		},
+	}
+	r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
+	test.That(t, r.traceClients.Load(), test.ShouldBeNil)
 }
