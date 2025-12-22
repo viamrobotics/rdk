@@ -1726,7 +1726,7 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify no retry steps were created
 		retryStepFound := false
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepFound = true
 				break
 			}
@@ -1747,14 +1747,14 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify no retry steps were created for the second
 		retryStepFound = false
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepFound = true
 				break
 			}
 		}
 		test.That(t, retryStepFound, test.ShouldBeFalse)
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepFound = true
 				break
 			}
@@ -1798,13 +1798,13 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify retry steps were created (attempt 1, 2, and 3)
 		retryStepCount := 0
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepCount++
 				// Verify IndentLevel is 2 for deeper nesting
 				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
 			}
 		}
-		test.That(t, retryStepCount, test.ShouldEqual, 3) // attempt-1, attempt-2, and attempt-3
+		test.That(t, retryStepCount, test.ShouldEqual, 3) // Attempt-1, Attempt-2, and Attempt-3
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg := strings.Join(errOut.messages, "")
@@ -1826,7 +1826,7 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify retry steps were created (attempt 1, 2, and 3)
 		retryStepCount = 0
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepCount++
 				// Verify IndentLevel is 2 for deeper nesting
 				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
@@ -1876,7 +1876,7 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify all retry steps were created (attempt 1 through 6)
 		retryStepCount := 0
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepCount++
 				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
 			}
@@ -1902,7 +1902,7 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify all retry steps were created (attempt 1 through 6)
 		retryStepCount = 0
 		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "copy-attempt-") {
+			if strings.Contains(step.ID, "Attempt-") {
 				retryStepCount++
 				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
 			}
@@ -2004,5 +2004,38 @@ func TestRetryableCopy(t *testing.T) {
 		// Verify permission denied specific warning appears
 		errMsg = strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't read the source files on the machine.")
+	})
+
+	t.Run("InvalidArgumentError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		mockCopyFunc := func() error {
+			return status.Error(codes.InvalidArgument, "invalid path")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Copy to part - should fail immediately without retry
+		err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+
+		// Verify invalid argument specific warning appears for copy TO
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "Copy failed with invalid argument")
+		test.That(t, errMsg, test.ShouldContainSubstring, "invalid path")
 	})
 }

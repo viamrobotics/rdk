@@ -2939,7 +2939,7 @@ func (c *viamClient) startRobotPartShell(
 }
 
 // maxCopyAttempts is the number of times to retry copying files to a part before giving up.
-const maxCopyAttempts = 2
+const maxCopyAttempts = 6
 
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
@@ -2992,14 +2992,7 @@ func (c *viamClient) retryableCopy(
 		if s, ok := status.FromError(copyErr); ok {
 			// don't retry if the arguments are invalid because they will just keep failing
 			if s.Code() == codes.InvalidArgument {
-				if isFrom {
-					warningf(ctx.App.ErrWriter, "Invalid source path on the machine. "+
-						"Check that the source path exists and is accessible, then try again.")
-				} else {
-					warningf(ctx.App.ErrWriter, "Invalid destination path. "+
-						"Check that the destination path is valid and accessible, then try again.")
-				}
-				return copyErr
+				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
 			}
 			if s.Code() == codes.PermissionDenied {
 				if isFrom {
@@ -3012,6 +3005,9 @@ func (c *viamClient) retryableCopy(
 						"Alternatively, run the RDK as root.")
 				}
 			}
+			// don't retry because will keep failing
+			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+			return copyErr
 		}
 
 		// Create a step for this failed attempt (so it shows in the output)
