@@ -2005,37 +2005,4 @@ func TestRetryableCopy(t *testing.T) {
 		errMsg = strings.Join(errOut.messages, "")
 		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't read the source files on the machine.")
 	})
-
-	t.Run("InvalidArgumentError", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
-
-		mockCopyFunc := func() error {
-			return status.Error(codes.InvalidArgument, "invalid path")
-		}
-
-		allSteps := []*Step{
-			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
-		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
-
-		err := pm.Start("copy")
-		test.That(t, err, test.ShouldBeNil)
-
-		// Copy to part - should fail immediately without retry
-		err = vc.retryableCopy(
-			cCtx,
-			pm,
-			mockCopyFunc,
-			false,
-		)
-
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// Verify invalid argument specific warning appears for copy TO
-		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldContainSubstring, "Copy failed with invalid argument")
-		test.That(t, errMsg, test.ShouldContainSubstring, "invalid path")
-	})
 }

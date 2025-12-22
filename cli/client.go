@@ -2990,10 +2990,6 @@ func (c *viamClient) retryableCopy(
 
 		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
 		if s, ok := status.FromError(copyErr); ok {
-			// don't retry if the arguments are invalid because they will just keep failing
-			if s.Code() == codes.InvalidArgument {
-				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
-			}
 			if s.Code() == codes.PermissionDenied {
 				if isFrom {
 					warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
@@ -3005,9 +3001,6 @@ func (c *viamClient) retryableCopy(
 						"Alternatively, run the RDK as root.")
 				}
 			}
-			// don't retry because will keep failing
-			_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-			return copyErr
 		}
 
 		// Create a step for this failed attempt (so it shows in the output)
