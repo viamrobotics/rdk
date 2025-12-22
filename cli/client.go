@@ -2936,7 +2936,7 @@ func (c *viamClient) startRobotPartShell(
 }
 
 // maxCopyAttempts is the number of times to retry copying files to a part before giving up.
-const maxCopyAttempts = 6
+const maxCopyAttempts = 2
 
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
@@ -2954,11 +2954,11 @@ func (c *viamClient) retryableCopy(
 		// If we had a previous failure, create a nested step for this retry
 		var attemptStepID string
 		if hadPreviousFailure {
-			attemptStepID = fmt.Sprintf("copy-attempt-%d", attempt)
+			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
 			attemptStep := &Step{
 				ID:           attemptStepID,
-				Message:      fmt.Sprintf("copy attempt %d/%d...", attempt, maxCopyAttempts),
-				CompletedMsg: fmt.Sprintf("copy attempt %d succeeded", attempt),
+				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
 				Status:       StepPending,
 				IndentLevel:  2, // Nested under "copy" which is at level 1
 			}
@@ -3014,11 +3014,11 @@ func (c *viamClient) retryableCopy(
 		// Create a step for this failed attempt (so it shows in the output)
 		if attemptStepID == "" {
 			// First attempt - create its step retroactively
-			attemptStepID = "copy-attempt-1"
+			attemptStepID = "Attempt-1"
 			attemptStep := &Step{
 				ID:           attemptStepID,
-				Message:      fmt.Sprintf("copy attempt 1/%d...", maxCopyAttempts),
-				CompletedMsg: "copy attempt 1 succeeded",
+				Message:      fmt.Sprintf("Attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Attempt 1 succeeded",
 				Status:       StepPending,
 				IndentLevel:  2,
 			}

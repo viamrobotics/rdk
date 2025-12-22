@@ -1808,8 +1808,8 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 1/6 failed:")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 2/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 2/6 failed:")
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
@@ -1837,8 +1837,8 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
 		errMsg = strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 1/6 failed:")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt 2/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 2/6 failed:")
 	})
 
 	t.Run("SuccessAfter5Retries", func(t *testing.T) {
@@ -1885,7 +1885,7 @@ func TestRetryableCopy(t *testing.T) {
 
 		// No duplicate warning messages should appear (only permission denied warnings)
 		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt")
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
