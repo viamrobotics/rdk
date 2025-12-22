@@ -11,7 +11,7 @@ import (
 // ModuleInputs contains the necessary information to fill out template files.
 type ModuleInputs struct {
 	ModuleName       string    `json:"module_name"`
-	IsPublic         bool      `json:"-"`
+	Visibility       string    `json:"visibility"`
 	Namespace        string    `json:"namespace"`
 	OrgID            string    `json:"-"`
 	Language         string    `json:"language"`
