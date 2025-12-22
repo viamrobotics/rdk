@@ -343,6 +343,11 @@ func (m *Module) connectParent(ctx context.Context) error {
 
 	connectOptions := []client.RobotClientOption{
 		client.WithDisableSessions(),
+		// These options are already automatically applied to unix domain socket connections (see [rpc.dial]),
+		// adding these for TCP mode as well. This is because:
+		// - The parent viam-server's module parent server does not spin up a signaling service
+		// - Connections to the parent are always insecure
+		client.WithDialOptions(rpc.WithForceDirectGRPC(), rpc.WithInsecure()),
 	}
 	if m.parentClientOptions != nil {
 		connectOptions = append(connectOptions, m.parentClientOptions...)
