@@ -1720,7 +1720,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		return err
 	}
 	var pm *ProgressManager
-	doCopy := func() error {
+	doCopy := func() (int, error) {
 		var copyFunc func() error
 		if isFrom {
 			copyFunc = func() error {
@@ -1759,25 +1759,27 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
 			})
 			if err := pm.Start("copy"); err != nil {
-				return err
+				return 0, err
 			}
 			defer pm.Stop()
 		}
-		return c.retryableCopy(
+		attemptCount, copyErr := c.retryableCopy(
 			ctx,
 			pm,
 			copyFunc,
 			isFrom,
 		)
+		return attemptCount, copyErr
 	}
-	if err := doCopy(); err != nil {
-		_ = pm.Fail("copy", err)                                 //nolint:errcheck
+	attemptCount, err := doCopy()
+	if err != nil {
+		_ = pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", maxCopyAttempts)
+		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
 	}
 	if err := pm.Complete("copy"); err != nil {
 		return err
@@ -2949,7 +2951,7 @@ func (c *viamClient) retryableCopy(
 	pm *ProgressManager,
 	copyFunc func() error,
 	isFrom bool,
-) error {
+) (int, error) {
 	var hadPreviousFailure bool
 	var copyErr error
 
@@ -2969,7 +2971,7 @@ func (c *viamClient) retryableCopy(
 			pm.stepMap[attemptStepID] = attemptStep
 
 			if err := pm.Start(attemptStepID); err != nil {
-				return err
+				return attempt, err
 			}
 		}
 
@@ -2979,10 +2981,10 @@ func (c *viamClient) retryableCopy(
 			// Success! Complete the step if this was a retry
 			if attemptStepID != "" {
 				if err := pm.Complete(attemptStepID); err != nil {
-					return err
+					return attempt, err
 				}
 			}
-			return nil
+			return attempt, nil
 		}
 
 		// Handle error
@@ -3000,6 +3002,9 @@ func (c *viamClient) retryableCopy(
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
 				}
+				// return early because retrying won't fix perm error
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
 			}
 		}
 
@@ -3017,7 +3022,7 @@ func (c *viamClient) retryableCopy(
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
 			if err := pm.Start(attemptStepID); err != nil {
-				return err
+				return attempt, err
 			}
 		}
 
@@ -3026,7 +3031,7 @@ func (c *viamClient) retryableCopy(
 	}
 
 	// All attempts failed - return the error from the copy function
-	return copyErr
+	return maxCopyAttempts, copyErr
 }
 
 func (c *viamClient) copyFilesToMachine(

@@ -1713,7 +1713,7 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Copy to part
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1734,7 +1734,7 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, retryStepFound, test.ShouldBeFalse)
 
 		// Copy from part
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1785,7 +1785,7 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Copy to part
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1813,7 +1813,7 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1863,7 +1863,7 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1889,7 +1889,7 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1934,7 +1934,7 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1947,7 +1947,7 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		err = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1976,7 +1976,7 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		err = vc.retryableCopy(
+		attemptCount, err := vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -1984,6 +1984,7 @@ func TestRetryableCopy(t *testing.T) {
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
 
 		// Verify permission denied specific warning appears
 		errMsg := strings.Join(errOut.messages, "")
@@ -1992,7 +1993,7 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
 
 		// Copy from part
-		err = vc.retryableCopy(
+		attemptCount, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
@@ -2000,6 +2001,7 @@ func TestRetryableCopy(t *testing.T) {
 		)
 
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
 
 		// Verify permission denied specific warning appears
 		errMsg = strings.Join(errOut.messages, "")
