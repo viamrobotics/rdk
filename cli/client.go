@@ -1773,7 +1773,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	}
 	attemptCount, err := doCopy()
 	if err != nil {
-		_ = pm.Fail("copy", err) //nolint:errcheck
+		defer pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
@@ -3002,7 +3002,10 @@ func (c *viamClient) retryableCopy(
 						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
 						"Alternatively, run the RDK as root.")
 				}
-				// return early because retrying won't fix perm error
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.InvalidArgument {
+				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
 				return attempt, copyErr
 			}
