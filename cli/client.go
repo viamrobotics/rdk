@@ -1772,13 +1772,15 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	}
 	if err := doCopy(); err != nil {
 		_ = pm.Fail("copy", err)                                 //nolint:errcheck
-		_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return fmt.Errorf("all %d copy attempts failed, try again later", maxCopyAttempts)
+	}
+	if err := pm.Complete("copy"); err != nil {
+		return err
 	}
 	return nil
 }
