@@ -1763,13 +1763,13 @@ func (c *viamClient) machinesPartCopyFilesAction(
 			}
 			defer pm.Stop()
 		}
-		attemptCount, copyErr := c.retryableCopy(
+		attemptCount, err := c.retryableCopy(
 			ctx,
 			pm,
 			copyFunc,
 			isFrom,
 		)
-		return attemptCount, copyErr
+		return attemptCount, err
 	}
 	attemptCount, err := doCopy()
 	if err != nil {
