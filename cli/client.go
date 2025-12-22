@@ -1776,7 +1776,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		_ = pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
-			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			strings.Contains(statusErr.Message(), shell.ErrMsgDirectoryCopyRequestNoRecursion) {
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
@@ -1837,7 +1837,7 @@ func (c *viamClient) machinesPartGetFTDCAction(
 	); err != nil {
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
-			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+			strings.Contains(statusErr.Message(), shell.ErrMsgDirectoryCopyRequestNoRecursion) {
 			return errDirectoryCopyRequestNoRecursion
 		}
 		return err
