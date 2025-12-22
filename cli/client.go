@@ -1719,7 +1719,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-
+	var pm *ProgressManager
 	doCopy := func() error {
 		var copyFunc func() error
 		if isFrom {
@@ -1754,7 +1754,6 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				)
 			}
 		}
-		var pm *ProgressManager
 		if !flagArgs.NoProgress {
 			pm = NewProgressManager([]*Step{
 				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
@@ -1772,12 +1771,14 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		)
 	}
 	if err := doCopy(); err != nil {
+		_ = pm.Fail("copy", err)                                 //nolint:errcheck
+		_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
-		return err
+		return fmt.Errorf("all %d copy attempts failed, try again later", maxCopyAttempts)
 	}
 	return nil
 }

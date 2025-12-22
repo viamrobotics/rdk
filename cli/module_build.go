@@ -1307,12 +1307,12 @@ func reloadModuleActionInner(
 			return vc.copyFilesToFqdn(
 				part.Part.Fqdn,
 				globalArgs.Debug,
-				true,  // allowRecursion
+				false, // allowRecursion
 				false, // preserve
 				[]string{buildPath},
 				dest,
 				logger,
-				false, // noProgress
+				true, // noProgress
 			)
 		}
 		err = vc.retryableCopy(
