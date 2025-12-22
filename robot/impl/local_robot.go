@@ -6,6 +6,7 @@ package robotimpl
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +19,9 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
@@ -26,6 +29,7 @@ import (
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	goutils "go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
@@ -58,6 +62,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const localConfigPartID = "local-config"
+
 var _ = robot.LocalRobot(&localRobot{})
 
 func init() {
@@ -80,6 +86,9 @@ func init() {
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
+	// TODO: replace all usage of [utils.ViamDotDir] with this configurable value.
+	homeDir string
+
 	manager       *resourceManager
 	mostRecentCfg atomic.Value // config.Config
 
@@ -133,7 +142,7 @@ type localRobot struct {
 	// configured based on the `Initial` value of applied `config.Config`s.
 	initializing atomic.Bool
 
-	traceClient *otlpfile.Client
+	traceClients atomic.Pointer[[]otlptrace.Client]
 }
 
 // ExportResourcesAsDot exports the resource graph as a DOT representation for
@@ -151,10 +160,15 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 
 // WriteTraceMessages writes trace spans to any configured exporters.
 func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
-	if r.traceClient == nil {
+	traceClients := r.traceClients.Load()
+	if traceClients == nil {
 		return nil
 	}
-	return r.traceClient.UploadTraces(ctx, spans)
+	var err error
+	for _, c := range *traceClients {
+		err = stderrors.Join(err, c.UploadTraces(ctx, spans))
+	}
+	return err
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried
@@ -420,7 +434,7 @@ func newWithResources(
 		opt.apply(&rOpts)
 	}
 
-	partID := "local-config"
+	partID := localConfigPartID
 	if cfg.Cloud != nil {
 		partID = cfg.Cloud.ID
 	}
@@ -455,35 +469,14 @@ func newWithResources(
 		}
 	}
 
-	var traceClient *otlpfile.Client
-	if rOpts.tracing.enabled {
-		func() {
-			tracesDir := filepath.Join(utils.ViamDotDir, "trace", partID)
-			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
-				logger.Errorw("failed to create directory to store traces", "err", err)
-				return
-			}
-			logger.Infow("created trace storage dir", "dir", tracesDir)
-			traceClient, err = otlpfile.NewClient(tracesDir, "traces")
-			if err != nil {
-				logger.Errorw("failed to create OLTP client", "err", err)
-				return
-			}
-			exporter, err := otlptrace.New(
-				context.Background(),
-				traceClient,
-			)
-			if err != nil {
-				logger.Errorw("failed to create trace exporter", "err", err)
-				return
-			}
-
-			trace.AddExporters(exporter)
-		}()
+	homeDir := utils.ViamDotDir
+	if rOpts.viamHomeDir != "" {
+		homeDir = rOpts.viamHomeDir
 	}
 
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
+		homeDir: homeDir,
 		manager: newResourceManager(
 			resourceManagerOptions{
 				debug:              cfg.Debug,
@@ -492,7 +485,6 @@ func newWithResources(
 				untrustedEnv:       cfg.UntrustedEnv,
 				tlsConfig:          cfg.Network.TLSConfig,
 				ftdc:               ftdcWorker,
-				tracingEnabled:     rOpts.tracing.enabled,
 			},
 			logger,
 		),
@@ -509,10 +501,10 @@ func newWithResources(
 		shutdownCallback:           rOpts.shutdownCallback,
 		localModuleVersions:        make(map[string]semver.Version),
 		ftdc:                       ftdcWorker,
-		traceClient:                traceClient,
 	}
 
 	r.mostRecentCfg.Store(config.Config{})
+
 	var heartbeatWindow time.Duration
 	if cfg.Network.Sessions.HeartbeatWindow == 0 {
 		heartbeatWindow = config.DefaultSessionHeartbeatWindow
@@ -597,10 +589,6 @@ func newWithResources(
 		cloudID = cfg.Cloud.ID
 	}
 
-	homeDir := utils.ViamDotDir
-	if rOpts.viamHomeDir != "" {
-		homeDir = rOpts.viamHomeDir
-	}
 	// Once web service is started, start module manager
 	if err := r.manager.startModuleManager(
 		closeCtx,
@@ -1451,12 +1439,24 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
+	if err != nil {
+		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
+		return
+	}
+
+	// Reconfigure tracing first so it is possible to use tracing to debug later
+	// steps in the reconfigure code path.
+	if !initialDiff.TracingEqual {
+		r.reconfigureTracing(ctx, newConfig)
+	}
+
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.
 	// TODO(RSDK-1849): Make this non-blocking so other resources that do not require packages can run before package sync finishes.
 	// TODO(RSDK-2710) this should really use Reconfigure for the package and should allow itself to check
 	// if anything has changed.
-	err := r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
+	err = r.packageManager.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// The returned error is rich, detailing each individual packages error. The underlying
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
@@ -1480,12 +1480,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}
 
 	// Run the setup phase for new and modified modules in new config modules before proceeding with reconfiguration.
-	diffMods, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
-	if err != nil {
-		r.logger.CErrorw(ctx, "error diffing module configs before first run", "error", err)
-		return
-	}
-	mods := slices.Concat[[]config.Module](diffMods.Added.Modules, diffMods.Modified.Modules)
+	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
@@ -1661,6 +1656,132 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	} else {
 		r.logger.CInfof(ctx, "Robot %ved", strings.ToLower(logVerb))
 	}
+}
+
+func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.Config) {
+	logger := r.logger.Sublogger("tracing")
+	newTracingCfg := newConfig.Tracing
+	if !newTracingCfg.IsEnabled() {
+		prevExporters := trace.ClearExporters()
+		for _, ex := range prevExporters {
+			//nolint: errcheck, gosec
+			ex.Shutdown(ctx)
+		}
+		r.traceClients.Store(nil)
+		r.logger.Info("Disabled tracing")
+		return
+	}
+	var exporters []sdktrace.SpanExporter
+	var robotTraceClients []otlptrace.Client
+	if newTracingCfg.Disk {
+		func() {
+			partID := "local-config"
+			if newConfig.Cloud != nil {
+				partID = newConfig.Cloud.ID
+			}
+			tracesDir := filepath.Join(r.homeDir, "trace", partID)
+			if err := os.MkdirAll(tracesDir, 0o700); err != nil {
+				logger.Errorw("failed to create directory to store traces", "err", err)
+				return
+			}
+			logger.Infow("created trace storage dir", "dir", tracesDir)
+			traceClient, err := otlpfile.NewClient(tracesDir, "traces")
+			if err != nil {
+				logger.Errorw("failed to create OLTP client", "err", err)
+				return
+			}
+			exporter, err := otlptrace.New(
+				context.Background(),
+				traceClient,
+			)
+			if err != nil {
+				logger.Errorw("failed to create trace exporter", "err", err)
+				return
+			}
+
+			exporters = append(exporters, exporter)
+			robotTraceClients = append(robotTraceClients, traceClient)
+		}()
+	}
+	if endpoint := newTracingCfg.OTLPEndpoint; endpoint != "" {
+		func() {
+			opts := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(newTracingCfg.OTLPEndpoint)}
+			if strings.HasPrefix(endpoint, "localhost:") {
+				opts = append(opts, otlptracegrpc.WithInsecure())
+			}
+			otlpClient := otlptracegrpc.NewClient(opts...)
+			if err := otlpClient.Start(ctx); err != nil {
+				logger.Errorw("Failed to start OTLP gRPC client while reconfiguring tracing", "err", err)
+				return
+			}
+
+			exporter, err := otlptrace.New(ctx, otlpClient)
+			if err != nil {
+				logger.Errorw("Faild to create OTLP gRPC exporter while reconfiguring tracing", "err", err)
+				return
+			}
+			robotTraceClients = append(robotTraceClients, otlpClient)
+			exporters = append(exporters, exporter)
+		}()
+	}
+	if newTracingCfg.Console {
+		devExporter := perf.NewOtelDevelopmentExporter()
+		exporters = append(exporters, devExporter)
+		r.logger.Info("Tracing console logger enabled. " +
+			"Note that traces printed to console will not include spans from modules. " +
+			"Use disk or otlpEndpoint trace exporters if module tracing is required.")
+		// Don't add the development exporter to the local robot. It is written to
+		// assume that child spans are always delivered before their parents, which
+		// won't be true for spans sent in from module processes.
+	}
+
+	// First remove all the exporters from the global tracer provider so spans
+	// stop getting sent to them.
+	for _, prevExporter := range trace.ClearExporters() {
+		if err := prevExporter.Shutdown(ctx); err != nil {
+			logger.Warnw("Error while shutting down old trace exporter", "err", err)
+		}
+	}
+
+	// Now remove the same underlying clients from the local robot and attempt to
+	// cleanly shut them down. Some clients such as the grpcotlp client may try
+	// to flush any buffered spans during this. Swap in nil during this time so
+	// that any incoming spans are just dropped rather than sent to exporters
+	// that are shutting down, potentially producing an error. This may lead to
+	// loss of tracing data during reconfiguration. We don't start and swap in
+	// the new trace clients at this point because the new file exporter instance
+	// may fight with the old one over the output file.
+	prevTraceClients := r.traceClients.Swap(nil)
+	if prevTraceClients != nil {
+		for _, c := range *prevTraceClients {
+			if err := c.Stop(ctx); err != nil {
+				logger.Warnw("Error while stopping old otlp client during reconfiguration", "err", err)
+			}
+		}
+	}
+
+	// Start the new trace clients and install them on the local robot and the
+	// global tracer provider. Tracing is fully functional at this point.
+	if len(robotTraceClients) > 0 {
+		successfulClients := lo.Filter(robotTraceClients, func(client otlptrace.Client, _ int) bool {
+			if err := client.Start(ctx); err != nil {
+				logger.Errorw("Error while starting new otlp client; reconfiguration will continue but tracing may not be functional", "err", err)
+				return false
+			}
+			return true
+		})
+		r.traceClients.Store(&successfulClients)
+	}
+	trace.AddExporters(exporters...)
+	prevConfig := r.Config().Tracing
+	r.logger.Infow("Reconfigured tracing with exporters",
+		"previousConsole", prevConfig.Console,
+		"newConsole", newConfig.Tracing.Console,
+		"previousDisk", prevConfig.Disk,
+		"newDisk", newConfig.Tracing.Disk,
+		"prevOtlpEndpoint", prevConfig.OTLPEndpoint,
+		"newOtlpEndpoint", newConfig.Tracing.OTLPEndpoint,
+	)
 }
 
 // checkMaxInstance checks to see if the local robot has reached the maximum number of a specific resource type that are local.

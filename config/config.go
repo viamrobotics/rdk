@@ -42,6 +42,7 @@ type Config struct {
 	LogConfig         []logging.LoggerPatternConfig
 	MaintenanceConfig *MaintenanceConfig
 	Jobs              []JobConfig
+	Tracing           TracingConfig
 
 	ConfigFilePath string
 
@@ -85,6 +86,32 @@ type Config struct {
 	toCache []byte
 }
 
+// A TracingConfig describes the tracing configuration for a robot
+type TracingConfig struct {
+	// Enabled globally enables or disables tracing.
+	Enabled bool `json:"enabled"`
+
+	// Disk enables saving trace data to disk in the VIAM_HOME directory. Data
+	// recorded this way can later be retrieved with the viam cli.
+	Disk bool `json:"disk,omitempty"`
+
+	// Console enables printing traces to the console as they occur.
+	Console bool `json:"console,omitempty"`
+
+	// OTLPEndpoint specifies an endpoint that trace spans should be sent to
+	// using OTLP over gRPC. Environment variables can be used to specify auth
+	// headers or other options. See
+	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+	// for more information.
+	OTLPEndpoint string `json:"otlpendpoint,omitempty"`
+}
+
+// IsEnabled returns true if Enabled is true and at least one export location
+// is enabled and false otherwise.
+func (cfg TracingConfig) IsEnabled() bool {
+	return cfg.Enabled && (cfg.Disk || cfg.Console || cfg.OTLPEndpoint != "")
+}
+
 // MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
 // This Config is not validated during config processing but it will be validated during reconfiguration.
 type MaintenanceConfig struct {
@@ -92,7 +119,7 @@ type MaintenanceConfig struct {
 	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
 }
 
-// NOTE: This data must be maintained with what is in Config.
+// NOTE: This data must be maintained with what is in [Config].
 type configData struct {
 	Cloud                   *Cloud                        `json:"cloud,omitempty"`
 	Modules                 []Module                      `json:"modules,omitempty"`
@@ -111,6 +138,7 @@ type configData struct {
 	PackagePath             string                        `json:"package_path,omitempty"`
 	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
 	Jobs                    []JobConfig                   `json:"jobs,omitempty"`
+	Tracing                 TracingConfig                 `json:"tracing,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -295,6 +323,7 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.PackagePath = conf.PackagePath
 	c.DisableLogDeduplication = conf.DisableLogDeduplication
 	c.Jobs = conf.Jobs
+	c.Tracing = conf.Tracing
 
 	return nil
 }
@@ -329,6 +358,7 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		PackagePath:             c.PackagePath,
 		DisableLogDeduplication: c.DisableLogDeduplication,
 		Jobs:                    c.Jobs,
+		Tracing:                 c.Tracing,
 	})
 }
 

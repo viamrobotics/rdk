@@ -440,6 +440,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+	rpcOpts = append(rpcOpts, rpc.WithStatsHandler(otelStatsHandler))
+
 	ioLogger := svc.logger.Sublogger("networking")
 	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
 	if err != nil {

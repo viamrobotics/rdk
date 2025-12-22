@@ -83,6 +83,12 @@ const (
 	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
 	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
 
+	// ViamModuleTracingEnvVar is the environment variable that configures
+	// modules to record trace spans and send them to their parent viam-server
+	// process. Any non-empty string other than "0" or "false" enables module
+	// tracing.
+	ViamModuleTracingEnvVar = "VIAM_MODULE_TRACING"
+
 	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
 	// set before starting viam-server to indicate that agent is a new enough version to
 	// have its own background loop that runs NeedsRestart against app.viam.com to determine
