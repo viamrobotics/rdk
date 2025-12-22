@@ -258,7 +258,7 @@ func (mt MimeType) ToProto() datasyncPB.MimeType {
 	case MimeTypeApplicationPcd:
 		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
 	case MimeTypeVideoMP4:
-		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
+		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
 	default:
 		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
 	}
@@ -277,6 +277,7 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 		return MimeTypeApplicationPcd
 	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
 		return MimeTypeVideoMP4
+
 	default:
 		return MimeTypeUnspecified
 	}
