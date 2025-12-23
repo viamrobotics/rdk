@@ -555,7 +555,6 @@ type reloadModuleArgs struct {
 	NoBuild    bool
 	Local      bool
 	NoProgress bool
-	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
