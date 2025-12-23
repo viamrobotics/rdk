@@ -284,8 +284,8 @@ type APIKeyWithAuthorizations struct {
 
 // APIKey is a API key to make a request to an API.
 type APIKey struct {
-	ID        string
-	Key       string
+	ID        string `json:"id"`
+	Key       string `json:"key"`
 	Name      string
 	CreatedOn *time.Time
 }
