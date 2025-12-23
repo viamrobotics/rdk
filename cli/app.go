@@ -2925,7 +2925,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagVisibility,
-							Usage: "set module visibility to public, private, or public_unlisted",
+							Usage: formatAcceptedValues("module visibility", visibilityOption...),
 						},
 						&cli.StringFlag{
 							Name: moduleFlagPublicNamespace,

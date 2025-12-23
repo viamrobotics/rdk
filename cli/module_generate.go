@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -45,6 +46,7 @@ const (
 )
 
 var supportedModuleGenLanguages = []string{python, golang}
+var visibilityOption = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
 
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
@@ -912,6 +914,10 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := module.Visibility
+	if !slices.Contains(visibilityOption, visibility) {
+		visibility = moduleVisibilityPrivate
+		warningf(c.App.Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
+	}
 
 	manifest := ModuleManifest{
 		Schema:       "https://dl.viam.dev/module.schema.json",
