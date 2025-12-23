@@ -242,6 +242,8 @@ const (
 	MimeTypeImagePng
 	// MimeTypeApplicationPcd means that the mime type is pcd.
 	MimeTypeApplicationPcd
+	// MimeTypeVideoMP4 means that the mime type is mp4.
+	MimeTypeVideoMP4
 )
 
 // ToProto converts MimeType to datasyncPB.
@@ -255,6 +257,8 @@ func (mt MimeType) ToProto() datasyncPB.MimeType {
 		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
 	case MimeTypeApplicationPcd:
 		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
+	case MimeTypeVideoMP4:
+		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
 	default:
 		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
 	}
@@ -271,6 +275,9 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 		return MimeTypeImagePng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return MimeTypeApplicationPcd
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return MimeTypeVideoMP4
+
 	default:
 		return MimeTypeUnspecified
 	}
@@ -462,6 +469,8 @@ const (
 	ExtMP3 = ".mp3"
 	// ExtWav is the file extension for wav files.
 	ExtWav = ".wav"
+	// ExtMP4 is the file extension for mp4 files.
+	ExtMP4 = ".mp4"
 )
 
 // getFileExt gets the file extension for a capture file.
