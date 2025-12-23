@@ -87,7 +87,6 @@ const (
 	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
-	moduleFlagEnableCloud     = "enable-cloud"
 	moduleFlagRegister        = "register"
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
@@ -100,7 +99,6 @@ const (
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
 	moduleBuildFlagNoBuild     = "no-build"
-	moduleBuildFlagCloudBuild  = "cloud-build"
 	moduleBuildFlagCloudConfig = "cloud-config"
 	moduleBuildFlagID          = "build-id"
 	moduleBuildFlagOAuthLink   = "oauth-link"
@@ -2950,10 +2948,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
-							Name:  moduleFlagEnableCloud,
-							Usage: "generate Github workflows to build module",
-						},
-						&cli.BoolFlag{
 							Name:  moduleFlagRegister,
 							Usage: "register module with Viam to associate with your organization",
 						},
@@ -3009,10 +3003,6 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin/my
 Example uploading a whole directory:
 viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin"
 (this example requires the entrypoint in the meta.json to be inside the bin directory like "./bin/[your path here]")
-
-Example uploading a custom tarball of your module:
-tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
-viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged-module.tar.gz"
                       `,
 					UsageText: createUsageText("module upload", []string{generalFlagVersion, moduleFlagPlatform, moduleFlagUpload}, true, false),
 					Flags: []cli.Flag{
