@@ -45,6 +45,9 @@ const (
 
 	// MimeTypeH264 used to indicate H264 frames.
 	MimeTypeH264 = "video/h264"
+
+	// MimeTypeVideoMp4 is used to indicate .mp4 video files.
+	MimeTypeVideoMP4 = "video/mp4"
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.
