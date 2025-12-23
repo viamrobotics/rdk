@@ -2933,6 +2933,20 @@ func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appNa
 	return appContentFromProto(resp), nil
 }
 
+func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationId string) (*RobotPart, error) {
+	req := &pb.GetRobotPartByNameAndLocationRequest{
+		Name: name,
+		LocationId: locationId,
+	}
+
+	resp, err := c.client.GetRobotPartByNameAndLocation(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return robotPartFromProto(resp.GetPart()), nil
+}
+
 func organizationFromProto(organization *pb.Organization) *Organization {
 	if organization == nil {
 		return nil
