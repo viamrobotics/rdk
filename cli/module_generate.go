@@ -45,8 +45,10 @@ const (
 	moduleVisibilityPublicUnlisted = "public_unlisted"
 )
 
-var supportedModuleGenLanguages = []string{python, golang}
-var visibilityOption = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
+var (
+	supportedModuleGenLanguages = []string{python, golang}
+	visibilityOption            = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
+)
 
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
