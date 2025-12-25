@@ -7,6 +7,7 @@ package arm
 import (
 	"context"
 	"fmt"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
@@ -51,6 +52,14 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 // Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
+}
+
+// JointPositionsStreamed contains joint positions along with the timestamp they were captured.
+type JointPositionsStreamed struct {
+	// Positions contains the joint positions
+	Positions []referenceframe.Input
+	// Timestamp is when the positions were captured
+	Timestamp time.Time
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
@@ -114,6 +123,21 @@ func Named(name string) resource.Name {
 //
 // For more information, see the [JointPositions method docs].
 //
+// StreamJointPositions example:
+//
+//	myArm, err := arm.FromProvider(machine, "my_arm")
+//
+//	// Stream joint positions at 30 FPS
+//	stream, err := myArm.StreamJointPositions(context.Background(), 30, nil)
+//	if err != nil {
+//		// Handle error
+//	}
+//
+//	// Receive positions from the stream
+//	for posUpdate := range stream {
+//		fmt.Printf("Positions at %v: %v\n", posUpdate.Timestamp, posUpdate.Positions)
+//	}
+//
 // [arm component docs]: https://docs.viam.com/components/arm/
 // [EndPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getendposition
 // [MoveToPosition method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#movetoposition
@@ -143,6 +167,10 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
+
+	// StreamJointPositions streams joint positions at the specified frames per second.
+	// Returns a channel that receives position updates. The channel will be closed when the stream ends.
+	StreamJointPositions(ctx context.Context, fps int32, extra map[string]interface{}) (chan *JointPositionsStreamed, error)
 
 	// Get3DModels returns the 3D models of the arm.
 	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)

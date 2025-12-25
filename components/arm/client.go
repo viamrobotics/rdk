@@ -3,6 +3,8 @@ package arm
 
 import (
 	"context"
+	"errors"
+	"io"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -244,6 +246,86 @@ func (c *client) Get3DModels(ctx context.Context, extra map[string]interface{}) 
 		return nil, err
 	}
 	return resp.Models, nil
+}
+
+func (c *client) StreamJointPositions(ctx context.Context, fps int32, extra map[string]interface{}) (chan *JointPositionsStreamed, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start the stream
+	stream, err := c.client.StreamJointPositions(ctx, &pb.StreamJointPositionsRequest{
+		Name:  c.name,
+		Fps:   &fps,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Receive first response outside goroutine to catch any immediate errors
+	resp, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get kinematics model once for efficiency
+	m, err := c.Kinematics(ctx)
+	if err != nil {
+		warnKinematicsUnsafe(ctx, c.logger, err)
+	}
+
+	// Create buffered channel to prevent blocking when receiver is temporarily slow
+	ch := make(chan *JointPositionsStreamed, 8)
+
+	go func() {
+		defer close(ch)
+
+		// Send the first response we already received
+		positions, err := referenceframe.InputsFromJointPositions(m, resp.Positions)
+		if err != nil {
+			c.logger.Error(err)
+			return
+		}
+
+		ch <- &JointPositionsStreamed{
+			Positions: positions,
+			Timestamp: resp.Timestamp.AsTime(),
+		}
+
+		// Continue receiving the rest of the stream
+		for {
+			select {
+			case <-ctx.Done():
+				c.logger.Debugf("context done, returning from StreamJointPositions: %v", ctx.Err())
+				return
+			default:
+			}
+
+			resp, err := stream.Recv()
+			if err != nil {
+				// EOF error indicates stream was closed by server
+				if !errors.Is(err, io.EOF) {
+					c.logger.Error(err)
+				}
+				return
+			}
+
+			positions, err := referenceframe.InputsFromJointPositions(m, resp.Positions)
+			if err != nil {
+				c.logger.Error(err)
+				continue
+			}
+
+			ch <- &JointPositionsStreamed{
+				Positions: positions,
+				Timestamp: resp.Timestamp.AsTime(),
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
