@@ -4,9 +4,11 @@ package arm
 import (
 	"context"
 	"strings"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
@@ -221,6 +223,60 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 		return nil, err
 	}
 	return referenceframe.KinematicModelToProtobuf(model), nil
+}
+
+// StreamJointPositions streams joint positions at the requested rate.
+func (s *serviceServer) StreamJointPositions(
+	req *pb.StreamJointPositionsRequest,
+	stream pb.ArmService_StreamJointPositionsServer,
+) error {
+	arm, err := s.coll.Resource(req.Name)
+	if err != nil {
+		return err
+	}
+
+	// Get kinematics model once for efficiency
+	model, _ := arm.Kinematics(stream.Context())
+
+	// Default to 30 FPS if not specified
+	fps := req.GetFps()
+	if fps <= 0 {
+		fps = 30
+	}
+
+	// Create ticker for consistent timing
+	ticker := time.NewTicker(time.Second / time.Duration(fps))
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+
+		case <-ticker.C:
+			// Get current joint positions
+			positions, err := arm.JointPositions(stream.Context(), req.Extra.AsMap())
+			if err != nil {
+				return err
+			}
+
+			// Convert to protobuf format
+			jp, err := referenceframe.JointPositionsFromInputs(model, positions)
+			if err != nil {
+				return err
+			}
+
+			// Send response with timestamp
+			resp := &pb.StreamJointPositionsResponse{
+				Positions: jp,
+				Timestamp: timestamppb.Now(),
+			}
+
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 // DoCommand receives arbitrary commands.
