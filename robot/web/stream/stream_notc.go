@@ -21,14 +21,3 @@ func streamVideoSource(
 ) error {
 	return errors.New("not implemented for non-cgo")
 }
-
-// streamAudioSource starts a stream from an audio source with a throttled error handler.
-func streamAudioSource(
-	ctx context.Context,
-	source gostream.AudioSource,
-	stream gostream.Stream,
-	backoffOpts *BackoffTuningOptions,
-	logger logging.Logger,
-) error {
-	return errors.New("not implemented for non-cgo")
-}

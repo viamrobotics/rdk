@@ -20,14 +20,3 @@ func streamVideoSource(
 ) error {
 	return gostream.StreamVideoSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger, stream.Name()), logger)
 }
-
-// streamAudioSource starts a stream from an audio source with a throttled error handler.
-func streamAudioSource(
-	ctx context.Context,
-	source gostream.AudioSource,
-	stream gostream.Stream,
-	backoffOpts *BackoffTuningOptions,
-	logger logging.Logger,
-) error {
-	return gostream.StreamAudioSourceWithErrorHandler(ctx, source, stream, backoffOpts.getErrorThrottledHandler(logger, "audio"), logger)
-}
