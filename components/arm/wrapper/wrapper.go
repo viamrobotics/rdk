@@ -159,6 +159,12 @@ func (wrapper *Arm) JointPositions(ctx context.Context, extra map[string]interfa
 	return joints, nil
 }
 
+func (wrapper *Arm) StreamJointPositions(ctx context.Context, fps int32, extra map[string]interface{}) (chan *arm.JointPositionsStreamed, error) {
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.actual.StreamJointPositions(ctx, fps, extra)
+}
+
 // Stop stops the actual arm.
 func (wrapper *Arm) Stop(ctx context.Context, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)

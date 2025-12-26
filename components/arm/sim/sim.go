@@ -254,6 +254,41 @@ func (sa *simulatedArm) JointPositions(
 	return ret, nil
 }
 
+func (sa *simulatedArm) StreamJointPositions(
+	ctx context.Context, fps int32, extra map[string]interface{},
+) (chan *arm.JointPositionsStreamed, error) {
+	if fps <= 0 {
+		fps = 30
+	}
+
+	ch := make(chan *arm.JointPositionsStreamed, 8)
+	ticker := time.NewTicker(time.Second / time.Duration(fps))
+
+	go func() {
+		defer close(ch)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				positions, err := sa.JointPositions(ctx, extra)
+				if err != nil {
+					return
+				}
+
+				ch <- &arm.JointPositionsStreamed{
+					Positions: positions,
+					Timestamp: time.Now(),
+				}
+			}
+		}
+	}()
+
+	return ch, nil
+}
+
 func (sa *simulatedArm) MoveToJointPositions(
 	ctx context.Context, target []referenceframe.Input, extra map[string]interface{},
 ) error {

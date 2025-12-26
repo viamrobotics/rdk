@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -224,6 +225,39 @@ func (a *Arm) JointPositions(ctx context.Context, extra map[string]interface{}) 
 	ret := make([]referenceframe.Input, len(a.joints))
 	copy(ret, a.joints)
 	return ret, nil
+}
+
+func (a *Arm) StreamJointPositions(ctx context.Context, fps int32, extra map[string]interface{}) (chan *arm.JointPositionsStreamed, error) {
+	if fps <= 0 {
+		fps = 30
+	}
+
+	ch := make(chan *arm.JointPositionsStreamed, 8)
+	ticker := time.NewTicker(time.Second / time.Duration(fps))
+
+	go func() {
+		defer close(ch)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				positions, err := a.JointPositions(ctx, extra)
+				if err != nil {
+					return
+				}
+
+				ch <- &arm.JointPositionsStreamed{
+					Positions: positions,
+					Timestamp: time.Now(),
+				}
+			}
+		}
+	}()
+
+	return ch, nil
 }
 
 // Stop doesn't do anything for a fake arm.
