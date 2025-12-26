@@ -16,6 +16,8 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/audioin"
+	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/button"
@@ -823,6 +825,41 @@ func TestJobManagerComponents(t *testing.T) {
 		) (arm.Arm, error) {
 			return dummyArm, nil
 		}})
+
+	// audioin
+	dummyAudioIn := inject.NewAudioIn("audioin")
+	dummyAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
+		return utils.Properties{}, nil
+	}
+	resource.RegisterComponent(
+		audioin.API,
+		model,
+		resource.Registration[audioin.AudioIn, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (audioin.AudioIn, error) {
+			return dummyAudioIn, nil
+		}})
+
+	// audioout
+	dummyAudioOut := inject.NewAudioOut("audioout")
+	dummyAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
+		return utils.Properties{}, nil
+	}
+	resource.RegisterComponent(
+		audioout.API,
+		model,
+		resource.Registration[audioout.AudioOut, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (audioout.AudioOut, error) {
+			return dummyAudioOut, nil
+		}})
+
 	// base
 	dummyBase := inject.NewBase("base")
 	dummyBase.IsMovingFunc = func(ctx context.Context) (bool, error) {
@@ -1117,6 +1154,16 @@ func TestJobManagerComponents(t *testing.T) {
 			},
 			{
 				Model: model,
+				Name:  "audioin",
+				API:   audioin.API,
+			},
+			{
+				Model: model,
+				Name:  "audioout",
+				API:   audioout.API,
+			},
+			{
+				Model: model,
 				Name:  "base",
 				API:   base.API,
 			},
@@ -1207,10 +1254,18 @@ func TestJobManagerComponents(t *testing.T) {
 			},
 			{
 				config.JobConfigData{
-					Name:     "audio input job",
+					Name:     "audioin job",
 					Schedule: "3s",
-					Resource: "audio",
-					Method:   "Properties",
+					Resource: "audioin",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "audioout job",
+					Schedule: "3s",
+					Resource: "audioout",
+					Method:   "GetProperties",
 				},
 			},
 			{
@@ -1348,6 +1403,8 @@ func TestJobManagerComponents(t *testing.T) {
 	}
 	defer func() {
 		resource.Deregister(arm.API, model)
+		resource.Deregister(audioin.API, model)
+		resource.Deregister(audioout.API, model)
 		resource.Deregister(base.API, model)
 		resource.Deregister(board.API, model)
 		resource.Deregister(button.API, model)
