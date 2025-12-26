@@ -747,6 +747,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return nil, err
 	}
 
+	// if the request is for the public framesystem,
+	// return the robot client since it implements framesystem
+	if name == framesystem.PublicServiceName {
+		return rc, nil
+	}
+
 	rc.mu.RLock()
 
 	// see if a remote name matches the name if so then return the remote client
