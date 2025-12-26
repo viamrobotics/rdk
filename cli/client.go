@@ -1720,7 +1720,7 @@ func (c *viamClient) machinesPartCopyFilesAction(
 		return err
 	}
 	var pm *ProgressManager
-	doCopy := func() (int, error) {
+	doCopy := func() retryableCopyError {
 		var copyFunc func() error
 		if isFrom {
 			copyFunc = func() error {
@@ -1759,27 +1759,33 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
 			})
 			if err := pm.Start("copy"); err != nil {
-				return 0, err
+				return retryableCopyError{
+					copyError:  nil,
+					retryError: err,
+				}
 			}
 			defer pm.Stop()
 		}
-		attemptCount, err := c.retryableCopy(
+		return c.retryableCopy(
 			ctx,
 			pm,
 			copyFunc,
 			isFrom,
 		)
-		return attemptCount, err
 	}
-	attemptCount, err := doCopy()
-	if err != nil {
-		defer pm.Fail("copy", err) //nolint:errcheck
-		if statusErr := status.Convert(err); statusErr != nil &&
-			statusErr.Code() == codes.InvalidArgument &&
-			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
-			return errDirectoryCopyRequestNoRecursion
+	doCopyErr := doCopy()
+	// check retryError to see if retryableCopy failed, and then check for errors from the copyFunc
+	if doCopyErr.retryError != nil {
+		defer pm.Fail("copy", doCopyErr.retryError) //nolint:errcheck
+		if doCopyErr.copyError != nil {
+			if statusErr := status.Convert(doCopyErr.copyError); statusErr != nil &&
+				statusErr.Code() == codes.InvalidArgument &&
+				statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
+				return errDirectoryCopyRequestNoRecursion
+			}
 		}
-		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+		// the copyError will be displayed next to each attempt, so we don't need to show it at end
+		return doCopyErr.retryError
 	}
 	if err := pm.Complete("copy"); err != nil {
 		return err
@@ -2943,15 +2949,23 @@ func (c *viamClient) startRobotPartShell(
 // maxCopyAttempts is the number of times to retry copying files to a part before giving up.
 const maxCopyAttempts = 6
 
+type retryableCopyError struct {
+	// The error the copyFunc returns, nil if retryableCopy fails elsewhere
+	copyError error
+	// The overall error saying all copy attempts failed or where the func failed elsewhere (like progress manager)
+	retryError error
+}
+
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
+// returns retryableCopyError, which contains error from copyFunc and overall error message (all attempts fail or progress manager failed)
 // The copyFunc parameter allows for mocking in tests.
 func (c *viamClient) retryableCopy(
 	ctx *cli.Context,
 	pm *ProgressManager,
 	copyFunc func() error,
 	isFrom bool,
-) (int, error) {
+) retryableCopyError {
 	var hadPreviousFailure bool
 	var copyErr error
 
@@ -2971,7 +2985,11 @@ func (c *viamClient) retryableCopy(
 			pm.stepMap[attemptStepID] = attemptStep
 
 			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
+				// no copy attempts made yet, so return nil for copyError
+				return retryableCopyError{
+					copyError:  nil,
+					retryError: err,
+				}
 			}
 		}
 
@@ -2980,11 +2998,12 @@ func (c *viamClient) retryableCopy(
 		if copyErr == nil {
 			// Success! Complete the step if this was a retry
 			if attemptStepID != "" {
-				if err := pm.Complete(attemptStepID); err != nil {
-					return attempt, err
-				}
+				_ = pm.Complete(attemptStepID) //nolint:errcheck
 			}
-			return attempt, nil
+			return retryableCopyError{
+				copyError:  nil,
+				retryError: nil,
+			}
 		}
 
 		// Handle error
@@ -3003,11 +3022,19 @@ func (c *viamClient) retryableCopy(
 						"Alternatively, run the RDK as root.")
 				}
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+				// retrying won't fix a permission denied error, so return early
+				return retryableCopyError{
+					copyError:  copyErr,
+					retryError: fmt.Errorf("all %d copy attempts failed", attempt),
+				}
 			} else if s.Code() == codes.InvalidArgument {
 				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
 				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
-				return attempt, copyErr
+				// retrying won't change the invalid arguments, so return early
+				return retryableCopyError{
+					copyError:  copyErr,
+					retryError: fmt.Errorf("all %d copy attempts failed", attempt),
+				}
 			}
 		}
 
@@ -3025,7 +3052,11 @@ func (c *viamClient) retryableCopy(
 			pm.steps = append(pm.steps, attemptStep)
 			pm.stepMap[attemptStepID] = attemptStep
 			if err := pm.Start(attemptStepID); err != nil {
-				return attempt, err
+				// return early if progress manager is erroring, as future attempts won't start
+				return retryableCopyError{
+					copyError:  nil,
+					retryError: err,
+				}
 			}
 		}
 
@@ -3034,7 +3065,10 @@ func (c *viamClient) retryableCopy(
 	}
 
 	// All attempts failed - return the error from the copy function
-	return maxCopyAttempts, copyErr
+	return retryableCopyError{
+		copyError:  copyErr,
+		retryError: fmt.Errorf("all %d copy attempts failed", maxCopyAttempts),
+	}
 }
 
 func (c *viamClient) copyFilesToMachine(

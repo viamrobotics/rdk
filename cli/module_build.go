@@ -1315,17 +1315,18 @@ func reloadModuleActionInner(
 				true, // noProgress
 			)
 		}
-		attemptCount, err := vc.retryableCopy(
+		retryableCopyErr := vc.retryableCopy(
 			c,
 			pm,
 			copyFunc,
 			false,
 		)
-		if err != nil {
-			_ = pm.Fail("upload", err)                               //nolint:errcheck
+		// return retryErr to show overall error, and ignore copyError which will be displayed next to each failed attempt
+		if retryableCopyErr.retryError != nil {
+			_ = pm.Fail("upload", retryableCopyErr.retryError)       //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
-				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
+			return fmt.Errorf("%s. You can retry the copy later, "+
+				"skipping the build step with: viam module reload --no-build --part-id %s", retryableCopyErr.retryError.Error(), partID)
 		}
 		if err := pm.Complete("upload"); err != nil {
 			return err
