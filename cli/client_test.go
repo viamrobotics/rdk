@@ -10,8 +10,11 @@ import (
 	"io/fs"
 	"maps"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -1690,4 +1693,98 @@ func TestMergeComponentNameIntoData(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCLIUpdateAction(t *testing.T) {
+	// Save original version to restore later
+	originalVersion := robotconfig.Version
+	defer func() {
+		robotconfig.Version = originalVersion
+	}()
+
+	// Set up a mock latest version
+	mockLatestVersion := "0.104.0"
+	originalGetLatestReleaseVersion := getLatestReleaseVersionFunc
+	getLatestReleaseVersionFunc = func() (string, error) {
+		return mockLatestVersion, nil
+	}
+	defer func() {
+		getLatestReleaseVersionFunc = originalGetLatestReleaseVersion
+	}()
+
+	testLatestVersion, err := latestVersion()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, testLatestVersion.Original(), test.ShouldEqual, mockLatestVersion)
+
+	// Set local version to 0.100.0 (older than mockLatestVersion 0.104.0)
+	robotconfig.Version = "0.100.0"
+	testLocalVersion, err := localVersion()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, testLocalVersion.Original(), test.ShouldEqual, "0.100.0")
+
+	// Test that binaryURL returns a valid URL with correct OS/arch and .exe for Windows
+	actualURL := binaryURL()
+	test.That(t, actualURL, test.ShouldContainSubstring, "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-")
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOOS)
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOARCH)
+	if runtime.GOOS == osWindows {
+		test.That(t, strings.HasSuffix(actualURL, ".exe"), test.ShouldBeTrue)
+	} else {
+		test.That(t, actualURL, test.ShouldNotContainSubstring, ".exe")
+	}
+
+	// Test that downloadBinaryIntoDir succeeds
+	// Create a test HTTP server that serves a mock binary
+	newBinaryContent := []byte("new-binary-content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(newBinaryContent)
+	}))
+	defer server.Close()
+
+	// Create temp directory for download
+	tempDir := t.TempDir()
+
+	filename := "/viam-cli-stable"
+	if runtime.GOOS == osWindows {
+		filename += ".exe"
+	}
+	downloadURL := server.URL + filename
+	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir)
+	test.That(t, err, test.ShouldBeNil)
+
+	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
+	expectedFileName := "viam-cli-update"
+	if runtime.GOOS == osWindows {
+		expectedFileName += ".exe"
+	}
+	expectedFileName += ".new"
+	expectedPath := filepath.Join(tempDir, expectedFileName)
+	test.That(t, downloadedPath, test.ShouldEqual, expectedPath)
+
+	// Verify file was created and has correct content
+	downloadedContent, err := os.ReadFile(downloadedPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, downloadedContent, test.ShouldResemble, newBinaryContent)
+
+	// Test that replaceBinary works (create two temp binaries and see if replaced)
+	oldBinaryPath := filepath.Join(tempDir, "old-binary")
+	newBinaryPath := downloadedPath // Use the downloaded file as the "new" binary
+
+	// Create old binary file
+	err = os.WriteFile(oldBinaryPath, []byte("old-binary-content"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Replace old binary with new binary
+	err = replaceBinary(oldBinaryPath, newBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify that old binary location now contains the new binary content
+	// (os.Rename moves the new binary to the old location, so newBinaryPath no longer exists)
+	oldBinary, err := os.ReadFile(oldBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oldBinary, test.ShouldResemble, newBinaryContent)
+	// Verify that newBinaryPath no longer exists (it was moved to oldBinaryPath)
+	_, err = os.ReadFile(newBinaryPath)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 }

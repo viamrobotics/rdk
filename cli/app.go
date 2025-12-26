@@ -3727,6 +3727,12 @@ NOTES:
 			Action:    createCommandWithT[emptyArgs](VersionAction),
 		},
 		{
+			Name:      "update",
+			Usage:     "update the CLI to the latest version",
+			UsageText: createUsageText("update", nil, false, false),
+			Action:    createCommandWithT[emptyArgs](UpdateCLIAction),
+		},
+		{
 			Name:  "parse-ftdc",
 			Usage: "parse an ftdc file and open a REPL with extra options",
 			UsageText: createUsageText(
