@@ -924,8 +924,7 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 5
-)
+	test.That(t, len(resources), test.ShouldEqual, 5)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default motion
