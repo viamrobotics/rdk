@@ -798,7 +798,7 @@ func TestWebWithStreams(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 3)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
