@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -171,11 +170,10 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		return nil, err
 	}
 
-	// return error if resource is neither a camera nor audioinput
+	// return error if resource is not a camera
 	_, isCamErr := cameraUtilsCamera(server.robot, streamStateToAdd.Stream)
-	_, isAudioErr := audioinput.FromProvider(server.robot, streamStateToAdd.Stream.Name())
 	if isCamErr != nil && isAudioErr != nil {
-		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
+		return nil, errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream)
 	}
 
 	var nameToPeerState map[string]*peerState
@@ -272,10 +270,9 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	}
 
 	streamName := streamToRemove.Stream.Name()
-	_, isAudioResourceErr := audioinput.FromProvider(server.robot, streamName)
 	_, isCameraResourceErr := cameraUtilsCamera(server.robot, streamToRemove.Stream)
 
-	if isAudioResourceErr != nil && isCameraResourceErr != nil {
+	if isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
@@ -461,8 +458,8 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 // audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
 // the streams if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
-	// Refreshing sources will walk the robot resources for anything implementing the camera and
-	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
+	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
+	// and mutate the `svc.videoSources` and `svc.audioSources` maps.
 	server.refreshVideoSources(ctx)
 	server.refreshAudioSources()
 
@@ -579,11 +576,6 @@ func (server *Server) removeMissingStreams() {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
 		shortName := resource.SDPTrackNameToShortName(camName)
-		if _, err := audioinput.FromProvider(server.robot, shortName); err == nil {
-			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
-			// stream in place if its an audio resource.
-			continue
-		}
 
 		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
@@ -680,23 +672,6 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(src)
 		server.videoSources[cam.Name().Name] = newSwapper
-	}
-}
-
-// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-func (server *Server) refreshAudioSources() {
-	for _, name := range audioinput.NamesFromRobot(server.robot) {
-		input, err := audioinput.FromProvider(server.robot, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := server.audioSources[input.Name().Name]
-		if ok {
-			existing.Swap(input)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		server.audioSources[input.Name().Name] = newSwapper
 	}
 }
 

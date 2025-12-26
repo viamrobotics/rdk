@@ -10,14 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/button"
@@ -825,29 +823,6 @@ func TestJobManagerComponents(t *testing.T) {
 		) (arm.Arm, error) {
 			return dummyArm, nil
 		}})
-
-	// audioinput
-	dummyAudioInput := inject.NewAudioInput("audio")
-	dummyAudioInput.MediaPropertiesFunc = func(ctx context.Context) (prop.Audio, error) {
-		audio := prop.Audio{
-			ChannelCount: 10,
-			Latency:      3 * time.Second,
-			SampleRate:   128,
-		}
-		return audio, nil
-	}
-	resource.RegisterComponent(
-		audioinput.API,
-		model,
-		resource.Registration[audioinput.AudioInput, resource.NoNativeConfig]{Constructor: func(
-			ctx context.Context,
-			deps resource.Dependencies,
-			conf resource.Config,
-			logger logging.Logger,
-		) (audioinput.AudioInput, error) {
-			return dummyAudioInput, nil
-		}})
-
 	// base
 	dummyBase := inject.NewBase("base")
 	dummyBase.IsMovingFunc = func(ctx context.Context) (bool, error) {
@@ -1142,11 +1117,6 @@ func TestJobManagerComponents(t *testing.T) {
 			},
 			{
 				Model: model,
-				Name:  "audio",
-				API:   audioinput.API,
-			},
-			{
-				Model: model,
 				Name:  "base",
 				API:   base.API,
 			},
@@ -1378,7 +1348,6 @@ func TestJobManagerComponents(t *testing.T) {
 	}
 	defer func() {
 		resource.Deregister(arm.API, model)
-		resource.Deregister(audioinput.API, model)
 		resource.Deregister(base.API, model)
 		resource.Deregister(board.API, model)
 		resource.Deregister(button.API, model)

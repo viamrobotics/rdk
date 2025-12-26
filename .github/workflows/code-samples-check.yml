@@ -12,7 +12,6 @@ on:
       - "components/sensor/sensor.go"
       - "components/servo/servo.go"
       - "components/arm/arm.go"
-      - "components/audioinput/audio_input.go"
       - "components/gantry/gantry.go"
       - "components/gripper/gripper.go"
       - "components/input/input.go"
@@ -20,7 +19,7 @@ on:
       - "components/posetracker/pose_tracker.go"
       - "services/motion/motion.go"
       - "services/vision/vision.go"
-      
+
 jobs:
   comment:
     name: "Post Comment on PR"

@@ -88,7 +88,7 @@ func TestEntrypoint(t *testing.T) {
 		numResources := 21
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo,
-			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+			// including builtin motion, fake arm, and builtin navigation.
 			numResources = 18
 		}
 

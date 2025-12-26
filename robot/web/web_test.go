@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
@@ -789,15 +788,6 @@ func TestWebWithStreams(t *testing.T) {
 	}
 	robot.Mu.Lock()
 	rs[cam2.Name()] = cam2
-	robot.Mu.Unlock()
-	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Add an audio stream
-	audio := &inject.AudioInput{}
-	robot.Mu.Lock()
-	rs[audioinput.Named(audioKey)] = audio
 	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
