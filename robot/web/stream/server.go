@@ -60,7 +60,6 @@ type Server struct {
 
 	streamConfig gostream.StreamConfig
 	videoSources map[string]gostream.HotSwappableVideoSource
-	audioSources map[string]gostream.HotSwappableAudioSource
 }
 
 // Resolution holds the width and height of a video stream.
@@ -87,7 +86,6 @@ func NewServer(
 		isAlive:           true,
 		streamConfig:      streamConfig,
 		videoSources:      map[string]gostream.HotSwappableVideoSource{},
-		audioSources:      map[string]gostream.HotSwappableAudioSource{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -227,13 +225,6 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	// if the stream supports video, add the video track
 	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
-		if err := addTrack(trackLocal); err != nil {
-			server.logger.Error(err.Error())
-			return nil, err
-		}
-	}
-	// if the stream supports audio, add the audio track
-	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.AudioTrackLocal(); haveTrackLocal {
 		if err := addTrack(trackLocal); err != nil {
 			server.logger.Error(err.Error())
 			return nil, err
@@ -452,18 +443,18 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	return nil
 }
 
-// AddNewStreams adds new video and audio streams to the server using the updated set of video and
-// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
-// the streams if applicable.
+// AddNewStreams adds new video streams to the server using the updated set of video sources.
+// It refreshes the sources, checks for a valid stream configuration, and starts the streams
+// if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
 	// and mutate the `svc.videoSources` map.
 	server.refreshVideoSources(ctx)
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
-		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
-		// much if none are present.
-		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
+		// The `streamConfig` dictates the video encoder library to use. We can't do
+		// much if none is present.
+		if len(server.videoSources) != 0 {
 			server.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
@@ -499,23 +490,6 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			continue
 		}
 		server.startVideoStream(ctx, server.videoSources[name], stream)
-	}
-
-	for name := range server.audioSources {
-		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
-		// are "created" and "started". `createStream` and `startAudioStream` have the same
-		// behaviors as described above for video streams.
-		config := gostream.StreamConfig{
-			Name:                name,
-			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
-		}
-		stream, alreadyRegistered, err := server.createStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		server.startAudioStream(ctx, server.audioSources[name], stream)
 	}
 
 	return nil
@@ -707,14 +681,6 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 	server.startStream(func(opts *BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
-	})
-}
-
-func (server *Server) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	server.startStream(func(opts *BackoffTuningOptions) error {
-		// Merge ctx that may be coming from a Reconfigure.
-		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
 }
 
