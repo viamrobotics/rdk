@@ -172,7 +172,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	// return error if resource is not a camera
 	_, isCamErr := cameraUtilsCamera(server.robot, streamStateToAdd.Stream)
-	if isCamErr != nil && isAudioErr != nil {
+	if isCamErr != nil {
 		return nil, errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream)
 	}
 
@@ -268,8 +268,6 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	if !ok {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
-
-	streamName := streamToRemove.Stream.Name()
 	_, isCameraResourceErr := cameraUtilsCamera(server.robot, streamToRemove.Stream)
 
 	if isCameraResourceErr != nil {
@@ -459,9 +457,8 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 // the streams if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
 	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
-	// and mutate the `svc.videoSources` and `svc.audioSources` maps.
+	// and mutate the `svc.videoSources` map.
 	server.refreshVideoSources(ctx)
-	server.refreshAudioSources()
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
 		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
