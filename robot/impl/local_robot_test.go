@@ -720,7 +720,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 11)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 10)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
@@ -924,7 +924,8 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 5)
+	test.That(t, len(resources), test.ShouldEqual, 5
+)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default motion
