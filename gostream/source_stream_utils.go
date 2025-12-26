@@ -13,6 +13,7 @@ func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream, logge
 	return streamMediaSource(ctx, vs, stream, func(ctx context.Context, frameErr error) {
 		logger.Debugw("error getting frame", "error", frameErr)
 	}, stream.InputVideoFrames, logger)
+}
 
 // StreamVideoSourceWithErrorHandler streams the given video source to the stream forever
 // until context signals cancellation, frame errors are sent via the error handler.
