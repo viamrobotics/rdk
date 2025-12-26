@@ -25,7 +25,7 @@ func TestGenerateModuleAction(t *testing.T) {
 	t.Parallel()
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",
-		IsPublic:         false,
+		Visibility:       moduleVisibilityPrivate,
 		Namespace:        "my-org",
 		Language:         "python",
 		Resource:         "arm component",

@@ -84,7 +84,7 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
-	moduleFlagIsPublic        = "public"
+	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
 	moduleFlagEnableCloud     = "enable-cloud"
@@ -2924,9 +2924,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Name:  moduleFlagLanguage,
 							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
 						},
-						&cli.BoolFlag{
-							Name:  moduleFlagIsPublic,
-							Usage: "set module to public",
+						&cli.StringFlag{
+							Name:  moduleFlagVisibility,
+							Usage: formatAcceptedValues("module visibility", visibilityOption...),
 						},
 						&cli.StringFlag{
 							Name: moduleFlagPublicNamespace,
