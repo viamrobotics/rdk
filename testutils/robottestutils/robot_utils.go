@@ -144,7 +144,10 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		Name:        serverPath,
 		Args:        args,
 		CWD:         utils.ResolveFile("./"),
-		Environment: map[string]string{"HOME": testTempHome},
+		Environment: map[string]string{
+			"HOME": testTempHome,        // *NIX
+			"USERPROFILE": testTempHome, // Windows
+		},
 		Log:         true,
 	}
 	for _, opt := range opts {
