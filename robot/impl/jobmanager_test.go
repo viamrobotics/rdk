@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"go.uber.org/zap/zapcore"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -828,8 +829,8 @@ func TestJobManagerComponents(t *testing.T) {
 
 	// audioin
 	dummyAudioIn := inject.NewAudioIn("audioin")
-	dummyAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
-		return utils.Properties{}, nil
+	dummyAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+		return rutils.Properties{}, nil
 	}
 	resource.RegisterComponent(
 		audioin.API,
@@ -845,8 +846,8 @@ func TestJobManagerComponents(t *testing.T) {
 
 	// audioout
 	dummyAudioOut := inject.NewAudioOut("audioout")
-	dummyAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
-		return utils.Properties{}, nil
+	dummyAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+		return rutils.Properties{}, nil
 	}
 	resource.RegisterComponent(
 		audioout.API,
