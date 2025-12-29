@@ -14,7 +14,7 @@ import (
 // goroutine) because AVFoundation requires that camera device notification events and Key-Value
 // Observation (KVO) updates occur on the same thread as the producer. The mediadevices
 // library uses runtime.LockOSThread() to pin the background goroutine to whatever thread
-// calls SetupObserver, so calling it here in main() ensures that we run on the correct thread.
+// calls SetupObserver, so calling it in main() ensures that we run on the correct thread.
 //
 // This is why SetupObserver is called here rather than in the webcam component constructor:
 // component constructors can be invoked from arbitrary goroutines, which would violate
