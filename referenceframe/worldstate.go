@@ -81,6 +81,28 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	return NewWorldState(allGeometries, transforms)
 }
 
+// Merge creates a shallow copy of the `WorldState` merged with the input geometries.
+func (ws *WorldState) Merge(geomsInFrame *GeometriesInFrame) *WorldState {
+	ret := &WorldState{
+		obstacleNames: make(map[string]bool),
+	}
+
+	for name := range ws.obstacleNames {
+		ret.obstacleNames[name] = true
+	}
+
+	for _, geomInFrame := range ws.obstacles {
+		ret.obstacles = append(ret.obstacles, geomInFrame)
+	}
+
+	for _, transform := range ws.transforms {
+		ret.transforms = append(ret.transforms, transform)
+	}
+
+	ret.obstacles = append(ret.obstacles, geomsInFrame)
+	return ret
+}
+
 // ToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.
 func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 	if ws == nil {
