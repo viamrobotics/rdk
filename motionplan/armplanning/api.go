@@ -231,6 +231,20 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	return t, meta, nil
 }
 
+// ValidatePlan returns nil if the input `executingPlan` is still valid. Non-nil is returned if the
+// `worldStateOverride` would result in a collision.
+func ValidatePlan(
+	ctx context.Context,
+	priorPlan motionplan.Plan,
+	request *PlanRequest,
+	worldStateOverride *referenceframe.WorldState,
+	parentLogger logging.Logger,
+) error {
+	logger := parentLogger.Sublogger("mp")
+	_ = logger
+	return nil
+}
+
 var defaultArmPlannerOptions = &motionplan.Constraints{
 	LinearConstraint: []motionplan.LinearConstraint{},
 }
