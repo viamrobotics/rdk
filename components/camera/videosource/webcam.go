@@ -10,6 +10,7 @@ import (
 
 	driverutils "github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
@@ -22,8 +23,6 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-
-	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 )
 
 // ModelWebcam is the name of the webcam component.

@@ -5,18 +5,16 @@ package main
 import (
 	"runtime"
 
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"go.viam.com/utils"
 
 	// registers all components.
 	_ "go.viam.com/rdk/components/arm/wrapper" // this is special
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/logging"
-
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/web/server"
-
-	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 )
 
 var logger = logging.NewDebugLogger("entrypoint")
