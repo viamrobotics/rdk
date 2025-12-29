@@ -1713,15 +1713,14 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Copy to part
-		retryCopyErr := vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			false,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
 		// Verify no retry steps were created
@@ -1735,15 +1734,14 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, retryStepFound, test.ShouldBeFalse)
 
 		// Copy from part
-		retryCopyErr = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			true,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
 		// Verify no retry steps were created for the second
@@ -1787,15 +1785,14 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Copy to part
-		retryCopyErr := vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			false,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, attemptCount, test.ShouldEqual, 3)
 
 		// Verify retry steps were created (attempt 1, 2, and 3)
@@ -1816,15 +1813,14 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		retryCopyErr = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			true,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, attemptCount, test.ShouldEqual, 3)
 
 		// Verify retry steps were created (attempt 1, 2, and 3)
@@ -1867,15 +1863,14 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		retryCopyErr := vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			false,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, attemptCount, test.ShouldEqual, 6)
 
 		// Verify all retry steps were created (attempt 1 through 6)
@@ -1894,15 +1889,14 @@ func TestRetryableCopy(t *testing.T) {
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		retryCopyErr = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			true,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldBeNil)
-		test.That(t, retryCopyErr.copyError, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, attemptCount, test.ShouldEqual, 6)
 
 		// Verify all retry steps were created (attempt 1 through 6)
@@ -1940,32 +1934,28 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		retryCopyErr := vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			false,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.retryError.Error(), test.ShouldEqual, "all 6 copy attempts failed")
-		test.That(t, retryCopyErr.copyError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.copyError.Error(), test.ShouldContainSubstring, "persistent copy failure")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
 		test.That(t, attemptCount, test.ShouldEqual, 6)
 
 		// Copy from part - reset attemptCount for the second call
 		attemptCount = 0
-		retryCopyErr = vc.retryableCopy(
+		_, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			true,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.retryError.Error(), test.ShouldEqual, "all 6 copy attempts failed")
-		test.That(t, retryCopyErr.copyError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.copyError.Error(), test.ShouldContainSubstring, "persistent copy failure")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
 		test.That(t, attemptCount, test.ShouldEqual, 6)
 	})
 
@@ -1986,17 +1976,15 @@ func TestRetryableCopy(t *testing.T) {
 		err := pm.Start("copy")
 		test.That(t, err, test.ShouldBeNil)
 
-		retryCopyErr := vc.retryableCopy(
+		attemptCount, err := vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			false,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.retryError.Error(), test.ShouldEqual, "all 1 copy attempts failed")
-		test.That(t, retryCopyErr.copyError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.copyError.Error(), test.ShouldContainSubstring, "permission denied")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
 
 		// Verify permission denied specific warning appears
 		errMsg := strings.Join(errOut.messages, "")
@@ -2005,17 +1993,15 @@ func TestRetryableCopy(t *testing.T) {
 		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
 
 		// Copy from part
-		retryCopyErr = vc.retryableCopy(
+		attemptCount, err = vc.retryableCopy(
 			cCtx,
 			pm,
 			mockCopyFunc,
 			true,
 		)
 
-		test.That(t, retryCopyErr.retryError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.retryError.Error(), test.ShouldEqual, "all 1 copy attempts failed")
-		test.That(t, retryCopyErr.copyError, test.ShouldNotBeNil)
-		test.That(t, retryCopyErr.copyError.Error(), test.ShouldContainSubstring, "permission denied")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
 
 		// Verify permission denied specific warning appears
 		errMsg = strings.Join(errOut.messages, "")
