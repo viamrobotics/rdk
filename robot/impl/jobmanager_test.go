@@ -3,7 +3,9 @@ package robotimpl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,7 +39,9 @@ import (
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	rclient "go.viam.com/rdk/robot/client"
+	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/discovery"
 	genSvc "go.viam.com/rdk/services/generic"
@@ -602,6 +606,201 @@ func TestJobManagerConfigChanges(t *testing.T) {
 		test.That(tb, doCommandThirdCount.Load(), test.ShouldBeGreaterThanOrEqualTo, 2)
 		test.That(tb, doCommandIntCheck.Load(), test.ShouldEqual, 10)
 		test.That(tb, doCommandBoolCheck.Load(), test.ShouldEqual, true)
+	})
+}
+
+func TestJobManagerRemote(t *testing.T) {
+	t.Parallel()
+	logger, logs := logging.NewObservedTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	// sensor
+	dummySensor := inject.NewSensor("sensor")
+	dummySensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		output := make(map[string]any)
+		output["test"] = "sensor"
+		return output, nil
+	}
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return dummySensor, nil
+		}})
+
+	defer func() {
+		resource.Deregister(sensor.API, model)
+	}()
+
+	ctx := context.Background()
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	remCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: model,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+	}
+	remoteRobot := setupLocalRobot(t, ctx, remCfg, logger.Sublogger("remoteRobot"))
+	addr := startWeb(remoteRobot)
+	test.That(t, addr, test.ShouldNotBeBlank)
+
+	cfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "sensor job",
+					Schedule: "3s",
+					Resource: "sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	setupLocalRobot(t, ctx, cfg, logger.Sublogger("robot"))
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		// we will test for succeeded jobs to be the amount we started,
+		// and that there are no failed jobs
+		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Job failed").Len(),
+			test.ShouldBeLessThanOrEqualTo, 0)
+	})
+}
+
+func TestJobManagerRemoteWithPrefix(t *testing.T) {
+	t.Parallel()
+	logger, logs := logging.NewObservedTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	// sensor
+	dummySensor := inject.NewSensor("sensor")
+	dummySensor.ReadingsFunc = func(ctx context.Context, extra map[string]any) (map[string]any, error) {
+		output := make(map[string]any)
+		output["test"] = "sensor"
+		return output, nil
+	}
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return dummySensor, nil
+		}})
+
+	defer func() {
+		resource.Deregister(sensor.API, model)
+	}()
+
+	ctx := context.Background()
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	remCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: model,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+	}
+	remoteRobot := setupLocalRobot(t, ctx, remCfg, logger.Sublogger("remoteRobot"))
+	addr := startWeb(remoteRobot)
+	test.That(t, addr, test.ShouldNotBeBlank)
+
+	cfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+				Prefix:  "remote-",
+			},
+		},
+		Jobs: []config.JobConfig{
+			{
+				config.JobConfigData{
+					Name:     "sensor job",
+					Schedule: "3s",
+					Resource: "remote-sensor",
+					Method:   "GetReadings",
+				},
+			},
+		},
+	}
+	setupLocalRobot(t, ctx, cfg, logger.Sublogger("robot"))
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		// we will test for succeeded jobs to be the amount we started,
+		// and that there are no failed jobs
+		test.That(tb, logs.FilterMessage("Job triggered").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Job failed").Len(),
+			test.ShouldBeLessThanOrEqualTo, 0)
 	})
 }
 

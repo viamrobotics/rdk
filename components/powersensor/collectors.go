@@ -2,7 +2,6 @@ package powersensor
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	pb "go.viam.com/api/component/powersensor/v1"
@@ -62,7 +61,7 @@ func newVoltageCollector(resource interface{}, params data.CollectorParams) (dat
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, voltage.String(), err)
@@ -94,7 +93,7 @@ func newCurrentCollector(resource interface{}, params data.CollectorParams) (dat
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, current.String(), err)
@@ -123,7 +122,7 @@ func newPowerCollector(resource interface{}, params data.CollectorParams) (data.
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, power.String(), err)
@@ -151,7 +150,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)

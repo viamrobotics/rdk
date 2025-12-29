@@ -84,7 +84,7 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
-	moduleFlagIsPublic        = "public"
+	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
 	moduleFlagEnableCloud     = "enable-cloud"
@@ -2131,8 +2131,9 @@ Note: There is no progress meter while copying is in progress.
 											DefaultText: "current timestamp",
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagFramework,
-											Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Name:     mlTrainingFlagFramework,
+											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Required: true,
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
@@ -2923,9 +2924,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Name:  moduleFlagLanguage,
 							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
 						},
-						&cli.BoolFlag{
-							Name:  moduleFlagIsPublic,
-							Usage: "set module to public",
+						&cli.StringFlag{
+							Name:  moduleFlagVisibility,
+							Usage: formatAcceptedValues("module visibility", visibilityOption...),
 						},
 						&cli.StringFlag{
 							Name: moduleFlagPublicNamespace,
@@ -3560,8 +3561,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "version of the ML training script to upload",
 						},
 						&cli.StringFlag{
-							Name:  mlTrainingFlagFramework,
-							Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Name:     mlTrainingFlagFramework,
+							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -3723,6 +3725,12 @@ NOTES:
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
+		},
+		{
+			Name:      "update",
+			Usage:     "update the CLI to the latest version",
+			UsageText: createUsageText("update", nil, false, false),
+			Action:    createCommandWithT[emptyArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",

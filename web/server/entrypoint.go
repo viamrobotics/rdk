@@ -47,14 +47,13 @@ type Arguments struct {
 	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
-	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
+	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out metrics data"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
 	NetworkCheckOnly           bool   `flag:"network-check,usage=only runs normal network checks, logs results, and exits"`
-	EnableTracing              bool   `flag:"tracing,default=false,usage=enable trace collection for diagnostics"`
 }
 
 type robotServer struct {
@@ -111,9 +110,9 @@ func logVersion(logger logging.Logger) {
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
+		logger.Infow("viam-server", versionFields...)
 	} else {
-		logger.Info("Viam RDK built from source; version unknown")
+		logger.Info("viam-server built from source; version unknown")
 	}
 }
 
@@ -215,10 +214,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if argsParsed.OutputTelemetry {
+		// Only handle printing metrics. Trace span exporting is now handled in the
+		// robot config.
 		exporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
-			ReportingInterval: 10 * time.Second,
+			ReportingInterval: time.Second * 10,
 			TracesDisabled:    true,
 		})
+		if err := exporter.Start(); err != nil {
+			return err
+		}
 		defer exporter.Stop()
 	}
 
@@ -381,7 +385,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.configLogger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
+	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -603,10 +607,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	if s.args.EnableFTDC {
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
-	}
-
-	if s.args.EnableTracing {
-		robotOptions = append(robotOptions, robotimpl.WithTraceFile())
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove
