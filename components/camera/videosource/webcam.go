@@ -22,6 +22,8 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 )
 
 // ModelWebcam is the name of the webcam component.
@@ -132,6 +134,12 @@ func NewWebcam(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
+	// SetupObserver and DestroyObserver are called in RDK's entrypoint main.go
+	err := mediadevicescamera.StartObserver()
+	if err != nil {
+		logger.Errorw("failed to start darwin mediadevices camera observer", "error", err)
+	}
+
 	c := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
