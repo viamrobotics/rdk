@@ -10,7 +10,6 @@ import (
 
 	driverutils "github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pkg/errors"
 	goutils "go.viam.com/utils"
@@ -133,11 +132,10 @@ func NewWebcam(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
-	// SetupObserver and DestroyObserver are called in RDK's entrypoint main.go
-	err := mediadevicescamera.StartObserver()
-	if err != nil {
-		logger.Errorw("failed to start darwin mediadevices camera observer", "error", err)
-	}
+	// Start camera observer for hot-plug support (darwin only, no-op on other platforms).
+	// SetupObserver and DestroyObserver are called in RDK's entrypoint main.go.
+	// See web/cmd/server/observer_darwin.go for details on the threading requirements.
+	startCameraObserver(logger)
 
 	c := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
