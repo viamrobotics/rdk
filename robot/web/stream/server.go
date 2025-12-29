@@ -400,6 +400,12 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 
 // resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
+	if width > 1000 && height > 600 {
+		// TODO - this should be smarter, ideally knowing what the original stream is
+		server.logger.Infof("not resizing (%s) to %d, %d because it's probable a bad idea as it's too big",
+			name, width, height)
+		return nil
+	}
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
@@ -418,9 +424,9 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
 	resizer := gostream.NewResizeVideoSource(vs, width, height)
-	server.logger.Debugf(
-		"resizing video source to width %d and height %d",
-		width, height,
+	server.logger.Infof(
+		"resizing video source (%s) to width %d and height %d",
+		name, width, height,
 	)
 	existing.Swap(resizer)
 	err = streamState.Resize()
