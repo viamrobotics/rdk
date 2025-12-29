@@ -579,7 +579,9 @@ type Cloud struct {
 // Note: keep this in sync with Cloud.
 type cloudData struct {
 	// For a working cloud managed robot, these three fields has to be set
-	// within the config passed to the robot.
+	// within the config passed to the robot through the --config argument.
+	// Cloud configs are not expected to return these fields, and these fields
+	// will be ignored if they are returned.
 	ID         string `json:"id"`
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
