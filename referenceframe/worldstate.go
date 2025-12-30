@@ -40,8 +40,13 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 	unnamedCount := 0
 	for _, gf := range obstacles {
 		geometries := gf.Geometries()
-		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
+		if len(geometries) == 0 {
+			// Avoid adding a bag of empty geometries. Such that `len(worldState.Obstacles())`
+			// returns 0 iff there are no obstacles.
+			continue
+		}
 
+		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
 		// iterate over geometries and make sure that each one that is added to the WorldState has a unique name
 		for _, geometry := range geometries {
 			name := geometry.Label()
@@ -99,7 +104,16 @@ func (ws *WorldState) Merge(geomsInFrame *GeometriesInFrame) *WorldState {
 		ret.transforms = append(ret.transforms, transform)
 	}
 
-	ret.obstacles = append(ret.obstacles, geomsInFrame)
+	if len(geomsInFrame.Geometries()) > 0 {
+		// Avoid adding a bag of empty geometries. Such that `len(worldState.Obstacles())` returns 0
+		// iff there are no obstacles.
+		ret.obstacles = append(ret.obstacles, geomsInFrame)
+
+		for _, geom := range geomsInFrame.Geometries() {
+			ret.obstacleNames[geom.Label()] = true
+		}
+	}
+
 	return ret
 }
 

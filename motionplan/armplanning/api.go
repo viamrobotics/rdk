@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -231,6 +232,8 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	return t, meta, nil
 }
 
+var validateErrorOnce atomic.Bool
+
 // ValidatePlan returns nil if the input `executingPlan` is still valid. Non-nil is returned if the
 // `worldStateOverride` would result in a collision.
 func ValidatePlan(
@@ -241,7 +244,12 @@ func ValidatePlan(
 	parentLogger logging.Logger,
 ) error {
 	logger := parentLogger.Sublogger("mp")
-	_ = logger
+	if len(worldStateOverride.Obstacles()) > 0 && validateErrorOnce.Load() == false {
+		logger.Info("Validate plan returning collision")
+		validateErrorOnce.Store(true)
+		return errors.New("Will collide.")
+	}
+
 	return nil
 }
 
