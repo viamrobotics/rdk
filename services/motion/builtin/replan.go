@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -61,13 +62,12 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 
 	baseWorldState := moveRequest.WorldState
 	var extraObstacles *referenceframe.GeometriesInFrame
-	for {
+	for ctx.Err() == nil {
 		// build maps of relevant components and inputs from initial inputs
 		fsInputs, err := ms.fsService.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err
 		}
-		ms.logger.CDebugf(ctx, "frame system start inputs: %v", fsInputs)
 
 		extraObstacles, err = getExtraObstacles(ctx, obstacleVisionService)
 		if err != nil {
@@ -92,6 +92,10 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 		}
 
 		plan, _, err := armplanning.PlanMotion(ctx, ms.logger, motionPlanRequest)
+		ms.logger.CDebugf(ctx,
+			"Replannable motion planning request. Start: %v Goal: %v NumObstacles: %v NumPlannedWaypoints: %v Err: %v",
+			fsInputs[moveRequest.ComponentName], moveRequest.Destination, len(worldState.Obstacles()),
+			plan.Trajectory(), err)
 		if err != nil {
 			return nil, err
 		}
@@ -116,6 +120,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 					// TODO: Vision service objects are returned from the camera reference frame.
 					geomsInFrame, err := getExtraObstacles(ctx, obstacleVisionService)
 					if err != nil {
+						ms.logger.Warnw("Getting extra obstacles error", "err", err)
 						return err
 					}
 
@@ -125,6 +130,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 					// it.
 					validateErr := armplanning.ValidatePlan(ctx, plan, motionPlanRequest, mergedWorldState, ms.logger)
 					if validateErr != nil {
+						ms.logger.Infow("Validate plan returned error. Canceling execution.", "err", validateErr)
 						return validateErr
 					}
 
@@ -135,6 +141,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 			})
 		}
 
+	executeLoop:
 		for _, traj := range plan.Trajectory() {
 			for actuatorName, inputs := range traj {
 				if len(inputs) == 0 {
@@ -153,7 +160,12 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 
 				ms.logger.CDebugf(ctx, "Issuing GoToInputs. Actuator: %v Inputs: %v", actuatorName, inputs)
 				if err = ie.GoToInputs(executeCtx, inputs); err != nil {
-					return nil, err
+					ms.logger.Debug("DBG. GoToInputs error:", err, "Ctx:", ctx.Err(), "ExecuteCtx:", executeCtx.Err())
+					if errors.Is(err, context.Canceled) {
+						break executeLoop
+					} else {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -167,4 +179,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 		// If `executeCtx` had an error, the `obstacleAvoidance` background goroutine returned an
 		// error. We do not need to explicitly `Wait` on it.
 	}
+
+	// If the `executeCtx` was canceled because `ctx` was canceled. We return with an error.
+	return nil, ctx.Err()
 }

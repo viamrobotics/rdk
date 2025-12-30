@@ -35,7 +35,7 @@ type operation struct {
 // revive:disable:exported
 func (op operation) isMoving() bool {
 	// If we have `targetInputs` and we are not done and not stopped
-	return op.targetInputs != nil && !op.done && !op.stopped
+	return !op.done && !op.stopped
 }
 
 // SimulatedArm is a fake arm and exposes an `UpdateForTime` method that can be used to explicitly
@@ -149,6 +149,9 @@ func newArm(
 		cancel: cancel,
 
 		currInputs: make([]float64, len(model.DoF())),
+		operation: operation{
+			done: true,
+		},
 	}
 
 	if simulateTime {
@@ -320,7 +323,6 @@ func (sa *SimulatedArm) MoveToJointPositions(
 		default:
 			// Poll for completion:
 			sa.mu.Lock()
-			// Calls to `updateForTime` will nil out `targetInputs` when a movement is completed.
 			done, stopped := sa.operation.done, sa.operation.stopped
 			sa.mu.Unlock()
 
