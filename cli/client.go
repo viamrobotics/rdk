@@ -1721,43 +1721,69 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-
-	doCopy := func() error {
+	var pm *ProgressManager
+	doCopy := func() (int, error) {
+		var copyFunc func() error
 		if isFrom {
-			return c.copyFilesFromMachine(
-				flagArgs.Organization,
-				flagArgs.Location,
-				flagArgs.Machine,
-				flagArgs.Part,
-				globalArgs.Debug,
-				flagArgs.Recursive,
-				flagArgs.Preserve,
-				paths,
-				destination,
-				logger,
-			)
+			copyFunc = func() error {
+				return c.copyFilesFromMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+				)
+			}
+		} else {
+			copyFunc = func() error {
+				return c.copyFilesToMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+					flagArgs.NoProgress,
+				)
+			}
 		}
-
-		return c.copyFilesToMachine(
-			flagArgs.Organization,
-			flagArgs.Location,
-			flagArgs.Machine,
-			flagArgs.Part,
-			globalArgs.Debug,
-			flagArgs.Recursive,
-			flagArgs.Preserve,
-			paths,
-			destination,
-			logger,
-			flagArgs.NoProgress,
+		if !flagArgs.NoProgress {
+			pm = NewProgressManager([]*Step{
+				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+			})
+			if err := pm.Start("copy"); err != nil {
+				return 0, err
+			}
+			defer pm.Stop()
+		}
+		attemptCount, err := c.retryableCopy(
+			ctx,
+			pm,
+			copyFunc,
+			isFrom,
 		)
+		return attemptCount, err
 	}
-	if err := doCopy(); err != nil {
+	attemptCount, err := doCopy()
+	if err != nil {
+		defer pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
+		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+	}
+	if err := pm.Complete("copy"); err != nil {
 		return err
 	}
 	return nil
@@ -3091,6 +3117,104 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopy attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+// returns number of attempts made in case it terminates early due to nonretryable error
+func (c *viamClient) retryableCopy(
+	ctx *cli.Context,
+	pm *ProgressManager,
+	copyFunc func() error,
+	isFrom bool,
+) (int, error) {
+	var hadPreviousFailure bool
+	var copyErr error
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "copy" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		copyErr = copyFunc()
+
+		if copyErr == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return attempt, err
+				}
+			}
+			return attempt, nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(copyErr); ok {
+			if s.Code() == codes.PermissionDenied {
+				if isFrom {
+					warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
+						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
+						"temporarily changing file permissions with 'chmod'.")
+				} else {
+					warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.InvalidArgument {
+				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			}
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "Attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+	}
+
+	// All attempts failed - return the error from the copy function
+	return maxCopyAttempts, copyErr
 }
 
 func (c *viamClient) copyFilesToMachine(
