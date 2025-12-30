@@ -3125,6 +3125,7 @@ const maxCopyAttempts = 6
 // retryableCopy attempts to copy files to a part using the shell service with retries.
 // It handles progress manager updates for each attempt and provides helpful error messages.
 // The copyFunc parameter allows for mocking in tests.
+// returns number of attempts made in case it terminates early due to nonretryable error
 func (c *viamClient) retryableCopy(
 	ctx *cli.Context,
 	pm *ProgressManager,
