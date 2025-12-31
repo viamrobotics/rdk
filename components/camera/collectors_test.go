@@ -191,21 +191,6 @@ func newCamera(
 	pcd pointcloud.PointCloud,
 ) camera.Camera {
 	v := &inject.Camera{}
-	v.ImagesFunc = func(
-		ctx context.Context,
-		filterSourceNames []string,
-		extra map[string]interface{},
-	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-		viamLogoJpegBytes, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
-		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
-		}
-		namedImg, err := camera.NamedImageFromBytes(viamLogoJpegBytes, "", utils.MimeTypeJPEG, data.Annotations{})
-		if err != nil {
-			return nil, resource.ResponseMetadata{}, err
-		}
-		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-	}
 
 	v.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcd, nil
