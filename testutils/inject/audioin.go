@@ -16,6 +16,7 @@ type AudioIn struct {
 	GetAudioFunc func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (
 		chan *audioin.AudioChunk, error)
 	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
+	CloseFunc      func(ctx context.Context) error
 }
 
 // NewAudioIn returns a new injected audio in.
@@ -52,4 +53,15 @@ func (a *AudioIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (ma
 		return a.AudioIn.DoCommand(ctx, cmd)
 	}
 	return a.DoFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (a *AudioIn) Close(ctx context.Context) error {
+	if a.CloseFunc == nil {
+		if a.AudioIn == nil {
+			return nil
+		}
+		return a.AudioIn.Close(ctx)
+	}
+	return a.CloseFunc(ctx)
 }
