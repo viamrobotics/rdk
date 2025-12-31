@@ -284,8 +284,8 @@ type APIKeyWithAuthorizations struct {
 
 // APIKey is a API key to make a request to an API.
 type APIKey struct {
-	ID        string
-	Key       string
+	ID        string `json:"id"`
+	Key       string `json:"key"`
 	Name      string
 	CreatedOn *time.Time
 }
@@ -563,6 +563,33 @@ type UpdateModuleOptions struct {
 type ListModulesOptions struct {
 	// OrgID is the organization to return private modules for.
 	OrgID *string
+}
+
+type LocationSummary struct {
+	LocationId       string
+	LocationName     string
+	MachineSummaries []*MachineSummary
+}
+
+type MachineSummary struct {
+	MachineId   string
+	MachineName string
+}
+
+type AppBranding struct {
+	LogoPath           string
+	TextCustomizations map[string]*TextOverrides
+	FragmentIds        []string
+}
+
+type TextOverrides struct {
+	Fields map[string]string
+}
+
+type AppContent struct {
+	BlobPath   string
+	Entrypoint string
+	AppType    int
 }
 
 // AppClient is a gRPC client for method calls to the App API.
@@ -2852,6 +2879,74 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 	return resp.Id, resp.Key, nil
 }
 
+func (c *AppClient) ListMachineSummaries(
+	ctx context.Context,
+	organizationId string,
+	fragmentIds, locationIds []string,
+	limit int32,
+) ([]*LocationSummary, error) {
+	req := &pb.ListMachineSummariesRequest{
+		OrganizationId: organizationId,
+		FragmentIds:    fragmentIds,
+		LocationIds:    locationIds,
+		Limit:          &limit,
+	}
+
+	resp, err := c.client.ListMachineSummaries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]*LocationSummary, 0, len(resp.LocationSummaries))
+	for _, LocationSummary := range resp.LocationSummaries {
+		summaries = append(summaries, locationSummaryFromProto(LocationSummary))
+	}
+
+	return summaries, nil
+}
+
+func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appName string) (*AppBranding, error) {
+	req := &pb.GetAppBrandingRequest{
+		PublicNamespace: orgPublicNamespace,
+		Name: appName,
+	}
+
+	resp, err := c.client.GetAppBranding(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return appBrandingFromProto(resp), nil
+}
+
+func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appName string) (*AppContent, error) {
+	req := &pb.GetAppContentRequest{
+		PublicNamespace: orgPublicNamespace,
+		Name: appName,
+	}
+
+	resp, err := c.client.GetAppContent(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return appContentFromProto(resp), nil
+}
+
+func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationId string) (*RobotPart, error) {
+	req := &pb.GetRobotPartByNameAndLocationRequest{
+		Name: name,
+		LocationId: locationId,
+	}
+
+	resp, err := c.client.GetRobotPartByNameAndLocation(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return robotPartFromProto(resp.GetPart()), nil
+}
+
 func organizationFromProto(organization *pb.Organization) *Organization {
 	if organization == nil {
 		return nil
@@ -3714,5 +3809,54 @@ func versionHistoryFromProto(history *pb.VersionHistory) *VersionHistory {
 		Apps:       apps,
 		Entrypoint: history.Entrypoint,
 		FirstRun:   history.FirstRun,
+	}
+}
+
+func locationSummaryFromProto(locationSummary *pb.LocationSummary) *LocationSummary {
+	machineSummaries := locationSummary.GetMachineSummaries()
+	machines := make([]*MachineSummary, 0, len(machineSummaries))
+	for _, machineSummary := range machineSummaries {
+		machines = append(machines, machineSummaryFromProto(machineSummary))
+	}
+
+	return &LocationSummary{
+		LocationId: locationSummary.GetLocationId(),
+		LocationName: locationSummary.GetLocationName(),
+		MachineSummaries: machines,
+	}
+}
+
+func machineSummaryFromProto(machineSummary *pb.MachineSummary) *MachineSummary {
+	return &MachineSummary{
+		MachineId: machineSummary.GetMachineId(),
+		MachineName: machineSummary.GetMachineName(),
+	}
+}
+
+func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
+	var logoPath string
+	if resp.LogoPath != nil {
+		logoPath = resp.GetLogoPath()
+	}
+
+	textCustomizations := make(map[string]*TextOverrides, len(resp.TextCustomizations))
+	for k, v := range resp.GetTextCustomizations() {
+		textCustomizations[k] = &TextOverrides{
+			Fields: v.GetFields(),
+		}
+	}
+
+	return &AppBranding{
+		LogoPath: logoPath,
+		TextCustomizations: textCustomizations,
+		FragmentIds: resp.GetFragmentIds(),
+	}
+}
+
+func appContentFromProto(resp *pb.GetAppContentResponse) *AppContent {
+	return &AppContent{
+		BlobPath: resp.GetBlobPath(),
+		Entrypoint: resp.GetEntrypoint(),
+		AppType: int(resp.GetAppType()),
 	}
 }
