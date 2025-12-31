@@ -296,7 +296,7 @@ func TestComplexModule(t *testing.T) {
 }
 
 func connect(port int, logger logging.Logger) (robot.Robot, error) {
-	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Minute*5)
+	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Minute*2)
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
