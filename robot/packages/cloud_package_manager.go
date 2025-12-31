@@ -400,16 +400,17 @@ func (m *cloudManager) downloadFileWithChecksum(
 	rawURL string,
 	downloadPath string,
 ) (string, string, error) {
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
 
 	headers := make(http.Header)
 	if m.cloudConfig.APIKey.IsFullySet() {
-		getReq.Header.Add("key_id", m.cloudConfig.APIKey.ID)
-		getReq.Header.Add("key", m.cloudConfig.APIKey.Key)
+		headers.Add("key_id", m.cloudConfig.APIKey.ID)
+		headers.Add("key", m.cloudConfig.APIKey.Key)
 	} else {
-		getReq.Header.Add("part_id", m.cloudConfig.ID)
-		getReq.Header.Add("secret", m.cloudConfig.Secret)
+		headers.Add("part_id", m.cloudConfig.ID)
+		headers.Add("secret", m.cloudConfig.Secret)
 	}
+	getReq.Header = headers
 
 	if err != nil {
 		return "", "", err
