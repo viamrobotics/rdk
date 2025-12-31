@@ -372,17 +372,20 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		ctx, "Waiting for module to complete startup and registration", "module", mod.cfg.Name, mod.logger)
 	defer cleanup()
 
+	mod.logger.Warn("Starting module")
 	var moduleRestartCtx context.Context
 	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
 	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
 		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
 	}
 
+	mod.logger.Warn("Dialing module")
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
 		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
 	}
 
+	mod.logger.Warn("Sending ready request")
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
@@ -390,13 +393,16 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
+		mod.logger.Warn("Adding mod peer conn")
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 
+	mod.logger.Warn("Registering resources")
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
-	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
+	mod.logger.Warnw("Module successfully added", "module", mod.cfg.Name)
 	success = true
+	mod.logger.Warn("Module startup done")
 	return nil
 }
 

@@ -83,6 +83,7 @@ func (m *module) dial() error {
 	)
 
 	//nolint:staticcheck
+	m.logger.Warnw("Dialing", "addr", addrToDial)
 	conn, err := grpc.Dial(
 		addrToDial,
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(rpc.MaxMessageSize)),
@@ -98,6 +99,7 @@ func (m *module) dial() error {
 		),
 		grpc.WithStatsHandler(otelStatsHandler),
 	)
+	m.logger.Warnw("Dial done", "err", err)
 	if err != nil {
 		return errors.WithMessage(err, "module startup failed")
 	}
