@@ -172,8 +172,8 @@ func TestCloudManagedWithAuth(t *testing.T) {
 			config: &config.Cloud{
 				AppAddress: fmt.Sprintf("http://%s", addr),
 				APIKey: config.APIKey{
-					ID:    "api_foo",
-					Value: "api_bar",
+					ID:  "api_foo",
+					Key: "api_bar",
 				},
 			},
 			shouldAuth: true,
@@ -185,8 +185,8 @@ func TestCloudManagedWithAuth(t *testing.T) {
 				ID:         "secret_foo",
 				Secret:     "secret_bar",
 				APIKey: config.APIKey{
-					ID:    "api_foo",
-					Value: "api_bar",
+					ID:  "api_foo",
+					Key: "api_bar",
 				},
 			},
 			shouldAuth: true,
@@ -198,8 +198,8 @@ func TestCloudManagedWithAuth(t *testing.T) {
 				ID:         "secret_foo",
 				Secret:     "secret_bar",
 				APIKey: config.APIKey{
-					ID:    "invalid_foo",
-					Value: "invalid_bar",
+					ID:  "invalid_foo",
+					Key: "invalid_bar",
 				},
 			},
 			shouldAuth: false,

@@ -737,7 +737,7 @@ func (config *Cloud) ValidateTLS(path string) error {
 // API keys are always preferred over robot secrets. If neither are set, nil is returned.
 func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
 	if config.APIKey.IsFullySet() {
-		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Value})
+		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Key})
 	} else if config.Secret != "" {
 		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
 	}
