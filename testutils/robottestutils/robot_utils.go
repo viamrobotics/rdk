@@ -141,11 +141,14 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 	args := []string{"-config", cfgFileName}
 
 	cfg.processConfig = pexec.ProcessConfig{
-		Name:        serverPath,
-		Args:        args,
-		CWD:         utils.ResolveFile("./"),
-		Environment: map[string]string{"HOME": testTempHome},
-		Log:         true,
+		Name: serverPath,
+		Args: args,
+		CWD:  utils.ResolveFile("./"),
+		Environment: map[string]string{
+			"HOME":        testTempHome, // *NIX
+			"USERPROFILE": testTempHome, // Windows
+		},
+		Log: true,
 	}
 	for _, opt := range opts {
 		opt(&cfg)
