@@ -30,7 +30,9 @@ func NewBasicEmpty() PointCloud {
 	return NewBasicPointCloud(0)
 }
 
-// NewBasicPointCloud creates a basic cloud with a size.
+// NewBasicPointCloud creates a basic cloud with pre-allocated capacity for the given size.
+// When the expected number of points is known, passing a non-zero size significantly
+// reduces allocations by pre-sizing both the internal slice and map.
 func NewBasicPointCloud(size int) PointCloud {
 	return &basicPointCloud{
 		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
@@ -52,11 +54,25 @@ func (cloud *basicPointCloud) At(x, y, z float64) (Data, bool) {
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *basicPointCloud) Set(p r3.Vector, d Data) error {
-	_, pointExists := cloud.At(p.X, p.Y, p.Z)
-	if err := cloud.points.Set(p, d); err != nil {
+	// Use SetReturnNew to avoid redundant map lookup (combines existence check + set)
+	ms, ok := cloud.points.(*matrixStorage)
+	if !ok {
+		// Fallback for non-matrixStorage backends
+		_, pointExists := cloud.points.At(p.X, p.Y, p.Z)
+		if err := cloud.points.Set(p, d); err != nil {
+			return err
+		}
+		if !pointExists {
+			cloud.meta.Merge(p, d)
+		}
+		return nil
+	}
+
+	isNew, err := ms.SetReturnNew(p, d)
+	if err != nil {
 		return err
 	}
-	if !pointExists {
+	if isNew {
 		cloud.meta.Merge(p, d)
 	}
 	return nil

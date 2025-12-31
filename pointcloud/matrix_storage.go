@@ -39,6 +39,29 @@ func (ms *matrixStorage) Set(v r3.Vector, d Data) error {
 	return nil
 }
 
+// SetReturnNew sets a point and returns whether it was a new point (not previously in the cloud).
+// This avoids the need for a separate At() call before Set(), eliminating a redundant map lookup.
+func (ms *matrixStorage) SetReturnNew(v r3.Vector, d Data) (isNew bool, err error) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
+		return false, newOutOfRangeErr("x", v.X)
+	}
+	if v.Y > maxPreciseFloat64 || v.Y < minPreciseFloat64 {
+		return false, newOutOfRangeErr("y", v.Y)
+	}
+	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
+		return false, newOutOfRangeErr("z", v.Z)
+	}
+	if i, found := ms.indexMap[v]; found {
+		ms.points[i].D = d
+		return false, nil
+	}
+	ms.points = append(ms.points, PointAndData{v, d})
+	ms.indexMap[v] = uint(len(ms.points) - 1)
+	return true, nil
+}
+
 func (ms *matrixStorage) At(x, y, z float64) (Data, bool) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()

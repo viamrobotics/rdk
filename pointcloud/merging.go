@@ -13,15 +13,28 @@ import (
 
 // ApplyOffset takes a point cloud and an offset pose and applies the offset to each of the points in the source point cloud.
 func ApplyOffset(srcpc PointCloud, offset spatialmath.Pose, pcTo PointCloud) error {
+	// Fast path: no offset, just copy points directly
+	if offset == nil {
+		var err error
+		srcpc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+			err = pcTo.Set(p, d)
+			return err == nil
+		})
+		return err
+	}
+
+	// Pre-convert offset to DualQuaternion once (avoids repeated conversion in loop)
+	offsetDQ := spatialmath.DualQuaternionFromPose(offset)
+
+	// Pre-allocate reusable DualQuaternions to avoid per-point allocations
+	pointDQ := spatialmath.NewZeroPose().(*spatialmath.DualQuaternion)
+	resultDQ := spatialmath.NewZeroPose().(*spatialmath.DualQuaternion)
+
 	var err error
-	savedDualQuat := spatialmath.NewZeroPose()
 	srcpc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
-		if offset != nil {
-			spatialmath.ResetPoseDQTranslation(savedDualQuat, p)
-			newPose := spatialmath.Compose(offset, savedDualQuat)
-			p = newPose.Point()
-		}
-		err = pcTo.Set(p, d)
+		spatialmath.ResetPoseDQTranslation(pointDQ, p)
+		resultDQ.Number = offsetDQ.Transformation(pointDQ.Number)
+		err = pcTo.Set(resultDQ.Point(), d)
 		return err == nil
 	})
 	return err
