@@ -247,7 +247,7 @@ func ValidatePlan(
 	if len(worldStateOverride.Obstacles()) > 0 && validateErrorOnce.Load() == false {
 		logger.Info("Validate plan returning collision")
 		validateErrorOnce.Store(true)
-		return errors.New("Will collide.")
+		return errors.New("will collide")
 	}
 
 	return nil

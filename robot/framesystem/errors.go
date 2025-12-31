@@ -14,7 +14,6 @@ func DuplicateResourceShortNameError(name string) error {
 
 // DependencyNotFoundError returns an error if the given dependency name could not be found when building the framesystem.
 func DependencyNotFoundError(name string) error {
-	panic(name)
 	return errors.Errorf("frame system could not find dependency with name: %v", name)
 }
 

@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	"golang.org/x/sync/errgroup"
 )
 
 func getExtraObstacles(ctx context.Context, vs vision.Service) (*referenceframe.GeometriesInFrame, error) {
@@ -111,6 +112,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 		executeCtx, executeDone := context.WithCancel(executeCtx)
 		defer func() {
 			executeDone()
+			//nolint:errcheck
 			obstacleAvoidance.Wait()
 		}()
 
@@ -163,9 +165,9 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 					ms.logger.Debug("DBG. GoToInputs error:", err, "Ctx:", ctx.Err(), "ExecuteCtx:", executeCtx.Err())
 					if errors.Is(err, context.Canceled) {
 						break executeLoop
-					} else {
-						return nil, err
 					}
+
+					return nil, err
 				}
 			}
 		}

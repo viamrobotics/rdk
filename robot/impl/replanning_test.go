@@ -2,7 +2,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/rdk/services/motion"
 	motionservice "go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
 	visionservice "go.viam.com/rdk/services/vision"
@@ -212,7 +210,7 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 					// the vision service `GetObjectPointClouds` returns this obstacle.
 					logger.Info("Adding object")
 					segmenter.objects = []*vision.Object{
-						&vision.Object{
+						{
 							PointCloud: pointcloud.NewBasicPointCloud(10),
 							Geometry: spatialmath.NewBoxGoodInput(
 								spatialmath.Compose(startArmPose, spatialmath.NewPoseFromPoint(r3.Vector{X: -150, Y: 0, Z: 0})),
@@ -220,7 +218,6 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 								"box1"),
 						},
 					}
-
 				}
 				segmenter.mu.Unlock()
 
@@ -241,7 +238,6 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 	testClock.Go(func() error {
 		fs, err := framesystem.NewFromService(doneMovingCtx, robotFs, nil)
 		if err != nil {
-			fmt.Println("Err:", err)
 			return err
 		}
 
@@ -250,7 +246,7 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 
 	moveCmdProto, err := protoutils.StructToStructPb(map[string]any{
 		"replannable": string(moveRequestProtoBytes),
-		//"plan": string(moveRequestProtoBytes),
+		// "plan": string(moveRequestProtoBytes),
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -269,7 +265,7 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 func visualize(
 	ctx context.Context,
 	fs *referenceframe.FrameSystem,
-	req *motion.MoveReq,
+	req *motionservice.MoveReq,
 	obstacleVisionService visionservice.Service,
 	arm arm.Arm,
 	goalPose spatialmath.Pose,
@@ -295,6 +291,10 @@ func visualize(
 		fsi["arm"] = armInputs
 
 		currObjects, err := obstacleVisionService.GetObjectPointClouds(ctx, "", nil)
+		if err != nil {
+			panic(err)
+		}
+
 		if len(currObjects) > 0 {
 			logOnce.Do(func() {
 				logger.Info("Obstacle appeared")

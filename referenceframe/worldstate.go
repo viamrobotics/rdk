@@ -96,13 +96,8 @@ func (ws *WorldState) Merge(geomsInFrame *GeometriesInFrame) *WorldState {
 		ret.obstacleNames[name] = true
 	}
 
-	for _, geomInFrame := range ws.obstacles {
-		ret.obstacles = append(ret.obstacles, geomInFrame)
-	}
-
-	for _, transform := range ws.transforms {
-		ret.transforms = append(ret.transforms, transform)
-	}
+	ret.obstacles = append(ret.obstacles, ws.obstacles...)
+	ret.transforms = append(ret.transforms, ws.transforms...)
 
 	if len(geomsInFrame.Geometries()) > 0 {
 		// Avoid adding a bag of empty geometries. Such that `len(worldState.Obstacles())` returns 0
