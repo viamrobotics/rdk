@@ -3,13 +3,11 @@ package camera
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/trace"
-	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -22,75 +20,18 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceGetter[Camera]
-
-	imgTypesMu sync.RWMutex
-	imgTypes   map[string]ImageType
-	logger     logging.Logger
+	coll   resource.APIResourceGetter[Camera]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
-	imgTypes := make(map[string]ImageType)
 	return &serviceServer{
-		coll:     coll,
-		logger:   logger,
-		imgTypes: imgTypes,
+		coll:   coll,
+		logger: logger,
 	}
-}
-
-// GetImage returns an image from a camera of the underlying robot. If a specific MIME type
-// is requested and is not available, an error is returned.
-func (s *serviceServer) GetImage(
-	ctx context.Context,
-	req *pb.GetImageRequest,
-) (*pb.GetImageResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
-	defer span.End()
-	cam, err := s.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the mimeType we should try to use based on camera properties
-	if req.MimeType == "" {
-		s.imgTypesMu.RLock()
-		imgType, ok := s.imgTypes[req.Name]
-		s.imgTypesMu.RUnlock()
-		if !ok {
-			props, err := cam.Properties(ctx)
-			if err != nil {
-				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				imgType = ColorStream
-			} else {
-				imgType = props.ImageType
-			}
-			s.imgTypesMu.Lock()
-			s.imgTypes[req.Name] = imgType
-			s.imgTypesMu.Unlock()
-		}
-		switch imgType {
-		case ColorStream, UnspecifiedStream:
-			req.MimeType = utils.MimeTypeJPEG
-		case DepthStream:
-			req.MimeType = utils.MimeTypeRawDepth
-		default:
-			req.MimeType = utils.MimeTypeJPEG
-		}
-	}
-	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
-
-	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	if len(resBytes) == 0 {
-		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
-	}
-	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
@@ -127,10 +68,8 @@ func (s *serviceServer) GetImages(
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
-		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
 			SourceName:  img.SourceName,
-			Format:      format,
 			MimeType:    img.MimeType(),
 			Image:       imgBytes,
 			Annotations: img.Annotations.ToProto(),
@@ -144,28 +83,6 @@ func (s *serviceServer) GetImages(
 	}
 
 	return resp, nil
-}
-
-// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-func (s *serviceServer) RenderFrame(
-	ctx context.Context,
-	req *pb.RenderFrameRequest,
-) (*httpbody.HttpBody, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
-	defer span.End()
-	if req.MimeType == "" {
-		req.MimeType = utils.MimeTypeJPEG // default rendering
-	}
-	resp, err := s.GetImage(ctx, (*pb.GetImageRequest)(req))
-	if err != nil {
-		return nil, err
-	}
-
-	return &httpbody.HttpBody{
-		ContentType: resp.MimeType,
-		Data:        resp.Image,
-	}, nil
 }
 
 // GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type

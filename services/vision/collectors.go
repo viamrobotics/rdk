@@ -104,7 +104,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			Payload:  protoImage.Image,
-			MimeType: data.CameraFormatToMimeType(protoImage.Format),
+			MimeType: data.MimeTypeStringToMimeType(protoImage.MimeType),
 			Annotations: data.Annotations{
 				BoundingBoxes:   filteredBoundingBoxes,
 				Classifications: filteredClassifications,

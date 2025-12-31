@@ -379,11 +379,20 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 }
 
 func (c *webcam) Image(ctx context.Context, _ string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	imgBytes, resMetadata, err := camera.GetImageFromGetImages(ctx, nil, c, extra, nil)
+	imgs, _, err := c.Images(ctx, nil, extra)
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err
 	}
-	return imgBytes, resMetadata, nil
+	if len(imgs) == 0 {
+		return nil, camera.ImageMetadata{}, errors.New("no images from webcam")
+	}
+	imgBytes, err := imgs[0].Bytes(ctx)
+	if err != nil {
+		return nil, camera.ImageMetadata{}, err
+	}
+	return imgBytes, camera.ImageMetadata{
+		MimeType: imgs[0].MimeType(),
+	}, nil
 }
 
 func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {
