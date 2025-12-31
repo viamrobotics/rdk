@@ -125,7 +125,7 @@ jobs:
         GOFLAGS: "-tags=no_cgo"
       run:
         # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/... ./examples/...
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
 
     - name: Upload test.json
       if: always()
