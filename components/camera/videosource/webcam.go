@@ -132,6 +132,11 @@ func NewWebcam(
 	conf resource.Config,
 	logger logging.Logger,
 ) (camera.Camera, error) {
+	// Start camera observer for hot-plug support (darwin only, no-op on other platforms).
+	// SetupObserver and DestroyObserver are called in RDK's entrypoint main.go.
+	// See web/cmd/server/observer_darwin.go for details on the threading requirements.
+	startCameraObserver(logger)
+
 	c := &webcam{
 		Named:   conf.ResourceName().AsNamed(),
 		logger:  logger.WithFields("camera_name", conf.ResourceName().ShortName()),
