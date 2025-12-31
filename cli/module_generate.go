@@ -334,7 +334,14 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
-				Placeholder("my-model").
+				PlaceholderFunc(func() string {
+					// suggest model name be resource, specifying the type if generic
+					resource := strings.Fields(module.Resource)[0]
+					if resource == "generic" {
+						resource = resource + "_" + strings.Fields(module.Resource)[1]
+					}
+					return resource
+				}, &module.Resource).
 				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
