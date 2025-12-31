@@ -199,7 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileWithChecksum(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return m.downloadFileWithChecksum(ctx, url, dstPath)
 			},
 		)
 		if err != nil {
@@ -399,12 +399,19 @@ func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
 	rawURL string,
 	downloadPath string,
-	partID string,
-	partSecret string,
 ) (string, string, error) {
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
-	getReq.Header.Add("part_id", partID)
-	getReq.Header.Add("secret", partSecret)
+
+	headers := make(http.Header)
+	if m.cloudConfig.APIKey.IsFullySet() {
+		headers.Add("key_id", m.cloudConfig.APIKey.ID)
+		headers.Add("key", m.cloudConfig.APIKey.Key)
+	} else {
+		headers.Add("part_id", m.cloudConfig.ID)
+		headers.Add("secret", m.cloudConfig.Secret)
+	}
+	getReq.Header = headers
+
 	if err != nil {
 		return "", "", err
 	}
@@ -438,7 +445,7 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	g := getter.HttpGetter{
 		MaxBytes: maxBytesForTesting,
-		Header:   http.Header{"part_id": []string{partID}, "secret": []string{partSecret}},
+		Header:   headers,
 		Client:   &m.httpClient,
 	}
 	g.SetClient(&getter.Client{Ctx: ctx})
