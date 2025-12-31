@@ -733,17 +733,6 @@ func (config *Cloud) ValidateTLS(path string) error {
 	return nil
 }
 
-// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
-// API keys are always preferred over robot secrets. If neither are set, nil is returned.
-func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
-	if config.APIKey.IsFullySet() {
-		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Key})
-	} else if config.Secret != "" {
-		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
-	}
-	return nil
-}
-
 // LocationSecret describes a location secret that can be used to authenticate to the rdk.
 type LocationSecret struct {
 	ID string `json:"id"`
