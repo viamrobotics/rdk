@@ -6,13 +6,15 @@
 # with go init functions. This script will verify that all such packages have
 # underscore imports in the corresponding `register_apis` subpackage, which
 # provides a convenient way for modules and other client code to register all
-# known API models with fewer imports
+# known API models with fewer imports.
 pkgs=(components services)
 
 # `cgo_paths` contains a list of packages that register API models but depend
 # on cgo. For these packages we invert the usual logic: cgo packages should
-# _not_ be included in the `register_apis` package so that it can be used by
-# modules and other client code without imposing a dependency on cgo.
+# _not_ be included in the `register_apis` package so that the `register_apis`
+# package can be used by modules and other client code without imposing a
+# dependency on cgo, further requiring installed libraries and properly
+# configured CGO_... environment variables for Go compilation to succeed.
 cgo_paths=(services/motion services/vision components/camera components/audioinput)
 
 for p in "${pkgs[@]}"; do
