@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"go.uber.org/zap/zapcore"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
@@ -57,6 +56,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	"go.viam.com/rdk/testutils/robottestutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
