@@ -3692,6 +3692,158 @@
     }
   },
   "pointcloud": {
+    "December_31_2025_12_14_28_imaging_world_frame_0.pcd": {
+      "hash": "08142b316cb468dd4d2bbceb826fd922",
+      "size": 22653198
+    },
+    "December_31_2025_12_14_35_imaging_world_frame_1.pcd": {
+      "hash": "063b5afd9ff517003382f9a42747c17d",
+      "size": 22659182
+    },
+    "December_31_2025_12_14_43_imaging_world_frame_2.pcd": {
+      "hash": "1696e0a8ba1abc924f575fc6588c993a",
+      "size": 22594670
+    },
+    "December_31_2025_12_14_51_imaging_world_frame_3.pcd": {
+      "hash": "374234b867c9dd68dcbde39d265d2cf3",
+      "size": 22364894
+    },
+    "December_31_2025_12_14_59_imaging_world_frame_4.pcd": {
+      "hash": "2fcb5bb301ae4758c9da14ee948b3afa",
+      "size": 22850638
+    },
+    "December_31_2025_12_15_06_imaging_world_frame_5.pcd": {
+      "hash": "124bb5c4ebd9276dd4583ba73db37d5e",
+      "size": 21807102
+    },
+    "December_31_2025_12_15_14_imaging_world_frame_6.pcd": {
+      "hash": "00fc5e456869813051580617ec2bd3e5",
+      "size": 22258478
+    },
+    "December_31_2025_12_15_22_imaging_world_frame_7.pcd": {
+      "hash": "f26d15b595f5183c42373e7c53e60d59",
+      "size": 22840558
+    },
+    "December_31_2025_12_15_30_imaging_world_frame_8.pcd": {
+      "hash": "083af80de0ea9d36b07c3a0026815ae3",
+      "size": 22565822
+    },
+    "December_31_2025_12_15_39_imaging_world_frame_9.pcd": {
+      "hash": "8b0a539c83cfca5b93c07ca6962ccfc5",
+      "size": 22310078
+    },
+    "December_31_2025_12_15_47_imaging_world_frame_10.pcd": {
+      "hash": "3e029169e5f5f6f3f7dac8fb550fcb4c",
+      "size": 21147566
+    },
+    "December_31_2025_12_15_55_imaging_world_frame_11.pcd": {
+      "hash": "52483187c5106f50c354611bd7ec30b8",
+      "size": 21503358
+    },
+    "December_31_2025_12_16_02_imaging_world_frame_12.pcd": {
+      "hash": "21b41113feee9bdd12a9e6ab7623ebe0",
+      "size": 22614382
+    },
+    "December_31_2025_12_16_10_imaging_world_frame_13.pcd": {
+      "hash": "f4443fe043895a7add09e8e98eb8c6c8",
+      "size": 22788606
+    },
+    "December_31_2025_12_16_19_imaging_world_frame_14.pcd": {
+      "hash": "823dfb0a3bd576ba96f05d310a01ac53",
+      "size": 21968318
+    },
+    "December_31_2025_12_16_27_imaging_world_frame_15.pcd": {
+      "hash": "813bc5eda9678ade3203c863083e9182",
+      "size": 20851390
+    },
+    "December_31_2025_12_16_34_imaging_world_frame_16.pcd": {
+      "hash": "651ac28eb8add46355258af46bf3bb39",
+      "size": 19461294
+    },
+    "December_31_2025_12_16_42_imaging_world_frame_17.pcd": {
+      "hash": "7af03c8222ace8f422e1078137f11d88",
+      "size": 22339982
+    },
+    "December_31_2025_12_16_49_imaging_world_frame_18.pcd": {
+      "hash": "46e600c6e279cb6abe1d7a105fc1fabc",
+      "size": 22619486
+    },
+    "December_31_2025_12_16_58_imaging_world_frame_19.pcd": {
+      "hash": "7bac20cdb3cf99bff666bf5ec838e188",
+      "size": 22148638
+    },
+    "December_31_2025_12_17_05_imaging_world_frame_20.pcd": {
+      "hash": "615d66f1913c694561b7c9261f983a55",
+      "size": 22895998
+    },
+    "December_31_2025_12_17_13_imaging_world_frame_21.pcd": {
+      "hash": "755e0317475c40185ac2cb28f85b5175",
+      "size": 20731758
+    },
+    "December_31_2025_12_17_21_imaging_world_frame_22.pcd": {
+      "hash": "b206236bbc8fae9d27c333c0af598777",
+      "size": 22972174
+    },
+    "December_31_2025_12_17_28_imaging_world_frame_23.pcd": {
+      "hash": "b87ec46fad0ba06400d76f80f96396c3",
+      "size": 17597166
+    },
+    "December_31_2025_12_17_36_imaging_world_frame_24.pcd": {
+      "hash": "6af21eb13ec2f6b2814840e660184741",
+      "size": 22834062
+    },
+    "December_31_2025_12_17_44_imaging_world_frame_25.pcd": {
+      "hash": "b724e9d76bda3f97975c3b39077a944a",
+      "size": 22954222
+    },
+    "December_31_2025_12_17_51_imaging_world_frame_26.pcd": {
+      "hash": "a949c1f8d52c9b1d317ee00b719587bf",
+      "size": 22810894
+    },
+    "December_31_2025_12_17_59_imaging_world_frame_27.pcd": {
+      "hash": "e8146a4f5eaedb3e2ee200679e9a0d42",
+      "size": 22888110
+    },
+    "December_31_2025_12_18_07_imaging_world_frame_28.pcd": {
+      "hash": "00288596772fd71873f2c0c05bc29af5",
+      "size": 22995374
+    },
+    "December_31_2025_12_18_15_imaging_world_frame_29.pcd": {
+      "hash": "fc2ae16408b215250a19254daa262568",
+      "size": 22050046
+    },
+    "December_31_2025_12_18_23_imaging_world_frame_30.pcd": {
+      "hash": "e64f5ab08063a0efa1983f5106b22a37",
+      "size": 22953294
+    },
+    "December_31_2025_12_18_34_imaging_world_frame_31.pcd": {
+      "hash": "db2277930b50c88ef93df7748209b4c4",
+      "size": 23182014
+    },
+    "December_31_2025_12_18_42_imaging_world_frame_32.pcd": {
+      "hash": "5fd29cafa535bc965d13ebd56b23ced4",
+      "size": 23090702
+    },
+    "December_31_2025_12_18_49_imaging_world_frame_33.pcd": {
+      "hash": "6f858f63c201f7cfeffd51aed7f00c0c",
+      "size": 22963630
+    },
+    "December_31_2025_12_18_58_imaging_world_frame_34.pcd": {
+      "hash": "ea2ea425056d00a1189a22a42122670c",
+      "size": 22954670
+    },
+    "December_31_2025_12_19_06_imaging_world_frame_35.pcd": {
+      "hash": "dffb13c05d021b6bbae7f2c9e919ac38",
+      "size": 23070238
+    },
+    "December_31_2025_12_19_14_imaging_world_frame_36.pcd": {
+      "hash": "fc01bffa326ab3812b5c3557615cdc27",
+      "size": 22658606
+    },
+    "December_31_2025_12_19_22_imaging_world_frame_37.pcd": {
+      "hash": "2f2d63cb005375d000fdb07f5ffd51df",
+      "size": 22594814
+    },
     "bun0.pcd": {
       "hash": "2a8eeb771a594acc62d68b2032b62349",
       "size": 483200

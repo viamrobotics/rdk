@@ -2,12 +2,14 @@ package pointcloud
 
 import (
 	"context"
+	"fmt"
 	"image/color"
 	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -196,6 +198,84 @@ func BenchmarkMerge(b *testing.B) {
 		func(_ context.Context) (PointCloud, spatialmath.Pose, error) {
 			return inB, spatialmath.NewPoseFromPoint(r3.Vector{1, 1, 1}), nil
 		},
+	}
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		out := NewBasicPointCloud(0)
+		err := MergePointClouds(context.Background(), fs, out)
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+func BenchmarkMergeManyPointClouds(b *testing.B) {
+	// File names for the 38 PCD files
+	fileNames := []string{
+		"December_31_2025_12_14_28_imaging_world_frame_0.pcd",
+		"December_31_2025_12_14_35_imaging_world_frame_1.pcd",
+		"December_31_2025_12_14_43_imaging_world_frame_2.pcd",
+		"December_31_2025_12_14_51_imaging_world_frame_3.pcd",
+		"December_31_2025_12_14_59_imaging_world_frame_4.pcd",
+		"December_31_2025_12_15_06_imaging_world_frame_5.pcd",
+		"December_31_2025_12_15_14_imaging_world_frame_6.pcd",
+		"December_31_2025_12_15_22_imaging_world_frame_7.pcd",
+		"December_31_2025_12_15_30_imaging_world_frame_8.pcd",
+		"December_31_2025_12_15_39_imaging_world_frame_9.pcd",
+		"December_31_2025_12_15_47_imaging_world_frame_10.pcd",
+		"December_31_2025_12_15_55_imaging_world_frame_11.pcd",
+		"December_31_2025_12_16_02_imaging_world_frame_12.pcd",
+		"December_31_2025_12_16_10_imaging_world_frame_13.pcd",
+		"December_31_2025_12_16_19_imaging_world_frame_14.pcd",
+		"December_31_2025_12_16_27_imaging_world_frame_15.pcd",
+		"December_31_2025_12_16_34_imaging_world_frame_16.pcd",
+		"December_31_2025_12_16_42_imaging_world_frame_17.pcd",
+		"December_31_2025_12_16_49_imaging_world_frame_18.pcd",
+		"December_31_2025_12_16_58_imaging_world_frame_19.pcd",
+		"December_31_2025_12_17_05_imaging_world_frame_20.pcd",
+		"December_31_2025_12_17_13_imaging_world_frame_21.pcd",
+		"December_31_2025_12_17_21_imaging_world_frame_22.pcd",
+		"December_31_2025_12_17_28_imaging_world_frame_23.pcd",
+		"December_31_2025_12_17_36_imaging_world_frame_24.pcd",
+		"December_31_2025_12_17_44_imaging_world_frame_25.pcd",
+		"December_31_2025_12_17_51_imaging_world_frame_26.pcd",
+		"December_31_2025_12_17_59_imaging_world_frame_27.pcd",
+		"December_31_2025_12_18_07_imaging_world_frame_28.pcd",
+		"December_31_2025_12_18_15_imaging_world_frame_29.pcd",
+		"December_31_2025_12_18_23_imaging_world_frame_30.pcd",
+		"December_31_2025_12_18_34_imaging_world_frame_31.pcd",
+		"December_31_2025_12_18_42_imaging_world_frame_32.pcd",
+		"December_31_2025_12_18_49_imaging_world_frame_33.pcd",
+		"December_31_2025_12_18_58_imaging_world_frame_34.pcd",
+		"December_31_2025_12_19_06_imaging_world_frame_35.pcd",
+		"December_31_2025_12_19_14_imaging_world_frame_36.pcd",
+		"December_31_2025_12_19_22_imaging_world_frame_37.pcd",
+	}
+
+	// Load all point clouds
+	clouds := make([]PointCloud, 0, len(fileNames))
+	totalPoints := 0
+	for _, fileName := range fileNames {
+		cloud, err := NewFromFile(artifact.MustPath("pointcloud/"+fileName), BasicType)
+		test.That(b, err, test.ShouldBeNil)
+		clouds = append(clouds, cloud)
+		totalPoints += cloud.Size()
+		fmt.Printf("  Loaded %s: %d points\n", fileName, cloud.Size())
+	}
+	fmt.Printf("Total points to merge: %d\n\n", totalPoints)
+
+	camPoses := make([]spatialmath.Pose, len(clouds))
+	for i := range camPoses {
+		camPoses[i] = spatialmath.NewZeroPose()
+	}
+
+	// Create CloudAndOffsetFunc for each cloud with zero offset
+	fs := make([]CloudAndOffsetFunc, 0, len(clouds))
+	for i, cloud := range clouds {
+		cloudCopy := cloud
+		fs = append(fs, func(_ context.Context) (PointCloud, spatialmath.Pose, error) {
+			return cloudCopy, camPoses[i], nil
+		})
 	}
 
 	b.ResetTimer()
