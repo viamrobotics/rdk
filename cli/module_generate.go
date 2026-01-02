@@ -283,8 +283,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
 			huh.NewInput().
 				Title("Set a module name:").
-				Description("This can be the name of the piece of hardware, the challenge you are trying to solve, the name of the project, etc. "+
-					"The module name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This can be the name of the piece of hardware, the challenge you are trying to\n"+
+					"solve, the name of the project, etc. The module name can contain only alphanumeric\n"+
+					"characters, dashes, and underscores.").
 				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
