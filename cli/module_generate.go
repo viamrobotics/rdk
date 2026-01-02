@@ -118,7 +118,6 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		Namespace:        args.PublicNamespace,
 		ResourceSubtype:  args.ResourceSubtype,
 		ModelName:        args.ModelName,
-		EnableCloudBuild: args.EnableCloud,
 		RegisterOnApp:    args.Register,
 	}
 
