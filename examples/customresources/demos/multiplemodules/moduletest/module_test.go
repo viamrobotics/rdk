@@ -34,11 +34,7 @@ import (
 
 func TestMultipleModules(t *testing.T) {
 	logger, observer := logging.NewObservedTestLogger(t)
-	// testViamHome := t.TempDir()
-	testViamHome, _ := os.MkdirTemp("", "")
-	t.Cleanup(func() {
-		t.Logf("VIAM TEST HOME: %v", testViamHome)
-	})
+	testViamHome := t.TempDir()
 	var port int
 	success := false
 	for portTryNum := 0; portTryNum < 10; portTryNum++ {

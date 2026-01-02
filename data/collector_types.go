@@ -231,18 +231,18 @@ type Timestamps struct {
 // MimeType represents the mime type of the sensor data.
 type MimeType int
 
-// This follows the mime types supported in
+// This follows the MIME types supported in
 // https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
 const (
-	// MimeTypeUnspecified means that the mime type was not specified.
+	// MimeTypeUnspecified means that the MIME type was not specified.
 	MimeTypeUnspecified MimeType = iota
-	// MimeTypeImageJpeg means that the mime type is jpeg.
+	// MimeTypeImageJpeg is image/jpeg.
 	MimeTypeImageJpeg
-	// MimeTypeImagePng means that the mime type is png.
+	// MimeTypeImagePng is image/png.
 	MimeTypeImagePng
-	// MimeTypeApplicationPcd means that the mime type is pcd.
+	// MimeTypeApplicationPcd is pointcloud/pcd.
 	MimeTypeApplicationPcd
-	// MimeTypeVideoMP4 means that the mime type is mp4.
+	// MimeTypeVideoMP4 is video/mp4.
 	MimeTypeVideoMP4
 )
 
