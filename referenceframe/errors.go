@@ -59,6 +59,7 @@ func NewUnsupportedJointTypeError(jointType string) error {
 // NewDuplicateGeometryNameError returns an error indicating that multiple geometry names have attempted
 // to be registered where this is not allowed.
 func NewDuplicateGeometryNameError(name string) error {
+	panic("foo")
 	return errors.Errorf("cannot specify multiple geometries with the same name: %s", name)
 }
 

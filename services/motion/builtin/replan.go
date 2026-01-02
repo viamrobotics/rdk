@@ -126,11 +126,16 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 						return err
 					}
 
-					mergedWorldState := moveRequest.WorldState.Merge(geomsInFrame)
-					// Dan: `ValidatePlan` ignores `motionPlanRequest.WorldState`. Until I'm
-					// convinced that only a single `obstacleAvoidance` loop needs to exist/modify
-					// it.
-					validateErr := armplanning.ValidatePlan(ctx, plan, motionPlanRequest, mergedWorldState, ms.logger)
+					motionPlanRequest.WorldState = baseWorldState.Merge(geomsInFrame)
+					// Dan: Is it safe to overwrite the world state field on the motion plan
+					// request? My expectation is that this goroutine must exit before the parent
+					// goroutine will re-invoke `PlanMotion`. Can always make some shallow-ish copy,
+					// but would prefer to avoid as that would be brittle.
+					//
+					// If the `motionPlanRequest` used `PlannerOptions.MeshesAsOctrees`, make sure
+					// validation uses an octree representation. With the exception of new obstacles
+					// found in the `mergedWorldState`.
+					validateErr := armplanning.ValidatePlan(ctx, plan, motionPlanRequest, ms.logger)
 					if validateErr != nil {
 						ms.logger.Infow("Validate plan returned error. Canceling execution.", "err", validateErr)
 						return validateErr

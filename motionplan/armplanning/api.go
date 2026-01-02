@@ -4,6 +4,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -240,17 +241,54 @@ func ValidatePlan(
 	ctx context.Context,
 	priorPlan motionplan.Plan,
 	request *PlanRequest,
-	worldStateOverride *referenceframe.WorldState,
 	parentLogger logging.Logger,
 ) error {
 	logger := parentLogger.Sublogger("mp")
-	if len(worldStateOverride.Obstacles()) > 0 && validateErrorOnce.Load() == false {
-		logger.Info("Validate plan returning collision")
-		validateErrorOnce.Store(true)
-		return errors.New("will collide")
+
+	planMeta := &PlanMeta{}
+	// Assume request is valid?
+	sfPlanner, err := newPlanManager(ctx, logger, request, planMeta)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	if numGoals := len(request.Goals); numGoals > 1 {
+		panic(fmt.Sprintf("Only works with one goal? Num: %v", numGoals))
+	}
+
+	psc, err := newPlanSegmentContext(
+		ctx, sfPlanner.pc, request.StartState.LinearConfiguration(), request.Goals[0].Poses())
+	if err != nil {
+		panic(fmt.Sprintf("Programmer error? %v", err))
+	}
+
+	trajectory := priorPlan.Trajectory()
+	for idx, inputs := range trajectory {
+		// Prune inputs we've already executed. Somehow. We're not privy to when execution moved
+		// through a waypoint. Yet.
+		if idx+1 == len(trajectory) {
+			break
+		}
+
+		start, end := inputs.ToLinearInputs(), trajectory[idx+1].ToLinearInputs()
+		segmentToCheck := motionplan.SegmentFS{
+			StartConfiguration: start,
+			EndConfiguration:   end,
+			FS:                 request.FrameSystem,
+		}
+
+		// Dan: Unclear what exactly this does.
+		const checkFinal = true
+		_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, &segmentToCheck, 0, checkFinal)
+	}
+
+	// if len(worldStateOverride.Obstacles()) > 0 && validateErrorOnce.Load() == false {
+	//  	logger.Info("Validate plan returning collision")
+	//  	validateErrorOnce.Store(true)
+	//  	return errors.New("will collide")
+	// }
+
+	return err
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{
