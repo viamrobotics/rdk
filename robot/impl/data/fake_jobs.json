@@ -95,13 +95,13 @@
       "name" : "my_audioin_job",
       "schedule" : "5s",
       "resource" : "audioin1",
-      "method" : "Properties"
+      "method" : "GetProperties"
     },
     {
       "name" : "my_audioout_job",
       "schedule" : "5s",
       "resource" : "audioout1",
-      "method" : "Properties"
+      "method" : "GetProperties"
     }
   ]
 }

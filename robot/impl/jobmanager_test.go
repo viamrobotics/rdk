@@ -1432,9 +1432,9 @@ func TestJobManagerComponents(t *testing.T) {
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
 		test.That(tb, logs.FilterMessage("Job triggered").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 17)
+			test.ShouldBeGreaterThanOrEqualTo, 19)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 17)
+			test.ShouldBeGreaterThanOrEqualTo, 19)
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeLessThanOrEqualTo, 0)
 	})
