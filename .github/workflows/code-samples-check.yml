@@ -5,6 +5,8 @@ on:
     branches: [ main ]
     types: [ opened ]
     paths:
+      - "components/audioin/audioin.go"
+      - "components/audioout/audioout.go"
       - "components/base/base.go"
       - "components/board/board.go"
       - "components/camera/camera.go"
@@ -12,7 +14,6 @@ on:
       - "components/sensor/sensor.go"
       - "components/servo/servo.go"
       - "components/arm/arm.go"
-      - "components/audioinput/audio_input.go"
       - "components/gantry/gantry.go"
       - "components/gripper/gripper.go"
       - "components/input/input.go"
@@ -20,7 +21,6 @@ on:
       - "components/posetracker/pose_tracker.go"
       - "services/motion/motion.go"
       - "services/vision/vision.go"
-      
 jobs:
   comment:
     name: "Post Comment on PR"

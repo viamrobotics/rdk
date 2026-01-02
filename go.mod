@@ -31,9 +31,6 @@ require (
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/fullstorydev/grpcurl v1.8.6
-	github.com/go-audio/audio v1.0.0
-	github.com/go-audio/transforms v0.0.0-20180121090939-51830ccc35a5
-	github.com/go-audio/wav v1.1.0
 	github.com/go-co-op/gocron/v2 v2.18.0
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/go-gl/mathgl v1.0.0
@@ -118,7 +115,6 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.12.2
 	periph.io/x/conn/v3 v3.7.0
@@ -205,7 +201,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gen2brain/malgo v0.11.24 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
-	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
