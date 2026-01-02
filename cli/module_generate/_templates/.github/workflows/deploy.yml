@@ -2,7 +2,10 @@
 on:
   push:
     tags:
-      - "[0-9]+.[0-9]+.[0-9]+" # the build-action will trigger on tags with the format 1.0.0
+      # we support 0.0.1, v0.0.1, 0.0.1-rc1, v0.0.1-rc1
+      - "v?[0-9]+.[0-9]+.[0-9]+"
+      - "v?[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
+
 
 jobs:
   publish:
