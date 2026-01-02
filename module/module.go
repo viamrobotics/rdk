@@ -194,7 +194,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		if err != nil {
 			return nil, err
 		}
-		//nolint: errcheck, gosec
+		//nolint:errcheck
 		trace.SetProvider(
 			ctx,
 			sdktrace.WithResource(

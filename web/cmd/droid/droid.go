@@ -28,7 +28,7 @@ func MainEntry(configPath, writeablePath, osEnv string) {
 	os.Args = append(os.Args, "-config", configPath)
 	for _, envEntry := range strings.Split(osEnv, "\n") {
 		entryParts := strings.SplitN(envEntry, "=", 2)
-		os.Setenv(entryParts[0], entryParts[1]) //nolint:errcheck,gosec
+		os.Setenv(entryParts[0], entryParts[1]) //nolint:errcheck
 	}
 	utils.ContextualMain(server.RunServer, logger)
 }

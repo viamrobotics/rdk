@@ -83,7 +83,6 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			strs[idx] = part.FrameConfig.Name()
 		}
 
-		//nolint
 		return nil, fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
 			strs)
 	}

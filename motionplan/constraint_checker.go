@@ -287,8 +287,10 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 	return closest, nil
 }
 
-// InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
-// configuration of a segment at a given resolution value.
+// InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between
+// the start and end configuration of a segment at a given resolution value. The resolution is
+// actually a step size. The higher the resolution the less interpolation frames this checks
+// against.
 func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
 	maxSteps := defaultMinStepCount
@@ -349,10 +351,11 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	return interpolatedConfigurations, nil
 }
 
-// CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration to the EndConfiguration, and ensure
-// that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
-// return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
-// if any. If no part of the segment is valid, then `false, nil` is returned.
+// CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration
+// to the EndConfiguration, and ensure that all intermediate states as well as both endpoints
+// satisfy all state constraints. If all constraints are satisfied, then this will return `nil,
+// nil`. If any constraints fail, this will return a SegmentFS representing the valid portion of the
+// segment, if any, and an error. If no part of the segment is valid, then `nil, error` is returned.
 func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	ctx context.Context,
 	ci *SegmentFS,

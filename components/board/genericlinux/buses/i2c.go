@@ -16,7 +16,6 @@ import (
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		//nolint:gosec
 		fmtnolint.Println("Error initializing host:", err)
 	}
 }
