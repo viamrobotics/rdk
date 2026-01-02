@@ -1,6 +1,6 @@
 module go.viam.com/rdk
 
-go 1.25
+go 1.25.1
 
 // This must be a replace because a bunch of our deps also use it + `go mod tidy` fails from the conflict
 // if you switch it out in the require block.
