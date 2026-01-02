@@ -215,7 +215,22 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 }
 
 func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	return nil, ImageMetadata{}, errors.New("method GetImage is deprecated; please utilize GetImages instead")
+	if sourceCam, ok := vs.actualSource.(Camera); ok {
+		return sourceCam.Image(ctx, mimeType, extra)
+	}
+	img, release, err := ReadImage(ctx, vs.videoSource)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	defer release()
+	if mimeType == "" {
+		mimeType = utils.MimeTypePNG // default to lossless mimetype such as PNG
+	}
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
 }
 
 // Images is for getting simultaneous images from different sensors
