@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -59,6 +60,7 @@ import (
 
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	osWindows     = "windows"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
 	defaultNumLogs = 100
@@ -1719,43 +1721,69 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-
-	doCopy := func() error {
+	var pm *ProgressManager
+	doCopy := func() (int, error) {
+		var copyFunc func() error
 		if isFrom {
-			return c.copyFilesFromMachine(
-				flagArgs.Organization,
-				flagArgs.Location,
-				flagArgs.Machine,
-				flagArgs.Part,
-				globalArgs.Debug,
-				flagArgs.Recursive,
-				flagArgs.Preserve,
-				paths,
-				destination,
-				logger,
-			)
+			copyFunc = func() error {
+				return c.copyFilesFromMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+				)
+			}
+		} else {
+			copyFunc = func() error {
+				return c.copyFilesToMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+					flagArgs.NoProgress,
+				)
+			}
 		}
-
-		return c.copyFilesToMachine(
-			flagArgs.Organization,
-			flagArgs.Location,
-			flagArgs.Machine,
-			flagArgs.Part,
-			globalArgs.Debug,
-			flagArgs.Recursive,
-			flagArgs.Preserve,
-			paths,
-			destination,
-			logger,
-			flagArgs.NoProgress,
+		if !flagArgs.NoProgress {
+			pm = NewProgressManager([]*Step{
+				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+			})
+			if err := pm.Start("copy"); err != nil {
+				return 0, err
+			}
+			defer pm.Stop()
+		}
+		attemptCount, err := c.retryableCopy(
+			ctx,
+			pm,
+			copyFunc,
+			isFrom,
 		)
+		return attemptCount, err
 	}
-	if err := doCopy(); err != nil {
+	attemptCount, err := doCopy()
+	if err != nil {
+		defer pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
+		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+	}
+	if err := pm.Complete("copy"); err != nil {
 		return err
 	}
 	return nil
@@ -1932,7 +1960,7 @@ type getLatestReleaseResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
-func getLatestReleaseVersion() (string, error) {
+func getLatestRelease() (getLatestReleaseResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1940,22 +1968,52 @@ func getLatestReleaseVersion() (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
+	return resp, nil
+}
+
+// getLatestReleaseVersionFunc can be overridden in tests to mock GitHub API calls
+var getLatestReleaseVersionFunc = func() (string, error) {
+	resp, err := getLatestRelease()
+	if err != nil {
+		return "", err
+	}
 	return resp.TagName, err
+}
+
+func localVersion() (*semver.Version, error) {
+	appVersion := rconfig.Version
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		return nil, errors.New("failed to parse local build version")
+	}
+	return localVersion, nil
+}
+
+func latestVersion() (*semver.Version, error) {
+	latestRelease, err := getLatestReleaseVersionFunc()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest release information: %w", err)
+	}
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		return nil, errors.New("failed to parse latest release version")
+	}
+	return latestVersion, nil
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
@@ -1992,31 +2050,23 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	appVersion := rconfig.Version
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-
+	latestVersion, err := latestVersion()
 	// failure to parse `latestRelease` is expected for local builds; we don't want overly
 	// noisy warnings here so only alert in these cases if debug flag is on
 	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
-	localVersion, err := semver.NewVersion(appVersion)
+	localVersion, err := localVersion()
 	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
-
 	// we know both the local version and the latest version so we can make a determination
 	// from that alone on whether or not to alert users to update
 	if localVersion != nil && latestVersion != nil {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
 		}
 		return nil
 	}
@@ -2041,9 +2091,164 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+	}
+	return nil
+}
+
+// UpdateCLIAction updates the CLI to the latest version.
+func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
+	// 1. check CLI to see if update needed, if this fails then try update anyways
+	latestVersion, latestVersionErr := latestVersion()
+	if latestVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+	}
+	localVersion, localVersionErr := localVersion()
+	if localVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+	}
+	if localVersion != nil && latestVersion != nil {
+		if localVersion.GreaterThanEqual(latestVersion) {
+			infof(c.App.Writer, "Your CLI is already up to date (version %s)", localVersion.Original())
+			return nil
+		}
+	}
+	// 2. check if cli managed by brew, if so attempt update. If it fails
+	// dont continue with binary replacement to avoid putting brew out of sync
+	managedByBrew, err := checkAndTryBrewUpdate()
+	if err != nil {
+		return errors.Errorf("CLI update failed: %v", err)
+	}
+	// try the binary replacement process because not managed by brew
+	if !managedByBrew {
+		// 3. get the local version binary path (use full path if no symlinks)
+		execPath, err := os.Executable()
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+		}
+		localBinaryPath, err := filepath.EvalSymlinks(execPath)
+		if err != nil {
+			localBinaryPath = execPath
+		}
+		directoryPath := filepath.Dir(localBinaryPath)
+
+		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+		binaryURL := binaryURL()
+		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
+		defer os.Remove(latestBinaryPath) //nolint:errcheck
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
+		}
+
+		// 5. replace the old binary with the new one
+		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+		}
+	}
+	infof(c.App.Writer, "Your CLI has been successfully updated")
+	return nil
+}
+
+func checkAndTryBrewUpdate() (bool, error) {
+	if runtime.GOOS == "darwin" {
+		if _, err := exec.LookPath("brew"); err == nil {
+			// Check if viam is actually managed by brew
+			err := exec.Command("brew", "list", "viam").Run()
+			if err == nil {
+				// viam is managed by brew - try upgrade
+				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
+				if err == nil {
+					if strings.Contains(string(out), "already installed") {
+						// edge case: latest version released but brew has not updated yet
+						return false, errors.New("the latest version is not on brew yet")
+					}
+					return true, nil
+				}
+				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+			}
+		}
+	}
+	return false, nil
+}
+
+func binaryURL() string {
+	// Determine binary URL based on OS and architecture
+	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
+		runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == osWindows {
+		binaryURL += ".exe" //nolint:goconst
+	}
+	return binaryURL
+}
+
+func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
+	// Download the binary
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		utils.UncheckedError(resp.Body.Close())
+		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
 	}
 
+	// create a temp file that we write the downloaded binary into
+	goos := runtime.GOOS
+	tempFileName := "viam-cli-update"
+	if goos == osWindows {
+		tempFileName += ".exe"
+	}
+	tempFileName += ".new"
+
+	// Create the temp file in the same directory as the binary
+	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
+	latestBinaryFile, err := os.Create(latestBinaryPath) //nolint:gosec
+	if err != nil {
+		utils.UncheckedError(resp.Body.Close())
+		if os.IsPermission(err) {
+			if goos == osWindows {
+				return "", errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return "", errors.New("permission denied: run 'sudo viam update'")
+		}
+		return "", errors.Errorf("failed to create temp file: %v", err)
+	}
+
+	// Write downloaded content to temp file
+	_, err = io.Copy(latestBinaryFile, resp.Body)
+	utils.UncheckedError(resp.Body.Close())
+	utils.UncheckedError(latestBinaryFile.Close())
+	if err != nil {
+		return "", errors.Errorf("failed to write downloaded binary: %v", err)
+	}
+
+	// Make executable on Unix-like systems, if permissions are improperly set then no
+	// change will be made and user has to run sudo
+	if goos != osWindows {
+		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
+			if os.IsPermission(err) {
+				return "", errors.New("permission denied: run 'sudo viam update'")
+			}
+			return "", errors.Errorf("failed to make binary executable: %v", err)
+		}
+	}
+	return latestBinaryPath, nil
+}
+
+func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+		if os.IsPermission(err) {
+			if runtime.GOOS == osWindows {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.New("permission denied: run 'sudo viam update'")
+		}
+		return errors.Errorf("failed to replace binary: %v", err)
+	}
 	return nil
 }
 
@@ -2912,6 +3117,104 @@ func (c *viamClient) startRobotPartShell(
 
 	outputLoop()
 	return nil
+}
+
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopy attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+// returns number of attempts made in case it terminates early due to nonretryable error
+func (c *viamClient) retryableCopy(
+	ctx *cli.Context,
+	pm *ProgressManager,
+	copyFunc func() error,
+	isFrom bool,
+) (int, error) {
+	var hadPreviousFailure bool
+	var copyErr error
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "copy" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		copyErr = copyFunc()
+
+		if copyErr == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return attempt, err
+				}
+			}
+			return attempt, nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(copyErr); ok {
+			if s.Code() == codes.PermissionDenied {
+				if isFrom {
+					warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
+						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
+						"temporarily changing file permissions with 'chmod'.")
+				} else {
+					warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.InvalidArgument {
+				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			}
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "Attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+	}
+
+	// All attempts failed - return the error from the copy function
+	return maxCopyAttempts, copyErr
 }
 
 func (c *viamClient) copyFilesToMachine(
