@@ -115,7 +115,7 @@ func TestEntrypoint(t *testing.T) {
 		numReg := 55
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
-			numReg = 45
+			numReg = 47
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
