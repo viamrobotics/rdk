@@ -176,7 +176,37 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	return nil, ImageMetadata{}, errors.New("method GetImage is deprecated; please utilize GetImages instead")
+	c.logger.CWarn(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead")
+	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
+	defer span.End()
+	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
+		Name:     c.name,
+		MimeType: expectedType,
+		Extra:    convertedExtra,
+	})
+	if err != nil {
+		return nil, ImageMetadata{}, err
+	}
+	if len(resp.Image) == 0 {
+		return nil, ImageMetadata{}, errors.New("received empty bytes from client GetImage")
+	}
+
+	if expectedType != "" && resp.MimeType != expectedType {
+		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
+		if resp.MimeType == "" {
+			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
+			// response's mime_type was what the user requested
+			resp.MimeType = mimeType
+		}
+	}
+
+	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
 }
 
 func (c *client) Images(

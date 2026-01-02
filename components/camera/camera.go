@@ -208,11 +208,7 @@ type Camera interface {
 	resource.Resource
 	resource.Shaped
 
-	// Deprecated: Image is deprecated. Please use Images instead. For resource implementers, you can use
-	// Image is deleted from the Go SDK/RDK.
-	//
-	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
-	// Image also may return metadata about the frame.
+	// Deprecated: Please utilize Images instead.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
@@ -244,6 +240,73 @@ func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
+}
+
+// GetImageFromGetImages is a utility function to implement Image from an already-implemented Images method.
+// It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
+//
+// If sourceName is nil, it returns the first image in the response slice.
+// If sourceName is not nil, it returns the image with the matching source name.
+// If no image is found with the matching source name, it returns an error.
+//
+// It uses the mimeType from the NamedImage to encode the bytes.
+// The extra parameter is passed through to the underlying Images method.
+// Deprecated: This helper will be removed when Image method is fully deprecated.
+func GetImageFromGetImages(
+	ctx context.Context,
+	sourceName *string,
+	cam Camera,
+	extra map[string]interface{},
+	filterSourceNames []string,
+) ([]byte, ImageMetadata, error) {
+	sourceNames := []string{}
+	if sourceName != nil {
+		sourceNames = append(sourceNames, *sourceName)
+	}
+	namedImages, _, err := cam.Images(ctx, sourceNames, extra)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
+	}
+	if len(namedImages) == 0 {
+		return nil, ImageMetadata{}, errors.New("no images returned from camera")
+	}
+
+	var img image.Image
+	var mimeType string
+	var annotations data.Annotations
+	if sourceName == nil {
+		img, err = namedImages[0].Image(ctx)
+		if err != nil {
+			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
+		}
+		mimeType = namedImages[0].MimeType()
+		annotations = namedImages[0].Annotations
+	} else {
+		for _, i := range namedImages {
+			if i.SourceName == *sourceName {
+				img, err = i.Image(ctx)
+				if err != nil {
+					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
+				}
+				mimeType = i.MimeType()
+				annotations = i.Annotations
+				break
+			}
+		}
+		if img == nil {
+			return nil, ImageMetadata{}, errors.New("no image found with source name: " + *sourceName)
+		}
+	}
+
+	if img == nil {
+		return nil, ImageMetadata{}, errors.New("image is nil")
+	}
+
+	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	if err != nil {
+		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
+	}
+	return imgBytes, ImageMetadata{MimeType: mimeType, Annotations: annotations}, nil
 }
 
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.
