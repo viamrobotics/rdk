@@ -17,12 +17,14 @@ import (
 )
 
 // StreamableImageMIMETypes is the set of all mime types the stream server supports.
-var StreamableImageMIMETypes = map[string]interface{}{
-	rutils.MimeTypeRawRGBA:  nil,
-	rutils.MimeTypeRawDepth: nil,
-	rutils.MimeTypeJPEG:     nil,
-	rutils.MimeTypePNG:      nil,
-	rutils.MimeTypeQOI:      nil,
+// StreamableImageMIMETypes represents all mime types the stream server supports.
+// The order of the slice defines the priority of the mime types.
+var StreamableImageMIMETypes = []string{
+	rutils.MimeTypeJPEG,
+	rutils.MimeTypePNG,
+	rutils.MimeTypeRawRGBA,
+	rutils.MimeTypeRawDepth,
+	rutils.MimeTypeQOI,
 }
 
 // cropToEvenDimensions crops an image to even dimensions for x264 compatibility.
@@ -71,6 +73,7 @@ func FormatStringToMimeType(format string) string {
 }
 
 // GetStreamableNamedImageFromCamera returns the first named image it finds from the camera that is supported for streaming.
+// It prioritizes images based on the order of StreamableImageMIMETypes.
 func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
 	namedImages, _, err := cam.Images(ctx, nil, nil)
 	if err != nil {
@@ -80,22 +83,24 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 		return camera.NamedImage{}, fmt.Errorf("no images received for camera %q", cam.Name())
 	}
 
-	for _, namedImage := range namedImages {
-		if _, ok := StreamableImageMIMETypes[namedImage.MimeType()]; ok {
-			return namedImage, nil
-		}
+	for _, streamableMimeType := range StreamableImageMIMETypes {
+		for _, namedImage := range namedImages {
+			if namedImage.MimeType() == streamableMimeType {
+				return namedImage, nil
+			}
 
-		imgBytes, err := namedImage.Bytes(ctx)
-		if err != nil {
-			continue
-		}
+			imgBytes, err := namedImage.Bytes(ctx)
+			if err != nil {
+				continue
+			}
 
-		_, format, err := image.DecodeConfig(bytes.NewReader(imgBytes))
-		if err != nil {
-			continue
-		}
-		if _, ok := StreamableImageMIMETypes[FormatStringToMimeType(format)]; ok {
-			return namedImage, nil
+			_, format, err := image.DecodeConfig(bytes.NewReader(imgBytes))
+			if err != nil {
+				continue
+			}
+			if FormatStringToMimeType(format) == streamableMimeType {
+				return namedImage, nil
+			}
 		}
 	}
 	return camera.NamedImage{}, fmt.Errorf("no images were found with a streamable mime type for camera %q", cam.Name())

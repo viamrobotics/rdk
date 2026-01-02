@@ -80,7 +80,13 @@ func TestFormatStringToMimeType(t *testing.T) {
 			resultMimeType := camerautils.FormatStringToMimeType(format)
 			test.That(t, resultMimeType, test.ShouldEqual, tc.mimeType)
 
-			_, ok := camerautils.StreamableImageMIMETypes[resultMimeType]
+			var ok bool
+			for _, m := range camerautils.StreamableImageMIMETypes {
+				if m == resultMimeType {
+					ok = true
+					break
+				}
+			}
 			test.That(t, ok, test.ShouldBeTrue)
 		})
 	}
@@ -169,15 +175,9 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 	t.Run("all streamable mime types are accepted", func(t *testing.T) {
 		sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
 
-		streamableMIMETypes := map[string]interface{}{
-			utils.MimeTypeRawRGBA:  nil,
-			utils.MimeTypeRawDepth: nil,
-			utils.MimeTypeJPEG:     nil,
-			utils.MimeTypePNG:      nil,
-			utils.MimeTypeQOI:      nil,
-		}
+		streamableMIMETypes := camerautils.StreamableImageMIMETypes
 
-		for mimeType := range streamableMIMETypes {
+		for _, mimeType := range streamableMIMETypes {
 			t.Run(mimeType, func(t *testing.T) {
 				streamableImg, err := camera.NamedImageFromImage(sourceImg, "streamable", mimeType, data.Annotations{})
 				test.That(t, err, test.ShouldBeNil)
@@ -227,6 +227,45 @@ func TestGetStreamableNamedImageFromCamera(t *testing.T) {
 		resBytes, err := img.Bytes(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resBytes, test.ShouldResemble, goodImgBytes)
+	})
+
+	t.Run("prioritizes images based on StreamableImageMIMETypes order", func(t *testing.T) {
+		sourceImg := image.NewRGBA(image.Rect(0, 0, 1, 1))
+		// PNG is higher priority than Depth in our slice
+		depthImg, err := camera.NamedImageFromImage(sourceImg, "depth", utils.MimeTypeRawDepth, data.Annotations{})
+		test.That(t, err, test.ShouldBeNil)
+		pngImg, err := camera.NamedImageFromImage(sourceImg, "png", utils.MimeTypePNG, data.Annotations{})
+		test.That(t, err, test.ShouldBeNil)
+
+		cam := &inject.Camera{
+			ImagesFunc: func(
+				ctx context.Context,
+				sourceNames []string,
+				extra map[string]interface{},
+			) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+				// Return depth first, but PNG should be selected as it's higher priority
+				return []camera.NamedImage{depthImg, pngImg}, resource.ResponseMetadata{}, nil
+			},
+		}
+		img, err := camerautils.GetStreamableNamedImageFromCamera(context.Background(), cam)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, img.SourceName, test.ShouldEqual, "png")
+		test.That(t, img.MimeType(), test.ShouldEqual, utils.MimeTypePNG)
+
+		camReverse := &inject.Camera{
+			ImagesFunc: func(
+				ctx context.Context,
+				sourceNames []string,
+				extra map[string]interface{},
+			) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+				// Return PNG first, still should be PNG
+				return []camera.NamedImage{pngImg, depthImg}, resource.ResponseMetadata{}, nil
+			},
+		}
+		img, err = camerautils.GetStreamableNamedImageFromCamera(context.Background(), camReverse)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, img.SourceName, test.ShouldEqual, "png")
+		test.That(t, img.MimeType(), test.ShouldEqual, utils.MimeTypePNG)
 	})
 }
 
@@ -487,9 +526,10 @@ func TestVideoSourceFromCamera_MultipleStreamableSources(t *testing.T) {
 	stream, err := vs.Stream(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
+	// JPEG is higher priority than PNG in StreamableImageMIMETypes
 	img, _, err := stream.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	diffVal, _, err := rimage.CompareImages(img, imageGood1)
+	diffVal, _, err := rimage.CompareImages(img, imageGood2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, diffVal, test.ShouldEqual, 0)
 }
