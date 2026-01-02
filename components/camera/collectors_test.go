@@ -107,7 +107,8 @@ func TestCollectors(t *testing.T) {
 			collector: camera.NewReadImageCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+					MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+					Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}}},
 				},
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			}},
@@ -190,13 +191,6 @@ func newCamera(
 	pcd pointcloud.PointCloud,
 ) camera.Camera {
 	v := &inject.Camera{}
-	v.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-		viamLogoJpegBytes, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
-		if err != nil {
-			return nil, camera.ImageMetadata{}, err
-		}
-		return viamLogoJpegBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-	}
 
 	v.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcd, nil

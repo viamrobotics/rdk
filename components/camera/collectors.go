@@ -111,7 +111,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
+		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
@@ -122,15 +122,42 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
-		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
+		if len(resImgs) == 0 {
+			err = errors.New("no images returned from camera")
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		// Select the corresponding image based on requested mime type if provided
+		var img NamedImage
+		var foundMatchingMimeType bool
+		if mimeStr != "" {
+			for _, candidateImg := range resImgs {
+				if candidateImg.MimeType() == mimeStr {
+					img = candidateImg
+					foundMatchingMimeType = true
+					break
+				}
+			}
+		}
+
+		if !foundMatchingMimeType {
+			img = resImgs[0]
+		}
+
+		imgBytes, err := img.Bytes(ctx)
+		if err != nil {
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		mimeType := data.MimeTypeStringToMimeType(img.MimeType())
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
-			TimeReceived:  time.Now(),
+			TimeReceived:  resMetadata.CapturedAt,
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			MimeType:    mimeType,
-			Payload:     img,
-			Annotations: metadata.Annotations,
+			Annotations: img.Annotations,
+			Payload:     imgBytes,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)

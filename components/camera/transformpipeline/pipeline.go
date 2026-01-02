@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	camerautils "go.viam.com/rdk/robot/web/stream/camera"
@@ -138,13 +137,11 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// check if the source produces a depth image or color image
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, source)
+	img, err := camera.DecodeImageFromCamera(ctx, source, nil, nil)
 
 	var streamType camera.ImageType
 	if err != nil {
 		streamType = camera.UnspecifiedStream
-	} else if _, ok := img.(*rimage.DepthMap); ok {
-		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {
 		streamType = camera.DepthStream
 	} else {
@@ -189,7 +186,7 @@ type transformPipeline struct {
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, tp.src)
+	img, err := camera.DecodeImageFromCamera(ctx, tp.src, nil, nil)
 	if err != nil {
 		return nil, func() {}, err
 	}

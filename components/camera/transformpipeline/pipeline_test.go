@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -37,7 +38,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	vs, err := videoSourceFromCamera(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -83,7 +84,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -202,4 +203,27 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	deps, _, err := transformConf.Validate(path)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
+}
+
+func TestVideoSourceFromCameraError(t *testing.T) {
+	malformedCam := &inject.Camera{
+		ImagesFunc: func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			namedImg, _ := camera.NamedImageFromBytes([]byte("not a valid image"), "", utils.MimeTypePNG, data.Annotations{})
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{}, nil
+		},
+	}
+
+	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vs, test.ShouldNotBeNil)
+
+	stream, err := vs.Stream(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	defer stream.Close(context.Background())
+	_, _, err = stream.Next(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
 }

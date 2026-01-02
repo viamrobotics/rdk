@@ -42,7 +42,9 @@ func TestPCD(t *testing.T) {
 	readInImage, err := rimage.ReadImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
+	namedImages, _, err := cam.Images(ctx, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	imgBytes, err := namedImages[0].Bytes(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	expectedBytes, err := rimage.EncodeImage(ctx, readInImage, utils.MimeTypeJPEG)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +68,9 @@ func TestColor(t *testing.T) {
 	readInImage, err := rimage.ReadImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 
-	imgBytes, _, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
+	namedImages, _, err := cam.Images(ctx, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	imgBytes, err := namedImages[0].Bytes(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	expectedBytes, err := rimage.EncodeImage(ctx, readInImage, utils.MimeTypeJPEG)
 	test.That(t, err, test.ShouldBeNil)
@@ -87,7 +91,13 @@ func TestPreloadedImages(t *testing.T) {
 			cam, err := newCamera(ctx, resource.Name{API: camera.API}, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 
-			img, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
+			namedImages, metadata, err := cam.Images(ctx, nil, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(namedImages), test.ShouldEqual, 1)
+			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
+			test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
+
+			img, err := namedImages[0].Image(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, img, test.ShouldNotBeNil)
 
@@ -95,15 +105,9 @@ func TestPreloadedImages(t *testing.T) {
 			test.That(t, bounds.Dx() > 0, test.ShouldBeTrue)
 			test.That(t, bounds.Dy() > 0, test.ShouldBeTrue)
 
-			namedImages, metadata, err := cam.Images(ctx, nil, nil)
+			jpegBytes, err := namedImages[0].Bytes(ctx)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, len(namedImages), test.ShouldEqual, 1)
-			test.That(t, namedImages[0].SourceName, test.ShouldEqual, "preloaded")
-			test.That(t, metadata.CapturedAt.IsZero(), test.ShouldBeFalse)
-
-			jpegBytes, mime, err := cam.Image(ctx, utils.MimeTypeJPEG, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, mime.MimeType, test.ShouldEqual, utils.MimeTypeJPEG)
+			test.That(t, namedImages[0].MimeType(), test.ShouldEqual, utils.MimeTypeJPEG)
 			test.That(t, len(jpegBytes) > 0, test.ShouldBeTrue)
 
 			err = cam.Close(ctx)
@@ -150,7 +154,9 @@ func TestPreloadedImages(t *testing.T) {
 	test.That(t, err, test.ShouldBeError)
 	test.That(t, err.Error(), test.ShouldEqual, "invalid source name: not a source")
 
-	cameraImg, err := camera.DecodeImageFromCamera(ctx, utils.MimeTypeRawRGBA, nil, cam)
+	namedImages, _, err = cam.Images(ctx, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	cameraImg, err := namedImages[0].Image(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	preloadedImg, err := getPreloadedImage("pizza")
 	test.That(t, err, test.ShouldBeNil)
