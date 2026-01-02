@@ -147,12 +147,12 @@ func (s *serviceServer) GetImages(
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-// Deprecated: Use GetImage or GetImages instead.
+// Deprecated: Use GetImages instead.
 func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
-	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImage or GetImages instead")
+	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {
