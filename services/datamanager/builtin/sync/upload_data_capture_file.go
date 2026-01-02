@@ -398,6 +398,8 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 		return data.ExtPng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return data.ExtPcd
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return data.ExtMP4
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:

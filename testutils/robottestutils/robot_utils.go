@@ -101,7 +101,6 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 type ServerProcessCfg struct {
 	processConfig pexec.ProcessConfig
 	viamHome      string
-	tracing       bool
 }
 
 // ServerProcessOption can be used to modify the behavior of ServerAsSeparateProcess.
@@ -123,14 +122,6 @@ func WithViamHome(path string) ServerProcessOption {
 	}
 }
 
-// WithTracing adds the -tracing flag to the viam-server process. This will be
-// removed when tracing configuration is moved to the robot config.
-func WithTracing() ServerProcessOption {
-	return func(pc *ServerProcessCfg) {
-		pc.tracing = true
-	}
-}
-
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
 // the built binary.
 func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger, opts ...ServerProcessOption) pexec.ManagedProcess {
@@ -148,16 +139,16 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 		testTempHome = t.TempDir()
 	}
 	args := []string{"-config", cfgFileName}
-	if cfg.tracing {
-		args = append(args, "-tracing")
-	}
 
 	cfg.processConfig = pexec.ProcessConfig{
-		Name:        serverPath,
-		Args:        args,
-		CWD:         utils.ResolveFile("./"),
-		Environment: map[string]string{"HOME": testTempHome},
-		Log:         true,
+		Name: serverPath,
+		Args: args,
+		CWD:  utils.ResolveFile("./"),
+		Environment: map[string]string{
+			"HOME":        testTempHome, // *NIX
+			"USERPROFILE": testTempHome, // Windows
+		},
+		Log: true,
 	}
 	for _, opt := range opts {
 		opt(&cfg)

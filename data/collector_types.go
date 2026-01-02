@@ -231,17 +231,19 @@ type Timestamps struct {
 // MimeType represents the mime type of the sensor data.
 type MimeType int
 
-// This follows the mime types supported in
+// This follows the MIME types supported in
 // https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
 const (
-	// MimeTypeUnspecified means that the mime type was not specified.
+	// MimeTypeUnspecified means that the MIME type was not specified.
 	MimeTypeUnspecified MimeType = iota
-	// MimeTypeImageJpeg means that the mime type is jpeg.
+	// MimeTypeImageJpeg is image/jpeg.
 	MimeTypeImageJpeg
-	// MimeTypeImagePng means that the mime type is png.
+	// MimeTypeImagePng is image/png.
 	MimeTypeImagePng
-	// MimeTypeApplicationPcd means that the mime type is pcd.
+	// MimeTypeApplicationPcd is pointcloud/pcd.
 	MimeTypeApplicationPcd
+	// MimeTypeVideoMP4 is video/mp4.
+	MimeTypeVideoMP4
 )
 
 // ToProto converts MimeType to datasyncPB.
@@ -255,6 +257,8 @@ func (mt MimeType) ToProto() datasyncPB.MimeType {
 		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
 	case MimeTypeApplicationPcd:
 		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
+	case MimeTypeVideoMP4:
+		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
 	default:
 		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
 	}
@@ -271,6 +275,9 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 		return MimeTypeImagePng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return MimeTypeApplicationPcd
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return MimeTypeVideoMP4
+
 	default:
 		return MimeTypeUnspecified
 	}
@@ -462,6 +469,8 @@ const (
 	ExtMP3 = ".mp3"
 	// ExtWav is the file extension for wav files.
 	ExtWav = ".wav"
+	// ExtMP4 is the file extension for mp4 files.
+	ExtMP4 = ".mp4"
 )
 
 // getFileExt gets the file extension for a capture file.

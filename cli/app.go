@@ -84,7 +84,7 @@ const (
 	moduleFlagLocal           = "local"
 	moduleFlagHomeDir         = "home"
 	moduleCreateLocalOnly     = "local-only"
-	moduleFlagIsPublic        = "public"
+	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
 	moduleFlagRegister        = "register"
@@ -467,6 +467,49 @@ var app = &cli.App{
 		},
 	},
 	Commands: []*cli.Command{
+		{
+			Name:      "defaults",
+			Usage:     "Set or clear default argument values",
+			UsageText: createUsageText("defaults", nil, false, false),
+			Subcommands: []*cli.Command{
+				{
+					Name:  "set-org",
+					Usage: "Set default organization argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetOrgAction),
+				},
+				{
+					Name:   "clear-org",
+					Usage:  "Clear default organization argument",
+					Action: createCommandWithT(defaultsClearOrgAction),
+				},
+				{
+					Name:  "set-location",
+					Usage: "Set default location argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetLocationAction),
+				},
+				{
+					Name:   "clear-location",
+					Usage:  "Clear default location argument",
+					Action: createCommandWithT(defaultsClearLocationAction),
+				},
+			},
+		},
 		{
 			Name:      "traces",
 			Usage:     "Work with viam-server traces",
@@ -999,9 +1042,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations api-key create", []string{generalFlagOrgID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to create an api key for",
+									Name:        generalFlagOrgID,
+									Usage:       "the org to create an api key for",
+									DefaultText: "the default org set with `viam defaults set-org`",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagName,
@@ -1032,7 +1075,7 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the org set by `viam defaults set-org` if it exists, else the first one alphabetically",
 							},
 						},
 					},
@@ -1049,9 +1092,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("locations api-key create", []string{generalFlagLocationID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagLocationID,
-									Required: true,
-									Usage:    "id of the location to create an api-key for",
+									Name:        generalFlagLocationID,
+									Usage:       "id of the location to create an api-key for",
+									DefaultText: "the default location set with `viam defaults set-location`",
 								},
 								&cli.StringFlag{
 									Name:  generalFlagName,
@@ -2129,8 +2172,9 @@ Note: There is no progress meter while copying is in progress.
 											DefaultText: "current timestamp",
 										},
 										&cli.StringFlag{
-											Name:  mlTrainingFlagFramework,
-											Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Name:     mlTrainingFlagFramework,
+											Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+											Required: true,
 										},
 										&cli.StringFlag{
 											Name:  trainFlagModelType,
@@ -2315,14 +2359,14 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the default org argument if set, else the first organization alphabetically",
 							},
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:        generalFlagLocation,
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-								DefaultText: "first location alphabetically",
+								DefaultText: "the default location argument if set, else the first location alphabetically",
 							},
 						},
 						&cli.BoolFlag{
@@ -2921,9 +2965,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Name:  moduleFlagLanguage,
 							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
 						},
-						&cli.BoolFlag{
-							Name:  moduleFlagIsPublic,
-							Usage: "set module to public",
+						&cli.StringFlag{
+							Name:  moduleFlagVisibility,
+							Usage: formatAcceptedValues("module visibility", visibilityOption...),
 						},
 						&cli.StringFlag{
 							Name: moduleFlagPublicNamespace,
@@ -3550,8 +3594,9 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "version of the ML training script to upload",
 						},
 						&cli.StringFlag{
-							Name:  mlTrainingFlagFramework,
-							Usage: formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Name:     mlTrainingFlagFramework,
+							Usage:    formatAcceptedValues("framework of the ML training script to upload", modelFrameworks...),
+							Required: true,
 						},
 						&cli.StringFlag{
 							Name:  generalFlagType,
@@ -3713,6 +3758,12 @@ NOTES:
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
 			Action:    createCommandWithT[emptyArgs](VersionAction),
+		},
+		{
+			Name:      "update",
+			Usage:     "update the CLI to the latest version",
+			UsageText: createUsageText("update", nil, false, false),
+			Action:    createCommandWithT[emptyArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",

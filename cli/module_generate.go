@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -34,14 +35,20 @@ var scripts embed.FS
 var templates embed.FS
 
 const (
-	version        = "0.1.0"
-	basePath       = "module_generate"
-	templatePrefix = "tmpl-"
-	python         = "python"
-	golang         = "go"
+	version                        = "0.1.0"
+	basePath                       = "module_generate"
+	templatePrefix                 = "tmpl-"
+	python                         = "python"
+	golang                         = "go"
+	moduleVisibilityPrivate        = "private"
+	moduleVisibilityPublic         = "public"
+	moduleVisibilityPublicUnlisted = "public_unlisted"
 )
 
-var supportedModuleGenLanguages = []string{python, golang}
+var (
+	supportedModuleGenLanguages = []string{python, golang}
+	visibilityOption            = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
+)
 
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
@@ -53,7 +60,7 @@ var unauthenticatedMode = false
 type generateModuleArgs struct {
 	Name            string
 	Language        string
-	Public          bool
+	Visibility      string
 	PublicNamespace string
 	ResourceSubtype string
 	ModelName       string
@@ -105,13 +112,14 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var err error
 
 	newModule = &modulegen.ModuleInputs{
-		ModuleName:      args.Name,
-		Language:        args.Language,
-		IsPublic:        args.Public,
-		Namespace:       args.PublicNamespace,
-		ResourceSubtype: args.ResourceSubtype,
-		ModelName:       args.ModelName,
-		RegisterOnApp:   args.Register,
+		ModuleName:       args.Name,
+		Language:         args.Language,
+		Visibility:       args.Visibility,
+		Namespace:        args.PublicNamespace,
+		ResourceSubtype:  args.ResourceSubtype,
+		ModelName:        args.ModelName,
+		EnableCloudBuild: args.EnableCloud,
+		RegisterOnApp:    args.Register,
 	}
 
 	if err := newModule.CheckResourceAndSetType(); err != nil {
@@ -298,11 +306,14 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					huh.NewOption("Go", golang),
 				).
 				Value(&module.Language),
-			huh.NewConfirm().
-				Title("Visibility").
-				Affirmative("Public").
-				Negative("Private").
-				Value(&module.IsPublic),
+			huh.NewSelect[string]().
+				Title("Visibiity:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&module.Visibility),
 			huh.NewInput().
 				Title("Namespace/Organization ID").
 				Value(&module.Namespace).
@@ -895,9 +906,10 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
-	visibility := moduleVisibilityPrivate
-	if module.IsPublic {
-		visibility = moduleVisibilityPublic
+	visibility := module.Visibility
+	if !slices.Contains(visibilityOption, visibility) {
+		visibility = moduleVisibilityPrivate
+		warningf(c.App.Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
 	}
 
 	manifest := ModuleManifest{
