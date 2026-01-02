@@ -112,13 +112,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var err error
 
 	newModule = &modulegen.ModuleInputs{
-		ModuleName:       args.Name,
-		Language:         args.Language,
-		Visibility:       args.Visibility,
-		Namespace:        args.PublicNamespace,
-		ResourceSubtype:  args.ResourceSubtype,
-		ModelName:        args.ModelName,
-		RegisterOnApp:    args.Register,
+		ModuleName:      args.Name,
+		Language:        args.Language,
+		Visibility:      args.Visibility,
+		Namespace:       args.PublicNamespace,
+		ResourceSubtype: args.ResourceSubtype,
+		ModelName:       args.ModelName,
+		RegisterOnApp:   args.Register,
 	}
 
 	if err := newModule.CheckResourceAndSetType(); err != nil {
