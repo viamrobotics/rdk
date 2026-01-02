@@ -476,11 +476,23 @@ func TestSync(t *testing.T) {
 							mimeType string,
 							extra map[string]interface{},
 						) ([]byte, camera.ImageMetadata, error) {
-							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+							t.Fatalf("ImageFunc should not be called")
+							return nil, camera.ImageMetadata{}, nil
+						},
+						ImagesFunc: func(
+							ctx context.Context,
+							filterSourceNames []string,
+							extra map[string]interface{},
+						) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, "image/jpeg")
 							if err != nil {
-								return nil, camera.ImageMetadata{}, err
+								return nil, resource.ResponseMetadata{}, err
 							}
-							return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+							namedImg, err := camera.NamedImageFromBytes(outBytes, "", "image/jpeg", data.Annotations{})
+							if err != nil {
+								return nil, resource.ResponseMetadata{}, err
+							}
+							return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 						},
 					},
 				})
