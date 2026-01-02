@@ -81,7 +81,7 @@
           "type": "string",
           "default": "make module.tar.gz",
           "description": "Shell command to build your module's tarball",
-          "examples": ["make module.tar.gz", "./run.sh"]
+          "examples": ["make module.tar.gz"]
         },
         "setup": {
           "type": "string",
