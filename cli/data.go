@@ -512,7 +512,8 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 // Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
 // can also be returned when the file is too large.
 func isLargeFileError(err error) bool {
-	return status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable || strings.Contains(err.Error(), "querying binary data with include_binary=true but one or more objects exceed the maximum size of 100 MiB")
+	return status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable ||
+		strings.Contains(err.Error(), "INCLUDE_BINARY_TOO_LARGE")
 }
 
 func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) error {
