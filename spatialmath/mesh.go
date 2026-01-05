@@ -129,6 +129,16 @@ func NewMeshFromSTLFile(path string) (*Mesh, error) {
 	return newMeshFromSTLBytes(NewZeroPose(), bytes, path)
 }
 
+// NewMeshFromSTLBytes creates a mesh from STL file bytes.
+func NewMeshFromSTLBytes(data []byte) (*Mesh, error) {
+	return newMeshFromSTLBytes(NewZeroPose(), data, "")
+}
+
+// NewMeshFromPLYBytes creates a mesh from PLY file bytes.
+func NewMeshFromPLYBytes(data []byte) (*Mesh, error) {
+	return newMeshFromBytes(NewZeroPose(), data, "")
+}
+
 func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 	var triangles []*Triangle
 	var err error

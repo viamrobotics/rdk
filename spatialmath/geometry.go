@@ -88,6 +88,10 @@ type GeometryConfig struct {
 	// parameter used for mesh file path
 	MeshFilePath string `json:"mesh_file_path,omitempty"`
 
+	// parameters for embedded mesh data (for portability across machines)
+	MeshData     []byte `json:"mesh_data,omitempty"`
+	MeshFileType string `json:"mesh_file_type,omitempty"` // "stl" or "ply"
+
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
 	OrientationOffset OrientationConfig `json:"orientation,omitempty"`
@@ -121,6 +125,13 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Type = MeshType
 		config.Label = gType.label
 		config.MeshFilePath = gType.label // Store the file path from the label
+
+		// Embed the raw mesh data for portability across machines
+		// Note: all meshes are stored internally as PLY format
+		if len(gType.rawBytes) > 0 {
+			config.MeshData = gType.rawBytes
+			config.MeshFileType = "ply"
+		}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
 	}
@@ -155,27 +166,37 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case MeshType:
-		// For mesh types, load from the file path specified in the config
-		if config.MeshFilePath == "" {
-			return nil, fmt.Errorf("mesh geometry config must have a mesh_file_path specified")
-		}
-
-		// Determine file type and load accordingly
-		ext := strings.ToLower(filepath.Ext(config.MeshFilePath))
 		var mesh *Mesh
 		var err error
 
-		switch ext {
-		case ".stl":
-			mesh, err = NewMeshFromSTLFile(config.MeshFilePath)
-		case ".ply":
-			mesh, err = NewMeshFromPLYFile(config.MeshFilePath)
-		default:
-			return nil, fmt.Errorf("unsupported mesh file format: %s (must be .stl or .ply)", ext)
-		}
+		// Try to use embedded mesh data first (for portability)
+		if len(config.MeshData) > 0 {
+			// All embedded mesh data is stored as PLY format
+			mesh, err = NewMeshFromPLYBytes(config.MeshData)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load mesh from embedded data: %w", err)
+			}
+		} else {
+			// Fall back to loading from file path
+			if config.MeshFilePath == "" {
+				return nil, fmt.Errorf("mesh geometry config must have either embedded mesh_data or mesh_file_path specified")
+			}
 
-		if err != nil {
-			return nil, fmt.Errorf("failed to load mesh from %s: %w", config.MeshFilePath, err)
+			// Determine file type and load accordingly
+			ext := strings.ToLower(filepath.Ext(config.MeshFilePath))
+
+			switch ext {
+			case ".stl":
+				mesh, err = NewMeshFromSTLFile(config.MeshFilePath)
+			case ".ply":
+				mesh, err = NewMeshFromPLYFile(config.MeshFilePath)
+			default:
+				return nil, fmt.Errorf("unsupported mesh file format: %s (must be .stl or .ply)", ext)
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("failed to load mesh from %s: %w", config.MeshFilePath, err)
+			}
 		}
 
 		// Apply the offset transform and set label
