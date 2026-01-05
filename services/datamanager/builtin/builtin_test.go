@@ -471,24 +471,16 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						ImageFunc: func(
-							ctx context.Context,
-							mimeType string,
-							extra map[string]interface{},
-						) ([]byte, camera.ImageMetadata, error) {
-							t.Fatalf("ImageFunc should not be called")
-							return nil, camera.ImageMetadata{}, nil
-						},
 						ImagesFunc: func(
 							ctx context.Context,
 							filterSourceNames []string,
 							extra map[string]interface{},
 						) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-							outBytes, err := rimage.EncodeImage(ctx, imgPng, "image/jpeg")
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}
-							namedImg, err := camera.NamedImageFromBytes(outBytes, "", "image/jpeg", data.Annotations{})
+							namedImg, err := camera.NamedImageFromBytes(outBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 							if err != nil {
 								return nil, resource.ResponseMetadata{}, err
 							}
