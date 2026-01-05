@@ -42,6 +42,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -49,6 +50,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -1251,6 +1253,263 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 	default:
 		return "", fmt.Errorf("invalid format: %s", format)
 	}
+}
+
+type machinesPartCreateArgs struct {
+	PartName     string
+	Machine      string
+	Location     string
+	Organization string
+}
+
+func machinesPartCreateAction(c *cli.Context, args machinesPartCreateArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	robot, err := client.lookupMachineByName(args.Machine, args.Location, args.Organization)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.NewRobotPartRequest{PartName: args.PartName, RobotId: robot.Id}
+
+	resp, err := client.client.NewRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "created new machine part with ID %s", resp.PartId)
+	return nil
+}
+
+type machinesPartDeleteArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+}
+
+func machinesPartDeleteAction(c *cli.Context, args machinesPartDeleteArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.DeleteRobotPartRequest{PartId: part.Id}
+
+	_, err = client.client.DeleteRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully deleted part %s (ID: %s)", part.Name, part.Id)
+	return nil
+}
+
+func resourcesFromPartConfig(config map[string]any, resourceTypePlural string) ([]map[string]any, error) {
+	var resources []any
+	for k, v := range config {
+		if k != resourceTypePlural {
+			continue
+		}
+		r, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("config %s were improperly formatted", resourceTypePlural)
+		}
+
+		resources = r
+		break
+	}
+
+	var typedResources []map[string]any
+
+	for _, r := range resources {
+		resource, ok := r.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s config was improperly formatted", resourceTypePlural)
+		}
+		typedResources = append(typedResources, resource)
+	}
+
+	return typedResources, nil
+}
+
+func resourceMap(c *cli.Context) map[string]string {
+	resources := map[string]string{}
+
+	for _, resource := range modulegen.Resources {
+		r := strings.Split(resource, " ")
+		if len(r) != 2 {
+			printf(c.App.ErrWriter, "warning: resource type %s not properly formatted.", resource)
+			continue
+		}
+		resources[r[0]] = r[1]
+	}
+
+	return resources
+}
+
+type robotsPartAddResourceArgs struct {
+	Part            string
+	Machine         string
+	Location        string
+	Organization    string
+	ModelName       string
+	Name            string
+	ResourceSubtype string
+	API             string
+}
+
+func robotsPartAddResourceAction(c *cli.Context, args robotsPartAddResourceArgs) error {
+	if args.API == "" && args.ResourceSubtype == "" {
+		return errors.New("cannot add a resource of unknown subtype; a subtype or fully qualified API triplet must be specified")
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	println(config["fragments"])
+
+	var resourceType string
+	var api string
+	if args.API != "" && len(strings.Split(args.API, ":")) == 3 {
+		api = args.API
+		resourceType = strings.Split(args.API, ":")[1]
+	} else {
+		if args.API != "" {
+			warningf(
+				c.App.ErrWriter, "the provided API '%s' is improperly formatted; attempting to infer API from the provided resource subtype %s",
+				args.API, args.ResourceSubtype,
+			)
+		}
+
+		subtype := strings.ReplaceAll(args.ResourceSubtype, "-", "_")
+		subtype = strings.ReplaceAll(subtype, " ", "_")
+		subtype = strings.ToLower(subtype)
+
+		resourceMap := resourceMap(c)
+		resourceType = resourceMap[subtype]
+		if resourceType == "" {
+			return fmt.Errorf(
+				"resource subtype %s is unknown; if you're trying to add a custom resource type then a fully qualified API is necessary",
+				subtype,
+			)
+		}
+		api = fmt.Sprintf("rdk:%s:%s", resourceType, subtype)
+	}
+
+	// for a custom resource subtype, a user might not follow the format of namespace:type:subtype
+	if resourceType != "component" && resourceType != "service" {
+		warningf(c.App.ErrWriter, "unknown resource type '%s'. Resource type should be 'component' or 'service'; defaulting to component",
+			resourceType,
+		)
+		resourceType = "component"
+	}
+
+	resourceTypePlural := resourceType + "s"
+	resources, err := resourcesFromPartConfig(config, resourceTypePlural)
+	if err != nil {
+		return err
+	}
+
+	// ensure no component already exists with the given name
+	for _, c := range resources {
+		if c["name"] == args.Name {
+			return fmt.Errorf("%s with name %s already exists", resourceType, args.Name)
+		}
+	}
+
+	newResource := map[string]any{
+		"name":  args.Name,
+		"model": args.ModelName,
+		"api":   api,
+	}
+	resources = append(resources, newResource)
+	config[resourceTypePlural] = resources
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added resource %s to part %s", args.Name, args.Part)
+	return nil
+}
+
+type robotsPartRemoveResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourceArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		var updatedResources []map[string]any
+		for _, c := range resources {
+			if c["name"] != args.Name {
+				updatedResources = append(updatedResources, c)
+			} else {
+				resourceFound = true
+			}
+		}
+		config[resourceType] = updatedResources
+	}
+
+	if !resourceFound {
+		printf(c.App.Writer, "resource %s not found on part %s", args.Name, args.Part)
+		return nil
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
+	return nil
 }
 
 type robotsPartStatusArgs struct {

@@ -63,6 +63,7 @@ const (
 	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
+	generalFlagModelName         = "model-name"
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
 	generalFlagVersion           = "version"
@@ -74,6 +75,7 @@ const (
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
 	generalFlagNoProgress        = "no-progress"
+	generalFlagAPI               = "api"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -86,7 +88,6 @@ const (
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagIsPublic        = "public"
 	moduleFlagResourceType    = "resource-type"
-	moduleFlagModelName       = "model-name"
 	moduleFlagEnableCloud     = "enable-cloud"
 	moduleFlagRegister        = "register"
 	moduleFlagDryRun          = "dry-run"
@@ -1965,7 +1966,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "managed",
 							Usage: "submits training job on data in Viam cloud with a Viam-managed training script",
 							UsageText: createUsageText("train submit managed",
-								[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels},
+								[]string{datasetFlagDatasetID, trainFlagModelOrgID, generalFlagModelName, trainFlagModelType, trainFlagModelLabels},
 								true, false,
 							),
 							Flags: []cli.Flag{
@@ -1980,7 +1981,7 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     trainFlagModelName,
+									Name:     generalFlagModelName,
 									Usage:    "name of ML model",
 									Required: true,
 								},
@@ -2025,7 +2026,7 @@ Note: There is no progress meter while copying is in progress.
 									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
-											trainFlagModelName, mlTrainingFlagName,
+											generalFlagModelName, mlTrainingFlagName,
 											generalFlagVersion, mlTrainingFlagContainerVersion,
 										},
 										true, false,
@@ -2042,7 +2043,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     trainFlagModelName,
+											Name:     generalFlagModelName,
 											Usage:    "name of ML model",
 											Required: true,
 										},
@@ -2081,7 +2082,7 @@ Note: There is no progress meter while copying is in progress.
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
-											trainFlagModelOrgID, trainFlagModelName, generalFlagPath,
+											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
 											mlTrainingFlagName, mlTrainingFlagContainerVersion,
 										},
 										true, false,
@@ -2093,7 +2094,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     trainFlagModelName,
+											Name:     generalFlagModelName,
 											Usage:    "name of ML model",
 											Required: true,
 										},
@@ -2464,6 +2465,77 @@ Note: There is no progress meter while copying is in progress.
 					UsageText:       createUsageText("machines part", nil, false, true),
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
+						{
+							Name:      "create",
+							Usage:     "create a machine part",
+							UsageText: createUsageText("machines part create", []string{generalFlagMachine}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagPartName,
+									Aliases:  []string{generalFlagPartID, generalFlagPartName},
+									Required: true,
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
+								},
+							},
+							Action: createCommandWithT(machinesPartCreateAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete a robot part",
+							UsageText: createUsageText("machines part delete", []string{generalFlagPart}, true, false),
+							Flags:     commonPartFlags,
+							Action:    createCommandWithT(machinesPartDeleteAction),
+						},
+						{
+							Name:      "add-resource",
+							Usage:     "add a resource to a machine part",
+							UsageText: createUsageText("machines part add-resource", []string{generalFlagPart, generalFlagName, generalFlagModelName}, true, false),
+							// TODO (RSDK-13064): reconsider which flags are required when using huh for visual UI
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     generalFlagModelName,
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  generalFlagAPI,
+									Usage: "resource API triplet (e.g., acme:demo:my-gizmo). Use with custom resource subtypes",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagResourceSubtype,
+									Usage: "subtype of resource (e.g., arm). Use with standard resource subtypes",
+								},
+							}...),
+							Action: createCommandWithT(robotsPartAddResourceAction),
+						},
+						{
+							Name:      "remove-resource",
+							Usage:     "remove a resource from a machine part",
+							UsageText: createUsageText("machines part remove-resource", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: true}),
+							Action:    createCommandWithT(robotsPartRemoveResourceAction),
+						},
 						{
 							Name:      "status",
 							Usage:     "display part status",
@@ -2946,7 +3018,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Hidden: true,
 						},
 						&cli.StringFlag{
-							Name: moduleFlagModelName,
+							Name: generalFlagModelName,
 							Usage: "name for the particular resource subtype implementation." +
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
@@ -3326,7 +3398,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagModelName,
+							Name:        generalFlagModelName,
 							Usage:       "If passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
@@ -3390,7 +3462,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagModelName,
+							Name:        generalFlagModelName,
 							Usage:       "If passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
@@ -3689,7 +3761,7 @@ NOTES:
 			Name:  "infer",
 			Usage: "run cloud hosted inference on an image",
 			UsageText: createUsageText("infer", []string{
-				generalFlagOrgID, inferenceFlagBinaryDataID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
+				generalFlagOrgID, inferenceFlagBinaryDataID, inferenceFlagModelOrgID, generalFlagModelName, inferenceFlagModelVersion,
 			}, true, false),
 			Flags: []cli.Flag{
 				&cli.StringFlag{
@@ -3708,7 +3780,7 @@ NOTES:
 					Required: true,
 				},
 				&cli.StringFlag{
-					Name:     inferenceFlagModelName,
+					Name:     generalFlagModelName,
 					Usage:    "name of the model to use to run inference",
 					Required: true,
 				},
