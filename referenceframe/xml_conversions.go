@@ -90,7 +90,20 @@ func (c *collision) toGeometryWithBasePath(basePath string) (spatialmath.Geometr
 	case c.Geometry.Mesh != nil:
 		// Resolve mesh file path relative to URDF base directory
 		meshPath := c.Geometry.Mesh.Filename
-		if basePath != "" && !filepath.IsAbs(meshPath) {
+
+		// Handle package:// URIs from URDF files
+		if strings.HasPrefix(meshPath, "package://") {
+			// Strip "package://<package_name>/" and use the remaining path
+			meshPath = strings.TrimPrefix(meshPath, "package://")
+			// Find the first "/" to skip the package name
+			if idx := strings.Index(meshPath, "/"); idx != -1 {
+				meshPath = meshPath[idx+1:]
+			}
+			// Join with basePath
+			if basePath != "" {
+				meshPath = filepath.Join(basePath, meshPath)
+			}
+		} else if basePath != "" && !filepath.IsAbs(meshPath) {
 			meshPath = filepath.Join(basePath, meshPath)
 		}
 
