@@ -578,7 +578,7 @@ type Cloud struct {
 
 // Note: keep this in sync with Cloud.
 type cloudData struct {
-	// For a working cloud managed robot, these three fields has to be set
+	// For a working cloud managed robot, these three fields have to be set
 	// within the config passed to the robot through the --config argument.
 	// Cloud configs are not expected to return these fields, and these fields
 	// will be ignored if they are returned.
