@@ -23,7 +23,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
-	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -175,26 +174,6 @@ func (c *client) Stream(
 	})
 
 	return stream, nil
-}
-
-func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
-	moduleName := grpc.GetModuleName(ctx)
-	md, _ := metadata.FromIncomingContext(ctx)
-	errorMsg := fmt.Sprintf(
-		"camera client error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
-			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated for this "+
-			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
-			"camera_name: %s, camera_remote_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
-		c.Name(),
-		c.remoteName,
-		peerInfo.RemoteAddress,
-		moduleName,
-		md,
-	)
-
-	c.logger.Error(errorMsg)
-	return nil, ImageMetadata{}, errors.New(errorMsg)
 }
 
 func (c *client) Images(
