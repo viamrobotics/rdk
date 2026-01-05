@@ -7,12 +7,8 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
-	"google.golang.org/genproto/googleapis/api/httpbody"
-	"google.golang.org/grpc/metadata"
 
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -30,35 +26,12 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Camera], logger logging.Logger) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
+	logger := logging.NewLogger("camserver")
 	return &serviceServer{
 		coll:   coll,
-		logger: logger.Sublogger("cam_server"),
+		logger: logger,
 	}
-}
-
-// GetImage returns an image from a camera of the underlying robot. If a specific MIME type
-// is requested and is not available, an error is returned.
-func (s *serviceServer) GetImage(
-	ctx context.Context,
-	req *pb.GetImageRequest,
-) (*pb.GetImageResponse, error) {
-	peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
-	moduleName := grpc.GetModuleName(ctx)
-	md, _ := metadata.FromIncomingContext(ctx)
-	errorMsg := fmt.Sprintf(
-		"camera server error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
-			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated for this "+
-			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
-			"camera_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
-		req.Name,
-		peerInfo.RemoteAddress,
-		moduleName,
-		md,
-	)
-
-	s.logger.Error(errorMsg)
-	return nil, errors.New(errorMsg)
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
@@ -110,30 +83,6 @@ func (s *serviceServer) GetImages(
 	}
 
 	return resp, nil
-}
-
-// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-// Deprecated: Use GetImages instead.
-func (s *serviceServer) RenderFrame(
-	ctx context.Context,
-	req *pb.RenderFrameRequest,
-) (*httpbody.HttpBody, error) {
-	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
-	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
-	defer span.End()
-	if req.MimeType == "" {
-		req.MimeType = utils.MimeTypeJPEG // default rendering
-	}
-	resp, err := s.GetImage(ctx, (*pb.GetImageRequest)(req))
-	if err != nil {
-		return nil, err
-	}
-
-	return &httpbody.HttpBody{
-		ContentType: resp.MimeType,
-		Data:        resp.Image,
-	}, nil
 }
 
 // GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
