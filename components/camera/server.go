@@ -3,18 +3,13 @@ package camera
 import (
 	"context"
 	"fmt"
-	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
-	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
-	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -26,12 +21,8 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceGetter[Camera]
-
-	imgTypesMu sync.RWMutex
-	imgTypes   map[string]ImageType
-	logger     logging.Logger
-
+	coll   resource.APIResourceGetter[Camera]
+	logger logging.Logger
 	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
 	lastImageDeprecationLogNanos atomic.Int64
 }
@@ -40,86 +31,10 @@ type serviceServer struct {
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
 	logger := logging.NewLogger("camserver")
-	imgTypes := make(map[string]ImageType)
 	return &serviceServer{
-		coll:     coll,
-		logger:   logger,
-		imgTypes: imgTypes,
+		coll:   coll,
+		logger: logger,
 	}
-}
-
-// GetImage returns an image from a camera of the underlying robot. If a specific MIME type
-// is requested and is not available, an error is returned.
-func (s *serviceServer) GetImage(
-	ctx context.Context,
-	req *pb.GetImageRequest,
-) (*pb.GetImageResponse, error) {
-	now := time.Now()
-	lastLog := s.lastImageDeprecationLogNanos.Load()
-	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
-		// Try to update the timestamp; if another goroutine updated it first, that's fine.
-		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
-			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
-			clientIP := "unknown"
-			if peerInfo.RemoteAddress != "" {
-				clientIP = peerInfo.RemoteAddress
-			}
-
-			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
-				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
-					"camera name: %s, client IP: %s, caller module name: %s",
-					req.Name, clientIP, moduleName)
-			} else {
-				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
-					"camera name: %s, client IP: %s",
-					req.Name, clientIP)
-			}
-		}
-	}
-	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
-	defer span.End()
-	cam, err := s.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the mimeType we should try to use based on camera properties
-	if req.MimeType == "" {
-		s.imgTypesMu.RLock()
-		imgType, ok := s.imgTypes[req.Name]
-		s.imgTypesMu.RUnlock()
-		if !ok {
-			props, err := cam.Properties(ctx)
-			if err != nil {
-				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				imgType = ColorStream
-			} else {
-				imgType = props.ImageType
-			}
-			s.imgTypesMu.Lock()
-			s.imgTypes[req.Name] = imgType
-			s.imgTypesMu.Unlock()
-		}
-		switch imgType {
-		case ColorStream, UnspecifiedStream:
-			req.MimeType = utils.MimeTypeJPEG
-		case DepthStream:
-			req.MimeType = utils.MimeTypeRawDepth
-		default:
-			req.MimeType = utils.MimeTypeJPEG
-		}
-	}
-	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
-
-	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	if len(resBytes) == 0 {
-		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
-	}
-	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
@@ -171,30 +86,6 @@ func (s *serviceServer) GetImages(
 	}
 
 	return resp, nil
-}
-
-// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
-// can be requested but may not necessarily be the same one returned.
-// Deprecated: Use GetImages instead.
-func (s *serviceServer) RenderFrame(
-	ctx context.Context,
-	req *pb.RenderFrameRequest,
-) (*httpbody.HttpBody, error) {
-	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
-	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
-	defer span.End()
-	if req.MimeType == "" {
-		req.MimeType = utils.MimeTypeJPEG // default rendering
-	}
-	resp, err := s.GetImage(ctx, (*pb.GetImageRequest)(req))
-	if err != nil {
-		return nil, err
-	}
-
-	return &httpbody.HttpBody{
-		ContentType: resp.MimeType,
-		Data:        resp.Image,
-	}, nil
 }
 
 // GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
