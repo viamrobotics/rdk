@@ -10,12 +10,14 @@ import (
 	"fmt"
 	"image"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -251,7 +253,7 @@ func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []
 //
 // It uses the mimeType from the NamedImage to encode the bytes.
 // The extra parameter is passed through to the underlying Images method.
-// Deprecated: This helper will be removed when Image method is fully deprecated.
+// Deprecated: This helper will be removed when Image method is fully removed.
 func GetImageFromGetImages(
 	ctx context.Context,
 	sourceName *string,
@@ -307,6 +309,43 @@ func GetImageFromGetImages(
 		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
 	}
 	return imgBytes, ImageMetadata{MimeType: mimeType, Annotations: annotations}, nil
+}
+
+// GetImagesFromGetImage will be deprecated after RSDK-11726.
+// It is a utility function to quickly implement GetImages from an already-implemented GetImage method.
+// It takes a mimeType, extra parameters, and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
+// which is the same response signature as the Images method. We use the mimeType arg to specify
+// how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
+// Source name is empty string always.
+// It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
+// Deprecated: This helper will be removed when Image method is fully removed.
+func GetImagesFromGetImage(
+	ctx context.Context,
+	mimeType string,
+	cam Camera,
+	logger logging.Logger,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
+	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
+	}
+	if len(resBytes) == 0 {
+		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
+	}
+
+	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
+	reqMimetype, _ := utils.CheckLazyMIMEType(mimeType)
+	if resMimetype != reqMimetype {
+		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
+	}
+
+	namedImg, err := NamedImageFromBytes(resBytes, "", resMetadata.MimeType, resMetadata.Annotations)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not create named image: %w", err)
+	}
+
+	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 }
 
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.

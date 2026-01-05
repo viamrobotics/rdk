@@ -379,7 +379,6 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 }
 
 func (c *webcam) Image(ctx context.Context, _ string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	c.logger.CWarn(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead")
 	imgBytes, resMetadata, err := camera.GetImageFromGetImages(ctx, nil, c, extra, nil)
 	if err != nil {
 		return nil, camera.ImageMetadata{}, err

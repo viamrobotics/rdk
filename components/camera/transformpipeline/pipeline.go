@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 	camerautils "go.viam.com/rdk/robot/web/stream/camera"
@@ -142,6 +143,8 @@ func newTransformPipeline(
 	var streamType camera.ImageType
 	if err != nil {
 		streamType = camera.UnspecifiedStream
+	} else if _, ok := img.(*rimage.DepthMap); ok {
+		streamType = camera.DepthStream
 	} else if _, ok := img.(*image.Gray16); ok {
 		streamType = camera.DepthStream
 	} else {

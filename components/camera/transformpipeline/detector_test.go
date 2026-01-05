@@ -148,10 +148,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		namedImages, _, _ := detector.Images(ctx, nil, nil)
-		if len(namedImages) > 0 {
-			_, _ = namedImages[0].Image(ctx)
-		}
+		_, _, _ = detector.Images(ctx, nil, nil)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }
