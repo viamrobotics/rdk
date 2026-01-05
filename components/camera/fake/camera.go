@@ -98,7 +98,7 @@ func NewCamera(
 	}
 
 	if cam.RTPPassthrough {
-		msg := "rtp_passthrough is enabled. GetImage will ignore width, height, and animated config params"
+		msg := "rtp_passthrough is enabled. This resource will ignore width, height, and animated config params"
 		logger.CWarn(ctx, msg)
 		d := base64.NewDecoder(base64.StdEncoding, bytes.NewReader(worldJpeg))
 		img, err := jpeg.Decode(d)
