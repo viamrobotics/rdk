@@ -42,6 +42,7 @@ type sphere struct {
 type mesh struct {
 	XMLName  xml.Name `xml:"mesh"`
 	Filename string   `xml:"filename,attr"` // path to mesh file (STL or PLY)
+	// add the mesh bytes here?
 }
 
 func newCollision(g spatialmath.Geometry) (*collision, error) {

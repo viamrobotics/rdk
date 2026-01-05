@@ -1,12 +1,12 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -76,37 +76,6 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 	}, nil
 }
 
-// resolveMeshPaths resolves package:// URIs in mesh filenames to absolute paths.
-func (m *ModelConfigURDF) resolveMeshPaths(basePath string) {
-	for i := range m.Links {
-		for j := range m.Links[i].Collision {
-			if m.Links[i].Collision[j].Geometry.Mesh != nil {
-				meshPath := m.Links[i].Collision[j].Geometry.Mesh.Filename
-
-				// Handle package:// URIs
-				if strings.HasPrefix(meshPath, "package://") {
-					// Strip "package://<package_name>/" and use the remaining path
-					meshPath = strings.TrimPrefix(meshPath, "package://")
-					// Find the first "/" to skip the package name
-					if idx := strings.Index(meshPath, "/"); idx != -1 {
-						meshPath = meshPath[idx+1:]
-					}
-					// Join with basePath
-					if basePath != "" {
-						meshPath = filepath.Join(basePath, meshPath)
-					}
-				} else if basePath != "" && !filepath.IsAbs(meshPath) {
-					// Handle relative paths
-					meshPath = filepath.Join(basePath, meshPath)
-				}
-
-				// Update the mesh filename in the URDF structure
-				m.Links[i].Collision[j].Geometry.Mesh.Filename = meshPath
-			}
-		}
-	}
-}
-
 // UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
@@ -120,11 +89,6 @@ func unmarshalModelXMLWithBasePath(xmlData []byte, modelName, basePath string) (
 	err := xml.Unmarshal(xmlData, urdf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to convert URDF data to equivalent URDFConfig struct")
-	}
-
-	// Resolve package:// URIs in mesh paths if basePath is provided
-	if basePath != "" {
-		urdf.resolveMeshPaths(basePath)
 	}
 
 	// Use default name if none is provided
@@ -252,16 +216,15 @@ func unmarshalModelXMLWithBasePath(xmlData []byte, modelName, basePath string) (
 		Joints:       joints,
 	}
 
-	// Marshal the URDF (with resolved paths) back to XML for storage
-	// This ensures that when sent over RPC, the receiver gets absolute paths
-	modifiedXMLData, err := xml.MarshalIndent(urdf, "", "  ")
+	// Marshal to JSON to preserve embedded mesh data when sent over RPC
+	jsonData, err := json.Marshal(modelConfig)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal URDF to XML")
+		return nil, errors.Wrap(err, "failed to marshal model config to JSON")
 	}
 
 	modelConfig.OriginalFile = &ModelFile{
-		Bytes:     modifiedXMLData,
-		Extension: "urdf",
+		Bytes:     jsonData,
+		Extension: "json",
 	}
 
 	return modelConfig, nil
@@ -282,6 +245,7 @@ func ParseModelXMLFile(filename, modelName string) (Model, error) {
 	if err != nil {
 		return nil, err
 	}
+	// if it sees that I have meshes, then load them into bytes
 
 	return mc.ParseConfig(modelName)
 }

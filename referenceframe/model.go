@@ -60,6 +60,9 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
 	}
 
+	// in the process of turning this into proto we need to be able to somehow
+	// preserve the mesh bytes so that we can then get them back
+
 	cfg := model.ModelConfig()
 	if cfg == nil || cfg.OriginalFile == nil {
 		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
