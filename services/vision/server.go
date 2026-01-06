@@ -288,10 +288,9 @@ func imageToProto(ctx context.Context, img image.Image, cameraName string) (*cam
 	if err != nil {
 		return nil, err
 	}
-	format := utils.MimeTypeToFormat[mimeType]
 	return &camerapb.Image{
 		Image:      imgBytes,
-		Format:     format,
+		MimeType:   mimeType,
 		SourceName: cameraName,
 	}, nil
 }

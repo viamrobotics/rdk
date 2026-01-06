@@ -134,6 +134,8 @@ type Config struct {
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
 	profile         string
+	DefaultOrg      string `json:"default_org"`
+	DefaultLocation string `json:"default_location"`
 }
 
 func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {

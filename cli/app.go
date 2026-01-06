@@ -87,7 +87,6 @@ const (
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
-	moduleFlagEnableCloud     = "enable-cloud"
 	moduleFlagRegister        = "register"
 	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
@@ -100,7 +99,6 @@ const (
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
 	moduleBuildFlagNoBuild     = "no-build"
-	moduleBuildFlagCloudBuild  = "cloud-build"
 	moduleBuildFlagCloudConfig = "cloud-config"
 	moduleBuildFlagID          = "build-id"
 	moduleBuildFlagOAuthLink   = "oauth-link"
@@ -469,6 +467,49 @@ var app = &cli.App{
 		},
 	},
 	Commands: []*cli.Command{
+		{
+			Name:      "defaults",
+			Usage:     "Set or clear default argument values",
+			UsageText: createUsageText("defaults", nil, false, false),
+			Subcommands: []*cli.Command{
+				{
+					Name:  "set-org",
+					Usage: "Set default organization argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetOrgAction),
+				},
+				{
+					Name:   "clear-org",
+					Usage:  "Clear default organization argument",
+					Action: createCommandWithT(defaultsClearOrgAction),
+				},
+				{
+					Name:  "set-location",
+					Usage: "Set default location argument",
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults
+								Required: true,
+							},
+						},
+					},
+					Action: createCommandWithT(defaultsSetLocationAction),
+				},
+				{
+					Name:   "clear-location",
+					Usage:  "Clear default location argument",
+					Action: createCommandWithT(defaultsClearLocationAction),
+				},
+			},
+		},
 		{
 			Name:      "traces",
 			Usage:     "Work with viam-server traces",
@@ -1001,9 +1042,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations api-key create", []string{generalFlagOrgID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to create an api key for",
+									Name:        generalFlagOrgID,
+									Usage:       "the org to create an api key for",
+									DefaultText: "the default org set with `viam defaults set-org`",
 								},
 								&cli.StringFlag{
 									Name:        generalFlagName,
@@ -1034,7 +1075,7 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the org set by `viam defaults set-org` if it exists, else the first one alphabetically",
 							},
 						},
 					},
@@ -1051,9 +1092,9 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("locations api-key create", []string{generalFlagLocationID}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagLocationID,
-									Required: true,
-									Usage:    "id of the location to create an api-key for",
+									Name:        generalFlagLocationID,
+									Usage:       "id of the location to create an api-key for",
+									DefaultText: "the default location set with `viam defaults set-location`",
 								},
 								&cli.StringFlag{
 									Name:  generalFlagName,
@@ -2318,14 +2359,14 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "the default org argument if set, else the first organization alphabetically",
 							},
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:        generalFlagLocation,
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-								DefaultText: "first location alphabetically",
+								DefaultText: "the default location argument if set, else the first location alphabetically",
 							},
 						},
 						&cli.BoolFlag{
@@ -2951,10 +2992,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
-							Name:  moduleFlagEnableCloud,
-							Usage: "generate Github workflows to build module",
-						},
-						&cli.BoolFlag{
 							Name:  moduleFlagRegister,
 							Usage: "register module with Viam to associate with your organization",
 						},
@@ -3010,10 +3047,6 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin/my
 Example uploading a whole directory:
 viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin"
 (this example requires the entrypoint in the meta.json to be inside the bin directory like "./bin/[your path here]")
-
-Example uploading a custom tarball of your module:
-tar -czf packaged-module.tar.gz ./src requirements.txt run.sh
-viam module upload --version "0.1.0" --platform "linux/amd64" --upload "packaged-module.tar.gz"
                       `,
 					UsageText: createUsageText("module upload", []string{generalFlagVersion, moduleFlagPlatform, moduleFlagUpload}, true, false),
 					Flags: []cli.Flag{
