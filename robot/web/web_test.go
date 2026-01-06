@@ -42,7 +42,6 @@ import (
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -764,7 +763,6 @@ func TestWebWithStreams(t *testing.T) {
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err := svc.Start(ctx, options)
