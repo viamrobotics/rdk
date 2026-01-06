@@ -92,10 +92,12 @@ func TestConfig1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
 
-	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
+	namedImages, _, err := c1.Images(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	bounds := pic.Bounds()
+	img, err := namedImages[0].Image(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	bounds := img.Bounds()
 
 	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
 }

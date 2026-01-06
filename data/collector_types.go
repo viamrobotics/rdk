@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	dataPB "go.viam.com/api/app/data/v1"
 	datasyncPB "go.viam.com/api/app/datasync/v1"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -283,26 +282,6 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 	}
 }
 
-// CameraFormatToMimeType converts a camera camerapb.Format into a MimeType.
-func CameraFormatToMimeType(f camerapb.Format) MimeType {
-	switch f {
-	case camerapb.Format_FORMAT_UNSPECIFIED:
-		return MimeTypeUnspecified
-	case camerapb.Format_FORMAT_JPEG:
-		return MimeTypeImageJpeg
-	case camerapb.Format_FORMAT_PNG:
-		return MimeTypeImagePng
-	case camerapb.Format_FORMAT_RAW_RGBA:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	case camerapb.Format_FORMAT_RAW_DEPTH:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	default:
-		return MimeTypeUnspecified
-	}
-}
-
 // MimeTypeStringToMimeType converts a string mime type to a MimeType.
 func MimeTypeStringToMimeType(mimeType string) MimeType {
 	switch mimeType {
@@ -319,18 +298,6 @@ func MimeTypeStringToMimeType(mimeType string) MimeType {
 	default:
 		return MimeTypeUnspecified
 	}
-}
-
-// MimeTypeToCameraFormat converts a data.MimeType into a camerapb.Format.
-func MimeTypeToCameraFormat(mt MimeType) camerapb.Format {
-	if mt == MimeTypeImageJpeg {
-		return camerapb.Format_FORMAT_JPEG
-	}
-
-	if mt == MimeTypeImagePng {
-		return camerapb.Format_FORMAT_PNG
-	}
-	return camerapb.Format_FORMAT_UNSPECIFIED
 }
 
 // Binary represents an element of a binary capture result response.
