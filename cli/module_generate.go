@@ -224,6 +224,15 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	return nil
 }
 
+// returns model name based on chosen resource
+func modelName(module *modulegen.ModuleInputs) string {
+	resourceName := strings.Fields(module.Resource)[0]
+	if resourceName == "generic" {
+		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
+	}
+	return resourceName
+}
+
 // Prompt the user for information regarding the module they want to create
 // returns the modulegen.ModuleInputs struct that contains the information the user entered.
 func promptUser(module *modulegen.ModuleInputs) error {
@@ -336,12 +345,10 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
 				PlaceholderFunc(func() string {
-					// suggest model name be resource, specifying the type if generic
-					resource := strings.Fields(module.Resource)[0]
-					if resource == "generic" {
-						resource = resource + "_" + strings.Fields(module.Resource)[1]
-					}
-					return resource
+					return modelName(module)
+				}, &module.Resource).
+				SuggestionsFunc(func() []string {
+					return []string{modelName(module)}
 				}, &module.Resource).
 				Value(&module.ModelName).
 				Validate(func(s string) error {
