@@ -10,10 +10,9 @@ import (
 
 // setupCameraObserver initializes the Darwin camera device observer for hot-plug support.
 //
-// On Darwin/macOS, SetupObserver must be called from the main thread (not a spawned
-// goroutine) because AVFoundation requires that camera device notification events and Key-Value
-// Observation (KVO) updates occur on the same thread as the producer. The mediadevices
-// library uses runtime.LockOSThread() to pin the background goroutine to whatever thread
+// On Darwin/macOS, SetupObserver must be called from the main.go because AVFoundation requires
+// that camera device notification events and Key-Value Observation (KVO) updates occur on the main thread.
+// The mediadevices library uses runtime.LockOSThread() to pin the background goroutine to whatever thread
 // calls SetupObserver, so calling it in main() ensures that we run on the correct thread.
 //
 // This is why SetupObserver is called here rather than in the webcam component constructor:
@@ -24,7 +23,7 @@ import (
 // See: https://github.com/pion/mediadevices/pull/670
 func setupCameraObserver(logger logging.Logger) func() {
 	if err := mediadevicescamera.SetupObserver(); err != nil {
-		logger.Errorw("failed to set up darwin mediadevices camera observer", "error", err)
+		logger.Errorw("failed to set up darwin mediadevices camera observer; webcams will not handle hot unplug/replug", "error", err)
 	}
 	return func() {
 		if err := mediadevicescamera.DestroyObserver(); err != nil {
