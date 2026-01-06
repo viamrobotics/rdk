@@ -16,7 +16,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// StreamableImageMIMETypes is the set of all mime types the stream server supports.
 // StreamableImageMIMETypes represents all mime types the stream server supports.
 // The order of the slice defines the priority of the mime types.
 var StreamableImageMIMETypes = []string{
