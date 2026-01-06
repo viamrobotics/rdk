@@ -227,7 +227,7 @@ func (c *client) Images(
 		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
