@@ -178,7 +178,8 @@ func readExtendedPlatformTags(logger logging.Logger, cache bool) []string {
 	if cache {
 		savedPlatformTags = tags
 		// note: we only log in the cache condition because it would be annoying to log this in a loop.
-		logger.Infow("platform tags", "tags", strings.Join(tags, ","))
+		platform := runtime.GOOS + "/" + runtime.GOARCH
+		logger.Infow("platform detected for machine", "platform", platform, "tags", strings.Join(tags, ","))
 	}
 	return tags
 }

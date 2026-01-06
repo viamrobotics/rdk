@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	dataPB "go.viam.com/api/app/data/v1"
 	datasyncPB "go.viam.com/api/app/datasync/v1"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -231,17 +230,19 @@ type Timestamps struct {
 // MimeType represents the mime type of the sensor data.
 type MimeType int
 
-// This follows the mime types supported in
+// This follows the MIME types supported in
 // https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
 const (
-	// MimeTypeUnspecified means that the mime type was not specified.
+	// MimeTypeUnspecified means that the MIME type was not specified.
 	MimeTypeUnspecified MimeType = iota
-	// MimeTypeImageJpeg means that the mime type is jpeg.
+	// MimeTypeImageJpeg is image/jpeg.
 	MimeTypeImageJpeg
-	// MimeTypeImagePng means that the mime type is png.
+	// MimeTypeImagePng is image/png.
 	MimeTypeImagePng
-	// MimeTypeApplicationPcd means that the mime type is pcd.
+	// MimeTypeApplicationPcd is pointcloud/pcd.
 	MimeTypeApplicationPcd
+	// MimeTypeVideoMP4 is video/mp4.
+	MimeTypeVideoMP4
 )
 
 // ToProto converts MimeType to datasyncPB.
@@ -255,6 +256,8 @@ func (mt MimeType) ToProto() datasyncPB.MimeType {
 		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
 	case MimeTypeApplicationPcd:
 		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
+	case MimeTypeVideoMP4:
+		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
 	default:
 		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
 	}
@@ -271,26 +274,9 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 		return MimeTypeImagePng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return MimeTypeApplicationPcd
-	default:
-		return MimeTypeUnspecified
-	}
-}
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return MimeTypeVideoMP4
 
-// CameraFormatToMimeType converts a camera camerapb.Format into a MimeType.
-func CameraFormatToMimeType(f camerapb.Format) MimeType {
-	switch f {
-	case camerapb.Format_FORMAT_UNSPECIFIED:
-		return MimeTypeUnspecified
-	case camerapb.Format_FORMAT_JPEG:
-		return MimeTypeImageJpeg
-	case camerapb.Format_FORMAT_PNG:
-		return MimeTypeImagePng
-	case camerapb.Format_FORMAT_RAW_RGBA:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	case camerapb.Format_FORMAT_RAW_DEPTH:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
 	default:
 		return MimeTypeUnspecified
 	}
@@ -312,18 +298,6 @@ func MimeTypeStringToMimeType(mimeType string) MimeType {
 	default:
 		return MimeTypeUnspecified
 	}
-}
-
-// MimeTypeToCameraFormat converts a data.MimeType into a camerapb.Format.
-func MimeTypeToCameraFormat(mt MimeType) camerapb.Format {
-	if mt == MimeTypeImageJpeg {
-		return camerapb.Format_FORMAT_JPEG
-	}
-
-	if mt == MimeTypeImagePng {
-		return camerapb.Format_FORMAT_PNG
-	}
-	return camerapb.Format_FORMAT_UNSPECIFIED
 }
 
 // Binary represents an element of a binary capture result response.
@@ -462,6 +436,8 @@ const (
 	ExtMP3 = ".mp3"
 	// ExtWav is the file extension for wav files.
 	ExtWav = ".wav"
+	// ExtMP4 is the file extension for mp4 files.
+	ExtMP4 = ".mp4"
 )
 
 // getFileExt gets the file extension for a capture file.

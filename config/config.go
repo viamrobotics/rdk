@@ -555,8 +555,6 @@ func (conf *Remote) validate(path string) error {
 
 // A Cloud describes how to configure a robot controlled by the
 // cloud.
-// The cloud source could be anything that supports http.
-// URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
 	ID                string
 	Secret            string
@@ -570,8 +568,6 @@ type Cloud struct {
 	LocalFQDN         string
 	SignalingAddress  string
 	SignalingInsecure bool
-	Path              string
-	LogPath           string
 	AppAddress        string
 	RefreshInterval   time.Duration
 
@@ -582,7 +578,10 @@ type Cloud struct {
 
 // Note: keep this in sync with Cloud.
 type cloudData struct {
-	// these three fields are only set within the config passed to the robot as an argumenet.
+	// For a working cloud managed robot, these three fields have to be set
+	// within the config passed to the robot through the --config argument.
+	// Cloud configs are not expected to return these fields, and these fields
+	// will be ignored if they are returned.
 	ID         string `json:"id"`
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
@@ -597,8 +596,6 @@ type cloudData struct {
 	LocalFQDN         string           `json:"local_fqdn"`
 	SignalingAddress  string           `json:"signaling_address"`
 	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	Path              string           `json:"path,omitempty"`
-	LogPath           string           `json:"log_path,omitempty"`
 	RefreshInterval   string           `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
@@ -625,8 +622,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		LocalFQDN:         temp.LocalFQDN,
 		SignalingAddress:  temp.SignalingAddress,
 		SignalingInsecure: temp.SignalingInsecure,
-		Path:              temp.Path,
-		LogPath:           temp.LogPath,
 		AppAddress:        temp.AppAddress,
 		TLSCertificate:    temp.TLSCertificate,
 		TLSPrivateKey:     temp.TLSPrivateKey,
@@ -656,8 +651,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		LocalFQDN:         config.LocalFQDN,
 		SignalingAddress:  config.SignalingAddress,
 		SignalingInsecure: config.SignalingInsecure,
-		Path:              config.Path,
-		LogPath:           config.LogPath,
 		AppAddress:        config.AppAddress,
 		TLSCertificate:    config.TLSCertificate,
 		TLSPrivateKey:     config.TLSPrivateKey,

@@ -177,18 +177,6 @@ type ImageMetadata struct {
 // A Camera is a resource that can capture frames.
 // For more information, see the [camera component docs].
 //
-// Image example:
-//
-//	myCamera, err := camera.FromProvider(machine, "my_camera")
-//	imageBytes, mimeType, err := myCamera.Image(context.Background(), utils.MimeTypeJPEG, nil)
-//
-// Or try to directly decode as an image.Image:
-//
-//	myCamera, err := camera.FromProvider(machine, "my_camera")
-//	img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCamera)
-//
-// For more information, see the [Image method docs].
-//
 // Images example:
 //
 //	myCamera, err := camera.FromProvider(machine, "my_camera")
@@ -215,7 +203,6 @@ type ImageMetadata struct {
 // For more information, see the [Close method docs].
 //
 // [camera component docs]: https://docs.viam.com/dev/reference/apis/components/camera/
-// [Image method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimage
 // [Images method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getimages
 // [NextPointCloud method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#getpointcloud
 // [Close method docs]: https://docs.viam.com/dev/reference/apis/components/camera/#close
@@ -223,8 +210,7 @@ type Camera interface {
 	resource.Resource
 	resource.Shaped
 
-	// Image returns a byte slice representing an image that tries to adhere to the MIME type hint.
-	// Image also may return metadata about the frame.
+	// Deprecated: Please utilize Images instead.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
 	// Images is used for getting simultaneous images from different imagers,
@@ -242,32 +228,32 @@ type Camera interface {
 	Properties(ctx context.Context) (Properties, error)
 }
 
-// DecodeImageFromCamera retrieves image bytes from a camera resource and serializes it as an image.Image.
-func DecodeImageFromCamera(ctx context.Context, mimeType string, extra map[string]interface{}, cam Camera) (image.Image, error) {
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
+// DecodeImageFromCamera gets images from a camera resource and returns the first image as a decoded image.Image.
+func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []string, extra map[string]interface{}) (image.Image, error) {
+	namedImages, _, err := cam.Images(ctx, filterSourceNames, extra)
 	if err != nil {
-		return nil, fmt.Errorf("could not get image bytes from camera: %w", err)
+		return nil, fmt.Errorf("could not get images from camera: %w", err)
 	}
-	if len(resBytes) == 0 {
-		return nil, errors.New("received empty bytes from camera")
+	if len(namedImages) == 0 {
+		return nil, errors.New("no images returned from camera")
 	}
-	img, err := rimage.DecodeImage(ctx, resBytes, utils.WithLazyMIMEType(resMetadata.MimeType))
+	img, err := namedImages[0].Image(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
 }
 
-// GetImageFromGetImages will be deprecated after RSDK-11726.
-// It is a utility function to quickly implement GetImage from an already-implemented GetImages method.
+// GetImageFromGetImages is a utility function to implement Image from an already-implemented Images method.
 // It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
 //
 // If sourceName is nil, it returns the first image in the response slice.
 // If sourceName is not nil, it returns the image with the matching source name.
 // If no image is found with the matching source name, it returns an error.
 //
-// It uses the mimeType arg to specify how to encode the bytes returned from GetImages.
+// It uses the mimeType from the NamedImage to encode the bytes.
 // The extra parameter is passed through to the underlying Images method.
+// Deprecated: This helper will be removed when Image method is fully removed.
 func GetImageFromGetImages(
 	ctx context.Context,
 	sourceName *string,
@@ -332,6 +318,7 @@ func GetImageFromGetImages(
 // how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
 // Source name is empty string always.
 // It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
+// Deprecated: This helper will be removed when Image method is fully removed.
 func GetImagesFromGetImage(
 	ctx context.Context,
 	mimeType string,

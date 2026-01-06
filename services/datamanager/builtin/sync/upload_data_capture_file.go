@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -151,7 +152,7 @@ func legacyUploadGetImages(
 		}
 		logger.Debugf("attempting to upload camera.GetImages response, index: %d", i)
 		metadata := uploadMetadata(conn.partID, md)
-		metadata.FileExtension = getFileExtFromImageFormat(img.GetFormat())
+		metadata.FileExtension = getFileExtFromImageMimeType(img.GetMimeType())
 		// TODO: This is wrong as the size describes the size of the entire GetImages response, but we are only
 		// uploading one of the 2 images in that response here.
 		if err := uploadSensorData(ctx, conn.client, metadata, newSensorData, size, path, logger); err != nil {
@@ -373,18 +374,16 @@ func sendStreamingDCRequests(
 	return nil
 }
 
-func getFileExtFromImageFormat(t cameraPB.Format) string {
-	switch t {
-	case cameraPB.Format_FORMAT_JPEG:
+func getFileExtFromImageMimeType(mimeType string) string {
+	switch mimeType {
+	case utils.MimeTypeJPEG:
 		return data.ExtJpeg
-	case cameraPB.Format_FORMAT_PNG:
+	case utils.MimeTypePNG:
 		return data.ExtPng
-	case cameraPB.Format_FORMAT_RAW_DEPTH:
+	case utils.MimeTypeRawDepth:
 		return ".dep"
-	case cameraPB.Format_FORMAT_RAW_RGBA:
+	case utils.MimeTypeRawRGBA:
 		return ".rgba"
-	case cameraPB.Format_FORMAT_UNSPECIFIED:
-		fallthrough
 	default:
 		return data.ExtDefault
 	}
@@ -398,6 +397,8 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 		return data.ExtPng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return data.ExtPcd
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return data.ExtMP4
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:

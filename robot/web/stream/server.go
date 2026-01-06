@@ -3,7 +3,6 @@ package webstream
 import (
 	"context"
 	"fmt"
-	"image"
 	"runtime"
 	"sync"
 	"time"
@@ -22,8 +21,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	camerautils1 "go.viam.com/rdk/robot/web/stream/camera"
-	camerautils2 "go.viam.com/rdk/robot/web/stream/camera2"
+	camerautils "go.viam.com/rdk/robot/web/stream/camera"
 	"go.viam.com/rdk/robot/web/stream/state"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -172,7 +170,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	// return error if resource is neither a camera nor audioinput
-	_, isCamErr := cameraUtilsCamera(server.robot, streamStateToAdd.Stream)
+	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
 	_, isAudioErr := audioinput.FromProvider(server.robot, streamStateToAdd.Stream.Name())
 	if isCamErr != nil && isAudioErr != nil {
 		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
@@ -273,7 +271,7 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 
 	streamName := streamToRemove.Stream.Name()
 	_, isAudioResourceErr := audioinput.FromProvider(server.robot, streamName)
-	_, isCameraResourceErr := cameraUtilsCamera(server.robot, streamToRemove.Stream)
+	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
 	if isAudioResourceErr != nil && isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
@@ -400,6 +398,12 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 
 // resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
+	if width > 1000 && height > 600 {
+		// TODO - this should be smarter, ideally knowing what the original stream is
+		server.logger.Infof("not resizing (%s) to %d, %d because it's probable a bad idea as it's too big",
+			name, width, height)
+		return nil
+	}
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
@@ -413,14 +417,14 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 	if !ok {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
-	vs, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
 	resizer := gostream.NewResizeVideoSource(vs, width, height)
-	server.logger.Debugf(
-		"resizing video source to width %d and height %d",
-		width, height,
+	server.logger.Infof(
+		"resizing video source (%s) to width %d and height %d",
+		name, width, height,
 	)
 	existing.Swap(resizer)
 	err = streamState.Resize()
@@ -445,7 +449,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 		return fmt.Errorf("stream state not found with name %q", name)
 	}
 	server.logger.Debug("resetting video source")
-	vs, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
+	vs, err := camerautils.VideoSourceFromCamera(ctx, cam)
 	if err != nil {
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
@@ -637,7 +641,7 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 		if err != nil {
 			continue
 		}
-		src, err := cameraUtilsVideoSourceFromCamera(ctx, cam)
+		src, err := camerautils.VideoSourceFromCamera(ctx, cam)
 		if err != nil {
 			server.logger.Errorf("error creating video source from camera: %v", err)
 			continue
@@ -788,56 +792,9 @@ func GenerateResolutions(width, height int32, logger logging.Logger) []Resolutio
 	return resolutions
 }
 
-func cameraUtilsCamera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
-	if rutils.GetImagesInStreamServer() {
-		return camerautils2.Camera(robot, stream)
-	}
-	return camerautils1.Camera(robot, stream)
-}
-
-func cameraUtilsVideoSourceFromCamera(ctx context.Context, cam camera.Camera) (gostream.VideoSource, error) {
-	if rutils.GetImagesInStreamServer() {
-		return camerautils2.VideoSourceFromCamera(ctx, cam)
-	}
-	return camerautils1.VideoSourceFromCamera(ctx, cam)
-}
-
 // sampleFrameSize takes in a camera.Camera, starts a stream, attempts to
 // pull a frame, and returns the width and height.
 func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
-	if rutils.GetImagesInStreamServer() {
-		return sampleFrameSize2(ctx, cam, logger)
-	}
-	return sampleFrameSize1(ctx, cam, logger)
-}
-
-func sampleFrameSize1(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
-	logger.Debug("sampling frame size")
-	// Attempt to get a frame from the stream with a maximum of 5 retries.
-	// This is useful if cameras have a warm-up period before they can start streaming.
-	var frame image.Image
-	var err error
-retryLoop:
-	for i := 0; i < 5; i++ {
-		select {
-		case <-ctx.Done():
-			return 0, 0, ctx.Err()
-		default:
-			frame, err = camera.DecodeImageFromCamera(ctx, "", nil, cam)
-			if err == nil {
-				break retryLoop // Break out of the for loop, not just the select.
-			}
-			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
-			time.Sleep(retryDelay)
-		}
-	}
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
-	}
-	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
-}
-
-func sampleFrameSize2(ctx context.Context, cam camera.Camera, logger logging.Logger) (int, int, error) {
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
@@ -848,7 +805,7 @@ func sampleFrameSize2(ctx context.Context, cam camera.Camera, logger logging.Log
 		case <-ctx.Done():
 			return 0, 0, ctx.Err()
 		default:
-			namedImage, err := camerautils2.GetStreamableNamedImageFromCamera(ctx, cam)
+			namedImage, err := camerautils.GetStreamableNamedImageFromCamera(ctx, cam)
 			if err != nil {
 				logger.Debugf("failed to get streamable named image from camera: %v", err)
 				lastErr = err
