@@ -608,7 +608,7 @@ type cloudData struct {
 // APIKey is the cloud app authentication credential
 type APIKey struct {
 	ID  string `json:"id"`
-	Key string `json:"value"`
+	Key string `json:"key"`
 }
 
 // IsFullySet returns true if an APIKey has both the ID and Key fields set.
