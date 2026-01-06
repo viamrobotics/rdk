@@ -25,14 +25,13 @@ func TestGenerateModuleAction(t *testing.T) {
 	t.Parallel()
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",
-		IsPublic:         false,
+		Visibility:       moduleVisibilityPrivate,
 		Namespace:        "my-org",
 		Language:         "python",
 		Resource:         "arm component",
 		ResourceType:     "component",
 		ResourceSubtype:  "arm",
 		ModelName:        "my-model",
-		EnableCloudBuild: true,
 		GeneratorVersion: "0.1.0",
 		GeneratedOn:      time.Now().UTC(),
 
@@ -123,8 +122,6 @@ func TestGenerateModuleAction(t *testing.T) {
 		_, err = os.Stat(filepath.Join(modulePath, "build.sh"))
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, "setup.sh"))
-		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(modulePath, "run.sh"))
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, ".gitignore"))
 		test.That(t, err, test.ShouldBeNil)

@@ -47,6 +47,7 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
+	s.logger.CWarn(ctx, "GetImage is deprecated; please use GetImages instead")
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
@@ -127,10 +128,8 @@ func (s *serviceServer) GetImages(
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
-		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
 			SourceName:  img.SourceName,
-			Format:      format,
 			MimeType:    img.MimeType(),
 			Image:       imgBytes,
 			Annotations: img.Annotations.ToProto(),
@@ -148,10 +147,12 @@ func (s *serviceServer) GetImages(
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
+// Deprecated: Use GetImages instead.
 func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {

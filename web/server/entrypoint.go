@@ -165,7 +165,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger)
+	logging.RegisterEventLogger(rootLogger, "viam-server")
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -252,7 +252,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Start remote logging with config from disk.
 	// This is to ensure we make our best effort to write logs for failures loading the remote config.
-	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
+	if cfgFromDisk.Cloud != nil && cfgFromDisk.Cloud.AppAddress != "" {
 		netAppender, err := logging.NewNetAppender(
 			&logging.CloudConfig{
 				AppAddress: cfgFromDisk.Cloud.AppAddress,
