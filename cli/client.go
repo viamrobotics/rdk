@@ -1381,7 +1381,6 @@ func robotsPartAddResourceAction(c *cli.Context, args robotsPartAddResourceArgs)
 	}
 
 	config := part.RobotConfig.AsMap()
-	println(config["fragments"])
 
 	var resourceType string
 	var api string

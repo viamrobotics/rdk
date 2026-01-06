@@ -2505,9 +2505,11 @@ Note: There is no progress meter while copying is in progress.
 							Action:    createCommandWithT(machinesPartDeleteAction),
 						},
 						{
-							Name:      "add-resource",
-							Usage:     "add a resource to a machine part",
-							UsageText: createUsageText("machines part add-resource", []string{generalFlagPart, generalFlagName, generalFlagModelName}, true, false),
+							Name:  "add-resource",
+							Usage: "add a resource to a machine part",
+							UsageText: createUsageText(
+								"machines part add-resource", []string{generalFlagPart, generalFlagName, generalFlagModelName}, true, false,
+							),
 							// TODO (RSDK-13064): reconsider which flags are required when using huh for visual UI
 							Flags: append(commonPartFlags, []cli.Flag{
 								&cli.StringFlag{
