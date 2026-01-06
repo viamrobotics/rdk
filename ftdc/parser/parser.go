@@ -391,7 +391,6 @@ var ratioMetricToFields = map[string]ratioMetric{
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
 	// useful. Maybe we should consider including both the raw and rate graphs. Instead of replacing
 	// the raw values with a rate graph.
-	"GetImagePerSec":            {"GetImage", ""},
 	"GetReadingsPerSec":         {"GetReadings", ""},
 	"GetImagesPerSec":           {"GetImages", ""},
 	"DoCommandPerSec":           {"DoCommand", ""},
