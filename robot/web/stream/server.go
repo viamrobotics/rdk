@@ -42,7 +42,7 @@ type peerState struct {
 	senders     []*webrtc.RTPSender
 }
 
-// Server implements the gRPC audio/video streaming service.
+// Server implements the gRPC video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
 	logger    logging.Logger

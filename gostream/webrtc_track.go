@@ -97,6 +97,18 @@ func (s *trackLocalStaticRTP) RID() string { return s.rid }
 // StreamID is the group this track belongs too. This must be unique.
 func (s *trackLocalStaticRTP) StreamID() string { return s.streamID }
 
+// Kind controls if this TrackLocal is audio or video.
+func (s *trackLocalStaticRTP) Kind() webrtc.RTPCodecType {
+	switch {
+	case strings.HasPrefix(s.codec.MimeType, "audio/"):
+		return webrtc.RTPCodecTypeAudio
+	case strings.HasPrefix(s.codec.MimeType, "video/"):
+		return webrtc.RTPCodecTypeVideo
+	default:
+		return webrtc.RTPCodecType(0)
+	}
+}
+
 // Codec gets the Codec of the track.
 func (s *trackLocalStaticRTP) Codec() webrtc.RTPCodecCapability {
 	return s.codec
@@ -172,6 +184,9 @@ func (s *trackLocalStaticSample) RID() string { return s.rtpTrack.RID() }
 func (s *trackLocalStaticSample) Codec() webrtc.RTPCodecCapability {
 	return s.rtpTrack.Codec()
 }
+
+// Kind controls if this TrackLocal is audio or video.
+func (s *trackLocalStaticSample) Kind() webrtc.RTPCodecType { return s.rtpTrack.Kind() }
 
 const rtpOutboundMTU = 1200
 
