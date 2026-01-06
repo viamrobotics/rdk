@@ -555,13 +555,12 @@ func (conf *Remote) validate(path string) error {
 
 // A Cloud describes how to configure a robot controlled by the
 // cloud.
-// The cloud source could be anything that supports http.
-// URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
 	ID                string
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	APIKey            APIKey
 	LocationID        string
 	PrimaryOrgID      string
 	MachineID         string
@@ -570,8 +569,6 @@ type Cloud struct {
 	LocalFQDN         string
 	SignalingAddress  string
 	SignalingInsecure bool
-	Path              string
-	LogPath           string
 	AppAddress        string
 	RefreshInterval   time.Duration
 
@@ -582,13 +579,17 @@ type Cloud struct {
 
 // Note: keep this in sync with Cloud.
 type cloudData struct {
-	// these three fields are only set within the config passed to the robot as an argumenet.
+	// For a working cloud managed robot, these three fields have to be set
+	// within the config passed to the robot through the --config argument.
+	// Cloud configs are not expected to return these fields, and these fields
+	// will be ignored if they are returned.
 	ID         string `json:"id"`
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	APIKey            APIKey           `json:"api_key"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
 	MachineID         string           `json:"machine_id"`
@@ -597,13 +598,38 @@ type cloudData struct {
 	LocalFQDN         string           `json:"local_fqdn"`
 	SignalingAddress  string           `json:"signaling_address"`
 	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	Path              string           `json:"path,omitempty"`
-	LogPath           string           `json:"log_path,omitempty"`
 	RefreshInterval   string           `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
 	TLSPrivateKey  string `json:"tls_private_key"`
+}
+
+// APIKey is the cloud app authentication credential
+type APIKey struct {
+	ID  string `json:"id"`
+	Key string `json:"key"`
+}
+
+// IsFullySet returns true if an APIKey has both the ID and Key fields set.
+func (a APIKey) IsFullySet() bool {
+	return a.ID != "" && a.Key != ""
+}
+
+// IsPartiallySet returns true if only one of the ID or Key fields are set.
+func (a APIKey) IsPartiallySet() bool {
+	return (a.ID == "" && a.Key != "") || (a.ID != "" && a.Key == "")
+}
+
+// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
+// API keys are always preferred over robot secrets. If neither are set, nil is returned.
+func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
+	if config.APIKey.IsFullySet() {
+		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Key})
+	} else if config.Secret != "" {
+		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
+	}
+	return nil
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
@@ -617,6 +643,7 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
 		MachineID:         temp.MachineID,
@@ -625,8 +652,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		LocalFQDN:         temp.LocalFQDN,
 		SignalingAddress:  temp.SignalingAddress,
 		SignalingInsecure: temp.SignalingInsecure,
-		Path:              temp.Path,
-		LogPath:           temp.LogPath,
 		AppAddress:        temp.AppAddress,
 		TLSCertificate:    temp.TLSCertificate,
 		TLSPrivateKey:     temp.TLSPrivateKey,
@@ -648,6 +673,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
 		MachineID:         config.MachineID,
@@ -656,8 +682,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		LocalFQDN:         config.LocalFQDN,
 		SignalingAddress:  config.SignalingAddress,
 		SignalingInsecure: config.SignalingInsecure,
-		Path:              config.Path,
-		LogPath:           config.LogPath,
 		AppAddress:        config.AppAddress,
 		TLSCertificate:    config.TLSCertificate,
 		TLSPrivateKey:     config.TLSPrivateKey,
@@ -680,8 +704,10 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "secret")
+	} else if config.APIKey.IsPartiallySet() {
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
+	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -1067,6 +1093,7 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
+	var selfAuthEntity string
 	if in.Cloud != nil {
 		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
 		// We do this empty string check just to cope with unexpected input, such as cached configs
@@ -1078,7 +1105,13 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+		if in.Cloud.APIKey.IsFullySet() {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Key}
+			selfAuthEntity = in.Cloud.APIKey.ID
+		} else {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+			selfAuthEntity = in.Cloud.ID
+		}
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
@@ -1093,7 +1126,7 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			remoteCopy.Auth.Managed = true
 			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
 			remoteCopy.Auth.SignalingCreds = selfCreds
 		}
 		out.Remotes[idx] = remoteCopy
