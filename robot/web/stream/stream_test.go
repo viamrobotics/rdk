@@ -38,8 +38,7 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// We initialize with a stream config such that the stream server is capable of creating video stream and
-	// audio stream data.
+	// We initialize with a stream config such that the stream server is capable of creating video stream.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))

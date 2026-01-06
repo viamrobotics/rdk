@@ -132,7 +132,7 @@ func (bs *basicStream) Start() {
 	}
 	bs.started = true
 	close(bs.streamingReadyCh)
-	bs.activeBackgroundWorkers.Add(4)
+	bs.activeBackgroundWorkers.Add(2)
 	utils.ManagedGo(bs.processInputFrames, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
 }
