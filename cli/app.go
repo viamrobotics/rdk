@@ -2468,11 +2468,10 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:      "create",
 							Usage:     "create a machine part",
-							UsageText: createUsageText("machines part create", []string{generalFlagMachine}, true, false),
+							UsageText: createUsageText("machines part create", []string{generalFlagPartName, generalFlagMachine}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:     generalFlagPartName,
-									Aliases:  []string{generalFlagPartID, generalFlagPartName},
 									Required: true,
 								},
 								&AliasStringFlag{
