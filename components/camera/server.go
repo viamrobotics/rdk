@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
@@ -57,7 +58,12 @@ func (s *serviceServer) GetImage(
 	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
 		// Try to update the timestamp; if another goroutine updated it first, that's fine.
 		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
-			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s", req.Name)
+			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+			clientIP := "unknown"
+			if peerInfo.RemoteAddress != "" {
+				clientIP = peerInfo.RemoteAddress
+			}
+			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s, client IP: %s", req.Name, clientIP)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
