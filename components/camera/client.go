@@ -72,6 +72,9 @@ type client struct {
 	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
+
+	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
+	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -176,7 +179,14 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; camera name: %s", c.name)
+	now := time.Now()
+	lastLog := c.lastImageDeprecationLogNanos.Load()
+	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
+		// Try to update the timestamp; if another goroutine updates it first, that's fine.
+		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; camera name: %s", c.name)
+		}
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
