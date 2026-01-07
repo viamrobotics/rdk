@@ -47,7 +47,7 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
-	s.logger.CWarn(ctx, "GetImage is deprecated; please use GetImages instead")
+	s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s", req.Name)
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
