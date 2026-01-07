@@ -72,9 +72,6 @@ type client struct {
 	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
-
-	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
-	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.

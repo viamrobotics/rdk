@@ -3,7 +3,6 @@ package camera
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -23,8 +22,6 @@ type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
 	coll   resource.APIResourceGetter[Camera]
 	logger logging.Logger
-	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
-	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
