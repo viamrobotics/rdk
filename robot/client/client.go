@@ -20,7 +20,6 @@ import (
 	"github.com/viamrobotics/webrtc/v3"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/trace/noop"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -30,6 +29,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -300,7 +300,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	otelStatsHandler := otelgrpc.NewClientHandler(
-		otelgrpc.WithTracerProvider(noop.NewTracerProvider()),
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
 		otelgrpc.WithPropagators(propagation.TraceContext{}),
 	)
 
@@ -745,6 +745,12 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
+	}
+
+	// if the request is for the public framesystem,
+	// return the robot client since it implements framesystem
+	if name == framesystem.PublicServiceName {
+		return rc, nil
 	}
 
 	rc.mu.RLock()

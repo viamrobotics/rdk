@@ -10,7 +10,6 @@ import (
 	datasyncPB "go.viam.com/api/app/datasync/v1"
 	commonPB "go.viam.com/api/common/v1"
 	armPB "go.viam.com/api/component/arm/v1"
-	cameraPB "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -343,14 +342,6 @@ func TestMimeTypeFromProto(t *testing.T) {
 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD), test.ShouldEqual, MimeTypeApplicationPcd)
 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED), test.ShouldEqual, MimeTypeUnspecified)
 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType(20)), test.ShouldEqual, MimeTypeUnspecified)
-}
-
-func TestCameraFormatToMimeType(t *testing.T) {
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_JPEG), test.ShouldEqual, MimeTypeImageJpeg)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_PNG), test.ShouldEqual, MimeTypeImagePng)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_RAW_RGBA), test.ShouldEqual, MimeTypeUnspecified)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_RAW_DEPTH), test.ShouldEqual, MimeTypeUnspecified)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_UNSPECIFIED), test.ShouldEqual, MimeTypeUnspecified)
 }
 
 func TestMimeTypeStringToMimeType(t *testing.T) {

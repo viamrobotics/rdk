@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -36,14 +37,20 @@ var scripts embed.FS
 var templates embed.FS
 
 const (
-	version        = "0.1.0"
-	basePath       = "module_generate"
-	templatePrefix = "tmpl-"
-	python         = "python"
-	golang         = "go"
+	version                        = "0.1.0"
+	basePath                       = "module_generate"
+	templatePrefix                 = "tmpl-"
+	python                         = "python"
+	golang                         = "go"
+	moduleVisibilityPrivate        = "private"
+	moduleVisibilityPublic         = "public"
+	moduleVisibilityPublicUnlisted = "public_unlisted"
 )
 
-var supportedModuleGenLanguages = []string{python, golang}
+var (
+	supportedModuleGenLanguages = []string{python, golang}
+	visibilityOption            = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
+)
 
 var (
 	scriptsPath   = path.Join(basePath, "scripts")
@@ -55,11 +62,10 @@ var unauthenticatedMode = false
 type generateModuleArgs struct {
 	Name            string
 	Language        string
-	Public          bool
+	Visibility      string
 	PublicNamespace string
 	ResourceSubtype string
 	ModelName       string
-	EnableCloud     bool
 	Register        bool
 	DryRun          bool
 }
@@ -108,14 +114,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var err error
 
 	newModule = &modulegen.ModuleInputs{
-		ModuleName:       args.Name,
-		Language:         args.Language,
-		IsPublic:         args.Public,
-		Namespace:        args.PublicNamespace,
-		ResourceSubtype:  args.ResourceSubtype,
-		ModelName:        args.ModelName,
-		EnableCloudBuild: args.EnableCloud,
-		RegisterOnApp:    args.Register,
+		ModuleName:      args.Name,
+		Language:        args.Language,
+		Visibility:      args.Visibility,
+		Namespace:       args.PublicNamespace,
+		ResourceSubtype: args.ResourceSubtype,
+		ModelName:       args.ModelName,
+		RegisterOnApp:   args.Register,
 	}
 
 	if err := newModule.CheckResourceAndSetType(); err != nil {
@@ -302,11 +307,14 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					huh.NewOption("Go", golang),
 				).
 				Value(&module.Language),
-			huh.NewConfirm().
-				Title("Visibility").
-				Affirmative("Public").
-				Negative("Private").
-				Value(&module.IsPublic),
+			huh.NewSelect[string]().
+				Title("Visibiity:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&module.Visibility),
 			huh.NewInput().
 				Title("Namespace/Organization ID").
 				Value(&module.Namespace).
@@ -337,10 +345,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					}
 					return nil
 				}),
-			huh.NewConfirm().
-				Title("Enable cloud build").
-				Description("If enabled, this will generate GitHub workflows to build your module.").
-				Value(&module.EnableCloudBuild),
 			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
@@ -495,12 +499,11 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 	}
 
 	// Render workflows for cloud build
-	if module.EnableCloudBuild {
-		debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
-		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
-		if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
-			return errors.Wrap(err, "failed to create cloud build workflow")
-		}
+	debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
+	destWorkflowPath := filepath.Join(module.ModuleName, ".github")
+	if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
+		return errors.Wrap(err, "failed to create cloud build workflow")
+	}
 
 		workflowPath := path.Join(templatesPath, ".github")
 		workflowFS, err := fs.Sub(templates, workflowPath)
@@ -536,19 +539,16 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 				}
 				defer utils.UncheckedErrorFunc(destFile.Close)
 
-				_, err = io.Copy(destFile, srcFile)
-				if err != nil {
-					return errors.Wrapf(err, "error executing template for %s", destPath)
-				}
+			_, err = io.Copy(destFile, srcFile)
+			if err != nil {
+				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to render all common files")
 		}
 		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to render all common files")
 	}
-
 	return nil
 }
 
@@ -918,9 +918,10 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
-	visibility := moduleVisibilityPrivate
-	if module.IsPublic {
-		visibility = moduleVisibilityPublic
+	visibility := module.Visibility
+	if !slices.Contains(visibilityOption, visibility) {
+		visibility = moduleVisibilityPrivate
+		warningf(c.App.Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
 	}
 
 	manifest := ModuleManifest{
@@ -938,11 +939,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Path:  "dist/archive.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
-		if module.EnableCloudBuild {
-			manifest.Entrypoint = "dist/main"
-		} else {
-			manifest.Entrypoint = "./run.sh"
-		}
+		manifest.Entrypoint = "dist/main"
 	case golang:
 		manifest.Build = &manifestBuildInfo{
 			Setup: "make setup",

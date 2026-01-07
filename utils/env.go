@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -80,8 +79,11 @@ const (
 	// defaults to 100.
 	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
 
-	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
-	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
+	// ViamModuleTracingEnvVar is the environment variable that configures
+	// modules to record trace spans and send them to their parent viam-server
+	// process. Any non-empty string other than "0" or "false" enables module
+	// tracing.
+	ViamModuleTracingEnvVar = "VIAM_MODULE_TRACING"
 
 	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
 	// set before starting viam-server to indicate that agent is a new enough version to
@@ -206,11 +208,6 @@ func GetenvBool(v string, def bool) bool {
 	}
 
 	return x[0] == 't' || x[0] == 'T' || x[0] == '1'
-}
-
-// GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.
-func GetImagesInStreamServer() bool {
-	return slices.Contains(EnvTrueValues, os.Getenv(GetImagesInStreamServerEnvVar))
 }
 
 // CleanWindowsSocketPath mutates socket paths on windows only so they

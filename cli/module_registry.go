@@ -41,16 +41,6 @@ var (
 	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
 )
 
-// moduleVisibility determines whether modules are public or private.
-type moduleVisibility string
-
-// Permissions enumeration.
-const (
-	moduleVisibilityPrivate        moduleVisibility = "private"
-	moduleVisibilityPublic         moduleVisibility = "public"
-	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
-)
-
 type unknownRdkAPITypeError struct {
 	APIType string
 }
@@ -115,7 +105,7 @@ var defaultBuildInfo = manifestBuildInfo{
 type ModuleManifest struct {
 	Schema       string            `json:"$schema"`
 	ModuleID     string            `json:"module_id"`
-	Visibility   moduleVisibility  `json:"visibility"`
+	Visibility   string            `json:"visibility"`
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
 	Models       []ModuleComponent `json:"models,omitempty"`
@@ -668,7 +658,7 @@ func getExecutableArch(reader *tar.Reader) string {
 	return ParseFileType(string(output))
 }
 
-func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
+func visibilityToProto(visibility string) (apppb.Visibility, error) {
 	switch visibility {
 	case moduleVisibilityPrivate:
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil

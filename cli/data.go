@@ -507,6 +507,15 @@ func getMatchingBinaryIDs(ctx context.Context, client datapb.DataServiceClient, 
 	}
 }
 
+// Check for the errors returned from server that we send if the requested file is too large.
+// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
+// Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
+// can also be returned when the file is too large.
+func isLargeFileError(err error) bool {
+	return status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable ||
+		strings.Contains(err.Error(), "INCLUDE_BINARY_TOO_LARGE")
+}
+
 func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
@@ -523,17 +532,15 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 			IncludeBinary: !largeFile,
 		})
 		// If any file is too large, we break and try a different pathway for downloading
-		if err == nil || status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable {
+		if err == nil || isLargeFileError(err) {
 			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 			break
 		}
 		debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
 	}
+
 	// For large files, we get the metadata but not the binary itself
-	// Resource exhausted is returned when the message we're receiving exceeds the GRPC maximum limit
-	// Unavailable (such as error 'upstream connect error or disconnect/reset before headers. reset reason: connection termination')
-	// can also be returned when the file is too large.
-	if err != nil && (status.Code(err) == codes.ResourceExhausted || status.Code(err) == codes.Unavailable) {
+	if err != nil && isLargeFileError(err) {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
 			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{

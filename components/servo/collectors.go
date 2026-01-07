@@ -2,7 +2,6 @@ package servo
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	pb "go.viam.com/api/component/servo/v1"
@@ -43,7 +42,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
