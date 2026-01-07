@@ -733,16 +733,12 @@ func checkGoPath() (string, error) {
 
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
-	pythonCmd := "python3"
-	if runtime.GOOS == "windows" {
-		pythonCmd = "python"
-	}
-	cmd := exec.Command(pythonCmd, "--version")
+	cmd := exec.Command("python3", "--version")
 	_, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
-	cmd = exec.Command(pythonCmd, "-m", "venv", venvName)
+	cmd = exec.Command("python3", "-m", "venv", venvName)
 	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
@@ -754,11 +750,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
 	//nolint:gosec
-	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
-	if runtime.GOOS == "windows" {
-		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
-	}
-	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
+	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -929,24 +921,16 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
-		setup := "./setup.sh"
-		build := "./build.sh"
-		entrypoint := "./run.sh"
-		if runtime.GOOS == "windows" {
-			setup = ".\\setup.bat"
-			build = ".\\build.bat"
-			entrypoint = ".\\run.bat"
-		}
 		manifest.Build = &manifestBuildInfo{
-			Setup: setup,
-			Build: build,
+			Setup: "./setup.sh",
+			Build: "./build.sh",
 			Path:  "dist/archive.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		if module.EnableCloudBuild {
 			manifest.Entrypoint = "dist/main"
 		} else {
-			manifest.Entrypoint = entrypoint
+			manifest.Entrypoint = "./run.sh"
 		}
 	case golang:
 		manifest.Build = &manifestBuildInfo{
@@ -955,11 +939,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Path:  "module.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
-		entrypoint := filepath.Join("bin", module.ModuleName)
-		if runtime.GOOS == "windows" {
-			entrypoint = filepath.Join("bin", module.ModuleName+".exe")
-		}
-		manifest.Entrypoint = entrypoint
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
