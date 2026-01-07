@@ -101,7 +101,12 @@ func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations d
 		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
 	}
 	if mimeType == "" {
-		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
+		reader := bytes.NewReader(data)
+		_, format, err := image.DecodeConfig(reader)
+		if err != nil {
+			return NamedImage{}, fmt.Errorf("mime type not provided and could not infer mime type from bytes: %w", err)
+		}
+		mimeType = utils.FormatStringToMimeType(format)
 	}
 	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
