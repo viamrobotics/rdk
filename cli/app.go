@@ -2891,6 +2891,53 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:  "xacro",
+			Usage: "tools for working with xacro files",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "convert",
+					Usage:     "convert a xacro file to URDF",
+					UsageText: "viam xacro convert <input.xacro> <output.urdf> [--args key:=value ...]",
+					ArgsUsage: "<input.xacro> <output.urdf>",
+					Flags: []cli.Flag{
+						&cli.StringSliceFlag{
+							Name:  xacroFlagArgs,
+							Usage: "additional xacro arguments (e.g., --args config:=path/to/config.yaml)",
+						},
+						&cli.BoolFlag{
+							Name:  xacroFlagDryRun,
+							Usage: "show the docker command without executing it",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagDockerImg,
+							Usage: "docker image to use for xacro processing",
+							Value: "osrf/ros:humble-desktop",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagPackageXML,
+							Usage: "path to package.xml if not in current directory",
+						},
+					},
+					Action: func(c *cli.Context) error {
+						if c.NArg() != 2 {
+							return fmt.Errorf("expected exactly 2 arguments: <input.xacro> <output.urdf>")
+						}
+
+						args := xacroConvertArgs{
+							Input:      c.Args().Get(0),
+							Output:     c.Args().Get(1),
+							Args:       c.StringSlice(xacroFlagArgs),
+							DryRun:     c.Bool(xacroFlagDryRun),
+							DockerImg:  c.String(xacroFlagDockerImg),
+							PackageXML: c.String(xacroFlagPackageXML),
+						}
+
+						return xacroConvertAction(c, args)
+					},
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
