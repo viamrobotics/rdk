@@ -754,7 +754,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:goconst
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
 	//nolint:gosec
