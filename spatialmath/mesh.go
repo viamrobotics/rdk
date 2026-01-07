@@ -24,7 +24,10 @@ import (
 // The set of supported mesh file types.
 type meshType string
 
-const plyType = meshType("ply")
+const (
+	plyType = meshType("ply")
+	stlType = meshType("stl")
+)
 
 // Mesh is a set of triangles at some pose. Triangle points are in the frame of the mesh.
 type Mesh struct {
@@ -35,6 +38,9 @@ type Mesh struct {
 	// information used for encoding to protobuf
 	fileType meshType
 	rawBytes []byte
+
+	// originalFilePath stores the original URDF mesh path for round-tripping
+	originalFilePath string
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
@@ -114,14 +120,92 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	}, nil
 }
 
+func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
+	// Binary STL format:
+	// 80 bytes - header
+	// 4 bytes - number of triangles (uint32, little endian)
+	// For each triangle (50 bytes total):
+	//   12 bytes - normal vector (3 floats)
+	//   12 bytes - vertex 1 (3 floats)
+	//   12 bytes - vertex 2 (3 floats)
+	//   12 bytes - vertex 3 (3 floats)
+	//   2 bytes - attribute byte count (unused)
+
+	if len(data) < 84 {
+		return nil, errors.New("STL file too small")
+	}
+
+	// Read number of triangles (bytes 80-83, little endian uint32)
+	numTriangles := uint32(data[80]) | uint32(data[81])<<8 | uint32(data[82])<<16 | uint32(data[83])<<24
+
+	expectedSize := 84 + int(numTriangles)*50
+	if len(data) < expectedSize {
+		return nil, fmt.Errorf("STL file size mismatch: expected %d bytes, got %d", expectedSize, len(data))
+	}
+
+	triangles := make([]*Triangle, numTriangles)
+	offset := 84
+
+	for i := uint32(0); i < numTriangles; i++ {
+		// Skip normal vector (12 bytes)
+		offset += 12
+
+		// Read 3 vertices
+		v1 := readSTLVertex(data, offset)
+		offset += 12
+		v2 := readSTLVertex(data, offset)
+		offset += 12
+		v3 := readSTLVertex(data, offset)
+		offset += 12
+
+		// Skip attribute byte count (2 bytes)
+		offset += 2
+
+		triangles[i] = NewTriangle(v1, v2, v3)
+	}
+
+	return &Mesh{
+		pose:      pose,
+		triangles: triangles,
+		label:     label,
+		fileType:  stlType,
+		rawBytes:  data,
+	}, nil
+}
+
+// readSTLVertex reads a 3D vertex from STL binary data at the given offset.
+// Each coordinate is a 32-bit float in little endian format.
+// Converts from meters to millimeters by multiplying by 1000.
+func readSTLVertex(data []byte, offset int) r3.Vector {
+	x := math.Float32frombits(uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16 | uint32(data[offset+3])<<24)
+	y := math.Float32frombits(uint32(data[offset+4]) | uint32(data[offset+5])<<8 | uint32(data[offset+6])<<16 | uint32(data[offset+7])<<24)
+	z := math.Float32frombits(uint32(data[offset+8]) | uint32(data[offset+9])<<8 | uint32(data[offset+10])<<16 | uint32(data[offset+11])<<24)
+
+	// Convert from meters to millimeters
+	return r3.Vector{X: float64(x) * 1000, Y: float64(y) * 1000, Z: float64(z) * 1000}
+}
+
 // NewMeshFromProto creates a new mesh from a protobuf mesh.
 func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
 	switch m.ContentType {
 	case string(plyType):
 		return newMeshFromBytes(pose, m.Mesh, label)
+	case string(stlType):
+		return newMeshFromSTLBytes(pose, m.Mesh, label)
 	default:
 		return nil, fmt.Errorf("unsupported Mesh type: %s", m.ContentType)
 	}
+}
+
+// SetOriginalFilePath sets the original URDF file path for this mesh.
+// This is used to preserve the mesh path when round-tripping through URDF.
+func (m *Mesh) SetOriginalFilePath(path string) {
+	m.originalFilePath = path
+}
+
+// OriginalFilePath returns the original URDF file path for this mesh, if set.
+func (m *Mesh) OriginalFilePath() string {
+	return m.originalFilePath
 }
 
 // String returns a human readable string that represents the box.

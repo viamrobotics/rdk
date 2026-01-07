@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -77,7 +79,8 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
+// The meshMap parameter provides mesh file data keyed by URDF file path (e.g., "meshes/base.stl" -> binary data).
+func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string][]byte) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
@@ -100,7 +103,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 
 		link := &LinkConfig{ID: linkElem.Name}
 		if len(linkElem.Collision) > 0 {
-			geometry, err := linkElem.Collision[0].toGeometry()
+			geometry, err := linkElem.Collision[0].toGeometry(meshMap)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
 			}
@@ -215,7 +218,65 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 	}, nil
 }
 
+// buildMeshMapFromURDF extracts mesh file paths from URDF and loads their bytes from disk.
+// It resolves paths relative to the URDF file's directory and handles package:// URIs.
+func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string][]byte, error) {
+	// Parse URDF to find mesh references
+	urdf := &ModelConfigURDF{}
+	if err := xml.Unmarshal(xmlData, urdf); err != nil {
+		return nil, errors.Wrap(err, "failed to parse URDF for mesh extraction")
+	}
+
+	meshMap := make(map[string][]byte)
+
+	// Iterate through all links and their collision geometries
+	for _, link := range urdf.Links {
+		for _, collision := range link.Collision {
+			if collision.Geometry.Mesh == nil {
+				continue
+			}
+
+			meshPath := collision.Geometry.Mesh.Filename
+			originalPath := meshPath
+
+			// Handle package:// URIs
+			// Strip the package prefix to get the relative path
+			if strings.HasPrefix(meshPath, "package://") {
+				meshPath = strings.TrimPrefix(meshPath, "package://")
+				// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
+				if idx := strings.Index(meshPath, "/"); idx != -1 {
+					meshPath = meshPath[idx+1:]
+				}
+			}
+
+			// Check if we've already loaded this mesh
+			if _, exists := meshMap[meshPath]; exists {
+				continue
+			}
+
+			// Resolve path relative to URDF directory
+			var absolutePath string
+			if filepath.IsAbs(meshPath) {
+				absolutePath = meshPath
+			} else {
+				absolutePath = filepath.Join(urdfDir, meshPath)
+			}
+
+			// Load mesh file bytes
+			meshBytes, err := os.ReadFile(absolutePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err)
+			}
+
+			meshMap[meshPath] = meshBytes
+		}
+	}
+
+	return meshMap, nil
+}
+
 // ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
+// It automatically loads mesh files referenced in the URDF from the local filesystem.
 func ParseModelXMLFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
@@ -223,7 +284,14 @@ func ParseModelXMLFile(filename, modelName string) (Model, error) {
 		return nil, errors.Wrap(err, "failed to read URDF file")
 	}
 
-	mc, err := UnmarshalModelXML(xmlData, modelName)
+	// Build mesh map by loading mesh files from disk
+	urdfDir := filepath.Dir(filename)
+	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build mesh map")
+	}
+
+	mc, err := UnmarshalModelXML(xmlData, modelName, meshMap)
 	if err != nil {
 		return nil, err
 	}

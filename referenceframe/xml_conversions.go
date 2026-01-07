@@ -12,6 +12,8 @@ import (
 
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
+
+	commonpb "go.viam.com/api/common/v1"
 )
 
 var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
@@ -24,6 +26,7 @@ type collision struct {
 		XMLName xml.Name `xml:"geometry"`
 		Box     *box     `xml:"box,omitempty"`
 		Sphere  *sphere  `xml:"sphere,omitempty"`
+		Mesh    *mesh    `xml:"mesh,omitempty"`
 	} `xml:"geometry"`
 }
 
@@ -35,6 +38,11 @@ type box struct {
 type sphere struct {
 	XMLName xml.Name `xml:"sphere"`
 	Radius  float64  `xml:"radius,attr"` // in meters
+}
+
+type mesh struct {
+	XMLName  xml.Name `xml:"mesh"`
+	Filename string   `xml:"filename,attr"`
 }
 
 func newCollision(g spatialmath.Geometry) (*collision, error) {
@@ -57,7 +65,7 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 	return urdf, nil
 }
 
-func (c *collision) toGeometry() (spatialmath.Geometry, error) {
+func (c *collision) toGeometry(meshMap map[string][]byte) (spatialmath.Geometry, error) {
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
@@ -68,6 +76,51 @@ func (c *collision) toGeometry() (spatialmath.Geometry, error) {
 		)
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+	case c.Geometry.Mesh != nil:
+		meshPath := c.Geometry.Mesh.Filename
+
+		// Handle package:// URIs from URDF files
+		// Strip package prefix to get the path relative to the package root
+		if strings.HasPrefix(meshPath, "package://") {
+			meshPath = strings.TrimPrefix(meshPath, "package://")
+			// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
+			if idx := strings.Index(meshPath, "/"); idx != -1 {
+				meshPath = meshPath[idx+1:]
+			}
+		}
+
+		// Check if mesh map is provided
+		if meshMap == nil {
+			return nil, fmt.Errorf("mesh geometry requires mesh map to be provided, but got nil for mesh: %s", meshPath)
+		}
+
+		// Look up mesh data in the provided map
+		meshBytes, ok := meshMap[meshPath]
+		if !ok {
+			return nil, fmt.Errorf("mesh file not found in mesh map: %s", meshPath)
+		}
+
+		// Determine mesh type from file extension and create proto Mesh
+		var contentType string
+		if strings.HasSuffix(strings.ToLower(meshPath), ".ply") {
+			contentType = "ply"
+		} else if strings.HasSuffix(strings.ToLower(meshPath), ".stl") {
+			contentType = "stl"
+		} else {
+			return nil, fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath)
+		}
+
+		protoMesh := &commonpb.Mesh{
+			Mesh:        meshBytes,
+			ContentType: contentType,
+		}
+		mesh, err := spatialmath.NewMeshFromProto(c.Origin.Parse(), protoMesh, "")
+		if err != nil {
+			return nil, err
+		}
+		// Store the original mesh path for round-tripping
+		mesh.SetOriginalFilePath(meshPath)
+		return mesh, nil
 	default:
 		return nil, errors.New("couldn't parse xml: no geometry defined")
 	}

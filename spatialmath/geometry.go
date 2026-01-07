@@ -65,6 +65,7 @@ const (
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
+	MeshType    = GeometryType("mesh")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -81,6 +82,11 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// parameters used for defining a mesh
+	MeshData        []byte `json:"mesh_data,omitempty"`        // Binary mesh file data
+	MeshContentType string `json:"mesh_content_type,omitempty"` // e.g., "stl", "ply"
+	MeshFilePath    string `json:"mesh_file_path,omitempty"`    // Original URDF mesh path (e.g., "meshes/ur20/collision/base.stl")
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -110,6 +116,12 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Label = gType.label
 	case *point:
 		config.Type = PointType
+		config.Label = gType.label
+	case *Mesh:
+		config.Type = MeshType
+		config.MeshData = gType.rawBytes
+		config.MeshContentType = string(gType.fileType)
+		config.MeshFilePath = gType.originalFilePath
 		config.Label = gType.label
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
@@ -144,6 +156,16 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
+	case MeshType:
+		if len(config.MeshData) == 0 {
+			return nil, fmt.Errorf("mesh geometry requires mesh data")
+		}
+		// Create proto Mesh and use NewMeshFromProto
+		protoMesh := &commonpb.Mesh{
+			Mesh:        config.MeshData,
+			ContentType: config.MeshContentType,
+		}
+		return NewMeshFromProto(offset, protoMesh, config.Label)
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
@@ -189,6 +211,9 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 		return gType.almostEqual(b)
 	case *point:
 		return gType.almostEqual(b)
+	case *Mesh:
+		// Mesh comparison not yet implemented
+		return false
 	default:
 		return false
 	}

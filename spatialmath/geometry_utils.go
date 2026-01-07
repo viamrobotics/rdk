@@ -133,6 +133,18 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 	case *capsule:
 		r += g.length / 2
 	case *point:
+	case *Mesh:
+		// Find the maximum distance from the mesh origin to any vertex
+		maxDist := 0.0
+		for _, tri := range g.triangles {
+			for _, vertex := range []r3.Vector{tri.p0, tri.p1, tri.p2} {
+				dist := vertex.Norm()
+				if dist > maxDist {
+					maxDist = dist
+				}
+			}
+		}
+		r += maxDist
 	default:
 		return nil, errGeometryTypeUnsupported
 	}

@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -280,6 +281,7 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("gif.Geometries(): ", gif.Geometries())
 	return gif.Geometries(), nil
 }
 
