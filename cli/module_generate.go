@@ -592,8 +592,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			if err != nil {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
-			//nolint:goconst
-			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != "windows" {
+			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != osWindows {
 				//nolint:gosec
 				err = os.Chmod(destPath, 0o750)
 				if err != nil {
@@ -735,8 +734,7 @@ func checkGoPath() (string, error) {
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := "python3"
-	//nolint:goconst
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		pythonCmd = "python"
 	}
 	cmd := exec.Command(pythonCmd, "--version")
@@ -756,8 +754,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
-	//nolint:goconst
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
 	//nolint:gosec
