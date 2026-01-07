@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
@@ -27,6 +30,9 @@ type serviceServer struct {
 	imgTypesMu sync.RWMutex
 	imgTypes   map[string]ImageType
 	logger     logging.Logger
+
+	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
+	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
@@ -47,7 +53,19 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
-	s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s", req.Name)
+	now := time.Now()
+	lastLog := s.lastImageDeprecationLogNanos.Load()
+	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
+		// Try to update the timestamp; if another goroutine updated it first, that's fine.
+		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+			clientIP := "unknown"
+			if peerInfo.RemoteAddress != "" {
+				clientIP = peerInfo.RemoteAddress
+			}
+			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s, client IP: %s", req.Name, clientIP)
+		}
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
