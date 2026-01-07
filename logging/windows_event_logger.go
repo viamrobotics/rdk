@@ -11,8 +11,8 @@ import (
 
 // RegisterEventLogger does nothing on Unix. On Windows it will add an `Appender` for logging to
 // windows event system.
-func RegisterEventLogger(rootLogger Logger, name string) {
-	log, err := eventlog.Open(name)
+func RegisterEventLogger(rootLogger Logger) {
+	log, err := eventlog.Open("viam-server")
 	if err != nil {
 		rootLogger.Errorw("Unable to open windows event log", "err", err)
 	} else {

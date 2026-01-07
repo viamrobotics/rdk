@@ -201,24 +201,14 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
-	err = invalidCloud.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
-	err = invalidCloud.Ensure(true, logger)
-	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
-	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -485,24 +475,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
-	err = invalidCloud.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
-	err = invalidCloud.Ensure(true, logger)
-	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
-	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)

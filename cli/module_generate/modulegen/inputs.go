@@ -11,7 +11,7 @@ import (
 // ModuleInputs contains the necessary information to fill out template files.
 type ModuleInputs struct {
 	ModuleName       string    `json:"module_name"`
-	Visibility       string    `json:"visibility"`
+	IsPublic         bool      `json:"-"`
 	Namespace        string    `json:"namespace"`
 	OrgID            string    `json:"-"`
 	Language         string    `json:"language"`
@@ -19,6 +19,7 @@ type ModuleInputs struct {
 	ResourceType     string    `json:"resource_type"`
 	ResourceSubtype  string    `json:"resource_subtype"`
 	ModelName        string    `json:"model_name"`
+	EnableCloudBuild bool      `json:"enable_cloud_build"`
 	InitializeGit    bool      `json:"initialize_git"`
 	RegisterOnApp    bool      `json:"-"`
 	GeneratorVersion string    `json:"generator_version"`

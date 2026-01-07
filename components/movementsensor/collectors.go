@@ -2,6 +2,7 @@ package movementsensor
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	v1 "go.viam.com/api/common/v1"
@@ -72,7 +73,7 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
@@ -104,7 +105,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, linearVelocity.String(), err)
@@ -143,7 +144,7 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, angularVelocity.String(), err)
@@ -175,7 +176,7 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, compassHeading.String(), err)
@@ -205,7 +206,7 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, linearAcceleration.String(), err)
@@ -237,7 +238,7 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, orientation.String(), err)
@@ -274,7 +275,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)

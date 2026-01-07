@@ -148,7 +148,7 @@ func (c *client) Stream(
 				return
 			}
 
-			img, err := DecodeImageFromCamera(streamCtx, c, nil, nil)
+			img, err := DecodeImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
@@ -176,7 +176,6 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; camera name: %s", c.name)
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
@@ -227,12 +226,17 @@ func (c *client) Images(
 		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
+		if img.MimeType == "" {
+			// TODO(RSDK-11733): This is a temporary fix to allow the client to pass both the format and mime type
+			// format. We will remove this once we remove the format field from the proto.
+			img.MimeType = utils.FormatToMimeType[img.Format]
+		}
 		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err

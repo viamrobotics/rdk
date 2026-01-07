@@ -47,13 +47,14 @@ type Arguments struct {
 	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
-	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out metrics data"`
+	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
 	OutputLogFile              string `flag:"log-file,usage=write logs to a file with log rotation"`
 	NoTLS                      bool   `flag:"no-tls,usage=starts an insecure http server without TLS certificates even if one exists"`
 	NetworkCheckOnly           bool   `flag:"network-check,usage=only runs normal network checks, logs results, and exits"`
+	EnableTracing              bool   `flag:"tracing,default=false,usage=enable trace collection for diagnostics"`
 }
 
 type robotServer struct {
@@ -110,9 +111,9 @@ func logVersion(logger logging.Logger) {
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("viam-server", versionFields...)
+		logger.Infow("Viam RDK", versionFields...)
 	} else {
-		logger.Info("viam-server built from source; version unknown")
+		logger.Info("Viam RDK built from source; version unknown")
 	}
 }
 
@@ -165,7 +166,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	logging.RegisterEventLogger(rootLogger)
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -214,15 +215,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if argsParsed.OutputTelemetry {
-		// Only handle printing metrics. Trace span exporting is now handled in the
-		// robot config.
 		exporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
-			ReportingInterval: time.Second * 10,
+			ReportingInterval: 10 * time.Second,
 			TracesDisabled:    true,
 		})
-		if err := exporter.Start(); err != nil {
-			return err
-		}
 		defer exporter.Stop()
 	}
 
@@ -230,10 +226,8 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
-
-		cloudCreds := cfgFromDisk.Cloud.GetCloudCredsDialOpt()
 		appConnLogger := networkingLogger.Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloudCreds, appConnLogger)
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -242,8 +236,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
 			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
-			signalingConn, err = grpc.NewAppConn(
-				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger)
+			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -251,25 +244,25 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		} else {
 			signalingConn = appConn
 		}
+	}
 
-		// Start remote logging with config from disk.
-		// This is to ensure we make our best effort to write logs for failures loading the remote config.
-		if cloud.AppAddress != "" {
-			netAppender, err := logging.NewNetAppender(
-				&logging.CloudConfig{
-					AppAddress: cloud.AppAddress,
-					ID:         cloud.ID,
-					CloudCred:  cloudCreds,
-				},
-				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
-			)
-			if err != nil {
-				return err
-			}
-			defer netAppender.Close()
-
-			registry.AddAppenderToAll(netAppender)
+	// Start remote logging with config from disk.
+	// This is to ensure we make our best effort to write logs for failures loading the remote config.
+	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
+		netAppender, err := logging.NewNetAppender(
+			&logging.CloudConfig{
+				AppAddress: cfgFromDisk.Cloud.AppAddress,
+				ID:         cfgFromDisk.Cloud.ID,
+				Secret:     cfgFromDisk.Cloud.Secret,
+			},
+			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
+		)
+		if err != nil {
+			return err
 		}
+		defer netAppender.Close()
+
+		registry.AddAppenderToAll(netAppender)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
 	logStartupInfo(rootLogger)
@@ -388,7 +381,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
+	s.configLogger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -610,6 +603,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 	if s.args.EnableFTDC {
 		robotOptions = append(robotOptions, robotimpl.WithFTDC())
+	}
+
+	if s.args.EnableTracing {
+		robotOptions = append(robotOptions, robotimpl.WithTraceFile())
 	}
 
 	// Create `minimalProcessedConfig`, a copy of `fullProcessedConfig`. Remove

@@ -127,7 +127,7 @@ type removeProfileArgs struct {
 // if an env var profile isn't found, but return an error if a profile specified with the `--profile`
 // flag isn't found.
 func whichProfile(args *globalArgs) (*string, bool) {
-	// profile has been specified for this command
+	// profile hasn't been specified for this command
 	if args.Profile != "" {
 		return &args.Profile, true
 	}

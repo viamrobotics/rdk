@@ -120,10 +120,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer detector.Close(ctx)
 
-	namedImages, _, err := detector.Images(ctx, nil, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(namedImages) > 0, test.ShouldBeTrue)
-	resImg, err := namedImages[0].Image(ctx)
+	resImg, err := camera.DecodeImageFromCamera(ctx, rutils.MimeTypePNG, nil, detector)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 	test.That(t, ovImg.GetXY(852, 431), test.ShouldResemble, rimage.Red)
@@ -148,7 +145,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
-		_, _, _ = detector.Images(ctx, nil, nil)
+		_, _ = camera.DecodeImageFromCamera(ctx, rutils.MimeTypeJPEG, nil, detector)
 	}
 	test.That(b, detector.Close(context.Background()), test.ShouldBeNil)
 }

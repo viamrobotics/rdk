@@ -1,5 +1,4 @@
 //go:build windows
-
 package logging
 
 import (
@@ -10,7 +9,7 @@ import (
 
 func TestWindowsNulls(t *testing.T) {
 	logger := NewLogger("nulls")
-	RegisterEventLogger(logger, "viam-server")
+	RegisterEventLogger(logger)
 	logger.Info("this \x00 is a null")
 	err := logger.Sync()
 	test.That(t, err, test.ShouldBeNil)

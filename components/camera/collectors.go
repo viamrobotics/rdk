@@ -54,7 +54,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, nextPointCloud.String(), err)
@@ -111,53 +111,26 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
+		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 
 			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
-		if len(resImgs) == 0 {
-			err = errors.New("no images returned from camera")
-			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
-		}
-
-		// Select the corresponding image based on requested mime type if provided
-		var img NamedImage
-		var foundMatchingMimeType bool
-		if mimeStr != "" {
-			for _, candidateImg := range resImgs {
-				if candidateImg.MimeType() == mimeStr {
-					img = candidateImg
-					foundMatchingMimeType = true
-					break
-				}
-			}
-		}
-
-		if !foundMatchingMimeType {
-			img = resImgs[0]
-		}
-
-		imgBytes, err := img.Bytes(ctx)
-		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
-		}
-
-		mimeType := data.MimeTypeStringToMimeType(img.MimeType())
+		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
-			TimeReceived:  resMetadata.CapturedAt,
+			TimeReceived:  time.Now(),
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			MimeType:    mimeType,
-			Annotations: img.Annotations,
-			Payload:     imgBytes,
+			Payload:     img,
+			Annotations: metadata.Annotations,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
@@ -176,7 +149,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 
 		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
-			if data.IsNoCaptureToStoreError(err) {
+			if errors.Is(err, data.ErrNoCaptureToStore) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)

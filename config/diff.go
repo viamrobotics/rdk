@@ -22,7 +22,6 @@ type Diff struct {
 	Removed             *Config
 	ResourcesEqual      bool
 	NetworkEqual        bool
-	TracingEqual        bool
 	LogEqual            bool
 	JobsEqual           bool
 	PrettyDiff          string
@@ -99,14 +98,7 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	logDifferent := diffLogCfg(&left, &right)
 	diff.LogEqual = !logDifferent
 
-	tracingDifferent := diffTracing(&left, &right)
-	diff.TracingEqual = !tracingDifferent
-
 	return &diff, nil
-}
-
-func diffTracing(left, right *Config) bool {
-	return left.Tracing != right.Tracing
 }
 
 func prettyDiff(left, right Config) (string, error) {
@@ -144,9 +136,6 @@ func prettyDiff(left, right Config) (string, error) {
 				if conf.Cloud.LocationSecrets[i].Secret != "" {
 					conf.Cloud.LocationSecrets[i].Secret = mask
 				}
-			}
-			if conf.Cloud.APIKey.Key != "" {
-				conf.Cloud.APIKey.Key = mask
 			}
 			// Not really a secret but annoying to diff
 			if conf.Cloud.TLSCertificate != "" {

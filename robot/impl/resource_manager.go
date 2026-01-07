@@ -88,6 +88,7 @@ type resourceManagerOptions struct {
 	untrustedEnv       bool
 	tlsConfig          *tls.Config
 	ftdc               *ftdc.FTDC
+	tracingEnabled     bool
 }
 
 // newResourceManager returns a properly initialized set of parts.
@@ -140,6 +141,7 @@ func (manager *resourceManager) startModuleManager(
 		PackagesDir:             packagesDir,
 		FTDC:                    manager.opts.ftdc,
 		ModPeerConnTracker:      modPeerConnTracker,
+		TracingEnabled:          manager.opts.tracingEnabled,
 	}
 	modmanager, err := modmanager.NewManager(ctx, parentAddrs, logger, mmOpts)
 	if err != nil {
@@ -770,16 +772,16 @@ func (manager *resourceManager) completeConfig(
 						return
 					}
 
-					verb := "construct"
+					var prefix string
 					conf := gNode.Config()
 					if gNode.IsUninitialized() {
 						gNode.InitializeLogger(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfigur"
+						prefix = "re"
 					}
-					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
+					manager.logger.CInfow(ctx, fmt.Sprintf("Now %sconfiguring resource", prefix), "resource", resName, "model", conf.Model)
 
 					// The config was already validated, but we must check again before attempting
 					// to add.
@@ -830,7 +832,7 @@ func (manager *resourceManager) completeConfig(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
 							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
-							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
+							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %sconfigured resource", prefix), "resource", resName, "model", conf.Model)
 						}
 
 					default:
@@ -1330,19 +1332,13 @@ func (manager *resourceManager) updateResources(
 // exists; returns an error otherwise. Only for internal use. Lookups for
 // resources associated with gRPC requests should go through
 // [robot.LocalRobot.FindBySimpleNameAndAPI] instead.
-//
-// Because names in the dependency graph do not have prefixes and thus
-// might have a name that's different from what is expected by the user,
-// return the prefixed name so that it can be used by the caller.
-func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Name, resource.Resource, error) {
-	// Pop the remote name off for the return since callers won't be expecting it when accessing it in the resource
-	// dependency map in a resource constructor.
+func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if gNode, ok := manager.resources.Node(name); ok {
 		res, err := gNode.Resource()
 		if err != nil {
-			return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
+			return nil, resource.NewNotAvailableError(name, err)
 		}
-		return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
+		return res, nil
 	}
 	// if we haven't found a resource of this name then we are going to look into remote resources to find it.
 	// This is kind of weird and arguably you could have a ResourcesByPartialName that would match against
@@ -1350,20 +1346,20 @@ func (manager *resourceManager) ResourceByName(name resource.Name) (resource.Nam
 	if !name.ContainsRemoteNames() {
 		keys := manager.resources.FindNodesByShortNameAndAPI(name)
 		if len(keys) > 1 {
-			return resource.Name{}, nil, rutils.NewRemoteResourceClashError(name.Name)
+			return nil, rutils.NewRemoteResourceClashError(name.Name)
 		}
 		if len(keys) == 1 {
 			gNode, ok := manager.resources.Node(keys[0])
 			if ok {
 				res, err := gNode.Resource()
 				if err != nil {
-					return resource.Name{}, nil, resource.NewNotAvailableError(name, err)
+					return nil, resource.NewNotAvailableError(name, err)
 				}
-				return name.WithPrefix(gNode.GetPrefix()).PopRemote(), res, nil
+				return res, nil
 			}
 		}
 	}
-	return resource.Name{}, nil, resource.NewNotFoundError(name)
+	return nil, resource.NewNotFoundError(name)
 }
 
 // PartsMergeResult is the result of merging in parts together.

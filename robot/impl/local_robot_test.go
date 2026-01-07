@@ -18,7 +18,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -63,7 +63,6 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
-	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -92,12 +91,10 @@ func TestConfig1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
 
-	namedImages, _, err := c1.Images(context.Background(), nil, nil)
+	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
 	test.That(t, err, test.ShouldBeNil)
 
-	img, err := namedImages[0].Image(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	bounds := img.Bounds()
+	bounds := pic.Bounds()
 
 	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
 }
@@ -2933,13 +2930,13 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
-	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
-	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
-	// can depend on "s4".
+	// robot4 has an generic "h", ensure that a modular generic "h1" on robot1,
+	// a modular generic "h2" on robot2, and a modular generic "h3" on robot3
+	// can depend on "h".
 
 	startWeb := func(r robot.LocalRobot) string {
 		var boundAddress string
-		for range 10 {
+		for i := 0; i < 10; i++ {
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
 
@@ -2961,20 +2958,28 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 
 	// Precompile modules to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	test2Path := rtestutils.BuildTempModule(t, "module/testmodule2")
 
 	// Manually define models, as importing them can cause double registration.
-	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	helper2Model := resource.NewModel("rdk", "test", "helper2")
 
 	cfg4 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
 		Components: []resource.Config{
 			{
-				Name:  "s4",
-				Model: fakeModel,
-				API:   sensor.API,
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
 			},
 		},
 	}
-	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger)
 	addr4 := startWeb(robot4)
 	test.That(t, addr4, test.ShouldNotBeBlank)
 
@@ -2987,20 +2992,20 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: testPath,
+				Name:    "mod2",
+				ExePath: test2Path,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:       "s3",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "s4"},
+				Name:      "h3",
+				Model:     helper2Model,
+				API:       generic.API,
+				DependsOn: []string{"h"},
 			},
 		},
 	}
-	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger)
 	addr3 := startWeb(robot3)
 	test.That(t, addr3, test.ShouldNotBeBlank)
 
@@ -3013,20 +3018,21 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: testPath,
+				Name:    "mod2",
+				ExePath: test2Path,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:       "s2",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "s4"},
+				Name:  "h2",
+				Model: helper2Model,
+				API:   generic.API,
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"h"},
 			},
 		},
 	}
-	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger)
 	addr2 := startWeb(robot2)
 	test.That(t, addr2, test.ShouldNotBeBlank)
 
@@ -3039,189 +3045,42 @@ func TestModuleDependencyToRemotes(t *testing.T) {
 		},
 		Modules: []config.Module{
 			{
-				Name:    "mod",
-				ExePath: testPath,
+				Name:    "mod2",
+				ExePath: test2Path,
 			},
 		},
 		Components: []resource.Config{
 			{
-				Name:       "s1",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "s4"},
+				Name:  "h1",
+				Model: helper2Model,
+				API:   generic.API,
+				// ensure DependsOn works with simple name (implicit remotes)
+				DependsOn: []string{"h"},
 			},
 		},
 	}
-	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger)
 
-	// Ensure "s1", "s2", and "s3" can all be retrieved from their
+	// Ensure "h1", "h2", and "h3" can all be retrieved from their
 	// respective robots and can use their dependency.
-	s3, err := sensor.FromProvider(robot3, "s3")
+
+	h3, err := robot3.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := s3.Readings(ctx, map[string]any{})
+	resp, err := h3.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
-	s2, err := sensor.FromProvider(robot2, "s2")
+	h2, err := robot2.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err = s2.Readings(ctx, map[string]any{})
+	resp, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 
-	s1, err := sensor.FromProvider(robot1, "s1")
+	h1, err := robot1.ResourceByName(generic.Named("h1"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err = s1.Readings(ctx, map[string]any{})
+	resp, err = h1.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
-}
-
-func TestModuleDependencyToRemotesWithPrefix(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-
-	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
-	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
-	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
-	// can depend on "s4", even with prefixes.
-
-	startWeb := func(r robot.LocalRobot) string {
-		var boundAddress string
-		for range 10 {
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
-
-			options := weboptions.New()
-			boundAddress = fmt.Sprintf("localhost:%v", port)
-			options.Network.BindAddress = boundAddress
-			if err := r.StartWeb(ctx, options); err != nil {
-				r.StopWeb()
-				if strings.Contains(err.Error(), "address already in use") {
-					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
-					continue
-				}
-				t.Fatalf("StartWeb error: %v", err)
-			}
-			break
-		}
-		return boundAddress
-	}
-
-	// Precompile modules to avoid timeout issues when building takes too long.
-	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-	// Manually define models, as importing them can cause double registration.
-	sensorModel := resource.NewModel("rdk", "test", "sensordep")
-
-	cfg4 := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:  "s4",
-				Model: fakeModel,
-				API:   sensor.API,
-			},
-		},
-	}
-	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
-	addr4 := startWeb(robot4)
-	test.That(t, addr4, test.ShouldNotBeBlank)
-	cfg3 := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "robot4",
-				Address: addr4,
-				Prefix:  "r4-",
-			},
-		},
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:       "s3",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "r4-s4"},
-			},
-		},
-	}
-	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
-	addr3 := startWeb(robot3)
-	test.That(t, addr3, test.ShouldNotBeBlank)
-
-	cfg2 := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "robot3",
-				Address: addr3,
-				Prefix:  "r3-",
-			},
-		},
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:       "s2",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "r3-r4-s4"},
-			},
-		},
-	}
-	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
-	addr2 := startWeb(robot2)
-	test.That(t, addr2, test.ShouldNotBeBlank)
-
-	cfg1 := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "robot2",
-				Address: addr2,
-				Prefix:  "r2-",
-			},
-		},
-		Modules: []config.Module{
-			{
-				Name:    "mod",
-				ExePath: testPath,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:       "s1",
-				Model:      sensorModel,
-				API:        sensor.API,
-				Attributes: rutils.AttributeMap{"sensor": "r2-r3-r4-s4"},
-			},
-		},
-	}
-	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
-
-	// Ensure "s1", "s2", and "s3" can all be retrieved from their
-	// respective robots and can use their dependency.
-	s3, err := sensor.FromProvider(robot3, "s3")
-	test.That(t, err, test.ShouldBeNil)
-	resp, err := s3.Readings(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
-
-	s2, err := sensor.FromProvider(robot2, "s2")
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = s2.Readings(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
-
-	s1, err := sensor.FromProvider(robot1, "s1")
-	test.That(t, err, test.ShouldBeNil)
-	resp, err = s1.Readings(ctx, map[string]any{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
 }
 
 func TestCloudMetadata(t *testing.T) {
@@ -4379,6 +4238,9 @@ func TestModuleLogging(t *testing.T) {
 	// fields themselves. Even if the RDK is configured at INFO level, assert
 	// that modular resources can log at their own, configured levels.
 
+	// Set up a real trace provider + exporter so we get real trace IDs.
+	sdktrace.NewTracerProvider()
+
 	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
 	defer span.End()
 	traceID := span.SpanContext().TraceID().String()
@@ -5274,209 +5136,4 @@ func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
 
 	test.That(t, logs.FilterMessageSnippet("panicked while calling unary server method for module request").Len(),
 		test.ShouldEqual, 1)
-}
-
-func TestWeakDependenciesWithPrefix(t *testing.T) {
-	// This test tests that weak dependencies are properly populated in the dependencies map with the remote prefix
-	// attached to any remote resources.
-	//
-	// In this case, the shell resource will be constructed with the remote resource as a
-	// weak dependency since it will be available at the time of construction. The shell
-	// resource will then also be _reconfigured_ with the weak dependency (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
-	t.Parallel()
-	logger, logs := logging.NewObservedTestLogger(t)
-	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
-
-	successLog := "found remote-sensor"
-	dummyShell := inject.NewShellService("sensor")
-	dummyShell.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-		if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
-			return err
-		}
-		logger.Info(successLog)
-		return nil
-	}
-	resource.RegisterService(
-		shell.API,
-		model,
-		resource.Registration[shell.Service, resource.NoNativeConfig]{
-			Constructor: func(
-				ctx context.Context,
-				deps resource.Dependencies,
-				conf resource.Config,
-				logger logging.Logger,
-			) (shell.Service, error) {
-				if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
-					return nil, err
-				}
-				logger.Info(successLog)
-				return dummyShell, nil
-			},
-			WeakDependencies: []resource.Matcher{resource.TypeMatcher{resource.APITypeComponentName}},
-		},
-	)
-
-	defer func() {
-		resource.Deregister(shell.API, model)
-	}()
-
-	ctx := context.Background()
-	startWeb := func(r robot.LocalRobot) string {
-		var boundAddress string
-		for range 10 {
-			port, err := utils.TryReserveRandomPort()
-			test.That(t, err, test.ShouldBeNil)
-
-			options := weboptions.New()
-			boundAddress = fmt.Sprintf("localhost:%v", port)
-			options.Network.BindAddress = boundAddress
-			if err := r.StartWeb(ctx, options); err != nil {
-				r.StopWeb()
-				if strings.Contains(err.Error(), "address already in use") {
-					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
-					continue
-				}
-				t.Fatalf("StartWeb error: %v", err)
-			}
-			break
-		}
-		return boundAddress
-	}
-
-	remCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Model: fakeModel,
-				Name:  "sensor",
-				API:   sensor.API,
-			},
-		},
-	}
-	remoteRobot := setupLocalRobot(t, ctx, remCfg, logger.Sublogger("remoteRobot"))
-	addr := startWeb(remoteRobot)
-	test.That(t, addr, test.ShouldNotBeBlank)
-
-	cfg := &config.Config{
-		Remotes: []config.Remote{
-			{
-				Name:    "remote",
-				Address: addr,
-				Prefix:  "remote-",
-			},
-		},
-		Components: []resource.Config{
-			{
-				Model: model,
-				Name:  "shell",
-				API:   shell.API,
-			},
-		},
-	}
-	setupLocalRobot(t, ctx, cfg, logger.Sublogger("robot"))
-
-	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, logs.FilterMessage(successLog).Len(),
-			test.ShouldEqual, 2)
-	})
-}
-
-func TestReconfigureTracing(t *testing.T) {
-	testReconfigureTracing := func(t *testing.T, cloudID string) {
-		var cloudConfig *config.Cloud
-		expectedTraceSubdir := localConfigPartID
-		if cloudID != "" {
-			cloudConfig = &config.Cloud{ID: cloudID}
-			expectedTraceSubdir = cloudID
-		}
-
-		// First test: configure robot without any tracing enabled, make sure no
-		// files are created and no clients are stored on localRobot.
-		emptyCfg := &config.Config{
-			Cloud: cloudConfig,
-		}
-		logger, _ := logging.NewObservedTestLogger(t)
-
-		// localRobot.Close shuts down the global trace objects. Reset them here to
-		// make sure tracing will work after the first test.
-		trace.SetProvider(t.Context())
-
-		r := setupLocalRobot(t, context.Background(), emptyCfg, logger).(*localRobot)
-		viamHome := r.homeDir
-
-		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
-		tracePath := filepath.Join(viamHome, "trace")
-		_, err := os.Stat(tracePath)
-		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
-
-		// Second test: enable tracing. Check that clients are stored on localRobot
-		// and the disk exporter exports spans to the expected location.
-		cfgWithTracing := &config.Config{
-			Cloud: cloudConfig,
-			Tracing: config.TracingConfig{
-				Enabled: true,
-				Disk:    true,
-				Console: true,
-			},
-		}
-		r.reconfigureTracing(t.Context(), cfgWithTracing)
-		// Expect 1 instead of 2 because we don't add the development exporter.
-		test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 1)
-		spanName := "test file exporter " + t.Name()
-		_, span := trace.StartSpan(t.Context(), spanName)
-		span.End()
-
-		// The file exporter is the easiest to verify: make sure it has been created
-		// and contains the span we just made.
-		testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
-			tracesFilePath := filepath.Join(tracePath, expectedTraceSubdir, "traces")
-			_, err := os.Stat(tracesFilePath)
-			test.That(t, err, test.ShouldBeNil)
-			if err != nil {
-				return
-			}
-			tracesFile, err := os.Open(tracesFilePath)
-			test.That(t, err, test.ShouldBeNil)
-			if err != nil {
-				return
-			}
-			defer tracesFile.Close()
-			reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
-			defer reader.Close()
-			for resourceSpan := range reader.All() {
-				for _, scopeSpan := range resourceSpan.ScopeSpans {
-					for _, span := range scopeSpan.Spans {
-						if span.Name == spanName {
-							return
-						}
-					}
-				}
-			}
-			t.Error("Trace export file did not contain expected span")
-		})
-
-		// Third test: leave all exporters enabled but disable tracing with
-		// `Enabled: false`. Check that the clients are all removed from
-		// localrobot.
-		cfgWithDisabledTracing := &config.Config{
-			Cloud: cloudConfig,
-			Tracing: config.TracingConfig{
-				Enabled:      false,
-				Disk:         true,
-				Console:      true,
-				OTLPEndpoint: "localhost:4317",
-			},
-		}
-		r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
-		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
-	}
-
-	t.Run("with local config", func(t *testing.T) {
-		testReconfigureTracing(t, "")
-	})
-
-	t.Run("with cloud config", func(t *testing.T) {
-		testReconfigureTracing(t, "fake-cloud-id")
-	})
 }

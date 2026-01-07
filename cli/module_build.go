@@ -27,6 +27,8 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -553,6 +555,7 @@ type reloadModuleArgs struct {
 	NoBuild    bool
 	Local      bool
 	NoProgress bool
+	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
@@ -1302,29 +1305,21 @@ func reloadModuleActionInner(
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
-		copyFunc := func() error {
-			return vc.copyFilesToFqdn(
-				part.Part.Fqdn,
-				globalArgs.Debug,
-				false, // allowRecursion
-				false, // preserve
-				[]string{buildPath},
-				dest,
-				logger,
-				true, // noProgress
-			)
-		}
-		attemptCount, err := vc.retryableCopy(
+		err = vc.retryableCopyToPart(
 			c,
+			part.Part.Fqdn,
+			globalArgs.Debug,
+			[]string{buildPath},
+			dest,
+			logger,
+			partID,
 			pm,
-			copyFunc,
-			false,
+			vc.copyFilesToFqdn,
 		)
 		if err != nil {
 			_ = pm.Fail("upload", err)                               //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
-				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
+			return err
 		}
 		if err := pm.Complete("upload"); err != nil {
 			return err
@@ -1463,6 +1458,95 @@ func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
 	}
 	return conf.Cloud.ID, nil
+}
+
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopyToPart attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+func (c *viamClient) retryableCopyToPart(
+	ctx *cli.Context,
+	fqdn string,
+	debug bool,
+	paths []string,
+	dest string,
+	logger logging.Logger,
+	partID string,
+	pm *ProgressManager,
+	copyFunc func(fqdn string, debug, allowRecursion, preserve bool,
+		paths []string, destination string, logger logging.Logger, noProgress bool) error,
+) error {
+	var hadPreviousFailure bool
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("upload-attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Upload attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "upload" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		err := copyFunc(fqdn, debug, false, false, paths, dest, logger, true)
+
+		if err == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
+			warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+				"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+				"Alternatively, run the RDK as root.")
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "upload-attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Upload attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Upload attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, err) //nolint:errcheck
+	}
+
+	// All attempts failed - return a comprehensive error message
+	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, "+
+		"skipping the build step with: viam module reload --no-build --part-id %s", maxCopyAttempts, partID)
 }
 
 type resolveTargetModuleArgs struct {

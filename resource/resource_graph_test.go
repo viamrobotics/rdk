@@ -663,6 +663,40 @@ func newResourceNameSet(resourceNames ...Name) map[Name]*GraphNode {
 	return set
 }
 
+func TestResourceGraphFindNodeByName(t *testing.T) {
+	cfgA := []fakeComponent{
+		{
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "A"),
+			DependsOn: []Name{},
+		},
+		{
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "B"),
+			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "A")},
+		},
+		{
+			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "C"),
+			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "B")},
+		},
+	}
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
+	test.That(t, gA, test.ShouldNotBeNil)
+	for _, component := range cfgA {
+		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
+		for _, dep := range component.DependsOn {
+			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	names := gA.FindNodesByShortName("A")
+	test.That(t, names, test.ShouldHaveLength, 1)
+	names = gA.FindNodesByShortName("B")
+	test.That(t, names, test.ShouldHaveLength, 1)
+	names = gA.FindNodesByShortName("C")
+	test.That(t, names, test.ShouldHaveLength, 1)
+	names = gA.FindNodesByShortName("D")
+	test.That(t, names, test.ShouldHaveLength, 0)
+}
+
 var cfgA = []fakeComponent{
 	{
 		Name:      NewName(apiA, "A"),

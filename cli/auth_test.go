@@ -53,7 +53,7 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	asc := &inject.AppServiceClient{
 		CreateKeyFunc: createKeyFunc,
 	}
-	cCtx, ac, out, errOut := setup(asc, nil, nil, map[string]any{"org-id": "my-org"}, "token")
+	cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
 
 	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx, parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)

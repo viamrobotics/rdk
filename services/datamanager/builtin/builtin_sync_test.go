@@ -157,7 +157,15 @@ func TestSyncEnabled(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
-				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
+					},
+				},
 			})
 
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
@@ -358,7 +366,15 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
 					r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
-						camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+						camera.Named("c1"): &inject.Camera{
+							ImageFunc: func(
+								ctx context.Context,
+								mimeType string,
+								extra map[string]interface{},
+							) ([]byte, camera.ImageMetadata, error) {
+								return newImageBytesResp(ctx, imgPng, mimeType)
+							},
+						},
 					})
 					config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 				}
@@ -819,7 +835,15 @@ func TestStreamingDCUpload(t *testing.T) {
 			// Set up data manager.
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
-				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
+					},
+				},
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -1052,7 +1076,15 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
-				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
+				camera.Named("c1"): &inject.Camera{
+					ImageFunc: func(
+						ctx context.Context,
+						mimeType string,
+						extra map[string]interface{},
+					) ([]byte, camera.ImageMetadata, error) {
+						return newImageBytesResp(ctx, imgPng, mimeType)
+					},
+				},
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -1210,25 +1242,6 @@ func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([
 		return nil, camera.ImageMetadata{}, err
 	}
 	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-}
-
-// newMockCameraWithImages creates a mock camera that implements both ImageFunc and ImagesFunc
-// ImageFunc will fail the test if called, ImagesFunc returns a single JPEG image.
-func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
-	return &inject.Camera{
-		ImagesFunc: func(
-			ctx context.Context,
-			filterSourceNames []string,
-			extra map[string]interface{},
-		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
-			t.Helper()
-			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
-			test.That(t, err, test.ShouldBeNil)
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
-			test.That(t, err, test.ShouldBeNil)
-			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-		},
-	}
 }
 
 func newImgPng(t *testing.T) image.Image {

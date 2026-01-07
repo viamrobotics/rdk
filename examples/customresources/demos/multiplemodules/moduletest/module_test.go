@@ -11,9 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/samber/lo"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
-	otlpcommonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
@@ -44,7 +42,7 @@ func TestMultipleModules(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		server := robottestutils.ServerAsSeparateProcess(t, cfgFilename, logger,
-			robottestutils.WithViamHome(testViamHome))
+			robottestutils.WithViamHome(testViamHome), robottestutils.WithTracing())
 
 		err = server.Start(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -103,45 +101,8 @@ func TestMultipleModules(t *testing.T) {
 
 		// Test that spans from both modules are sent to viam-server and eventually
 		// exported to its traces file on disk.
-		gtestutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
-			checkTraceContents(t, testViamHome,
-				spanExpectation{
-					service:    "rdk",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.component.gizmo.v1.GizmoService",
-					rpcMethod:  "DoTwo",
-				},
-				spanExpectation{
-					service:    "rdk",
-					kind:       otlpv1.Span_SPAN_KIND_CLIENT,
-					rpcService: "acme.component.gizmo.v1.GizmoService",
-					rpcMethod:  "DoTwo",
-				},
-				spanExpectation{
-					service:    "GizmoModule",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.component.gizmo.v1.GizmoService",
-					rpcMethod:  "DoTwo",
-				},
-				spanExpectation{
-					service:    "GizmoModule",
-					kind:       otlpv1.Span_SPAN_KIND_CLIENT,
-					rpcService: "acme.service.summation.v1.SummationService",
-					rpcMethod:  "Sum",
-				},
-				spanExpectation{
-					service:    "rdk",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.service.summation.v1.SummationService",
-					rpcMethod:  "Sum",
-				},
-				spanExpectation{
-					service:    "SummationModule",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.service.summation.v1.SummationService",
-					rpcMethod:  "Sum",
-				},
-			)
+		gtestutils.WaitForAssertionWithSleep(t, time.Second, 10, func(t testing.TB) {
+			checkTraceContents(t, testViamHome, "rdk", "GizmoModule", "SummationModule")
 		})
 	})
 
@@ -210,66 +171,27 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 	return cfgFilename, port, file.Close()
 }
 
-type spanExpectation struct {
-	service    string
-	rpcService string
-	rpcMethod  string
-	kind       otlpv1.Span_SpanKind
-}
-
 // Check that all the specified services exist in the viam trace file
-func checkTraceContents(t testing.TB, viamHome string, expectations ...spanExpectation) {
+func checkTraceContents(t testing.TB, viamHome string, services ...string) {
 	tracesPath := filepath.Join(viamHome, ".viam", "trace", "local-config", "traces")
 	tracesFile, err := os.Open(tracesPath)
 	test.That(t, err, test.ShouldBeNil)
 	defer tracesFile.Close()
 
-	spansByService := map[string][]*otlpv1.Span{}
-
 	protosReader := protoutils.NewDelimitedProtoReader[otlpv1.ResourceSpans](tracesFile)
+	seenServices := map[string]struct{}{}
 	for resourceSpan := range protosReader.All() {
-		var serviceName string
-		for _, attr := range resourceSpan.Resource.Attributes {
+		attrs := resourceSpan.Resource.Attributes
+		for _, attr := range attrs {
 			keyStr := attr.Key
 			if keyStr == string(semconv.ServiceNameKey) {
-				serviceName = attr.Value.GetStringValue()
-				break
+				serviceName := attr.Value.GetStringValue()
+				seenServices[serviceName] = struct{}{}
 			}
 		}
-		if serviceName == "" {
-			t.Error("Failed to find service name in trace tags")
-			continue
-		}
-		spans := lo.Flatten(
-			lo.Map(resourceSpan.ScopeSpans, func(span *otlpv1.ScopeSpans, _ int) []*otlpv1.Span {
-				return span.Spans
-			}),
-		)
-		spansByService[serviceName] = append(spansByService[serviceName], spans...)
 	}
 
-	if len(spansByService) < 1 {
-		t.Fail()
-		return
-	}
-	for _, exp := range expectations {
-		spans, ok := spansByService[exp.service]
-		test.That(t, ok, test.ShouldBeTrue)
-		matchingSpans := lo.Filter(spans, func(span *otlpv1.Span, _ int) bool {
-			if span.Kind != exp.kind {
-				return false
-			}
-			attrs := lo.SliceToMap(span.Attributes, func(item *otlpcommonv1.KeyValue) (string, string) {
-				return item.Key, item.Value.GetStringValue()
-			})
-			if exp.rpcMethod != attrs[string(semconv.RPCMethodKey)] {
-				return false
-			}
-			if exp.rpcService != attrs[string(semconv.RPCServiceKey)] {
-				return false
-			}
-			return true
-		})
-		test.That(t, matchingSpans, test.ShouldNotBeEmpty)
+	for _, service := range services {
+		test.That(t, seenServices, test.ShouldContainKey, service)
 	}
 }

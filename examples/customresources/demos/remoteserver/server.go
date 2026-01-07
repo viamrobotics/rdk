@@ -44,8 +44,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) (er
 
 	var appConn rpc.ClientConn
 	if cfg.Cloud != nil && cfg.Cloud.AppAddress != "" {
-		cloudCreds := cfg.Cloud.GetCloudCredsDialOpt()
-		appConn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.ID, cloudCreds, logger)
+		appConn, err = grpc.NewAppConn(ctx, cfg.Cloud.AppAddress, cfg.Cloud.Secret, cfg.Cloud.ID, logger)
 		if err != nil {
 			return nil
 		}

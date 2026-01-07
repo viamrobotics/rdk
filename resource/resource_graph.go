@@ -506,6 +506,31 @@ func (g *Graph) FindBySimpleName(name string) []Name {
 	return result
 }
 
+// FindNodesByShortName returns all resources matching the given short name.
+func (g *Graph) FindNodesByShortName(name string) []Name {
+	hasRemote := strings.Contains(name, ":")
+	var matches []Name
+	for nodeName := range g.nodes.Keys() {
+		if !(nodeName.API.IsComponent() || nodeName.API.IsService()) {
+			continue
+		}
+		if hasRemote {
+			// check the whole remote. we could technically check
+			// a prefix of the remote but thats excluded for now.
+			if nodeName.ShortName() == name {
+				matches = append(matches, nodeName)
+			}
+			continue
+		}
+
+		// check without the remote name
+		if nodeName.Name == name {
+			matches = append(matches, nodeName)
+		}
+	}
+	return matches
+}
+
 // GetAllChildrenOf returns all direct children of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
 	g.mu.Lock()

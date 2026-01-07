@@ -1,6 +1,10 @@
 import asyncio
 from viam.module.module import Module
-from models.{{ .ModelSnake }} import {{ .ModelPascal }}
+try:
+    from models.{{ .ModelSnake }} import {{ .ModelPascal }}
+except ModuleNotFoundError:
+    # when running as local module with run.sh
+    from .models.{{ .ModelSnake }} import {{ .ModelPascal }}
 
 
 if __name__ == '__main__':

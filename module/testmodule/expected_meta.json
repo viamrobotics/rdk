@@ -23,10 +23,6 @@
     {
       "api": "rdk:component:generic",
       "model": "rdk:test:fsdep"
-    },
-    {
-      "api": "rdk:component:sensor",
-      "model": "rdk:test:sensordep"
     }
   ],
   "entrypoint": "./testmodule"

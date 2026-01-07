@@ -122,7 +122,7 @@ func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byt
 			return nil, err
 		}
 		imgBytes = buf.Bytes()
-	case datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED, datasyncpb.MimeType_MIME_TYPE_VIDEO_MP4, datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD:
+	case datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED, datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD:
 		fallthrough
 	default:
 		return nil, errors.New("mime type must be either png or jpeg for images")

@@ -500,7 +500,6 @@ func (w *GraphNode) replace(other *GraphNode) error {
 	w.lastErr = other.lastErr
 	w.unresolvedDependencies = other.unresolvedDependencies
 	w.needsDependencyResolution = other.needsDependencyResolution
-	w.prefix = other.prefix
 
 	w.state = other.state
 	w.transitionedAt = other.transitionedAt

@@ -2,6 +2,7 @@ package arm
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	v1 "go.viam.com/api/common/v1"
@@ -109,7 +110,7 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 // A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 // is used in the datamanager to exclude readings from being captured and stored.
 func formatErr(err error, m method, params data.CollectorParams) error {
-	if data.IsNoCaptureToStoreError(err) {
+	if errors.Is(err, data.ErrNoCaptureToStore) {
 		return err
 	}
 	return data.NewFailedToReadError(params.ComponentName, m.String(), err)

@@ -159,16 +159,9 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	namedImages, _, err := cam.Images(ctx, nil, extra)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
-	}
-	if len(namedImages) == 0 {
-		return nil, errors.Errorf("no images returned from camera %s", cameraName)
-	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 	return vm.detectorFunc(ctx, img)
 }
@@ -216,16 +209,9 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	namedImages, _, err := cam.Images(ctx, nil, extra)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
-	}
-	if len(namedImages) == 0 {
-		return nil, errors.Errorf("no images returned from camera %s", cameraName)
-	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 
 	fullClassifications, err := vm.classifierFunc(ctx, img)
@@ -285,16 +271,9 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	namedImages, _, err := cam.Images(ctx, nil, extra)
+	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
-	}
-	if len(namedImages) == 0 {
-		return viscapture.VisCapture{}, errors.Errorf("no images returned from camera %s", cameraName)
-	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return viscapture.VisCapture{}, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 
 	var detections []objectdetection.Detection

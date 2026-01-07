@@ -5,7 +5,6 @@ package data
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,10 +33,7 @@ const FromDMString = "fromDataManagement"
 var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var (
-	errNoCaptureToStoreMsg = "no capture from filter module"
-	ErrNoCaptureToStore    = status.Error(codes.FailedPrecondition, errNoCaptureToStoreMsg)
-)
+var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
 
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
@@ -209,7 +205,7 @@ func (c *collector) getAndPushNextReading() {
 	}
 
 	if err != nil {
-		if IsNoCaptureToStoreError(err) {
+		if errors.Is(err, ErrNoCaptureToStore) {
 			c.logger.Debug("capture filtered out by modular resource")
 			return
 		}
@@ -360,7 +356,6 @@ func (c *collector) logCaptureErrs() {
 				continue
 			}
 		}
-
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
 			var failedToReadError *FailedToReadError
@@ -438,7 +433,7 @@ func NewDoCommandCaptureFunc[T interface {
 
 		values, err := resource.DoCommand(ctx, payload)
 		if err != nil {
-			if IsNoCaptureToStoreError(err) {
+			if errors.Is(err, ErrNoCaptureToStore) {
 				return result, err
 			}
 			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
@@ -503,9 +498,4 @@ func flattenValue(val *structpb.Value) interface{} {
 	default:
 		return val
 	}
-}
-
-// IsNoCaptureToStoreError returns true if the error is NoCaptureToStoreError. Use this instead of errors.Is.
-func IsNoCaptureToStoreError(err error) bool {
-	return status.Code(err) == codes.FailedPrecondition && strings.Contains(err.Error(), errNoCaptureToStoreMsg)
 }
