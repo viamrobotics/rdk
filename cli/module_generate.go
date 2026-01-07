@@ -734,7 +734,7 @@ func checkGoPath() (string, error) {
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := "python3"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == "windows" { //nolint:goconst
 		pythonCmd = "python"
 	}
 	cmd := exec.Command(pythonCmd, "--version")
@@ -753,11 +753,11 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
-	//nolint:gosec
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
 	if runtime.GOOS == "windows" {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
+	//nolint:gosec
 	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
