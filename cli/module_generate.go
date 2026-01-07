@@ -733,12 +733,16 @@ func checkGoPath() (string, error) {
 
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
-	cmd := exec.Command("python3", "--version")
+	pythonCmd := "python3"
+	if runtime.GOOS == "windows" {
+		pythonCmd = "python"
+	}
+	cmd := exec.Command(pythonCmd, "--version")
 	_, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
-	cmd = exec.Command("python3", "-m", "venv", venvName)
+	cmd = exec.Command(pythonCmd, "-m", "venv", venvName)
 	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
@@ -750,7 +754,11 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
 	//nolint:gosec
-	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType,
+	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
+	if runtime.GOOS == "windows" {
+		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
+	}
+	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
