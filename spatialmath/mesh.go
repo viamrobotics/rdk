@@ -215,14 +215,18 @@ func (m *Mesh) String() string {
 }
 
 // ToProtobuf converts a Mesh to its protobuf representation.
-// Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message.
+// Meshes are always converted to PLY format for compatibility with the visualizer.
 func (m *Mesh) ToProtobuf() *commonpb.Geometry {
+	// Convert mesh to PLY format for visualizer compatibility
+	// The visualizer expects all meshes to be in PLY format
+	plyBytes := m.TrianglesToPLYBytes(false)
+
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(m.pose),
 		GeometryType: &commonpb.Geometry_Mesh{
 			Mesh: &commonpb.Mesh{
-				ContentType: string(m.fileType),
-				Mesh:        m.rawBytes,
+				ContentType: "ply",
+				Mesh:        plyBytes,
 			},
 		},
 		Label: m.label,
