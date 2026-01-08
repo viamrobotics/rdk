@@ -505,39 +505,39 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 		return errors.Wrap(err, "failed to create cloud build workflow")
 	}
 
-		workflowPath := path.Join(templatesPath, ".github")
-		workflowFS, err := fs.Sub(templates, workflowPath)
+	workflowPath := path.Join(templatesPath, ".github")
+	workflowFS, err := fs.Sub(templates, workflowPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to create cloud build workflow")
+	}
+
+	err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return errors.Wrap(err, "failed to create cloud build workflow")
+			return err
 		}
-
-		err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
+		if d.IsDir() {
+			if d.Name() != ".github" {
+				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
+				err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
+				if err != nil {
+					return err
+				}
 			}
-			if d.IsDir() {
-				if d.Name() != ".github" {
-					debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
-					err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
-					if err != nil {
-						return err
-					}
-				}
-			} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
-				srcFile, err := templates.Open(path.Join(workflowPath, filePath))
-				if err != nil {
-					return errors.Wrapf(err, "error opening file %s", srcFile)
-				}
-				defer utils.UncheckedErrorFunc(srcFile.Close)
+		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
+			srcFile, err := templates.Open(path.Join(workflowPath, filePath))
+			if err != nil {
+				return errors.Wrapf(err, "error opening file %s", srcFile)
+			}
+			defer utils.UncheckedErrorFunc(srcFile.Close)
 
-				destPath := filepath.Join(destWorkflowPath, filePath)
-				//nolint:gosec
-				destFile, err := os.Create(destPath)
-				if err != nil {
-					return errors.Wrapf(err, "failed to create file %s", destPath)
-				}
-				defer utils.UncheckedErrorFunc(destFile.Close)
+			destPath := filepath.Join(destWorkflowPath, filePath)
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to create file %s", destPath)
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
