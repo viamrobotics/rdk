@@ -224,6 +224,7 @@ func uploadBinarySensorData(
 ) error {
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
+	md.Mimetype = sd.GetMetadata().GetMimeType()
 	fileExtensionFromMimeType := getFileExtFromMimeType(sd.GetMetadata().GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
@@ -308,6 +309,7 @@ func uploadLargeBinarySensorData(
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
 	smd := sd.GetMetadata()
+	md.Mimetype = sd.GetMetadata().GetMimeType()
 	fileExtensionFromMimeType := getFileExtFromMimeType(smd.GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
