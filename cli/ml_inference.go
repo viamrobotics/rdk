@@ -13,7 +13,6 @@ import (
 const (
 	inferenceFlagBinaryDataID = "binary-data-id"
 	inferenceFlagModelOrgID   = "model-org-id"
-	inferenceFlagModelName    = "model-name"
 	inferenceFlagModelVersion = "model-version"
 )
 
