@@ -221,6 +221,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 
 // buildMeshMapFromURDF extracts mesh file paths from URDF and loads their bytes from disk.
 // It resolves paths relative to the URDF file's directory and handles package:// URIs.
+// Note: This function is only used when we are reading a URDF file, not when a URDF is sent over the wire.
 func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.Mesh, error) {
 	// Parse URDF to find mesh references
 	urdf := &ModelConfigURDF{}
