@@ -18,6 +18,21 @@ import (
 
 var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 
+// normalizeURDFMeshPath converts a URDF mesh path (which may use package:// URI) to a relative path.
+// For example: "package://ur_description/meshes/base.stl" -> "meshes/base.stl"
+func normalizeURDFMeshPath(meshPath string) string {
+	// Handle package:// URIs
+	// Strip the package prefix to get the relative path
+	if strings.HasPrefix(meshPath, "package://") {
+		meshPath = strings.TrimPrefix(meshPath, "package://")
+		// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
+		if idx := strings.Index(meshPath, "/"); idx != -1 {
+			meshPath = meshPath[idx+1:]
+		}
+	}
+	return meshPath
+}
+
 // collision is a struct which details the XML used in a URDF collision geometry.
 type collision struct {
 	XMLName  xml.Name `xml:"collision"`
@@ -59,13 +74,15 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
 	case spatialmath.SphereType:
 		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
+	case spatialmath.MeshType:
+		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
 	return urdf, nil
 }
 
-func (c *collision) toGeometry(meshMap map[string][]byte) (spatialmath.Geometry, error) {
+func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.Geometry, error) {
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
@@ -77,43 +94,19 @@ func (c *collision) toGeometry(meshMap map[string][]byte) (spatialmath.Geometry,
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
 	case c.Geometry.Mesh != nil:
-		meshPath := c.Geometry.Mesh.Filename
-
-		// Handle package:// URIs from URDF files
-		// Strip package prefix to get the path relative to the package root
-		if strings.HasPrefix(meshPath, "package://") {
-			meshPath = strings.TrimPrefix(meshPath, "package://")
-			// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
-			if idx := strings.Index(meshPath, "/"); idx != -1 {
-				meshPath = meshPath[idx+1:]
-			}
-		}
+		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
 
 		// Check if mesh map is provided
 		if meshMap == nil {
 			return nil, fmt.Errorf("mesh geometry requires mesh map to be provided, but got nil for mesh: %s", meshPath)
 		}
 
-		// Look up mesh data in the provided map
-		meshBytes, ok := meshMap[meshPath]
+		// Look up mesh proto in the provided map
+		protoMesh, ok := meshMap[meshPath]
 		if !ok {
 			return nil, fmt.Errorf("mesh file not found in mesh map: %s", meshPath)
 		}
 
-		// Determine mesh type from file extension and create proto Mesh
-		var contentType string
-		if strings.HasSuffix(strings.ToLower(meshPath), ".ply") {
-			contentType = "ply"
-		} else if strings.HasSuffix(strings.ToLower(meshPath), ".stl") {
-			contentType = "stl"
-		} else {
-			return nil, fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath)
-		}
-
-		protoMesh := &commonpb.Mesh{
-			Mesh:        meshBytes,
-			ContentType: contentType,
-		}
 		mesh, err := spatialmath.NewMeshFromProto(c.Origin.Parse(), protoMesh, "")
 		if err != nil {
 			return nil, err

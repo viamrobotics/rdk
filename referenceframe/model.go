@@ -39,12 +39,7 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		// Extract mesh map from protobuf and convert from proto Mesh to bytes
-		meshMap := make(map[string][]byte)
-		for path, protoMesh := range resp.GetMeshesByUrdfFilepath() {
-			meshMap[path] = protoMesh.GetMesh()
-		}
-
+		meshMap := resp.GetMeshesByUrdfFilepath()
 		modelconf, err := UnmarshalModelXML(data, name, meshMap)
 		if err != nil {
 			return nil, err

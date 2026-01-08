@@ -11,6 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -79,8 +80,8 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-// The meshMap parameter provides mesh file data keyed by URDF file path (e.g., "meshes/base.stl" -> binary data).
-func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string][]byte) (*ModelConfigJSON, error) {
+// The meshMap parameter provides mesh proto messages keyed by URDF file path (e.g., "meshes/base.stl" -> proto Mesh).
+func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*commonpb.Mesh) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
@@ -220,14 +221,14 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string][]by
 
 // buildMeshMapFromURDF extracts mesh file paths from URDF and loads their bytes from disk.
 // It resolves paths relative to the URDF file's directory and handles package:// URIs.
-func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string][]byte, error) {
+func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.Mesh, error) {
 	// Parse URDF to find mesh references
 	urdf := &ModelConfigURDF{}
 	if err := xml.Unmarshal(xmlData, urdf); err != nil {
 		return nil, errors.Wrap(err, "failed to parse URDF for mesh extraction")
 	}
 
-	meshMap := make(map[string][]byte)
+	meshMap := make(map[string]*commonpb.Mesh)
 
 	// Iterate through all links and their collision geometries
 	for _, link := range urdf.Links {
@@ -236,18 +237,8 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string][]byte, er
 				continue
 			}
 
-			meshPath := collision.Geometry.Mesh.Filename
-			originalPath := meshPath
-
-			// Handle package:// URIs
-			// Strip the package prefix to get the relative path
-			if strings.HasPrefix(meshPath, "package://") {
-				meshPath = strings.TrimPrefix(meshPath, "package://")
-				// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
-				if idx := strings.Index(meshPath, "/"); idx != -1 {
-					meshPath = meshPath[idx+1:]
-				}
-			}
+			originalPath := collision.Geometry.Mesh.Filename
+			meshPath := normalizeURDFMeshPath(originalPath)
 
 			// Check if we've already loaded this mesh
 			if _, exists := meshMap[meshPath]; exists {
@@ -268,7 +259,20 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string][]byte, er
 				return nil, fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err)
 			}
 
-			meshMap[meshPath] = meshBytes
+			// Determine mesh content type from file extension
+			var contentType string
+			if strings.HasSuffix(strings.ToLower(meshPath), ".ply") {
+				contentType = "ply"
+			} else if strings.HasSuffix(strings.ToLower(meshPath), ".stl") {
+				contentType = "stl"
+			} else {
+				return nil, fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath)
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        meshBytes,
+				ContentType: contentType,
+			}
 		}
 	}
 

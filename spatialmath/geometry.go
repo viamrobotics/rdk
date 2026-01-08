@@ -84,7 +84,7 @@ type GeometryConfig struct {
 	L float64 `json:"l"`
 
 	// parameters used for defining a mesh
-	MeshData        []byte `json:"mesh_data,omitempty"`        // Binary mesh file data
+	MeshData        []byte `json:"mesh_data,omitempty"`         // Binary mesh file data
 	MeshContentType string `json:"mesh_content_type,omitempty"` // e.g., "stl", "ply"
 	MeshFilePath    string `json:"mesh_file_path,omitempty"`    // Original URDF mesh path (e.g., "meshes/ur20/collision/base.stl")
 
@@ -211,9 +211,6 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 		return gType.almostEqual(b)
 	case *point:
 		return gType.almostEqual(b)
-	case *Mesh:
-		// Mesh comparison not yet implemented
-		return false
 	default:
 		return false
 	}

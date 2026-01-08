@@ -44,7 +44,7 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var urdf2 collision
 			xml.Unmarshal(bytes, &urdf2)
-			g2, err := urdf2.toGeometry()
+			g2, err := urdf2.toGeometry(nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, spatialmath.GeometriesAlmostEqual(tc.g, g2), test.ShouldBeTrue)
 		})
