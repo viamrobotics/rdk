@@ -227,6 +227,15 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	return nil
 }
 
+// returns model name based on chosen resource
+func modelName(module *modulegen.ModuleInputs) string {
+	resourceName := strings.Fields(module.Resource)[0]
+	if resourceName == "generic" {
+		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
+	}
+	return resourceName
+}
+
 // Prompt the user for information regarding the module they want to create
 // returns the modulegen.ModuleInputs struct that contains the information the user entered.
 func promptUser(module *modulegen.ModuleInputs) error {
@@ -286,7 +295,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
 			huh.NewInput().
 				Title("Set a module name:").
-				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This can be the name of the piece of hardware, the challenge you are trying to solve,\n"+
+					"the name of the project, etc.\n"+
+					"The module name can contain only alphanumeric characters, dashes, and underscores.").
 				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
@@ -336,7 +347,12 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
-				Placeholder("my-model").
+				PlaceholderFunc(func() string {
+					return modelName(module)
+				}, &module.Resource).
+				SuggestionsFunc(func() []string {
+					return []string{modelName(module)}
+				}, &module.Resource).
 				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
