@@ -64,13 +64,16 @@ func (s *serviceServer) GetImage(
 			if peerInfo.RemoteAddress != "" {
 				clientIP = peerInfo.RemoteAddress
 			}
-			moduleName := "none (could be a client script or other non-module entity)"
-			if mn := grpc.GetModuleName(ctx); mn != "" {
-				moduleName = mn
+
+			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
+				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
+					"camera name: %s, client IP: %s, caller module name: %s",
+					req.Name, clientIP, moduleName)
+			} else {
+				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
+					"camera name: %s, client IP: %s",
+					req.Name, clientIP)
 			}
-			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
-				"camera name: %s, client IP: %s, caller module name: %s",
-				req.Name, clientIP, moduleName)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
