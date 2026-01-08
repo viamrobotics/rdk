@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -63,7 +64,16 @@ func (s *serviceServer) GetImage(
 			if peerInfo.RemoteAddress != "" {
 				clientIP = peerInfo.RemoteAddress
 			}
-			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s, client IP: %s", req.Name, clientIP)
+
+			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
+				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
+					"camera name: %s, client IP: %s, caller module name: %s",
+					req.Name, clientIP, moduleName)
+			} else {
+				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
+					"camera name: %s, client IP: %s",
+					req.Name, clientIP)
+			}
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
