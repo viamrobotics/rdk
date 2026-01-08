@@ -188,7 +188,9 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 			if mn := grpc.GetModuleName(ctx); mn != "" {
 				moduleName = mn
 			}
-			c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; camera name: %s, client IP: %s, module name: %s", c.Name(), clientIP, moduleName)
+			c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; "+
+				"camera name: %s, caller module name: %s",
+				c.Name(), moduleName)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")

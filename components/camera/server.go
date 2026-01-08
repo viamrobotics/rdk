@@ -68,7 +68,9 @@ func (s *serviceServer) GetImage(
 			if mn := grpc.GetModuleName(ctx); mn != "" {
 				moduleName = mn
 			}
-			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; camera name: %s, client IP: %s, module name: %s", req.Name, clientIP, moduleName)
+			s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
+				"camera name: %s, client IP: %s, caller module name: %s",
+				req.Name, clientIP, moduleName)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
