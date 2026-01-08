@@ -184,13 +184,18 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
 		// Try to update the timestamp; if another goroutine updates it first, that's fine.
 		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+			clientIP := "unknown"
+			if peerInfo.LocalAddress != "" {
+				clientIP = peerInfo.LocalAddress
+			}
 			moduleName := "none (could be a client script or other non-module entity)"
 			if mn := grpc.GetModuleName(ctx); mn != "" {
 				moduleName = mn
 			}
-			c.logger.CWarnf(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead; "+
-				"camera name: %s, caller module name: %s",
-				c.Name(), moduleName)
+			c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
+				"camera name: %s, client IP: %s, caller module name: %s",
+				c.Name(), clientIP, moduleName)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
