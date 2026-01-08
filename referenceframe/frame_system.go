@@ -761,7 +761,11 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	if part.ModelFrame == nil {
 		modelFrame = NewZeroStaticFrame(part.FrameConfig.Name())
 	} else {
+		fmt.Println("part.ModelFrame.Name(): ", part.ModelFrame.Name())
+		fmt.Println("part.FrameConfig.Name(): ", part.FrameConfig.Name())
+		// fmt.Println("part.ModelFrame.Name(): ", part.ModelFrame.Name())
 		if part.ModelFrame.Name() != part.FrameConfig.Name() {
+			fmt.Println("yo this bad")
 			modelFrame = NewNamedFrame(part.ModelFrame, part.FrameConfig.Name())
 		} else {
 			modelFrame = part.ModelFrame

@@ -159,7 +159,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.rpm = 100
 	}
 
-	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().String())
+	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().ShortName())
 	if err != nil {
 		g.logger.CWarnf(ctx, "failed to load kinematics from file '%v': %v", newConf.Kinematics, err)
 	}
