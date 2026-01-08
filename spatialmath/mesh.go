@@ -247,11 +247,12 @@ func (m *Mesh) Triangles() []*Triangle {
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
 	return &Mesh{
-		pose:      Compose(pose, m.pose),
-		triangles: m.triangles,
-		label:     m.label,
-		fileType:  m.fileType,
-		rawBytes:  m.rawBytes,
+		pose:             Compose(pose, m.pose),
+		triangles:        m.triangles,
+		label:            m.label,
+		fileType:         m.fileType,
+		rawBytes:         m.rawBytes,
+		originalFilePath: m.originalFilePath,
 	}
 }
 

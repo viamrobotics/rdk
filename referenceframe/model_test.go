@@ -112,3 +112,90 @@ func Test2DMobileModelFrame(t *testing.T) {
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
+
+func TestExtractMeshMapFromModelConfig(t *testing.T) {
+	// Use dummy bytes for testing - no need to load actual files
+	stlBytes := []byte("fake stl data")
+	plyBytes := []byte("fake ply data")
+
+	t.Run("extracts meshes from model config", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			Links: []LinkConfig{
+				{
+					ID: "link1",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        stlBytes,
+						MeshContentType: "stl",
+						MeshFilePath:    "meshes/link1.stl",
+					},
+				},
+				{
+					ID: "link2",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        plyBytes,
+						MeshContentType: "ply",
+						MeshFilePath:    "models/link2.ply",
+					},
+				},
+				{
+					ID: "link3",
+					Geometry: &spatial.GeometryConfig{
+						Type: spatial.BoxType,
+						X:    1, Y: 2, Z: 3,
+					},
+				},
+			},
+		}
+
+		meshMap := extractMeshMapFromModelConfig(cfg)
+		test.That(t, len(meshMap), test.ShouldEqual, 2)
+
+		// Verify STL mesh
+		stlMesh := meshMap["meshes/link1.stl"]
+		test.That(t, stlMesh.ContentType, test.ShouldEqual, "stl")
+		test.That(t, stlMesh.Mesh, test.ShouldResemble, stlBytes)
+
+		// Verify PLY mesh
+		plyMesh := meshMap["models/link2.ply"]
+		test.That(t, plyMesh.ContentType, test.ShouldEqual, "ply")
+		test.That(t, plyMesh.Mesh, test.ShouldResemble, plyBytes)
+	})
+
+	t.Run("handles config with no meshes", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			Links: []LinkConfig{
+				{
+					ID: "link1",
+					Geometry: &spatial.GeometryConfig{
+						Type: spatial.BoxType,
+						X:    1, Y: 2, Z: 3,
+					},
+				},
+			},
+		}
+
+		meshMap := extractMeshMapFromModelConfig(cfg)
+		test.That(t, len(meshMap), test.ShouldEqual, 0)
+	})
+
+	t.Run("skips meshes without file path", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			Links: []LinkConfig{
+				{
+					ID: "link1",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        stlBytes,
+						MeshContentType: "stl",
+						MeshFilePath:    "",
+					},
+				},
+			},
+		}
+
+		meshMap := extractMeshMapFromModelConfig(cfg)
+		test.That(t, len(meshMap), test.ShouldEqual, 0)
+	})
+}

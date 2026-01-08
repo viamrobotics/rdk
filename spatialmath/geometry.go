@@ -165,7 +165,15 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 			Mesh:        config.MeshData,
 			ContentType: config.MeshContentType,
 		}
-		return NewMeshFromProto(offset, protoMesh, config.Label)
+		mesh, err := NewMeshFromProto(offset, protoMesh, config.Label)
+		if err != nil {
+			return nil, err
+		}
+		// Preserve the original file path for round-tripping
+		if config.MeshFilePath != "" {
+			mesh.SetOriginalFilePath(config.MeshFilePath)
+		}
+		return mesh, nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}

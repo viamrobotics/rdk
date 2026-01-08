@@ -75,6 +75,9 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 	case spatialmath.SphereType:
 		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
 	case spatialmath.MeshType:
+		if cfg.MeshFilePath == "" {
+			return nil, errors.New("mesh geometry does not have an original file path set")
+		}
 		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
