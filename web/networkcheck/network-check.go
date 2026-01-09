@@ -131,7 +131,7 @@ func testDNSServerConnectivity(ctx context.Context, dnsServer string) *DNSResult
 		case <-ctx.Done():
 		case <-testDNSServerConnectivityDone:
 		}
-		conn.Close() //nolint:gosec,errcheck
+		conn.Close() //nolint:errcheck
 	}()
 
 	// Send a simple DNS query for "google.com"'s A record.
@@ -438,7 +438,7 @@ func testUDP(ctx context.Context, logger logging.Logger) error {
 		case <-ctx.Done():
 		case <-testUDPDone:
 		}
-		conn.Close() //nolint:gosec,errcheck
+		conn.Close() //nolint:errcheck
 	}()
 
 	// Build a STUN binding request to be used against all STUN servers.
@@ -599,7 +599,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		}
 		connMu.Lock()
 		if conn != nil {
-			conn.Close() //nolint:gosec,errcheck
+			conn.Close() //nolint:errcheck
 		}
 		connMu.Unlock()
 	}()
@@ -651,7 +651,7 @@ func testTCP(ctx context.Context, logger logging.Logger) error {
 		stunResponses = append(stunResponses, stunResponse)
 
 		connMu.Lock()
-		conn.Close() //nolint:gosec,errcheck
+		conn.Close() //nolint:errcheck
 		connMu.Unlock()
 	}
 
