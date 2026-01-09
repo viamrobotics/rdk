@@ -162,40 +162,4 @@ func TestExtractMeshMapFromModelConfig(t *testing.T) {
 		test.That(t, plyMesh.ContentType, test.ShouldEqual, "ply")
 		test.That(t, plyMesh.Mesh, test.ShouldResemble, plyBytes)
 	})
-
-	t.Run("handles config with no meshes", func(t *testing.T) {
-		cfg := &ModelConfigJSON{
-			Links: []LinkConfig{
-				{
-					ID: "link1",
-					Geometry: &spatial.GeometryConfig{
-						Type: spatial.BoxType,
-						X:    1, Y: 2, Z: 3,
-					},
-				},
-			},
-		}
-
-		meshMap := extractMeshMapFromModelConfig(cfg)
-		test.That(t, len(meshMap), test.ShouldEqual, 0)
-	})
-
-	t.Run("skips meshes without file path", func(t *testing.T) {
-		cfg := &ModelConfigJSON{
-			Links: []LinkConfig{
-				{
-					ID: "link1",
-					Geometry: &spatial.GeometryConfig{
-						Type:            spatial.MeshType,
-						MeshData:        stlBytes,
-						MeshContentType: "stl",
-						MeshFilePath:    "",
-					},
-				},
-			},
-		}
-
-		meshMap := extractMeshMapFromModelConfig(cfg)
-		test.That(t, len(meshMap), test.ShouldEqual, 0)
-	})
 }

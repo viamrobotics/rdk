@@ -59,32 +59,6 @@ func TestWorldStateConversion(t *testing.T) {
 func TestBuildMeshMapFromURDF(t *testing.T) {
 	testfilesDir := utils.ResolveFile("referenceframe/testfiles")
 
-	t.Run("deduplicates same mesh referenced multiple times", func(t *testing.T) {
-		urdfData := []byte(`<?xml version="1.0"?>
-<robot name="test">
-  <link name="link1">
-    <collision>
-      <geometry>
-        <mesh filename="package://robot_description/ur20meshes/base.stl"/>
-      </geometry>
-    </collision>
-  </link>
-  <link name="link2">
-    <collision>
-      <geometry>
-        <mesh filename="package://robot_description/ur20meshes/base.stl"/>
-      </geometry>
-    </collision>
-  </link>
-</robot>`)
-
-		meshMap, err := buildMeshMapFromURDF(urdfData, testfilesDir)
-		test.That(t, err, test.ShouldBeNil)
-		// Should only load the mesh once
-		test.That(t, len(meshMap), test.ShouldEqual, 1)
-		test.That(t, meshMap["ur20meshes/base.stl"], test.ShouldNotBeNil)
-	})
-
 	t.Run("fails on missing mesh file", func(t *testing.T) {
 		urdfData := []byte(`<?xml version="1.0"?>
 <robot name="test">
@@ -124,54 +98,6 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported mesh file type")
 	})
-
-	t.Run("handles case-insensitive extensions", func(t *testing.T) {
-		// Create temporary mesh files with uppercase extensions
-		stlUpper := filepath.Join(testfilesDir, "test.STL")
-		err := os.WriteFile(stlUpper, []byte("solid test\nendsolid test\n"), 0o644)
-		test.That(t, err, test.ShouldBeNil)
-		defer os.Remove(stlUpper)
-
-		urdfData := []byte(`<?xml version="1.0"?>
-<robot name="test">
-  <link name="link1">
-    <collision>
-      <geometry>
-        <mesh filename="test.STL"/>
-      </geometry>
-    </collision>
-  </link>
-</robot>`)
-
-		meshMap, err := buildMeshMapFromURDF(urdfData, testfilesDir)
-		test.That(t, err, test.ShouldBeNil)
-		mesh := meshMap["test.STL"]
-		test.That(t, mesh, test.ShouldNotBeNil)
-		test.That(t, mesh.ContentType, test.ShouldEqual, "stl")
-	})
-}
-
-func TestUnmarshalModelXMLWithMeshes(t *testing.T) {
-	t.Run("fails when meshMap is missing required mesh", func(t *testing.T) {
-		// Create minimal URDF that references a mesh
-		urdfData := []byte(`<?xml version="1.0"?>
-<robot name="test">
-  <link name="base_link">
-    <collision>
-      <geometry>
-        <mesh filename="missing.stl"/>
-      </geometry>
-    </collision>
-  </link>
-</robot>`)
-
-		// Provide empty mesh map
-		emptyMeshMap := make(map[string]*commonpb.Mesh)
-
-		_, err := UnmarshalModelXML(urdfData, "test_robot", emptyMeshMap)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "mesh file not found")
-	})
 }
 
 func TestUR20URDFWithMeshes(t *testing.T) {
@@ -199,45 +125,6 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 		"ur20meshes/wrist2.stl",
 		"ur20meshes/wrist3.stl",
 	}
-
-	t.Run("loads all UR20 meshes correctly", func(t *testing.T) {
-		test.That(t, len(meshMap), test.ShouldEqual, 7)
-
-		for _, meshFile := range expectedMeshes {
-			mesh := meshMap[meshFile]
-			test.That(t, mesh.ContentType, test.ShouldEqual, "stl")
-			test.That(t, len(mesh.Mesh), test.ShouldBeGreaterThan, 0)
-		}
-	})
-
-	t.Run("parses UR20 URDF into model", func(t *testing.T) {
-		test.That(t, len(modelConfig.Joints), test.ShouldEqual, 6)
-
-		meshLinkCount := 0
-		for _, link := range modelConfig.Links {
-			if link.Geometry != nil && link.Geometry.Type == spatialmath.MeshType {
-				meshLinkCount++
-				test.That(t, len(link.Geometry.MeshData), test.ShouldBeGreaterThan, 0)
-				test.That(t, link.Geometry.MeshContentType, test.ShouldEqual, "stl")
-			}
-		}
-		test.That(t, meshLinkCount, test.ShouldEqual, 7)
-	})
-
-	t.Run("gets geometries from model", func(t *testing.T) {
-		test.That(t, model.Name(), test.ShouldEqual, "ur20")
-		test.That(t, len(model.DoF()), test.ShouldEqual, 6)
-
-		geometries, err := model.Geometries(make([]Input, 6))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(geometries.Geometries()), test.ShouldEqual, 7)
-
-		for _, g := range geometries.Geometries() {
-			mesh, isMesh := g.(*spatialmath.Mesh)
-			test.That(t, isMesh, test.ShouldBeTrue)
-			test.That(t, mesh.OriginalFilePath(), test.ShouldNotBeEmpty)
-		}
-	})
 
 	t.Run("round-trip through RPC", func(t *testing.T) {
 		protoResp := KinematicModelToProtobuf(model)

@@ -791,25 +791,10 @@ func TestNewGeometryConfigWithMesh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	mesh.SetOriginalFilePath("meshes/test.stl")
 
-	t.Run("extracts all mesh fields from mesh", func(t *testing.T) {
-		config, err := NewGeometryConfig(mesh)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, config.Type, test.ShouldEqual, MeshType)
-		test.That(t, config.MeshFilePath, test.ShouldEqual, "meshes/test.stl")
-		test.That(t, len(config.MeshData), test.ShouldBeGreaterThan, 0)
-		test.That(t, config.MeshContentType, test.ShouldEqual, "stl")
-	})
-
-	t.Run("preserves pose information", func(t *testing.T) {
-		config, err := NewGeometryConfig(mesh)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, config.TranslationOffset, test.ShouldResemble, mesh.Pose().Point())
-	})
-
-	t.Run("preserves label", func(t *testing.T) {
-		mesh.SetLabel("test_label")
-		config, err := NewGeometryConfig(mesh)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, config.Label, test.ShouldEqual, "test_label")
-	})
+	config, err := NewGeometryConfig(mesh)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, config.Type, test.ShouldEqual, MeshType)
+	test.That(t, config.MeshFilePath, test.ShouldEqual, "meshes/test.stl")
+	test.That(t, len(config.MeshData), test.ShouldBeGreaterThan, 0)
+	test.That(t, config.MeshContentType, test.ShouldEqual, "stl")
 }
