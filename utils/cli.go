@@ -18,11 +18,8 @@ type CLIConfig struct {
 	BaseURL string `json:"base_url"`
 	Auth    struct {
 		AccessToken string `json:"access_token"`
-		User        struct {
-			Email string `json:"email"`
-		} `json:"user_data"`
-		KeyID     string `json:"key_id"`
-		KeyCrypto string `json:"key_crypto"`
+		KeyID       string `json:"key_id"`
+		KeyCrypto   string `json:"key_crypto"`
 	} `json:"auth"`
 }
 
@@ -81,20 +78,6 @@ func ParseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOp
 	}, nil
 }
 
-// createAuthDialOption creates a dial option from a token or API key
-func createAuthDialOption(accessToken, keyID, keyCrypto string) (rpc.DialOption, error) {
-	if accessToken != "" {
-		return rpc.WithStaticAuthenticationMaterial(accessToken), nil
-	}
-	if keyID != "" {
-		return rpc.WithEntityCredentials(keyID, rpc.Credentials{
-			Type:    "api-key",
-			Payload: keyCrypto,
-		}), nil
-	}
-	return nil, fmt.Errorf("config does not contain valid token or API key")
-}
-
 // DialOptions constructs dial options from the config data.
 func (c *CLIConfig) DialOptions() ([]rpc.DialOption, error) {
 	_, baseOpts, err := ParseBaseURL(c.BaseURL, true)
@@ -102,14 +85,16 @@ func (c *CLIConfig) DialOptions() ([]rpc.DialOption, error) {
 		return nil, err
 	}
 
-	// Get auth dial option from config data
-	authOpt, err := createAuthDialOption(
-		c.Auth.AccessToken,
-		c.Auth.KeyID,
-		c.Auth.KeyCrypto,
-	)
-	if err != nil {
-		return nil, err
+	var authOpt rpc.DialOption
+	if c.Auth.AccessToken != "" {
+		authOpt = rpc.WithStaticAuthenticationMaterial(c.Auth.AccessToken)
+	} else if c.Auth.KeyID != "" {
+		authOpt = rpc.WithEntityCredentials(c.Auth.KeyID, rpc.Credentials{
+			Type:    "api-key",
+			Payload: c.Auth.KeyCrypto,
+		})
+	} else {
+		return nil, fmt.Errorf("config does not contain valid token or API key")
 	}
 
 	return append(baseOpts, authOpt), nil
