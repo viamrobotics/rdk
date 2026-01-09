@@ -159,7 +159,7 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.rpm = 100
 	}
 
-	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().String())
+	m, err := referenceframe.KinematicModelFromFile(newConf.Kinematics, g.Named.Name().ShortName())
 	if err != nil {
 		g.logger.CWarnf(ctx, "failed to load kinematics from file '%v': %v", newConf.Kinematics, err)
 	}
@@ -250,34 +250,51 @@ func (g *singleAxis) checkHit(ctx context.Context) {
 		defer utils.UncheckedErrorFunc(func() error {
 			g.mu.Lock()
 			defer g.mu.Unlock()
-			return g.motor.Stop(ctx, nil)
+			// Use background context for cleanup since ctx may be cancelled
+			return g.motor.Stop(context.Background(), nil)
 		})
 		defer g.activeBackgroundWorkers.Done()
 		for {
-			select {
-			case <-ctx.Done():
+			// Check if we should stop
+			if ctx.Err() != nil {
 				return
-			default:
 			}
 
 			for i := 0; i < len(g.limitSwitchPins); i++ {
 				hit, err := g.limitHit(ctx, i)
 				if err != nil {
-					g.logger.CError(ctx, err)
+					// Don't log context cancellation errors (normal during shutdown)
+					if ctx.Err() == nil {
+						g.logger.CError(ctx, err)
+					} else {
+						return
+					}
 				}
 
 				if hit {
 					child, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
 					g.mu.Lock()
 					if err := g.motor.Stop(ctx, nil); err != nil {
-						g.logger.CError(ctx, err)
+						// Don't log context cancellation errors (normal during shutdown)
+						if ctx.Err() == nil {
+							g.logger.CError(ctx, err)
+						}
 					}
 					g.mu.Unlock()
 					<-child.Done()
 					cancel()
+
+					// Check again before moveAway
+					if ctx.Err() != nil {
+						return
+					}
+
 					g.mu.Lock()
 					if err := g.moveAway(ctx, i); err != nil {
-						g.logger.CError(ctx, err)
+						// Don't log context cancellation errors (normal during shutdown)
+						if ctx.Err() == nil {
+							g.logger.CError(ctx, err)
+						}
 					}
 					g.mu.Unlock()
 				}
@@ -580,13 +597,13 @@ func (g *singleAxis) Stop(ctx context.Context, extra map[string]interface{}) err
 
 // Close calls stop.
 func (g *singleAxis) Close(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
 	if err := g.Stop(ctx, nil); err != nil {
 		return err
 	}
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	if g.cancelFunc != nil {
+		g.cancelFunc()
+		g.activeBackgroundWorkers.Wait()
+	}
 	return nil
 }
 
