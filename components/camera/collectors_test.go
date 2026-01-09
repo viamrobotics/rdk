@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"fmt"
 	"image"
 	"io"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/components/camera"
@@ -45,16 +47,45 @@ const (
 	captureInterval = time.Millisecond
 )
 
-func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
+func convertInterfaceMapToAnyPBMap(params map[string]interface{}) (map[string]*anypb.Any, error) {
 	methodParams := map[string]*anypb.Any{}
 	for key, paramVal := range params {
-		anyVal, err := convertStringToAnyPB(paramVal)
+		anyVal, err := convertInterfaceToAnyPB(paramVal)
 		if err != nil {
 			return nil, err
 		}
 		methodParams[key] = anyVal
 	}
 	return methodParams, nil
+}
+
+func convertInterfaceToAnyPB(val interface{}) (*anypb.Any, error) {
+	var wrappedVal protoreflect.ProtoMessage
+	switch v := val.(type) {
+	case string:
+		return convertStringToAnyPB(v)
+	case []string:
+		list := &structpb.ListValue{}
+		for _, s := range v {
+			list.Values = append(list.Values, structpb.NewStringValue(s))
+		}
+		wrappedVal = structpb.NewListValue(list)
+	case []interface{}:
+		list := &structpb.ListValue{}
+		for _, s := range v {
+			val, err := structpb.NewValue(s)
+			if err != nil {
+				return nil, err
+			}
+			list.Values = append(list.Values, val)
+		}
+		wrappedVal = structpb.NewListValue(list)
+	case bool:
+		wrappedVal = wrapperspb.Bool(v)
+	default:
+		return nil, fmt.Errorf("unsupported type %T", val)
+	}
+	return anypb.New(wrappedVal)
 }
 
 func convertStringToAnyPB(str string) (*anypb.Any, error) {
@@ -78,8 +109,6 @@ func convertStringToAnyPB(str string) (*anypb.Any, error) {
 }
 
 func TestCollectors(t *testing.T) {
-	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
-	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -97,10 +126,11 @@ func TestCollectors(t *testing.T) {
 	cam := newCamera(img, img, pcd)
 
 	tests := []struct {
-		name      string
-		collector data.CollectorConstructor
-		expected  []*datasyncpb.SensorData
-		camera    camera.Camera
+		name         string
+		collector    data.CollectorConstructor
+		expected     []*datasyncpb.SensorData
+		camera       camera.Camera
+		methodParams map[string]interface{}
 	}{
 		{
 			name:      "ReadImage returns a non nil binary response",
@@ -112,7 +142,8 @@ func TestCollectors(t *testing.T) {
 				},
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			}},
-			camera: cam,
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1", "mime_type": "image/jpeg"},
 		},
 		{
 			name:      "NextPointCloud returns a non nil binary response",
@@ -144,13 +175,31 @@ func TestCollectors(t *testing.T) {
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
 			},
-			camera: cam,
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1"},
+		},
+		{
+			name:      "GetImages with filterSourceNames returns only filtered images",
+			collector: camera.NewGetImagesCollector,
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}, {Label: "left"}}},
+					},
+					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+				},
+			},
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1", "filter_source_names": []string{"left"}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
+			mParams, err := convertInterfaceMapToAnyPBMap(tc.methodParams)
+			test.That(t, err, test.ShouldBeNil)
 			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
 				DataType:      data.CaptureTypeBinary,
@@ -159,7 +208,7 @@ func TestCollectors(t *testing.T) {
 				Logger:        logging.NewTestLogger(t),
 				Clock:         clock.New(),
 				Target:        buf,
-				MethodParams:  methodParams,
+				MethodParams:  mParams,
 			}
 
 			col, err := tc.collector(tc.camera, params)
@@ -209,7 +258,22 @@ func newCamera(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		return []camera.NamedImage{leftImg, rightImg},
+
+		allImgs := []camera.NamedImage{leftImg, rightImg}
+		if len(filterSourceNames) == 0 {
+			return allImgs, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+		}
+
+		var filteredImgs []camera.NamedImage
+		for _, img := range allImgs {
+			for _, filter := range filterSourceNames {
+				if img.SourceName == filter {
+					filteredImgs = append(filteredImgs, img)
+				}
+			}
+		}
+
+		return filteredImgs,
 			resource.ResponseMetadata{CapturedAt: time.Now()},
 			nil
 	}
