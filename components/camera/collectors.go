@@ -193,7 +193,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 				for _, nameInterface := range v {
 					name, ok := nameInterface.(string)
 					if !ok {
-						return res, fmt.Errorf("filter_source_names must be a list of strings, but got %T", nameInterface)
+						return res, fmt.Errorf("filter_source_names must be a list of strings, but got as an element %T", nameInterface)
 					}
 					filterSourceNames = append(filterSourceNames, name)
 				}
