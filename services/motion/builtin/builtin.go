@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -34,7 +35,6 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/utils/trace"
 )
 
 func init() {
@@ -712,7 +712,7 @@ func (ms *builtIn) writePlanRequest(
 	}
 
 	dir := filepath.Dir(fn)
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 
