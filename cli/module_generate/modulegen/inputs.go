@@ -44,7 +44,8 @@ type ModuleInputs struct {
 // Resources is a list of all the available resources in Viam.
 var Resources = []string{
 	"arm component",
-	"audio_input component",
+	"audio_in component",
+	"audio_out component",
 	"base component",
 	"board component",
 	"button component",

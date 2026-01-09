@@ -15,7 +15,7 @@ pkgs=(components services)
 # package can be used by modules and other client code without imposing a
 # dependency on cgo, further requiring installed libraries and properly
 # configured CGO_... environment variables for Go compilation to succeed.
-cgo_paths=(services/motion services/vision components/camera components/audioinput)
+cgo_paths=(services/motion services/vision components/camera)
 
 for p in "${pkgs[@]}"; do
   pushd $p > /dev/null

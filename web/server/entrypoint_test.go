@@ -88,7 +88,7 @@ func TestEntrypoint(t *testing.T) {
 		numResources := 21
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo,
-			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+			// including builtin motion, fake arm, and builtin navigation.
 			numResources = 18
 		}
 
@@ -112,7 +112,7 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 57
+		numReg := 55
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
 			numReg = 47

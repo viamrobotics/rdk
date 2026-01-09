@@ -38,12 +38,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -765,7 +763,6 @@ func TestWebWithStreams(t *testing.T) {
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err := svc.Start(ctx, options)
@@ -794,21 +791,12 @@ func TestWebWithStreams(t *testing.T) {
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Add an audio stream
-	audio := &inject.AudioInput{}
-	robot.Mu.Lock()
-	rs[audioinput.Named(audioKey)] = audio
-	robot.Mu.Unlock()
-	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
 	// Test that new streams are available
 	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 3)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()

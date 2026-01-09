@@ -9,11 +9,6 @@
             }
         },
         {
-            "name": "mic1",
-            "type": "audio_input",
-            "model": "fake"
-        },
-        {
             "name": "cameraOver",
             "type": "camera",
             "model": "image_file",

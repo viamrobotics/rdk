@@ -138,7 +138,7 @@ mod_profiles(){
 check_gcloud_auth(){
 	APP_CREDENTIALS_DIR="$HOME/.config/gcloud"
 	mkdir -p $APP_CREDENTIALS_DIR
-	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"	
+	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"
 	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
 		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
 		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
