@@ -698,7 +698,7 @@ func TestWritePlanRequest(t *testing.T) {
 		&motionplan.SimplePlan{},
 		// start time of plan request -- encoded as a "time spent" string in the filename.
 		time.Now(),
-		// No traceID here.
+		// An explicit trace ID.
 		"1234-abc-56-no-78",
 		nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -716,6 +716,7 @@ func TestWritePlanRequest(t *testing.T) {
 	// The directory constructed under the trace ID path also has one entry.
 	traceIDDir := filepath.Join(planDir, traceIDDirEntry.Name())
 	planDirEntries, err = os.ReadDir(traceIDDir)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
 	// Which is our plan request file.
 	planFile := planDirEntries[0]
