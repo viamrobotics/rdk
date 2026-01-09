@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/golang/geo/r3"
@@ -632,4 +635,91 @@ func TestConfigureJointLimits(t *testing.T) {
 
 	f = fs.Frame("pieceArm")
 	test.That(t, f.DoF()[1].Min, test.ShouldAlmostEqual, 0)
+}
+
+func TestWritePlanRequest(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	// Go's testing will clean this up on test exit.
+	planDir := t.TempDir()
+	msConfig := Config{
+		PlanFilePath: planDir,
+		// For simplicity, we'll only exercise the `PlanDirectoryIncludeTraceID` is true case. But
+		// we'll exercise it with both a non-existent TraceID as well as a valid one.
+		PlanDirectoryIncludeTraceID: true,
+	}
+
+	// Assert no files exist in the configured `PlanFilePath`.
+	planDirEntries, err := os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 0)
+
+	// Create a builtin motion service to assert on its `writePlanRequest` functionality.
+	msBuiltinI, err := NewBuiltIn(t.Context(), nil, resource.Config{
+		Name:                "builtin",
+		API:                 motion.API,
+		Model:               resource.DefaultServiceModel,
+		ConvertedAttributes: &msConfig,
+	}, logger)
+	test.That(t, err, test.ShouldBeNil)
+	msBuiltin := msBuiltinI.(*builtIn)
+
+	// First case, do not include a TraceID.
+	err = msBuiltin.writePlanRequest(
+		&armplanning.PlanRequest{},
+		&motionplan.SimplePlan{},
+		// start time of plan request -- encoded as a "time spent" string in the filename.
+		time.Now(),
+		// No traceID here.
+		"",
+		nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert we now have a file in our `PlanFilePath`.
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	test.That(t, planDirEntries[0].IsDir(), test.ShouldBeFalse)
+	test.That(t, filepath.Ext(planDirEntries[0].Name()), test.ShouldEqual, ".json")
+
+	// For test simplicity, remove the file so we can run a second test. And let that second test
+	// assume things in an empty state.
+	filePath := filepath.Join(planDir, planDirEntries[0].Name())
+	test.That(t, os.Remove(filePath), test.ShouldBeNil)
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 0)
+
+	// Second case, include a TraceID.
+	err = msBuiltin.writePlanRequest(
+		// The contents of the plan request file are not interesting to this test. So long as the
+		// plan request and plan are non-nil, we ought to get a file placed in the right location.
+		&armplanning.PlanRequest{},
+		&motionplan.SimplePlan{},
+		// start time of plan request -- encoded as a "time spent" string in the filename.
+		time.Now(),
+		// An explicit trace ID.
+		"1234-abc-56-no-78",
+		nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Again, there should be one entry in the `PlanFilePath`.
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+
+	// This time though, that entry is a directory with the "trace ID" name.
+	traceIDDirEntry := planDirEntries[0]
+	test.That(t, traceIDDirEntry.IsDir(), test.ShouldBeTrue)
+	test.That(t, traceIDDirEntry.Name(), test.ShouldEqual, "1234-abc-56-no-78")
+
+	// The directory constructed under the trace ID path also has one entry.
+	traceIDDir := filepath.Join(planDir, traceIDDirEntry.Name())
+	planDirEntries, err = os.ReadDir(traceIDDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	// Which is our plan request file.
+	planFile := planDirEntries[0]
+	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
+	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
 }

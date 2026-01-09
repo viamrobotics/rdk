@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -83,9 +85,10 @@ type Config struct {
 	LogFilePath string `json:"log_file_path"`
 	NumThreads  int    `json:"num_threads"`
 
-	PlanFilePath           string `json:"plan_file_path"`
-	LogPlannerErrors       bool   `json:"log_planner_errors"`
-	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+	PlanFilePath                string `json:"plan_file_path"`
+	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
+	LogPlannerErrors            bool   `json:"log_planner_errors"`
+	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
@@ -489,7 +492,12 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	start := time.Now()
 	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
-		err := ms.writePlanRequest(planRequest, plan, start, err)
+		var traceID string
+		if span := trace.FromContext(ctx); span != nil {
+			traceID = span.SpanContext().TraceID().String()
+		}
+
+		err := ms.writePlanRequest(planRequest, plan, start, traceID, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -672,7 +680,9 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, planError error) error {
+func (ms *builtIn) writePlanRequest(
+	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID string, planError error,
+) error {
 	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
 	if planError != nil {
@@ -693,8 +703,19 @@ func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest, plan motionpla
 		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
 	}
 
-	fn := filepath.Join(ms.conf.PlanFilePath,
-		fmt.Sprintf("plan-%s-ms-%d-%s.json", time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra))
+	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
+		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
+	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
+		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+	} else {
+		fn = filepath.Join(ms.conf.PlanFilePath, fn)
+	}
+
+	dir := filepath.Dir(fn)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+
 	ms.logger.Infof("writing plan to %s", fn)
 	return req.WriteToFile(fn)
 }
