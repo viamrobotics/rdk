@@ -21,10 +21,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func getCLICachePath() string {
-	return filepath.Join(rutils.ViamDotDir, "cached_cli_config.json")
-}
-
 func getCLIProfilesPath() string {
 	return filepath.Join(rutils.ViamDotDir, "cli_profiles.json")
 }
@@ -92,11 +88,11 @@ func ConfigFromCache(c *cli.Context) (*Config, error) {
 		warningf(c.App.ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
 	}
 
-	return configFromCacheInner(getCLICachePath())
+	return configFromCacheInner(rutils.GetCLICachePath())
 }
 
 func removeConfigFromCache() error {
-	return os.Remove(getCLICachePath())
+	return os.Remove(rutils.GetCLICachePath())
 }
 
 func (conf *Config) updateLastUpdateCheck() error {
@@ -110,7 +106,7 @@ func storeConfigToCache(cfg *Config) error {
 	if cfg.profile != "" {
 		path = getCLIProfilePath(cfg.profile)
 	} else {
-		path = getCLICachePath()
+		path = rutils.GetCLICachePath()
 	}
 	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
@@ -162,7 +158,7 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 
 // DialOptions constructs an rpc.DialOption slice from config.
 func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
-	_, opts, err := parseBaseURL(conf.BaseURL, true)
+	_, opts, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
 	}

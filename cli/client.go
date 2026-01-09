@@ -56,6 +56,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -2307,54 +2308,6 @@ func VersionAction(c *cli.Context, args emptyArgs) error {
 
 var defaultBaseURL = "https://app.viam.com:443"
 
-func parseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOption, error) {
-	baseURLParsed, err := url.Parse(baseURL)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Go URL parsing can place the host in Path if no scheme is provided; place
-	// Path in Host in this case.
-	if baseURLParsed.Host == "" && baseURLParsed.Path != "" {
-		baseURLParsed.Host = baseURLParsed.Path
-		baseURLParsed.Path = ""
-	}
-
-	// Assume "https" scheme if none is provided, and assume 8080 port for "http"
-	// scheme and 443 port for "https" scheme.
-	var secure bool
-	switch baseURLParsed.Scheme {
-	case "http":
-		if baseURLParsed.Port() == "" {
-			baseURLParsed.Host = baseURLParsed.Host + ":" + "8080"
-		}
-	case "https", "":
-		secure = true
-		baseURLParsed.Scheme = "https"
-		if baseURLParsed.Port() == "" {
-			baseURLParsed.Host = baseURLParsed.Host + ":" + "443"
-		}
-	}
-
-	if verifyConnection {
-		// Check if URL is even valid with a TCP dial.
-		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 10*time.Second)
-		if err != nil {
-			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+
-				"Ensure URL is valid and you are connected to internet", err.Error(), baseURLParsed.Host)
-		}
-		utils.UncheckedError(conn.Close())
-	}
-
-	if secure {
-		return baseURLParsed, nil, nil
-	}
-	return baseURLParsed, []rpc.DialOption{
-		rpc.WithInsecure(),
-		rpc.WithAllowInsecureWithCredentialsDowngrade(),
-	}, nil
-}
-
 func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
 }
@@ -2433,7 +2386,7 @@ func getBaseURL(c *cli.Context) (*url.URL, *Config, error) {
 	if conf.BaseURL != defaultBaseURL {
 		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
 	}
-	baseURL, _, err := parseBaseURL(conf.BaseURL, true)
+	baseURL, _, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, nil, err
 	}
