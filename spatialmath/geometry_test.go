@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 )
 
@@ -774,4 +776,25 @@ func TestCapsuleVsPointEncompassed(t *testing.T) {
 		},
 	}
 	testGeometryEncompassed(t, cases)
+}
+
+func TestNewGeometryConfigWithMesh(t *testing.T) {
+	// Load test STL mesh once
+	stlBytes, err := os.ReadFile("../referenceframe/testfiles/ur20meshes/base.stl")
+	test.That(t, err, test.ShouldBeNil)
+
+	protoMesh := &commonpb.Mesh{
+		Mesh:        stlBytes,
+		ContentType: "stl",
+	}
+	mesh, err := NewMeshFromProto(NewZeroPose(), protoMesh, "")
+	test.That(t, err, test.ShouldBeNil)
+	mesh.SetOriginalFilePath("meshes/test.stl")
+
+	config, err := NewGeometryConfig(mesh)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, config.Type, test.ShouldEqual, MeshType)
+	test.That(t, config.MeshFilePath, test.ShouldEqual, "meshes/test.stl")
+	test.That(t, len(config.MeshData), test.ShouldBeGreaterThan, 0)
+	test.That(t, config.MeshContentType, test.ShouldEqual, "stl")
 }
