@@ -65,3 +65,9 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 	}
 	return mimeType, false
 }
+
+// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
+// it to a utils mime type.
+func FormatStringToMimeType(format string) string {
+	return fmt.Sprintf("image/%s", format)
+}
