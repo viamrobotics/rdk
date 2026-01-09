@@ -65,7 +65,7 @@
   <link name="base_link"/>
   <link name="base_link_inertia">
     <collision>
-      <origin rpy="0.0 0.0 3.141592653589793" xyz="0.0 0.0 0.0"/>
+      <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
       <geometry>
         <mesh filename="package://testfiles/ur20meshes/base.stl"/>
       </geometry>
@@ -156,7 +156,7 @@
   </link>
   <!-- base_joint fixes base_link to the environment -->
   <joint name="base_joint" type="fixed">
-    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <origin rpy="0 0 3.141592653589793" xyz="0 0 0"/>
     <parent link="world"/>
     <child link="base_link"/>
   </joint>
