@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"mime"
 
 	"github.com/docker/go-units"
 	"github.com/go-viper/mapstructure/v2"
@@ -224,6 +225,7 @@ func uploadBinarySensorData(
 ) error {
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
+	md.Mimetype = sd.GetMetadata().GetMimeType()
 	fileExtensionFromMimeType := getFileExtFromMimeType(sd.GetMetadata().GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
@@ -308,6 +310,7 @@ func uploadLargeBinarySensorData(
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
 	smd := sd.GetMetadata()
+	md.Mimetype = sd.GetMetadata().GetMimeType()
 	fileExtensionFromMimeType := getFileExtFromMimeType(smd.GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
@@ -397,11 +400,15 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 		return data.ExtPng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return data.ExtPcd
-	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
-		return data.ExtMP4
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		return data.ExtDefault
+		mimeTypeString := data.MimeTypeFromProto(t).String()
+		strs, err := mime.ExtensionsByType(mimeTypeString)
+		if err != nil || strs == nil {
+			return data.ExtDefault
+		} else {
+			return strs[0]
+		}
 	}
 }
