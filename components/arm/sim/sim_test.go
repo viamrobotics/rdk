@@ -62,10 +62,14 @@ func TestBasic(t *testing.T) {
 	clock = clock.Add(time.Second)
 	simArm.updateForTime(clock)
 
-	// Assert the joint position for first two joints changed to `1`.
+	// Assert the joint position for first two joints changed. Because the simulated arm slows down
+	// movement such that all joints finish at the same time:
+	//
+	// - The first joint moves at half speed and is at 0.5
+	// - The second joint moves at full speed and is at -1
 	currInputs, err = simArm.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, currInputs, test.ShouldResemble, []float64{1, -1, 0, 0, 0, 0})
+	test.That(t, currInputs, test.ShouldResemble, []float64{0.5, -1, 0, 0, 0, 0})
 	test.That(t, simArm.operation.isMoving(), test.ShouldBeTrue)
 	select {
 	case <-moveFuture:

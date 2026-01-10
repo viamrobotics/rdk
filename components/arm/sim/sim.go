@@ -25,6 +25,7 @@ import (
 // 3. Operation successful -> done == true
 // 4. Operation failed -> stopped == true
 type operation struct {
+	// targetInputs is in radians.
 	targetInputs []float64
 	done         bool
 	stopped      bool
@@ -53,7 +54,7 @@ type simulatedArm struct {
 
 	// operational properties
 	mu sync.Mutex
-	// `currInputs` is always atomically updated along with `lastUpdated`.
+	// `currInputs` is always atomically updated along with `lastUpdated`. This is in radians.
 	currInputs []float64
 	// `lastUpdated` can be assumed to be initialized to the zero value when not simulating time.
 	lastUpdated time.Time
@@ -185,23 +186,52 @@ func (sa *simulatedArm) updateForTime(now time.Time) {
 	//   - It's not obvious to me there is always a valid straight-line path. E.g: avoiding
 	//     self-collisions.
 	//
-	// I perceive its easiest to implement the first algorithm. That's what the following code
-	// implements. Though I expect the second or third better model arms in the wild. No harm in
-	// implementing other algorithms and adding a configuration knob to switch between them.
+	// The following code implements the second algorithm. I've found that to better map with our
+	// motion planning interpolation algorithms.
 	timeSinceLastUpdate := now.Sub(sa.lastUpdated)
 	sa.lastUpdated = now
+
+	// Find the maximum travel distance. Given all joints (right now) move at the same speed, we can
+	// map this to how long the whole movement will take.
+	var maxDist float64
+	for jointIdx, currJointInp := range sa.currInputs {
+		maxDist = math.Max(maxDist, math.Abs(sa.operation.targetInputs[jointIdx]-currJointInp))
+	}
+
+	const epsilon = 1e-9
+	if maxDist < epsilon {
+		sa.operation.done = true
+		return
+	}
+
+	// Find the speed each joint needs to move to finish at the same time.
+	modifiedSpeeds := make([]float64, len(sa.currInputs))
+	for jointIdx, currJointInp := range sa.currInputs {
+		// The remaining distance between our target and where we are.
+		diffRads := math.Abs(sa.operation.targetInputs[jointIdx] - currJointInp)
+
+		// The joint that moves the farthest is always traveling at `sa.speed`. Our joints speed, in
+		// terms of the max speed, is then simply the ratio of our travel distance over the largest
+		// distance to travel.
+		speedAdjustment := diffRads / maxDist
+
+		// I.e: if we only need to move 1/4 the distance as the `maxDist`, we will travel at 1/4 *
+		// `sa.speed`.
+		modifiedSpeeds[jointIdx] = speedAdjustment * sa.speed
+	}
+
 	for jointIdx, currJointInp := range sa.currInputs {
 		// The remaining distance between our target and where we are. Note the result is signed
 		// based on the direction we are traveling.
-		diffRads := sa.operation.targetInputs[jointIdx] - sa.currInputs[jointIdx]
+		diffRads := sa.operation.targetInputs[jointIdx] - currJointInp
 
 		// How far we can theoretically travel since the last update. We will "cap" this to
 		// `diffRads`.
-		toTravelRads := timeSinceLastUpdate.Seconds() * sa.speed
-		const epsilon = 1e-9
+		toTravelRads := timeSinceLastUpdate.Seconds() * modifiedSpeeds[jointIdx]
 		if toTravelRads > math.Abs(diffRads)-epsilon {
-			// We can travel farther than we need to. Simply set the current joint position to its
-			// target.
+			// We can travel farther than we need to. For example, when there was only 1 second left
+			// of travel, but this `updateForTime` call is 10 seconds later. Simply set the current
+			// joint position to its target.
 			sa.currInputs[jointIdx] = sa.operation.targetInputs[jointIdx]
 		} else {
 			// We have not reached our destination. Advance the current joint position by
@@ -213,6 +243,9 @@ func (sa *simulatedArm) updateForTime(now time.Time) {
 			}
 
 			sa.currInputs[jointIdx] = currJointInp + toTravelRads
+
+			// Theoretically, being all joints movement is scaled to finish at the same time, either
+			// all joints that needed to change enter this `else` block, or none of them do.
 			anyJointStillMoving = true
 		}
 	}
