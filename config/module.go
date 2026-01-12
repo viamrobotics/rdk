@@ -294,10 +294,12 @@ func (m *Module) FirstRun(
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
-		logger.Infow("meta.json does not exist, skipping first run")
+		logger.Infow("meta.json does not exist, skipping first run",
+			"moduleWorkingDirectory", moduleWorkingDirectory)
 		return nil
 	case err != nil:
-		logger.Warnw("failed to parse meta.json, skipping first run", "error", err)
+		logger.Warnw("failed to parse meta.json, skipping first run", "error", err,
+			"moduleWorkingDirectory", moduleWorkingDirectory)
 		return nil
 	}
 
