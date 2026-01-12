@@ -86,16 +86,22 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 }
 
 func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.Geometry, error) {
+	// Get origin, defaulting to zero pose if not specified (optional in URDF)
+	origin := spatialmath.NewZeroPose()
+	if c.Origin != nil {
+		origin = c.Origin.Parse()
+	}
+
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
 		return spatialmath.NewBox(
-			c.Origin.Parse(),
+			origin,
 			r3.Vector{X: utils.MetersToMM(dims[0]), Y: utils.MetersToMM(dims[1]), Z: utils.MetersToMM(dims[2])},
 			"",
 		)
 	case c.Geometry.Sphere != nil:
-		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+		return spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), "")
 	case c.Geometry.Mesh != nil:
 		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
 
@@ -110,7 +116,7 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.G
 			return nil, fmt.Errorf("mesh file not found in mesh map: %s", meshPath)
 		}
 
-		mesh, err := spatialmath.NewMeshFromProto(c.Origin.Parse(), protoMesh, "")
+		mesh, err := spatialmath.NewMeshFromProto(origin, protoMesh, "")
 		if err != nil {
 			return nil, err
 		}
