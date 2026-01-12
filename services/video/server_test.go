@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/video"
 	"go.viam.com/rdk/testutils/inject"
@@ -29,7 +30,7 @@ func (x *testGetVideoServer) Send(m *pb.GetVideoResponse) error {
 	return err
 }
 
-func newServer() (pb.VideoServiceServer, *inject.Video, *inject.Video, error) {
+func newServer(logger logging.Logger) (pb.VideoServiceServer, *inject.Video, *inject.Video, error) {
 	videoInject := &inject.Video{}
 	videoInject2 := &inject.Video{}
 	videos := map[resource.Name]video.Service{
@@ -40,12 +41,12 @@ func newServer() (pb.VideoServiceServer, *inject.Video, *inject.Video, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	videoServer := video.NewRPCServiceServer(videoSvc).(pb.VideoServiceServer)
+	videoServer := video.NewRPCServiceServer(videoSvc, logger).(pb.VideoServiceServer)
 	return videoServer, videoInject, videoInject2, nil
 }
 
 func TestServer(t *testing.T) {
-	videoServer, injectVideo, _, err := newServer()
+	videoServer, injectVideo, _, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	getVideoRequest := &pb.GetVideoRequest{

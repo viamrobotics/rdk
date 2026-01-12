@@ -147,8 +147,8 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[navigation.Service](navigation.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc)
-	failingServer.RegisterService(&servicepb.NavigationService_ServiceDesc, navigation.NewRPCServiceServer(failingSvc))
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc, logger)
+	failingServer.RegisterService(&servicepb.NavigationService_ServiceDesc, navigation.NewRPCServiceServer(failingSvc, logger))
 
 	go workingServer.Serve(listener1)
 	defer workingServer.Stop()

@@ -16,6 +16,7 @@ import (
 	vprotoutils "go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -26,15 +27,16 @@ import (
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
-func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
+func newServer(resources map[resource.Name]motion.Service, logger logging.Logger) (pb.MotionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(motion.API, resources)
 	if err != nil {
 		return nil, err
 	}
-	return motion.NewRPCServiceServer(coll).(pb.MotionServiceServer), nil
+	return motion.NewRPCServiceServer(coll, logger).(pb.MotionServiceServer), nil
 }
 
 func TestServerMove(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	grabRequest := &pb.MoveRequest{
 		Name:          testMotionServiceName.ShortName(),
 		ComponentName: "fake",
@@ -42,7 +44,7 @@ func TestServerMove(t *testing.T) {
 	}
 
 	resources := map[resource.Name]motion.Service{}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/motion1 not found"))
@@ -52,7 +54,7 @@ func TestServerMove(t *testing.T) {
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err = newServer(resources)
+	server, err = newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
 	injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
@@ -76,7 +78,7 @@ func TestServerMove(t *testing.T) {
 		testMotionServiceName:  injectMS,
 		testMotionServiceName2: injectMS,
 	}
-	server, _ = newServer(resources)
+	server, _ = newServer(resources, logger)
 	injectMS.MoveFunc = successfulMoveFunc
 	resp, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -96,7 +98,7 @@ func TestServerMoveOnGlobe(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	t.Run("returns error without calling MoveOnGlobe if req.Name doesn't map to a resource", func(t *testing.T) {
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
@@ -278,7 +280,7 @@ func TestServerMoveOnMap(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("returns error without calling MoveOnMap if req.Name doesn't map to a resource", func(t *testing.T) {
@@ -449,7 +451,7 @@ func TestServerStopPlan(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedComponentName := "test-base"
@@ -514,7 +516,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	validListPlanStatusesRequest := &pb.ListPlanStatusesRequest{
@@ -620,7 +622,7 @@ func TestServerGetPlan(t *testing.T) {
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedComponentName := "test-base"
@@ -750,7 +752,7 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	server, err := newServer(resourceMap)
+	server, err := newServer(resourceMap, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)

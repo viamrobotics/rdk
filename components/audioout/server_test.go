@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/audioout"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -26,7 +27,7 @@ var (
 	errPropertiesFailed = errors.New("can't get properties")
 )
 
-func newServer() (pb.AudioOutServiceServer, *inject.AudioOut, *inject.AudioOut, error) {
+func newServer(logger logging.Logger) (pb.AudioOutServiceServer, *inject.AudioOut, *inject.AudioOut, error) {
 	injectAudioOut := &inject.AudioOut{}
 	injectAudioOut2 := &inject.AudioOut{}
 	audioOuts := map[resource.Name]audioout.AudioOut{
@@ -37,11 +38,11 @@ func newServer() (pb.AudioOutServiceServer, *inject.AudioOut, *inject.AudioOut, 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return audioout.NewRPCServiceServer(audioOutSvc).(pb.AudioOutServiceServer), injectAudioOut, injectAudioOut2, nil
+	return audioout.NewRPCServiceServer(audioOutSvc, logger).(pb.AudioOutServiceServer), injectAudioOut, injectAudioOut2, nil
 }
 
 func TestServer(t *testing.T) {
-	audioOutServer, injectAudioOut, _, err := newServer()
+	audioOutServer, injectAudioOut, _, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	audioData := []byte{1, 2, 3, 4, 5, 6, 7, 8}

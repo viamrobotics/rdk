@@ -180,7 +180,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	injectCamera.DoFunc = testutils.EchoFunc
 
@@ -501,7 +501,7 @@ func TestClientProperties(t *testing.T) {
 	rSubType, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
+	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc, logger), test.ShouldBeNil)
 
 	go test.That(t, server.Serve(listener), test.ShouldBeNil)
 	defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
@@ -621,7 +621,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	// Start serving requests.
 	go rpcServer.Serve(listener1)
@@ -670,7 +670,7 @@ func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -885,7 +885,7 @@ func TestMultiplexOverMultiHopRemoteConnection(t *testing.T) {
 	test.That(t, cameraClient.(rtppassthrough.Source).Unsubscribe(mainCtx, sub.ID), test.ShouldBeNil)
 }
 
-//nolint
+// nolint
 // NOTE: These tests fail when this condition occurs:
 //
 //	logger.go:130: 2024-06-17T16:56:14.097-0400 DEBUG   TestGrandRemoteRebooting.remote-1.rdk:remote:/remote-2.webrtc   rpc/wrtc_client_channel.go:299  no stream for id; discarding    {"ch": 0, "id": 11}
