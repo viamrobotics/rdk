@@ -72,6 +72,9 @@ type client struct {
 	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
+
+	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
+	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -176,7 +179,22 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	c.logger.CWarn(ctx, "Image (GetImage) is deprecated; please use Images (GetImages) instead")
+	now := time.Now()
+	lastLog := c.lastImageDeprecationLogNanos.Load()
+	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
+		// Try to update the timestamp; if another goroutine updates it first, that's fine.
+		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
+				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
+					"camera name: %s, caller module name: %s",
+					c.Name(), moduleName)
+			} else {
+				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
+					"camera name: %s",
+					c.Name())
+			}
+		}
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
@@ -227,7 +245,7 @@ func (c *client) Images(
 		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))

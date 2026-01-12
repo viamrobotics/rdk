@@ -77,7 +77,7 @@ func TestFormatStringToMimeType(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, format, test.ShouldEqual, tc.expectedFormat)
 
-			resultMimeType := camerautils.FormatStringToMimeType(format)
+			resultMimeType := utils.FormatStringToMimeType(format)
 			test.That(t, resultMimeType, test.ShouldEqual, tc.mimeType)
 
 			var ok bool

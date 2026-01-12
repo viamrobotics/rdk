@@ -87,3 +87,9 @@ var FormatToMimeType = map[camerapb.Format]string{
 	camerapb.Format_FORMAT_RAW_RGBA:    MimeTypeRawRGBA,
 	camerapb.Format_FORMAT_UNSPECIFIED: "",
 }
+
+// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
+// it to a utils mime type.
+func FormatStringToMimeType(format string) string {
+	return fmt.Sprintf("image/%s", format)
+}

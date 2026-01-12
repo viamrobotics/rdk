@@ -16,7 +16,6 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-// StreamableImageMIMETypes is the set of all mime types the stream server supports.
 // StreamableImageMIMETypes represents all mime types the stream server supports.
 // The order of the slice defines the priority of the mime types.
 var StreamableImageMIMETypes = []string{
@@ -66,12 +65,6 @@ func Camera(robot robot.Robot, stream gostream.Stream) (camera.Camera, error) {
 	return cam, nil
 }
 
-// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
-// it to a utils mime type.
-func FormatStringToMimeType(format string) string {
-	return fmt.Sprintf("image/%s", format)
-}
-
 // GetStreamableNamedImageFromCamera returns the first named image it finds from the camera that is supported for streaming.
 // It prioritizes images based on the order of StreamableImageMIMETypes.
 func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (camera.NamedImage, error) {
@@ -98,7 +91,7 @@ func GetStreamableNamedImageFromCamera(ctx context.Context, cam camera.Camera) (
 			if err != nil {
 				continue
 			}
-			if FormatStringToMimeType(format) == streamableMimeType {
+			if rutils.FormatStringToMimeType(format) == streamableMimeType {
 				return namedImage, nil
 			}
 		}
