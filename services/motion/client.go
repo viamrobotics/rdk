@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	robotpb "go.viam.com/api/robot/v1"
 	pb "go.viam.com/api/service/motion/v1"
 	vprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
@@ -19,9 +20,10 @@ type client struct {
 	resource.Named
 	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
-	name   string
-	client pb.MotionServiceClient
-	logger logging.Logger
+	name        string
+	client      pb.MotionServiceClient
+	robotClient robotpb.RobotServiceClient
+	logger      logging.Logger
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -34,10 +36,11 @@ func NewClientFromConn(
 ) (Service, error) {
 	grpcClient := pb.NewMotionServiceClient(conn)
 	c := &client{
-		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.Name,
-		client: grpcClient,
-		logger: logger,
+		Named:       name.PrependRemote(remoteName).AsNamed(),
+		name:        name.Name,
+		client:      grpcClient,
+		robotClient: robotpb.NewRobotServiceClient(conn),
+		logger:      logger,
 	}
 	return c, nil
 }
@@ -110,9 +113,8 @@ func (c *client) GetPose(
 	if err != nil {
 		return nil, err
 	}
-	
-	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
-		Name:                   c.name,
+
+	resp, err := c.robotClient.GetPose(ctx, &robotpb.GetPoseRequest{
 		ComponentName:          componentName,
 		DestinationFrame:       destinationFrame,
 		SupplementalTransforms: transforms,
