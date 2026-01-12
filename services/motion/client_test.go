@@ -14,14 +14,17 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	pb "go.viam.com/api/robot/v1"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
@@ -48,6 +51,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		GetPoseFunc: injectMS.GetPose,
+	}
+	err = rpcServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, server.New(injectRobot))
+	test.That(t, err, test.ShouldBeNil)
 
 	go func() {
 		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)
