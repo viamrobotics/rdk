@@ -132,6 +132,7 @@ func (bs *basicStream) Start() {
 	}
 	bs.started = true
 	close(bs.streamingReadyCh)
+	// add 2 actviate background workers for the processInput and output frames routines
 	bs.activeBackgroundWorkers.Add(2)
 	utils.ManagedGo(bs.processInputFrames, bs.activeBackgroundWorkers.Done)
 	utils.ManagedGo(bs.processOutputFrames, bs.activeBackgroundWorkers.Done)
