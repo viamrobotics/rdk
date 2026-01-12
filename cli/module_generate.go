@@ -140,6 +140,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 
 	s := spinner.New()
 	var fatalError error
+	var registryURL string
 	nonFatalError := false
 	gArgs, err := getGlobalArgs(cCtx)
 	if err != nil {
@@ -162,7 +163,8 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		}
 
 		s.Title("Creating module and generating manifest...")
-		if err = createModuleAndManifest(cCtx, c, *newModule, globalArgs); err != nil {
+		registryURL, err = createModuleAndManifest(cCtx, c, *newModule, globalArgs)
+		if err != nil {
 			fatalError = err
 			return
 		}
@@ -219,7 +221,19 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		cwd = "."
 	}
 	printf(cCtx.App.Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
+	if registryURL != "" {
+		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
+	}
 	return nil
+}
+
+// returns model name based on chosen resource
+func modelName(module *modulegen.ModuleInputs) string {
+	resourceName := strings.Fields(module.Resource)[0]
+	if resourceName == "generic" {
+		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
+	}
+	return resourceName
 }
 
 // Prompt the user for information regarding the module they want to create
@@ -281,7 +295,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
 			huh.NewInput().
 				Title("Set a module name:").
-				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This can be the name of the piece of hardware, the challenge you are trying to solve,\n"+
+					"the name of the project, etc.\n"+
+					"The module name can contain only alphanumeric characters, dashes, and underscores.").
 				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
@@ -331,7 +347,12 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
-				Placeholder("my-model").
+				PlaceholderFunc(func() string {
+					return modelName(module)
+				}, &module.Resource).
+				SuggestionsFunc(func() []string {
+					return []string{modelName(module)}
+				}, &module.Resource).
 				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
@@ -811,18 +832,20 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	return version, nil
 }
 
-func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) (string, error) {
 	var moduleID moduleID
+	var registryURL string
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, globalArgs.Debug, "Registering module with Viam")
 		moduleResponse, err := c.createModule(module.ModuleName, module.OrgID)
 		if err != nil {
-			return errors.Wrap(err, "failed to register module")
+			return "", errors.Wrap(err, "failed to register module")
 		}
 		moduleID, err = parseModuleID(moduleResponse.GetModuleId())
 		if err != nil {
-			return errors.Wrap(err, "failed to parse module identifier")
+			return "", errors.Wrap(err, "failed to parse module identifier")
 		}
+		registryURL = moduleResponse.GetUrl()
 	} else {
 		debugf(cCtx.App.Writer, globalArgs.Debug, "Creating a local-only module")
 		moduleID.name = module.ModuleName
@@ -830,9 +853,9 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 	}
 	err := renderManifest(cCtx, moduleID.String(), module, globalArgs)
 	if err != nil {
-		return errors.Wrap(err, "failed to render manifest")
+		return "", errors.Wrap(err, "failed to render manifest")
 	}
-	return nil
+	return registryURL, nil
 }
 
 // Create the README.md file.
