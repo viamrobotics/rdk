@@ -63,7 +63,7 @@ type MediaReleasePair[T any] struct {
 // new connections.
 func NewStream(config StreamConfig, logger logging.Logger) (Stream, error) {
 	if config.VideoEncoderFactory == nil {
-		return nil, errors.New("at least one video encoder factory must be set")
+		return nil, errors.New("video encoder factory must be set")
 	}
 	if config.TargetFrameRate == 0 {
 		config.TargetFrameRate = defaultTargetFrameRate
