@@ -111,30 +111,9 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return fmt.Errorf("xacro processing failed: %w\nStderr: %s", err, stderr.String())
 	}
 
-	// 10. Post-process output to add workspace prefix to package URIs (if in a workspace)
+	// 10. Write output file as-is from xacro (no URI transformation)
 	output := stdout.String()
 
-	// Heuristic: if we found dependent packages, we're in a workspace structure
-	// Standalone packages don't typically have sibling dependencies
-	if len(dependentPkgs) > 0 {
-		parentDir := filepath.Dir(cwd)
-		workspaceName := filepath.Base(parentDir)
-
-		// Transform package://package_name/ to package://workspace/package_name/
-		output = strings.ReplaceAll(output,
-			fmt.Sprintf("package://%s/", pkgName),
-			fmt.Sprintf("package://%s/%s/", workspaceName, pkgName))
-
-		// Also transform dependent package URIs
-		for _, pkg := range dependentPkgs {
-			output = strings.ReplaceAll(output,
-				fmt.Sprintf("package://%s/", pkg.Name),
-				fmt.Sprintf("package://%s/%s/", workspaceName, pkg.Name))
-		}
-	}
-	// else: standalone package, keep package://package_name/ as-is
-
-	// Write output file
 	if err := os.WriteFile(args.Output, []byte(output), 0644); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
