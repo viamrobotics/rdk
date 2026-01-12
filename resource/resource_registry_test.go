@@ -78,7 +78,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	var capColl resource.APIResourceGetter[motor.Motor]
 
-	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], logger logging.Logger) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], _ logging.Logger) interface{} {
 		capColl = apiResColl
 		return 5
 	}

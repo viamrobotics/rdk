@@ -34,7 +34,8 @@ func newServer(logger logging.Logger) (pb.MovementSensorServiceServer, *inject.M
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return movementsensor.NewRPCServiceServer(gpsSvc, logger).(pb.MovementSensorServiceServer), injectMovementSensor, injectMovementSensor2, nil
+	return movementsensor.NewRPCServiceServer(gpsSvc, logger).(pb.MovementSensorServiceServer),
+		injectMovementSensor, injectMovementSensor2, nil
 }
 
 func TestServer(t *testing.T) {
