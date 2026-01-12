@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,19 +14,69 @@ import (
 )
 
 const (
-	xacroFlagArgs       = "args"
-	xacroFlagDryRun     = "dry-run"
-	xacroFlagDockerImg  = "docker-image"
-	xacroFlagPackageXML = "package-xml"
+	xacroFlagArgs              = "args"
+	xacroFlagDryRun            = "dry-run"
+	xacroFlagDockerImg         = "docker-image"
+	xacroFlagPackageXML        = "package-xml"
+	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
 )
 
 type xacroConvertArgs struct {
-	Input      string
-	Output     string
-	Args       []string
-	DryRun     bool
-	DockerImg  string
-	PackageXML string
+	Input              string
+	Output             string
+	Args               []string
+	DryRun             bool
+	DockerImg          string
+	PackageXML         string
+	CollapseFixedJoints bool
+}
+
+// URDF XML structures for parsing and manipulation.
+type urdfRobot struct {
+	XMLName xml.Name    `xml:"robot"`
+	Name    string      `xml:"name,attr"`
+	Links   []urdfLink  `xml:"link"`
+	Joints  []urdfJoint `xml:"joint"`
+}
+
+type urdfLink struct {
+	XMLName xml.Name `xml:"link"`
+	Name    string   `xml:"name,attr"`
+	// We don't need the full link contents for collapsing, just the name
+	InnerXML string `xml:",innerxml"`
+}
+
+type urdfJoint struct {
+	XMLName xml.Name      `xml:"joint"`
+	Name    string        `xml:"name,attr"`
+	Type    string        `xml:"type,attr"`
+	Parent  urdfLinkRef   `xml:"parent"`
+	Child   urdfLinkRef   `xml:"child"`
+	Origin  *urdfOrigin   `xml:"origin"`
+	Axis    *urdfAxis     `xml:"axis"`
+	Limit   *urdfLimit    `xml:"limit"`
+	// Preserve other elements we don't parse
+	InnerXML string `xml:",innerxml"`
+}
+
+type urdfLinkRef struct {
+	Link string `xml:"link,attr"`
+}
+
+type urdfOrigin struct {
+	XYZ string `xml:"xyz,attr"`
+	RPY string `xml:"rpy,attr"`
+}
+
+type urdfAxis struct {
+	XYZ string `xml:"xyz,attr"`
+}
+
+type urdfLimit struct {
+	Lower    string `xml:"lower,attr"`
+	Upper    string `xml:"upper,attr"`
+	Effort   string `xml:"effort,attr"`
+	Velocity string `xml:"velocity,attr"`
 }
 
 func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
@@ -111,9 +162,20 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return fmt.Errorf("xacro processing failed: %w\nStderr: %s", err, stderr.String())
 	}
 
-	// 10. Write output file as-is from xacro (no URI transformation)
+	// 10. Get output from xacro
 	output := stdout.String()
 
+	// 11. Collapse fixed joints if requested
+	if args.CollapseFixedJoints {
+		printf(c.App.Writer, "Collapsing fixed joint chains...\n")
+		collapsed, err := collapseFixedJoints(output)
+		if err != nil {
+			return fmt.Errorf("failed to collapse fixed joints: %w", err)
+		}
+		output = collapsed
+	}
+
+	// 12. Write output file
 	if err := os.WriteFile(args.Output, []byte(output), 0644); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
@@ -332,4 +394,72 @@ func buildDockerXacroCommand(pkgName, cwd, relInputFile string, dockerArgs []str
 	)
 
 	return dockerCmd
+}
+
+// collapseFixedJoints removes fixed joints and their child links when the child is a leaf node.
+// This simplifies the kinematic structure by removing non-functional branches like "base_link -> base"
+// and "link_6_t -> flange -> tool0" chains.
+func collapseFixedJoints(urdfContent string) (string, error) {
+	// Parse the URDF
+	var robot urdfRobot
+	if err := xml.Unmarshal([]byte(urdfContent), &robot); err != nil {
+		return "", fmt.Errorf("failed to parse URDF: %w", err)
+	}
+
+	// Build a map of which links are children (and how many times they're referenced)
+	childLinks := make(map[string]int)
+	for _, joint := range robot.Joints {
+		childLinks[joint.Child.Link]++
+	}
+
+	// Build a map of which links have children (are parents)
+	parentLinks := make(map[string]bool)
+	for _, joint := range robot.Joints {
+		parentLinks[joint.Parent.Link] = true
+	}
+
+	// Identify fixed joints whose children are leaf nodes (have no children of their own)
+	fixedLeafJoints := make(map[string]bool)
+	for _, joint := range robot.Joints {
+		if joint.Type == "fixed" && !parentLinks[joint.Child.Link] {
+			fixedLeafJoints[joint.Name] = true
+		}
+	}
+
+	if len(fixedLeafJoints) == 0 {
+		// No fixed leaf joints to collapse
+		return urdfContent, nil
+	}
+
+	// Remove fixed leaf joints
+	var newJoints []urdfJoint
+	leafLinksToRemove := make(map[string]bool)
+	for _, joint := range robot.Joints {
+		if fixedLeafJoints[joint.Name] {
+			leafLinksToRemove[joint.Child.Link] = true
+			continue
+		}
+		newJoints = append(newJoints, joint)
+	}
+	robot.Joints = newJoints
+
+	// Remove the corresponding leaf links
+	var newLinks []urdfLink
+	for _, link := range robot.Links {
+		if leafLinksToRemove[link.Name] {
+			continue
+		}
+		newLinks = append(newLinks, link)
+	}
+	robot.Links = newLinks
+
+	// Marshal back to XML
+	output, err := xml.MarshalIndent(&robot, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal URDF: %w", err)
+	}
+
+	// Add XML header
+	result := xml.Header + string(output) + "\n"
+	return result, nil
 }

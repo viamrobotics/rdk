@@ -2917,6 +2917,10 @@ Note: There is no progress meter while copying is in progress.
 							Name:  xacroFlagPackageXML,
 							Usage: "path to package.xml if not in current directory",
 						},
+						&cli.BoolFlag{
+							Name:  xacroFlagCollapseFixedJnts,
+							Usage: "collapse fixed joint chains to simplify the kinematic structure",
+						},
 					},
 					Action: func(c *cli.Context) error {
 						if c.NArg() != 2 {
@@ -2924,12 +2928,13 @@ Note: There is no progress meter while copying is in progress.
 						}
 
 						args := xacroConvertArgs{
-							Input:      c.Args().Get(0),
-							Output:     c.Args().Get(1),
-							Args:       c.StringSlice(xacroFlagArgs),
-							DryRun:     c.Bool(xacroFlagDryRun),
-							DockerImg:  c.String(xacroFlagDockerImg),
-							PackageXML: c.String(xacroFlagPackageXML),
+							Input:               c.Args().Get(0),
+							Output:              c.Args().Get(1),
+							Args:                c.StringSlice(xacroFlagArgs),
+							DryRun:              c.Bool(xacroFlagDryRun),
+							DockerImg:           c.String(xacroFlagDockerImg),
+							PackageXML:          c.String(xacroFlagPackageXML),
+							CollapseFixedJoints: c.Bool(xacroFlagCollapseFixedJnts),
 						}
 
 						return xacroConvertAction(c, args)
