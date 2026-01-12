@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"fmt"
 	"image"
 	"io"
-	"strconv"
 	"testing"
 	"time"
 
@@ -16,16 +14,13 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	tu "go.viam.com/rdk/testutils"
@@ -46,67 +41,6 @@ const (
 	serviceName     = "camera"
 	captureInterval = time.Millisecond
 )
-
-func convertInterfaceMapToAnyPBMap(params map[string]interface{}) (map[string]*anypb.Any, error) {
-	methodParams := map[string]*anypb.Any{}
-	for key, paramVal := range params {
-		anyVal, err := convertInterfaceToAnyPB(paramVal)
-		if err != nil {
-			return nil, err
-		}
-		methodParams[key] = anyVal
-	}
-	return methodParams, nil
-}
-
-func convertInterfaceToAnyPB(val interface{}) (*anypb.Any, error) {
-	var wrappedVal protoreflect.ProtoMessage
-	switch v := val.(type) {
-	case string:
-		return convertStringToAnyPB(v)
-	case []string:
-		list := &structpb.ListValue{}
-		for _, s := range v {
-			list.Values = append(list.Values, structpb.NewStringValue(s))
-		}
-		wrappedVal = structpb.NewListValue(list)
-	case []interface{}:
-		list := &structpb.ListValue{}
-		for _, s := range v {
-			val, err := structpb.NewValue(s)
-			if err != nil {
-				return nil, err
-			}
-			list.Values = append(list.Values, val)
-		}
-		wrappedVal = structpb.NewListValue(list)
-	case bool:
-		wrappedVal = wrapperspb.Bool(v)
-	default:
-		return nil, fmt.Errorf("unsupported type %T", val)
-	}
-	return anypb.New(wrappedVal)
-}
-
-func convertStringToAnyPB(str string) (*anypb.Any, error) {
-	var wrappedVal protoreflect.ProtoMessage
-	if boolVal, err := strconv.ParseBool(str); err == nil {
-		wrappedVal = wrapperspb.Bool(boolVal)
-	} else if int64Val, err := strconv.ParseInt(str, 10, 64); err == nil {
-		wrappedVal = wrapperspb.Int64(int64Val)
-	} else if uint64Val, err := strconv.ParseUint(str, 10, 64); err == nil {
-		wrappedVal = wrapperspb.UInt64(uint64Val)
-	} else if float64Val, err := strconv.ParseFloat(str, 64); err == nil {
-		wrappedVal = wrapperspb.Double(float64Val)
-	} else {
-		wrappedVal = wrapperspb.String(str)
-	}
-	anyVal, err := anypb.New(wrappedVal)
-	if err != nil {
-		return nil, err
-	}
-	return anyVal, nil
-}
 
 func TestCollectors(t *testing.T) {
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
@@ -191,14 +125,14 @@ func TestCollectors(t *testing.T) {
 				},
 			},
 			camera:       cam,
-			methodParams: map[string]interface{}{"camera_name": "camera-1", "filter_source_names": []string{"left"}},
+			methodParams: map[string]interface{}{"camera_name": "camera-1", "filter_source_names": []interface{}{"left"}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
-			mParams, err := convertInterfaceMapToAnyPBMap(tc.methodParams)
+			mParams, err := protoutils.ConvertMapToProtoAny(tc.methodParams)
 			test.That(t, err, test.ShouldBeNil)
 			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
