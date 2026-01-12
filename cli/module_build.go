@@ -233,7 +233,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 			job.StartTime.AsTime().Format(time.RFC3339))
 	}
 	// the table is not printed to stdout until the tabwriter is flushed
-	//nolint: errcheck,gosec
+	//nolint:errcheck
 	w.Flush()
 	return nil
 }
@@ -697,7 +697,7 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 			return nil, errors.Wrap(err, "failed to open .gitignore file")
 		}
 		defer func() {
-			//nolint:errcheck,gosec // Ignore close error for read-only file
+			//nolint:errcheck
 			file.Close()
 		}()
 

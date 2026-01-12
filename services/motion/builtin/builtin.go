@@ -57,6 +57,7 @@ const (
 	DoPlan              = "plan"
 	DoExecute           = "execute"
 	DoExecuteCheckStart = "executeCheckStart"
+	DoReplan            = "replannable"
 )
 
 const (
@@ -273,37 +274,25 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if reqI, ok := cmd[DoReplan]; ok {
+		return ms.doReplannable(ctx, reqI)
+	}
+
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
-	if req, ok := cmd[DoPlan]; ok {
-		s, err := utils.AssertType[string](req)
+	if reqI, ok := cmd[DoPlan]; ok {
+		moveReq, err := stringToMoveRequest(reqI)
 		if err != nil {
 			return nil, err
 		}
-		var moveReqProto pb.MoveRequest
-		err = protojson.Unmarshal([]byte(s), &moveReqProto)
-		if err != nil {
-			return nil, err
-		}
-		fields := moveReqProto.Extra.AsMap()
-		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
-			v, err := structpb.NewStruct(extra)
-			if err != nil {
-				return nil, err
-			}
-			moveReqProto.Extra = v
-		}
+
 		// Special handling: we want to observe the logs just for the DoCommand
 		obsLogger := ms.logger.Sublogger("observed-" + uuid.New().String())
 		observerCore, observedLogs := observer.New(zap.LevelEnablerFunc(zapcore.InfoLevel.Enabled))
 		obsLogger.AddAppender(observerCore)
 
-		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
-		if err != nil {
-			return nil, err
-		}
-		plan, err := ms.plan(ctx, moveReq, obsLogger)
+		plan, err := ms.plan(ctx, *moveReq, obsLogger)
 		if err != nil {
 			return nil, err
 		}
@@ -428,11 +417,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		return nil, err
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
-
-	movingFrame := frameSys.Frame(req.ComponentName)
-	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
-	}
 
 	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
 	if err != nil {
@@ -718,4 +702,33 @@ func (ms *builtIn) writePlanRequest(
 
 	ms.logger.Infof("writing plan to %s", fn)
 	return req.WriteToFile(fn)
+}
+
+func stringToMoveRequest(reqI any) (*motion.MoveReq, error) {
+	reqStr, err := utils.AssertType[string](reqI)
+	if err != nil {
+		return nil, err
+	}
+
+	var moveReqProto pb.MoveRequest
+	err = protojson.Unmarshal([]byte(reqStr), &moveReqProto)
+	if err != nil {
+		return nil, err
+	}
+
+	fields := moveReqProto.Extra.AsMap()
+	if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
+		v, err := structpb.NewStruct(extra)
+		if err != nil {
+			return nil, err
+		}
+		moveReqProto.Extra = v
+	}
+
+	moveReq, err := motion.MoveReqFromProto(&moveReqProto)
+	if err != nil {
+		return nil, err
+	}
+
+	return &moveReq, nil
 }
