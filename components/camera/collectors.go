@@ -170,18 +170,14 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 		return nil, err
 	}
 
-	cFunc := data.CaptureFunc(func(ctx context.Context, arg map[string]*anypb.Any) (data.CaptureResult, error) {
+	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
 
 		var filterSourceNames []string
-		// Check both collector params and per-capture args. Prioritize per-capture args if they exist.
-		filterSourceNamesAny, ok := arg["filter_source_names"]
-		if !ok {
-			filterSourceNamesAny, ok = params.MethodParams["filter_source_names"]
-		}
+		filterSourceNamesAny, ok := params.MethodParams["filter_source_names"]
 
 		if ok {
 			unmarshaledFilterSourceNames, err := data.UnmarshalToValueOrString(filterSourceNamesAny)
