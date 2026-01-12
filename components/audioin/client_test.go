@@ -32,7 +32,7 @@ func setupAudioInService(t *testing.T, injectAudioIn *inject.AudioIn) (net.Liste
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioin.AudioIn](audioin.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioInSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioInSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }

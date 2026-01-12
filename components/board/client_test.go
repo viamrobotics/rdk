@@ -36,7 +36,7 @@ func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()
 	resourceAPI, ok, err := resource.LookupAPIRegistration[board.Board](board.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, boardSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }

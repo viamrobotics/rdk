@@ -9,18 +9,19 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(sMap map[resource.Name]shell.Service) (pb.ShellServiceServer, error) {
+func newServer(sMap map[resource.Name]shell.Service, logger logging.Logger) (pb.ShellServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(shell.API, sMap)
 	if err != nil {
 		return nil, err
 	}
-	return shell.NewRPCServiceServer(coll).(pb.ShellServiceServer), nil
+	return shell.NewRPCServiceServer(coll, logger).(pb.ShellServiceServer), nil
 }
 
 func TestServerDoCommand(t *testing.T) {
@@ -29,7 +30,7 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	server, err := newServer(resourceMap)
+	server, err := newServer(resourceMap, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)

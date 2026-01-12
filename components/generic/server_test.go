@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -18,7 +19,7 @@ import (
 
 var errDoFailed = errors.New("do failed")
 
-func newServer() (genericpb.GenericServiceServer, *inject.GenericComponent, *inject.GenericComponent, error) {
+func newServer(logger logging.Logger) (genericpb.GenericServiceServer, *inject.GenericComponent, *inject.GenericComponent, error) {
 	injectGeneric := &inject.GenericComponent{}
 	injectGeneric2 := &inject.GenericComponent{}
 	resourceMap := map[resource.Name]resource.Resource{
@@ -29,11 +30,11 @@ func newServer() (genericpb.GenericServiceServer, *inject.GenericComponent, *inj
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return generic.NewRPCServiceServer(injectSvc).(genericpb.GenericServiceServer), injectGeneric, injectGeneric2, nil
+	return generic.NewRPCServiceServer(injectSvc, logger).(genericpb.GenericServiceServer), injectGeneric, injectGeneric2, nil
 }
 
 func TestGenericDo(t *testing.T) {
-	genericServer, workingGeneric, failingGeneric, err := newServer()
+	genericServer, workingGeneric, failingGeneric, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	workingGeneric.DoFunc = func(
