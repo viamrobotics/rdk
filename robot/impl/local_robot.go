@@ -70,7 +70,7 @@ func init() {
 	// Unfortunately Otel SDK doesn't have a way to reconfigure the resource
 	// information so we need to set it here before any of the gRPC servers
 	// access the global tracer provider.
-	//nolint: errcheck, gosec
+	//nolint: errcheck
 	trace.SetProvider(
 		context.Background(),
 		sdktrace.WithResource(
@@ -1664,7 +1664,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if !newTracingCfg.IsEnabled() {
 		prevExporters := trace.ClearExporters()
 		for _, ex := range prevExporters {
-			//nolint: errcheck, gosec
+			//nolint: errcheck
 			ex.Shutdown(ctx)
 		}
 		r.traceClients.Store(nil)

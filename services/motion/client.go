@@ -110,7 +110,7 @@ func (c *client) GetPose(
 	if err != nil {
 		return nil, err
 	}
-	//nolint:staticcheck
+	
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
 		Name:                   c.name,
 		ComponentName:          componentName,
