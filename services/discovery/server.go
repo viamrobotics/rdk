@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -21,7 +22,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs a the discovery gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
