@@ -74,6 +74,8 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
 }
 
+// This is preserving backwards compatibility for older updated clients.
+//
 //nolint:staticcheck
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
@@ -91,7 +93,7 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	//nolint:staticcheck
+
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
 

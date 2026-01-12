@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -19,9 +20,11 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
@@ -48,6 +51,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc, logger), test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		GetPoseFunc: injectMS.GetPose,
+	}
+	err = rpcServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, server.New(injectRobot))
+	test.That(t, err, test.ShouldBeNil)
 
 	go func() {
 		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)

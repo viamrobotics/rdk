@@ -749,12 +749,12 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			ctx, cancel := context.WithCancel(context.Background())
 
 			defer func() {
-				writer.Flush()   //nolint:errcheck,gosec
-				dataFile.Close() //nolint:errcheck,gosec
+				writer.Flush()   //nolint:errcheck
+				dataFile.Close() //nolint:errcheck
 				cancel()
 
 				if exportErr != nil {
-					os.Remove(dataFile.Name()) //nolint:errcheck,gosec
+					os.Remove(dataFile.Name()) //nolint:errcheck
 				}
 			}()
 
