@@ -294,12 +294,24 @@ func (m *Module) FirstRun(
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
+		//nolint: errcheck
+		cwd, _ := os.Getwd()
 		logger.Infow("meta.json does not exist, skipping first run",
-			"moduleWorkingDirectory", moduleWorkingDirectory)
+			"unpackedModDir", unpackedModDir,
+			"firstRunSuccessPath", firstRunSuccessPath,
+			"localPackagesDir", localPackagesDir,
+			"cwd", cwd,
+			"envViamModuleRoot", os.Getenv("VIAM_MODULE_ROOT"))
 		return nil
 	case err != nil:
+		//nolint: errcheck
+		cwd, _ := os.Getwd()
 		logger.Warnw("failed to parse meta.json, skipping first run", "error", err,
-			"moduleWorkingDirectory", moduleWorkingDirectory)
+			"unpackedModDir", unpackedModDir,
+			"firstRunSuccessPath", firstRunSuccessPath,
+			"localPackagesDir", localPackagesDir,
+			"cwd", cwd,
+			"envViamModuleRoot", os.Getenv("VIAM_MODULE_ROOT"))
 		return nil
 	}
 
