@@ -8,7 +8,6 @@ import (
 	"image"
 	"io"
 	"os"
-	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -196,7 +195,6 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 				"grpc_metadata", md,
 				"mime_type", mimeType,
 			)
-			c.logger.Info(string(debug.Stack()))
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
