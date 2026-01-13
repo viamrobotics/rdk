@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"mime"
 
 	"github.com/docker/go-units"
 	"github.com/go-viper/mapstructure/v2"
@@ -404,12 +403,6 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
-		mimeTypeString := data.MimeTypeFromProto(t).String()
-		strs, err := mime.ExtensionsByType(mimeTypeString)
-		if err != nil || strs == nil {
-			return data.ExtDefault
-		} else {
-			return strs[0]
-		}
+		return data.ExtDefault
 	}
 }
