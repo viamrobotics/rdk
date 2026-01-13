@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"image"
 	"io"
-	"strconv"
 	"testing"
 	"time"
 
@@ -15,15 +14,13 @@ import (
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-	"google.golang.org/protobuf/reflect/protoreflect"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	tu "go.viam.com/rdk/testutils"
@@ -45,41 +42,7 @@ const (
 	captureInterval = time.Millisecond
 )
 
-func convertStringMapToAnyPBMap(params map[string]string) (map[string]*anypb.Any, error) {
-	methodParams := map[string]*anypb.Any{}
-	for key, paramVal := range params {
-		anyVal, err := convertStringToAnyPB(paramVal)
-		if err != nil {
-			return nil, err
-		}
-		methodParams[key] = anyVal
-	}
-	return methodParams, nil
-}
-
-func convertStringToAnyPB(str string) (*anypb.Any, error) {
-	var wrappedVal protoreflect.ProtoMessage
-	if boolVal, err := strconv.ParseBool(str); err == nil {
-		wrappedVal = wrapperspb.Bool(boolVal)
-	} else if int64Val, err := strconv.ParseInt(str, 10, 64); err == nil {
-		wrappedVal = wrapperspb.Int64(int64Val)
-	} else if uint64Val, err := strconv.ParseUint(str, 10, 64); err == nil {
-		wrappedVal = wrapperspb.UInt64(uint64Val)
-	} else if float64Val, err := strconv.ParseFloat(str, 64); err == nil {
-		wrappedVal = wrapperspb.Double(float64Val)
-	} else {
-		wrappedVal = wrapperspb.String(str)
-	}
-	anyVal, err := anypb.New(wrappedVal)
-	if err != nil {
-		return nil, err
-	}
-	return anyVal, nil
-}
-
 func TestCollectors(t *testing.T) {
-	methodParams, err := convertStringMapToAnyPBMap(map[string]string{"camera_name": "camera-1", "mime_type": "image/jpeg"})
-	test.That(t, err, test.ShouldBeNil)
 	viamLogoJpeg, err := io.ReadAll(base64.NewDecoder(base64.StdEncoding, bytes.NewReader(viamLogoJpegB64)))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -97,10 +60,11 @@ func TestCollectors(t *testing.T) {
 	cam := newCamera(img, img, pcd)
 
 	tests := []struct {
-		name      string
-		collector data.CollectorConstructor
-		expected  []*datasyncpb.SensorData
-		camera    camera.Camera
+		name         string
+		collector    data.CollectorConstructor
+		expected     []*datasyncpb.SensorData
+		camera       camera.Camera
+		methodParams map[string]interface{}
 	}{
 		{
 			name:      "ReadImage returns a non nil binary response",
@@ -112,7 +76,8 @@ func TestCollectors(t *testing.T) {
 				},
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 			}},
-			camera: cam,
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1", "mime_type": "image/jpeg"},
 		},
 		{
 			name:      "NextPointCloud returns a non nil binary response",
@@ -144,13 +109,31 @@ func TestCollectors(t *testing.T) {
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
 			},
-			camera: cam,
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1"},
+		},
+		{
+			name:      "GetImages with filterSourceNames returns only filtered images",
+			collector: camera.NewGetImagesCollector,
+			expected: []*datasyncpb.SensorData{
+				{
+					Metadata: &datasyncpb.SensorMetadata{
+						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
+						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}, {Label: "left"}}},
+					},
+					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
+				},
+			},
+			camera:       cam,
+			methodParams: map[string]interface{}{"camera_name": "camera-1", "filter_source_names": []interface{}{"left"}},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			start := time.Now()
+			mParams, err := protoutils.ConvertMapToProtoAny(tc.methodParams)
+			test.That(t, err, test.ShouldBeNil)
 			buf := tu.NewMockBuffer(t)
 			params := data.CollectorParams{
 				DataType:      data.CaptureTypeBinary,
@@ -159,7 +142,7 @@ func TestCollectors(t *testing.T) {
 				Logger:        logging.NewTestLogger(t),
 				Clock:         clock.New(),
 				Target:        buf,
-				MethodParams:  methodParams,
+				MethodParams:  mParams,
 			}
 
 			col, err := tc.collector(tc.camera, params)
@@ -209,7 +192,22 @@ func newCamera(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		return []camera.NamedImage{leftImg, rightImg},
+
+		allImgs := []camera.NamedImage{leftImg, rightImg}
+		if len(filterSourceNames) == 0 {
+			return allImgs, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+		}
+
+		var filteredImgs []camera.NamedImage
+		for _, img := range allImgs {
+			for _, filter := range filterSourceNames {
+				if img.SourceName == filter {
+					filteredImgs = append(filteredImgs, img)
+				}
+			}
+		}
+
+		return filteredImgs,
 			resource.ResponseMetadata{CapturedAt: time.Now()},
 			nil
 	}
