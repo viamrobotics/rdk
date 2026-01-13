@@ -8,6 +8,7 @@ import (
 	"image"
 	"io"
 	"os"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -194,6 +195,7 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 					c.Name())
 			}
 		}
+		debug.PrintStack()
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
