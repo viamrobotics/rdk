@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -184,15 +185,15 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
 		// Try to update the timestamp; if another goroutine updates it first, that's fine.
 		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
-			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
-				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
-					"camera name: %s, caller module name: %s",
-					c.Name(), moduleName)
-			} else {
-				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
-					"camera name: %s",
-					c.Name())
-			}
+			moduleName := grpc.GetModuleName(ctx)
+			md, _ := metadata.FromIncomingContext(ctx)
+
+			c.logger.Warnw("camera client: Image is deprecated; please use Images instead",
+				"camera_name", c.Name(),
+				"camera_remote_name", c.remoteName,
+				"module_name", moduleName,
+				"grpc_metadata", md,
+			)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
