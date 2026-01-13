@@ -16,6 +16,11 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
+const (
+	// urdfPackagePrefix is the URI scheme used in URDF files to reference ROS packages
+	urdfPackagePrefix = "package://"
+)
+
 var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 
 // normalizeURDFMeshPath converts a URDF mesh path (which may use package:// URI) to a relative path.
@@ -23,8 +28,8 @@ var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
 func normalizeURDFMeshPath(meshPath string) string {
 	// Handle package:// URIs
 	// Strip the package prefix to get the relative path
-	if strings.HasPrefix(meshPath, "package://") {
-		meshPath = strings.TrimPrefix(meshPath, "package://")
+	if strings.HasPrefix(meshPath, urdfPackagePrefix) {
+		meshPath = strings.TrimPrefix(meshPath, urdfPackagePrefix)
 		// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
 		if idx := strings.Index(meshPath, "/"); idx != -1 {
 			meshPath = meshPath[idx+1:]

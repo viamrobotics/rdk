@@ -155,10 +155,10 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 	})
 
 	t.Run("mesh file paths use package URI normalization", func(t *testing.T) {
-		test.That(t, string(xmlData), test.ShouldContainSubstring, "package://testfiles/")
+		test.That(t, string(xmlData), test.ShouldContainSubstring, urdfPackagePrefix+"testfiles/")
 
 		for meshFile := range meshMap {
-			test.That(t, strings.HasPrefix(meshFile, "package://"), test.ShouldBeFalse)
+			test.That(t, strings.HasPrefix(meshFile, urdfPackagePrefix), test.ShouldBeFalse)
 			test.That(t, strings.HasSuffix(meshFile, ".stl"), test.ShouldBeTrue)
 		}
 	})

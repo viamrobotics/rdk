@@ -129,7 +129,7 @@ func TestMeshGeometrySerialization(t *testing.T) {
 
 	t.Run("package URI normalization", func(t *testing.T) {
 		urdfCollision := &collision{Origin: &pose{XYZ: "0 0 0", RPY: "0 0 0"}}
-		urdfCollision.Geometry.Mesh = &mesh{Filename: "package://some_package/meshes/base.stl"}
+		urdfCollision.Geometry.Mesh = &mesh{Filename: urdfPackagePrefix+"some_package/meshes/base.stl"}
 		meshMap := map[string]*commonpb.Mesh{"meshes/base.stl": {Mesh: stlBytes, ContentType: "stl"}}
 
 		geom, err := urdfCollision.toGeometry(meshMap)
