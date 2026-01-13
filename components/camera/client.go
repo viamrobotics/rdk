@@ -194,8 +194,8 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 					"camera name: %s",
 					c.Name())
 			}
+			c.logger.Info(string(debug.Stack()))
 		}
-		debug.PrintStack()
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
