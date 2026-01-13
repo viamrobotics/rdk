@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -31,7 +32,7 @@ var (
 	errArmUnimplemented          = errors.New("not found")
 )
 
-func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
+func newServer(logger logging.Logger) (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
 	arms := map[resource.Name]arm.Arm{
@@ -42,11 +43,11 @@ func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return arm.NewRPCServiceServer(armSvc).(pb.ArmServiceServer), injectArm, injectArm2, nil
+	return arm.NewRPCServiceServer(armSvc, logger).(pb.ArmServiceServer), injectArm, injectArm2, nil
 }
 
 func TestServer(t *testing.T) {
-	armServer, injectArm, injectArm2, err := newServer()
+	armServer, injectArm, injectArm2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var (

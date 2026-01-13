@@ -738,7 +738,7 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, server rp
 	apiRegs := resource.RegisteredAPIs()
 	for api, apiReg := range apiRegs {
 		apiGetter := resourceGetterForAPI{api, svc.r}
-		if err := apiReg.RegisterRPCService(ctx, server, apiGetter); err != nil {
+		if err := apiReg.RegisterRPCService(ctx, server, apiGetter, svc.logger); err != nil {
 			return err
 		}
 	}

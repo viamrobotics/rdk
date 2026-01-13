@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -33,7 +34,7 @@ var (
 	errCameraUnimplemented      = errors.New("not found")
 )
 
-func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
+func newServer(logger logging.Logger) (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
 	injectCamera := &inject.Camera{}
 	injectCameraDepth := &inject.Camera{}
 	injectCamera2 := &inject.Camera{}
@@ -46,11 +47,11 @@ func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *injec
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return camera.NewRPCServiceServer(cameraSvc).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
+	return camera.NewRPCServiceServer(cameraSvc, logger).(pb.CameraServiceServer), injectCamera, injectCameraDepth, injectCamera2, nil
 }
 
 func TestServer(t *testing.T) {
-	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer()
+	cameraServer, injectCamera, injectCameraDepth, injectCamera2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	img := image.NewRGBA(image.Rect(0, 0, 4, 4))

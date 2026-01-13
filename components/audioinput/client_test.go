@@ -72,7 +72,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioinput.AudioInput](audioinput.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioInputSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioInputSvc, logger), test.ShouldBeNil)
 
 	injectAudioInput.DoFunc = testutils.EchoFunc
 
@@ -179,7 +179,7 @@ func TestClientStreamAfterClose(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioinput.AudioInput](audioinput.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioinputSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioinputSvc, logger), test.ShouldBeNil)
 
 	// Start serving requests.
 	go rpcServer.Serve(listener)

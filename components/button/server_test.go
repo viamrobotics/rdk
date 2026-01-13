@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/button"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -20,7 +21,7 @@ var (
 	errButtonNotFound = errors.New("not found")
 )
 
-func newServer() (pb.ButtonServiceServer, *inject.Button, *inject.Button, error) {
+func newServer(logger logging.Logger) (pb.ButtonServiceServer, *inject.Button, *inject.Button, error) {
 	injectButton := &inject.Button{}
 	injectButton2 := &inject.Button{}
 	buttons := map[resource.Name]button.Button{
@@ -31,11 +32,11 @@ func newServer() (pb.ButtonServiceServer, *inject.Button, *inject.Button, error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return button.NewRPCServiceServer(buttonSvc).(pb.ButtonServiceServer), injectButton, injectButton2, nil
+	return button.NewRPCServiceServer(buttonSvc, logger).(pb.ButtonServiceServer), injectButton, injectButton2, nil
 }
 
 func TestServer(t *testing.T) {
-	buttonServer, injectButton, injectButton2, err := newServer()
+	buttonServer, injectButton, injectButton2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var buttonPushed string

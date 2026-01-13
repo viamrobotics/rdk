@@ -60,6 +60,7 @@ linters:
     - testpackage
     - thelper # false positives
     - tparallel # there are valid reasons to have top-level t.Parallel() but serial subtests
+    - unparam # not useful
     - varnamelen
     - wrapcheck
     - wsl
@@ -81,6 +82,7 @@ linters-settings:
       - composites
   gosec:
     excludes:
+      - G104 # Unhandled errors. These are already linted on, no need to double lint.
       - G115 # TODO(go1.23): maybe reenable
   revive:
     # Unfortunately configuring a single rules disables all other rules, even
@@ -120,6 +122,14 @@ linters-settings:
       - ifElseChain
   gomoddirectives:
     replace-allow-list: [github.com/hashicorp/go-getter]
+  stylecheck:
+    checks:
+      - all
+      - "-ST1005" # Low value complaint. Can remove when gosimple rewrites code in place instead of failing.
+  gosimple:
+    checks:
+      - all
+      - "-S1002" # Low value complaint. Can remove when gosimple rewrites code in place instead of failing.
 issues:
   exclude-rules:
     - path: _test\.go$
