@@ -193,7 +193,6 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 				"camera_remote_name", c.remoteName,
 				"module_name", moduleName,
 				"grpc_metadata", md,
-				"mime_type", mimeType,
 			)
 		}
 	}
