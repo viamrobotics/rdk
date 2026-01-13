@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -59,20 +60,15 @@ func (s *serviceServer) GetImage(
 		// Try to update the timestamp; if another goroutine updated it first, that's fine.
 		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
 			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
-			clientIP := "unknown"
-			if peerInfo.RemoteAddress != "" {
-				clientIP = peerInfo.RemoteAddress
-			}
+			moduleName := grpc.GetModuleName(ctx)
+			md, _ := metadata.FromIncomingContext(ctx)
 
-			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
-				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
-					"camera name: %s, client IP: %s, caller module name: %s",
-					req.Name, clientIP, moduleName)
-			} else {
-				s.logger.CWarnf(ctx, "GetImage is deprecated; please use GetImages instead; "+
-					"camera name: %s, client IP: %s",
-					req.Name, clientIP)
-			}
+			s.logger.Warnw("camera server: GetImage is deprecated; please use GetImages instead",
+				"camera_name", req.Name,
+				"peer_remote_addr", peerInfo.RemoteAddress,
+				"module_name", moduleName,
+				"grpc_metadata", md,
+			)
 		}
 	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
