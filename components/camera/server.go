@@ -69,7 +69,6 @@ func (s *serviceServer) GetImage(
 				"peer_remote_addr", peerInfo.RemoteAddress,
 				"module_name", moduleName,
 				"grpc_metadata", md,
-				"mime_type", req.MimeType,
 			)
 		}
 	}
