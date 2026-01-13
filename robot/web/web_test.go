@@ -1070,9 +1070,11 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1136,9 +1138,11 @@ func TestRawClientOperation(t *testing.T) {
 func TestUnaryRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1217,9 +1221,11 @@ func TestUnaryRequestCounter(t *testing.T) {
 func TestStreamingRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 

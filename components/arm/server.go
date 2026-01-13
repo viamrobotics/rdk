@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -21,12 +22,14 @@ const unimplemented = "unimplemented"
 type serviceServer struct {
 	pb.UnimplementedArmServiceServer
 	coll resource.APIResourceGetter[Arm]
+
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an arm gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Arm]) interface{} {
-	return &serviceServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceGetter[Arm], logger logging.Logger) interface{} {
+	return &serviceServer{coll: coll, logger: logger.Sublogger("arm_server")}
 }
 
 // GetEndPosition returns the position of the arm specified.
@@ -79,6 +82,8 @@ func (s *serviceServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("Move to position", "res", req.Name, "getTo", req.GetTo())
 	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
 		ctx,
 		spatialmath.NewPoseFromProtobuf(req.GetTo()),
@@ -96,6 +101,8 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("Move to joint positions", "res", req.Name, "pos", req.Positions)
 	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
 	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
@@ -116,6 +123,8 @@ func (s *serviceServer) MoveThroughJointPositions(
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("Move through joint positions", "res", req.Name, "pos", req.Positions)
 	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
 	//nolint:errcheck
 	m, _ := arm.Kinematics(ctx)
@@ -231,5 +240,7 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("DoCommand", "res", req.Name, "req", req)
 	return protoutils.DoFromResourceServer(ctx, arm, req)
 }

@@ -13,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"
@@ -65,7 +66,7 @@ func TestServer(t *testing.T) {
 	}
 	injectAPISvc, err := resource.NewAPIResourceCollection(navigation.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	navServer := navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
+	navServer := navigation.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.NavigationServiceServer)
 
 	var extraOptions map[string]interface{}
 	t.Run("working mode function", func(t *testing.T) {
@@ -400,7 +401,7 @@ func TestServer(t *testing.T) {
 	})
 
 	injectAPISvc, _ = resource.NewAPIResourceCollection(navigation.API, map[resource.Name]navigation.Service{})
-	navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
+	navServer = navigation.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.NavigationServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		req := &pb.GetModeRequest{Name: testSvcName1.ShortName()}
 		resp, err := navServer.GetMode(context.Background(), req)
@@ -415,7 +416,7 @@ func TestServer(t *testing.T) {
 		}
 		injectAPISvc, err = resource.NewAPIResourceCollection(navigation.API, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
-		navServer = navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
+		navServer = navigation.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.NavigationServiceServer)
 		injectSvc.ModeFunc = func(ctx context.Context, extra map[string]interface{}) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
@@ -438,7 +439,7 @@ func TestServerDoCommand(t *testing.T) {
 	}
 	injectAPISvc, err := resource.NewAPIResourceCollection(navigation.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	server := navigation.NewRPCServiceServer(injectAPISvc).(pb.NavigationServiceServer)
+	server := navigation.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.NavigationServiceServer)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)

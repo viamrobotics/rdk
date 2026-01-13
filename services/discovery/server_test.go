@@ -82,7 +82,7 @@ func createTestComponent(name string) resource.Config {
 	return testComponent
 }
 
-func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
+func newServer(logger logging.Logger) (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.DiscoveryService, error) {
 	injectDiscovery := inject.NewDiscoveryService(testDiscoveryName)
 	injectDiscovery2 := inject.NewDiscoveryService(failDiscoveryName)
 	resourceMap := map[resource.Name]discovery.Service{
@@ -93,12 +93,12 @@ func newServer() (pb.DiscoveryServiceServer, *inject.DiscoveryService, *inject.D
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return discovery.NewRPCServiceServer(injectSvc).(pb.DiscoveryServiceServer), injectDiscovery, injectDiscovery2, nil
+	return discovery.NewRPCServiceServer(injectSvc, logger).(pb.DiscoveryServiceServer), injectDiscovery, injectDiscovery2, nil
 }
 
 func TestDiscoveryServiceServer(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	discoveryServer, workingDiscovery, failingDiscovery, err := newServer()
+	discoveryServer, workingDiscovery, failingDiscovery, err := newServer(logger)
 	test.That(t, err, test.ShouldBeNil)
 	testComponents := []resource.Config{createTestComponent("component-1"), createTestComponent("component-2")}
 

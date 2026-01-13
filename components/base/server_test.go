@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -24,7 +25,7 @@ var (
 	errStopFailed       = errors.New("critical failure in Stop")
 )
 
-func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
+func newServer(logger logging.Logger) (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	workingBase := &inject.Base{}
 	brokenBase := &inject.Base{}
 	bases := map[resource.Name]base.Base{
@@ -35,11 +36,11 @@ func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return base.NewRPCServiceServer(baseSvc).(pb.BaseServiceServer), workingBase, brokenBase, nil
+	return base.NewRPCServiceServer(baseSvc, logger).(pb.BaseServiceServer), workingBase, brokenBase, nil
 }
 
 func TestServer(t *testing.T) {
-	server, workingBase, brokenBase, err := newServer()
+	server, workingBase, brokenBase, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("MoveStraight", func(t *testing.T) {

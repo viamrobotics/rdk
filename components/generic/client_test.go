@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[resource.Resource](generic.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, genericSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, genericSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

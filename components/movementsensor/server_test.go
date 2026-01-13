@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -22,7 +23,7 @@ import (
 
 var errReadingsFailed = errors.New("can't get readings")
 
-func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
+func newServer(logger logging.Logger) (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
 	injectMovementSensor := &inject.MovementSensor{}
 	injectMovementSensor2 := &inject.MovementSensor{}
 	gpss := map[resource.Name]movementsensor.MovementSensor{
@@ -33,11 +34,12 @@ func newServer() (pb.MovementSensorServiceServer, *inject.MovementSensor, *injec
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return movementsensor.NewRPCServiceServer(gpsSvc).(pb.MovementSensorServiceServer), injectMovementSensor, injectMovementSensor2, nil
+	return movementsensor.NewRPCServiceServer(gpsSvc, logger).(pb.MovementSensorServiceServer),
+		injectMovementSensor, injectMovementSensor2, nil
 }
 
 func TestServer(t *testing.T) {
-	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer()
+	gpsServer, injectMovementSensor, injectMovementSensor2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}
