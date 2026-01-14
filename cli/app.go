@@ -2921,6 +2921,15 @@ Note: There is no progress meter while copying is in progress.
 							Name:  xacroFlagCollapseFixedJnts,
 							Usage: "collapse fixed joint chains to simplify the kinematic structure",
 						},
+						&cli.BoolFlag{
+							Name:  xacroFlagInstallPackages,
+							Usage: "run apt-get update/install before xacro processing (slower, requires internet)",
+							Value: true,
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagROSDistro,
+							Usage: "ROS distribution to use (auto-detected from docker image if not specified)",
+						},
 					},
 					Action: func(c *cli.Context) error {
 						if c.NArg() != 2 {
@@ -2935,6 +2944,8 @@ Note: There is no progress meter while copying is in progress.
 							DockerImg:           c.String(xacroFlagDockerImg),
 							PackageXML:          c.String(xacroFlagPackageXML),
 							CollapseFixedJoints: c.Bool(xacroFlagCollapseFixedJnts),
+							InstallPackages:     c.Bool(xacroFlagInstallPackages),
+							ROSDistro:           c.String(xacroFlagROSDistro),
 						}
 
 						return xacroConvertAction(c, args)
