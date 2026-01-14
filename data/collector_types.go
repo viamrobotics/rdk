@@ -245,6 +245,24 @@ const (
 	MimeTypeVideoMP4
 )
 
+// ToString converts the MimeType enum to the mime type string it represents.
+func (mt MimeType) ToString() string {
+	switch mt {
+	case MimeTypeImageJpeg:
+		return rutils.MimeTypeJPEG
+	case MimeTypeImagePng:
+		return rutils.MimeTypePNG
+	case MimeTypeApplicationPcd:
+		return rutils.MimeTypePCD
+	case MimeTypeVideoMP4:
+		return rutils.MimeTypeVideoMP4
+	case MimeTypeUnspecified:
+		fallthrough
+	default:
+		return ""
+	}
+}
+
 // ToProto converts MimeType to datasyncPB.
 func (mt MimeType) ToProto() datasyncPB.MimeType {
 	switch mt {

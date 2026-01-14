@@ -224,7 +224,7 @@ func uploadBinarySensorData(
 ) error {
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
-	md.Mimetype = sd.GetMetadata().GetMimeType()
+	md.MimeType = data.MimeTypeFromProto(sd.GetMetadata().GetMimeType()).ToString()
 	fileExtensionFromMimeType := getFileExtFromMimeType(sd.GetMetadata().GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
@@ -309,7 +309,7 @@ func uploadLargeBinarySensorData(
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
 	smd := sd.GetMetadata()
-	md.Mimetype = sd.GetMetadata().GetMimeType()
+	md.MimeType = data.MimeTypeFromProto(sd.GetMetadata().GetMimeType()).ToString()
 	fileExtensionFromMimeType := getFileExtFromMimeType(smd.GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
@@ -399,6 +399,8 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 		return data.ExtPng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return data.ExtPcd
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return data.ExtMP4
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
 		fallthrough
 	default:
