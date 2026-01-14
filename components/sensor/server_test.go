@@ -12,13 +12,14 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 var errReadingsFailed = errors.New("can't get readings")
 
-func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
+func newServer(logger logging.Logger) (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
 	injectSensor2 := &inject.Sensor{}
 	sensors := map[resource.Name]sensor.Sensor{
@@ -29,11 +30,11 @@ func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return sensor.NewRPCServiceServer(sensorSvc).(pb.SensorServiceServer), injectSensor, injectSensor2, nil
+	return sensor.NewRPCServiceServer(sensorSvc, logger).(pb.SensorServiceServer), injectSensor, injectSensor2, nil
 }
 
 func TestServer(t *testing.T) {
-	sensorServer, injectSensor, injectSensor2, err := newServer()
+	sensorServer, injectSensor, injectSensor2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}

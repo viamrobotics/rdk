@@ -40,7 +40,13 @@ type Robot struct {
 	CloseFunc                  func(ctx context.Context) error
 	StopAllFunc                func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
 	FrameSystemConfigFunc      func(ctx context.Context) (*framesystem.Config, error)
-	TransformPoseFunc          func(
+	GetPoseFunc                func(
+		ctx context.Context,
+		componentName, destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+		extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error)
+	TransformPoseFunc func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
@@ -263,6 +269,21 @@ func (r *Robot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, err
 	}
 
 	return r.FrameSystemConfigFunc(ctx)
+}
+
+// GetPose calls the injected GetPose or the real version.
+func (r *Robot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.GetPoseFunc == nil {
+		return r.LocalRobot.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	}
+	return r.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 // TransformPose calls the injected TransformPose or the real version.

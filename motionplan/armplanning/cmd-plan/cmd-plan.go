@@ -131,7 +131,7 @@ func realMain() error {
 	}
 
 	spansExporter := perf.NewOtelDevelopmentExporter()
-	//nolint: errcheck, gosec
+	//nolint: errcheck
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 

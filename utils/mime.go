@@ -68,7 +68,8 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 	return mimeType, false
 }
 
-// MimeTypeToFormat maps Mymetype to Format.
+// MimeTypeToFormat maps Mimetype to Format.
+// Deprecated: This will be removed when the Format field is removed from the proto.
 var MimeTypeToFormat = map[string]camerapb.Format{
 	MimeTypeJPEG:     camerapb.Format_FORMAT_JPEG,
 	MimeTypePNG:      camerapb.Format_FORMAT_PNG,
@@ -77,11 +78,18 @@ var MimeTypeToFormat = map[string]camerapb.Format{
 	"":               camerapb.Format_FORMAT_UNSPECIFIED,
 }
 
-// FormatToMimeType maps Format to Mymetype.
+// FormatToMimeType maps Format to Mimetype.
+// Deprecated: This will be removed when the Format field is removed from the proto.
 var FormatToMimeType = map[camerapb.Format]string{
 	camerapb.Format_FORMAT_JPEG:        MimeTypeJPEG,
 	camerapb.Format_FORMAT_PNG:         MimeTypePNG,
 	camerapb.Format_FORMAT_RAW_DEPTH:   MimeTypeRawDepth,
 	camerapb.Format_FORMAT_RAW_RGBA:    MimeTypeRawRGBA,
 	camerapb.Format_FORMAT_UNSPECIFIED: "",
+}
+
+// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
+// it to a utils mime type.
+func FormatStringToMimeType(format string) string {
+	return fmt.Sprintf("image/%s", format)
 }

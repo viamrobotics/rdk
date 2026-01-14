@@ -947,7 +947,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc, logger))
 	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)

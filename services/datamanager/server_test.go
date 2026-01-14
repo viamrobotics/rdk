@@ -10,18 +10,19 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(resourceMap map[resource.Name]datamanager.Service) (pb.DataManagerServiceServer, error) {
+func newServer(resourceMap map[resource.Name]datamanager.Service, logger logging.Logger) (pb.DataManagerServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(datamanager.API, resourceMap)
 	if err != nil {
 		return nil, err
 	}
-	return datamanager.NewRPCServiceServer(coll).(pb.DataManagerServiceServer), nil
+	return datamanager.NewRPCServiceServer(coll, logger).(pb.DataManagerServiceServer), nil
 }
 
 func TestServerSync(t *testing.T) {
@@ -66,7 +67,7 @@ func TestServerSync(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			resourceMap := tc.resourceMap
-			server, err := newServer(resourceMap)
+			server, err := newServer(resourceMap, logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			_, err = server.Sync(context.Background(), syncRequest)
 			if tc.expectedError != nil {
@@ -85,7 +86,7 @@ func TestServerDoCommand(t *testing.T) {
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	server, err := newServer(resourceMap)
+	server, err := newServer(resourceMap, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
