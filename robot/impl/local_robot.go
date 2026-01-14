@@ -1461,8 +1461,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// The returned error is rich, detailing each individual packages error. The underlying
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
 		// log that reconfiguration is exited. To minimize the distraction of reading a list of
-		// verbose errors that was arleady logged.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
+		// verbose errors that was already logged.
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because cloud modules or packages download and/or unzip failed, "+
+				"currently running modules will not be shutdown",
+		)
 		return
 	}
 	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
@@ -1475,7 +1479,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
 		// individual packages error. The underlying `Sync` call is responsible for logging those
 		// errors in a readable way.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because local modules or packages sync failed, currently running modules will not be shutdown",
+		)
 		return
 	}
 
@@ -1483,7 +1490,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
+			r.logger.CErrorw(
+				ctx,
+				"reconfiguration aborted because of error executing first run, currently running modules will not be shutdown",
+				"module", mod.Name,
+				"error", err,
+			)
 			return
 		}
 	}
