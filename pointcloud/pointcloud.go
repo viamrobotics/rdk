@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"unsafe"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -179,6 +180,34 @@ func CloudToPoints(pc PointCloud) []r3.Vector {
 		return true // Keep going through all points
 	})
 	return points
+}
+
+func ToRawBytes(pc PointCloud, stride int) []byte {
+	size := pc.Size()
+	data := make([]byte, size*stride)
+
+	idx := 0
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		offset := idx * stride
+		xMeters := float32(p.X / 1000.0)
+		yMeters := float32(p.Y / 1000.0)
+		zMeters := float32(p.Z / 1000.0)
+
+		var rgb float32
+		if d != nil && d.HasValue() {
+			rgb = math.Float32frombits(uint32(d.Value()))
+		}
+
+		*(*float32)(unsafe.Pointer(&data[offset])) = xMeters
+		*(*float32)(unsafe.Pointer(&data[offset+4])) = yMeters
+		*(*float32)(unsafe.Pointer(&data[offset+8])) = zMeters
+		*(*float32)(unsafe.Pointer(&data[offset+12])) = rgb
+
+		idx++
+		return true
+	})
+
+	return data
 }
 
 // CloudMatrixCol is a type that represents the columns of a CloudMatrix.
