@@ -28,7 +28,6 @@ const (
 	trainFlagJobID          = "job-id"
 	trainFlagJobStatus      = "job-status"
 	trainFlagModelOrgID     = "model-org-id"
-	trainFlagModelName      = "model-name"
 	trainFlagModelVersion   = "model-version"
 	trainFlagModelType      = "model-type"
 	trainFlagModelFramework = "model-framework"
