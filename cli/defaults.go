@@ -25,13 +25,14 @@ func orgOrDefault(cCtx *cli.Context, orgStr string) string {
 	if orgStr != "" {
 		return orgStr
 	}
-	if org, err := getDefaultOrg(cCtx); err != nil {
+	org, err := getDefaultOrg(cCtx)
+	if err != nil {
 		warningf(cCtx.App.ErrWriter,
 			"unable to determine default org value from config: %v. consider passing an org-id argument explicitly as necessary", err)
 		return ""
-	} else {
-		return org
 	}
+
+	return org
 }
 
 func locationOrDefault(cCtx *cli.Context, locStr string) string {
@@ -39,15 +40,16 @@ func locationOrDefault(cCtx *cli.Context, locStr string) string {
 		return locStr
 	}
 
-	if loc, err := getDefaultLocation(cCtx); err != nil {
+	loc, err := getDefaultLocation(cCtx)
+	if err != nil {
 		warningf(cCtx.App.ErrWriter,
-			"unable to determine default location value from config: %v. consider passing a location-id argument explicitly as neccesary",
+			"unable to determine default location value from config: %v. consider passing a location-id argument explicitly as necessary",
 			err,
 		)
 		return ""
-	} else {
-		return loc
 	}
+
+	return loc
 }
 
 func getDefaultLocation(cCtx *cli.Context) (string, error) {

@@ -318,7 +318,6 @@ func (ga *globalArgs) createLogger() logging.Logger {
 func camelFormatName(name string) string {
 	camelFormattedName := matchAllCap.ReplaceAllString(name, "${1}-${2}")
 	return strings.ToLower(camelFormattedName)
-
 }
 
 func getValFromContext(name string, ctx *cli.Context) any {
@@ -376,14 +375,20 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 				}
 			} else {
 				// we're looking at an org flag, so supply default if none is passed
-				if slices.Contains([]string{generalFlagOrgID, generalFlagOrganization, generalFlagAliasOrg, generalFlagAliasOrgName}, camelFormatName(field.Name)) {
+				if slices.Contains(
+					[]string{generalFlagOrgID, generalFlagOrganization, generalFlagAliasOrg, generalFlagAliasOrgName},
+					camelFormatName(field.Name),
+				) {
 					if val, isStr := value.(string); isStr {
 						value = orgOrDefault(ctx, val)
 					}
 				}
 
 				// we're looking at a location flag, so supply default if none is passed
-				if slices.Contains([]string{generalFlagLocation, generalFlagLocationID, generalFlagAliasLocationName}, camelFormatName(field.Name)) {
+				if slices.Contains(
+					[]string{generalFlagLocation, generalFlagLocationID, generalFlagAliasLocationName},
+					camelFormatName(field.Name),
+				) {
 					if val, isStr := value.(string); isStr {
 						value = locationOrDefault(ctx, val)
 					}
@@ -495,6 +500,7 @@ var app = &cli.App{
 					Usage: "Set default organization argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
 							// nolint:enforceorgoptional
 							cli.StringFlag{
 								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
@@ -514,6 +520,7 @@ var app = &cli.App{
 					Usage: "Set default location argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
 							// nolint:enforcelocationoptional
 							cli.StringFlag{
 								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults

@@ -23,7 +23,8 @@ func isOrgType(val string) bool {
 		"org-id",
 		"organization",
 		"org",
-		"org-name"},
+		"org-name",
+	},
 		val,
 	)
 }
@@ -35,7 +36,8 @@ func isLocationType(val string) bool {
 		"generalFlagAliasLocationName",
 		"location-id",
 		"location",
-		"location-name"},
+		"location-name",
+	},
 		val,
 	)
 }
