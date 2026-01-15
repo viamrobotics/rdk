@@ -102,7 +102,7 @@ func enforceFlagOptionalRun(pass *analysis.Pass, isFlagTypeFunc func(string) boo
 
 					nolintCategory := fmt.Sprintf("enforce%soptional", flagName)
 
-					// `Action` was assigned a literal value, rather than a function call.
+					// org or location flag was marked as required
 					if required && isFlagType && !noLinter.IgnoreNode(node, nolintCategory) {
 						pass.Report(analysis.Diagnostic{
 							Pos:     pos,
