@@ -61,6 +61,7 @@ type moduleManager interface {
 	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
+	RequestStackTraceDump()
 	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
@@ -667,6 +668,17 @@ func (manager *resourceManager) Kill() {
 	// moduleManager may be nil in tests
 	if modManager != nil {
 		modManager.Kill()
+	}
+}
+
+// RequestModuleStackTraceDump sends SIGUSR1 to all module processes to request
+// stack trace dumps. This is useful for debugging before shutdown.
+func (manager *resourceManager) RequestModuleStackTraceDump() {
+	manager.modManagerLock.Lock()
+	modManager := manager.moduleManager
+	manager.modManagerLock.Unlock()
+	if modManager != nil {
+		modManager.RequestStackTraceDump()
 	}
 }
 

@@ -477,6 +477,10 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
 
+	// Set up SIGUSR1 handler to dump stack traces when the agent requests it before restart.
+	stackTraceHandler, cleanupSignalHandler := setupStackTraceSignalHandler(stackTraceLogger)
+	defer cleanupSignalHandler()
+
 	doneServing := make(chan struct{})
 
 	forceShutdown := make(chan struct{})
@@ -592,7 +596,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					logStackTraceAndCancel(cancel, s.rootLogger)
+					logStackTraceAndCancel(cancel, stackTraceLogger)
 				}
 			}
 		})
@@ -604,7 +608,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		logStackTraceAndCancel(cancel, s.rootLogger)
+		logStackTraceAndCancel(cancel, stackTraceLogger)
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
@@ -645,6 +649,16 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	defer func() {
 		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
+
+	// Register callback to forward SIGUSR1 to module processes for stack trace dumps.
+	stackTraceHandler.SetCallback(func() {
+		theRobotLock.Lock()
+		r := theRobot
+		theRobotLock.Unlock()
+		if r != nil {
+			r.RequestModuleStackTraceDump()
+		}
+	})
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.configLogger, s.conn)
@@ -728,10 +742,10 @@ func dumpResourceRegistrations(outputPath string) error {
 	return nil
 }
 
-func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
-	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
-	// viam-server stack traces by default on app.viam.com.
-	logger = logger.Sublogger("stack_traces")
+// logStackTrace dumps all goroutine stack traces to the logger.
+// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
+// viam-server stack traces by default on app.viam.com.
+func logStackTrace(logger logging.Logger) {
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)
@@ -740,5 +754,9 @@ func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
 		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
 	}
 	logger.Infof("%s, %s", message, traces[:traceSize])
+}
+
+func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+	logStackTrace(logger)
 	cancel()
 }

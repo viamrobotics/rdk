@@ -77,6 +77,10 @@ func moduleStart(
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
+		// Set up SIGUSR1 handler to dump stack traces when viam-server requests it before restart.
+		cleanupSignalHandler := setupStackTraceSignalHandler(logger)
+		defer cleanupSignalHandler()
+
 		if len(os.Args) < 2 {
 			return errors.New("need socket path as command line argument")
 		}
