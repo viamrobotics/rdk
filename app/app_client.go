@@ -574,7 +574,7 @@ type LocationSummary struct {
 
 // MachineSummary contains a single machine's ID and name.
 type MachineSummary struct {
-	MachineId   string
+	MachineID   string
 	MachineName string
 }
 
@@ -582,7 +582,7 @@ type MachineSummary struct {
 type AppBranding struct {
 	LogoPath           string
 	TextCustomizations map[string]*TextOverrides
-	FragmentIds        []string
+	FragmentIDs        []string
 }
 
 // TextOverrides contains the text Viam App developers want displayed on the Viam Apps "machine picker" page.
@@ -2901,14 +2901,14 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 // [ListMachineSummaries method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmachinesummaries
 func (c *AppClient) ListMachineSummaries(
 	ctx context.Context,
-	organizationId string,
-	fragmentIds, locationIds []string,
+	organizationID string,
+	fragmentIDs, locationIDs []string,
 	limit int32,
 ) ([]*LocationSummary, error) {	
 	req := &pb.ListMachineSummariesRequest{
-		OrganizationId: organizationId,
-		FragmentIds:    fragmentIds,
-		LocationIds:    locationIds,
+		OrganizationId: organizationID,
+		FragmentIds:    fragmentIDs,
+		LocationIds:    locationIDs,
 		Limit:          &limit,
 	}
 
@@ -2981,10 +2981,10 @@ func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appNa
 // For more information, see the [GetRobotPartByNameAndLocation method docs].
 //
 // [GetRobotPartByNameAndLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartbynameandlocation
-func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationId string) (*RobotPart, error) {
+func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationID string) (*RobotPart, error) {
 	req := &pb.GetRobotPartByNameAndLocationRequest{
 		Name: name,
-		LocationId: locationId,
+		LocationId: locationID,
 	}
 
 	resp, err := c.client.GetRobotPartByNameAndLocation(ctx, req)
@@ -3876,7 +3876,7 @@ func locationSummaryFromProto(locationSummary *pb.LocationSummary) *LocationSumm
 
 func machineSummaryFromProto(machineSummary *pb.MachineSummary) *MachineSummary {
 	return &MachineSummary{
-		MachineId: machineSummary.GetMachineId(),
+		MachineID: machineSummary.GetMachineId(),
 		MachineName: machineSummary.GetMachineName(),
 	}
 }
@@ -3897,7 +3897,7 @@ func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
 	return &AppBranding{
 		LogoPath: logoPath,
 		TextCustomizations: textCustomizations,
-		FragmentIds: resp.GetFragmentIds(),
+		FragmentIDs: resp.GetFragmentIds(),
 	}
 }
 
