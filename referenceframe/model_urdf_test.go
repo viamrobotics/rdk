@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/spatialmath"
@@ -101,8 +102,8 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
 }
 
 func TestUR20URDFWithMeshes(t *testing.T) {
-	testfilesDir := utils.ResolveFile("referenceframe/testfiles")
-	urdfPath := filepath.Join(testfilesDir, "ur20.urdf")
+	urdfPath := artifact.MustPath("urdfs/ur20.urdf")
+	testfilesDir := utils.ResolveFile(".artifact/data/urdfs")
 
 	// Load URDF, build mesh map, and parse model once for all tests
 	xmlData, err := os.ReadFile(urdfPath)
@@ -155,7 +156,7 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 	})
 
 	t.Run("mesh file paths use package URI normalization", func(t *testing.T) {
-		test.That(t, string(xmlData), test.ShouldContainSubstring, urdfPackagePrefix+"testfiles/")
+		test.That(t, string(xmlData), test.ShouldContainSubstring, urdfPackagePrefix+"urdfs/")
 
 		for meshFile := range meshMap {
 			test.That(t, strings.HasPrefix(meshFile, urdfPackagePrefix), test.ShouldBeFalse)
