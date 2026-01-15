@@ -2888,13 +2888,13 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 //
 // ListMachineSummaries example:
 //
-//  _, name, err := cloud.ListMachineSummaries(
-//		context.Background(),
-//	   	"a1bcdefghi2jklmnopqrstuvw3xyzabc",
-//	   	[]string{locationID},
-// 	   	[]string{fragmetnID},
-//	  	0,
-//  )
+//	 _, name, err := cloud.ListMachineSummaries(
+//			context.Background(),
+//		   	"a1bcdefghi2jklmnopqrstuvw3xyzabc",
+//		   	[]string{locationID},
+//		   	[]string{fragmetnID},
+//		  	0,
+//	 )
 //
 // For more information, see the [ListMachineSummaries method docs].
 //
@@ -2904,7 +2904,7 @@ func (c *AppClient) ListMachineSummaries(
 	organizationID string,
 	fragmentIDs, locationIDs []string,
 	limit int32,
-) ([]*LocationSummary, error) {	
+) ([]*LocationSummary, error) {
 	req := &pb.ListMachineSummariesRequest{
 		OrganizationId: organizationID,
 		FragmentIds:    fragmentIDs,
@@ -2925,7 +2925,6 @@ func (c *AppClient) ListMachineSummaries(
 	return summaries, nil
 }
 
-
 // GetAppBranding gets the branding for an app.
 //
 // GetAppBranding example:
@@ -2938,7 +2937,7 @@ func (c *AppClient) ListMachineSummaries(
 func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appName string) (*AppBranding, error) {
 	req := &pb.GetAppBrandingRequest{
 		PublicNamespace: orgPublicNamespace,
-		Name: appName,
+		Name:            appName,
 	}
 
 	resp, err := c.client.GetAppBranding(ctx, req)
@@ -2961,7 +2960,7 @@ func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appN
 func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appName string) (*AppContent, error) {
 	req := &pb.GetAppContentRequest{
 		PublicNamespace: orgPublicNamespace,
-		Name: appName,
+		Name:            appName,
 	}
 
 	resp, err := c.client.GetAppContent(ctx, req)
@@ -2983,7 +2982,7 @@ func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appNa
 // [GetRobotPartByNameAndLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartbynameandlocation
 func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationID string) (*RobotPart, error) {
 	req := &pb.GetRobotPartByNameAndLocationRequest{
-		Name: name,
+		Name:       name,
 		LocationId: locationID,
 	}
 
@@ -3868,15 +3867,15 @@ func locationSummaryFromProto(locationSummary *pb.LocationSummary) *LocationSumm
 	}
 
 	return &LocationSummary{
-		LocationID: locationSummary.GetLocationId(),
-		LocationName: locationSummary.GetLocationName(),
+		LocationID:       locationSummary.GetLocationId(),
+		LocationName:     locationSummary.GetLocationName(),
 		MachineSummaries: machines,
 	}
 }
 
 func machineSummaryFromProto(machineSummary *pb.MachineSummary) *MachineSummary {
 	return &MachineSummary{
-		MachineID: machineSummary.GetMachineId(),
+		MachineID:   machineSummary.GetMachineId(),
 		MachineName: machineSummary.GetMachineName(),
 	}
 }
@@ -3895,16 +3894,16 @@ func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
 	}
 
 	return &AppBranding{
-		LogoPath: logoPath,
+		LogoPath:           logoPath,
 		TextCustomizations: textCustomizations,
-		FragmentIDs: resp.GetFragmentIds(),
+		FragmentIDs:        resp.GetFragmentIds(),
 	}
 }
 
 func appContentFromProto(resp *pb.GetAppContentResponse) *AppContent {
 	return &AppContent{
-		BlobPath: resp.GetBlobPath(),
+		BlobPath:   resp.GetBlobPath(),
 		Entrypoint: resp.GetEntrypoint(),
-		AppType: int(resp.GetAppType()),
+		AppType:    int(resp.GetAppType()),
 	}
 }
