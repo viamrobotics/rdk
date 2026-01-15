@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -428,7 +429,7 @@ func BenchmarkBigPlanRequest(b *testing.B) {
 }
 
 func BenchmarkPlanningOnMeshes(b *testing.B) {
-	ur20Model, err := referenceframe.KinematicModelFromFile(utils.ResolveFile("referenceframe/testfiles/ur20.urdf"), "ur20URDF")
+	ur20Model, err := referenceframe.KinematicModelFromFile(artifact.MustPath("urdfs/ur20.urdf"), "ur20URDF")
 	test.That(b, err, test.ShouldBeNil)
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(ur20Model, fs.World())
