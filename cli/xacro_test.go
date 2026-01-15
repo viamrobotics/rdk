@@ -49,7 +49,7 @@ func TestExtractPackageName(t *testing.T) {
   <name>test_package</name>
   <version>1.0.0</version>
 </package>`
-		err := os.WriteFile(packageXML, []byte(content), 0644)
+		err := os.WriteFile(packageXML, []byte(content), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		name, err := extractPackageName(packageXML)
@@ -66,7 +66,7 @@ func TestExtractPackageName(t *testing.T) {
     ur_description
   </name>
 </package>`
-		err := os.WriteFile(packageXML, []byte(content), 0644)
+		err := os.WriteFile(packageXML, []byte(content), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		name, err := extractPackageName(packageXML)
@@ -81,7 +81,7 @@ func TestExtractPackageName(t *testing.T) {
 <package format="2">
   <version>1.0.0</version>
 </package>`
-		err := os.WriteFile(packageXML, []byte(content), 0644)
+		err := os.WriteFile(packageXML, []byte(content), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = extractPackageName(packageXML)
@@ -98,7 +98,7 @@ func TestExtractPackageName(t *testing.T) {
 		tmpDir := t.TempDir()
 		packageXML := filepath.Join(tmpDir, "package.xml")
 		content := `this is not valid XML`
-		err := os.WriteFile(packageXML, []byte(content), 0644)
+		err := os.WriteFile(packageXML, []byte(content), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = extractPackageName(packageXML)
@@ -121,7 +121,7 @@ func TestProcessXacroArgs(t *testing.T) {
 	t.Run("file path argument gets converted", func(t *testing.T) {
 		// Create a test file
 		testFile := filepath.Join(tmpDir, "config.yaml")
-		err := os.WriteFile(testFile, []byte("test: data"), 0644)
+		err := os.WriteFile(testFile, []byte("test: data"), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		args := []string{"config:=" + testFile}
@@ -135,11 +135,11 @@ func TestProcessXacroArgs(t *testing.T) {
 	t.Run("nested file path argument", func(t *testing.T) {
 		// Create nested directory structure
 		configDir := filepath.Join(tmpDir, "config", "ur20")
-		err := os.MkdirAll(configDir, 0755)
+		err := os.MkdirAll(configDir, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 
 		testFile := filepath.Join(configDir, "params.yaml")
-		err = os.WriteFile(testFile, []byte("test: data"), 0644)
+		err = os.WriteFile(testFile, []byte("test: data"), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		args := []string{"params:=" + testFile}
@@ -151,7 +151,7 @@ func TestProcessXacroArgs(t *testing.T) {
 
 	t.Run("mixed arguments", func(t *testing.T) {
 		testFile := filepath.Join(tmpDir, "config.yaml")
-		err := os.WriteFile(testFile, []byte("test: data"), 0644)
+		err := os.WriteFile(testFile, []byte("test: data"), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		args := []string{
@@ -324,7 +324,7 @@ func TestXacroConvertActionEdgeCases(t *testing.T) {
 	t.Run("package.xml in subdirectory", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		subDir := filepath.Join(tmpDir, "ros_pkg")
-		err := os.MkdirAll(subDir, 0755)
+		err := os.MkdirAll(subDir, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 
 		packageXML := filepath.Join(subDir, "package.xml")
@@ -332,7 +332,7 @@ func TestXacroConvertActionEdgeCases(t *testing.T) {
 <package format="2">
   <name>subdir_pkg</name>
 </package>`
-		err = os.WriteFile(packageXML, []byte(content), 0644)
+		err = os.WriteFile(packageXML, []byte(content), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		name, err := extractPackageName(packageXML)
@@ -343,7 +343,7 @@ func TestXacroConvertActionEdgeCases(t *testing.T) {
 	t.Run("relative path computation", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		testFile := filepath.Join(tmpDir, "test.yaml")
-		err := os.WriteFile(testFile, []byte("data"), 0644)
+		err := os.WriteFile(testFile, []byte("data"), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		args := []string{"file:=" + testFile}
@@ -415,7 +415,7 @@ func TestValidateOutputWritable(t *testing.T) {
 	t.Run("can overwrite existing file", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "existing.urdf")
-		err := os.WriteFile(outputPath, []byte("existing content"), 0644)
+		err := os.WriteFile(outputPath, []byte("existing content"), 0o644)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = validateOutputWritable(outputPath)
@@ -434,9 +434,9 @@ func TestValidateOutputWritable(t *testing.T) {
 
 		tmpDir := t.TempDir()
 		readOnlyDir := filepath.Join(tmpDir, "readonly")
-		err := os.Mkdir(readOnlyDir, 0555)
+		err := os.Mkdir(readOnlyDir, 0o555)
 		test.That(t, err, test.ShouldBeNil)
-		defer os.Chmod(readOnlyDir, 0755) // Cleanup
+		defer os.Chmod(readOnlyDir, 0o755) // Cleanup
 
 		outputPath := filepath.Join(readOnlyDir, "output.urdf")
 		err = validateOutputWritable(outputPath)

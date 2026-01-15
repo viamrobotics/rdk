@@ -25,7 +25,7 @@ const (
 	// Xacro file parsing constants
 	xacroFilenamePrefix = "filename=\""
 	xacroArgSeparator   = ":="
-	fileOutputPerm      = 0644
+	fileOutputPerm      = 0o644
 	packageXMLFilename  = "package.xml"
 
 	// Docker constants
@@ -155,7 +155,10 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	// Discover dependent packages
 	dependentPkgs, err := discoverDependentPackages(absInputFile, cwd, pkgName)
 	if err != nil {
-		return fmt.Errorf("failed to discover dependent packages: %w\n\nSuggestion: Ensure dependent packages are in the same parent directory as this package", err)
+		return fmt.Errorf(
+			"failed to discover dependent packages: %w\n\nSuggestion: Ensure dependent packages are in the same parent directory as this package",
+			err,
+		)
 	}
 	if len(dependentPkgs) > 0 {
 		printf(c.App.Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
@@ -174,7 +177,10 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	}
 
 	// Build Docker command
-	dockerCmd := buildDockerXacroCommand(pkgName, cwd, relInputFile, dockerArgs, args.DockerImage, dependentPkgs, args.InstallPackages, rosDistro)
+	dockerCmd := buildDockerXacroCommand(
+		pkgName, cwd, relInputFile, dockerArgs,
+		args.DockerImage, dependentPkgs, args.InstallPackages, rosDistro,
+	)
 
 	if args.DryRun {
 		printf(c.App.Writer, "Dry run - would execute:\n")
@@ -192,6 +198,7 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	printf(c.App.Writer, "Processing with Docker...\n")
 
 	ctx := context.Background()
+	//nolint:gosec // G204: Docker command constructed from validated user input
 	cmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -220,7 +227,11 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
 				printf(c.App.Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
-			return fmt.Errorf("failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. Try running without --collapse-fixed-joints, or check the URDF structure", err)
+			return fmt.Errorf(
+				"failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. "+
+					"Try running without --collapse-fixed-joints, or check the URDF structure",
+				err,
+			)
 		}
 		output = collapsed
 	}
@@ -255,16 +266,23 @@ func validateOutputWritable(outputPath string) error {
 	// Try to create/open the file for writing
 	// If file exists, this checks we can overwrite it
 	// If file doesn't exist, this checks we can create it
+	//nolint:gosec // G304: Output path specified by user
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, fileOutputPerm)
 	if err != nil {
 		return err
 	}
-	f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	// Clean up test file if we created it (don't leave empty files)
 	// Only remove if the file is empty (size 0), meaning we just created it
-	if info, err := os.Stat(outputPath); err == nil && info.Size() == 0 {
-		os.Remove(outputPath)
+	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() == 0 {
+		if err := os.Remove(outputPath); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -307,6 +325,7 @@ func extractROSDistro(dockerImg string) string {
 
 // extractPackageName extracts the package name from package.xml.
 func extractPackageName(packageXMLPath string) (string, error) {
+	//nolint:gosec // G304: Package XML path specified by user
 	data, err := os.ReadFile(packageXMLPath)
 	if err != nil {
 		return "", err
@@ -368,7 +387,7 @@ type packageInfo struct {
 }
 
 // discoverDependentPackages scans xacro files for $(find package_name) and locates them.
-func discoverDependentPackages(xacroPath string, currentPkgDir string, currentPkgName string) ([]packageInfo, error) {
+func discoverDependentPackages(xacroPath, currentPkgDir, currentPkgName string) ([]packageInfo, error) {
 	// Scan the xacro file and any includes to find $(find ...) patterns
 	pkgNames := make(map[string]bool)
 	if err := scanXacroForDependencies(xacroPath, currentPkgDir, pkgNames); err != nil {
@@ -396,7 +415,8 @@ func discoverDependentPackages(xacroPath string, currentPkgDir string, currentPk
 }
 
 // scanXacroForDependencies recursively scans xacro files for $(find package_name) references.
-func scanXacroForDependencies(xacroPath string, currentPkgDir string, pkgNames map[string]bool) error {
+func scanXacroForDependencies(xacroPath, currentPkgDir string, pkgNames map[string]bool) error {
+	//nolint:gosec // G304: Xacro files are user input for conversion
 	data, err := os.ReadFile(xacroPath)
 	if err != nil {
 		return err
@@ -418,8 +438,9 @@ func scanXacroForDependencies(xacroPath string, currentPkgDir string, pkgNames m
 	extractPatterns(content, xacroFilenamePrefix, "\"", func(filename string) {
 		includePath := resolveIncludePath(filename, xacroPath, currentPkgDir)
 		if includePath != "" {
-			if _, err := os.Stat(includePath); err == nil {
-				scanXacroForDependencies(includePath, currentPkgDir, pkgNames)
+			if _, statErr := os.Stat(includePath); statErr == nil {
+				//nolint:errcheck // Intentionally ignoring errors from included files
+				_ = scanXacroForDependencies(includePath, currentPkgDir, pkgNames)
 			}
 		}
 	})
@@ -489,7 +510,14 @@ func newROSConfig(rosDistro string) rosConfig {
 }
 
 // buildDockerXacroCommand builds the docker command to run xacro.
-func buildDockerXacroCommand(pkgName, cwd, relInputFile string, dockerArgs []string, dockerImg string, dependentPkgs []packageInfo, installPackages bool, rosDistro string) []string {
+func buildDockerXacroCommand(
+	pkgName, cwd, relInputFile string,
+	dockerArgs []string,
+	dockerImg string,
+	dependentPkgs []packageInfo,
+	installPackages bool,
+	rosDistro string,
+) []string {
 	if dockerImg == "" {
 		dockerImg = fmt.Sprintf("osrf/ros:%s-desktop", rosDistro)
 	}
@@ -560,6 +588,7 @@ func buildXacroScript(inputFile string, args, packages []string, ros rosConfig, 
 
 	parts = append(parts,
 		fmt.Sprintf("source %s", ros.setupScript),
+		//nolint:dupword // "ros2 run xacro xacro" is the correct ROS command
 		fmt.Sprintf("ros2 run xacro xacro %s %s", inputFile, strings.Join(args, " ")),
 	)
 
