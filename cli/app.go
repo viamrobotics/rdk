@@ -162,6 +162,16 @@ const (
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
+
+	xacroFlagInputFile         = "input-file"
+	xacroFlagOutputFile        = "output-file"
+	xacroFlagArgs              = "args"
+	xacroFlagDryRun            = "dry-run"
+	xacroFlagDockerImg         = "docker-image"
+	xacroFlagPackageXML        = "package-xml"
+	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
+	xacroFlagInstallPackages   = "install-packages"
+	xacroFlagROSDistro         = "ros-distro"
 )
 
 var commonPartFlags = []cli.Flag{
@@ -2891,22 +2901,33 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
-			Name:  "xacro",
-			Usage: "tools for working with xacro files",
+			Name:            "xacro",
+			Usage:           "tools for working with xacro files",
+			UsageText:       createUsageText("xacro", nil, false, true),
+			HideHelpCommand: true,
 			Subcommands: []*cli.Command{
 				{
 					Name:      "convert",
 					Usage:     "convert a xacro file to URDF",
-					UsageText: "viam xacro convert <input.xacro> <output.urdf> [--args key:=value ...]",
-					ArgsUsage: "<input.xacro> <output.urdf>",
+					UsageText: "viam xacro convert <args> <input.xacro> <output.urdf> <flags>",
 					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     xacroFlagInputFile,
+							Required: true,
+							Usage:    "file to be expanded into urdf format",
+						},
+						&cli.StringFlag{
+							Name:     xacroFlagOutputFile,
+							Required: true,
+							Usage:    "name of urdf file",
+						},
 						&cli.StringSliceFlag{
 							Name:  xacroFlagArgs,
-							Usage: "additional xacro arguments (e.g., --args config:=path/to/config.yaml)",
+							Usage: "additional xacro arguments (e.g., --args name:=ur20)",
 						},
-						&cli.BoolFlag{
-							Name:  xacroFlagDryRun,
-							Usage: "show the docker command without executing it",
+						&cli.StringFlag{
+							Name:  xacroFlagROSDistro,
+							Usage: "ROS distribution to use (auto-detected from docker image if not specified)",
 						},
 						&cli.StringFlag{
 							Name:  xacroFlagDockerImg,
@@ -2918,38 +2939,20 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "path to package.xml if not in current directory",
 						},
 						&cli.BoolFlag{
+							Name:  xacroFlagDryRun,
+							Usage: "show the docker command without executing it",
+						},
+						&cli.BoolFlag{
 							Name:  xacroFlagCollapseFixedJnts,
-							Usage: "collapse fixed joint chains to simplify the kinematic structure",
+							Usage: "collapse fixed joint chains to ensure only one end-effector exists",
 						},
 						&cli.BoolFlag{
 							Name:  xacroFlagInstallPackages,
 							Usage: "run apt-get update/install before xacro processing (slower, requires internet)",
 							Value: true,
 						},
-						&cli.StringFlag{
-							Name:  xacroFlagROSDistro,
-							Usage: "ROS distribution to use (auto-detected from docker image if not specified)",
-						},
 					},
-					Action: func(c *cli.Context) error {
-						if c.NArg() != 2 {
-							return fmt.Errorf("expected exactly 2 arguments: <input.xacro> <output.urdf>")
-						}
-
-						args := xacroConvertArgs{
-							Input:               c.Args().Get(0),
-							Output:              c.Args().Get(1),
-							Args:                c.StringSlice(xacroFlagArgs),
-							DryRun:              c.Bool(xacroFlagDryRun),
-							DockerImg:           c.String(xacroFlagDockerImg),
-							PackageXML:          c.String(xacroFlagPackageXML),
-							CollapseFixedJoints: c.Bool(xacroFlagCollapseFixedJnts),
-							InstallPackages:     c.Bool(xacroFlagInstallPackages),
-							ROSDistro:           c.String(xacroFlagROSDistro),
-						}
-
-						return xacroConvertAction(c, args)
-					},
+					Action: createCommandWithT[xacroConvertArgs](XacroConvertAction),
 				},
 			},
 		},

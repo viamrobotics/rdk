@@ -14,14 +14,6 @@ import (
 )
 
 const (
-	xacroFlagArgs              = "args"
-	xacroFlagDryRun            = "dry-run"
-	xacroFlagDockerImg         = "docker-image"
-	xacroFlagPackageXML        = "package-xml"
-	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
-	xacroFlagInstallPackages   = "install-packages"
-	xacroFlagROSDistro         = "ros-distro"
-
 	// Docker/ROS constants
 	xacroFindPrefix      = "$(find "
 	defaultROSDistro     = "humble"
@@ -35,20 +27,26 @@ const (
 	xacroArgSeparator   = ":="
 	fileOutputPerm      = 0644
 	packageXMLFilename  = "package.xml"
+
+	// Docker constants
+	dockerExecutable = "docker"
+	dockerRunCmd     = "run"
+	dockerRmFlag     = "--rm"
 )
 
 type xacroConvertArgs struct {
-	Input               string
-	Output              string
+	InputFile           string
+	OutputFile          string
 	Args                []string
 	DryRun              bool
-	DockerImg           string
+	DockerImage         string
 	PackageXML          string
 	CollapseFixedJoints bool
 	InstallPackages     bool
-	ROSDistro           string
+	RosDistro           string
 }
 
+// Note: Unexported fields with XML tags don't work with encoding/xml
 // URDF XML structures for parsing and manipulation.
 type urdfRobot struct {
 	XMLName xml.Name    `xml:"robot"`
@@ -97,10 +95,11 @@ type urdfLimit struct {
 	Velocity string `xml:"velocity,attr"`
 }
 
-func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
+// XacroConvertAction converts a xacro file to URDF format.
+func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	// Check Docker availability
-	if _, err := exec.LookPath("docker"); err != nil {
-		return fmt.Errorf("docker not found - please install Docker to use xacro conversion: %w", err)
+	if _, err := exec.LookPath(dockerExecutable); err != nil {
+		return fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err)
 	}
 
 	// Validate package.xml exists
@@ -132,18 +131,18 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	}
 
 	// Convert input to absolute path
-	absInputFile := args.Input
-	if !filepath.IsAbs(args.Input) {
-		absInputFile = filepath.Join(cwd, args.Input)
+	absInputFile := args.InputFile
+	if !filepath.IsAbs(args.InputFile) {
+		absInputFile = filepath.Join(cwd, args.InputFile)
 	}
 
 	// Validate input file exists
 	if _, err := os.Stat(absInputFile); os.IsNotExist(err) {
-		return fmt.Errorf("input file not found: %s (check the path is correct)", args.Input)
+		return fmt.Errorf("input file not found: %s (check the path is correct)", args.InputFile)
 	}
 
 	// Validate output file is writable (fail early before Docker processing)
-	if err := validateOutputWritable(args.Output); err != nil {
+	if err := validateOutputWritable(args.OutputFile); err != nil {
 		return fmt.Errorf("output path not writable: %w (check directory exists and you have write permissions)", err)
 	}
 
@@ -169,17 +168,17 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	}
 
 	// Determine ROS distribution (auto-detect from image if not specified)
-	rosDistro := args.ROSDistro
+	rosDistro := args.RosDistro
 	if rosDistro == "" {
-		rosDistro = extractROSDistro(args.DockerImg)
+		rosDistro = extractROSDistro(args.DockerImage)
 	}
 
 	// Build Docker command
-	dockerCmd := buildDockerXacroCommand(pkgName, cwd, relInputFile, dockerArgs, args.DockerImg, dependentPkgs, args.InstallPackages, rosDistro)
+	dockerCmd := buildDockerXacroCommand(pkgName, cwd, relInputFile, dockerArgs, args.DockerImage, dependentPkgs, args.InstallPackages, rosDistro)
 
 	if args.DryRun {
 		printf(c.App.Writer, "Dry run - would execute:\n")
-		printf(c.App.Writer, "docker %s\n", strings.Join(dockerCmd, " "))
+		printf(c.App.Writer, "%s %s\n", dockerExecutable, strings.Join(dockerCmd, " "))
 		if args.CollapseFixedJoints {
 			printf(c.App.Writer, "\nAfter Docker processing, would collapse fixed joint chains:\n")
 			printf(c.App.Writer, "  - Removes fixed joints where the child link is a leaf (has no children)\n")
@@ -193,7 +192,7 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	printf(c.App.Writer, "Processing with Docker...\n")
 
 	ctx := context.Background()
-	cmd := exec.CommandContext(ctx, "docker", dockerCmd...)
+	cmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -201,7 +200,7 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	if err := cmd.Run(); err != nil {
 		errMsg := fmt.Sprintf("xacro processing failed: %v\nStderr: %s", err, stderr.String())
 		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "Cannot connect") {
-			errMsg += "\n\nSuggestion: Check that Docker is running (try 'docker ps')"
+			errMsg += fmt.Sprintf("\n\nSuggestion: Check that Docker is running (try '%s ps')", dockerExecutable)
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
@@ -218,19 +217,19 @@ func xacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		collapsed, err := collapseFixedJoints(output)
 		if err != nil {
 			// Write uncollapsed output so work isn't lost
-			if writeErr := os.WriteFile(args.Output, []byte(output), fileOutputPerm); writeErr == nil {
-				printf(c.App.Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.Output)
+			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
+				printf(c.App.Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
 			return fmt.Errorf("failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. Try running without --collapse-fixed-joints, or check the URDF structure", err)
 		}
 		output = collapsed
 	}
 
-	if err := os.WriteFile(args.Output, []byte(output), fileOutputPerm); err != nil {
+	if err := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
-	printf(c.App.Writer, "Success! Generated: %s\n", args.Output)
+	printf(c.App.Writer, "Success! Generated: %s\n", args.OutputFile)
 	return nil
 }
 
@@ -364,8 +363,8 @@ func processArgIfFilePath(arg, cwd, pkgName string) (string, error) {
 
 // packageInfo holds information about a ROS package.
 type packageInfo struct {
-	Name string
-	Path string
+	name string
+	path string
 }
 
 // discoverDependentPackages scans xacro files for $(find package_name) and locates them.
@@ -388,7 +387,7 @@ func discoverDependentPackages(xacroPath string, currentPkgDir string, currentPk
 		if info, err := os.Stat(pkgPath); err == nil && info.IsDir() {
 			// Verify it has a package.xml
 			if _, err := os.Stat(filepath.Join(pkgPath, packageXMLFilename)); err == nil {
-				packages = append(packages, packageInfo{Name: pkgName, Path: pkgPath})
+				packages = append(packages, packageInfo{name: pkgName, path: pkgPath})
 			}
 		}
 	}
@@ -468,24 +467,24 @@ func resolveIncludePath(filename, xacroPath, currentPkgDir string) string {
 func getPackageNames(packages []packageInfo) []string {
 	names := make([]string, len(packages))
 	for i, pkg := range packages {
-		names[i] = pkg.Name
+		names[i] = pkg.name
 	}
 	return names
 }
 
 // rosConfig holds ROS-specific path configurations.
 type rosConfig struct {
-	SharePath        string
-	SetupScript      string
-	XacroPackageName string
+	sharePath        string
+	setupScript      string
+	xacroPackageName string
 }
 
 // newROSConfig creates ROS path configuration for a given distribution.
 func newROSConfig(rosDistro string) rosConfig {
 	return rosConfig{
-		SharePath:        fmt.Sprintf(rosSharePathPattern, rosDistro),
-		SetupScript:      fmt.Sprintf(rosSetupPathPattern, rosDistro),
-		XacroPackageName: fmt.Sprintf(rosXacroPackPattern, rosDistro),
+		sharePath:        fmt.Sprintf(rosSharePathPattern, rosDistro),
+		setupScript:      fmt.Sprintf(rosSetupPathPattern, rosDistro),
+		xacroPackageName: fmt.Sprintf(rosXacroPackPattern, rosDistro),
 	}
 }
 
@@ -497,14 +496,14 @@ func buildDockerXacroCommand(pkgName, cwd, relInputFile string, dockerArgs []str
 
 	ros := newROSConfig(rosDistro)
 	allPkgs := collectPackageNames(pkgName, dependentPkgs)
-	prefixedArgs := prefixArgsWithROSPath(dockerArgs, ros.SharePath)
+	prefixedArgs := prefixArgsWithROSPath(dockerArgs, ros.sharePath)
 	bashScript := buildXacroScript(relInputFile, prefixedArgs, allPkgs, ros, installPackages)
 
 	// Build docker command with volume mounts
-	dockerCmd := []string{"run", "--rm"}
-	dockerCmd = appendVolumeMounts(dockerCmd, pkgName, cwd, dependentPkgs, ros.SharePath)
+	dockerCmd := []string{dockerRunCmd, dockerRmFlag}
+	dockerCmd = appendVolumeMounts(dockerCmd, pkgName, cwd, dependentPkgs, ros.sharePath)
 	dockerCmd = append(dockerCmd,
-		"-w", fmt.Sprintf("%s/%s", ros.SharePath, pkgName),
+		"-w", fmt.Sprintf("%s/%s", ros.sharePath, pkgName),
 		dockerImg,
 		"bash", "-c", bashScript,
 	)
@@ -517,7 +516,7 @@ func collectPackageNames(mainPkg string, deps []packageInfo) []string {
 	names := make([]string, 0, len(deps)+1)
 	names = append(names, mainPkg)
 	for _, pkg := range deps {
-		names = append(names, pkg.Name)
+		names = append(names, pkg.name)
 	}
 	return names
 }
@@ -549,18 +548,18 @@ func buildXacroScript(inputFile string, args, packages []string, ros rosConfig, 
 	if installPackages {
 		parts = append(parts,
 			"apt-get update -qq > /dev/null",
-			fmt.Sprintf("apt-get install -y -qq %s > /dev/null", ros.XacroPackageName),
+			fmt.Sprintf("apt-get install -y -qq %s > /dev/null", ros.xacroPackageName),
 		)
 	}
 
-	amentIndexPath := ros.SharePath + amentIndexPathSuffix
+	amentIndexPath := ros.sharePath + amentIndexPathSuffix
 	parts = append(parts, fmt.Sprintf("mkdir -p %s", amentIndexPath))
 	for _, pkg := range packages {
 		parts = append(parts, fmt.Sprintf("touch %s/%s", amentIndexPath, pkg))
 	}
 
 	parts = append(parts,
-		fmt.Sprintf("source %s", ros.SetupScript),
+		fmt.Sprintf("source %s", ros.setupScript),
 		fmt.Sprintf("ros2 run xacro xacro %s %s", inputFile, strings.Join(args, " ")),
 	)
 
@@ -571,7 +570,7 @@ func buildXacroScript(inputFile string, args, packages []string, ros rosConfig, 
 func appendVolumeMounts(cmd []string, mainPkg, mainPath string, deps []packageInfo, rosSharePath string) []string {
 	cmd = append(cmd, "-v", fmt.Sprintf("%s:%s/%s", mainPath, rosSharePath, mainPkg))
 	for _, pkg := range deps {
-		cmd = append(cmd, "-v", fmt.Sprintf("%s:%s/%s", pkg.Path, rosSharePath, pkg.Name))
+		cmd = append(cmd, "-v", fmt.Sprintf("%s:%s/%s", pkg.path, rosSharePath, pkg.name))
 	}
 	return cmd
 }
