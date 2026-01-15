@@ -13,7 +13,7 @@ import (
 type QueryTabularDataOptions struct {
 	TimeBack         time.Duration
 	AdditionalStages []map[string]any
-	
+
 	app.TabularDataByMQLOptions
 }
 
@@ -74,6 +74,6 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 	if opts != nil {
 		query = append(query, opts.AdditionalStages...)
 	}
-	
+
 	return r.dataClient.TabularDataByMQL(ctx, orgID, query, &opts.TabularDataByMQLOptions)
 }
