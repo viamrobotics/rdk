@@ -70,7 +70,7 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 			},
 		},
 	}
-	var queryOpts *app.TabularDataByMQLOptions = nil
+	var queryOpts *app.TabularDataByMQLOptions
 	if opts != nil {
 		query = append(query, opts.AdditionalStages...)
 		queryOpts = &opts.TabularDataByMQLOptions
