@@ -74,7 +74,7 @@ GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
 lint-go:
 	go mod tidy
 	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
-	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml | go run analyzelint/main.go
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml | go run etc/analyzelint/main.go
 	./etc/lint_register_apis.sh
 
 cover-only: tool-install
