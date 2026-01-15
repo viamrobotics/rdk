@@ -70,10 +70,11 @@ func (r ResourceDataConsumer) QueryTabularDataForResource(
 			},
 		},
 	}
-
+	var queryOpts *app.TabularDataByMQLOptions = nil
 	if opts != nil {
 		query = append(query, opts.AdditionalStages...)
+		queryOpts = &opts.TabularDataByMQLOptions
 	}
 
-	return r.dataClient.TabularDataByMQL(ctx, orgID, query, &opts.TabularDataByMQLOptions)
+	return r.dataClient.TabularDataByMQL(ctx, orgID, query, queryOpts)
 }
