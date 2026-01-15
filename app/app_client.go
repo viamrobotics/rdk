@@ -579,6 +579,8 @@ type MachineSummary struct {
 }
 
 // AppBranding contains metadata relevant to Viam Apps customizations.
+//
+//nolint:revive // AppBranding is clearer than Content in context of Viam Apps
 type AppBranding struct {
 	LogoPath           string
 	TextCustomizations map[string]*TextOverrides
@@ -591,6 +593,8 @@ type TextOverrides struct {
 }
 
 // AppContent defines where how to retrieve a Viam Apps app from GCS.
+//
+//nolint:revive // AppContent is clearer than Content in context of Viam Apps
 type AppContent struct {
 	BlobPath   string
 	Entrypoint string
