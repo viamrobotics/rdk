@@ -39,7 +39,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := UnmarshalModelXML(data, name)
+		meshMap := resp.GetMeshesByUrdfFilepath()
+		modelconf, err := UnmarshalModelXML(data, name, meshMap)
 		if err != nil {
 			return nil, err
 		}
@@ -70,10 +71,42 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
 	case "urdf":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+		// Extract mesh data from geometries and populate mesh map for URDF
+		resp.MeshesByUrdfFilepath = extractMeshMapFromModelConfig(cfg)
 	default:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	}
 	return resp
+}
+
+// extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
+// Returns a map of URDF file paths to proto Mesh messages.
+func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Mesh {
+	meshMap := make(map[string]*commonpb.Mesh)
+
+	// Iterate through all links and extract mesh geometries
+	for _, link := range cfg.Links {
+		if link.Geometry == nil {
+			continue
+		}
+
+		// Check if this is a mesh geometry
+		if link.Geometry.Type == spatialmath.MeshType && len(link.Geometry.MeshData) > 0 {
+			// Use the original URDF mesh path if available
+			meshPath := link.Geometry.MeshFilePath
+			if meshPath == "" {
+				// Fallback if path wasn't preserved (shouldn't happen with URDF)
+				continue
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        link.Geometry.MeshData,
+				ContentType: link.Geometry.MeshContentType,
+			}
+		}
+	}
+
+	return meshMap
 }
 
 // KinematicModelFromFile returns a model frame from a file that defines the kinematics.
