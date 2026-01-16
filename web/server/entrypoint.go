@@ -61,7 +61,6 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
-	netAppender                                *logging.NetAppender
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -206,7 +205,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	var appConn, signalingConn rpc.ClientConn
-	var netAppender *logging.NetAppender
 
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, configLogger)
@@ -293,7 +291,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
-		netAppender:      netAppender,
 	}
 
 	// Run the server with remote logging enabled.
@@ -660,16 +657,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		theRobotLock.Unlock()
 		if r != nil {
 			r.RequestModuleStackTraceDump()
-		}
-
-		if s.netAppender != nil {
-			stackTraceLogger.Infow("waiting to flush logs to cloud")
-			flushCtx, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer flushCancel()
-			if err := s.netAppender.WaitForQueueEmpty(flushCtx, 100*time.Millisecond); err != nil {
-				stackTraceLogger.Warnw("Failed to flush logs to cloud", "error", err)
-			}
-			stackTraceLogger.Infow("finished flushing logs to cloud")
 		}
 	})
 

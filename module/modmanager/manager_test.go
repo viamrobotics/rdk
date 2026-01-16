@@ -1950,16 +1950,17 @@ func TestStackDump(t *testing.T) {
 		// Call RequestStackTraceDump - this should send SIGUSR1 to the module
 		mgr.RequestStackTraceDump()
 
-		// Wait for the signal to be processed and logged
+		// Wait for the module to receive the signal and log its distinctive message.
+		// The module's stdout is captured in log messages.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			foundLog := false
+			foundModuleLog := false
 			for _, log := range logs.All() {
-				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
-					foundLog = true
+				if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule") {
+					foundModuleLog = true
 					break
 				}
 			}
-			test.That(tb, foundLog, test.ShouldBeTrue)
+			test.That(tb, foundModuleLog, test.ShouldBeTrue)
 		})
 	})
 
@@ -2023,16 +2024,19 @@ func TestStackDump(t *testing.T) {
 		// Call RequestStackTraceDump - this should send SIGUSR1 to both modules
 		mgr.RequestStackTraceDump()
 
-		// Wait for the signals to be processed and logged
+		// Wait for both modules to receive the signal and log their distinctive messages.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			count := 0
+			foundModule1 := false
+			foundModule2 := false
 			for _, log := range logs.All() {
-				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
-					count++
+				if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule2") {
+					foundModule2 = true
+				} else if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule") {
+					foundModule1 = true
 				}
 			}
-			// Should have logged for both modules
-			test.That(tb, count, test.ShouldEqual, 2)
+			test.That(tb, foundModule1, test.ShouldBeTrue)
+			test.That(tb, foundModule2, test.ShouldBeTrue)
 		})
 	})
 }

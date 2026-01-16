@@ -1,3 +1,5 @@
+// Package stacktrace provides utilities for dumping goroutine stack traces
+// for debugging purposes
 package stacktrace
 
 import (
@@ -8,7 +10,7 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// logStackTrace dumps all goroutine stack traces to the logger.
+// LogStackTrace dumps all goroutine stack traces to the logger.
 // "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
 // viam-server stack traces by default on app.viam.com.
 func LogStackTrace(logger logging.Logger) {
@@ -23,6 +25,8 @@ func LogStackTrace(logger logging.Logger) {
 	logger.Infof("%s, %s", message, traces[:traceSize])
 }
 
+// LogStackTraceAndCancel dumps stack traces and then invokes the cancel function.
+// This is useful for signal handlers that need to both log and shutdown.
 func LogStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
 	LogStackTrace(logger)
 	cancel()
