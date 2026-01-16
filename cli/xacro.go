@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	// Docker/ROS constants
 	xacroFindPrefix      = "$(find "
 	defaultROSDistro     = "humble"
 	rosSharePathPattern  = "/opt/ros/%s/share"
@@ -22,13 +21,11 @@ const (
 	rosXacroPackPattern  = "ros-%s-xacro"
 	amentIndexPathSuffix = "/ament_index/resource_index/packages"
 
-	// Xacro file parsing constants
 	xacroFilenamePrefix = "filename=\""
 	xacroArgSeparator   = ":="
 	fileOutputPerm      = 0o644
 	packageXMLFilename  = "package.xml"
 
-	// Docker constants
 	dockerExecutable = "docker"
 	dockerRunCmd     = "run"
 	dockerRmFlag     = "--rm"
@@ -46,8 +43,7 @@ type xacroConvertArgs struct {
 	RosDistro           string
 }
 
-// Note: Unexported fields with XML tags don't work with encoding/xml
-// URDF XML structures for parsing and manipulation.
+// Note: XML-tagged struct fields must be exported for encoding/xml to work.
 type urdfRobot struct {
 	XMLName xml.Name    `xml:"robot"`
 	Name    string      `xml:"name,attr"`
@@ -56,23 +52,21 @@ type urdfRobot struct {
 }
 
 type urdfLink struct {
-	XMLName xml.Name `xml:"link"`
-	Name    string   `xml:"name,attr"`
-	// We don't need the full link contents for collapsing, just the name
-	InnerXML string `xml:",innerxml"`
+	XMLName  xml.Name `xml:"link"`
+	Name     string   `xml:"name,attr"`
+	InnerXML string   `xml:",innerxml"` // Preserve unparsed content
 }
 
 type urdfJoint struct {
-	XMLName xml.Name    `xml:"joint"`
-	Name    string      `xml:"name,attr"`
-	Type    string      `xml:"type,attr"`
-	Parent  urdfLinkRef `xml:"parent"`
-	Child   urdfLinkRef `xml:"child"`
-	Origin  *urdfOrigin `xml:"origin"`
-	Axis    *urdfAxis   `xml:"axis"`
-	Limit   *urdfLimit  `xml:"limit"`
-	// Preserve other elements we don't parse
-	InnerXML string `xml:",innerxml"`
+	XMLName  xml.Name    `xml:"joint"`
+	Name     string      `xml:"name,attr"`
+	Type     string      `xml:"type,attr"`
+	Parent   urdfLinkRef `xml:"parent"`
+	Child    urdfLinkRef `xml:"child"`
+	Origin   *urdfOrigin `xml:"origin"`
+	Axis     *urdfAxis   `xml:"axis"`
+	Limit    *urdfLimit  `xml:"limit"`
+	InnerXML string      `xml:",innerxml"` // Preserve unparsed content
 }
 
 type urdfLinkRef struct {
@@ -97,12 +91,10 @@ type urdfLimit struct {
 
 // XacroConvertAction converts a xacro file to URDF format.
 func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
-	// Check Docker availability
 	if _, err := exec.LookPath(dockerExecutable); err != nil {
 		return fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err)
 	}
 
-	// Validate package.xml exists
 	packageXMLPath := args.PackageXML
 	if packageXMLPath == "" {
 		packageXMLPath = packageXMLFilename
@@ -112,47 +104,40 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return fmt.Errorf("%s not found at %s (specify with --package-xml if in a different location)", packageXMLFilename, packageXMLPath)
 	}
 
-	// Detect package name
 	pkgName, err := extractPackageName(packageXMLPath)
 	if err != nil {
 		return fmt.Errorf("failed to detect package name: %w", err)
 	}
 	printf(c.App.Writer, "Detected package: %s\n", pkgName)
 
-	// Get current directory (or package.xml directory)
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	// If package.xml is in a different directory, use that as base
 	if packageXMLPath != packageXMLFilename {
 		cwd = filepath.Dir(packageXMLPath)
 	}
 
-	// Convert input to absolute path
 	absInputFile := args.InputFile
 	if !filepath.IsAbs(args.InputFile) {
 		absInputFile = filepath.Join(cwd, args.InputFile)
 	}
 
-	// Validate input file exists
 	if _, err := os.Stat(absInputFile); os.IsNotExist(err) {
 		return fmt.Errorf("input file not found: %s (check the path is correct)", args.InputFile)
 	}
 
-	// Validate output file is writable (fail early before Docker processing)
+	// Fail early before expensive Docker processing
 	if err := validateOutputWritable(args.OutputFile); err != nil {
 		return fmt.Errorf("output path not writable: %w (check directory exists and you have write permissions)", err)
 	}
 
-	// Prepare relative paths
 	relInputFile, err := filepath.Rel(cwd, absInputFile)
 	if err != nil {
 		return fmt.Errorf("failed to compute relative path for input: %w", err)
 	}
 
-	// Discover dependent packages
 	dependentPkgs, err := discoverDependentPackages(absInputFile, cwd, pkgName)
 	if err != nil {
 		return fmt.Errorf(
@@ -164,19 +149,16 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		printf(c.App.Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
 	}
 
-	// Process arguments (convert file paths to container paths)
 	dockerArgs, err := processXacroArgs(args.Args, cwd, pkgName)
 	if err != nil {
 		return fmt.Errorf("failed to process xacro arguments: %w", err)
 	}
 
-	// Determine ROS distribution (auto-detect from image if not specified)
 	rosDistro := args.RosDistro
 	if rosDistro == "" {
 		rosDistro = extractROSDistro(args.DockerImage)
 	}
 
-	// Build Docker command
 	dockerCmd := buildDockerXacroCommand(
 		pkgName, cwd, relInputFile, dockerArgs,
 		args.DockerImage, dependentPkgs, args.InstallPackages, rosDistro,
@@ -194,7 +176,6 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return nil
 	}
 
-	// Run Docker
 	printf(c.App.Writer, "Processing with Docker...\n")
 
 	ctx := context.Background()
@@ -212,18 +193,14 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return fmt.Errorf("%s", errMsg)
 	}
 
-	// Get output from xacro
 	output := stdout.String()
 
-	// Collapse fixed joints if requested
-	// Note: This should only be used if the generated URDF file will end up having
-	// more than one end-effector. This will happens when there are other joint that
-	// are fixed as opposed to e.g. revolute
+	// Note: Only use this flag if the generated URDF has multiple end-effectors.
+	// This happens when there are fixed joints (as opposed to revolute/prismatic).
 	if args.CollapseFixedJoints {
 		printf(c.App.Writer, "Collapsing fixed joint chains...\n")
 		collapsed, err := collapseFixedJoints(output)
 		if err != nil {
-			// Write uncollapsed output so work isn't lost
 			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
 				printf(c.App.Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
@@ -253,7 +230,6 @@ type packageXML struct {
 // validateOutputWritable checks if we can write to the output path.
 // This validates early before expensive Docker processing.
 func validateOutputWritable(outputPath string) error {
-	// Check if output directory exists
 	dir := filepath.Dir(outputPath)
 	if dir != "" && dir != "." {
 		if info, err := os.Stat(dir); err != nil {
@@ -263,9 +239,6 @@ func validateOutputWritable(outputPath string) error {
 		}
 	}
 
-	// Try to create/open the file for writing
-	// If file exists, this checks we can overwrite it
-	// If file doesn't exist, this checks we can create it
 	//nolint:gosec // G304: Output path specified by user
 	f, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE, fileOutputPerm)
 	if err != nil {
@@ -277,8 +250,7 @@ func validateOutputWritable(outputPath string) error {
 		}
 	}()
 
-	// Clean up test file if we created it (don't leave empty files)
-	// Only remove if the file is empty (size 0), meaning we just created it
+	// Remove empty test file (don't leave artifacts if we just created it)
 	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() == 0 {
 		if err := os.Remove(outputPath); err != nil {
 			return err
@@ -298,18 +270,15 @@ func extractROSDistro(dockerImg string) string {
 		return defaultROSDistro
 	}
 
-	// Try to extract from image tag
 	if strings.Contains(dockerImg, ":") {
 		parts := strings.Split(dockerImg, ":")
 		if len(parts) >= 2 {
 			tag := parts[1]
 
-			// Remove common suffixes
 			for _, suffix := range []string{"-desktop", "-base", "-perception", "-ros-core", "-ros-base"} {
 				tag = strings.TrimSuffix(tag, suffix)
 			}
 
-			// Check if it's a known ROS distro
 			knownDistros := []string{"humble", "iron", "jazzy", "rolling", "noetic", "melodic", "foxy", "galactic"}
 			for _, distro := range knownDistros {
 				if tag == distro {
@@ -319,7 +288,6 @@ func extractROSDistro(dockerImg string) string {
 		}
 	}
 
-	// Default fallback
 	return defaultROSDistro
 }
 
@@ -344,7 +312,7 @@ func extractPackageName(packageXMLPath string) (string, error) {
 }
 
 // processXacroArgs processes xacro arguments, converting file paths to container paths.
-// Note: Returns relative paths (package/file.yaml) that will be prefixed with ROS share path later.
+// Returns relative paths (e.g., package/file.yaml) prefixed with ROS share path later.
 func processXacroArgs(args []string, cwd, pkgName string) ([]string, error) {
 	dockerArgs := make([]string, 0, len(args))
 
@@ -360,6 +328,7 @@ func processXacroArgs(args []string, cwd, pkgName string) ([]string, error) {
 }
 
 // processArgIfFilePath converts file path arguments to container paths.
+// If the argument value is an existing file, converts it to package-relative format.
 func processArgIfFilePath(arg, cwd, pkgName string) (string, error) {
 	if !strings.Contains(arg, xacroArgSeparator) {
 		return arg, nil
@@ -368,7 +337,6 @@ func processArgIfFilePath(arg, cwd, pkgName string) (string, error) {
 	parts := strings.SplitN(arg, xacroArgSeparator, 2)
 	key, value := parts[0], parts[1]
 
-	// Check if value is a file that exists
 	if stat, err := os.Stat(value); err == nil && stat.Mode().IsRegular() {
 		relPath, err := filepath.Rel(cwd, value)
 		if err != nil {
@@ -388,23 +356,19 @@ type packageInfo struct {
 
 // discoverDependentPackages scans xacro files for $(find package_name) and locates them.
 func discoverDependentPackages(xacroPath, currentPkgDir, currentPkgName string) ([]packageInfo, error) {
-	// Scan the xacro file and any includes to find $(find ...) patterns
 	pkgNames := make(map[string]bool)
 	if err := scanXacroForDependencies(xacroPath, currentPkgDir, pkgNames); err != nil {
 		return nil, err
 	}
 
-	// Remove the current package from dependencies
 	delete(pkgNames, currentPkgName)
 
-	// Look for these packages in the parent directory
 	parentDir := filepath.Dir(currentPkgDir)
 	var packages []packageInfo
 
 	for pkgName := range pkgNames {
 		pkgPath := filepath.Join(parentDir, pkgName)
 		if info, err := os.Stat(pkgPath); err == nil && info.IsDir() {
-			// Verify it has a package.xml
 			if _, err := os.Stat(filepath.Join(pkgPath, packageXMLFilename)); err == nil {
 				packages = append(packages, packageInfo{name: pkgName, path: pkgPath})
 			}
@@ -424,17 +388,14 @@ func scanXacroForDependencies(xacroPath, currentPkgDir string, pkgNames map[stri
 
 	content := string(data)
 
-	// Find all $(find package_name) patterns and extract package names
 	extractPatterns(content, xacroFindPrefix, ")", func(match string) {
 		pkgName := strings.TrimSpace(match)
-		// Extract just the package name (before any /)
 		if idx := strings.Index(pkgName, "/"); idx != -1 {
 			pkgName = pkgName[:idx]
 		}
 		pkgNames[pkgName] = true
 	})
 
-	// Scan included files
 	extractPatterns(content, xacroFilenamePrefix, "\"", func(filename string) {
 		includePath := resolveIncludePath(filename, xacroPath, currentPkgDir)
 		if includePath != "" {
@@ -466,8 +427,8 @@ func extractPatterns(content, startMarker, endMarker string, callback func(strin
 }
 
 // resolveIncludePath resolves an include filename to an absolute path.
+// Handles $(find package_name)/path/file.xacro patterns and relative paths.
 func resolveIncludePath(filename, xacroPath, currentPkgDir string) string {
-	// Handle $(find package_name)/path/file.xacro patterns
 	if strings.HasPrefix(filename, xacroFindPrefix) {
 		closeIdx := strings.Index(filename, ")")
 		if closeIdx != -1 {
@@ -478,7 +439,6 @@ func resolveIncludePath(filename, xacroPath, currentPkgDir string) string {
 			return filepath.Join(currentPkgDir, remainingPath)
 		}
 	} else if !filepath.IsAbs(filename) {
-		// Relative path
 		return filepath.Join(filepath.Dir(xacroPath), filename)
 	}
 	return ""
@@ -527,7 +487,6 @@ func buildDockerXacroCommand(
 	prefixedArgs := prefixArgsWithROSPath(dockerArgs, ros.sharePath)
 	bashScript := buildXacroScript(relInputFile, prefixedArgs, allPkgs, ros, installPackages)
 
-	// Build docker command with volume mounts
 	dockerCmd := []string{dockerRunCmd, dockerRmFlag}
 	dockerCmd = appendVolumeMounts(dockerCmd, pkgName, cwd, dependentPkgs, ros.sharePath)
 	dockerCmd = append(dockerCmd,
@@ -550,15 +509,13 @@ func collectPackageNames(mainPkg string, deps []packageInfo) []string {
 }
 
 // prefixArgsWithROSPath adds ROS share path prefix to relative path arguments.
-// Only prefixes arguments whose values contain '/' (i.e., file paths), not plain string values.
+// Distinguishes between file paths (containing '/') and plain strings (like name:=ur20).
 func prefixArgsWithROSPath(args []string, rosSharePath string) []string {
 	prefixed := make([]string, len(args))
 	for i, arg := range args {
 		if strings.Contains(arg, xacroArgSeparator) {
 			parts := strings.SplitN(arg, xacroArgSeparator, 2)
 			value := parts[1]
-			// Only prefix if it's a relative path (contains '/' but doesn't start with '/')
-			// This distinguishes file paths from plain string arguments
 			if strings.Contains(value, "/") && !strings.HasPrefix(value, "/") {
 				prefixed[i] = fmt.Sprintf("%s%s%s/%s", parts[0], xacroArgSeparator, rosSharePath, value)
 				continue
@@ -608,25 +565,21 @@ func appendVolumeMounts(cmd []string, mainPkg, mainPath string, deps []packageIn
 // This simplifies the kinematic structure by removing non-functional branches like "base_link -> base"
 // and "link_6_t -> flange -> tool0" chains.
 func collapseFixedJoints(urdfContent string) (string, error) {
-	// Parse the URDF
 	var robot urdfRobot
 	if err := xml.Unmarshal([]byte(urdfContent), &robot); err != nil {
 		return "", fmt.Errorf("failed to parse URDF: %w", err)
 	}
 
-	// Build a map of which links are children (and how many times they're referenced)
 	childLinks := make(map[string]int)
 	for _, joint := range robot.Joints {
 		childLinks[joint.Child.Link]++
 	}
 
-	// Build a map of which links have children (are parents)
 	parentLinks := make(map[string]bool)
 	for _, joint := range robot.Joints {
 		parentLinks[joint.Parent.Link] = true
 	}
 
-	// Identify fixed joints whose children are leaf nodes (have no children of their own)
 	fixedLeafJoints := make(map[string]bool)
 	for _, joint := range robot.Joints {
 		if joint.Type == "fixed" && !parentLinks[joint.Child.Link] {
@@ -635,11 +588,9 @@ func collapseFixedJoints(urdfContent string) (string, error) {
 	}
 
 	if len(fixedLeafJoints) == 0 {
-		// No fixed leaf joints to collapse
 		return urdfContent, nil
 	}
 
-	// Remove fixed leaf joints
 	var newJoints []urdfJoint
 	leafLinksToRemove := make(map[string]bool)
 	for _, joint := range robot.Joints {
@@ -651,7 +602,6 @@ func collapseFixedJoints(urdfContent string) (string, error) {
 	}
 	robot.Joints = newJoints
 
-	// Remove the corresponding leaf links
 	var newLinks []urdfLink
 	for _, link := range robot.Links {
 		if leafLinksToRemove[link.Name] {
@@ -661,13 +611,10 @@ func collapseFixedJoints(urdfContent string) (string, error) {
 	}
 	robot.Links = newLinks
 
-	// Marshal back to XML
 	output, err := xml.MarshalIndent(&robot, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal URDF: %w", err)
 	}
 
-	// Add XML header
-	result := xml.Header + string(output) + "\n"
-	return result, nil
+	return xml.Header + string(output) + "\n", nil
 }
