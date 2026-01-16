@@ -189,6 +189,10 @@ type LocalRobot interface {
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
 
+	// RequestModuleStackTraceDump sends SIGUSR1 to all module processes to request
+	// stack trace dumps.
+	RequestModuleStackTraceDump()
+
 	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
 	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.

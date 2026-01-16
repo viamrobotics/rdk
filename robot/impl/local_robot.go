@@ -278,6 +278,12 @@ func (r *localRobot) Kill() {
 	r.manager.Kill()
 }
 
+// RequestModuleStackTraceDump sends SIGUSR1 to all module processes to request
+// stack trace dumps. This is useful for debugging before shutdown.
+func (r *localRobot) RequestModuleStackTraceDump() {
+	r.manager.RequestModuleStackTraceDump()
+}
+
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
 func (r *localRobot) StopAll(ctx context.Context, extra map[resource.Name]map[string]interface{}) error {
 	// Stop all operations
