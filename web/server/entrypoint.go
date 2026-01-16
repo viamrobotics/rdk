@@ -5,11 +5,9 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
 	"os"
 	"path"
-	"runtime"
 	"runtime/pprof"
 	"slices"
 	"sync"
@@ -32,6 +30,7 @@ import (
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/stacktrace"
 	nc "go.viam.com/rdk/web/networkcheck"
 )
 
@@ -62,6 +61,7 @@ type robotServer struct {
 	registry                                   *logging.Registry
 	conn                                       rpc.ClientConn
 	signalingConn                              rpc.ClientConn
+	netAppender                                *logging.NetAppender
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -206,6 +206,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	var appConn, signalingConn rpc.ClientConn
+	var netAppender *logging.NetAppender
 
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, configLogger)
@@ -292,6 +293,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry:         registry,
 		conn:             appConn,
 		signalingConn:    signalingConn,
+		netAppender:      netAppender,
 	}
 
 	// Run the server with remote logging enabled.
@@ -478,7 +480,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
 
 	// Set up SIGUSR1 handler to dump stack traces when the agent requests it before restart.
-	stackTraceHandler, cleanupSignalHandler := setupStackTraceSignalHandler(stackTraceLogger)
+	stackTraceHandler, cleanupSignalHandler := stacktrace.NewSignalHandler(s.rootLogger)
 	defer cleanupSignalHandler()
 
 	doneServing := make(chan struct{})
@@ -596,7 +598,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					logStackTraceAndCancel(cancel, stackTraceLogger)
+					stacktrace.LogStackTraceAndCancel(cancel, s.rootLogger)
 				}
 			}
 		})
@@ -608,7 +610,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		logStackTraceAndCancel(cancel, stackTraceLogger)
+		stacktrace.LogStackTraceAndCancel(cancel, s.rootLogger)
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
@@ -650,13 +652,24 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
 
-	// Register callback to forward SIGUSR1 to module processes for stack trace dumps.
+	// Register callback to forward SIGUSR1 to module processes for stack trace dumps, and
+	// flush logs to cloud.
 	stackTraceHandler.SetCallback(func() {
 		theRobotLock.Lock()
 		r := theRobot
 		theRobotLock.Unlock()
 		if r != nil {
 			r.RequestModuleStackTraceDump()
+		}
+
+		if s.netAppender != nil {
+			stackTraceLogger.Infow("waiting to flush logs to cloud")
+			flushCtx, flushCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer flushCancel()
+			if err := s.netAppender.WaitForQueueEmpty(flushCtx, 100*time.Millisecond); err != nil {
+				stackTraceLogger.Warnw("Failed to flush logs to cloud", "error", err)
+			}
+			stackTraceLogger.Infow("finished flushing logs to cloud")
 		}
 	})
 
@@ -740,23 +753,4 @@ func dumpResourceRegistrations(outputPath string) error {
 		return errors.Wrap(err, "unable to write resulting object to stdout")
 	}
 	return nil
-}
-
-// logStackTrace dumps all goroutine stack traces to the logger.
-// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
-// viam-server stack traces by default on app.viam.com.
-func logStackTrace(logger logging.Logger) {
-	bufSize := 1 << 20
-	traces := make([]byte, bufSize)
-	traceSize := runtime.Stack(traces, true)
-	message := "backtrace at robot shutdown"
-	if traceSize == bufSize {
-		message = fmt.Sprintf("%s (warning: backtrace truncated to %v bytes)", message, bufSize)
-	}
-	logger.Infof("%s, %s", message, traces[:traceSize])
-}
-
-func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
-	logStackTrace(logger)
-	cancel()
 }

@@ -141,6 +141,27 @@ func (nl *NetAppender) queueSize() int {
 	return len(nl.toLog)
 }
 
+// WaitForQueueEmpty polls until the log queue is empty or the context is cancelled.
+// This is useful for ensuring logs are flushed before shutdown.
+// The pollInterval determines how often to check the queue size.
+func (nl *NetAppender) WaitForQueueEmpty(ctx context.Context, pollInterval time.Duration) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if nl.queueSize() == 0 {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(pollInterval):
+			}
+		}
+	}
+}
+
 // cancelBackgroundWorkers is an internal function meant to be used only in testing and in Close(). NetAppender will
 // not function correctly if cancelBackgroundWorkers() is called outside of those contexts.
 func (nl *NetAppender) cancelBackgroundWorkers() {

@@ -1923,3 +1923,116 @@ func TestGetAutomaticPort(t *testing.T) {
 		test.That(t, lis.Close(), test.ShouldBeNil)
 	}
 }
+
+func TestStackDump(t *testing.T) {
+	t.Run("with module", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Build a test module
+		modPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+		parentAddr := setupSocketWithRobot(t)
+		viamHomeTemp := t.TempDir()
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// Add the module
+		err := mgr.Add(ctx, config.Module{
+			Name:    "test-module",
+			ExePath: modPath,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Call RequestStackTraceDump - this should send SIGUSR1 to the module
+		mgr.RequestStackTraceDump()
+
+		// Wait for the signal to be processed and logged
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			foundLog := false
+			for _, log := range logs.All() {
+				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
+					foundLog = true
+					break
+				}
+			}
+			test.That(tb, foundLog, test.ShouldBeTrue)
+		})
+	})
+
+	t.Run("no modules", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		parentAddr := setupSocketWithRobot(t)
+		viamHomeTemp := t.TempDir()
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// Call RequestStackTraceDump with no modules - should not panic
+		mgr.RequestStackTraceDump()
+
+		// Wait for the signal to be processed and logged
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			foundLog := false
+			for _, log := range logs.All() {
+				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
+					foundLog = true
+					break
+				}
+			}
+			test.That(tb, foundLog, test.ShouldBeFalse)
+		})
+	})
+
+	t.Run("multi", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Build test modules
+		modPath1 := rtestutils.BuildTempModule(t, "module/testmodule")
+		modPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
+
+		parentAddr := setupSocketWithRobot(t)
+		viamHomeTemp := t.TempDir()
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// Add both modules
+		err := mgr.Add(ctx, config.Module{
+			Name:    "mod1",
+			ExePath: modPath1,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		err = mgr.Add(ctx, config.Module{
+			Name:    "mod2",
+			ExePath: modPath2,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Call RequestStackTraceDump - this should send SIGUSR1 to both modules
+		mgr.RequestStackTraceDump()
+
+		// Wait for the signals to be processed and logged
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			count := 0
+			for _, log := range logs.All() {
+				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
+					count++
+				}
+			}
+			// Should have logged for both modules
+			test.That(tb, count, test.ShouldEqual, 2)
+		})
+	})
+}

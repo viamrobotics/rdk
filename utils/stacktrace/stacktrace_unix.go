@@ -1,6 +1,6 @@
 //go:build unix
 
-package server
+package stacktrace
 
 import (
 	"os"
@@ -17,13 +17,13 @@ type stackTraceSignalHandler struct {
 	sigChan  chan os.Signal
 	done     chan struct{}
 	mu       sync.Mutex
-	callback func() // optional callback to forward signal to modules
+	callback func()
 }
 
-// setupStackTraceSignalHandler sets up a SIGUSR1 handler that dumps all goroutine
+// NewSignalHandler sets up a SIGUSR1 handler that dumps all goroutine
 // stack traces when received. Returns a handler that can be used to register
 // additional callbacks and a cleanup function that should be deferred.
-func setupStackTraceSignalHandler(logger logging.Logger) (*stackTraceSignalHandler, func()) {
+func NewSignalHandler(logger logging.Logger) (*stackTraceSignalHandler, func()) {
 	handler := &stackTraceSignalHandler{
 		logger:  logger,
 		sigChan: make(chan os.Signal, 1),
@@ -38,7 +38,7 @@ func setupStackTraceSignalHandler(logger logging.Logger) (*stackTraceSignalHandl
 				return
 			case <-handler.sigChan:
 				logger.Info("Received SIGUSR1, dumping stack traces")
-				logStackTrace(logger)
+				LogStackTrace(logger)
 
 				// Forward to modules if callback is registered
 				handler.mu.Lock()
