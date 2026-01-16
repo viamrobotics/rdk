@@ -74,6 +74,8 @@ const (
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
 	generalFlagNoProgress        = "no-progress"
+	generalFlagArgs              = "args"
+	generalFlagDryRun            = "dry-run"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -165,8 +167,6 @@ const (
 
 	xacroFlagInputFile         = "input-file"
 	xacroFlagOutputFile        = "output-file"
-	xacroFlagArgs              = "args"
-	xacroFlagDryRun            = "dry-run"
 	xacroFlagDockerImg         = "docker-image"
 	xacroFlagPackageXML        = "package-xml"
 	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
@@ -2909,7 +2909,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:      "convert",
 					Usage:     "convert a xacro file to URDF",
-					UsageText: "viam xacro convert <args> <input.xacro> <output.urdf> <flags>",
+					UsageText: createUsageText("xacro convert", []string{xacroFlagInputFile, xacroFlagOutputFile}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:     xacroFlagInputFile,
@@ -2922,7 +2922,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of urdf file",
 						},
 						&cli.StringSliceFlag{
-							Name:  xacroFlagArgs,
+							Name:  generalFlagArgs,
 							Usage: "additional xacro arguments (e.g., --args name:=ur20)",
 						},
 						&cli.StringFlag{
@@ -2939,7 +2939,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "path to package.xml if not in current directory",
 						},
 						&cli.BoolFlag{
-							Name:  xacroFlagDryRun,
+							Name:  generalFlagDryRun,
 							Usage: "show the docker command without executing it",
 						},
 						&cli.BoolFlag{
