@@ -44,6 +44,9 @@ type datapipelineListArgs struct {
 
 // DatapipelineListAction lists all data pipelines for an organization.
 func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to list data pipelines")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -80,6 +83,9 @@ type datapipelineCreateArgs struct {
 
 // DatapipelineCreateAction creates a new data pipeline.
 func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to create a data pipeline")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err

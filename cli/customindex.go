@@ -36,6 +36,9 @@ type createCustomIndexArgs struct {
 // CreateCustomIndexAction creates a custom index for a specified organization and collection type
 // using the provided index specification file in the arguments.
 func CreateCustomIndexAction(c *cli.Context, args createCustomIndexArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to create a custom index")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -75,6 +78,9 @@ type deleteCustomIndexArgs struct {
 
 // DeleteCustomIndexAction deletes a custom index for a specified organization and collection type using the provided index name.
 func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to delete a custom index")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -108,6 +114,9 @@ type listCustomIndexesArgs struct {
 
 // ListCustomIndexesAction lists all custom indexes for a specified organization and collection type.
 func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to list custom indexes")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err

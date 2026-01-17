@@ -1339,7 +1339,11 @@ func TestCreateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1351,6 +1355,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some-org-id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
@@ -1440,7 +1445,11 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1452,6 +1461,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some_org_id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))

@@ -211,6 +211,9 @@ type dataDeleteTabularArgs struct {
 
 // DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
 func DataDeleteTabularAction(c *cli.Context, args dataDeleteTabularArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to delete tabular data")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -1081,6 +1084,9 @@ type dataConfigureDatabaseUserArgs struct {
 // it asks for the user to confirm that they are aware that they are changing the authentication
 // credentials of their database.
 func DataConfigureDatabaseUserConfirmation(c *cli.Context, args dataConfigureDatabaseUserArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to configure database user")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -1151,6 +1157,9 @@ type dataGetDatabaseConnectionArgs struct {
 
 // DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
 func DataGetDatabaseConnection(c *cli.Context, args dataGetDatabaseConnectionArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to get a database connection")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err

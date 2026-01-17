@@ -316,9 +316,7 @@ func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args org
 	var err error
 	orgID := args.OrgID
 	if orgID == "" {
-		if orgID, err = getDefaultOrg(cCtx); err != nil {
-			return errors.New("must specify an org ID to create an API key for")
-		}
+		return errors.New("must specify an org ID to create an API key for")
 	}
 	keyName := args.Name
 	if keyName == "" {
@@ -373,10 +371,6 @@ func LocationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs
 
 func (c *viamClient) locationAPIKeyCreateAction(cCtx *cli.Context, args locationAPIKeyCreateArgs) error {
 	locationID := args.LocationID
-	if locationID == "" {
-		//nolint:errcheck // if there's an error we just fallback to the old logic
-		locationID, _ = getDefaultLocation(cCtx)
-	}
 	orgID := args.OrgID
 	keyName := args.Name
 

@@ -190,6 +190,9 @@ type packageUploadArgs struct {
 
 // PackageUploadAction is the corresponding action for "packages upload".
 func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to upload a package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
