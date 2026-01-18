@@ -2892,7 +2892,7 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 //
 // ListMachineSummaries example:
 //
-//	 _, name, err := cloud.ListMachineSummaries(
+//	 summaries, err := cloud.ListMachineSummaries(
 //			context.Background(),
 //		   	"a1bcdefghi2jklmnopqrstuvw3xyzabc",
 //		   	[]string{locationID},
