@@ -580,7 +580,7 @@ type MachineSummary struct {
 
 // AppBranding contains metadata relevant to Viam Apps customizations.
 //
-//nolint:revive // AppBranding is clearer than Content in context of Viam Apps
+//nolint:revive // AppBranding is clearer than Branding in context of Viam Apps
 type AppBranding struct {
 	LogoPath           string
 	TextCustomizations map[string]*TextOverrides
