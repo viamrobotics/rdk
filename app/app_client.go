@@ -284,8 +284,8 @@ type APIKeyWithAuthorizations struct {
 
 // APIKey is a API key to make a request to an API.
 type APIKey struct {
-	ID        string
-	Key       string
+	ID        string `json:"id"`
+	Key       string `json:"key"`
 	Name      string
 	CreatedOn *time.Time
 }
@@ -563,6 +563,42 @@ type UpdateModuleOptions struct {
 type ListModulesOptions struct {
 	// OrgID is the organization to return private modules for.
 	OrgID *string
+}
+
+// LocationSummary contains summaries of machines housed under some location with its ID and name.
+type LocationSummary struct {
+	LocationID       string
+	LocationName     string
+	MachineSummaries []*MachineSummary
+}
+
+// MachineSummary contains a single machine's ID and name.
+type MachineSummary struct {
+	MachineID   string
+	MachineName string
+}
+
+// AppBranding contains metadata relevant to Viam Apps customizations.
+//
+//nolint:revive // AppBranding is clearer than Branding in context of Viam Apps
+type AppBranding struct {
+	LogoPath           string
+	TextCustomizations map[string]TextOverrides
+	FragmentIDs        []string
+}
+
+// TextOverrides contains the text Viam App developers want displayed on the Viam Apps "machine picker" page.
+type TextOverrides struct {
+	Fields map[string]string
+}
+
+// AppContent defines where how to retrieve a Viam Apps app from GCS.
+//
+//nolint:revive // AppContent is clearer than Content in context of Viam Apps
+type AppContent struct {
+	BlobPath   string
+	Entrypoint string
+	AppType    int
 }
 
 // AppClient is a gRPC client for method calls to the App API.
@@ -2852,6 +2888,116 @@ func (c *AppClient) CreateKeyFromExistingKeyAuthorizations(ctx context.Context, 
 	return resp.Id, resp.Key, nil
 }
 
+// ListMachineSummaries lists machine summaries, optionally limited, under an organization, organized by provided location ID's.
+//
+// ListMachineSummaries example:
+//
+//	 summaries, err := cloud.ListMachineSummaries(
+//			context.Background(),
+//		   	"a1bcdefghi2jklmnopqrstuvw3xyzabc",
+//		   	[]string{locationID},
+//		   	[]string{fragmetnID},
+//		  	0,
+//	 )
+//
+// For more information, see the [ListMachineSummaries method docs].
+//
+// [ListMachineSummaries method docs]: https://docs.viam.com/dev/reference/apis/fleet/#listmachinesummaries
+func (c *AppClient) ListMachineSummaries(
+	ctx context.Context,
+	organizationID string,
+	fragmentIDs, locationIDs []string,
+	limit int32,
+) ([]*LocationSummary, error) {
+	req := &pb.ListMachineSummariesRequest{
+		OrganizationId: organizationID,
+		FragmentIds:    fragmentIDs,
+		LocationIds:    locationIDs,
+		Limit:          &limit,
+	}
+
+	resp, err := c.client.ListMachineSummaries(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]*LocationSummary, 0, len(resp.LocationSummaries))
+	for _, LocationSummary := range resp.LocationSummaries {
+		summaries = append(summaries, locationSummaryFromProto(LocationSummary))
+	}
+
+	return summaries, nil
+}
+
+// GetAppBranding gets the branding for an app.
+//
+// GetAppBranding example:
+//
+//	branding, err := cloud.GetAppBranding(context.Background(), "my-org", "my-app")
+//
+// For more information, see the [GetAppBranding method docs].
+//
+// [GetAppBranding method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getappbranding
+func (c *AppClient) GetAppBranding(ctx context.Context, orgPublicNamespace, appName string) (*AppBranding, error) {
+	req := &pb.GetAppBrandingRequest{
+		PublicNamespace: orgPublicNamespace,
+		Name:            appName,
+	}
+
+	resp, err := c.client.GetAppBranding(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return appBrandingFromProto(resp), nil
+}
+
+// GetAppContent gets the content for an app.
+//
+// GetAppContent example:
+//
+//	content, err := cloud.GetAppContent(context.Background(), "my-org", "my-app")
+//
+// For more information, see the [GetAppContent method docs].
+//
+// [GetAppContent method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getappcontent
+func (c *AppClient) GetAppContent(ctx context.Context, orgPublicNamespace, appName string) (*AppContent, error) {
+	req := &pb.GetAppContentRequest{
+		PublicNamespace: orgPublicNamespace,
+		Name:            appName,
+	}
+
+	resp, err := c.client.GetAppContent(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return appContentFromProto(resp), nil
+}
+
+// GetRobotPartByNameAndLocation gets a robot part by name and location.
+//
+// GetRobotPartByNameAndLocation example:
+//
+//	robotPart, err := cloud.GetRobotPartByNameAndLocation(context.Background(), "my-robot-main", "ab1c2d3e45")
+//
+// For more information, see the [GetRobotPartByNameAndLocation method docs].
+//
+// [GetRobotPartByNameAndLocation method docs]: https://docs.viam.com/dev/reference/apis/fleet/#getrobotpartbynameandlocation
+func (c *AppClient) GetRobotPartByNameAndLocation(ctx context.Context, name, locationID string) (*RobotPart, error) {
+	req := &pb.GetRobotPartByNameAndLocationRequest{
+		Name:       name,
+		LocationId: locationID,
+	}
+
+	resp, err := c.client.GetRobotPartByNameAndLocation(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return robotPartFromProto(resp.GetPart()), nil
+}
+
 func organizationFromProto(organization *pb.Organization) *Organization {
 	if organization == nil {
 		return nil
@@ -3714,5 +3860,54 @@ func versionHistoryFromProto(history *pb.VersionHistory) *VersionHistory {
 		Apps:       apps,
 		Entrypoint: history.Entrypoint,
 		FirstRun:   history.FirstRun,
+	}
+}
+
+func locationSummaryFromProto(locationSummary *pb.LocationSummary) *LocationSummary {
+	machineSummaries := locationSummary.GetMachineSummaries()
+	machines := make([]*MachineSummary, 0, len(machineSummaries))
+	for _, machineSummary := range machineSummaries {
+		machines = append(machines, machineSummaryFromProto(machineSummary))
+	}
+
+	return &LocationSummary{
+		LocationID:       locationSummary.GetLocationId(),
+		LocationName:     locationSummary.GetLocationName(),
+		MachineSummaries: machines,
+	}
+}
+
+func machineSummaryFromProto(machineSummary *pb.MachineSummary) *MachineSummary {
+	return &MachineSummary{
+		MachineID:   machineSummary.GetMachineId(),
+		MachineName: machineSummary.GetMachineName(),
+	}
+}
+
+func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
+	var logoPath string
+	if resp.LogoPath != nil {
+		logoPath = resp.GetLogoPath()
+	}
+
+	textCustomizations := make(map[string]TextOverrides, len(resp.TextCustomizations))
+	for k, v := range resp.GetTextCustomizations() {
+		textCustomizations[k] = TextOverrides{
+			Fields: v.GetFields(),
+		}
+	}
+
+	return &AppBranding{
+		LogoPath:           logoPath,
+		TextCustomizations: textCustomizations,
+		FragmentIDs:        resp.GetFragmentIds(),
+	}
+}
+
+func appContentFromProto(resp *pb.GetAppContentResponse) *AppContent {
+	return &AppContent{
+		BlobPath:   resp.GetBlobPath(),
+		Entrypoint: resp.GetEntrypoint(),
+		AppType:    int(resp.GetAppType()),
 	}
 }
