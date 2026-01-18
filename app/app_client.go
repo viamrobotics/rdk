@@ -583,7 +583,7 @@ type MachineSummary struct {
 //nolint:revive // AppBranding is clearer than Branding in context of Viam Apps
 type AppBranding struct {
 	LogoPath           string
-	TextCustomizations map[string]*TextOverrides
+	TextCustomizations map[string]TextOverrides
 	FragmentIDs        []string
 }
 
@@ -3890,9 +3890,9 @@ func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
 		logoPath = resp.GetLogoPath()
 	}
 
-	textCustomizations := make(map[string]*TextOverrides, len(resp.TextCustomizations))
+	textCustomizations := make(map[string]TextOverrides, len(resp.TextCustomizations))
 	for k, v := range resp.GetTextCustomizations() {
-		textCustomizations[k] = &TextOverrides{
+		textCustomizations[k] = TextOverrides{
 			Fields: v.GetFields(),
 		}
 	}
