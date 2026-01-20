@@ -242,7 +242,7 @@ func (m *Module) addAPIFromRegistry(ctx context.Context, api resource.API) error
 	if !ok {
 		return nil
 	}
-	return apiInfo.RegisterRPCService(ctx, m.server, newColl)
+	return apiInfo.RegisterRPCService(ctx, m.server, newColl, m.logger)
 }
 
 // AddModelFromRegistry adds a preregistered component or service model to the module's services.

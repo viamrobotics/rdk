@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/audioin"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -52,7 +53,7 @@ func (x *getAudioServer) Send(m *pb.GetAudioResponse) error {
 	return nil
 }
 
-func newServer() (pb.AudioInServiceServer, *inject.AudioIn, *inject.AudioIn, error) {
+func newServer(logger logging.Logger) (pb.AudioInServiceServer, *inject.AudioIn, *inject.AudioIn, error) {
 	injectAudioIn := &inject.AudioIn{}
 	injectAudioIn2 := &inject.AudioIn{}
 	audioIns := map[resource.Name]audioin.AudioIn{
@@ -63,11 +64,11 @@ func newServer() (pb.AudioInServiceServer, *inject.AudioIn, *inject.AudioIn, err
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return audioin.NewRPCServiceServer(audioInSvc).(pb.AudioInServiceServer), injectAudioIn, injectAudioIn2, nil
+	return audioin.NewRPCServiceServer(audioInSvc, logger).(pb.AudioInServiceServer), injectAudioIn, injectAudioIn2, nil
 }
 
 func TestServer(t *testing.T) {
-	audioInServer, injectAudioIn, _, err := newServer()
+	audioInServer, injectAudioIn, _, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	getAudioRequest := &pb.GetAudioRequest{

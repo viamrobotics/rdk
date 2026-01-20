@@ -31,7 +31,7 @@ func setupAudioOutService(t *testing.T, injectAudioOut *inject.AudioOut) (net.Li
 	resourceAPI, ok, err := resource.LookupAPIRegistration[audioout.AudioOut](audioout.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioOutSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, audioOutSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }

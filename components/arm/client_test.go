@@ -121,7 +121,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc, logger), test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {

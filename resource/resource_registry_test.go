@@ -75,9 +75,10 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	var capColl resource.APIResourceGetter[motor.Motor]
 
-	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], _ logging.Logger) interface{} {
 		capColl = apiResColl
 		return 5
 	}
@@ -110,7 +111,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 		motor.Named("foo"): &fake.Motor{Named: motor.Named("foo").AsNamed()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	svcServer := apiInfo.RPCServiceServerConstructor(coll)
+	svcServer := apiInfo.RPCServiceServerConstructor(coll, logger)
 	test.That(t, svcServer, test.ShouldNotBeNil)
 	test.That(t, apiInfo.RPCClient, test.ShouldBeNil)
 
@@ -128,7 +129,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 	apiInfo, ok, err = resource.LookupAPIRegistration[motor.Motor](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	svcServer = apiInfo.RPCServiceServerConstructor(coll)
+	svcServer = apiInfo.RPCServiceServerConstructor(coll, logger)
 	test.That(t, svcServer, test.ShouldNotBeNil)
 	res, err := apiInfo.RPCClient(nil, nil, "", motor.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -202,7 +203,7 @@ func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	sf := func(apiResColl resource.APIResourceGetter[motor.Motor]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], logger logging.Logger) interface{} {
 		return nil
 	}
 

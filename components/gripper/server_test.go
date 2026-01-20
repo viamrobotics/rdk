@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -24,7 +25,7 @@ var (
 	errGripperNotFound   = errors.New("not found")
 )
 
-func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
+func newServer(logger logging.Logger) (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
 	injectGripper := &inject.Gripper{}
 	injectGripper2 := &inject.Gripper{}
 	grippers := map[resource.Name]gripper.Gripper{
@@ -35,11 +36,11 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return gripper.NewRPCServiceServer(gripperSvc).(pb.GripperServiceServer), injectGripper, injectGripper2, nil
+	return gripper.NewRPCServiceServer(gripperSvc, logger).(pb.GripperServiceServer), injectGripper, injectGripper2, nil
 }
 
 func TestServer(t *testing.T) {
-	gripperServer, injectGripper, injectGripper2, err := newServer()
+	gripperServer, injectGripper, injectGripper2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var gripperOpen string
