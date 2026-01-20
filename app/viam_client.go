@@ -106,6 +106,21 @@ func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger l
 	return CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger)
 }
 
+// ConnectFromCLIToken creates a ViamClient using cached CLI credentials.
+func ConnectFromCLIToken(ctx context.Context, logger logging.Logger) (*ViamClient, error) {
+	c, err := utils.ConfigFromPath(utils.GetCLICachePath())
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateViamClientWithOptions(ctx, WithDialOptions(dopts...), logger)
+}
+
 // AppClient initializes and returns an AppClient instance used to make app method calls.
 // To use AppClient, you must first instantiate a ViamClient.
 func (c *ViamClient) AppClient() *AppClient {
