@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestGeometrySerializationJSON(t *testing.T) {
@@ -779,8 +780,8 @@ func TestCapsuleVsPointEncompassed(t *testing.T) {
 }
 
 func TestNewGeometryConfigWithMesh(t *testing.T) {
-	// Load test STL mesh once
-	stlBytes, err := os.ReadFile("../referenceframe/testfiles/ur20meshes/base.stl")
+	baseStlPath := artifact.MustPath("urdfs/ur20meshes/base.stl")
+	stlBytes, err := os.ReadFile(baseStlPath)
 	test.That(t, err, test.ShouldBeNil)
 
 	protoMesh := &commonpb.Mesh{

@@ -56,7 +56,7 @@ func TestGeometrySerialization(t *testing.T) {
 
 func TestMeshGeometrySerialization(t *testing.T) {
 	// Load test files once
-	baseStlPath := artifact.MustPath("urdfs/ur20meshes/base.stl") // Download the mesh directory
+	baseStlPath := artifact.MustPath("urdfs/ur20meshes/base.stl")
 	stlBytes, err := os.ReadFile(baseStlPath)
 	test.That(t, err, test.ShouldBeNil)
 	plyBytes, err := os.ReadFile("testfiles/test_simple.ply")
