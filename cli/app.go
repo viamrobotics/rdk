@@ -2948,7 +2948,7 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.BoolFlag{
 							Name:  xacroFlagInstallPackages,
-							Usage: "install ros-<distro>-xacro package in the container (required for default image). Disable only if using a custom image with xacro pre-installed",
+							Usage: "install ros-<distro>-xacro (required for the default image). Disable only if your custom image already includes xacro",
 							Value: true,
 						},
 					},
