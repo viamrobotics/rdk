@@ -90,7 +90,6 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagModelName       = "model-name"
 	moduleFlagRegister        = "register"
-	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -112,7 +111,6 @@ const (
 	mlTrainingFlagVisibility       = "visibility"
 	mlTrainingFlagDescription      = "description"
 	mlTrainingFlagURL              = "url"
-	mlTrainingFlagArgs             = "args"
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
 
@@ -2120,7 +2118,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -2198,7 +2196,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -3062,7 +3060,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "register module with Viam to associate with your organization",
 						},
 						&cli.BoolFlag{
-							Name:   moduleFlagDryRun,
+							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
 							Hidden: true,
 						},
