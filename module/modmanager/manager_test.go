@@ -1925,15 +1925,17 @@ func TestGetAutomaticPort(t *testing.T) {
 }
 
 func TestStackDump(t *testing.T) {
-	t.Run("with module", func(t *testing.T) {
+	parentAddr := setupSocketWithRobot(t)
+	viamHomeTemp := t.TempDir()
+
+	modPath1 := rtestutils.BuildTempModule(t, "module/testmodule")
+	modPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
+
+	t.Run("one module", func(t *testing.T) {
 		ctx := context.Background()
 		logger, logs := logging.NewObservedTestLogger(t)
 
-		// Build a test module
-		modPath := rtestutils.BuildTempModule(t, "module/testmodule")
-
-		parentAddr := setupSocketWithRobot(t)
-		viamHomeTemp := t.TempDir()
+		// Set up mod manager
 		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  viamHomeTemp,
@@ -1941,17 +1943,16 @@ func TestStackDump(t *testing.T) {
 
 		// Add the module
 		err := mgr.Add(ctx, config.Module{
-			Name:    "test-module",
-			ExePath: modPath,
+			Name:    "mod1",
+			ExePath: modPath1,
 			Type:    config.ModuleTypeLocal,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		// Call RequestStackTraceDump - this should send SIGUSR1 to the module
+		// Send SIGUSR1 to the module
 		mgr.RequestStackTraceDump()
 
 		// Wait for the module to receive the signal and log its distinctive message.
-		// The module's stdout is captured in log messages.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			foundModuleLog := false
 			for _, log := range logs.All() {
@@ -1968,17 +1969,16 @@ func TestStackDump(t *testing.T) {
 		ctx := context.Background()
 		logger, logs := logging.NewObservedTestLogger(t)
 
-		parentAddr := setupSocketWithRobot(t)
-		viamHomeTemp := t.TempDir()
+		// Set up mod manager
 		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  viamHomeTemp,
 		})
 
-		// Call RequestStackTraceDump with no modules - should not panic
+		// No modules, so no SIGUSR1 should be sent
 		mgr.RequestStackTraceDump()
 
-		// Wait for the signal to be processed and logged
+		// Only check for log indicating we attempted to send signals
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			foundLog := false
 			for _, log := range logs.All() {
@@ -1991,16 +1991,11 @@ func TestStackDump(t *testing.T) {
 		})
 	})
 
-	t.Run("multi", func(t *testing.T) {
+	t.Run("multiple modules", func(t *testing.T) {
 		ctx := context.Background()
 		logger, logs := logging.NewObservedTestLogger(t)
 
-		// Build test modules
-		modPath1 := rtestutils.BuildTempModule(t, "module/testmodule")
-		modPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
-
-		parentAddr := setupSocketWithRobot(t)
-		viamHomeTemp := t.TempDir()
+		// Set up mod manager
 		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv: false,
 			ViamHomeDir:  viamHomeTemp,
@@ -2021,7 +2016,7 @@ func TestStackDump(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		// Call RequestStackTraceDump - this should send SIGUSR1 to both modules
+		// Send SIGUSR1 to both modules
 		mgr.RequestStackTraceDump()
 
 		// Wait for both modules to receive the signal and log their distinctive messages.
