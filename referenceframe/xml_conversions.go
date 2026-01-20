@@ -9,12 +9,33 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
+const (
+	// urdfPackagePrefix is the URI scheme used in URDF files to reference ROS packages
+	urdfPackagePrefix = "package://"
+)
+
 var errGeometryTypeUnsupported = errors.New("unsupported Geometry type")
+
+// normalizeURDFMeshPath converts a URDF mesh path (which may use package:// URI) to a relative path.
+// For example: "package://ur_description/meshes/base.stl" -> "meshes/base.stl"
+func normalizeURDFMeshPath(meshPath string) string {
+	// Handle package:// URIs
+	// Strip the package prefix to get the relative path
+	if strings.HasPrefix(meshPath, urdfPackagePrefix) {
+		meshPath = strings.TrimPrefix(meshPath, urdfPackagePrefix)
+		// Remove the package name part (e.g., "ur_description/meshes/..." -> "meshes/...")
+		if idx := strings.Index(meshPath, "/"); idx != -1 {
+			meshPath = meshPath[idx+1:]
+		}
+	}
+	return meshPath
+}
 
 // collision is a struct which details the XML used in a URDF collision geometry.
 type collision struct {
@@ -24,6 +45,7 @@ type collision struct {
 		XMLName xml.Name `xml:"geometry"`
 		Box     *box     `xml:"box,omitempty"`
 		Sphere  *sphere  `xml:"sphere,omitempty"`
+		Mesh    *mesh    `xml:"mesh,omitempty"`
 	} `xml:"geometry"`
 }
 
@@ -35,6 +57,11 @@ type box struct {
 type sphere struct {
 	XMLName xml.Name `xml:"sphere"`
 	Radius  float64  `xml:"radius,attr"` // in meters
+}
+
+type mesh struct {
+	XMLName  xml.Name `xml:"mesh"`
+	Filename string   `xml:"filename,attr"`
 }
 
 func newCollision(g spatialmath.Geometry) (*collision, error) {
@@ -51,23 +78,55 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 		urdf.Geometry.Box = &box{Size: fmt.Sprintf("%f %f %f", utils.MMToMeters(cfg.X), utils.MMToMeters(cfg.Y), utils.MMToMeters(cfg.Z))}
 	case spatialmath.SphereType:
 		urdf.Geometry.Sphere = &sphere{Radius: utils.MMToMeters(cfg.R)}
+	case spatialmath.MeshType:
+		if cfg.MeshFilePath == "" {
+			return nil, errors.New("mesh geometry does not have an original file path set")
+		}
+		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
 	return urdf, nil
 }
 
-func (c *collision) toGeometry() (spatialmath.Geometry, error) {
+func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.Geometry, error) {
+	// Get origin, defaulting to zero pose if not specified (optional in URDF)
+	origin := spatialmath.NewZeroPose()
+	if c.Origin != nil {
+		origin = c.Origin.Parse()
+	}
+
 	switch {
 	case c.Geometry.Box != nil:
 		dims := spaceDelimitedStringToFloatSlice(c.Geometry.Box.Size)
 		return spatialmath.NewBox(
-			c.Origin.Parse(),
+			origin,
 			r3.Vector{X: utils.MetersToMM(dims[0]), Y: utils.MetersToMM(dims[1]), Z: utils.MetersToMM(dims[2])},
 			"",
 		)
 	case c.Geometry.Sphere != nil:
-		return spatialmath.NewSphere(c.Origin.Parse(), utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+		return spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+	case c.Geometry.Mesh != nil:
+		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
+
+		// Check if mesh map is provided
+		if meshMap == nil {
+			return nil, fmt.Errorf("mesh geometry requires mesh map to be provided, but got nil for mesh: %s", meshPath)
+		}
+
+		// Look up mesh proto in the provided map
+		protoMesh, ok := meshMap[meshPath]
+		if !ok {
+			return nil, fmt.Errorf("mesh file not found in mesh map: %s", meshPath)
+		}
+
+		mesh, err := spatialmath.NewMeshFromProto(origin, protoMesh, "")
+		if err != nil {
+			return nil, err
+		}
+		// Store the original mesh path for round-tripping
+		mesh.SetOriginalFilePath(meshPath)
+		return mesh, nil
 	default:
 		return nil, errors.New("couldn't parse xml: no geometry defined")
 	}

@@ -52095,6 +52095,42 @@
       "size": 32995
     }
   },
+  "urdfs": {
+    "ur20.urdf": {
+      "hash": "cc962e9affe81a4d874cf1b4c40a113c",
+      "size": 8689
+    },
+    "ur20meshes": {
+      "base.stl": {
+        "hash": "f2d21a3441fec7127338940cb2949186",
+        "size": 21884
+      },
+      "forearm.stl": {
+        "hash": "49d163b814eecd8602825fbf9d981e7b",
+        "size": 124384
+      },
+      "shoulder.stl": {
+        "hash": "a7aac9b10986c4566b90eacd87c1b8e9",
+        "size": 27084
+      },
+      "upperarm.stl": {
+        "hash": "265708406adfc6964376a33b7a791b8a",
+        "size": 121484
+      },
+      "wrist1.stl": {
+        "hash": "7780156ea0d19945b490df7df0cccde0",
+        "size": 36484
+      },
+      "wrist2.stl": {
+        "hash": "781158ba5fe137ba79ada6b7e3549346",
+        "size": 28084
+      },
+      "wrist3.stl": {
+        "hash": "ac2cac3a58065857ca9902db4a96e489",
+        "size": 15784
+      }
+    }
+  },
   "utils": {
     "aces_sample.clf": {
       "hash": "1fd6f4bdb380fba1a5605994583c91b7",
