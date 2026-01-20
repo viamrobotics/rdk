@@ -796,17 +796,10 @@ func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
 		return "", err
 	}
 
-	// use the primary org id for the machine as the reload
-	// module org
-	var orgID string
-	for _, org := range location.Location.Organizations {
-		if org.Primary {
-			orgID = org.GetOrganizationId()
-			break
-		}
-	}
+	orgID := location.Location.PrimaryOrgIdentity.GetId()
+
 	if orgID == "" {
-		orgID = location.Location.Organizations[0].GetOrganizationId()
+		return "", errors.New("no primary org id found for location")
 	}
 
 	return orgID, nil
