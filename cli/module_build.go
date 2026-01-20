@@ -834,6 +834,8 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", errors.New("unable to determine platform for part")
 	}
 
+	// use the primary org id for the machine as the reload
+	// module org
 	orgID, err := c.getOrgIDForPart(part.Part)
 	if err != nil {
 		return "", err
