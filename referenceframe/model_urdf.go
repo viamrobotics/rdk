@@ -10,8 +10,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -255,6 +255,7 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 			}
 
 			// Load mesh file bytes
+			//nolint:gosec
 			meshBytes, err := os.ReadFile(absolutePath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err)

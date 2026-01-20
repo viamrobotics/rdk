@@ -8,10 +8,10 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
