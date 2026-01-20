@@ -103,6 +103,7 @@ func TestBuildMeshMapFromURDF(t *testing.T) {
 
 func TestUR20URDFWithMeshes(t *testing.T) {
 	urdfPath := artifact.MustPath("urdfs/ur20.urdf")
+	_ = artifact.MustPath("urdfs/ur20meshes") // Download the mesh directory
 	testfilesDir := utils.ResolveFile(".artifact/data/urdfs")
 
 	// Load URDF, build mesh map, and parse model once for all tests

@@ -8,6 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -55,7 +56,8 @@ func TestGeometrySerialization(t *testing.T) {
 
 func TestMeshGeometrySerialization(t *testing.T) {
 	// Load test files once
-	stlBytes, err := os.ReadFile("testfiles/ur20meshes/base.stl")
+	baseStlPath := artifact.MustPath("urdfs/ur20meshes/base.stl") // Download the mesh directory
+	stlBytes, err := os.ReadFile(baseStlPath)
 	test.That(t, err, test.ShouldBeNil)
 	plyBytes, err := os.ReadFile("testfiles/test_simple.ply")
 	test.That(t, err, test.ShouldBeNil)
