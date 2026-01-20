@@ -265,6 +265,9 @@ func validateOutputWritable(outputPath string) error {
 //   - "osrf/ros:humble-desktop" -> "humble"
 //   - "osrf/ros:iron-base" -> "iron"
 //   - "myimage:latest" -> "humble" (default)
+//
+// Note: If the docker image doesn't have ROS installed, the command will fail later with errors like:
+// "/opt/ros/humble/setup.bash: No such file or directory" or "ros2: command not found"
 func extractROSDistro(dockerImg string) string {
 	if dockerImg == "" {
 		return defaultROSDistro
@@ -301,11 +304,11 @@ func extractPackageName(packageXMLPath string) (string, error) {
 
 	var pkg packageXML
 	if err := xml.Unmarshal(data, &pkg); err != nil {
-		return "", fmt.Errorf("failed to parse package.xml: %w", err)
+		return "", fmt.Errorf("failed to parse package.xml at %s: %w", packageXMLPath, err)
 	}
 
 	if pkg.Name == "" {
-		return "", fmt.Errorf("package.xml does not contain a <name> element")
+		return "", fmt.Errorf("package.xml at %s does not contain a <name> element", packageXMLPath)
 	}
 
 	return strings.TrimSpace(pkg.Name), nil

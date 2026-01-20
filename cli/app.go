@@ -2923,7 +2923,7 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.StringSliceFlag{
 							Name:  generalFlagArgs,
-							Usage: "additional xacro arguments (e.g., --args name:=ur20)",
+							Usage: "xacro arguments to pass through (e.g., --args name:=ur20). Required if the xacro file uses <xacro:arg> tags",
 						},
 						&cli.StringFlag{
 							Name:  xacroFlagROSDistro,
@@ -2948,7 +2948,7 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&cli.BoolFlag{
 							Name:  xacroFlagInstallPackages,
-							Usage: "run apt-get update/install before xacro processing (slower, requires internet)",
+							Usage: "install ros-<distro>-xacro package in the container (required for default image). Disable only if using a custom image with xacro pre-installed",
 							Value: true,
 						},
 					},
