@@ -72,7 +72,33 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newMeshFromBytes(NewZeroPose(), bytes, path)
+	mesh, err := newMeshFromBytes(NewZeroPose(), bytes, path)
+	if err != nil {
+		return nil, err
+	}
+	mesh.SetOriginalFilePath(path)
+	return mesh, nil
+}
+
+// NewMeshFromSTLFile is a helper function to create a Mesh geometry from an STL file.
+func NewMeshFromSTLFile(path string) (*Mesh, error) {
+	//nolint:gosec
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	//nolint:errcheck
+	defer file.Close()
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	mesh, err := newMeshFromSTLBytes(NewZeroPose(), bytes, path)
+	if err != nil {
+		return nil, err
+	}
+	mesh.SetOriginalFilePath(path)
+	return mesh, nil
 }
 
 func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err error) {
