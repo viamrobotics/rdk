@@ -16,6 +16,87 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func TestParseCapsuleURDF(t *testing.T) {
+	// Test parsing a URDF with cylinder + 2 spheres representing a capsule
+	xmlData, err := os.ReadFile(utils.ResolveFile("referenceframe/testfiles/capsule.urdf"))
+	test.That(t, err, test.ShouldBeNil)
+
+	modelConfig, err := UnmarshalModelXML(xmlData, "capsule_bot", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, modelConfig.Name, test.ShouldEqual, "capsule_bot")
+
+	// Find the capsule_link
+	var capsuleLink *LinkConfig
+	for i := range modelConfig.Links {
+		if modelConfig.Links[i].ID == "capsule_link" {
+			capsuleLink = &modelConfig.Links[i]
+			break
+		}
+	}
+	test.That(t, capsuleLink, test.ShouldNotBeNil)
+	test.That(t, capsuleLink.Geometry, test.ShouldNotBeNil)
+
+	// Verify it was parsed as a capsule
+	test.That(t, capsuleLink.Geometry.Type, test.ShouldEqual, spatialmath.CapsuleType)
+
+	// Verify dimensions:
+	// Original URDF: cylinder r=0.2m (200mm), l=1.0m (1000mm), spheres r=0.2m at z=±0.5m
+	// Expected capsule: r=200mm, l=1000mm + 2*200mm = 1400mm
+	test.That(t, capsuleLink.Geometry.R, test.ShouldAlmostEqual, 200, 0.1)
+	test.That(t, capsuleLink.Geometry.L, test.ShouldAlmostEqual, 1400, 0.1)
+}
+
+func TestCapsuleWorldStateRoundTrip(t *testing.T) {
+	// Test capsule -> WorldState -> URDF -> capsule round-trip
+	capsule, err := spatialmath.NewCapsule(spatialmath.NewZeroPose(), 60, 260, "test_capsule")
+	test.That(t, err, test.ShouldBeNil)
+
+	ws, err := NewWorldState(
+		[]*GeometriesInFrame{NewGeometriesInFrame(World, []spatialmath.Geometry{capsule})},
+		nil,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Convert to URDF
+	urdfConfig, err := NewModelFromWorldState(ws, "capsule_test")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Find the capsule link - should have 3 collision elements (cylinder + 2 spheres)
+	var capsuleLink *linkXML
+	for i := range urdfConfig.Links {
+		if urdfConfig.Links[i].Name == "test_capsule" {
+			capsuleLink = &urdfConfig.Links[i]
+			break
+		}
+	}
+	test.That(t, capsuleLink, test.ShouldNotBeNil)
+	test.That(t, len(capsuleLink.Collision), test.ShouldEqual, 3)
+
+	// Marshal to XML and back
+	xmlBytes, err := xml.MarshalIndent(urdfConfig, "", "  ")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Parse back
+	modelConfig, err := UnmarshalModelXML(xmlBytes, "capsule_test", nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Find the link with the capsule geometry
+	var parsedLink *LinkConfig
+	for i := range modelConfig.Links {
+		if modelConfig.Links[i].ID == "test_capsule" {
+			parsedLink = &modelConfig.Links[i]
+			break
+		}
+	}
+	test.That(t, parsedLink, test.ShouldNotBeNil)
+	test.That(t, parsedLink.Geometry, test.ShouldNotBeNil)
+	test.That(t, parsedLink.Geometry.Type, test.ShouldEqual, spatialmath.CapsuleType)
+
+	// Verify dimensions match original capsule
+	test.That(t, parsedLink.Geometry.R, test.ShouldAlmostEqual, 60, 0.1)
+	test.That(t, parsedLink.Geometry.L, test.ShouldAlmostEqual, 260, 0.1)
+}
+
 func TestParseURDFFile(t *testing.T) {
 	// Test a URDF which has prismatic joints
 	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.xml"), "")

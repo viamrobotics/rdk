@@ -42,10 +42,11 @@ type collision struct {
 	XMLName  xml.Name `xml:"collision"`
 	Origin   *pose    `xml:"origin"`
 	Geometry struct {
-		XMLName xml.Name `xml:"geometry"`
-		Box     *box     `xml:"box,omitempty"`
-		Sphere  *sphere  `xml:"sphere,omitempty"`
-		Mesh    *mesh    `xml:"mesh,omitempty"`
+		XMLName  xml.Name  `xml:"geometry"`
+		Box      *box      `xml:"box,omitempty"`
+		Sphere   *sphere   `xml:"sphere,omitempty"`
+		Cylinder *cylinder `xml:"cylinder,omitempty"`
+		Mesh     *mesh     `xml:"mesh,omitempty"`
 	} `xml:"geometry"`
 }
 
@@ -57,6 +58,12 @@ type box struct {
 type sphere struct {
 	XMLName xml.Name `xml:"sphere"`
 	Radius  float64  `xml:"radius,attr"` // in meters
+}
+
+type cylinder struct {
+	XMLName xml.Name `xml:"cylinder"`
+	Radius  float64  `xml:"radius,attr"` // in meters
+	Length  float64  `xml:"length,attr"` // in meters
 }
 
 type mesh struct {
@@ -83,10 +90,178 @@ func newCollision(g spatialmath.Geometry) (*collision, error) {
 			return nil, errors.New("mesh geometry does not have an original file path set")
 		}
 		urdf.Geometry.Mesh = &mesh{Filename: cfg.MeshFilePath}
+	case spatialmath.CapsuleType:
+		return nil, errors.New("use newCollisions for capsule geometries")
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", cfg.Type))
 	}
 	return urdf, nil
+}
+
+// newCollisions converts a geometry to URDF collision elements.
+// For capsules, this returns 3 collisions (cylinder + 2 spheres).
+// For other types, it returns a single collision.
+func newCollisions(g spatialmath.Geometry) ([]collision, error) {
+	cfg, err := spatialmath.NewGeometryConfig(g)
+	if err != nil {
+		return nil, err
+	}
+
+	if cfg.Type == spatialmath.CapsuleType {
+		colls, err := newCollisionsFromCapsule(g)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]collision, len(colls))
+		for i, c := range colls {
+			result[i] = *c
+		}
+		return result, nil
+	}
+
+	coll, err := newCollision(g)
+	if err != nil {
+		return nil, err
+	}
+	return []collision{*coll}, nil
+}
+
+// tryParseCapsuleFromCollisions checks if a slice of collision elements represents a capsule
+// (one cylinder + two spheres positioned at the cylinder's ends with matching radii).
+// Returns the capsule geometry if the pattern matches, nil otherwise.
+func tryParseCapsuleFromCollisions(collisions []collision) (spatialmath.Geometry, error) {
+	if len(collisions) != 3 {
+		return nil, nil
+	}
+
+	// Find the cylinder and spheres
+	var cyl *collision
+	var spheres []*collision
+	for i := range collisions {
+		c := &collisions[i]
+		switch {
+		case c.Geometry.Cylinder != nil:
+			if cyl != nil {
+				return nil, nil // more than one cylinder
+			}
+			cyl = c
+		case c.Geometry.Sphere != nil:
+			spheres = append(spheres, c)
+		default:
+			return nil, nil // contains non-cylinder/sphere geometry
+		}
+	}
+
+	if cyl == nil || len(spheres) != 2 {
+		return nil, nil
+	}
+
+	// Get dimensions (convert from meters to mm)
+	cylRadius := utils.MetersToMM(cyl.Geometry.Cylinder.Radius)
+	cylLength := utils.MetersToMM(cyl.Geometry.Cylinder.Length)
+	sphere1Radius := utils.MetersToMM(spheres[0].Geometry.Sphere.Radius)
+	sphere2Radius := utils.MetersToMM(spheres[1].Geometry.Sphere.Radius)
+
+	// Check that all radii match
+	const tolerance = 1e-6
+	if math.Abs(cylRadius-sphere1Radius) > tolerance || math.Abs(cylRadius-sphere2Radius) > tolerance {
+		return nil, nil
+	}
+
+	// Get origins
+	cylOrigin := spatialmath.NewZeroPose()
+	if cyl.Origin != nil {
+		cylOrigin = cyl.Origin.Parse()
+	}
+	sphere1Origin := spatialmath.NewZeroPose()
+	if spheres[0].Origin != nil {
+		sphere1Origin = spheres[0].Origin.Parse()
+	}
+	sphere2Origin := spatialmath.NewZeroPose()
+	if spheres[1].Origin != nil {
+		sphere2Origin = spheres[1].Origin.Parse()
+	}
+
+	// Check sphere positions: they should be at ±(cylLength/2) along the cylinder's Z-axis
+	// relative to the cylinder's origin
+	expectedOffset := cylLength / 2
+	cylPt := cylOrigin.Point()
+	s1Pt := sphere1Origin.Point()
+	s2Pt := sphere2Origin.Point()
+
+	// Calculate offsets from cylinder center
+	s1Offset := s1Pt.Sub(cylPt)
+	s2Offset := s2Pt.Sub(cylPt)
+
+	// For a valid capsule, the spheres should be on opposite ends along the Z-axis
+	// One should be at +expectedOffset and one at -expectedOffset (in Z)
+	// and both should have ~0 offset in X and Y
+	if math.Abs(s1Offset.X) > tolerance || math.Abs(s1Offset.Y) > tolerance ||
+		math.Abs(s2Offset.X) > tolerance || math.Abs(s2Offset.Y) > tolerance {
+		return nil, nil
+	}
+
+	// Check Z offsets match expected positions (one positive, one negative)
+	if !((math.Abs(s1Offset.Z-expectedOffset) < tolerance && math.Abs(s2Offset.Z+expectedOffset) < tolerance) ||
+		(math.Abs(s1Offset.Z+expectedOffset) < tolerance && math.Abs(s2Offset.Z-expectedOffset) < tolerance)) {
+		return nil, nil
+	}
+
+	// Pattern matches! Create the capsule
+	// Capsule length = cylinder length + 2*radius (total tip-to-tip)
+	capsuleLength := cylLength + 2*cylRadius
+	return spatialmath.NewCapsule(cylOrigin, cylRadius, capsuleLength, "")
+}
+
+// newCollisionsFromCapsule decomposes a capsule geometry into URDF collision elements
+// (one cylinder + two spheres).
+func newCollisionsFromCapsule(g spatialmath.Geometry) ([]*collision, error) {
+	cfg, err := spatialmath.NewGeometryConfig(g)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Type != spatialmath.CapsuleType {
+		return nil, errors.New("geometry is not a capsule")
+	}
+
+	radius := cfg.R
+	length := cfg.L
+	pose := g.Pose()
+
+	// Cylinder length = capsule length - 2*radius
+	cylLength := length - 2*radius
+
+	// Sphere positions: at ±(cylLength/2) along Z-axis from capsule center
+	sphereOffset := cylLength / 2
+
+	// Create cylinder collision at capsule origin
+	cylCollision := &collision{
+		Origin: newPose(pose),
+	}
+	cylCollision.Geometry.Cylinder = &cylinder{
+		Radius: utils.MMToMeters(radius),
+		Length: utils.MMToMeters(cylLength),
+	}
+
+	// Create sphere at +Z
+	sphere1Pose := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(r3.Vector{Z: sphereOffset}))
+	sphere1Collision := &collision{
+		Origin: newPose(sphere1Pose),
+	}
+	sphere1Collision.Geometry.Sphere = &sphere{
+		Radius: utils.MMToMeters(radius),
+	}
+
+	// Create sphere at -Z
+	sphere2Pose := spatialmath.Compose(pose, spatialmath.NewPoseFromPoint(r3.Vector{Z: -sphereOffset}))
+	sphere2Collision := &collision{
+		Origin: newPose(sphere2Pose),
+	}
+	sphere2Collision.Geometry.Sphere = &sphere{
+		Radius: utils.MMToMeters(radius),
+	}
+
+	return []*collision{cylCollision, sphere1Collision, sphere2Collision}, nil
 }
 
 func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.Geometry, error) {
@@ -106,6 +281,10 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.G
 		)
 	case c.Geometry.Sphere != nil:
 		return spatialmath.NewSphere(origin, utils.MetersToMM(c.Geometry.Sphere.Radius), "")
+	case c.Geometry.Cylinder != nil:
+		// Standalone cylinders are not natively supported in spatialmath.
+		// Use the cylinder+two-spheres pattern to represent a capsule instead.
+		return nil, errors.New("standalone cylinder geometry not supported; use cylinder + two spheres pattern for capsule")
 	case c.Geometry.Mesh != nil:
 		meshPath := normalizeURDFMeshPath(c.Geometry.Mesh.Filename)
 
