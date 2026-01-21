@@ -41,6 +41,9 @@ type Mesh struct {
 
 	// originalFilePath stores the original URDF mesh path for round-tripping
 	originalFilePath string
+
+	// bvh is the bounding volume hierarchy for accelerated collision detection
+	bvh *bvhNode
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
@@ -49,6 +52,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
+		bvh:       buildBVH(triangles),
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -143,6 +147,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
+		bvh:       buildBVH(triangles),
 	}, nil
 }
 
@@ -196,6 +201,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
+		bvh:       buildBVH(triangles),
 	}, nil
 }
 
@@ -273,6 +279,7 @@ func (m *Mesh) Triangles() []*Triangle {
 // Transform transforms the mesh. As triangles are in the mesh's frame, they are unchanged.
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
+	// BVH is also preserved since it's in local frame
 	return &Mesh{
 		pose:             Compose(pose, m.pose),
 		triangles:        m.triangles,
@@ -280,6 +287,7 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
+		bvh:              m.bvh,
 	}
 }
 
@@ -429,9 +437,20 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 	return false, minDist
 }
 
-// collidesWithMesh checks if this mesh collides with another mesh
-// TODO: This function is *begging* for GPU acceleration.
+// collidesWithMesh checks if this mesh collides with another mesh.
+// Uses BVH acceleration when available for O(log n * log m) performance instead of O(n*m).
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
+	// Use BVH-accelerated collision if both meshes have BVH
+	if m.bvh != nil && other.bvh != nil {
+		return bvhCollidesWithBVH(m.bvh, m.pose, other.bvh, other.pose, collisionBufferMM)
+	}
+
+	// Fallback to brute-force O(n*m) check
+	return m.collidesWithMeshBruteForce(other, collisionBufferMM)
+}
+
+// collidesWithMeshBruteForce is the original O(n*m) collision check.
+func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64) (bool, float64) {
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
@@ -484,7 +503,19 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
+// Uses BVH acceleration when available.
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
+	// Use BVH-accelerated distance if both meshes have BVH
+	if m.bvh != nil && other.bvh != nil {
+		return bvhDistanceFromBVH(m.bvh, m.pose, other.bvh, other.pose)
+	}
+
+	// Fallback to brute-force
+	return m.distanceFromMeshBruteForce(other)
+}
+
+// distanceFromMeshBruteForce is the original O(n*m) distance calculation.
+func (m *Mesh) distanceFromMeshBruteForce(other *Mesh) float64 {
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
