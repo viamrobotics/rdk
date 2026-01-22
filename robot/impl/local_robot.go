@@ -1439,6 +1439,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	//
+	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
+	r.applyLocalModuleVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1469,11 +1476,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		)
 		return
 	}
-	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
-	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
-	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
-	// can unpack it into a fresh directory rather than reusing the previous one.
-	r.applyLocalModuleVersions(newConfig)
+
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
