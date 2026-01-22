@@ -8,7 +8,6 @@ import (
 type StreamConfig struct {
 	Name                string
 	VideoEncoderFactory codec.VideoEncoderFactory
-	AudioEncoderFactory codec.AudioEncoderFactory
 
 	// TargetFrameRate will hint to the stream to try to maintain this frame rate.
 	TargetFrameRate int

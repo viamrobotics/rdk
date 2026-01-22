@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/powersensor"
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -28,7 +29,7 @@ var (
 	errReadingsFailed      = errors.New("can't get readings")
 )
 
-func newServer() (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.PowerSensor, error) {
+func newServer(logger logging.Logger) (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.PowerSensor, error) {
 	workingPowerSensor := &inject.PowerSensor{}
 	failingPowerSensor := &inject.PowerSensor{}
 	powerSensors := map[resource.Name]powersensor.PowerSensor{
@@ -41,14 +42,14 @@ func newServer() (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.Powe
 		return nil, nil, nil, err
 	}
 
-	server := powersensor.NewRPCServiceServer(powerSensorSvc).(pb.PowerSensorServiceServer)
+	server := powersensor.NewRPCServiceServer(powerSensorSvc, logger).(pb.PowerSensorServiceServer)
 
 	return server, workingPowerSensor, failingPowerSensor, nil
 }
 
 //nolint:dupl
 func TestServerGetVoltage(t *testing.T) {
-	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	volts := 4.8
 	isAC := false
@@ -82,7 +83,7 @@ func TestServerGetVoltage(t *testing.T) {
 
 //nolint:dupl
 func TestServerGetCurrent(t *testing.T) {
-	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	amps := 4.8
 	isAC := false
@@ -115,7 +116,7 @@ func TestServerGetCurrent(t *testing.T) {
 }
 
 func TestServerGetPower(t *testing.T) {
-	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	watts := 4.8
 
@@ -146,7 +147,7 @@ func TestServerGetPower(t *testing.T) {
 }
 
 func TestServerGetReadings(t *testing.T) {
-	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer()
+	powerSensorServer, testPowerSensor, failingPowerSensor, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	rs := map[string]interface{}{"a": 1.1, "b": 2.2}

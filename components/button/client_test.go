@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[button.Button](button.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, buttonSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, buttonSvc, logger), test.ShouldBeNil)
 
 	injectButton.DoFunc = testutils.EchoFunc
 

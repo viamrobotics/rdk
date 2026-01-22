@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[toggleswitch.Switch](toggleswitch.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

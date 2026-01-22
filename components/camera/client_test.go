@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -180,7 +179,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	injectCamera.DoFunc = testutils.EchoFunc
 
@@ -501,7 +500,7 @@ func TestClientProperties(t *testing.T) {
 	rSubType, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc), test.ShouldBeNil)
+	test.That(t, rSubType.RegisterRPCService(context.Background(), server, svc, logger), test.ShouldBeNil)
 
 	go test.That(t, server.Serve(listener), test.ShouldBeNil)
 	defer func() { test.That(t, server.Stop(), test.ShouldBeNil) }()
@@ -621,7 +620,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	// Start serving requests.
 	go rpcServer.Serve(listener1)
@@ -670,7 +669,7 @@ func TestRTPPassthroughWithoutWebRTC(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[camera.Camera](camera.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, cameraSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -717,7 +716,6 @@ func setupRealRobot(
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
 	// audio stream data.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -742,7 +740,6 @@ func setupRealRobotWithOptions(
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
 	// audio stream data.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err = webSvc.Start(ctx, options)

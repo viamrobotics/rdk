@@ -70,7 +70,7 @@ func init() {
 	// Unfortunately Otel SDK doesn't have a way to reconfigure the resource
 	// information so we need to set it here before any of the gRPC servers
 	// access the global tracer provider.
-	//nolint: errcheck, gosec
+	//nolint: errcheck
 	trace.SetProvider(
 		context.Background(),
 		sdktrace.WithResource(
@@ -1439,6 +1439,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	//
+	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
+	r.applyLocalModuleVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1461,21 +1468,24 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// The returned error is rich, detailing each individual packages error. The underlying
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
 		// log that reconfiguration is exited. To minimize the distraction of reading a list of
-		// verbose errors that was arleady logged.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
+		// verbose errors that was already logged.
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because cloud modules or packages download and/or unzip failed, "+
+				"currently running modules will not be shutdown",
+		)
 		return
 	}
-	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
-	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
-	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
-	// can unpack it into a fresh directory rather than reusing the previous one.
-	r.applyLocalModuleVersions(newConfig)
+
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
 		// individual packages error. The underlying `Sync` call is responsible for logging those
 		// errors in a readable way.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because local modules or packages sync failed, currently running modules will not be shutdown",
+		)
 		return
 	}
 
@@ -1483,7 +1493,12 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
+			r.logger.CErrorw(
+				ctx,
+				"reconfiguration aborted because of error executing first run, currently running modules will not be shutdown",
+				"module", mod.Name,
+				"error", err,
+			)
 			return
 		}
 	}
@@ -1664,7 +1679,7 @@ func (r *localRobot) reconfigureTracing(ctx context.Context, newConfig *config.C
 	if !newTracingCfg.IsEnabled() {
 		prevExporters := trace.ClearExporters()
 		for _, ex := range prevExporters {
-			//nolint: errcheck, gosec
+			//nolint: errcheck
 			ex.Shutdown(ctx)
 		}
 		r.traceClients.Store(nil)

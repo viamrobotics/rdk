@@ -14,7 +14,8 @@ jobs:
         resource:
           [
             { subtype: "arm" },
-            { subtype: "audio_input" },
+            { subtype: "audio_in" },
+            { subtype: "audio_out" },
             { subtype: "base" },
             { subtype: "board" },
             { subtype: "camera" },

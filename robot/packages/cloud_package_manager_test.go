@@ -656,7 +656,7 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 
 	t.Run("complete", func(t *testing.T) {
 		dest := filepath.Join(packagesDir, "download1")
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest, "id", "secret")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download1", dest)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -667,11 +667,11 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		dest := filepath.Join(packagesDir, "download2")
 
 		// first attempt fails midway because of maxBytesForTesting
-		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "short write")
 
 		// second attempt finishes
-		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest, "id", "secret")
+		_, _, err = pm.downloadFileWithChecksum(t.Context(), server.URL+"/download2", dest)
 		test.That(t, err, test.ShouldBeNil)
 		// check the length
 		test.That(t, handler.lengths[len(handler.lengths)-1], test.ShouldEqual,

@@ -76,6 +76,8 @@ const (
 	generalFlagEnd               = "end"
 	generalFlagNoProgress        = "no-progress"
 	generalFlagAPI               = "api"
+	generalFlagArgs              = "args"
+	generalFlagDryRun            = "dry-run"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -89,7 +91,6 @@ const (
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
-	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -111,7 +112,6 @@ const (
 	mlTrainingFlagVisibility       = "visibility"
 	mlTrainingFlagDescription      = "description"
 	mlTrainingFlagURL              = "url"
-	mlTrainingFlagArgs             = "args"
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
 
@@ -163,6 +163,14 @@ const (
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
+
+	xacroFlagInputFile         = "input-file"
+	xacroFlagOutputFile        = "output-file"
+	xacroFlagDockerImg         = "docker-image"
+	xacroFlagPackageXML        = "package-xml"
+	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
+	xacroFlagInstallPackages   = "install-packages"
+	xacroFlagROSDistro         = "ros-distro"
 )
 
 var commonPartFlags = []cli.Flag{
@@ -2111,7 +2119,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -2189,7 +2197,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -2964,6 +2972,62 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "xacro",
+			Usage:           "tools for working with xacro files",
+			UsageText:       createUsageText("xacro", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "convert",
+					Usage:     "convert a xacro file to URDF",
+					UsageText: createUsageText("xacro convert", []string{xacroFlagInputFile, xacroFlagOutputFile}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     xacroFlagInputFile,
+							Required: true,
+							Usage:    "file to be expanded into urdf format",
+						},
+						&cli.StringFlag{
+							Name:     xacroFlagOutputFile,
+							Required: true,
+							Usage:    "name of urdf file",
+						},
+						&cli.StringSliceFlag{
+							Name:  generalFlagArgs,
+							Usage: "xacro arguments to pass through (e.g., --args name:=ur20). Required if the xacro file uses <xacro:arg> tags",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagROSDistro,
+							Usage: "ROS distribution to use (auto-detected from docker image if not specified)",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagDockerImg,
+							Usage: "docker image to use for xacro processing",
+							Value: "osrf/ros:humble-desktop",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagPackageXML,
+							Usage: "path to package.xml if not in current directory",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagDryRun,
+							Usage: "show the docker command without executing it",
+						},
+						&cli.BoolFlag{
+							Name:  xacroFlagCollapseFixedJnts,
+							Usage: "collapse fixed joint chains to ensure only one end-effector exists",
+						},
+						&cli.BoolFlag{
+							Name:  xacroFlagInstallPackages,
+							Usage: "install ros-<distro>-xacro (required for the default image). Disable only if your custom image already includes xacro",
+							Value: true,
+						},
+					},
+					Action: createCommandWithT[xacroConvertArgs](XacroConvertAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
@@ -3069,7 +3133,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "register module with Viam to associate with your organization",
 						},
 						&cli.BoolFlag{
-							Name:   moduleFlagDryRun,
+							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
 							Hidden: true,
 						},

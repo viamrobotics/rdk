@@ -20,9 +20,8 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an audioin gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[AudioIn]) interface{} {
-	logger := logging.NewLogger("AudioInServer")
-	return &serviceServer{coll: coll, logger: logger}
+func NewRPCServiceServer(coll resource.APIResourceGetter[AudioIn], logger logging.Logger) interface{} {
+	return &serviceServer{coll: coll, logger: logger.Sublogger("audioin_server")}
 }
 
 func (s *serviceServer) GetAudio(req *pb.GetAudioRequest, stream pb.AudioInService_GetAudioServer) error {

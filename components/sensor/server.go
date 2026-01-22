@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -24,7 +25,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs an sensor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Sensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Sensor], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

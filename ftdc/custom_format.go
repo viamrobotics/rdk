@@ -63,7 +63,6 @@ func writeSchema(schema *schema, output io.Writer) error {
 func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
-		//nolint:stylecheck
 		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
 	}
 
@@ -234,7 +233,6 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			}
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(value.Kind()):
-			//nolint:stylecheck
 			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind())
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
@@ -298,7 +296,6 @@ func flattenStruct(value reflect.Value) ([]string, []float32, error) {
 
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(rField.Kind()):
-			//nolint:stylecheck
 			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
@@ -599,7 +596,6 @@ func readDiffBits(reader *bufio.Reader, schema *schema) ([]int, error) {
 // is the post-hydration list and consequently matches the `schema.fieldOrder` size.
 func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValues []float32) ([]float32, error) {
 	if prevValues != nil && len(prevValues) != len(schema.fieldOrder) {
-		//nolint
 		return nil, fmt.Errorf("Parser error. Mismatched `prevValues` and schema size. PrevValues: %d Schema: %d",
 			len(prevValues), len(schema.fieldOrder))
 	}
