@@ -456,30 +456,3 @@ func BenchmarkPlanningOnMeshes(b *testing.B) {
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
-
-func TestPlanningOnMeshes(t *testing.T) {
-	ur20Model, err := referenceframe.KinematicModelFromFile(artifact.MustPath("urdfs/ur20.urdf"), "ur20URDF")
-	test.That(t, err, test.ShouldBeNil)
-	fs := referenceframe.NewEmptyFrameSystem("test")
-	err = fs.AddFrame(ur20Model, fs.World())
-	test.That(t, err, test.ShouldBeNil)
-
-	goalState := NewPlanState(nil,
-		map[string][]referenceframe.Input{
-			ur20Model.Name(): make([]float64, len(ur20Model.DoF())),
-		},
-	)
-	startState := goalState
-
-	req := &PlanRequest{
-		FrameSystem: fs,
-		Goals:       []*PlanState{goalState},
-		StartState:  startState,
-	}
-
-	mpLogger := newChattyMotionPlanTestLogger(t)
-	now := time.Now()
-	_, _, err = PlanMotion(context.Background(), mpLogger, req)
-	fmt.Println("took this long: ", time.Since(now))
-	test.That(t, err, test.ShouldBeNil)
-}

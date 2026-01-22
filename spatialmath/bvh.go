@@ -13,10 +13,10 @@ import (
 // - A list of triangles (leaf node)
 // wikipedia.org/wiki/Bounding_volume_hierarchy
 type bvhNode struct {
-	min, max   r3.Vector   // AABB bounds
-	left       *bvhNode    // left child (nil for leaf)
-	right      *bvhNode    // right child (nil for leaf)
-	triangles  []*Triangle // triangles (only for leaf nodes)
+	min, max  r3.Vector   // AABB bounds
+	left      *bvhNode    // left child (nil for leaf)
+	right     *bvhNode    // right child (nil for leaf)
+	triangles []*Triangle // triangles (only for leaf nodes)
 }
 
 // maxTrianglesPerLeaf is the threshold for splitting BVH nodes.
@@ -53,8 +53,8 @@ func buildBVHNode(triangles []*Triangle) *bvhNode {
 
 	// Sort triangles by centroid along the chosen axis
 	sort.Slice(triangles, func(i, j int) bool {
-		ci := triangleCentroid(triangles[i])
-		cj := triangleCentroid(triangles[j])
+		ci := triangles[i].Centroid()
+		cj := triangles[j].Centroid()
 		switch axis {
 		case 0:
 			return ci.X < cj.X
@@ -89,16 +89,6 @@ func computeTrianglesAABB(triangles []*Triangle) (min, max r3.Vector) {
 		}
 	}
 	return min, max
-}
-
-// triangleCentroid returns the centroid of a triangle.
-func triangleCentroid(t *Triangle) r3.Vector {
-	pts := t.Points()
-	return r3.Vector{
-		X: (pts[0].X + pts[1].X + pts[2].X) / 3,
-		Y: (pts[0].Y + pts[1].Y + pts[2].Y) / 3,
-		Z: (pts[0].Z + pts[1].Z + pts[2].Z) / 3,
-	}
 }
 
 // aabbOverlap checks if two AABBs overlap.
