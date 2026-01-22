@@ -11,6 +11,7 @@ import (
 // Each node has an axis-aligned bounding box (AABB) and either:
 // - Two children (internal node), or
 // - A list of triangles (leaf node)
+// wikipedia.org/wiki/Bounding_volume_hierarchy
 type bvhNode struct {
 	min, max   r3.Vector   // AABB bounds
 	left       *bvhNode    // left child (nil for leaf)
