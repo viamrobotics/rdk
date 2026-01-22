@@ -4,8 +4,13 @@ package modulegen
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
+
+	// registers all components
+	_ "go.viam.com/rdk/components/register"
+	"go.viam.com/rdk/resource"
 )
 
 // ModuleInputs contains the necessary information to fill out template files.
@@ -41,35 +46,19 @@ type ModuleInputs struct {
 	SDKVersion            string `json:"-"`
 }
 
-// Resources is a list of all the available resources in Viam.
-var Resources = []string{
-	"arm component",
-	"audio_in component",
-	"audio_out component",
-	"base component",
-	"board component",
-	"button component",
-	"camera component",
-	"encoder component",
-	"gantry component",
-	"generic_component component",
-	"gripper component",
-	"input component",
-	"motor component",
-	"movement_sensor component",
-	"pose_tracker component",
-	"power_sensor component",
-	"sensor component",
-	"servo component",
-	"switch component",
-	"generic_service service",
-	"mlmodel service",
-	"motion service",
-	"navigation service",
-	"slam service",
-	"vision service",
-	"world_state_store service",
-}
+// Resources lists all components and services, pulled from the registry
+var Resources = func() []string {
+	var resources []string
+	for api := range resource.RegisteredAPIs() {
+		if api.IsComponent() {
+			resources = append(resources, api.SubtypeName+" component")
+		} else {
+			resources = append(resources, api.SubtypeName+" service")
+		}
+	}
+	sort.Strings(resources)
+	return resources
+}()
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.
 type GoModuleTmpl struct {
