@@ -442,7 +442,7 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
 	// Use BVH-accelerated collision if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
-		return bvhCollidesWithBVH(m.bvh, m.pose, other.bvh, other.pose, collisionBufferMM)
+		return bvhCollidesWithBVH(m.bvh, other.bvh, m.pose, other.pose, collisionBufferMM)
 	}
 
 	// Fallback to brute-force O(n*m) check
@@ -507,7 +507,7 @@ func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 	// Use BVH-accelerated distance if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
-		return bvhDistanceFromBVH(m.bvh, m.pose, other.bvh, other.pose)
+		return bvhDistanceFromBVH(m.bvh, other.bvh, m.pose, other.pose)
 	}
 
 	// Fallback to brute-force

@@ -33,7 +33,7 @@ func buildBVH(triangles []*Triangle) *bvhNode {
 func buildBVHNode(triangles []*Triangle) *bvhNode {
 	node := &bvhNode{}
 
-	// Compute AABB for all triangles
+	// Compute AABB (axis aligned bounding box) for all triangles
 	node.min, node.max = computeTrianglesAABB(triangles)
 
 	// If few enough triangles, make this a leaf node
@@ -74,21 +74,21 @@ func buildBVHNode(triangles []*Triangle) *bvhNode {
 }
 
 // computeTrianglesAABB computes the AABB encompassing all given triangles.
-func computeTrianglesAABB(triangles []*Triangle) (min, max r3.Vector) {
-	min = r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
-	max = r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+func computeTrianglesAABB(triangles []*Triangle) (r3.Vector, r3.Vector) {
+	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, tri := range triangles {
 		for _, pt := range tri.Points() {
-			min.X = math.Min(min.X, pt.X)
-			min.Y = math.Min(min.Y, pt.Y)
-			min.Z = math.Min(min.Z, pt.Z)
-			max.X = math.Max(max.X, pt.X)
-			max.Y = math.Max(max.Y, pt.Y)
-			max.Z = math.Max(max.Z, pt.Z)
+			minPt.X = math.Min(minPt.X, pt.X)
+			minPt.Y = math.Min(minPt.Y, pt.Y)
+			minPt.Z = math.Min(minPt.Z, pt.Z)
+			maxPt.X = math.Max(maxPt.X, pt.X)
+			maxPt.Y = math.Max(maxPt.Y, pt.Y)
+			maxPt.Z = math.Max(maxPt.Z, pt.Z)
 		}
 	}
-	return min, max
+	return minPt, maxPt
 }
 
 // aabbOverlap checks if two AABBs overlap.
@@ -107,21 +107,21 @@ func aabbDistance(min1, max1, min2, max2 r3.Vector) float64 {
 }
 
 // transformAABB transforms an AABB by a pose, returning a new (potentially larger) AABB.
-func transformAABB(min, max r3.Vector, pose Pose) (newMin, newMax r3.Vector) {
+func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 	// Get the 8 corners of the AABB
 	corners := []r3.Vector{
-		{X: min.X, Y: min.Y, Z: min.Z},
-		{X: min.X, Y: min.Y, Z: max.Z},
-		{X: min.X, Y: max.Y, Z: min.Z},
-		{X: min.X, Y: max.Y, Z: max.Z},
-		{X: max.X, Y: min.Y, Z: min.Z},
-		{X: max.X, Y: min.Y, Z: max.Z},
-		{X: max.X, Y: max.Y, Z: min.Z},
-		{X: max.X, Y: max.Y, Z: max.Z},
+		{X: minPt.X, Y: minPt.Y, Z: minPt.Z},
+		{X: minPt.X, Y: minPt.Y, Z: maxPt.Z},
+		{X: minPt.X, Y: maxPt.Y, Z: minPt.Z},
+		{X: minPt.X, Y: maxPt.Y, Z: maxPt.Z},
+		{X: maxPt.X, Y: minPt.Y, Z: minPt.Z},
+		{X: maxPt.X, Y: minPt.Y, Z: maxPt.Z},
+		{X: maxPt.X, Y: maxPt.Y, Z: minPt.Z},
+		{X: maxPt.X, Y: maxPt.Y, Z: maxPt.Z},
 	}
 
-	newMin = r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
-	newMax = r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+	newMin := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	newMax := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, corner := range corners {
 		worldPt := Compose(pose, NewPoseFromPoint(corner)).Point()
@@ -136,8 +136,7 @@ func transformAABB(min, max r3.Vector, pose Pose) (newMin, newMax r3.Vector) {
 }
 
 // bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
-// Returns (collides, minDistance).
-func bvhCollidesWithBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose, collisionBufferMM float64) (bool, float64) {
+func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	if node1 == nil || node2 == nil {
 		return false, math.Inf(1)
 	}
@@ -161,18 +160,18 @@ func bvhCollidesWithBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose, 
 
 	// Both are leaves - do triangle-triangle checks
 	if node1.triangles != nil && node2.triangles != nil {
-		return leafCollidesWithLeaf(node1.triangles, pose1, node2.triangles, pose2, collisionBufferMM)
+		return leafCollidesWithLeaf(node1.triangles, node2.triangles, pose1, pose2, collisionBufferMM)
 	}
 
 	// Recurse into children
 	// Strategy: descend into the larger node first for better culling
 	if node1.triangles != nil {
 		// node1 is leaf, recurse into node2's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1, pose1, node2.left, pose2, collisionBufferMM)
+		leftCollide, leftDist := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
 		if leftCollide {
 			return true, -1
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1, pose1, node2.right, pose2, collisionBufferMM)
+		rightCollide, rightDist := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
 		if rightCollide {
 			return true, -1
 		}
@@ -181,11 +180,11 @@ func bvhCollidesWithBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose, 
 
 	if node2.triangles != nil {
 		// node2 is leaf, recurse into node1's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, pose1, node2, pose2, collisionBufferMM)
+		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
 		if leftCollide {
 			return true, -1
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1.right, pose1, node2, pose2, collisionBufferMM)
+		rightCollide, rightDist := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
 		if rightCollide {
 			return true, -1
 		}
@@ -202,7 +201,7 @@ func bvhCollidesWithBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose, 
 	}
 
 	for _, pair := range pairs {
-		collide, dist := bvhCollidesWithBVH(pair[0], pose1, pair[1], pose2, collisionBufferMM)
+		collide, dist := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
 		if collide {
 			return true, -1
 		}
@@ -215,7 +214,7 @@ func bvhCollidesWithBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose, 
 }
 
 // leafCollidesWithLeaf performs triangle-triangle collision between two leaf nodes.
-func leafCollidesWithLeaf(tris1 []*Triangle, pose1 Pose, tris2 []*Triangle, pose2 Pose, collisionBufferMM float64) (bool, float64) {
+func leafCollidesWithLeaf(tris1, tris2 []*Triangle, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	minDist := math.Inf(1)
 
 	for _, t1 := range tris1 {
@@ -260,7 +259,7 @@ func leafCollidesWithLeaf(tris1 []*Triangle, pose1 Pose, tris2 []*Triangle, pose
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.
-func bvhDistanceFromBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose) float64 {
+func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	if node1 == nil || node2 == nil {
 		return math.Inf(1)
 	}
@@ -278,19 +277,19 @@ func bvhDistanceFromBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose) 
 
 	// Both are leaves - compute exact distance
 	if node1.triangles != nil && node2.triangles != nil {
-		return leafDistanceFromLeaf(node1.triangles, pose1, node2.triangles, pose2)
+		return leafDistanceFromLeaf(node1.triangles, node2.triangles, pose1, pose2)
 	}
 
 	// Recurse into children
 	if node1.triangles != nil {
-		leftDist := bvhDistanceFromBVH(node1, pose1, node2.left, pose2)
-		rightDist := bvhDistanceFromBVH(node1, pose1, node2.right, pose2)
+		leftDist := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
+		rightDist := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
 		return math.Min(leftDist, rightDist)
 	}
 
 	if node2.triangles != nil {
-		leftDist := bvhDistanceFromBVH(node1.left, pose1, node2, pose2)
-		rightDist := bvhDistanceFromBVH(node1.right, pose1, node2, pose2)
+		leftDist := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
+		rightDist := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
 		return math.Min(leftDist, rightDist)
 	}
 
@@ -304,7 +303,7 @@ func bvhDistanceFromBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose) 
 	}
 
 	for _, pair := range pairs {
-		dist := bvhDistanceFromBVH(pair[0], pose1, pair[1], pose2)
+		dist := bvhDistanceFromBVH(pair[0], pair[1], pose1, pose2)
 		if dist < minDist {
 			minDist = dist
 		}
@@ -314,7 +313,7 @@ func bvhDistanceFromBVH(node1 *bvhNode, pose1 Pose, node2 *bvhNode, pose2 Pose) 
 }
 
 // leafDistanceFromLeaf computes the minimum distance between two sets of triangles.
-func leafDistanceFromLeaf(tris1 []*Triangle, pose1 Pose, tris2 []*Triangle, pose2 Pose) float64 {
+func leafDistanceFromLeaf(tris1, tris2 []*Triangle, pose1, pose2 Pose) float64 {
 	minDist := math.Inf(1)
 
 	for _, t1 := range tris1 {
