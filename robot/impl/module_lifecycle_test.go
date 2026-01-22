@@ -209,7 +209,7 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
@@ -237,7 +237,7 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -281,7 +281,7 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 func TestRestartModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	r, _ := setupModuleTest(t, ctx, false, logger)
@@ -324,7 +324,7 @@ func TestRestartModuleDependentRecovery(t *testing.T) {
 func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -388,7 +388,7 @@ func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
@@ -405,7 +405,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-	// Wait for crash to be and check if module is added to failedModules.
+	// Wait for crash and check if module is added to failedModules.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module has unexpectedly exited.").Len(),
@@ -475,7 +475,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -576,14 +576,11 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod3" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user adds module with valid exec path but exits immediately by injecting a panic
 	panicEnv := map[string]string{
@@ -599,28 +596,22 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod4" gets added to failedModules.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with invalid exec path and it fails to validate
 	cfg.Modules[0].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with valid exec path but exits immediately by injecting a panic
 	cfg.Modules[1].ExePath = execFailPath
