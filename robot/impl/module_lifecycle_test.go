@@ -619,17 +619,11 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod2" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
-	})
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's panic by removing VIAM_TESTMODULE_PANIC.
 	cfg.Modules[1].Environment = nil
@@ -637,26 +631,20 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod2" is removed from failedModules.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user renames module and it is added to failedModules
 	cfg.Modules[0].Name = "mod5"
 	r.Reconfigure(ctx, &cfg)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's broken exec by providing valid exec paths.
 	cfg.Modules[0].ExePath = execFailPath
@@ -664,11 +652,8 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod3" is removed from failedModules and empty failedModules log is called.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 }
