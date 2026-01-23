@@ -1851,12 +1851,20 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 
+	cfg := r.Config()
+
+	// resource configs were not modified, so add them all to the unmodified list. The list is used to
+	// determine which resources need to re-resolve their dependencies.
+	unmod := make([]resource.Config, len(cfg.Components), len(cfg.Components)+len(cfg.Services))
+	copy(unmod, cfg.Components)
+	unmod = append(unmod, cfg.Services...)
 	diff := config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{},
-		Removed:  &config.Config{},
+		Left:                cfg,
+		Right:               cfg,
+		Added:               &config.Config{},
+		Modified:            &config.ModifiedConfigDiff{},
+		Removed:             &config.Config{},
+		UnmodifiedResources: unmod,
 	}
 
 	r.reconfigurationLock.Lock()

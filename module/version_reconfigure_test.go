@@ -276,7 +276,7 @@ func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Swap in `run_version1.sh` and remove `motor1`. Version 1 does not requirs `generic1` to have a `motor` in its
+	// Swap in `run_version1.sh` and remove `motor1`. Version 1 does not require `generic1` to have a `motor` in its
 	// attributes, so `generic1` should build and continue working.
 	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version1.sh")
 	for i, c := range cfg.Components {

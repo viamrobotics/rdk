@@ -660,16 +660,10 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 		test.ShouldBeGreaterThanOrEqualTo, 1)
 }
 
-// test that dependencies are updated when modules change
-// * restart module (move module over)
-//     * 1 dep -> 0 dep
-//     * 1 dep -> different 1 dep
-//     * 0 dep -> 1 dep
-//     * 0 dep -> 1 dep, modify unrelated attr
-
 func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
 	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
-	// test that implicit dependencies are added correctly.
+	// test that implicit dependencies are added correctly if resource config
+	// is unchanged.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -797,6 +791,95 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing
 	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
 	// once for resolving implicit dependencies and once right before building.
 	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestImplicitDependencyUpdatesAfterModuleRestart(t *testing.T) {
+	// on module 1 'mod' restart with a different underlying binary,
+	// test that implicit dependencies are added correctly if the resource config
+	// is unchanged.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	// testmodule2's sensor does not have implicit deps while testmodule's does
+	testPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// create a symlink - the test will later replace the module using this symlink
+	newLoc := t.TempDir() + "testmod"
+
+	err := os.Symlink(testPath2, newLoc)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: newLoc,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	// Assert that "mod-s" and "s" are both healthy.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"hello": "world"})
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Replace symlink point to testmodule instead. Restart "mod" and force a robot reconfiguration
+	// (since module restarts do not automatically build resources).
+	err = os.Remove(newLoc)
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Symlink(testPath, newLoc)
+	test.That(t, err, test.ShouldBeNil)
+	err = r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: "mod"})
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that retrying resource construction creates all of the resources.
+	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err = sensor.FromProvider(r, "mod-s")
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = modS.Readings(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
