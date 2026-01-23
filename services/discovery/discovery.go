@@ -15,8 +15,6 @@ import (
 )
 
 func init() {
-	inModuleGen := false
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterDiscoveryServiceHandlerFromEndpoint,
@@ -35,7 +33,7 @@ const (
 )
 
 // API is a variable that identifies the discovery resource API.
-var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {

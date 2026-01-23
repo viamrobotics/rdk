@@ -37,8 +37,6 @@ import (
 var ErrMIMETypeBytesMismatch = errors.New("mime_type does not match the image bytes")
 
 func init() {
-	inModuleGen := true
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Camera]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterCameraServiceHandlerFromEndpoint,

@@ -24,8 +24,6 @@ import (
 
 // TBD 05/04/2022: Needs more work once GRPC is included (future PR).
 func init() {
-	inModuleGen := true
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterSLAMServiceHandlerFromEndpoint,

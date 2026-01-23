@@ -47,12 +47,13 @@ type ModuleInputs struct {
 	SDKVersion            string `json:"-"`
 }
 
-// Resources lists all components and services from the registry that should be included in module generation
-// Only APIs marked as IncludeInModuleGenerator:true are included
+// Resources lists all components and services from the registry that should be included in module generation.
+// Only public RDK resources (APINamespaceRDK) are included; internal services use APINamespaceRDKInternal.
 var Resources = func() []string {
 	var resources []string
 	for api := range resource.RegisteredAPIs() {
-		if !api.IncludeInModuleGenerator() {
+		// Only include public RDK resources, exclude internal ones
+		if api.Type.Namespace != resource.APINamespaceRDK {
 			continue
 		}
 		if api.IsComponent() {

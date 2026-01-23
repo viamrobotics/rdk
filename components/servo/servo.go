@@ -15,8 +15,6 @@ import (
 )
 
 func init() {
-	inModuleGen := true
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Servo]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterServoServiceHandlerFromEndpoint,

@@ -20,8 +20,6 @@ import (
 )
 
 func init() {
-	inModuleGen := true
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[MovementSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterMovementSensorServiceHandlerFromEndpoint,

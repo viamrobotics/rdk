@@ -17,7 +17,7 @@ import (
 const SubtypeName = "base_remote_control"
 
 // API is a variable that identifies the remote control resource API.
-var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named base remote control service's typed resource name.
 func Named(name string) resource.Name {
@@ -39,8 +39,6 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 }
 
 func init() {
-	inModuleGen := false
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{})
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,

@@ -20,8 +20,6 @@ import (
 )
 
 func init() {
-	inModuleGen := false
-	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPIWithAssociation(
 		API,
 		resource.APIRegistration[Service]{
@@ -64,7 +62,7 @@ type Service interface {
 const SubtypeName = "data_manager"
 
 // API is a variable that identifies the data manager service resource API.
-var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
+var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
