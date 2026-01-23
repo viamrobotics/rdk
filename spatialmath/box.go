@@ -276,7 +276,6 @@ func (b *box) toMesh() *Mesh {
 			triangles = append(triangles, NewTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
 		}
 		m.triangles = triangles
-		m.bvh = buildBVHFromTrianglesWithPose(triangles, m.pose)
 		b.mesh = m
 	}
 	return b.mesh
