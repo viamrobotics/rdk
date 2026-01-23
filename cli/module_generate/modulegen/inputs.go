@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+
 	// registers all components and services
 	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/resource"
