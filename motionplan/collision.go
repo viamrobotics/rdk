@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -323,6 +324,11 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 	geomMap := map[string]spatial.Geometry{}
 
 	for _, geom := range geoms {
+		converted, err := convertMeshCollisionGeometry(geom)
+		if err != nil {
+			return nil, err
+		}
+		geom = converted
 		label := geom.Label()
 		if label == "" {
 			label = unnamedCollisionGeometryPrefix + strconv.Itoa(unnamedCnt)
@@ -334,6 +340,18 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 		geomMap[label] = geom
 	}
 	return geomMap, nil
+}
+
+func convertMeshCollisionGeometry(geom spatial.Geometry) (spatial.Geometry, error) {
+	mesh, ok := geom.(*spatial.Mesh)
+	if !ok {
+		return geom, nil
+	}
+	octree, err := pointcloud.NewFromMesh(mesh)
+	if err != nil {
+		return nil, err
+	}
+	return octree, nil
 }
 
 func firstMovingParentOrself(fs *referenceframe.FrameSystem, f referenceframe.Frame) referenceframe.Frame {
