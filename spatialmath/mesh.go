@@ -481,7 +481,6 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	}
 
 	// Fallback to brute-force O(n*m) check
-	fmt.Println("brute force")
 	return m.collidesWithMeshBruteForce(other, collisionBufferMM)
 }
 
