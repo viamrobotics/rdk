@@ -182,6 +182,12 @@ func (f *WorldStateStore) Close(ctx context.Context) error {
 
 func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Logger) worldstatestore.Service {
 	ctx, cancel := context.WithCancel(context.Background())
+	var worldName string
+	if conf != nil {
+		worldName = conf.WorldName
+	} else {
+		worldName = "moving_geos"
+	}
 
 	fake := &WorldStateStore{
 		Named:              name.AsNamed(),
@@ -193,7 +199,7 @@ func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Log
 		streamCtx:          ctx,
 		cancel:             cancel,
 		logger:             logger,
-		worldName:          conf.WorldName,
+		worldName:          worldName,
 	}
 
 	fake.startWorld()
@@ -202,7 +208,6 @@ func newFakeWorldStateStore(name resource.Name, conf *Config, logger logging.Log
 }
 
 func (f *WorldStateStore) startWorld() {
-	f.logger.Infof("new fake world state store with name: %s", f.worldName)
 	switch f.worldName {
 	case "moving_geos":
 		world := MovingGeosWorld{

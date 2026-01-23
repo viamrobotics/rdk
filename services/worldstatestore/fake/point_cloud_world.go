@@ -3,7 +3,6 @@ package fake
 import (
 	"bytes"
 	"image/color"
-	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -109,18 +108,6 @@ func (generator *PointCloudWorld) generatePointCloud(width, height int) (pointcl
 	}
 
 	return pointCloud, nil
-}
-
-func (generator *PointCloudWorld) updatePointHeight(x, y int, currentHeight float64, timeOffset float64) float64 {
-	animHeightMM := generator.generateTerrain(x, y, timeOffset)
-	targetHeightMM := currentHeight*0.8 + animHeightMM*0.2
-	newHeightMM := math.Max(-1, math.Min(1, targetHeightMM))
-	return newHeightMM
-}
-
-func packColor(colorValue color.NRGBA) float32 {
-	rgb := (uint32(colorValue.R) << 16) | (uint32(colorValue.G) << 8) | uint32(colorValue.B)
-	return math.Float32frombits(rgb)
 }
 
 func heightToColor(heightMM float64) color.NRGBA {
