@@ -592,7 +592,8 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 	dist, err := mesh1.DistanceFrom(mesh2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dist, test.ShouldEqual, 0)
+	// Overlapping meshes return negative distance (penetration depth) per Geometry interface
+	test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 0)
 
 	// Test distance from non-overlapping mesh
 	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
