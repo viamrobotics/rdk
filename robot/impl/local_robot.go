@@ -1583,9 +1583,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	revision := diff.NewRevision()
-	for _, res := range diff.UnmodifiedResources {
-		r.manager.updateRevision(res.ResourceName(), revision)
+	if existingConfig.Revision != newConfig.Revision {
+		revision := diff.NewRevision()
+		for _, res := range diff.UnmodifiedResources {
+			r.manager.updateRevision(res.ResourceName(), revision)
+		}
 	}
 
 	// this check is deferred because it has to happen at the end of reconfigure.
