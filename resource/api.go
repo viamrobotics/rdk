@@ -29,7 +29,7 @@ var apiRegexValidator = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 type API struct {
 	Type               APIType
 	SubtypeName        string `json:"subtype"`
-	IncludeInModuleGen bool   `json:"include_in_module_generator"` // Defaults to true; set to false for non-module-generatable services
+	IncludeInModuleGen bool   `json:"include_in_module_generator"`
 }
 
 // IsComponent returns if this API is for a component.
