@@ -12,11 +12,13 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // create an in-process testing robot with a basic modules config, return the client.
@@ -656,4 +658,161 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
 		`There may be no module in config that provides this model`).Len(),
 		test.ShouldBeGreaterThanOrEqualTo, 1)
+}
+
+// test that dependencies are updated when modules change
+// * Working v1 -> v2
+//     * 1 dep -> 0 dep
+//     * 1 dep -> different 1 dep
+//     * 0 dep -> 1 dep
+//     * 0 dep -> 1 dep, modify unrelated attr
+// * restart module (move module over)
+//     * 1 dep -> 0 dep
+//     * 1 dep -> different 1 dep
+//     * 0 dep -> 1 dep
+//     * 0 dep -> 1 dep, modify unrelated attr
+
+func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
+	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
+	// test that implicit dependencies are added correctly.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:        "mod",
+				ExePath:     testPath,
+				Environment: map[string]string{"VIAM_TESTMODULE_PANIC": "1"},
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+
+	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+
+	_, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Reconfigure so that the "mod" is no longer panicking
+	cfg.Modules[0].Environment = nil
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing.T) {
+	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
+	// test that implicit dependencies are added correctly.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:        "mod",
+				ExePath:     testPath,
+				Environment: map[string]string{"VIAM_TESTMODULE_PANIC": "1"},
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+
+	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+
+	_, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Reconfigure so that the "mod" is no longer panicking and add additional field to "mod-s" attributes
+	cfg.Modules[0].Environment = nil
+	cfg.Components[0].Attributes = rutils.AttributeMap{"sensor": "s", "hello": "world"}
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
 }
