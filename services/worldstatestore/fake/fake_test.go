@@ -14,7 +14,7 @@ import (
 
 func TestFakeWorldStateStore(t *testing.T) {
 	// Create a new fake service
-	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, nil)
+	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, nil, nil)
 	defer fake.Close(context.Background())
 
 	// Test ListUUIDs
@@ -50,7 +50,7 @@ func TestFakeWorldStateStore(t *testing.T) {
 }
 
 func TestFakeWorldStateStoreClose(t *testing.T) {
-	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, nil)
+	fake := newFakeWorldStateStore(resource.Name{Name: "test"}, nil, nil)
 
 	// Test that Close works
 	err := fake.Close(context.Background())
@@ -60,7 +60,7 @@ func TestFakeWorldStateStoreClose(t *testing.T) {
 func TestDoCommandSetFPS(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	name := resource.NewName(worldstatestore.API, "fake1")
-	svc := newFakeWorldStateStore(name, logger)
+	svc := newFakeWorldStateStore(name, nil, logger)
 	wss := svc.(*WorldStateStore)
 	defer func() { _ = wss.Close(context.Background()) }()
 
@@ -82,7 +82,7 @@ func TestDoCommandSetFPS(t *testing.T) {
 func TestDoCommandUnknownCommand(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	name := resource.NewName(worldstatestore.API, "fake3")
-	svc := newFakeWorldStateStore(name, logger)
+	svc := newFakeWorldStateStore(name, nil, logger)
 	wss := svc.(*WorldStateStore)
 	defer func() { _ = wss.Close(context.Background()) }()
 
