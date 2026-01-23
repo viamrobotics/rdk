@@ -55,19 +55,20 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 		return nil, err
 	}
 	for _, g := range gf.Geometries() {
-		coll, err := newCollision(g)
+		colls, err := newCollisions(g)
 		if err != nil {
 			return nil, err
 		}
 		links = append(links, linkXML{
 			Name:      g.Label(),
-			Collision: []collision{*coll},
+			Collision: colls,
 		})
 		joints = append(joints, jointXML{
 			Name:   g.Label() + "_joint",
 			Type:   "fixed",
 			Parent: frame{gf.Parent()},
 			Child:  frame{g.Label()},
+			Origin: newPose(spatialmath.NewZeroPose()),
 		})
 	}
 	return &ModelConfigURDF{
@@ -104,10 +105,23 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 
 		link := &LinkConfig{ID: linkElem.Name}
 		if len(linkElem.Collision) > 0 {
-			geometry, err := linkElem.Collision[0].toGeometry(meshMap)
+			var geometry spatialmath.Geometry
+			var err error
+
+			// Try to detect capsule pattern (cylinder + 2 spheres)
+			geometry, err = tryParseCapsuleFromCollisions(linkElem.Collision)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
+				return nil, fmt.Errorf("failed to parse capsule from collision geometries %v: %w", linkElem.Name, err)
 			}
+
+			// If not a capsule, fall back to first collision element
+			if geometry == nil {
+				geometry, err = linkElem.Collision[0].toGeometry(meshMap)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
+				}
+			}
+
 			geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 			if err != nil {
 				return nil, err
