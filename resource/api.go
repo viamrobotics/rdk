@@ -27,8 +27,9 @@ var apiRegexValidator = regexp.MustCompile(`^([\w-]+):([\w-]+):([\w-]+)$`)
 // API represents a known component/service (resource) API.
 // It consists of a Namespace, Type, and API.
 type API struct {
-	Type        APIType
-	SubtypeName string `json:"subtype"`
+	Type               APIType
+	SubtypeName        string `json:"subtype"`
+	IncludeInModuleGen bool   `json:"include_in_module_generator"` // Defaults to true; set to false for non-module-generatable services
 }
 
 // IsComponent returns if this API is for a component.
@@ -41,6 +42,11 @@ func (a API) IsService() bool {
 	return a.Type.Name == APITypeServiceName
 }
 
+// IncludeInModuleGenerator returns if this API should be included in module generation.
+func (a API) IncludeInModuleGenerator() bool {
+	return a.IncludeInModuleGen
+}
+
 // APIType represents a known component/service type of a robot.
 type APIType struct {
 	Namespace APINamespace `json:"namespace"`
@@ -48,8 +54,9 @@ type APIType struct {
 }
 
 // WithSubtype returns an API with the given subtype name.
+// IncludeInModuleGen defaults to true.
 func (t APIType) WithSubtype(subtypeName string) API {
-	return API{Type: t, SubtypeName: subtypeName}
+	return API{Type: t, SubtypeName: subtypeName, IncludeInModuleGen: true}
 }
 
 // APINamespace identifies the namespaces robot resources can live in.

@@ -46,12 +46,11 @@ type ModuleInputs struct {
 }
 
 // Resources lists all components and services from the registry that should be included in module generation.
-// Only public RDK resources (APINamespaceRDK) are included; internal services use APINamespaceRDKInternal.
+// Only APIs marked as IncludeInModuleGen:true are included (set to false for non-module-generatable services).
 var Resources = func() []string {
 	var resources []string
 	for api := range resource.RegisteredAPIs() {
-		// Only include public RDK resources, exclude internal ones
-		if api.Type.Namespace != resource.APINamespaceRDK {
+		if !api.IncludeInModuleGenerator() {
 			continue
 		}
 		if api.IsComponent() {

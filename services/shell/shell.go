@@ -11,6 +11,7 @@ import (
 )
 
 func init() {
+	API.IncludeInModuleGen = false
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           servicepb.RegisterShellServiceHandlerFromEndpoint,
@@ -69,7 +70,7 @@ type Output struct {
 const SubtypeName = "shell"
 
 // API is a variable that identifies the shell service resource API.
-var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
+var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
 // Named is a helper for getting the named service's typed resource name.
 func Named(name string) resource.Name {
