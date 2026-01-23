@@ -112,9 +112,9 @@ func newCollisions(g spatialmath.Geometry) ([]collision, error) {
 		if err != nil {
 			return nil, err
 		}
-		result := make([]collision, len(colls))
-		for i, c := range colls {
-			result[i] = *c
+		result := make([]collision, 0, len(colls))
+		for _, c := range colls {
+			result = append(result, *c)
 		}
 		return result, nil
 	}
