@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	// registers all components
+	// registers all components and services
 	_ "go.viam.com/rdk/components/register"
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/resource"
 )
 
@@ -46,10 +47,14 @@ type ModuleInputs struct {
 	SDKVersion            string `json:"-"`
 }
 
-// Resources lists all components and services, pulled from the registry
+// Resources lists all components and services from the registry that should be included in module generation.
+// Only APIs marked as IncludeInModuleGenerator:true are included (internal services are excluded).
 var Resources = func() []string {
 	var resources []string
 	for api := range resource.RegisteredAPIs() {
+		if !api.IncludeInModuleGenerator() {
+			continue
+		}
 		if api.IsComponent() {
 			resources = append(resources, api.SubtypeName+" component")
 		} else {

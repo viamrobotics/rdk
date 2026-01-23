@@ -15,6 +15,8 @@ import (
 )
 
 func init() {
+	inModuleGen := true
+	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[PowerSensor]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterPowerSensorServiceHandlerFromEndpoint,

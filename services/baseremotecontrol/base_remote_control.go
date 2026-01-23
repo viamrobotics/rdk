@@ -39,6 +39,8 @@ func FromProvider(provider resource.Provider, name string) (Service, error) {
 }
 
 func init() {
+	inModuleGen := false
+	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{})
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,

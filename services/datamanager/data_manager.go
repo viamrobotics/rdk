@@ -20,6 +20,8 @@ import (
 )
 
 func init() {
+	inModuleGen := false
+	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPIWithAssociation(
 		API,
 		resource.APIRegistration[Service]{

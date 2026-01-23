@@ -14,6 +14,8 @@ import (
 )
 
 func init() {
+	inModuleGen := true
+	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[AudioIn]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterAudioInServiceHandlerFromEndpoint,

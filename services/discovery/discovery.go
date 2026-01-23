@@ -15,6 +15,8 @@ import (
 )
 
 func init() {
+	inModuleGen := false
+	API.IncludeInModuleGen = &inModuleGen
 	resource.RegisterAPI(API, resource.APIRegistration[Service]{
 		RPCServiceServerConstructor: NewRPCServiceServer,
 		RPCServiceHandler:           pb.RegisterDiscoveryServiceHandlerFromEndpoint,
