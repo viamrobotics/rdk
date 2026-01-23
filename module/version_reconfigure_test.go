@@ -263,7 +263,7 @@ func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, nil, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger, robotimpl.WithDisableCompleteConfigWorker())
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
