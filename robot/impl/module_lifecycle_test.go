@@ -80,7 +80,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
 	// Assert that if failOnFirst is false, resources are all available after the first pass.
 	if !failOnFirst {
@@ -661,11 +661,6 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 }
 
 // test that dependencies are updated when modules change
-// * Working v1 -> v2
-//     * 1 dep -> 0 dep
-//     * 1 dep -> different 1 dep
-//     * 0 dep -> 1 dep
-//     * 0 dep -> 1 dep, modify unrelated attr
 // * restart module (move module over)
 //     * 1 dep -> 0 dep
 //     * 1 dep -> different 1 dep
@@ -707,7 +702,7 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
 	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
 	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
@@ -746,7 +741,8 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
 
 func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing.T) {
 	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
-	// test that implicit dependencies are added correctly.
+	// test that implicit dependencies are added correctly even if the resource config
+	// was modified.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -779,7 +775,7 @@ func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing
 			},
 		},
 	}
-	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
 	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
 	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
