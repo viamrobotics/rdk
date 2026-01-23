@@ -51,7 +51,7 @@ type ModuleInputs struct {
 var Resources = func() []string {
 	var resources []string
 	for api := range resource.RegisteredAPIs() {
-		if !api.IncludeInModuleGenerator() {
+		if !api.IncludeInModuleGen {
 			continue
 		}
 		if api.IsComponent() {

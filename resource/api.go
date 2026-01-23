@@ -42,11 +42,6 @@ func (a API) IsService() bool {
 	return a.Type.Name == APITypeServiceName
 }
 
-// IncludeInModuleGenerator returns if this API should be included in module generation.
-func (a API) IncludeInModuleGenerator() bool {
-	return a.IncludeInModuleGen
-}
-
 // APIType represents a known component/service type of a robot.
 type APIType struct {
 	Namespace APINamespace `json:"namespace"`
@@ -54,7 +49,6 @@ type APIType struct {
 }
 
 // WithSubtype returns an API with the given subtype name.
-// IncludeInModuleGen defaults to true.
 func (t APIType) WithSubtype(subtypeName string) API {
 	return API{Type: t, SubtypeName: subtypeName, IncludeInModuleGen: true}
 }
