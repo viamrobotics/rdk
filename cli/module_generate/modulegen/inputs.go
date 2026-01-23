@@ -47,8 +47,8 @@ type ModuleInputs struct {
 	SDKVersion            string `json:"-"`
 }
 
-// Resources lists all components and services from the registry that should be included in module generation.
-// Only APIs marked as IncludeInModuleGenerator:true are included (internal services are excluded).
+// Resources lists all components and services from the registry that should be included in module generation
+// Only APIs marked as IncludeInModuleGenerator:true are included
 var Resources = func() []string {
 	var resources []string
 	for api := range resource.RegisteredAPIs() {
