@@ -38,6 +38,13 @@ func NewBasicPointCloud(size int) PointCloud {
 	}
 }
 
+func NewBasicPointCloudWithMetaData(size int, meta MetaData) PointCloud {
+	return &basicPointCloud{
+		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
+		meta:   meta,
+	}
+}
+
 func (cloud *basicPointCloud) Size() int {
 	return cloud.points.Size()
 }

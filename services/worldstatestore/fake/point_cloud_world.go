@@ -1,32 +1,66 @@
-package fakePointCloud
+package fake
 
 import (
+	"bytes"
 	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/rdk/pointcloud"
+	pc "go.viam.com/rdk/pointcloud"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
-	XYZRGB_FIELDS = []string{"x", "y", "z", "rgb"}
-	XYZRGB_SIZES  = []uint32{4, 4, 4, 4}
-	XYZRGB_TYPES  = []commonpb.PointCloudDataType{
-		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
-		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
-		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
-		commonpb.PointCloudDataType_POINT_CLOUD_DATA_TYPE_FLOAT,
-	}
-	XYZRGB_COUNTS = []uint32{1, 1, 1, 1}
+	pointcloudUUID = "pointcloud-001"
 )
 
-type PointCloudGenerator struct {
-	noise   *Perlin
-	spacing float64
+type PointCloudWorld struct {
+	noise           *Perlin
+	spacing         float64
+	worldStateStore *WorldStateStore
 }
 
-func (generator *PointCloudGenerator) GenerateTerrain(x, y int, timeOffset float64) float64 {
+func (w *PointCloudWorld) StartWorld() {
+	w.worldStateStore.mu.Lock()
+	defer w.worldStateStore.mu.Unlock()
+
+	pointCloud, err := w.generatePointCloud(100, 100)
+	if err != nil {
+		w.worldStateStore.logger.Errorf("failed to generate point cloud: %v", err)
+		return
+	}
+
+	var pcdBytes bytes.Buffer
+	err = pc.ToPCD(pointCloud, &pcdBytes, pointcloud.PCDBinary)
+	if err != nil {
+		w.worldStateStore.logger.Errorf("failed to convert point cloud to pcd: %v", err)
+		return
+	}
+	w.worldStateStore.logger.Infof("generating point cloud %v", pcdBytes.Len())
+
+	w.worldStateStore.transforms[pointcloudUUID] = &commonpb.Transform{
+		ReferenceFrame: "static-pointcloud",
+		PoseInObserverFrame: &commonpb.PoseInFrame{
+			ReferenceFrame: "world",
+			Pose: &commonpb.Pose{
+				X: 0, Y: 0, Z: 0, Theta: 0, OX: 0, OY: 0, OZ: 1,
+			},
+		},
+		PhysicalObject: &commonpb.Geometry{
+			GeometryType: &commonpb.Geometry_Pointcloud{
+				Pointcloud: &commonpb.PointCloud{
+					PointCloud: pcdBytes.Bytes(),
+				},
+			},
+		},
+		Uuid:     []byte(pointcloudUUID),
+		Metadata: &structpb.Struct{},
+	}
+}
+
+func (generator *PointCloudWorld) generateTerrain(x, y int, timeOffset float64) float64 {
 	var total float64
 	var maxAmplitude float64
 
@@ -52,13 +86,13 @@ func (generator *PointCloudGenerator) GenerateTerrain(x, y int, timeOffset float
 	return total
 }
 
-func (generator *PointCloudGenerator) GeneratePointCloud(width, height int) (pointcloud.PointCloud, error) {
-	pointCloud := pointcloud.NewBasicPointCloud(width * height)
+func (generator *PointCloudWorld) generatePointCloud(width, height int) (pointcloud.PointCloud, error) {
+	pointCloud := pointcloud.NewBasicPointCloudWithMetaData(width*height, pointcloud.MetaData{HasColor: true})
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			xPos := float64(x)
 			yPos := float64(y)
-			heightMM := generator.GenerateTerrain(x, y, 0)
+			heightMM := generator.generateTerrain(x, y, 0)
 			point := r3.Vector{
 				X: xPos * generator.spacing,
 				Y: yPos * generator.spacing,
@@ -66,8 +100,7 @@ func (generator *PointCloudGenerator) GeneratePointCloud(width, height int) (poi
 			}
 
 			heightColor := heightToColor(heightMM)
-			packedColor := packColor(heightColor)
-			colorData := pointcloud.NewValueData(int(math.Float32bits(packedColor)))
+			colorData := pointcloud.NewColoredData(heightColor)
 
 			if err := pointCloud.Set(point, colorData); err != nil {
 				return nil, err
@@ -78,8 +111,8 @@ func (generator *PointCloudGenerator) GeneratePointCloud(width, height int) (poi
 	return pointCloud, nil
 }
 
-func (generator *PointCloudGenerator) updatePointHeight(x, y int, currentHeight float64, timeOffset float64) float64 {
-	animHeightMM := generator.GenerateTerrain(x, y, timeOffset)
+func (generator *PointCloudWorld) updatePointHeight(x, y int, currentHeight float64, timeOffset float64) float64 {
+	animHeightMM := generator.generateTerrain(x, y, timeOffset)
 	targetHeightMM := currentHeight*0.8 + animHeightMM*0.2
 	newHeightMM := math.Max(-1, math.Min(1, targetHeightMM))
 	return newHeightMM
@@ -141,24 +174,4 @@ func heightToColor(heightMM float64) color.NRGBA {
 	}
 
 	return color.NRGBA{R: r, G: g, B: b, A: 255}
-}
-
-func getStride() int {
-	stride := 0
-	for i := range XYZRGB_SIZES {
-		stride += int(XYZRGB_SIZES[i] * XYZRGB_COUNTS[i])
-	}
-	return stride
-}
-
-func buildUpdateHeader(start uint32) *commonpb.PointCloudHeader {
-	header := &commonpb.PointCloudHeader{
-		Fields: XYZRGB_FIELDS,
-		Size:   XYZRGB_SIZES,
-		Type:   XYZRGB_TYPES,
-		Count:  XYZRGB_COUNTS,
-		Start:  start, // Buffer offset for partial update
-	}
-
-	return header
 }

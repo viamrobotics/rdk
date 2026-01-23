@@ -2,7 +2,7 @@
 // This code is go adaptation based on C implementation that can be found here:
 // http://git.gnome.org/browse/gegl/tree/operations/common/perlin/perlin.c
 // (original copyright Ken Perlin)
-package fakePointCloud
+package fake
 
 import (
 	"math"
