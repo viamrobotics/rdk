@@ -348,6 +348,9 @@ type getBillingConfigArgs struct {
 
 // GetBillingConfigAction corresponds to `organizations billing get`.
 func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to get billing config for")
+	}
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -608,10 +611,6 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	if orgStr == "" {
 		orgStr = c.Args().First()
 	}
-	if orgStr == "" { // first, see if we have a default set
-		//nolint:errcheck // if there's an error then we'll just fall back to the old logic
-		orgStr, _ = getDefaultOrg(c)
-	}
 	if orgStr == "" { // if there's still not an orgStr, then we can fall back to the alphabetically first
 		orgs, err := client.listOrganizations()
 		if err != nil {
@@ -850,6 +849,9 @@ type createMachineActionArgs struct {
 
 // CreateMachineAction is the corresponding action for 'machines create'.
 func CreateMachineAction(c *cli.Context, args createMachineActionArgs) error {
+	if args.Location == "" {
+		return errors.New("must provide a location to create a machine in")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -958,14 +960,6 @@ func ListRobotsAction(c *cli.Context, args listRobotsActionArgs) error {
 	}
 	orgStr := args.Organization
 	locStr := args.Location
-	if orgStr == "" {
-		//nolint:errcheck // if there's an error we fallback to old logic
-		orgStr, _ = getDefaultOrg(c)
-	}
-	if locStr == "" {
-		//nolint:errcheck // if there's an error we fallback to old logic
-		locStr, _ = getDefaultLocation(c)
-	}
 	if args.All {
 		return client.listAllRobotsInOrg(c, orgStr)
 	}
@@ -3725,6 +3719,10 @@ func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
 		return err
 	}
 
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to read OAuth app")
+	}
+
 	return client.readOAuthAppAction(c, args.OrgID, args.ClientID)
 }
 
@@ -3945,6 +3943,10 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 		return err
 	}
 
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to create an OAuth app")
+	}
+
 	return client.createOAuthAppAction(c, args)
 }
 
@@ -4043,6 +4045,9 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI st
 }
 
 func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	if args.OrgID == "" {
+		return nil, errors.New("must provide an organization ID to update OAuth app")
+	}
 	orgID := args.OrgID
 	clientID := args.ClientID
 	clientName := args.ClientName

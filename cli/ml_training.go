@@ -59,6 +59,9 @@ type mlSubmitCustomTrainingJobArgs struct {
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to submit a custom ML training job")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -92,6 +95,9 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrainingJobWithUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to submit a custom training job with upload")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -378,6 +384,9 @@ type dataListTrainingJobsArgs struct {
 
 // DataListTrainingJobs is the corresponding action for 'data train list'.
 func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to list training jobs")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -442,6 +451,9 @@ type mlTrainingUploadArgs struct {
 
 // MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to upload an ML training package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -501,6 +513,9 @@ type mlTrainingUpdateArgs struct {
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
 func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to update an ML training package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
