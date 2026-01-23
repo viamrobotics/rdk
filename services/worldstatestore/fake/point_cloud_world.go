@@ -6,21 +6,21 @@ import (
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
-	"go.viam.com/rdk/pointcloud"
-	pc "go.viam.com/rdk/pointcloud"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/pointcloud"
 )
 
-var (
-	pointcloudUUID = "pointcloud-001"
-)
+var pointcloudUUID = "pointcloud-001"
 
+// PointCloudWorld is the point cloud world.
 type PointCloudWorld struct {
 	noise           *Perlin
 	spacing         float64
 	worldStateStore *WorldStateStore
 }
 
+// StartWorld starts the point cloud world.
 func (w *PointCloudWorld) StartWorld() {
 	w.worldStateStore.mu.Lock()
 	defer w.worldStateStore.mu.Unlock()
@@ -32,7 +32,7 @@ func (w *PointCloudWorld) StartWorld() {
 	}
 
 	var pcdBytes bytes.Buffer
-	err = pc.ToPCD(pointCloud, &pcdBytes, pointcloud.PCDBinary)
+	err = pointcloud.ToPCD(pointCloud, &pcdBytes, pointcloud.PCDBinary)
 	if err != nil {
 		w.worldStateStore.logger.Errorf("failed to convert point cloud to pcd: %v", err)
 		return
@@ -59,7 +59,7 @@ func (w *PointCloudWorld) StartWorld() {
 	}
 }
 
-func (generator *PointCloudWorld) generateTerrain(x, y int, timeOffset float64) float64 {
+func (w *PointCloudWorld) generateTerrain(x, y int, timeOffset float64) float64 {
 	var total float64
 	var maxAmplitude float64
 
@@ -69,7 +69,7 @@ func (generator *PointCloudWorld) generateTerrain(x, y int, timeOffset float64) 
 	octaves := 4
 
 	for i := 0; i < octaves; i++ {
-		noiseValue := generator.noise.Noise3D(
+		noiseValue := w.noise.Noise3D(
 			(float64(x)+0.5)*frequency,
 			(float64(y)+0.5)*frequency,
 			timeOffset*frequency,
@@ -85,17 +85,17 @@ func (generator *PointCloudWorld) generateTerrain(x, y int, timeOffset float64) 
 	return total
 }
 
-func (generator *PointCloudWorld) generatePointCloud(width, height int) (pointcloud.PointCloud, error) {
+func (w *PointCloudWorld) generatePointCloud(width, height int) (pointcloud.PointCloud, error) {
 	pointCloud := pointcloud.NewBasicPointCloudWithMetaData(width*height, pointcloud.MetaData{HasColor: true})
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			xPos := float64(x)
 			yPos := float64(y)
-			heightMM := generator.generateTerrain(x, y, 0)
+			heightMM := w.generateTerrain(x, y, 0)
 			point := r3.Vector{
-				X: xPos * generator.spacing,
-				Y: yPos * generator.spacing,
-				Z: heightMM * generator.spacing * 10, // make the height more dramatic
+				X: xPos * w.spacing,
+				Y: yPos * w.spacing,
+				Z: heightMM * w.spacing * 10, // make the height more dramatic
 			}
 
 			heightColor := heightToColor(heightMM)

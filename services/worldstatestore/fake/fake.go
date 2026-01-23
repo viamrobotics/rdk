@@ -44,13 +44,13 @@ type WorldStateStore struct {
 	worldName string
 }
 
+// Config is the configuration for a fake world state store.
 type Config struct {
 	WorldName string `json:"worldName,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake world state store.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
-
 	if conf.WorldName == "" || !slices.Contains(worldNames, conf.WorldName) {
 		conf.WorldName = worldNames[0]
 	}
@@ -76,6 +76,7 @@ func init() {
 		}})
 }
 
+// Reconfigure reconfigures the fake world state store.
 func (f *WorldStateStore) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// Cancel existing background workers and wait for them to stop
 	f.mu.Lock()
@@ -84,7 +85,10 @@ func (f *WorldStateStore) Reconfigure(ctx context.Context, deps resource.Depende
 
 	f.activeBackgroundWorkers.Wait()
 
-	newConf, _ := resource.NativeConfig[*Config](conf)
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
 
 	// Use context.Background() for background workers, not the passed ctx which may be short-lived
 	newCtx, cancel := context.WithCancel(context.Background())

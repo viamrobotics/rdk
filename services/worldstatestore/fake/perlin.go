@@ -1,7 +1,3 @@
-// Package perlin provides coherent noise function over 1, 2 or 3 dimensions
-// This code is go adaptation based on C implementation that can be found here:
-// http://git.gnome.org/browse/gegl/tree/operations/common/perlin/perlin.c
-// (original copyright Ken Perlin)
 package fake
 
 import (
@@ -50,6 +46,7 @@ func NewPerlinRandSource(alpha, beta float64, n int32, source rand.Source) *Perl
 	p.beta = beta
 	p.n = n
 
+	// #nosec G404 -- math/rand is fine here for deterministic pseudorandomness in fake Perlin generator
 	r := rand.New(source)
 
 	for i = 0; i < B; i++ {
@@ -94,10 +91,6 @@ func normalize2(v *[2]float64) {
 func normalize3(v *[3]float64) {
 	s := math.Sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
 	v[0], v[1], v[2] = v[0]/s, v[1]/s, v[2]/s
-}
-
-func at2(rx, ry float64, q [2]float64) float64 {
-	return rx*q[0] + ry*q[1]
 }
 
 func at3(rx, ry, rz float64, q [3]float64) float64 {

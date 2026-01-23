@@ -7,10 +7,12 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
-	"go.viam.com/rdk/services/worldstatestore"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/services/worldstatestore"
 )
 
+// MovingGeosWorld is the moving geos world.
 type MovingGeosWorld struct {
 	worldStateStore *WorldStateStore
 }
@@ -102,6 +104,7 @@ var (
 	}
 )
 
+// StartWorld starts the moving geos world.
 func (w *MovingGeosWorld) StartWorld() {
 	w.initializeStaticTransforms()
 	w.worldStateStore.activeBackgroundWorkers.Add(1)
