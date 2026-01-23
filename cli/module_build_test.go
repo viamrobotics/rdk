@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"go.viam.com/rdk/logging"
 	"path/filepath"
 	"strings"
 	"testing"
