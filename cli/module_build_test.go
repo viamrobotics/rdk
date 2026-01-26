@@ -319,7 +319,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 							{OrganizationId: secondaryOrgID, Primary: false},
 							{OrganizationId: expectedOrgID, Primary: true},
 						},
-						PrimaryOrgIdentity: apppb.OrganizationIdentity{
+						PrimaryOrgIdentity: &apppb.OrganizationIdentity{
 							Id: expectedOrgID,
 						},
 					},
