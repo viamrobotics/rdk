@@ -22,26 +22,18 @@ func TestGeometrySerialization(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 3.3, "")
 	test.That(t, err, test.ShouldBeNil)
-	capsule, err := spatialmath.NewCapsule(spatialmath.NewZeroPose(), 1, 10, "")
-	test.That(t, err, test.ShouldBeNil)
 
 	testCases := []struct {
-		name    string
-		g       spatialmath.Geometry
-		success bool
+		name string
+		g    spatialmath.Geometry
 	}{
-		{"box", box, true},
-		{"sphere", sphere, true},
-		{"capsule", capsule, false},
+		{"box", box},
+		{"sphere", sphere},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			urdf, err := newCollision(tc.g)
-			if !tc.success {
-				test.That(t, err.Error(), test.ShouldContainSubstring, errGeometryTypeUnsupported.Error())
-				return
-			}
 			test.That(t, err, test.ShouldBeNil)
 			bytes, err := xml.MarshalIndent(urdf, "", "  ")
 			test.That(t, err, test.ShouldBeNil)
@@ -52,6 +44,90 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(tc.g, g2), test.ShouldBeTrue)
 		})
 	}
+}
+
+func TestCapsuleSerialization(t *testing.T) {
+	// Test capsule -> URDF (cylinder + 2 spheres) -> capsule round-trip
+	t.Run("capsule round-trip", func(t *testing.T) {
+		// Create a capsule: radius=60mm, length=260mm (tip to tip)
+		// This means cylinder length = 260 - 2*60 = 140mm
+		capsule, err := spatialmath.NewCapsule(
+			spatialmath.NewPose(r3.Vector{X: 100, Y: 200, Z: 300}, &spatialmath.OrientationVectorDegrees{OZ: 1, Theta: 0}),
+			60, 260, "",
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Convert capsule to URDF collisions (should produce 3: cylinder + 2 spheres)
+		collisions, err := newCollisions(capsule)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(collisions), test.ShouldEqual, 3)
+
+		// Verify the decomposition
+		var cylCount, sphereCount int
+		for _, c := range collisions {
+			if c.Geometry.Cylinder != nil {
+				cylCount++
+				// Cylinder length should be 140mm = 0.14m
+				test.That(t, c.Geometry.Cylinder.Length, test.ShouldAlmostEqual, 0.14, 1e-6)
+				test.That(t, c.Geometry.Cylinder.Radius, test.ShouldAlmostEqual, 0.06, 1e-6)
+			}
+			if c.Geometry.Sphere != nil {
+				sphereCount++
+				test.That(t, c.Geometry.Sphere.Radius, test.ShouldAlmostEqual, 0.06, 1e-6)
+			}
+		}
+		test.That(t, cylCount, test.ShouldEqual, 1)
+		test.That(t, sphereCount, test.ShouldEqual, 2)
+
+		// Now parse back as capsule
+		capsule2, err := tryParseCapsuleFromCollisions(collisions)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capsule2, test.ShouldNotBeNil)
+
+		// Verify the capsule matches the original
+		test.That(t, spatialmath.GeometriesAlmostEqual(capsule, capsule2), test.ShouldBeTrue)
+	})
+
+	t.Run("capsule at origin", func(t *testing.T) {
+		// Simple case: capsule at origin
+		capsule, err := spatialmath.NewCapsule(spatialmath.NewZeroPose(), 200, 1400, "")
+		test.That(t, err, test.ShouldBeNil)
+
+		collisions, err := newCollisions(capsule)
+		test.That(t, err, test.ShouldBeNil)
+
+		capsule2, err := tryParseCapsuleFromCollisions(collisions)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatialmath.GeometriesAlmostEqual(capsule, capsule2), test.ShouldBeTrue)
+	})
+
+	t.Run("non-capsule pattern returns nil", func(t *testing.T) {
+		// Test that non-capsule patterns return nil (not an error)
+
+		// Single collision
+		singleColl := []collision{{}}
+		singleColl[0].Geometry.Box = &box{Size: "1 1 1"}
+		result, err := tryParseCapsuleFromCollisions(singleColl)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldBeNil)
+
+		// Two spheres only (no cylinder)
+		twoSpheres := []collision{{}, {}}
+		twoSpheres[0].Geometry.Sphere = &sphere{Radius: 0.1}
+		twoSpheres[1].Geometry.Sphere = &sphere{Radius: 0.1}
+		result, err = tryParseCapsuleFromCollisions(twoSpheres)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldBeNil)
+
+		// Cylinder + 2 spheres with mismatched radii
+		mismatchedRadii := []collision{{}, {}, {}}
+		mismatchedRadii[0].Geometry.Cylinder = &cylinder{Radius: 0.1, Length: 1.0}
+		mismatchedRadii[1].Geometry.Sphere = &sphere{Radius: 0.2} // Different radius
+		mismatchedRadii[2].Geometry.Sphere = &sphere{Radius: 0.1}
+		result, err = tryParseCapsuleFromCollisions(mismatchedRadii)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldBeNil)
+	})
 }
 
 func TestMeshGeometrySerialization(t *testing.T) {
