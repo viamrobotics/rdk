@@ -61,7 +61,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if err != nil {
 		return err
 	}
-  
+
 	resource.RegisterComponent(
 		sensor.API,
 		testSensorDependentModel,
@@ -70,8 +70,8 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	if err != nil {
 		return err
 	}
-  
-  // Set up SIGUSR1 handler to log a distinctive message for testing stack dump functionality
+
+	// Set up SIGUSR1 handler to log a distinctive message for testing stack dump functionality
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGUSR1)
 	go func() {
