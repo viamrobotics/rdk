@@ -270,9 +270,9 @@ func TestCollisionConstraints(t *testing.T) {
 		failName string
 	}{
 		{zeroPos, true, ""},
-		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 0, 0}, true, ""},
+		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 0, 0}, true, ""},
 		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
-		{[]referenceframe.Input{math.Pi, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
