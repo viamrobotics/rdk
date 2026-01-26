@@ -2591,6 +2591,21 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
+							Name:            "fragments",
+							Usage:           "work with fragments on a part",
+							UsageText:       createUsageText("machines part fragments", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:      "remove",
+									Usage:     "remove a fragment from a part",
+									UsageText: createUsageText("machines part fragments remove", []string{generalFlagPart}, true, false),
+									Flags:     commonPartFlags,
+									Action:    createCommandWithT(RobotsPartRemoveFragmentAction),
+								},
+							},
+						},
+						{
 							Name:      "restart",
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagPart}, true, false),

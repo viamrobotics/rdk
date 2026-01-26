@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/charmbracelet/huh"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
@@ -43,6 +44,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -1303,6 +1305,115 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 
 	printMachinePartStatus(c, []*apppb.RobotPart{part})
 
+	return nil
+}
+
+type robotsPartRemoveFragmentArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
+// given a map of fragment names to IDs, allows the user to select one and returns the chosen name/ID
+func (c *viamClient) selectFragment(fragmentNamesToIDs map[string]string) (string, string, error) {
+	huhOptions := []huh.Option[string]{}
+
+	for name, _ := range fragmentNamesToIDs {
+		huhOptions = append(huhOptions, huh.NewOption(name, name))
+	}
+	var selectedFragmentName string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Select a fragment to remove"),
+			huh.NewSelect[string]().
+				Title("Select a fragment:").
+				Options(
+					huhOptions...,
+				).
+				Value(&selectedFragmentName),
+		),
+	)
+	err := form.Run()
+	if err != nil {
+		return "", "", errors.Wrap(err, "encountered an error in selecting fragment")
+	}
+	return selectedFragmentName, fragmentNamesToIDs[selectedFragmentName], nil
+}
+
+// getFragmentMap returns a map of the given part's fragment names to IDs
+func (c *viamClient) getFragmentMap(cCtx *cli.Context, part *apppb.RobotPart) (map[string]string, error) {
+	conf := part.GetRobotConfig().AsMap()
+
+	fragments, ok := conf["fragments"].([]any)
+	if !ok || len(fragments) == 0 { // there are no fragments on the machine part
+		warningf(cCtx.App.ErrWriter, "no fragments found on part %s", part.Name)
+		return nil, nil
+	}
+	fragmentNamesToIDs := map[string]string{}
+	for _, fragment := range fragments {
+		f := fragment.(map[string]any)
+		for _, fragmentID := range f {
+			fragmentID := fragmentID.(string)
+			req := apppb.GetFragmentRequest{Id: fragmentID}
+			fragmentPb, err := c.client.GetFragment(cCtx.Context, &req)
+			if err != nil {
+				return nil, err
+			}
+			fragmentNamesToIDs[fragmentPb.Fragment.Name] = fragmentID
+		}
+	}
+
+	return fragmentNamesToIDs, nil
+}
+
+func RobotsPartRemoveFragmentAction(c *cli.Context, args robotsPartRemoveFragmentArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	fragmentNamesToIDs, err := client.getFragmentMap(c, part)
+	if err != nil || fragmentNamesToIDs == nil {
+		return err
+	}
+
+	whichFragment, whichID, err := client.selectFragment(fragmentNamesToIDs)
+	if err != nil {
+		return err
+	}
+
+	conf := part.GetRobotConfig().AsMap()
+	oldFragments := conf["fragments"].([]any)
+	newFragments := []any{}
+	for _, oldFragment := range oldFragments {
+		oldF := oldFragment.(map[string]any)
+		for _, id := range oldF {
+			if id.(string) != whichID {
+				newFragments = append(newFragments, oldFragment)
+			}
+		}
+	}
+
+	conf["fragments"] = newFragments
+	pbConf, err := protoutils.StructToStructPb(conf)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConf}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully removed fragment %s from part %s", whichFragment, part.Name)
 	return nil
 }
 
