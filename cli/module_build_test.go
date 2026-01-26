@@ -374,7 +374,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		orgID, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no primary org id found for location")
 	})
