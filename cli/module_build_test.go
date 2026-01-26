@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"os"
-	"go.viam.com/rdk/logging"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+	"errors"
 
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
