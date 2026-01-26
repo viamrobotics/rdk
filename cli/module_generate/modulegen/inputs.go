@@ -54,7 +54,7 @@ var Resources = []string{
 	"gantry component",
 	"generic_component component",
 	"gripper component",
-	"input component",
+	"input_controller component",
 	"motor component",
 	"movement_sensor component",
 	"pose_tracker component",

@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	modgen "go.viam.com/rdk/cli/module_generate/scripts"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -225,5 +226,50 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+	})
+
+	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {
+		// List of resources that exist in the registry but should not be available for custom module generation.
+		// These are typically system services that are user-configurable but not meant to be implemented as custom modules.
+		// Add new resources to this list if they should not be available for custom module generation.
+		excludedResources := []string{
+			"shell service",
+			"data_manager service",
+			"discovery service",
+			"video service",
+			"base_remote_control service",
+		}
+
+		// Build a set of all resources that should be available for module generation
+		availableResources := make(map[string]bool)
+		for _, res := range modulegen.Resources {
+			availableResources[res] = true
+		}
+
+		// Build a set of excluded resources
+		excludedSet := make(map[string]bool)
+		for _, excluded := range excludedResources {
+			excludedSet[excluded] = true
+		}
+
+		// Get all registered APIs and verify each is either in available or excluded
+		resourcesToAdd := resource.RegisteredAPIs()
+		for api := range resourcesToAdd {
+			resourceStr := api.SubtypeName
+			if api.SubtypeName == "generic"{
+				resourceStr = "generic_" + api.Type.Name
+			}
+			resourceStr += " " + api.Type.Name
+			if !availableResources[resourceStr] && !excludedSet[resourceStr] {
+				t.Errorf("New resource has not been added to `viam module generate` resource list. Resource %q must be either added to "+
+					"the resources list in inputs.go file or added to this test's excludedResources", resourceStr)
+			}
+		}
+
+		if len(resourcesToAdd) != len(availableResources)+len(excludedResources){
+			t.Errorf("The number of resources in the registry (%d) doesn't match the number of module generator resources (%d) and excluded resources (%d)", 
+			len(resourcesToAdd), len(availableResources), len(excludedResources))
+		}
+		
 	})
 }
