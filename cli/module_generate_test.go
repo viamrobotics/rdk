@@ -259,6 +259,9 @@ func TestGenerateModuleAction(t *testing.T) {
 			if api.SubtypeName == "generic"{
 				resourceStr = "generic_" + api.Type.Name
 			}
+			if api.SubtypeName == "input_controller" {
+				resourceStr = "input"
+			}
 			resourceStr += " " + api.Type.Name
 			if !availableResources[resourceStr] && !excludedSet[resourceStr] {
 				t.Errorf("New resource has not been added to `viam module generate` resource list. Resource %q must be either added to "+
@@ -270,6 +273,5 @@ func TestGenerateModuleAction(t *testing.T) {
 			t.Errorf("The number of resources in the registry (%d) doesn't match the number of module generator resources (%d) and excluded resources (%d)", 
 			len(resourcesToAdd), len(availableResources), len(excludedResources))
 		}
-		
 	})
 }
