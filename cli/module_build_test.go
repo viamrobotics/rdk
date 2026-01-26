@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-	"errors"
 
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
@@ -237,7 +237,6 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, outMsg, test.ShouldContainSubstring, "setup step msg")
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
-
 
 func TestIsReloadVersion(t *testing.T) {
 	tests := []struct {
