@@ -727,10 +727,46 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
-// ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
+// unmodifiedConfigsToValidate finds all unmodified resources that are provided by new/modified modules.
+func (mgr *Manager) unmodifiedConfigsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
+	// create a set of add/modified modules
+	changedMods := make(map[string]bool, len(conf.Added.Modules)+len(conf.Modified.Modules))
+	for _, mod := range conf.Added.Modules {
+		changedMods[mod.Name] = true
+	}
+	for _, mod := range conf.Modified.Modules {
+		changedMods[mod.Name] = true
+	}
+
+	compConfs := make([]resource.Config, 0)
+	serviceConfs := make([]resource.Config, 0)
+
+	for _, c := range conf.UnmodifiedResources {
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			// continue if this resource is not being provided by a module.
+			continue
+		}
+		if _, ok := changedMods[mod.cfg.Name]; !ok {
+			// continue if it is not provided by a new/modified module.
+			continue
+		}
+		if c.API.IsComponent() {
+			compConfs = append(compConfs, c)
+		}
+		if c.API.IsService() {
+			serviceConfs = append(serviceConfs, c)
+		}
+	}
+	return compConfs, serviceConfs
+}
+
+// ResolveImplicitDependencies mutates the passed in diff to add modular implicit dependencies to added
 // and modified resources.
-func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// If something was added or modified, go through components and services in
+// Unmodified resources provided by added/modified modules will also be re-evaluated to
+// make sure implicit dependencies are up-to-date.
+func (mgr *Manager) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
+	// If a module was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
 	validateModularResources := func(confs []resource.Config) {
@@ -748,15 +784,18 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			}
 		}
 	}
-	if conf.Added != nil {
-		validateModularResources(conf.Added.Components)
-		validateModularResources(conf.Added.Services)
-	}
-	if conf.Modified != nil {
-		validateModularResources(conf.Modified.Components)
-		validateModularResources(conf.Modified.Services)
-	}
-	return nil
+	validateModularResources(conf.Added.Components)
+	validateModularResources(conf.Added.Services)
+
+	validateModularResources(conf.Modified.Components)
+	validateModularResources(conf.Modified.Services)
+
+	componentConfs, serviceConfs := mgr.unmodifiedConfigsToValidate(conf)
+
+	validateModularResources(componentConfs)
+	conf.Modified.Components = append(conf.Modified.Components, componentConfs...)
+	validateModularResources(serviceConfs)
+	conf.Modified.Services = append(conf.Modified.Services, serviceConfs...)
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {

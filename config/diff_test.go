@@ -762,6 +762,10 @@ func TestDiffRevision(t *testing.T) {
 			config.Diff{
 				Added:    &config.Config{},
 				Modified: &config.ModifiedConfigDiff{},
+				UnmodifiedResources: []resource.Config{
+					{Name: "comp1"},
+					{Name: "serv1"},
+				},
 			},
 		},
 		{
@@ -885,13 +889,15 @@ func TestDiffRevision(t *testing.T) {
 			},
 		},
 	} {
-		diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
-		test.That(t, err, test.ShouldBeNil)
+		t.Run(tc.name, func(t *testing.T) {
+			diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
+			test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
-		test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
-		test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
-		test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
+			test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
+			test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
+			test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
+			test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
+		})
 	}
 }
 
