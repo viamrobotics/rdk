@@ -727,8 +727,8 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
-// configsToValidate finds all unmodified resources that are provided by new/modified modules.
-func (mgr *Manager) configsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
+// unmodifiedConfigsToValidate finds all unmodified resources that are provided by new/modified modules.
+func (mgr *Manager) unmodifiedConfigsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
 	// create a set of add/modified modules
 	changedMods := make(map[string]bool, len(conf.Added.Modules)+len(conf.Modified.Modules))
 	for _, mod := range conf.Added.Modules {
@@ -790,7 +790,7 @@ func (mgr *Manager) ResolveImplicitDependencies(ctx context.Context, conf *confi
 	validateModularResources(conf.Modified.Components)
 	validateModularResources(conf.Modified.Services)
 
-	componentConfs, serviceConfs := mgr.configsToValidate(conf)
+	componentConfs, serviceConfs := mgr.unmodifiedConfigsToValidate(conf)
 
 	validateModularResources(componentConfs)
 	conf.Modified.Components = append(conf.Modified.Components, componentConfs...)
