@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/eventlog"
 )
 
@@ -17,6 +18,11 @@ func RegisterEventLogger(rootLogger Logger, name string) {
 		rootLogger.Errorw("Unable to open windows event log", "err", err)
 	} else {
 		rootLogger.AddAppender(&eventLogger{log})
+	}
+	v := windows.RtlGetVersion()
+	rootLogger.Warnf("~~~~~~~~~~~~~here %+v", v)
+	if v.BuildNumber != 0 && v.BuildNumber < 17063 {
+		rootLogger.Warnf("~~~~~~~~~~~~~here2")
 	}
 }
 

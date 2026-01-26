@@ -124,6 +124,7 @@ func logStartupInfo(logger logging.Logger) {
 // RunServer is an entry point to starting the web server that can be called by main in a code
 // sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error) {
+	fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TEST TEST\n")
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
@@ -283,6 +284,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
 	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
+	logging.RegisterEventLogger(rootLogger, "viam-server")
 
 	server := robotServer{
 		rootLogger:       rootLogger,
@@ -300,6 +302,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
 
+	fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~TEST TEST2\n")
 	return err
 }
 
