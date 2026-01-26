@@ -60,6 +60,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/stacktrace"
 )
 
 const localConfigPartID = "local-config"
@@ -1900,6 +1901,9 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 }
 
 func (r *localRobot) Shutdown(ctx context.Context) error {
+	stacktrace.LogStackTrace(r.logger)
+	r.RequestModuleStackTraceDump()
+
 	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
 		shutdownFunc()
 	} else {

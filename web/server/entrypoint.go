@@ -476,10 +476,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
 		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
 
-	// Set up SIGUSR1 handler to dump stack traces when the agent requests it before restart.
-	stackTraceHandler, cleanupSignalHandler := stacktrace.NewSignalHandler(s.rootLogger)
-	defer cleanupSignalHandler()
-
 	doneServing := make(chan struct{})
 
 	forceShutdown := make(chan struct{})
@@ -606,9 +602,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		robotOptions = append(robotOptions, robotimpl.WithRevealSensitiveConfigDiffs())
 	}
 
-	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		stacktrace.LogStackTraceAndCancel(cancel, s.rootLogger)
-	})
+	shutdownCallbackOpt := robotimpl.WithShutdownCallback(cancel)
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
 	if s.args.EnableFTDC {
@@ -648,17 +642,6 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	defer func() {
 		err = multierr.Combine(err, theRobot.Close(context.Background()))
 	}()
-
-	// Register callback to forward SIGUSR1 to module processes for stack trace dumps, and
-	// flush logs to cloud.
-	stackTraceHandler.SetCallback(func() {
-		theRobotLock.Lock()
-		r := theRobot
-		theRobotLock.Unlock()
-		if r != nil {
-			r.RequestModuleStackTraceDump()
-		}
-	})
 
 	// watch for and deliver changes to the robot
 	watcher, err := config.NewWatcher(ctx, cfg, s.configLogger, s.conn)
