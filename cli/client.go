@@ -1319,7 +1319,7 @@ type robotsPartRemoveFragmentArgs struct {
 func (c *viamClient) selectFragment(fragmentNamesToIDs map[string]string) (string, string, error) {
 	huhOptions := []huh.Option[string]{}
 
-	for name, _ := range fragmentNamesToIDs {
+	for name := range fragmentNamesToIDs {
 		huhOptions = append(huhOptions, huh.NewOption(name, name))
 	}
 	var selectedFragmentName string
@@ -1368,6 +1368,7 @@ func (c *viamClient) getFragmentMap(cCtx *cli.Context, part *apppb.RobotPart) (m
 	return fragmentNamesToIDs, nil
 }
 
+// RobotsPartRemoveFragmentAction is the corresponding action for `machines part fragments remove`
 func RobotsPartRemoveFragmentAction(c *cli.Context, args robotsPartRemoveFragmentArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
