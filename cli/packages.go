@@ -238,6 +238,8 @@ func (c *viamClient) uploadPackage(
 	metadataStruct *structpb.Struct,
 ) (*packagespb.CreatePackageResponse, error) {
 	//nolint:gosec
+	// TODO figure out how the package uploading works/how the app accesses it
+	println("uploading package")
 	file, err := os.Open(tarballPath)
 	if err != nil {
 		return nil, err

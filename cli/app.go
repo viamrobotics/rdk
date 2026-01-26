@@ -3610,6 +3610,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
 						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    formatAcceptedValues("visibility of the registry item", "public", "private"),
+							Required: true, // TODO: decide if i should make it optional
+						},
 					},
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},

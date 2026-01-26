@@ -102,8 +102,9 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return errors.New("model name and script name must be different")
 	}
 
+	// TODO add an arg for visibility for this method too?
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
 		return err
 	}
@@ -430,7 +431,7 @@ func defaultTrainingStatus() string {
 	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
 }
 
-type mlTrainingUploadArgs struct {
+type mlTrainingUploadArgs struct { // TODO add visibility
 	Path       string
 	OrgID      string
 	ScriptName string
@@ -439,6 +440,7 @@ type mlTrainingUploadArgs struct {
 	Type       string
 	Draft      bool
 	URL        string
+	Visibility string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
@@ -450,7 +452,7 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path,
+		args.Version, args.Path, args.Visibility,
 	)
 	if err != nil {
 		return err
@@ -461,16 +463,18 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+	printf(c.App.Writer, "Version successfully uploaded with MLTrainingUploadAction! you can view your changes online here: %s. \n"+
 		"To use your training script in the from-registry command, use %s:%s as the script name", url,
 		moduleID.prefix, moduleID.name)
+	println(args.Visibility)
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string, visibility string) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	metadata, err := createMetadata(draft, modelType, framework, url)
+	println("uploading training script - ml_training.go")
+	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
 	if err != nil {
 		return nil, err
 	}
@@ -598,13 +602,14 @@ var modelFrameworks = []string{
 
 // MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
-	Draft     bool
-	ModelType string
-	Framework string
-	URL       string
+	Draft      bool
+	ModelType  string
+	Framework  string
+	URL        string
+	Visibility string
 }
 
-func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url string, visibility string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
@@ -613,10 +618,11 @@ func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, 
 	}
 
 	return &MLMetadata{
-		Draft:     draft,
-		ModelType: t,
-		Framework: f,
-		URL:       url,
+		Draft:      draft,
+		ModelType:  t,
+		Framework:  f,
+		URL:        url,
+		Visibility: visibility,
 	}, nil
 }
 
@@ -639,6 +645,7 @@ var (
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
 	urlKey            = "url"
+	visibilityKey     = "visibility"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -647,6 +654,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
 	metadataMap[urlKey] = metadata.URL
+	metadataMap[visibilityKey] = metadata.Visibility
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err
