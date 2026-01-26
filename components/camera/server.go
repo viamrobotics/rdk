@@ -3,9 +3,6 @@ package camera
 import (
 	"context"
 	"fmt"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
@@ -27,24 +24,16 @@ import (
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceGetter[Camera]
-
-	imgTypesMu sync.RWMutex
-	imgTypes   map[string]ImageType
-	logger     logging.Logger
-
-	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
-	lastImageDeprecationLogNanos atomic.Int64
+	coll   resource.APIResourceGetter[Camera]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
 func NewRPCServiceServer(coll resource.APIResourceGetter[Camera], logger logging.Logger) interface{} {
-	imgTypes := make(map[string]ImageType)
 	return &serviceServer{
-		coll:     coll,
-		logger:   logger.Sublogger("cam_server"),
-		imgTypes: imgTypes,
+		coll:   coll,
+		logger: logger.Sublogger("cam_server"),
 	}
 }
 
@@ -54,67 +43,22 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
-	now := time.Now()
-	lastLog := s.lastImageDeprecationLogNanos.Load()
-	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
-		// Try to update the timestamp; if another goroutine updated it first, that's fine.
-		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
-			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
-			moduleName := grpc.GetModuleName(ctx)
-			md, _ := metadata.FromIncomingContext(ctx)
+	peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+	moduleName := grpc.GetModuleName(ctx)
+	md, _ := metadata.FromIncomingContext(ctx)
+	errorMsg := fmt.Sprintf(
+		"camera server error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
+			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated, for this "+
+			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
+			"camera_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
+		req.Name,
+		peerInfo.RemoteAddress,
+		moduleName,
+		md,
+	)
 
-			s.logger.Warnw("camera server: GetImage is deprecated; please use GetImages instead",
-				"camera_name", req.Name,
-				"peer_remote_addr", peerInfo.RemoteAddress,
-				"module_name", moduleName,
-				"grpc_metadata", md,
-			)
-		}
-	}
-	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
-	defer span.End()
-	cam, err := s.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	// Determine the mimeType we should try to use based on camera properties
-	if req.MimeType == "" {
-		s.imgTypesMu.RLock()
-		imgType, ok := s.imgTypes[req.Name]
-		s.imgTypesMu.RUnlock()
-		if !ok {
-			props, err := cam.Properties(ctx)
-			if err != nil {
-				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				imgType = ColorStream
-			} else {
-				imgType = props.ImageType
-			}
-			s.imgTypesMu.Lock()
-			s.imgTypes[req.Name] = imgType
-			s.imgTypesMu.Unlock()
-		}
-		switch imgType {
-		case ColorStream, UnspecifiedStream:
-			req.MimeType = utils.MimeTypeJPEG
-		case DepthStream:
-			req.MimeType = utils.MimeTypeRawDepth
-		default:
-			req.MimeType = utils.MimeTypeJPEG
-		}
-	}
-	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
-
-	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	if len(resBytes) == 0 {
-		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
-	}
-	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
+	s.logger.Error(errorMsg)
+	return nil, errors.New(errorMsg)
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
