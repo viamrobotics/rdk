@@ -230,7 +230,6 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {
 		// List of resources that exist in the registry but should not be available for custom module generation.
-		// These are typically system services that are user-configurable but not meant to be implemented as custom modules.
 		// Add new resources to this list if they should not be available for custom module generation.
 		excludedResources := []string{
 			"shell service",
