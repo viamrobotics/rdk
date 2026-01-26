@@ -319,6 +319,9 @@ func TestGetOrgIDForPart(t *testing.T) {
 							{OrganizationId: secondaryOrgID, Primary: false},
 							{OrganizationId: expectedOrgID, Primary: true},
 						},
+						PrimaryOrgIdentity: apppb.OrganizationIdentity{
+							Id: expectedOrgID,
+						},
 					},
 				}, nil
 			},
@@ -361,6 +364,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 							{OrganizationId: firstOrgID, Primary: false},
 							{OrganizationId: secondOrgID, Primary: false},
 						},
+						PrimaryOrgIdentity: nil,
 					},
 				}, nil
 			},
