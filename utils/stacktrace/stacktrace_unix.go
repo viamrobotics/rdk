@@ -5,7 +5,6 @@ package stacktrace
 import (
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"go.viam.com/rdk/logging"
@@ -16,7 +15,6 @@ type stackTraceSignalHandler struct {
 	logger  logging.Logger
 	sigChan chan os.Signal
 	done    chan struct{}
-	mu      sync.Mutex
 }
 
 // NewSignalHandler sets up a SIGUSR1 handler that dumps all goroutine
