@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/test"
-
 )
 
 func TestSimpleModuleBuild(t *testing.T) {
-	modPath := testutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
-	test.That(t, modPath, test.ShouldNotBeEmpty)
+	testutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+}
+
+func TestSimpleModuleClientBuild(t *testing.T) {
+	testutils.BuildTempModule(t, "examples/customresources/demos/simplemodule/client")
 }
