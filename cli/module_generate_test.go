@@ -256,7 +256,7 @@ func TestGenerateModuleAction(t *testing.T) {
 		resourcesToAdd := resource.RegisteredAPIs()
 		for api := range resourcesToAdd {
 			resourceStr := api.SubtypeName
-			if api.SubtypeName == "generic"{
+			if api.SubtypeName == "generic" {
 				resourceStr = "generic_" + api.Type.Name
 			}
 			if api.SubtypeName == "input_controller" {
@@ -269,9 +269,9 @@ func TestGenerateModuleAction(t *testing.T) {
 			}
 		}
 
-		if len(resourcesToAdd) != len(availableResources)+len(excludedResources){
-			t.Errorf("The number of resources in the registry (%d) doesn't match the number of module generator resources (%d) and excluded resources (%d)", 
-			len(resourcesToAdd), len(availableResources), len(excludedResources))
+		if len(resourcesToAdd) != len(availableResources)+len(excludedResources) {
+			t.Errorf("The number of resources in the registry (%d) doesn't match the number of module generator resources (%d) and "+
+				"excluded resources (%d)", len(resourcesToAdd), len(availableResources), len(excludedResources))
 		}
 	})
 }
