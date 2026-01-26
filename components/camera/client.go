@@ -182,7 +182,7 @@ func (c *client) Image(ctx context.Context, mimeType string, extra map[string]in
 	md, _ := metadata.FromIncomingContext(ctx)
 	errorMsg := fmt.Sprintf(
 		"camera client error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
-			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated, for this "+
+			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated for this "+
 			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
 			"camera_name: %s, camera_remote_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
 		c.Name(),
