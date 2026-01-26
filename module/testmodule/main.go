@@ -111,7 +111,7 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 	signal.Notify(sigChan, syscall.SIGUSR1)
 	go func() {
 		for range sigChan {
-			logger.Info("Received SIGUSR1 signal in testmodule")
+			logger.Info("Received SIGUSR1 signal in testmodule.")
 		}
 	}()
 	defer signal.Stop(sigChan)

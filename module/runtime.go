@@ -79,7 +79,7 @@ func moduleStart(
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
 		// Set up SIGUSR1 handler to dump stack traces when viam-server requests it before restart.
-		_, cleanupSignalHandler := stacktrace.NewSignalHandler(logger)
+		cleanupSignalHandler := stacktrace.NewSignalHandler(logger)
 		defer cleanupSignalHandler()
 
 		if len(os.Args) < 2 {

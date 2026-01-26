@@ -11,20 +11,18 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// SignalHandler manages the SIGUSR1 signal handler for stack trace dumps.
-type SignalHandler struct {
-	logger   logging.Logger
-	sigChan  chan os.Signal
-	done     chan struct{}
-	mu       sync.Mutex
-	callback func()
+// stackTraceSignalHandler manages the SIGUSR1 signal handler for stack trace dumps.
+type stackTraceSignalHandler struct {
+	logger  logging.Logger
+	sigChan chan os.Signal
+	done    chan struct{}
+	mu      sync.Mutex
 }
 
 // NewSignalHandler sets up a SIGUSR1 handler that dumps all goroutine
-// stack traces when received. Returns a handler that can be used to register
-// additional callbacks and a cleanup function that should be deferred.
-func NewSignalHandler(logger logging.Logger) (*SignalHandler, func()) {
-	handler := &SignalHandler{
+// stack traces when received. Returns a cleanup function that should be deferred.
+func NewSignalHandler(logger logging.Logger) func() {
+	handler := &stackTraceSignalHandler{
 		logger:  logger,
 		sigChan: make(chan os.Signal, 1),
 		done:    make(chan struct{}),
@@ -39,14 +37,6 @@ func NewSignalHandler(logger logging.Logger) (*SignalHandler, func()) {
 			case <-handler.sigChan:
 				logger.Info("Received SIGUSR1, dumping stack traces")
 				LogStackTrace(logger)
-
-				// Forward to modules if callback is registered
-				handler.mu.Lock()
-				cb := handler.callback
-				handler.mu.Unlock()
-				if cb != nil {
-					cb()
-				}
 			}
 		}
 	}()
@@ -56,14 +46,5 @@ func NewSignalHandler(logger logging.Logger) (*SignalHandler, func()) {
 		close(handler.done)
 	}
 
-	return handler, cleanup
-}
-
-// SetCallback sets a callback function that will be called when SIGUSR1
-// is received, after dumping viam-server's stack traces. This is typically used
-// to forward the signal to module processes.
-func (h *SignalHandler) SetCallback(cb func()) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.callback = cb
+	return cleanup
 }

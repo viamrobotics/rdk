@@ -1954,14 +1954,8 @@ func TestStackDump(t *testing.T) {
 
 		// Wait for the module to receive the signal and log its distinctive message.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			foundModuleLog := false
-			for _, log := range logs.All() {
-				if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule") {
-					foundModuleLog = true
-					break
-				}
-			}
-			test.That(tb, foundModuleLog, test.ShouldBeTrue)
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule.").Len(), test.ShouldEqual, 1)
 		})
 	})
 
@@ -1980,14 +1974,8 @@ func TestStackDump(t *testing.T) {
 
 		// Only check for log indicating we attempted to send signals
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			foundLog := false
-			for _, log := range logs.All() {
-				if strings.Contains(log.Message, "Requesting stack trace dump from module") {
-					foundLog = true
-					break
-				}
-			}
-			test.That(tb, foundLog, test.ShouldBeFalse)
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Requesting stack trace dump from module").Len(), test.ShouldEqual, 0)
 		})
 	})
 
@@ -2021,17 +2009,9 @@ func TestStackDump(t *testing.T) {
 
 		// Wait for both modules to receive the signal and log their distinctive messages.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			foundModule1 := false
-			foundModule2 := false
-			for _, log := range logs.All() {
-				if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule2") {
-					foundModule2 = true
-				} else if strings.Contains(log.Message, "Received SIGUSR1 signal in testmodule") {
-					foundModule1 = true
-				}
-			}
-			test.That(tb, foundModule1, test.ShouldBeTrue)
-			test.That(tb, foundModule2, test.ShouldBeTrue)
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule.").Len(), test.ShouldEqual, 1)
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule2").Len(), test.ShouldEqual, 1)
 		})
 	})
 }
