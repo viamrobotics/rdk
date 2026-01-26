@@ -62,7 +62,7 @@ type moduleManager interface {
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
 	RequestStackTraceDump()
-	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
+	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
 	ClearFailedModules()
@@ -1279,10 +1279,10 @@ func (manager *resourceManager) updateResources(
 		manager.markRebuildResources(affectedResourceNames)
 	}
 
+	// Now that the modules have been added or reconfigured, any modular resources that are provided by the modified
+	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
-		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
-			manager.logger.CErrorw(ctx, "error adding implicit dependencies", "error", err)
-		}
+		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
 	}
 
 	revision := conf.NewRevision()

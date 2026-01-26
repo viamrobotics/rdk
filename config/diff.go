@@ -263,7 +263,7 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
-			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !componentDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -392,7 +392,7 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
-			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !serviceDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue

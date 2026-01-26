@@ -52,6 +52,7 @@ require (
 	github.com/jhump/protoreflect v1.15.6
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/kylelemons/godebug v1.1.0
+	github.com/kyoh86/nolint v0.0.1
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/lmittmann/ppm v1.0.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -95,7 +96,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.503
+	go.viam.com/api v0.1.511
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.4.3
 	goji.io v2.0.2+incompatible

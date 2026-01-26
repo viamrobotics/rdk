@@ -508,12 +508,15 @@ func newSensorDependent(
 	}, nil
 }
 
+var sensorValidateCalls = 0
+
 type sensorDepConfig struct {
 	Sensor string `json:"sensor"`
 }
 
 // Validate will ensure that sensor
 func (sc *sensorDepConfig) Validate(_ string) ([]string, []string, error) {
+	sensorValidateCalls++
 	if sc.Sensor == "" {
 		return nil, nil, errors.New("empty sensor")
 	}
@@ -530,4 +533,9 @@ type sensorDependent struct {
 // Readings always returns Readings from the sensor held inside the struct.
 func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	return sd.sensor.Readings(ctx, map[string]interface{}{})
+}
+
+// DoCommand returns the number of times validate has been called on this module.
+func (sd *sensorDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"validate_calls": sensorValidateCalls}, nil
 }
