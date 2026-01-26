@@ -20,7 +20,7 @@ import (
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -90,7 +90,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -168,7 +168,7 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 
 func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -230,7 +230,7 @@ func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 
 func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
