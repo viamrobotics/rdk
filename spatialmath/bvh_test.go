@@ -399,8 +399,10 @@ func TestTransformAABB(t *testing.T) {
 }
 
 func TestBVHCollidesWithBVH(t *testing.T) {
+	zeroPose := NewZeroPose()
+
 	t.Run("nil nodes do not collide", func(t *testing.T) {
-		collides, dist := bvhCollidesWithBVH(nil, nil, 0)
+		collides, dist := bvhCollidesWithBVH(nil, nil, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 	})
@@ -413,11 +415,11 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 		)
 		bvh := buildBVH(trianglesToGeometries(tri))
 
-		collides, dist := bvhCollidesWithBVH(bvh, nil, 0)
+		collides, dist := bvhCollidesWithBVH(bvh, nil, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 
-		collides, dist = bvhCollidesWithBVH(nil, bvh, 0)
+		collides, dist = bvhCollidesWithBVH(nil, bvh, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 	})
@@ -431,7 +433,7 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 		bvh1 := buildBVH(trianglesToGeometries(tri))
 		bvh2 := buildBVH(trianglesToGeometries(tri))
 
-		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
@@ -449,7 +451,7 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 		bvh1 := buildBVH(trianglesToGeometries(tri1))
 		bvh2 := buildBVH(trianglesToGeometries(tri2))
 
-		collides, dist := bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, dist := bvhCollidesWithBVH(bvh1, bvh2, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, dist, test.ShouldBeGreaterThan, 0)
 	})
@@ -469,44 +471,37 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 		bvh2 := buildBVH(trianglesToGeometries(tri2))
 
 		// Without buffer, no collision
-		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 
 		// With buffer >= 0.5, collision
-		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, 0.5)
+		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, zeroPose, zeroPose, 0.5)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
 	t.Run("collision with pose transformation", func(t *testing.T) {
-		tri1 := NewTriangle(
+		// Both BVHs store triangles at origin in local space
+		tri := NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)
-		tri2 := NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: 0},
-			r3.Vector{X: 1, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 1, Z: 0},
-		)
-		bvh1 := buildBVH(trianglesToGeometries(tri1))
+		bvh1 := buildBVH(trianglesToGeometries(tri))
+		bvh2 := buildBVH(trianglesToGeometries(tri))
 
-		// Move second triangle far away
+		// Move second BVH far away via pose (lazy transform)
 		pose2 := NewPose(r3.Vector{X: 100, Y: 100, Z: 100}, NewZeroOrientation())
-		tri2Moved := tri2.Transform(pose2).(*Triangle)
-		bvh2 := buildBVH(trianglesToGeometries(tri2Moved))
-		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, _ := bvhCollidesWithBVH(bvh1, bvh2, zeroPose, pose2, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 
-		// Move second triangle to overlap
+		// Move second BVH to overlap via pose
 		pose2 = NewPose(r3.Vector{X: 0.1, Y: 0.1, Z: 0}, NewZeroOrientation())
-		tri2Moved = tri2.Transform(pose2).(*Triangle)
-		bvh2 = buildBVH(trianglesToGeometries(tri2Moved))
-		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, zeroPose, pose2, 0)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
 	t.Run("large BVH collision", func(t *testing.T) {
-		// Create two meshes with many triangles
+		// Create two meshes with many triangles in local space
 		triangles1 := make([]*Triangle, 20)
 		triangles2 := make([]*Triangle, 20)
 		for i := 0; i < 20; i++ {
@@ -516,6 +511,7 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 				r3.Vector{X: x + 1, Y: 0, Z: 0},
 				r3.Vector{X: x, Y: 1, Z: 0},
 			)
+			// triangles2 at Z=10 in local space
 			triangles2[i] = NewTriangle(
 				r3.Vector{X: x, Y: 0, Z: 10},
 				r3.Vector{X: x + 1, Y: 0, Z: 10},
@@ -526,23 +522,20 @@ func TestBVHCollidesWithBVH(t *testing.T) {
 		bvh2 := buildBVH(triangleSliceToGeometries(triangles2))
 
 		// Should not collide (separated in Z)
-		collides, dist := bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, dist := bvhCollidesWithBVH(bvh1, bvh2, zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, dist, test.ShouldBeGreaterThan, 0)
 
-		// Move them together
+		// Move bvh2 down by 10 via pose to make them overlap
 		pose2 := NewPose(r3.Vector{X: 0, Y: 0, Z: -10}, NewZeroOrientation())
-		movedTris2 := make([]Geometry, len(triangles2))
-		for i, tri := range triangles2 {
-			movedTris2[i] = tri.Transform(pose2)
-		}
-		bvh2 = buildBVH(movedTris2)
-		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, 0)
+		collides, _ = bvhCollidesWithBVH(bvh1, bvh2, zeroPose, pose2, 0)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 }
 
 func TestLeafCollidesWithLeaf(t *testing.T) {
+	zeroPose := NewZeroPose()
+
 	t.Run("overlapping triangles collide", func(t *testing.T) {
 		tri1 := NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
@@ -555,7 +548,7 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 			r3.Vector{X: -0.5, Y: 0.5, Z: 0},
 		)
 
-		collides, _ := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), 0)
+		collides, _ := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 
@@ -571,7 +564,7 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 			r3.Vector{X: 0, Y: 1, Z: 5},
 		)
 
-		collides, dist := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), 0)
+		collides, dist := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, dist, test.ShouldAlmostEqual, 5, 1e-9)
 	})
@@ -589,18 +582,20 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 		)
 
 		// No collision without buffer
-		collides, _ := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), 0)
+		collides, _ := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
 		test.That(t, collides, test.ShouldBeFalse)
 
 		// Collision with buffer
-		collides, _ = leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), 1)
+		collides, _ = leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 1)
 		test.That(t, collides, test.ShouldBeTrue)
 	})
 }
 
 func TestBVHDistanceFromBVH(t *testing.T) {
+	zeroPose := NewZeroPose()
+
 	t.Run("nil nodes return infinity", func(t *testing.T) {
-		dist := bvhDistanceFromBVH(nil, nil)
+		dist := bvhDistanceFromBVH(nil, nil, zeroPose, zeroPose)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 	})
 
@@ -612,10 +607,10 @@ func TestBVHDistanceFromBVH(t *testing.T) {
 		)
 		bvh := buildBVH(trianglesToGeometries(tri))
 
-		dist := bvhDistanceFromBVH(bvh, nil)
+		dist := bvhDistanceFromBVH(bvh, nil, zeroPose, zeroPose)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 
-		dist = bvhDistanceFromBVH(nil, bvh)
+		dist = bvhDistanceFromBVH(nil, bvh, zeroPose, zeroPose)
 		test.That(t, math.IsInf(dist, 1), test.ShouldBeTrue)
 	})
 
@@ -628,7 +623,7 @@ func TestBVHDistanceFromBVH(t *testing.T) {
 		bvh1 := buildBVH(trianglesToGeometries(tri))
 		bvh2 := buildBVH(trianglesToGeometries(tri))
 
-		dist := bvhDistanceFromBVH(bvh1, bvh2)
+		dist := bvhDistanceFromBVH(bvh1, bvh2, zeroPose, zeroPose)
 		// Overlapping geometries return negative distance (penetration depth) per Geometry interface
 		test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 0)
 	})
@@ -647,23 +642,23 @@ func TestBVHDistanceFromBVH(t *testing.T) {
 		bvh1 := buildBVH(trianglesToGeometries(tri1))
 		bvh2 := buildBVH(trianglesToGeometries(tri2))
 
-		dist := bvhDistanceFromBVH(bvh1, bvh2)
+		dist := bvhDistanceFromBVH(bvh1, bvh2, zeroPose, zeroPose)
 		test.That(t, dist, test.ShouldAlmostEqual, 5, 1e-9)
 	})
 
 	t.Run("distance with pose transformation", func(t *testing.T) {
+		// Both BVHs store triangles at origin in local space
 		tri := NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
 			r3.Vector{X: 1, Y: 0, Z: 0},
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)
 		bvh1 := buildBVH(trianglesToGeometries(tri))
+		bvh2 := buildBVH(trianglesToGeometries(tri))
 
-		// Move second BVH away
+		// Move second BVH away via pose (lazy transform)
 		pose2 := NewPose(r3.Vector{X: 0, Y: 0, Z: 10}, NewZeroOrientation())
-		triMoved := tri.Transform(pose2).(*Triangle)
-		bvh2 := buildBVH(trianglesToGeometries(triMoved))
-		dist := bvhDistanceFromBVH(bvh1, bvh2)
+		dist := bvhDistanceFromBVH(bvh1, bvh2, zeroPose, pose2)
 		test.That(t, dist, test.ShouldAlmostEqual, 10, 1e-9)
 	})
 
@@ -686,12 +681,14 @@ func TestBVHDistanceFromBVH(t *testing.T) {
 		bvh1 := buildBVH(triangleSliceToGeometries(triangles1))
 		bvh2 := buildBVH(triangleSliceToGeometries(triangles2))
 
-		dist := bvhDistanceFromBVH(bvh1, bvh2)
+		dist := bvhDistanceFromBVH(bvh1, bvh2, zeroPose, zeroPose)
 		test.That(t, dist, test.ShouldAlmostEqual, 7, 1e-9)
 	})
 }
 
 func TestLeafDistanceFromLeaf(t *testing.T) {
+	zeroPose := NewZeroPose()
+
 	t.Run("overlapping triangles", func(t *testing.T) {
 		tri := NewTriangle(
 			r3.Vector{X: 0, Y: 0, Z: 0},
@@ -699,7 +696,7 @@ func TestLeafDistanceFromLeaf(t *testing.T) {
 			r3.Vector{X: 0, Y: 1, Z: 0},
 		)
 
-		dist := leafDistanceFromLeaf(trianglesToGeometries(tri), trianglesToGeometries(tri))
+		dist := leafDistanceFromLeaf(trianglesToGeometries(tri), trianglesToGeometries(tri), zeroPose, zeroPose)
 		// Overlapping/identical triangles return negative distance (penetration depth) per Geometry interface
 		test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 0)
 	})
@@ -716,7 +713,7 @@ func TestLeafDistanceFromLeaf(t *testing.T) {
 			r3.Vector{X: 0, Y: 1, Z: 3},
 		)
 
-		dist := leafDistanceFromLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2))
+		dist := leafDistanceFromLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose)
 		test.That(t, dist, test.ShouldAlmostEqual, 3, 1e-9)
 	})
 
@@ -730,7 +727,7 @@ func TestLeafDistanceFromLeaf(t *testing.T) {
 			NewTriangle(r3.Vector{X: 5, Y: 0, Z: 2}, r3.Vector{X: 6, Y: 0, Z: 2}, r3.Vector{X: 5, Y: 1, Z: 2}),
 		)
 
-		dist := leafDistanceFromLeaf(tris1, tris2)
+		dist := leafDistanceFromLeaf(tris1, tris2, zeroPose, zeroPose)
 		// Minimum distance should be between tris1[1] and tris2[1] = 2
 		test.That(t, dist, test.ShouldAlmostEqual, 2, 1e-9)
 	})

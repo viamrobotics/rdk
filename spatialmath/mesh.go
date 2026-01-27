@@ -46,11 +46,12 @@ type Mesh struct {
 	bvh *bvhNode
 }
 
-// trianglesToGeomsWithPose converts a slice of triangles to Geometry in world space.
-func trianglesToGeomsWithPose(triangles []*Triangle, pose Pose) []Geometry {
+// trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
+// The triangles remain in local space.
+func trianglesToGeoms(triangles []*Triangle) []Geometry {
 	geoms := make([]Geometry, len(triangles))
 	for i, t := range triangles {
-		geoms[i] = t.Transform(pose)
+		geoms[i] = t
 	}
 	return geoms
 }
@@ -61,7 +62,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		bvh:       buildBVH(trianglesToGeomsWithPose(triangles, pose)),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -156,7 +157,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeomsWithPose(triangles, pose)),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}, nil
 }
 
@@ -210,7 +211,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeomsWithPose(triangles, pose)),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}, nil
 }
 
@@ -288,17 +289,15 @@ func (m *Mesh) Triangles() []*Triangle {
 // Transform transforms the mesh. As triangles are in the mesh's frame, they are unchanged.
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
-	// Rebuild BVH in world space for the new pose
-	combinedPose := Compose(pose, m.pose)
-	bvh := buildBVH(trianglesToGeomsWithPose(m.triangles, combinedPose))
+	// BVH is also in local space and can be reused - poses are applied lazily during collision checks
 	return &Mesh{
-		pose:             combinedPose,
+		pose:             Compose(pose, m.pose),
 		triangles:        m.triangles,
 		label:            m.label,
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              bvh,
+		bvh:              m.bvh, // Reuse BVH - it's in local space
 	}
 }
 
@@ -477,7 +476,8 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
 	// Use BVH-accelerated collision if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
-		return bvhCollidesWithBVH(m.bvh, other.bvh, collisionBufferMM)
+		// Pass poses to BVH collision - BVH stores geometries in local space
+		return bvhCollidesWithBVH(m.bvh, other.bvh, m.pose, other.pose, collisionBufferMM)
 	}
 
 	// Fallback to brute-force O(n*m) check
@@ -543,7 +543,8 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 		return false, math.Inf(1), nil
 	}
 	otherMin, otherMax := computeGeometryAABB(other)
-	return bvhCollidesWithGeometry(m.bvh, other, otherMin, otherMax, collisionBufferMM)
+	// Pass mesh pose to BVH collision - BVH stores geometries in local space
+	return bvhCollidesWithGeometry(m.bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
@@ -551,7 +552,8 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 	// Use BVH-accelerated distance if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
-		return bvhDistanceFromBVH(m.bvh, other.bvh)
+		// Pass poses to BVH distance - BVH stores geometries in local space
+		return bvhDistanceFromBVH(m.bvh, other.bvh, m.pose, other.pose)
 	}
 
 	// Fallback to brute-force

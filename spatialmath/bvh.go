@@ -279,16 +279,16 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 	return newMin, newMax
 }
 
-// bvhCollidesWithBVH checks if two BVH trees collide.
-func bvhCollidesWithBVH(node1, node2 *bvhNode, collisionBufferMM float64) (bool, float64) {
+// bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
+// The BVH nodes store geometries in local space; poses are applied lazily during traversal.
+func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	if node1 == nil || node2 == nil {
 		return false, math.Inf(1)
 	}
 
-	min1 := node1.min
-	max1 := node1.max
-	min2 := node2.min
-	max2 := node2.max
+	// Transform AABBs to world space
+	min1, max1 := transformAABB(node1.min, node1.max, pose1)
+	min2, max2 := transformAABB(node2.min, node2.max, pose2)
 
 	// Expand first AABB by collision buffer
 	min1.X -= collisionBufferMM
@@ -303,20 +303,20 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, collisionBufferMM float64) (bool,
 		return false, aabbDistance(min1, max1, min2, max2)
 	}
 
-	// Both are leaves - do triangle-triangle checks
+	// Both are leaves - do geometry-geometry checks
 	if node1.geoms != nil && node2.geoms != nil {
-		return leafCollidesWithLeaf(node1.geoms, node2.geoms, collisionBufferMM)
+		return leafCollidesWithLeaf(node1.geoms, node2.geoms, pose1, pose2, collisionBufferMM)
 	}
 
 	// Recurse into children
 	// Strategy: descend into the larger node first for better culling
 	if node1.geoms != nil {
 		// node1 is leaf, recurse into node2's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1, node2.left, collisionBufferMM)
+		leftCollide, leftDist := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
 		if leftCollide {
 			return true, -1
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1, node2.right, collisionBufferMM)
+		rightCollide, rightDist := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
 		if rightCollide {
 			return true, -1
 		}
@@ -325,11 +325,11 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, collisionBufferMM float64) (bool,
 
 	if node2.geoms != nil {
 		// node2 is leaf, recurse into node1's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, node2, collisionBufferMM)
+		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
 		if leftCollide {
 			return true, -1
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1.right, node2, collisionBufferMM)
+		rightCollide, rightDist := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
 		if rightCollide {
 			return true, -1
 		}
@@ -346,7 +346,7 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, collisionBufferMM float64) (bool,
 	}
 
 	for _, pair := range pairs {
-		collide, dist := bvhCollidesWithBVH(pair[0], pair[1], collisionBufferMM)
+		collide, dist := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
 		if collide {
 			return true, -1
 		}
@@ -359,13 +359,18 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, collisionBufferMM float64) (bool,
 }
 
 // leafCollidesWithLeaf performs collision checks between two leaf nodes using the Geometry interface.
-func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, collisionBufferMM float64) (bool, float64) {
+// Geometries are stored in local space and transformed on-demand using the provided poses.
+func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	minDist := math.Inf(1)
 
 	for _, g1 := range geoms1 {
+		// Transform geometry to world space
+		worldG1 := g1.Transform(pose1)
 		for _, g2 := range geoms2 {
+			// Transform geometry to world space
+			worldG2 := g2.Transform(pose2)
 			// Use the Geometry interface's CollidesWith method
-			collides, dist, _ := g1.CollidesWith(g2, collisionBufferMM)
+			collides, dist, _ := worldG1.CollidesWith(worldG2, collisionBufferMM)
 			if collides {
 				return true, -1
 			}
@@ -379,15 +384,15 @@ func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, collisionBufferMM float64) 
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.
-func bvhDistanceFromBVH(node1, node2 *bvhNode) float64 {
+// The BVH nodes store geometries in local space; poses are applied lazily during traversal.
+func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	if node1 == nil || node2 == nil {
 		return math.Inf(1)
 	}
 
-	min1 := node1.min
-	max1 := node1.max
-	min2 := node2.min
-	max2 := node2.max
+	// Transform AABBs to world space
+	min1, max1 := transformAABB(node1.min, node1.max, pose1)
+	min2, max2 := transformAABB(node2.min, node2.max, pose2)
 
 	// Check if AABBs overlap
 	if !aabbOverlap(min1, max1, min2, max2) {
@@ -398,19 +403,19 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode) float64 {
 
 	// Both are leaves - compute exact distance
 	if node1.geoms != nil && node2.geoms != nil {
-		return leafDistanceFromLeaf(node1.geoms, node2.geoms)
+		return leafDistanceFromLeaf(node1.geoms, node2.geoms, pose1, pose2)
 	}
 
 	// Recurse into children
 	if node1.geoms != nil {
-		leftDist := bvhDistanceFromBVH(node1, node2.left)
-		rightDist := bvhDistanceFromBVH(node1, node2.right)
+		leftDist := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
+		rightDist := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
 		return math.Min(leftDist, rightDist)
 	}
 
 	if node2.geoms != nil {
-		leftDist := bvhDistanceFromBVH(node1.left, node2)
-		rightDist := bvhDistanceFromBVH(node1.right, node2)
+		leftDist := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
+		rightDist := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
 		return math.Min(leftDist, rightDist)
 	}
 
@@ -424,7 +429,7 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode) float64 {
 	}
 
 	for _, pair := range pairs {
-		dist := bvhDistanceFromBVH(pair[0], pair[1])
+		dist := bvhDistanceFromBVH(pair[0], pair[1], pose1, pose2)
 		if dist < minDist {
 			minDist = dist
 		}
@@ -434,13 +439,15 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode) float64 {
 }
 
 // bvhCollidesWithGeometry traverses the BVH checking against a single geometry.
-func bvhCollidesWithGeometry(node *bvhNode, other Geometry, otherMin, otherMax r3.Vector, buffer float64) (bool, float64, error) {
+// The BVH stores geometries in local space; bvhPose is applied lazily during traversal.
+// The 'other' geometry is assumed to already be in world space.
+func bvhCollidesWithGeometry(node *bvhNode, bvhPose Pose, other Geometry, otherMin, otherMax r3.Vector, buffer float64) (bool, float64, error) {
 	if node == nil {
 		return false, math.Inf(1), nil
 	}
 
-	nodeMin := node.min
-	nodeMax := node.max
+	// Transform node AABB to world space
+	nodeMin, nodeMax := transformAABB(node.min, node.max, bvhPose)
 
 	// Expand node AABB by buffer
 	nodeMin.X -= buffer
@@ -459,7 +466,9 @@ func bvhCollidesWithGeometry(node *bvhNode, other Geometry, otherMin, otherMax r
 	if node.geoms != nil {
 		minDist := math.Inf(1)
 		for _, g := range node.geoms {
-			collides, dist, err := g.CollidesWith(other, buffer)
+			// Transform geometry to world space
+			worldG := g.Transform(bvhPose)
+			collides, dist, err := worldG.CollidesWith(other, buffer)
 			if err != nil {
 				return false, 0, err
 			}
@@ -474,11 +483,11 @@ func bvhCollidesWithGeometry(node *bvhNode, other Geometry, otherMin, otherMax r
 	}
 
 	// Internal node: recurse
-	leftCollide, leftDist, err := bvhCollidesWithGeometry(node.left, other, otherMin, otherMax, buffer)
+	leftCollide, leftDist, err := bvhCollidesWithGeometry(node.left, bvhPose, other, otherMin, otherMax, buffer)
 	if err != nil || leftCollide {
 		return leftCollide, leftDist, err
 	}
-	rightCollide, rightDist, err := bvhCollidesWithGeometry(node.right, other, otherMin, otherMax, buffer)
+	rightCollide, rightDist, err := bvhCollidesWithGeometry(node.right, bvhPose, other, otherMin, otherMax, buffer)
 	if err != nil || rightCollide {
 		return rightCollide, rightDist, err
 	}
@@ -486,13 +495,18 @@ func bvhCollidesWithGeometry(node *bvhNode, other Geometry, otherMin, otherMax r
 }
 
 // leafDistanceFromLeaf computes the minimum distance between two sets of geometries.
-func leafDistanceFromLeaf(geoms1, geoms2 []Geometry) float64 {
+// Geometries are stored in local space and transformed on-demand using the provided poses.
+func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) float64 {
 	minDist := math.Inf(1)
 
 	for _, g1 := range geoms1 {
+		// Transform geometry to world space
+		worldG1 := g1.Transform(pose1)
 		for _, g2 := range geoms2 {
+			// Transform geometry to world space
+			worldG2 := g2.Transform(pose2)
 			// Use the Geometry interface's DistanceFrom method
-			dist, _ := g1.DistanceFrom(g2)
+			dist, _ := worldG1.DistanceFrom(worldG2)
 			if dist < minDist {
 				minDist = dist
 			}
