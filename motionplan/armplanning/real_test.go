@@ -131,7 +131,8 @@ func TestWineCrazyTouch1(t *testing.T) {
 		test.That(t, d, test.ShouldBeLessThan, 0.0001)
 	}
 
-	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+	// Smoothing produces ~4 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
@@ -156,7 +157,8 @@ func TestWineCrazyTouch2(t *testing.T) {
 			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 		}
 
-		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
 	})
 
 	t.Run("orientation", func(t *testing.T) {
@@ -165,7 +167,8 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
 	})
 }
 
