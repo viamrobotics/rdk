@@ -76,7 +76,7 @@ func buildBVHNode(geoms []Geometry) *bvhNode {
 
 // computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
 // The returned min and max vectors define the AABB in world coordinates.
-func computeGeometryAABB(g Geometry) (min, max r3.Vector) {
+func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 	switch geom := g.(type) {
 	case *Triangle:
 		return computeTriangleAABB(geom)
@@ -436,7 +436,14 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, erro
 // bvhCollidesWithGeometry traverses the BVH checking against a single geometry.
 // The BVH stores geometries in local space; bvhPose is applied lazily during traversal.
 // The 'other' geometry is assumed to already be in world space.
-func bvhCollidesWithGeometry(node *bvhNode, bvhPose Pose, other Geometry, otherMin, otherMax r3.Vector, buffer float64) (bool, float64, error) {
+func bvhCollidesWithGeometry(
+	node *bvhNode,
+	bvhPose Pose,
+	other Geometry,
+	otherMin,
+	otherMax r3.Vector,
+	buffer float64,
+) (bool, float64, error) {
 	if node == nil {
 		return false, math.Inf(1), nil
 	}

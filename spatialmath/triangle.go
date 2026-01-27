@@ -295,19 +295,34 @@ func (t *Triangle) collidesWithPoint(p *point, collisionBufferMM float64) (bool,
 func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Triangle:
-		_, dist, _ := t.collidesWithTriangle(other, 0)
+		_, dist, err := t.collidesWithTriangle(other, 0)
+		if err != nil {
+			return math.Inf(1), err
+		}
 		return dist, nil
 	case *sphere:
-		_, dist, _ := t.collidesWithSphere(other, 0)
+		_, dist, err := t.collidesWithSphere(other, 0)
+		if err != nil {
+			return math.Inf(1), err
+		}
 		return dist, nil
 	case *point:
-		_, dist, _ := t.collidesWithPoint(other, 0)
+		_, dist, err := t.collidesWithPoint(other, 0)
+		if err != nil {
+			return math.Inf(1), err
+		}
 		return dist, nil
 	case *capsule:
-		_, dist, _ := t.collidesWithCapsule(other, 0)
+		_, dist, err := t.collidesWithCapsule(other, 0)
+		if err != nil {
+			return math.Inf(1), err
+		}
 		return dist, nil
 	case *box:
 		_, dist, err := t.collidesWithBox(other, 0)
+		if err != nil {
+			return math.Inf(1), err
+		}
 		return dist, err
 	case *Mesh:
 		return other.DistanceFrom(t)
