@@ -229,31 +229,18 @@ func TestGenerateModuleAction(t *testing.T) {
 	})
 
 	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {
-		// List of resources that exist in the registry but should not be available for custom module generation.
-		// Add new resources to this list if they should not be available for custom module generation.
-		excludedResources := []string{
-			"shell service",
-			"data_manager service",
-			"discovery service",
-			"video service",
-			"base_remote_control service",
-		}
-
-		// Build a set of all resources that should be available for module generation
-		availableResources := make(map[string]bool)
+		// Build combined set directly from available + excluded resources
+		combinedSet := make(map[string]bool)
 		for _, res := range modulegen.Resources {
-			availableResources[res] = true
+			combinedSet[res] = true
+		}
+		for _, res := range modulegen.ExcludedResources {
+			combinedSet[res] = true
 		}
 
-		// Build a set of excluded resources
-		excludedSet := make(map[string]bool)
-		for _, excluded := range excludedResources {
-			excludedSet[excluded] = true
-		}
-
-		// Get all registered APIs and verify each is either in available or excluded
-		resourcesToAdd := resource.RegisteredAPIs()
-		for api := range resourcesToAdd {
+		// Build registered set directly from registered APIs, updating the string format to match resource list format
+		registeredSet := make(map[string]bool)
+		for api := range resource.RegisteredAPIs() {
 			resourceStr := api.SubtypeName
 			if api.SubtypeName == "generic" {
 				resourceStr = "generic_" + api.Type.Name
@@ -262,15 +249,22 @@ func TestGenerateModuleAction(t *testing.T) {
 				resourceStr = "input"
 			}
 			resourceStr += " " + api.Type.Name
-			if !availableResources[resourceStr] && !excludedSet[resourceStr] {
-				t.Errorf("New resource has not been added to `viam module generate` resource list. Resource %q must be either added to "+
-					"the resources list in inputs.go file or added to this test's excludedResources", resourceStr)
+			registeredSet[resourceStr] = true
+		}
+
+		// Verify resources in combined list that are not in registered APIs
+		for res := range combinedSet {
+			if !registeredSet[res] {
+				t.Errorf("Resource %q is in the module generator list (available + excluded) but is not a registered API", res)
 			}
 		}
 
-		if len(resourcesToAdd) != len(availableResources)+len(excludedResources) {
-			t.Errorf("The number of resources in the registry (%d) doesn't match the number of module generator resources (%d) and "+
-				"excluded resources (%d)", len(resourcesToAdd), len(availableResources), len(excludedResources))
+		// Check: registered APIs that are not in combined list
+		for res := range registeredSet {
+			if !combinedSet[res] {
+				t.Errorf("Registered API %q is not in the module generator list (available + excluded). It must be either added to "+
+					"the Resources or ExcludedResources list in inputs.go file", res)
+			}
 		}
 	})
 }
