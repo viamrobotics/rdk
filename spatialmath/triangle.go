@@ -158,13 +158,16 @@ func (t *Triangle) String() string {
 func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Triangle:
-		return t.collidesWithTriangle(other, collisionBufferMM)
+		collides, dist := t.collidesWithTriangle(other, collisionBufferMM)
+		return collides, dist, nil
 	case *sphere:
-		return t.collidesWithSphere(other, collisionBufferMM)
+		collides, dist := t.collidesWithSphere(other, collisionBufferMM)
+		return collides, dist, nil
 	case *box:
 		return t.collidesWithBox(other, collisionBufferMM)
 	case *capsule:
-		return t.collidesWithCapsule(other, collisionBufferMM)
+		collides, dist := t.collidesWithCapsule(other, collisionBufferMM)
+		return collides, dist, nil
 	case *point:
 		return t.collidesWithPoint(other, collisionBufferMM)
 	case *Mesh:
@@ -176,7 +179,7 @@ func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, fl
 }
 
 // collidesWithTriangle checks collision between two triangles.
-func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float64) (bool, float64, error) {
+func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float64) (bool, float64) {
 	p1 := t.Points()
 	p2 := other.Points()
 	minDist := math.Inf(1)
@@ -188,7 +191,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, other)
 		dist := bestSegPt.Sub(bestTriPt).Norm()
 		if dist <= collisionBufferMM {
-			return true, -1, nil
+			return true, -1
 		}
 		if dist < minDist {
 			minDist = dist
@@ -202,24 +205,24 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, t)
 		dist := bestSegPt.Sub(bestTriPt).Norm()
 		if dist <= collisionBufferMM {
-			return true, -1, nil
+			return true, -1
 		}
 		if dist < minDist {
 			minDist = dist
 		}
 	}
 
-	return false, minDist, nil
+	return false, minDist
 }
 
 // collidesWithSphere checks if triangle collides with a sphere.
-func (t *Triangle) collidesWithSphere(s *sphere, collisionBufferMM float64) (bool, float64, error) {
+func (t *Triangle) collidesWithSphere(s *sphere, collisionBufferMM float64) (bool, float64) {
 	closestPt := ClosestPointTrianglePoint(t, s.Pose().Point())
 	dist := closestPt.Sub(s.Pose().Point()).Norm() - s.radius
 	if dist <= collisionBufferMM {
-		return true, -1, nil
+		return true, -1
 	}
-	return false, dist, nil
+	return false, dist
 }
 
 // collidesWithBox checks if triangle collides with a box.
@@ -230,16 +233,16 @@ func (t *Triangle) collidesWithBox(b *box, collisionBufferMM float64) (bool, flo
 }
 
 // collidesWithCapsule checks if triangle collides with a capsule.
-func (t *Triangle) collidesWithCapsule(c *capsule, collisionBufferMM float64) (bool, float64, error) {
+func (t *Triangle) collidesWithCapsule(c *capsule, collisionBufferMM float64) (bool, float64) {
 	// Find closest points between capsule's central segment and triangle
 	segA := c.segA
 	segB := c.segB
 	bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(segA, segB, t)
 	dist := bestSegPt.Sub(bestTriPt).Norm() - c.radius
 	if dist <= collisionBufferMM {
-		return true, -1, nil
+		return true, -1
 	}
-	return false, dist, nil
+	return false, dist
 }
 
 // collidesWithPoint checks if triangle collides with a point.
@@ -256,16 +259,10 @@ func (t *Triangle) collidesWithPoint(p *point, collisionBufferMM float64) (bool,
 func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Triangle:
-		_, dist, err := t.collidesWithTriangle(other, 0)
-		if err != nil {
-			return math.Inf(1), err
-		}
+		_, dist := t.collidesWithTriangle(other, 0)
 		return dist, nil
 	case *sphere:
-		_, dist, err := t.collidesWithSphere(other, 0)
-		if err != nil {
-			return math.Inf(1), err
-		}
+		_, dist := t.collidesWithSphere(other, 0)
 		return dist, nil
 	case *point:
 		_, dist, err := t.collidesWithPoint(other, 0)
@@ -274,10 +271,7 @@ func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 		}
 		return dist, nil
 	case *capsule:
-		_, dist, err := t.collidesWithCapsule(other, 0)
-		if err != nil {
-			return math.Inf(1), err
-		}
+		_, dist := t.collidesWithCapsule(other, 0)
 		return dist, nil
 	case *box:
 		_, dist, err := t.collidesWithBox(other, 0)
@@ -301,16 +295,7 @@ func (t *Triangle) EncompassedBy(g Geometry) (bool, error) {
 		return false, nil // Meshes have no volume
 	case *Triangle:
 		return false, nil // Triangles have no volume
-	case *sphere:
-		// Check if all 3 points are inside the sphere
-		center := other.Pose().Point()
-		for _, pt := range t.Points() {
-			if pt.Sub(center).Norm() > other.radius {
-				return false, nil
-			}
-		}
-		return true, nil
-	case *box, *capsule:
+	case *sphere, *box, *capsule:
 		// Check if all 3 points collide with the geometry (are inside)
 		for _, pt := range t.Points() {
 			pointGeom := NewPoint(pt, "")

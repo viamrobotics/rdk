@@ -58,11 +58,15 @@ func trianglesToGeoms(triangles []*Triangle) []Geometry {
 
 // NewMesh creates a mesh from the given triangles and pose.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
+	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
+	if err != nil {
+		panic(err) // Did not change function signature so code in sanding did not break
+	}
 	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
+		bvh:       bvhTree,
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -151,13 +155,17 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		tri := NewTriangle(pts[0], pts[1], pts[2])
 		triangles = append(triangles, tri)
 	}
+	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
+	if err != nil {
+		return nil, err
+	}
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
+		bvh:       bvhTree,
 	}, nil
 }
 
@@ -204,14 +212,17 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 
 		triangles[i] = NewTriangle(v1, v2, v3)
 	}
-
+	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
+	if err != nil {
+		return nil, err
+	}
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
+		bvh:       bvhTree, // BVH in local space
 	}, nil
 }
 
@@ -490,37 +501,13 @@ func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64
 	// Check if any triangles from either mesh collide.
 	// If two triangles intersect, then the segment between two vertices of one triangle intersects the other triangle.
 	for _, worldTri1 := range worldTris1 {
-		p1 := worldTri1.Points()
-
 		for _, worldTri2 := range worldTris2 {
-			p2 := worldTri2.Points()
-
-			// Check segments from tri1 against tri2
-			for i := 0; i < 3; i++ {
-				start := p1[i]
-				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist <= collisionBufferMM {
-					return true, -1
-				}
-				if dist < minDist {
-					minDist = dist
-				}
+			collides, dist := worldTri1.collidesWithTriangle(worldTri2, collisionBufferMM)
+			if collides {
+				return true, -1
 			}
-
-			// Check segments from tri2 against tri1
-			for i := 0; i < 3; i++ {
-				start := p2[i]
-				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist <= collisionBufferMM {
-					return true, -1
-				}
-				if dist < minDist {
-					minDist = dist
-				}
+			if dist < minDist {
+				minDist = dist
 			}
 		}
 	}
@@ -532,7 +519,10 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 	if m.bvh == nil {
 		return false, math.Inf(1), nil
 	}
-	otherMin, otherMax := computeGeometryAABB(other)
+	otherMin, otherMax, err := computeGeometryAABB(other)
+	if err != nil {
+		return false, math.Inf(1), err
+	}
 	// Pass mesh pose to BVH collision - BVH stores geometries in local space
 	return bvhCollidesWithGeometry(m.bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 }

@@ -1,6 +1,8 @@
 package spatialmath
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"sort"
 
@@ -23,23 +25,27 @@ type bvhNode struct {
 const maxGeomsPerLeaf = 4
 
 // buildBVH constructs a BVH from a list of geometries.
-func buildBVH(geoms []Geometry) *bvhNode {
+func buildBVH(geoms []Geometry) (*bvhNode, error) {
 	if len(geoms) == 0 {
-		return nil
+		return nil, errors.New("cannot construct BVH from zero geometries")
 	}
 	return buildBVHNode(geoms)
 }
 
-func buildBVHNode(geoms []Geometry) *bvhNode {
+func buildBVHNode(geoms []Geometry) (*bvhNode, error) {
 	node := &bvhNode{}
 
 	// Compute AABB (axis aligned bounding box) for all geometries
-	node.min, node.max = computeGeomsAABB(geoms)
+	var err error
+	node.min, node.max, err = computeGeomsAABB(geoms)
+	if err != nil {
+		return nil, err
+	}
 
 	// If few enough geometries, make this a leaf node
 	if len(geoms) <= maxGeomsPerLeaf {
 		node.geoms = geoms
-		return node
+		return node, nil
 	}
 
 	// Find the longest axis to split on
@@ -68,38 +74,47 @@ func buildBVHNode(geoms []Geometry) *bvhNode {
 
 	// Split at median
 	mid := len(geoms) / 2
-	node.left = buildBVHNode(geoms[:mid])
-	node.right = buildBVHNode(geoms[mid:])
+	node.left, err = buildBVHNode(geoms[:mid])
+	if err != nil {
+		return nil, err
+	}
+	node.right, err = buildBVHNode(geoms[mid:])
+	if err != nil {
+		return nil, err
+	}
 
-	return node
+	return node, nil
 }
 
 // computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
 // The returned min and max vectors define the AABB in world coordinates.
-func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
+func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector, error) {
 	switch geom := g.(type) {
 	case *Triangle:
-		return computeTriangleAABB(geom)
+		minPt, maxPt := computeTriangleAABB(geom)
+		return minPt, maxPt, nil
 	case *sphere:
-		return computeSphereAABB(geom)
+		minPt, maxPt := computeSphereAABB(geom)
+		return minPt, maxPt, nil
 	case *box:
-		return computeBoxAABB(geom)
+		minPt, maxPt := computeBoxAABB(geom)
+		return minPt, maxPt, nil
 	case *capsule:
-		return computeCapsuleAABB(geom)
+		minPt, maxPt := computeCapsuleAABB(geom)
+		return minPt, maxPt, nil
 	case *point:
 		pt := geom.position
-		return pt, pt
+		return pt, pt, nil
 	case *Mesh:
 		// Use existing BVH bounds if available
 		if geom.bvh != nil {
-			return geom.bvh.min, geom.bvh.max
+			return geom.bvh.min, geom.bvh.max, nil
 		}
 		// Fallback: compute from triangles
-		return computeMeshAABB(geom)
+		minPt, maxPt := computeMeshAABB(geom)
+		return minPt, maxPt, nil
 	default:
-		// Fallback: use pose point with zero extent
-		pt := g.Pose().Point()
-		return pt, pt
+		return r3.Vector{}, r3.Vector{}, fmt.Errorf("cannot construct AABB for this geometry %v", errGeometryTypeUnsupported)
 	}
 }
 
@@ -110,14 +125,20 @@ func computeTriangleAABB(t *Triangle) (r3.Vector, r3.Vector) {
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, pt := range pts {
-		minPt.X = math.Min(minPt.X, pt.X)
-		minPt.Y = math.Min(minPt.Y, pt.Y)
-		minPt.Z = math.Min(minPt.Z, pt.Z)
-		maxPt.X = math.Max(maxPt.X, pt.X)
-		maxPt.Y = math.Max(maxPt.Y, pt.Y)
-		maxPt.Z = math.Max(maxPt.Z, pt.Z)
+		minPt, maxPt = expandAABB(minPt, maxPt, pt)
 	}
 	return minPt, maxPt
+}
+
+func expandAABB(minPt, maxPt, pt r3.Vector) (r3.Vector, r3.Vector) {
+	newMinPt, newMaxPt := r3.Vector{}, r3.Vector{}
+	newMinPt.X = math.Min(minPt.X, pt.X)
+	newMinPt.Y = math.Min(minPt.Y, pt.Y)
+	newMinPt.Z = math.Min(minPt.Z, pt.Z)
+	newMaxPt.X = math.Max(maxPt.X, pt.X)
+	newMaxPt.Y = math.Max(maxPt.Y, pt.Y)
+	newMaxPt.Z = math.Max(maxPt.Z, pt.Z)
+	return newMinPt, newMaxPt
 }
 
 // computeSphereAABB computes the AABB for a sphere.
@@ -149,12 +170,7 @@ func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
 
 	for _, corner := range corners {
 		worldPt := Compose(b.center, NewPoseFromPoint(corner)).Point()
-		minPt.X = math.Min(minPt.X, worldPt.X)
-		minPt.Y = math.Min(minPt.Y, worldPt.Y)
-		minPt.Z = math.Min(minPt.Z, worldPt.Z)
-		maxPt.X = math.Max(maxPt.X, worldPt.X)
-		maxPt.Y = math.Max(maxPt.Y, worldPt.Y)
-		maxPt.Z = math.Max(maxPt.Z, worldPt.Z)
+		minPt, maxPt = expandAABB(minPt, maxPt, worldPt)
 	}
 	return minPt, maxPt
 }
@@ -184,32 +200,26 @@ func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 	for _, tri := range m.triangles {
 		worldTri := tri.Transform(m.pose).(*Triangle)
 		for _, pt := range worldTri.Points() {
-			minPt.X = math.Min(minPt.X, pt.X)
-			minPt.Y = math.Min(minPt.Y, pt.Y)
-			minPt.Z = math.Min(minPt.Z, pt.Z)
-			maxPt.X = math.Max(maxPt.X, pt.X)
-			maxPt.Y = math.Max(maxPt.Y, pt.Y)
-			maxPt.Z = math.Max(maxPt.Z, pt.Z)
+			minPt, maxPt = expandAABB(minPt, maxPt, pt)
 		}
 	}
 	return minPt, maxPt
 }
 
 // computeGeomsAABB computes the AABB encompassing all given geometries.
-func computeGeomsAABB(geoms []Geometry) (r3.Vector, r3.Vector) {
+func computeGeomsAABB(geoms []Geometry) (r3.Vector, r3.Vector, error) {
 	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, g := range geoms {
-		gMin, gMax := computeGeometryAABB(g)
-		minPt.X = math.Min(minPt.X, gMin.X)
-		minPt.Y = math.Min(minPt.Y, gMin.Y)
-		minPt.Z = math.Min(minPt.Z, gMin.Z)
-		maxPt.X = math.Max(maxPt.X, gMax.X)
-		maxPt.Y = math.Max(maxPt.Y, gMax.Y)
-		maxPt.Z = math.Max(maxPt.Z, gMax.Z)
+		gMin, gMax, err := computeGeometryAABB(g)
+		if err != nil {
+			return r3.Vector{}, r3.Vector{}, err
+		}
+		minPt, maxPt = expandAABB(minPt, maxPt, gMin)
+		minPt, maxPt = expandAABB(minPt, maxPt, gMax)
 	}
-	return minPt, maxPt
+	return minPt, maxPt, nil
 }
 
 // aabbOverlap checks if two AABBs overlap.
@@ -246,12 +256,7 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 
 	for _, corner := range corners {
 		worldPt := Compose(pose, NewPoseFromPoint(corner)).Point()
-		newMin.X = math.Min(newMin.X, worldPt.X)
-		newMin.Y = math.Min(newMin.Y, worldPt.Y)
-		newMin.Z = math.Min(newMin.Z, worldPt.Z)
-		newMax.X = math.Max(newMax.X, worldPt.X)
-		newMax.Y = math.Max(newMax.Y, worldPt.Y)
-		newMax.Z = math.Max(newMax.Z, worldPt.Z)
+		minPt, maxPt = expandAABB(minPt, maxPt, worldPt)
 	}
 	return newMin, newMax
 }
