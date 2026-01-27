@@ -46,13 +46,23 @@ type Mesh struct {
 	bvh *bvhNode
 }
 
+// trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
+// The triangles remain in local space.
+func trianglesToGeoms(triangles []*Triangle) []Geometry {
+	geoms := make([]Geometry, len(triangles))
+	for i, t := range triangles {
+		geoms[i] = t
+	}
+	return geoms
+}
+
 // NewMesh creates a mesh from the given triangles and pose.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		bvh:       buildBVH(triangles),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -147,7 +157,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		bvh:       buildBVH(triangles),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}, nil
 }
 
@@ -201,7 +211,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		bvh:       buildBVH(triangles),
+		bvh:       buildBVH(trianglesToGeoms(triangles)), // BVH in local space
 	}, nil
 }
 
@@ -279,7 +289,7 @@ func (m *Mesh) Triangles() []*Triangle {
 // Transform transforms the mesh. As triangles are in the mesh's frame, they are unchanged.
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
-	// BVH is also preserved since it's in local frame
+	// BVH is also in local space and can be reused - poses are applied lazily during collision checks
 	return &Mesh{
 		pose:             Compose(pose, m.pose),
 		triangles:        m.triangles,
@@ -287,7 +297,7 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              m.bvh,
+		bvh:              m.bvh, // Reuse BVH - it's in local space
 	}
 }
 
@@ -302,6 +312,10 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		if encompassed {
 			return true, -1, nil
 		}
+		// Use BVH to accelerate mesh vs box if available
+		if m.bvh != nil {
+			return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		}
 		// Convert box to mesh and check triangle collisions
 		collides, dist := m.collidesWithMesh(other.toMesh(), collisionBufferMM)
 		if collides {
@@ -309,6 +323,10 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		}
 		return false, dist, nil
 	case *capsule:
+		// Use BVH to accelerate mesh vs capsule if available
+		if m.bvh != nil {
+			return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		}
 		// Use existing capsule vs mesh distance check
 		// TODO: This is inefficient! Replace with a function with a short-circuit.
 		dist := capsuleVsMeshDistance(other, m)
@@ -317,13 +335,26 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		}
 		return false, dist, nil
 	case *point:
+		if m.bvh != nil {
+			return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		}
 		collides, dist := m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM)
 		if collides {
 			return true, -1, nil
 		}
 		return false, dist, nil
 	case *sphere:
+		if m.bvh != nil {
+			return m.collidesWithGeometryBVH(other, collisionBufferMM)
+		}
 		collides, dist := m.collidesWithSphere(other, collisionBufferMM)
+		if collides {
+			return true, -1, nil
+		}
+		return false, dist, nil
+	case *Triangle:
+		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
+		collides, dist := m.collidesWithMesh(triMesh, collisionBufferMM)
 		if collides {
 			return true, -1, nil
 		}
@@ -376,6 +407,9 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromSphere(&sphere{pose: NewPoseFromPoint(other.position)}), nil
 	case *sphere:
 		return m.distanceFromSphere(other), nil
+	case *Triangle:
+		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
+		return m.distanceFromMesh(triMesh), nil
 	case *Mesh:
 		return m.distanceFromMesh(other), nil
 	default:
@@ -411,7 +445,7 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		closestPt := ClosestPointTrianglePoint(tri.TransformTriangle(m.pose), pt)
 		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist < minDist {
 			minDist = dist
@@ -425,7 +459,7 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		closestPt := ClosestPointTrianglePoint(tri.TransformTriangle(m.pose), pt)
 		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist <= buffer {
 			return true, -1
@@ -442,6 +476,7 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
 	// Use BVH-accelerated collision if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
+		// Pass poses to BVH collision - BVH stores geometries in local space
 		return bvhCollidesWithBVH(m.bvh, other.bvh, m.pose, other.pose, collisionBufferMM)
 	}
 
@@ -454,11 +489,11 @@ func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = tri.Transform(m.pose)
+		worldTris1[i] = tri.TransformTriangle(m.pose)
 	}
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = tri.Transform(other.pose)
+		worldTris2[i] = tri.TransformTriangle(other.pose)
 	}
 
 	minDist := math.Inf(1)
@@ -502,11 +537,22 @@ func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64
 	return false, minDist
 }
 
+// collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
+func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
+	if m.bvh == nil {
+		return false, math.Inf(1), nil
+	}
+	otherMin, otherMax := computeGeometryAABB(other)
+	// Pass mesh pose to BVH collision - BVH stores geometries in local space
+	return bvhCollidesWithGeometry(m.bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+}
+
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 // Uses BVH acceleration when available.
 func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 	// Use BVH-accelerated distance if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
+		// Pass poses to BVH distance - BVH stores geometries in local space
 		return bvhDistanceFromBVH(m.bvh, other.bvh, m.pose, other.pose)
 	}
 
@@ -519,12 +565,12 @@ func (m *Mesh) distanceFromMeshBruteForce(other *Mesh) float64 {
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = tri.Transform(m.pose)
+		worldTris1[i] = tri.TransformTriangle(m.pose)
 	}
 
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = tri.Transform(other.pose)
+		worldTris2[i] = tri.TransformTriangle(other.pose)
 	}
 
 	minDist := math.Inf(1)
@@ -666,7 +712,7 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 	for _, tri := range m.triangles {
 		// mesh triangles are defined relative to their origin so to compare triangle/box
 		// we need to transform each triangle by the mesh's pose.
-		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose))
+		a, err := boxTriangleIntersectionArea(b, tri.TransformTriangle(m.pose))
 		if err != nil {
 			return -1, err
 		}
@@ -799,7 +845,7 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 
 	for _, tri := range m.triangles {
 		if convertToWorldFrame {
-			tri = tri.Transform(m.pose)
+			tri = tri.TransformTriangle(m.pose)
 		}
 		for _, pt := range tri.Points() {
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
@@ -832,7 +878,7 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 	// Write faces
 	for _, tri := range m.triangles {
 		if convertToWorldFrame {
-			tri = tri.Transform(m.pose)
+			tri = tri.TransformTriangle(m.pose)
 		}
 		buf.WriteString("3")
 		for _, pt := range tri.Points() {

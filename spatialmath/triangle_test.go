@@ -32,7 +32,7 @@ func TestBasicTriangleFunctions(t *testing.T) {
 
 	t.Run("transform", func(t *testing.T) {
 		tf := NewPose(r3.Vector{1, 1, 1}, &OrientationVector{OZ: 1, Theta: math.Pi})
-		tri2 := tri.Transform(tf)
+		tri2 := tri.Transform(tf).(*Triangle)
 		for i := range tri2.Points() {
 			test.That(t, tri2.Points()[i], test.ShouldResemble, NewPoint(expectedPts[i], "").Transform(tf).Pose().Point())
 		}

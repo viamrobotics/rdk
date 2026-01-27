@@ -10,35 +10,35 @@ import (
 // bvhNode represents a node in a Bounding Volume Hierarchy tree.
 // Each node has an axis-aligned bounding box (AABB) and either:
 // - Two children (internal node), or
-// - A list of triangles (leaf node)
+// - A list of geometries (leaf node)
 // wikipedia.org/wiki/Bounding_volume_hierarchy
 type bvhNode struct {
-	min, max  r3.Vector   // AABB bounds
-	left      *bvhNode    // left child (nil for leaf)
-	right     *bvhNode    // right child (nil for leaf)
-	triangles []*Triangle // triangles (only for leaf nodes)
+	min, max r3.Vector  // AABB bounds
+	left     *bvhNode   // left child (nil for leaf)
+	right    *bvhNode   // right child (nil for leaf)
+	geoms    []Geometry // geometries (only for leaf nodes)
 }
 
-// maxTrianglesPerLeaf is the threshold for splitting BVH nodes.
-const maxTrianglesPerLeaf = 4
+// maxGeomsPerLeaf is the threshold for splitting BVH nodes.
+const maxGeomsPerLeaf = 4
 
-// buildBVH constructs a BVH from a list of triangles.
-func buildBVH(triangles []*Triangle) *bvhNode {
-	if len(triangles) == 0 {
+// buildBVH constructs a BVH from a list of geometries.
+func buildBVH(geoms []Geometry) *bvhNode {
+	if len(geoms) == 0 {
 		return nil
 	}
-	return buildBVHNode(triangles)
+	return buildBVHNode(geoms)
 }
 
-func buildBVHNode(triangles []*Triangle) *bvhNode {
+func buildBVHNode(geoms []Geometry) *bvhNode {
 	node := &bvhNode{}
 
-	// Compute AABB (axis aligned bounding box) for all triangles
-	node.min, node.max = computeTrianglesAABB(triangles)
+	// Compute AABB (axis aligned bounding box) for all geometries
+	node.min, node.max = computeGeomsAABB(geoms)
 
-	// If few enough triangles, make this a leaf node
-	if len(triangles) <= maxTrianglesPerLeaf {
-		node.triangles = triangles
+	// If few enough geometries, make this a leaf node
+	if len(geoms) <= maxGeomsPerLeaf {
+		node.geoms = geoms
 		return node
 	}
 
@@ -51,10 +51,11 @@ func buildBVHNode(triangles []*Triangle) *bvhNode {
 		axis = 2 // Z
 	}
 
-	// Sort triangles by centroid along the chosen axis
-	sort.Slice(triangles, func(i, j int) bool {
-		ci := triangles[i].Centroid()
-		cj := triangles[j].Centroid()
+	// Sort geometries by centroid along the chosen axis
+	// For geometries, we use Pose().Point() as the centroid
+	sort.Slice(geoms, func(i, j int) bool {
+		ci := geoms[i].Pose().Point()
+		cj := geoms[j].Pose().Point()
 		switch axis {
 		case 0:
 			return ci.X < cj.X
@@ -66,9 +67,9 @@ func buildBVHNode(triangles []*Triangle) *bvhNode {
 	})
 
 	// Split at median
-	mid := len(triangles) / 2
-	node.left = buildBVHNode(triangles[:mid])
-	node.right = buildBVHNode(triangles[mid:])
+	mid := len(geoms) / 2
+	node.left = buildBVHNode(geoms[:mid])
+	node.right = buildBVHNode(geoms[mid:])
 
 	return node
 }
@@ -87,6 +88,149 @@ func computeTrianglesAABB(triangles []*Triangle) (r3.Vector, r3.Vector) {
 			maxPt.Y = math.Max(maxPt.Y, pt.Y)
 			maxPt.Z = math.Max(maxPt.Z, pt.Z)
 		}
+	}
+	return minPt, maxPt
+}
+
+// computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
+// The returned min and max vectors define the AABB in world coordinates.
+func computeGeometryAABB(g Geometry) (min, max r3.Vector) {
+	switch geom := g.(type) {
+	case *Triangle:
+		return computeTriangleAABB(geom)
+	case *sphere:
+		return computeSphereAABB(geom)
+	case *box:
+		return computeBoxAABB(geom)
+	case *capsule:
+		return computeCapsuleAABB(geom)
+	case *point:
+		pt := geom.position
+		return pt, pt
+	case *Mesh:
+		// Use existing BVH bounds if available
+		if geom.bvh != nil {
+			return geom.bvh.min, geom.bvh.max
+		}
+		// Fallback: compute from triangles
+		return computeMeshAABB(geom)
+	default:
+		// Fallback: use pose point with zero extent
+		pt := g.Pose().Point()
+		return pt, pt
+	}
+}
+
+// computeTriangleAABB computes the AABB for a single triangle.
+func computeTriangleAABB(t *Triangle) (r3.Vector, r3.Vector) {
+	pts := t.Points()
+	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+
+	for _, pt := range pts {
+		minPt.X = math.Min(minPt.X, pt.X)
+		minPt.Y = math.Min(minPt.Y, pt.Y)
+		minPt.Z = math.Min(minPt.Z, pt.Z)
+		maxPt.X = math.Max(maxPt.X, pt.X)
+		maxPt.Y = math.Max(maxPt.Y, pt.Y)
+		maxPt.Z = math.Max(maxPt.Z, pt.Z)
+	}
+	return minPt, maxPt
+}
+
+// computeSphereAABB computes the AABB for a sphere.
+func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
+	center := s.Pose().Point()
+	r := s.radius
+	return r3.Vector{X: center.X - r, Y: center.Y - r, Z: center.Z - r},
+		r3.Vector{X: center.X + r, Y: center.Y + r, Z: center.Z + r}
+}
+
+// computeBoxAABB computes the AABB for a rotated box.
+// Since the box may be rotated, we need to transform all 8 corners and find the bounds.
+func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
+	// Get half-sizes
+	hx, hy, hz := b.halfSize[0], b.halfSize[1], b.halfSize[2]
+
+	// Generate 8 corners in local space
+	corners := []r3.Vector{
+		{X: -hx, Y: -hy, Z: -hz},
+		{X: -hx, Y: -hy, Z: hz},
+		{X: -hx, Y: hy, Z: -hz},
+		{X: -hx, Y: hy, Z: hz},
+		{X: hx, Y: -hy, Z: -hz},
+		{X: hx, Y: -hy, Z: hz},
+		{X: hx, Y: hy, Z: -hz},
+		{X: hx, Y: hy, Z: hz},
+	}
+
+	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+
+	// Transform each corner to world space
+	for _, corner := range corners {
+		worldPt := Compose(b.center, NewPoseFromPoint(corner)).Point()
+		minPt.X = math.Min(minPt.X, worldPt.X)
+		minPt.Y = math.Min(minPt.Y, worldPt.Y)
+		minPt.Z = math.Min(minPt.Z, worldPt.Z)
+		maxPt.X = math.Max(maxPt.X, worldPt.X)
+		maxPt.Y = math.Max(maxPt.Y, worldPt.Y)
+		maxPt.Z = math.Max(maxPt.Z, worldPt.Z)
+	}
+	return minPt, maxPt
+}
+
+// computeCapsuleAABB computes the AABB for a capsule.
+// A capsule is defined by two endpoints (segA, segB) and a radius.
+func computeCapsuleAABB(c *capsule) (r3.Vector, r3.Vector) {
+	r := c.radius
+	// The AABB is the bounding box of two spheres at segA and segB
+	minPt := r3.Vector{
+		X: math.Min(c.segA.X, c.segB.X) - r,
+		Y: math.Min(c.segA.Y, c.segB.Y) - r,
+		Z: math.Min(c.segA.Z, c.segB.Z) - r,
+	}
+	maxPt := r3.Vector{
+		X: math.Max(c.segA.X, c.segB.X) + r,
+		Y: math.Max(c.segA.Y, c.segB.Y) + r,
+		Z: math.Max(c.segA.Z, c.segB.Z) + r,
+	}
+	return minPt, maxPt
+}
+
+// computeMeshAABB computes the AABB for a mesh by iterating all triangles.
+func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
+	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+
+	for _, tri := range m.triangles {
+		// Transform triangle to world space
+		worldTri := tri.TransformTriangle(m.pose)
+		for _, pt := range worldTri.Points() {
+			minPt.X = math.Min(minPt.X, pt.X)
+			minPt.Y = math.Min(minPt.Y, pt.Y)
+			minPt.Z = math.Min(minPt.Z, pt.Z)
+			maxPt.X = math.Max(maxPt.X, pt.X)
+			maxPt.Y = math.Max(maxPt.Y, pt.Y)
+			maxPt.Z = math.Max(maxPt.Z, pt.Z)
+		}
+	}
+	return minPt, maxPt
+}
+
+// computeGeomsAABB computes the AABB encompassing all given geometries.
+func computeGeomsAABB(geoms []Geometry) (r3.Vector, r3.Vector) {
+	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+
+	for _, g := range geoms {
+		gMin, gMax := computeGeometryAABB(g)
+		minPt.X = math.Min(minPt.X, gMin.X)
+		minPt.Y = math.Min(minPt.Y, gMin.Y)
+		minPt.Z = math.Min(minPt.Z, gMin.Z)
+		maxPt.X = math.Max(maxPt.X, gMax.X)
+		maxPt.Y = math.Max(maxPt.Y, gMax.Y)
+		maxPt.Z = math.Max(maxPt.Z, gMax.Z)
 	}
 	return minPt, maxPt
 }
@@ -136,6 +280,7 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 }
 
 // bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
+// The BVH nodes store geometries in local space; poses are applied lazily during traversal.
 func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	if node1 == nil || node2 == nil {
 		return false, math.Inf(1)
@@ -158,14 +303,14 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 		return false, aabbDistance(min1, max1, min2, max2)
 	}
 
-	// Both are leaves - do triangle-triangle checks
-	if node1.triangles != nil && node2.triangles != nil {
-		return leafCollidesWithLeaf(node1.triangles, node2.triangles, pose1, pose2, collisionBufferMM)
+	// Both are leaves - do geometry-geometry checks
+	if node1.geoms != nil && node2.geoms != nil {
+		return leafCollidesWithLeaf(node1.geoms, node2.geoms, pose1, pose2, collisionBufferMM)
 	}
 
 	// Recurse into children
 	// Strategy: descend into the larger node first for better culling
-	if node1.triangles != nil {
+	if node1.geoms != nil {
 		// node1 is leaf, recurse into node2's children
 		leftCollide, leftDist := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
 		if leftCollide {
@@ -178,7 +323,7 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 		return false, math.Min(leftDist, rightDist)
 	}
 
-	if node2.triangles != nil {
+	if node2.geoms != nil {
 		// node2 is leaf, recurse into node1's children
 		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
 		if leftCollide {
@@ -213,44 +358,24 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	return false, minDist
 }
 
-// leafCollidesWithLeaf performs triangle-triangle collision between two leaf nodes.
-func leafCollidesWithLeaf(tris1, tris2 []*Triangle, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
+// leafCollidesWithLeaf performs collision checks between two leaf nodes using the Geometry interface.
+// Geometries are stored in local space and transformed on-demand using the provided poses.
+func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
 	minDist := math.Inf(1)
 
-	for _, t1 := range tris1 {
-		worldTri1 := t1.Transform(pose1)
-		p1 := worldTri1.Points()
-
-		for _, t2 := range tris2 {
-			worldTri2 := t2.Transform(pose2)
-			p2 := worldTri2.Points()
-
-			// Check segments from tri1 against tri2
-			for i := 0; i < 3; i++ {
-				start := p1[i]
-				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist <= collisionBufferMM {
-					return true, -1
-				}
-				if dist < minDist {
-					minDist = dist
-				}
+	for _, g1 := range geoms1 {
+		// Transform geometry to world space
+		worldG1 := g1.Transform(pose1)
+		for _, g2 := range geoms2 {
+			// Transform geometry to world space
+			worldG2 := g2.Transform(pose2)
+			// Use the Geometry interface's CollidesWith method
+			collides, dist, _ := worldG1.CollidesWith(worldG2, collisionBufferMM)
+			if collides {
+				return true, -1
 			}
-
-			// Check segments from tri2 against tri1
-			for i := 0; i < 3; i++ {
-				start := p2[i]
-				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist <= collisionBufferMM {
-					return true, -1
-				}
-				if dist < minDist {
-					minDist = dist
-				}
+			if dist < minDist {
+				minDist = dist
 			}
 		}
 	}
@@ -259,6 +384,7 @@ func leafCollidesWithLeaf(tris1, tris2 []*Triangle, pose1, pose2 Pose, collision
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.
+// The BVH nodes store geometries in local space; poses are applied lazily during traversal.
 func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	if node1 == nil || node2 == nil {
 		return math.Inf(1)
@@ -276,18 +402,18 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	}
 
 	// Both are leaves - compute exact distance
-	if node1.triangles != nil && node2.triangles != nil {
-		return leafDistanceFromLeaf(node1.triangles, node2.triangles, pose1, pose2)
+	if node1.geoms != nil && node2.geoms != nil {
+		return leafDistanceFromLeaf(node1.geoms, node2.geoms, pose1, pose2)
 	}
 
 	// Recurse into children
-	if node1.triangles != nil {
+	if node1.geoms != nil {
 		leftDist := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
 		rightDist := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
 		return math.Min(leftDist, rightDist)
 	}
 
-	if node2.triangles != nil {
+	if node2.geoms != nil {
 		leftDist := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
 		rightDist := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
 		return math.Min(leftDist, rightDist)
@@ -312,38 +438,77 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	return minDist
 }
 
-// leafDistanceFromLeaf computes the minimum distance between two sets of triangles.
-func leafDistanceFromLeaf(tris1, tris2 []*Triangle, pose1, pose2 Pose) float64 {
+// bvhCollidesWithGeometry traverses the BVH checking against a single geometry.
+// The BVH stores geometries in local space; bvhPose is applied lazily during traversal.
+// The 'other' geometry is assumed to already be in world space.
+func bvhCollidesWithGeometry(node *bvhNode, bvhPose Pose, other Geometry, otherMin, otherMax r3.Vector, buffer float64) (bool, float64, error) {
+	if node == nil {
+		return false, math.Inf(1), nil
+	}
+
+	// Transform node AABB to world space
+	nodeMin, nodeMax := transformAABB(node.min, node.max, bvhPose)
+
+	// Expand node AABB by buffer
+	nodeMin.X -= buffer
+	nodeMin.Y -= buffer
+	nodeMin.Z -= buffer
+	nodeMax.X += buffer
+	nodeMax.Y += buffer
+	nodeMax.Z += buffer
+
+	// Early exit if AABBs don't overlap
+	if !aabbOverlap(nodeMin, nodeMax, otherMin, otherMax) {
+		return false, aabbDistance(nodeMin, nodeMax, otherMin, otherMax), nil
+	}
+
+	// Leaf node: check each geometry against other
+	if node.geoms != nil {
+		minDist := math.Inf(1)
+		for _, g := range node.geoms {
+			// Transform geometry to world space
+			worldG := g.Transform(bvhPose)
+			collides, dist, err := worldG.CollidesWith(other, buffer)
+			if err != nil {
+				return false, 0, err
+			}
+			if collides {
+				return true, -1, nil
+			}
+			if dist < minDist {
+				minDist = dist
+			}
+		}
+		return false, minDist, nil
+	}
+
+	// Internal node: recurse
+	leftCollide, leftDist, err := bvhCollidesWithGeometry(node.left, bvhPose, other, otherMin, otherMax, buffer)
+	if err != nil || leftCollide {
+		return leftCollide, leftDist, err
+	}
+	rightCollide, rightDist, err := bvhCollidesWithGeometry(node.right, bvhPose, other, otherMin, otherMax, buffer)
+	if err != nil || rightCollide {
+		return rightCollide, rightDist, err
+	}
+	return false, math.Min(leftDist, rightDist), nil
+}
+
+// leafDistanceFromLeaf computes the minimum distance between two sets of geometries.
+// Geometries are stored in local space and transformed on-demand using the provided poses.
+func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) float64 {
 	minDist := math.Inf(1)
 
-	for _, t1 := range tris1 {
-		worldTri1 := t1.Transform(pose1)
-		p1 := worldTri1.Points()
-
-		for _, t2 := range tris2 {
-			worldTri2 := t2.Transform(pose2)
-			p2 := worldTri2.Points()
-
-			// Check segments from tri1 against tri2
-			for i := 0; i < 3; i++ {
-				start := p1[i]
-				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist < minDist {
-					minDist = dist
-				}
-			}
-
-			// Check segments from tri2 against tri1
-			for i := 0; i < 3; i++ {
-				start := p2[i]
-				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist < minDist {
-					minDist = dist
-				}
+	for _, g1 := range geoms1 {
+		// Transform geometry to world space
+		worldG1 := g1.Transform(pose1)
+		for _, g2 := range geoms2 {
+			// Transform geometry to world space
+			worldG2 := g2.Transform(pose2)
+			// Use the Geometry interface's DistanceFrom method
+			dist, _ := worldG1.DistanceFrom(worldG2)
+			if dist < minDist {
+				minDist = dist
 			}
 		}
 	}
