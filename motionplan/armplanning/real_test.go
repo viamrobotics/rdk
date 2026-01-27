@@ -24,6 +24,23 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+func BenchmarkBigPlanRequest(b *testing.B) {
+	if IsTooSmallForCache() {
+		b.Skip()
+		return
+	}
+	filename := "data/big-plan-request.json"
+
+	req, err := ReadRequestFromFile(filename)
+	test.That(b, err, test.ShouldBeNil)
+	dir := os.TempDir()
+
+	b.ResetTimer()
+	for b.Loop() {
+		test.That(b, req.WriteToFile(filepath.Join(dir, "tmp.json")), test.ShouldBeNil)
+	}
+}
+
 func TestOrbOneSeed(t *testing.T) {
 	if IsTooSmallForCache() {
 		t.Skip()
