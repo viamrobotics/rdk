@@ -3612,8 +3612,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagVisibility,
-							Usage:    formatAcceptedValues("visibility of the registry item", "public", "private"),
-							Required: true, // TODO: decide if i should make it optional
+							Usage:    formatAcceptedValues("visibility of the training script", "public", "private"),
+							Required: false,
 						},
 					},
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),

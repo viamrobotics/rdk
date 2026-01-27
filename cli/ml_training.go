@@ -102,7 +102,6 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return errors.New("model name and script name must be different")
 	}
 
-	// TODO add an arg for visibility for this method too?
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
 		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
