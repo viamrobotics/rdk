@@ -430,7 +430,7 @@ func defaultTrainingStatus() string {
 	return strings.ToLower(strings.TrimPrefix(mltrainingpb.TrainingStatus_TRAINING_STATUS_UNSPECIFIED.String(), trainingStatusPrefix))
 }
 
-type mlTrainingUploadArgs struct { // TODO add visibility
+type mlTrainingUploadArgs struct {
 	Path       string
 	OrgID      string
 	ScriptName string
