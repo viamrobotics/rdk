@@ -100,7 +100,9 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 		return computeMeshAABB(geom)
 	default:
 		panic(fmt.Errorf(
-			"cannot construct AABB for: %v, %v", g, errGeometryTypeUnsupported,
+			"cannot construct AABB for: %v, %w",
+			g,
+			errGeometryTypeUnsupported,
 		))
 	}
 }
