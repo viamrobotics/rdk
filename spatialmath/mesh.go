@@ -13,8 +13,6 @@ import (
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/encoding/protojson"
-
-	"go.viam.com/rdk/utils"
 )
 
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
@@ -296,7 +294,7 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              m.bvh, // Reuse BVH - it's in local space
+		bvh:              m.bvh,
 	}
 }
 
@@ -517,147 +515,6 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 // MarshalJSON implements the json.Marshaler interface.
 func (m *Mesh) MarshalJSON() ([]byte, error) {
 	return protojson.Marshal(m.ToProtobuf())
-}
-
-// MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh
-// that intersect with a box geometry and returns the total intersection area.
-func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
-	m, err := utils.AssertType[*Mesh](mesh)
-	if err != nil {
-		return -1, err
-	}
-	b, err := utils.AssertType[*box](theBox)
-	if err != nil {
-		return -1, err
-	}
-
-	// Sum the intersection area for each triangle
-	totalArea := 0.0
-	for _, tri := range m.triangles {
-		// mesh triangles are defined relative to their origin so to compare triangle/box
-		// we need to transform each triangle by the mesh's pose.
-		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose).(*Triangle))
-		if err != nil {
-			return -1, err
-		}
-		totalArea += a
-	}
-	return totalArea, nil
-}
-
-// boxTriangleIntersectionArea calculates the area of intersection between a box and a triangle.
-// Returns 0 if there's no intersection, the full triangle area if fully enclosed,
-// or the actual intersection area otherwise.
-func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
-	// Quick check if they don't intersect at all
-	mesh := NewMesh(NewZeroPose(), []*Triangle{t}, "")
-	collides, _, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
-	if err != nil {
-		return -1, err
-	}
-	if !collides {
-		return 0, nil
-	}
-
-	// Check if triangle is fully enclosed by the box
-	enclosed := true
-	for _, pt := range t.Points() {
-		c, _ := pointVsBoxCollision(pt, b, defaultCollisionBufferMM)
-		if !c {
-			enclosed = false
-			break
-		}
-	}
-	if enclosed {
-		return t.Area(), nil
-	}
-
-	// Clip triangle against each of the six box planes
-	vertices := t.Points()
-
-	// Get box in world space
-	boxPose := b.Pose()
-	boxCenter := boxPose.Point()
-	boxRM := boxPose.Orientation().RotationMatrix()
-
-	// For each of the six box faces, clip the polygon
-	for faceIdx := 0; faceIdx < 6; faceIdx++ {
-		// Determine face normal and position
-		axis := faceIdx / 2                // 0 for X, 1 for Y, 2 for Z
-		sign := float64(1 - 2*(faceIdx%2)) // +1 for even indices, -1 for odd indices
-
-		// Get face normal in world coordinates
-		normal := boxRM.Row(axis).Mul(sign)
-
-		// Get face point in world coordinates
-		facePoint := boxCenter.Add(boxRM.Row(axis).Mul(sign * b.halfSize[axis]))
-
-		// Clip polygon against this plane
-		vertices = clipPolygonAgainstPlane(vertices, facePoint, normal)
-
-		// If no vertices left, intersection area is 0
-		if len(vertices) < 3 {
-			return 0, nil
-		}
-	}
-
-	// Calculate area of the resulting polygon by triangulating it
-	// TODO: all passed in vertices should be coplanar with the triangle normal but this is not explicitly checked
-	return calculatePolygonAreaWithTriangulation(vertices), nil
-}
-
-// clipPolygonAgainstPlane clips a convex polygon against a plane and returns the vertices of the clipped polygon.
-func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint, planeNormal r3.Vector) []r3.Vector {
-	if len(vertices) < 3 {
-		return vertices
-	}
-
-	result := make([]r3.Vector, 0, len(vertices)*2)
-
-	// For each edge in the polygon
-	for i := 0; i < len(vertices); i++ {
-		j := (i + 1) % len(vertices)
-
-		// Get signed distances from vertices to plane
-		di := planeNormal.Dot(vertices[i].Sub(planePoint))
-		dj := planeNormal.Dot(vertices[j].Sub(planePoint))
-
-		// If current vertex is inside (negative dot product)
-		if di <= floatEpsilon {
-			result = append(result, vertices[i])
-		}
-
-		// If edge crosses the plane (vertices on opposite sides)
-		if (di * dj) < 0 {
-			// Calculate intersection point
-			t := di / (di - dj)
-			intersection := vertices[i].Add(vertices[j].Sub(vertices[i]).Mul(t))
-			result = append(result, intersection)
-		}
-	}
-
-	return result
-}
-
-// calculatePolygonAreaWithTriangulation calculates the area of a polygon by triangulating it. All provided vertices must be coplanar.
-// TODO: nothing is enforcing that the vertices be coplanar.
-func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
-	// For a malformed polygon there will be no area.
-	switch length := len(vertices); {
-	case length < 3:
-		return 0
-	case length == 3:
-		// For a 3-vertex polygon, just calculate triangle area directly
-		return NewTriangle(vertices[0], vertices[1], vertices[2]).Area()
-	default:
-		// For polygons with more vertices, triangulate using fan triangulation
-		// This works for convex polygons, which is what we have after clipping
-		totalArea := 0.0
-		for i := 1; i < len(vertices)-1; i++ {
-			totalArea += NewTriangle(vertices[0], vertices[i], vertices[i+1]).Area()
-		}
-		return totalArea
-	}
 }
 
 // TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format. The boolean determines
