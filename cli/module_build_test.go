@@ -11,13 +11,11 @@ import (
 	"time"
 
 	v1 "go.viam.com/api/app/build/v1"
+	apppb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -240,243 +238,195 @@ func TestLocalBuild(t *testing.T) {
 	test.That(t, outMsg, test.ShouldContainSubstring, "build step msg")
 }
 
-func TestRetryableCopyToPart(t *testing.T) {
-	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
+func TestIsReloadVersion(t *testing.T) {
+	tests := []struct {
+		name     string
+		version  string
+		expected bool
+	}{
+		{
+			name:     "reload version with part ID",
+			version:  "reload-abc123",
+			expected: true,
+		},
+		{
+			name:     "reload version simple",
+			version:  "reload",
+			expected: true,
+		},
+		{
+			name:     "reload-source version",
+			version:  "reload-source-abc123",
+			expected: true,
+		},
+		{
+			name:     "normal semver version",
+			version:  "1.2.3",
+			expected: false,
+		},
+		{
+			name:     "latest version",
+			version:  "latest",
+			expected: false,
+		},
+		{
+			name:     "empty version",
+			version:  "",
+			expected: false,
+		},
+		{
+			name:     "version containing reload but not prefix",
+			version:  "v1.0.0-reload",
+			expected: false,
+		},
+	}
 
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
-			return nil // Success immediately
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := IsReloadVersion(tt.version)
+			test.That(t, result, test.ShouldEqual, tt.expected)
+		})
+	}
+}
+
+func TestGetOrgIDForPart(t *testing.T) {
+	t.Run("returns primary org ID", func(t *testing.T) {
+		expectedOrgID := "primary-org-123"
+		secondaryOrgID := "secondary-org-456"
+		robotID := "robot-abc"
+		locationID := "location-xyz"
+
+		mockClient := &inject.AppServiceClient{
+			GetRobotFunc: func(ctx context.Context, req *apppb.GetRobotRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotResponse, error) {
+				return &apppb.GetRobotResponse{
+					Robot: &apppb.Robot{
+						Id:       robotID,
+						Location: locationID,
+					},
+				}, nil
+			},
+			GetLocationFunc: func(ctx context.Context, req *apppb.GetLocationRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetLocationResponse, error) {
+				test.That(t, req.LocationId, test.ShouldEqual, locationID)
+				return &apppb.GetLocationResponse{
+					Location: &apppb.Location{
+						Id: locationID,
+						Organizations: []*apppb.LocationOrganization{
+							{OrganizationId: secondaryOrgID, Primary: false},
+							{OrganizationId: expectedOrgID, Primary: true},
+						},
+						PrimaryOrgIdentity: &apppb.OrganizationIdentity{
+							Id: expectedOrgID,
+						},
+					},
+				}, nil
+			},
 		}
 
-		allSteps := []*Step{
-			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
-		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
+		_, vc, _, _ := setup(mockClient, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
 
-		err := pm.Start("upload")
+		part := &apppb.RobotPart{
+			Robot: robotID,
+		}
+		orgID, err := vc.getOrgIDForPart(part)
 		test.That(t, err, test.ShouldBeNil)
-
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
-			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
-			"test-part-123",
-			pm,
-			mockCopyFunc,
-		)
-
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
-
-		// Verify no retry steps were created
-		retryStepFound := false
-		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "upload-attempt-") {
-				retryStepFound = true
-				break
-			}
-		}
-		test.That(t, retryStepFound, test.ShouldBeFalse)
+		test.That(t, orgID, test.ShouldEqual, expectedOrgID)
 	})
 
-	t.Run("SuccessAfter2Retries", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
+	t.Run("falls back to first org when no primary", func(t *testing.T) {
+		firstOrgID := "first-org-123"
+		secondOrgID := "second-org-456"
+		robotID := "robot-abc"
+		locationID := "location-xyz"
 
-		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
-			attemptCount++
-			if attemptCount <= 2 {
-				return errors.New("copy failed")
-			}
-			return nil // Success on 3rd attempt
+		mockClient := &inject.AppServiceClient{
+			GetRobotFunc: func(ctx context.Context, req *apppb.GetRobotRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotResponse, error) {
+				return &apppb.GetRobotResponse{
+					Robot: &apppb.Robot{
+						Id:       robotID,
+						Location: locationID,
+					},
+				}, nil
+			},
+			GetLocationFunc: func(ctx context.Context, req *apppb.GetLocationRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetLocationResponse, error) {
+				return &apppb.GetLocationResponse{
+					Location: &apppb.Location{
+						Id: locationID,
+						Organizations: []*apppb.LocationOrganization{
+							{OrganizationId: firstOrgID, Primary: false},
+							{OrganizationId: secondOrgID, Primary: false},
+						},
+						PrimaryOrgIdentity: nil,
+					},
+				}, nil
+			},
 		}
 
-		allSteps := []*Step{
-			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		_, vc, _, _ := setup(mockClient, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
+
+		part := &apppb.RobotPart{
+			Robot: robotID,
 		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
-
-		err := pm.Start("upload")
-		test.That(t, err, test.ShouldBeNil)
-
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
-			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
-			"test-part-123",
-			pm,
-			mockCopyFunc,
-		)
-
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, attemptCount, test.ShouldEqual, 3)
-
-		// Verify retry steps were created (attempt 1, 2, and 3)
-		retryStepCount := 0
-		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "upload-attempt-") {
-				retryStepCount++
-				// Verify IndentLevel is 2 for deeper nesting
-				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
-			}
-		}
-		test.That(t, retryStepCount, test.ShouldEqual, 3) // attempt-1, attempt-2, and attempt-3
-
-		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
-		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt 1/6 failed:")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt 2/6 failed:")
-	})
-
-	t.Run("SuccessAfter5Retries", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
-
-		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
-			attemptCount++
-			if attemptCount <= 5 {
-				return errors.New("copy failed")
-			}
-			return nil // Success on 6th attempt
-		}
-
-		allSteps := []*Step{
-			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
-		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
-
-		err := pm.Start("upload")
-		test.That(t, err, test.ShouldBeNil)
-
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
-			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
-			"test-part-123",
-			pm,
-			mockCopyFunc,
-		)
-
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, attemptCount, test.ShouldEqual, 6)
-
-		// Verify all retry steps were created (attempt 1 through 6)
-		retryStepCount := 0
-		for _, step := range pm.steps {
-			if strings.Contains(step.ID, "upload-attempt-") {
-				retryStepCount++
-				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
-			}
-		}
-		test.That(t, retryStepCount, test.ShouldEqual, 6) // attempt-1 through attempt-6
-
-		// No duplicate warning messages should appear (only permission denied warnings)
-		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldNotContainSubstring, "Upload attempt")
-	})
-
-	t.Run("AllAttemptsFail", func(t *testing.T) {
-		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
-
-		attemptCount := 0
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
-			attemptCount++
-			return errors.New("persistent copy failure")
-		}
-
-		allSteps := []*Step{
-			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
-		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
-
-		err := pm.Start("upload")
-		test.That(t, err, test.ShouldBeNil)
-
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
-			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
-			"test-part-123",
-			pm,
-			mockCopyFunc,
-		)
-
+		_, err := vc.getOrgIDForPart(part)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "all 6 upload attempts failed")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "viam module reload --no-build --part-id test-part-123")
-		test.That(t, attemptCount, test.ShouldEqual, 6)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no primary org id found for location")
 	})
 
-	t.Run("PermissionDeniedError", func(t *testing.T) {
-		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
-			map[string]any{}, "token")
-
-		mockCopyFunc := func(fqdn string, debug, allowRecursion, preserve bool,
-			paths []string, destination string, logger logging.Logger, noProgress bool,
-		) error {
-			return status.Error(codes.PermissionDenied, "permission denied")
+	t.Run("returns error when GetRobot fails", func(t *testing.T) {
+		mockClient := &inject.AppServiceClient{
+			GetRobotFunc: func(ctx context.Context, req *apppb.GetRobotRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotResponse, error) {
+				return nil, errors.New("robot not found")
+			},
 		}
 
-		allSteps := []*Step{
-			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 0},
+		_, vc, _, _ := setup(mockClient, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
+
+		part := &apppb.RobotPart{
+			Robot: "robot-abc",
 		}
-		pm := NewProgressManager(allSteps, WithProgressOutput(false))
-		defer pm.Stop()
-
-		err := pm.Start("upload")
-		test.That(t, err, test.ShouldBeNil)
-
-		logger := logging.NewTestLogger(t)
-		err = vc.retryableCopyToPart(
-			cCtx,
-			"test-fqdn",
-			false,
-			[]string{"/path/to/file"},
-			"/dest/path",
-			logger,
-			"test-part-123",
-			pm,
-			mockCopyFunc,
-		)
-
+		_, err := vc.getOrgIDForPart(part)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "robot not found")
+	})
 
-		// Verify permission denied specific warning appears
-		errMsg := strings.Join(errOut.messages, "")
-		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't write to the default file copy destination")
-		test.That(t, errMsg, test.ShouldContainSubstring, "--home")
-		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
+	t.Run("returns error when GetLocation fails", func(t *testing.T) {
+		robotID := "robot-abc"
+		locationID := "location-xyz"
+
+		mockClient := &inject.AppServiceClient{
+			GetRobotFunc: func(ctx context.Context, req *apppb.GetRobotRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotResponse, error) {
+				return &apppb.GetRobotResponse{
+					Robot: &apppb.Robot{
+						Id:       robotID,
+						Location: locationID,
+					},
+				}, nil
+			},
+			GetLocationFunc: func(ctx context.Context, req *apppb.GetLocationRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetLocationResponse, error) {
+				return nil, errors.New("location not found")
+			},
+		}
+
+		_, vc, _, _ := setup(mockClient, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
+
+		part := &apppb.RobotPart{
+			Robot: robotID,
+		}
+		_, err := vc.getOrgIDForPart(part)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "location not found")
 	})
 }

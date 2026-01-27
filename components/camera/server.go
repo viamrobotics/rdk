@@ -4,13 +4,18 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc/metadata"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -27,16 +32,18 @@ type serviceServer struct {
 	imgTypesMu sync.RWMutex
 	imgTypes   map[string]ImageType
 	logger     logging.Logger
+
+	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
+	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Camera]) interface{} {
-	logger := logging.NewLogger("camserver")
+func NewRPCServiceServer(coll resource.APIResourceGetter[Camera], logger logging.Logger) interface{} {
 	imgTypes := make(map[string]ImageType)
 	return &serviceServer{
 		coll:     coll,
-		logger:   logger,
+		logger:   logger.Sublogger("cam_server"),
 		imgTypes: imgTypes,
 	}
 }
@@ -47,6 +54,23 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
+	now := time.Now()
+	lastLog := s.lastImageDeprecationLogNanos.Load()
+	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
+		// Try to update the timestamp; if another goroutine updated it first, that's fine.
+		if s.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+			moduleName := grpc.GetModuleName(ctx)
+			md, _ := metadata.FromIncomingContext(ctx)
+
+			s.logger.Warnw("camera server: GetImage is deprecated; please use GetImages instead",
+				"camera_name", req.Name,
+				"peer_remote_addr", peerInfo.RemoteAddress,
+				"module_name", moduleName,
+				"grpc_metadata", md,
+			)
+		}
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
 	defer span.End()
 	cam, err := s.coll.Resource(req.Name)
@@ -127,10 +151,8 @@ func (s *serviceServer) GetImages(
 		if err != nil {
 			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
-		format := utils.MimeTypeToFormat[img.MimeType()]
 		imgMes := &pb.Image{
 			SourceName:  img.SourceName,
-			Format:      format,
 			MimeType:    img.MimeType(),
 			Image:       imgBytes,
 			Annotations: img.Annotations.ToProto(),
@@ -148,10 +170,12 @@ func (s *serviceServer) GetImages(
 
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
+// Deprecated: Use GetImages instead.
 func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {

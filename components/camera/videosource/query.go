@@ -215,7 +215,11 @@ func selectVideo(
 	label *string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), constraints, logger)
+	labelStr := ""
+	if label != nil {
+		labelStr = *label
+	}
+	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), labelStr, constraints, logger)
 }
 
 func getVideoFilterBase() driver.FilterFn {
@@ -237,6 +241,7 @@ func getVideoFilter(label *string) driver.FilterFn {
 func selectBestDriver(
 	baseFilter driver.FilterFn,
 	filter driver.FilterFn,
+	label string,
 	constraints mediadevices.MediaTrackConstraints,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
@@ -258,7 +263,11 @@ func selectBestDriver(
 
 	driverProperties := queryDriverProperties(filter, logger)
 	if len(driverProperties) == 0 {
-		return nil, prop.Media{}, errors.New("found no queryable drivers matching filter")
+		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", label)
+		if label != "" {
+			msg += "; check if the device is available or already in use (busy)"
+		}
+		return nil, prop.Media{}, errors.New(msg)
 	}
 
 	logger.Debugw("found drivers matching specific filter", "count", len(driverProperties))

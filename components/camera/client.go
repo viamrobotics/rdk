@@ -22,6 +22,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -72,6 +73,9 @@ type client struct {
 	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
+
+	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
+	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -148,7 +152,7 @@ func (c *client) Stream(
 				return
 			}
 
-			img, err := DecodeImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
+			img, err := DecodeImageFromCamera(streamCtx, c, nil, nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
@@ -176,6 +180,22 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
+	now := time.Now()
+	lastLog := c.lastImageDeprecationLogNanos.Load()
+	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
+		// Try to update the timestamp; if another goroutine updates it first, that's fine.
+		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
+			moduleName := grpc.GetModuleName(ctx)
+			md, _ := metadata.FromIncomingContext(ctx)
+
+			c.logger.Warnw("camera client: Image is deprecated; please use Images instead",
+				"camera_name", c.Name(),
+				"camera_remote_name", c.remoteName,
+				"module_name", moduleName,
+				"grpc_metadata", md,
+			)
+		}
+	}
 	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
 	defer span.End()
 	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
@@ -226,17 +246,12 @@ func (c *client) Images(
 		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
-		if img.MimeType == "" {
-			// TODO(RSDK-11733): This is a temporary fix to allow the client to pass both the format and mime type
-			// format. We will remove this once we remove the format field from the proto.
-			img.MimeType = utils.FormatToMimeType[img.Format]
-		}
 		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err

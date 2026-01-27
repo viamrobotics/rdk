@@ -9,11 +9,6 @@
             }
         },
         {
-            "name": "mic1",
-            "type": "audio_input",
-            "model": "fake"
-        },
-        {
             "name": "cameraOver",
             "type": "camera",
             "model": "image_file",
@@ -71,15 +66,19 @@
             "attributes": {
                 "relative": true
             }
+        },
+        {
+            "name": "audioin1",
+            "type": "audio_in",
+            "model": "fake"
+        },
+        {
+            "name": "audioout1",
+            "type": "audio_out",
+            "model": "fake"
         }
     ],
     "jobs" : [
-    {
-      "name" : "my_mic_job",
-      "schedule" : "4s",
-      "resource" : "mic1",
-      "method" : "Properties"
-    },
     {
       "name" : "my_arm_job",
       "schedule" : "*/4 * * * * *",
@@ -91,6 +90,18 @@
       "schedule" : "5s",
       "resource" : "movement_sensor1",
       "method" : "GetReadings"
+    },
+    {
+      "name" : "my_audioin_job",
+      "schedule" : "5s",
+      "resource" : "audioin1",
+      "method" : "GetProperties"
+    },
+    {
+      "name" : "my_audioout_job",
+      "schedule" : "5s",
+      "resource" : "audioout1",
+      "method" : "GetProperties"
     }
   ]
 }

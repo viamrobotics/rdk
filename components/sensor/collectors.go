@@ -2,7 +2,6 @@ package sensor
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
@@ -53,7 +52,7 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)

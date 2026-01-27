@@ -65,7 +65,6 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
-		tracingEnabled:          options.TracingEnabled,
 		failedModules:           make(map[string]bool),
 	}
 	return ret, nil
@@ -136,8 +135,6 @@ type Manager struct {
 	parentAddrs  config.ParentSockAddrs
 	rMap         resourceModuleMap
 	untrustedEnv bool
-	// Whether viam-server has tracing enabled so modules should forward spans to be collected.
-	tracingEnabled bool
 	// viamHomeDir is the absolute path to the viam home directory. Ex: /home/walle/.viam
 	// `viamHomeDir` may only be the empty string in testing
 	viamHomeDir string
@@ -352,7 +349,6 @@ func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHand
 		oue,
 		mgr.viamHomeDir,
 		mgr.packagesDir,
-		mgr.tracingEnabled,
 	)
 }
 
@@ -427,7 +423,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
-	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
+	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process to reconfigure", "module", conf.Name)
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
@@ -731,10 +727,46 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
-// ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
+// unmodifiedConfigsToValidate finds all unmodified resources that are provided by new/modified modules.
+func (mgr *Manager) unmodifiedConfigsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
+	// create a set of add/modified modules
+	changedMods := make(map[string]bool, len(conf.Added.Modules)+len(conf.Modified.Modules))
+	for _, mod := range conf.Added.Modules {
+		changedMods[mod.Name] = true
+	}
+	for _, mod := range conf.Modified.Modules {
+		changedMods[mod.Name] = true
+	}
+
+	compConfs := make([]resource.Config, 0)
+	serviceConfs := make([]resource.Config, 0)
+
+	for _, c := range conf.UnmodifiedResources {
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			// continue if this resource is not being provided by a module.
+			continue
+		}
+		if _, ok := changedMods[mod.cfg.Name]; !ok {
+			// continue if it is not provided by a new/modified module.
+			continue
+		}
+		if c.API.IsComponent() {
+			compConfs = append(compConfs, c)
+		}
+		if c.API.IsService() {
+			serviceConfs = append(serviceConfs, c)
+		}
+	}
+	return compConfs, serviceConfs
+}
+
+// ResolveImplicitDependencies mutates the passed in diff to add modular implicit dependencies to added
 // and modified resources.
-func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// If something was added or modified, go through components and services in
+// Unmodified resources provided by added/modified modules will also be re-evaluated to
+// make sure implicit dependencies are up-to-date.
+func (mgr *Manager) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
+	// If a module was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
 	validateModularResources := func(confs []resource.Config) {
@@ -752,15 +784,18 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			}
 		}
 	}
-	if conf.Added != nil {
-		validateModularResources(conf.Added.Components)
-		validateModularResources(conf.Added.Services)
-	}
-	if conf.Modified != nil {
-		validateModularResources(conf.Modified.Components)
-		validateModularResources(conf.Modified.Services)
-	}
-	return nil
+	validateModularResources(conf.Added.Components)
+	validateModularResources(conf.Added.Services)
+
+	validateModularResources(conf.Modified.Components)
+	validateModularResources(conf.Modified.Services)
+
+	componentConfs, serviceConfs := mgr.unmodifiedConfigsToValidate(conf)
+
+	validateModularResources(componentConfs)
+	conf.Modified.Components = append(conf.Modified.Components, componentConfs...)
+	validateModularResources(serviceConfs)
+	conf.Modified.Services = append(conf.Modified.Services, serviceConfs...)
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {
@@ -1031,6 +1066,22 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
+	// Backup module's current managedProcesses and restore them if the restart attempt fails.
+	currentOUEPrevManagedProcess := mod.prevProcess
+	currentOUEManagedProcess := mod.process
+	defer func() {
+		if success {
+			// mod.process (assigned by mod.startProcess) is a new MP. prevProcess is the MP that launched the current OUE.
+			// this line is redundant if the first restart attempt succeeds, but not if there are restart attempt failures in between
+			// (the failed MPs are discarded).
+			mod.prevProcess = currentOUEManagedProcess
+		} else {
+			// if fail: restore module processes state. The failed managedProcess is dormant and will be GC'ed.
+			mod.prevProcess = currentOUEPrevManagedProcess
+			mod.process = currentOUEManagedProcess
+		}
+	}()
+
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
@@ -1072,7 +1123,7 @@ func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 			return err
 		}
 	}
-	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir, mgr.tracingEnabled)
+	env := getFullEnvironment(conf, pkgsDir, dataDir, mgr.viamHomeDir)
 
 	return conf.FirstRun(ctx, pkgsDir, dataDir, env, mgr.logger)
 }
@@ -1082,15 +1133,11 @@ func getFullEnvironment(
 	packagesDir string,
 	dataDir string,
 	viamHomeDir string,
-	tracingEnabled bool,
 ) map[string]string {
 	environment := map[string]string{
 		rutils.HomeEnvVar:  viamHomeDir,
 		"VIAM_MODULE_DATA": dataDir,
 		"VIAM_MODULE_NAME": cfg.Name,
-	}
-	if tracingEnabled {
-		environment["VIAM_MODULE_TRACING"] = "1"
 	}
 
 	if cfg.Type == config.ModuleTypeRegistry {
@@ -1118,7 +1165,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
+		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
 }

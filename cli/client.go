@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -42,6 +43,7 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -49,16 +51,19 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/services/shell"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
 	rdkReleaseURL = "https://api.github.com/repos/viamrobotics/rdk/releases/latest"
+	osWindows     = "windows"
 	// defaultNumLogs is the same as the number of logs currently returned by app
 	// in a single GetRobotPartLogsResponse.
 	defaultNumLogs = 100
@@ -343,6 +348,9 @@ type getBillingConfigArgs struct {
 
 // GetBillingConfigAction corresponds to `organizations billing get`.
 func GetBillingConfigAction(cCtx *cli.Context, args getBillingConfigArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to get billing config for")
+	}
 	c, err := newViamClient(cCtx)
 	if err != nil {
 		return err
@@ -603,7 +611,7 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	if orgStr == "" {
 		orgStr = c.Args().First()
 	}
-	if orgStr == "" {
+	if orgStr == "" { // if there's still not an orgStr, then we can fall back to the alphabetically first
 		orgs, err := client.listOrganizations()
 		if err != nil {
 			return errors.Wrap(err, "could not list organizations")
@@ -841,6 +849,9 @@ type createMachineActionArgs struct {
 
 // CreateMachineAction is the corresponding action for 'machines create'.
 func CreateMachineAction(c *cli.Context, args createMachineActionArgs) error {
+	if args.Location == "" {
+		return errors.New("must provide a location to create a machine in")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -1251,6 +1262,262 @@ func formatLog(log *commonpb.LogEntry, partName, format string) (string, error) 
 	default:
 		return "", fmt.Errorf("invalid format: %s", format)
 	}
+}
+
+type machinesPartCreateArgs struct {
+	PartName     string
+	Machine      string
+	Location     string
+	Organization string
+}
+
+func machinesPartCreateAction(c *cli.Context, args machinesPartCreateArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	robot, err := client.lookupMachineByName(args.Machine, args.Location, args.Organization)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.NewRobotPartRequest{PartName: args.PartName, RobotId: robot.Id}
+
+	resp, err := client.client.NewRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "created new machine part with ID %s", resp.PartId)
+	return nil
+}
+
+type machinesPartDeleteArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+}
+
+func machinesPartDeleteAction(c *cli.Context, args machinesPartDeleteArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.DeleteRobotPartRequest{PartId: part.Id}
+
+	_, err = client.client.DeleteRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully deleted part %s (ID: %s)", part.Name, part.Id)
+	return nil
+}
+
+func resourcesFromPartConfig(config map[string]any, resourceTypePlural string) ([]map[string]any, error) {
+	var resources []any
+	for k, v := range config {
+		if k != resourceTypePlural {
+			continue
+		}
+		r, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("config %s were improperly formatted", resourceTypePlural)
+		}
+
+		resources = r
+		break
+	}
+
+	var typedResources []map[string]any
+
+	for _, r := range resources {
+		resource, ok := r.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("%s config was improperly formatted", resourceTypePlural)
+		}
+		typedResources = append(typedResources, resource)
+	}
+
+	return typedResources, nil
+}
+
+func resourceMap(c *cli.Context) map[string]string {
+	resources := map[string]string{}
+
+	for _, resource := range modulegen.Resources {
+		r := strings.Split(resource, " ")
+		if len(r) != 2 {
+			printf(c.App.ErrWriter, "warning: resource type %s not properly formatted.", resource)
+			continue
+		}
+		resources[r[0]] = r[1]
+	}
+
+	return resources
+}
+
+type robotsPartAddResourceArgs struct {
+	Part            string
+	Machine         string
+	Location        string
+	Organization    string
+	ModelName       string
+	Name            string
+	ResourceSubtype string
+	API             string
+}
+
+func robotsPartAddResourceAction(c *cli.Context, args robotsPartAddResourceArgs) error {
+	if args.API == "" && args.ResourceSubtype == "" {
+		return errors.New("cannot add a resource of unknown subtype; a subtype or fully qualified API triplet must be specified")
+	}
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var resourceType string
+	var api string
+	if args.API != "" && len(strings.Split(args.API, ":")) == 3 {
+		api = args.API
+		resourceType = strings.Split(args.API, ":")[1]
+	} else {
+		if args.API != "" {
+			warningf(
+				c.App.ErrWriter, "the provided API '%s' is improperly formatted; attempting to infer API from the provided resource subtype %s",
+				args.API, args.ResourceSubtype,
+			)
+		}
+
+		subtype := strings.ReplaceAll(args.ResourceSubtype, "-", "_")
+		subtype = strings.ReplaceAll(subtype, " ", "_")
+		subtype = strings.ToLower(subtype)
+
+		resourceMap := resourceMap(c)
+		resourceType = resourceMap[subtype]
+		if resourceType == "" {
+			return fmt.Errorf(
+				"resource subtype %s is unknown; if you're trying to add a custom resource type then a fully qualified API is necessary",
+				subtype,
+			)
+		}
+		api = fmt.Sprintf("rdk:%s:%s", resourceType, subtype)
+	}
+
+	// for a custom resource subtype, a user might not follow the format of namespace:type:subtype
+	if resourceType != "component" && resourceType != "service" {
+		warningf(c.App.ErrWriter, "unknown resource type '%s'. Resource type should be 'component' or 'service'; defaulting to component",
+			resourceType,
+		)
+		resourceType = "component"
+	}
+
+	resourceTypePlural := resourceType + "s"
+	resources, err := resourcesFromPartConfig(config, resourceTypePlural)
+	if err != nil {
+		return err
+	}
+
+	// ensure no component already exists with the given name
+	for _, c := range resources {
+		if c["name"] == args.Name {
+			return fmt.Errorf("%s with name %s already exists", resourceType, args.Name)
+		}
+	}
+
+	newResource := map[string]any{
+		"name":  args.Name,
+		"model": args.ModelName,
+		"api":   api,
+	}
+	resources = append(resources, newResource)
+	config[resourceTypePlural] = resources
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added resource %s to part %s", args.Name, args.Part)
+	return nil
+}
+
+type robotsPartRemoveResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourceArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		var updatedResources []map[string]any
+		for _, c := range resources {
+			if c["name"] != args.Name {
+				updatedResources = append(updatedResources, c)
+			} else {
+				resourceFound = true
+			}
+		}
+		config[resourceType] = updatedResources
+	}
+
+	if !resourceFound {
+		printf(c.App.Writer, "resource %s not found on part %s", args.Name, args.Part)
+		return nil
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
+	return nil
 }
 
 type robotsPartStatusArgs struct {
@@ -1719,43 +1986,69 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-
-	doCopy := func() error {
+	var pm *ProgressManager
+	doCopy := func() (int, error) {
+		var copyFunc func() error
 		if isFrom {
-			return c.copyFilesFromMachine(
-				flagArgs.Organization,
-				flagArgs.Location,
-				flagArgs.Machine,
-				flagArgs.Part,
-				globalArgs.Debug,
-				flagArgs.Recursive,
-				flagArgs.Preserve,
-				paths,
-				destination,
-				logger,
-			)
+			copyFunc = func() error {
+				return c.copyFilesFromMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+				)
+			}
+		} else {
+			copyFunc = func() error {
+				return c.copyFilesToMachine(
+					flagArgs.Organization,
+					flagArgs.Location,
+					flagArgs.Machine,
+					flagArgs.Part,
+					globalArgs.Debug,
+					flagArgs.Recursive,
+					flagArgs.Preserve,
+					paths,
+					destination,
+					logger,
+					flagArgs.NoProgress,
+				)
+			}
 		}
-
-		return c.copyFilesToMachine(
-			flagArgs.Organization,
-			flagArgs.Location,
-			flagArgs.Machine,
-			flagArgs.Part,
-			globalArgs.Debug,
-			flagArgs.Recursive,
-			flagArgs.Preserve,
-			paths,
-			destination,
-			logger,
-			flagArgs.NoProgress,
+		if !flagArgs.NoProgress {
+			pm = NewProgressManager([]*Step{
+				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+			})
+			if err := pm.Start("copy"); err != nil {
+				return 0, err
+			}
+			defer pm.Stop()
+		}
+		attemptCount, err := c.retryableCopy(
+			ctx,
+			pm,
+			copyFunc,
+			isFrom,
 		)
+		return attemptCount, err
 	}
-	if err := doCopy(); err != nil {
+	attemptCount, err := doCopy()
+	if err != nil {
+		defer pm.Fail("copy", err) //nolint:errcheck
 		if statusErr := status.Convert(err); statusErr != nil &&
 			statusErr.Code() == codes.InvalidArgument &&
 			statusErr.Message() == shell.ErrMsgDirectoryCopyRequestNoRecursion {
 			return errDirectoryCopyRequestNoRecursion
 		}
+		return fmt.Errorf("all %d copy attempts failed, try again later", attemptCount)
+	}
+	if err := pm.Complete("copy"); err != nil {
 		return err
 	}
 	return nil
@@ -1932,7 +2225,7 @@ type getLatestReleaseResponse struct {
 	TarballURL string `json:"tarball_url"`
 }
 
-func getLatestReleaseVersion() (string, error) {
+func getLatestRelease() (getLatestReleaseResponse, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1940,22 +2233,52 @@ func getLatestReleaseVersion() (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rdkReleaseURL, nil)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	client := http.DefaultClient
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
 	if err != nil {
-		return "", err
+		return getLatestReleaseResponse{}, err
 	}
 
 	defer utils.UncheckedError(res.Body.Close())
+	return resp, nil
+}
+
+// getLatestReleaseVersionFunc can be overridden in tests to mock GitHub API calls
+var getLatestReleaseVersionFunc = func() (string, error) {
+	resp, err := getLatestRelease()
+	if err != nil {
+		return "", err
+	}
 	return resp.TagName, err
+}
+
+func localVersion() (*semver.Version, error) {
+	appVersion := rconfig.Version
+	localVersion, err := semver.NewVersion(appVersion)
+	if err != nil {
+		return nil, errors.New("failed to parse local build version")
+	}
+	return localVersion, nil
+}
+
+func latestVersion() (*semver.Version, error) {
+	latestRelease, err := getLatestReleaseVersionFunc()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest release information: %w", err)
+	}
+	latestVersion, err := semver.NewVersion(latestRelease)
+	if err != nil {
+		return nil, errors.New("failed to parse latest release version")
+	}
+	return latestVersion, nil
 }
 
 func (conf *Config) checkUpdate(c *cli.Context) error {
@@ -1992,31 +2315,23 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 		return nil
 	}
 
-	appVersion := rconfig.Version
-	latestRelease, err := getLatestReleaseVersion()
-	if err != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", err)
-	}
-
-	latestVersion, err := semver.NewVersion(latestRelease)
-
+	latestVersion, err := latestVersion()
 	// failure to parse `latestRelease` is expected for local builds; we don't want overly
 	// noisy warnings here so only alert in these cases if debug flag is on
 	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse latest release version")
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
-	localVersion, err := semver.NewVersion(appVersion)
+	localVersion, err := localVersion()
 	if err != nil && globalArgs.Debug {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to parse build version")
+		warningf(c.App.ErrWriter, "CLI Update Check: %w", err)
 	}
-
 	// we know both the local version and the latest version so we can make a determination
 	// from that alone on whether or not to alert users to update
 	if localVersion != nil && latestVersion != nil {
 		// the local version is out of date, so we know to warn
 		if localVersion.LessThan(latestVersion) {
 			warningf(c.App.ErrWriter, "CLI Update Check: Your CLI (%s) is out of date. Consider updating to version %s. "+
-				"See https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
+				"Run 'viam update' or see https://docs.viam.com/cli/#install", localVersion.Original(), latestVersion.Original())
 		}
 		return nil
 	}
@@ -2041,9 +2356,164 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 			updateInstructions = fmt.Sprintf(" to version: %s", latestVersion.Original())
 		}
 		warningf(c.App.ErrWriter, "CLI Update Check: Your CLI is more than a week old. "+
-			"New CLI releases happen weekly; consider updating%s. See https://docs.viam.com/cli/#install", updateInstructions)
+			"New CLI releases happen weekly; consider updating%s. Run 'viam update' or see https://docs.viam.com/cli/#install", updateInstructions)
+	}
+	return nil
+}
+
+// UpdateCLIAction updates the CLI to the latest version.
+func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
+	// 1. check CLI to see if update needed, if this fails then try update anyways
+	latestVersion, latestVersionErr := latestVersion()
+	if latestVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+	}
+	localVersion, localVersionErr := localVersion()
+	if localVersionErr != nil {
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+	}
+	if localVersion != nil && latestVersion != nil {
+		if localVersion.GreaterThanEqual(latestVersion) {
+			infof(c.App.Writer, "Your CLI is already up to date (version %s)", localVersion.Original())
+			return nil
+		}
+	}
+	// 2. check if cli managed by brew, if so attempt update. If it fails
+	// dont continue with binary replacement to avoid putting brew out of sync
+	managedByBrew, err := checkAndTryBrewUpdate()
+	if err != nil {
+		return errors.Errorf("CLI update failed: %v", err)
+	}
+	// try the binary replacement process because not managed by brew
+	if !managedByBrew {
+		// 3. get the local version binary path (use full path if no symlinks)
+		execPath, err := os.Executable()
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+		}
+		localBinaryPath, err := filepath.EvalSymlinks(execPath)
+		if err != nil {
+			localBinaryPath = execPath
+		}
+		directoryPath := filepath.Dir(localBinaryPath)
+
+		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+		binaryURL := binaryURL()
+		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
+		defer os.Remove(latestBinaryPath) //nolint:errcheck
+		if err != nil {
+			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
+		}
+
+		// 5. replace the old binary with the new one
+		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+		}
+	}
+	infof(c.App.Writer, "Your CLI has been successfully updated")
+	return nil
+}
+
+func checkAndTryBrewUpdate() (bool, error) {
+	if runtime.GOOS == "darwin" {
+		if _, err := exec.LookPath("brew"); err == nil {
+			// Check if viam is actually managed by brew
+			err := exec.Command("brew", "list", "viam").Run()
+			if err == nil {
+				// viam is managed by brew - try upgrade
+				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
+				if err == nil {
+					if strings.Contains(string(out), "already installed") {
+						// edge case: latest version released but brew has not updated yet
+						return false, errors.New("the latest version is not on brew yet")
+					}
+					return true, nil
+				}
+				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+			}
+		}
+	}
+	return false, nil
+}
+
+func binaryURL() string {
+	// Determine binary URL based on OS and architecture
+	binaryURL := "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-" +
+		runtime.GOOS + "-" + runtime.GOARCH
+	if runtime.GOOS == osWindows {
+		binaryURL += ".exe" //nolint:goconst
+	}
+	return binaryURL
+}
+
+func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
+	// Download the binary
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", errors.Errorf("binary download failed: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		utils.UncheckedError(resp.Body.Close())
+		return "", errors.Errorf("binary download failed: server returned status %d", resp.StatusCode)
 	}
 
+	// create a temp file that we write the downloaded binary into
+	goos := runtime.GOOS
+	tempFileName := "viam-cli-update"
+	if goos == osWindows {
+		tempFileName += ".exe"
+	}
+	tempFileName += ".new"
+
+	// Create the temp file in the same directory as the binary
+	latestBinaryPath := filepath.Join(directoryPath, tempFileName)
+	latestBinaryFile, err := os.Create(latestBinaryPath) //nolint:gosec
+	if err != nil {
+		utils.UncheckedError(resp.Body.Close())
+		if os.IsPermission(err) {
+			if goos == osWindows {
+				return "", errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return "", errors.New("permission denied: run 'sudo viam update'")
+		}
+		return "", errors.Errorf("failed to create temp file: %v", err)
+	}
+
+	// Write downloaded content to temp file
+	_, err = io.Copy(latestBinaryFile, resp.Body)
+	utils.UncheckedError(resp.Body.Close())
+	utils.UncheckedError(latestBinaryFile.Close())
+	if err != nil {
+		return "", errors.Errorf("failed to write downloaded binary: %v", err)
+	}
+
+	// Make executable on Unix-like systems, if permissions are improperly set then no
+	// change will be made and user has to run sudo
+	if goos != osWindows {
+		if err := os.Chmod(latestBinaryPath, 0o755); err != nil { //nolint:gosec
+			if os.IsPermission(err) {
+				return "", errors.New("permission denied: run 'sudo viam update'")
+			}
+			return "", errors.Errorf("failed to make binary executable: %v", err)
+		}
+	}
+	return latestBinaryPath, nil
+}
+
+func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+		if os.IsPermission(err) {
+			if runtime.GOOS == osWindows {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.New("permission denied: run 'sudo viam update'")
+		}
+		return errors.Errorf("failed to replace binary: %v", err)
+	}
 	return nil
 }
 
@@ -2089,54 +2559,6 @@ func VersionAction(c *cli.Context, args emptyArgs) error {
 }
 
 var defaultBaseURL = "https://app.viam.com:443"
-
-func parseBaseURL(baseURL string, verifyConnection bool) (*url.URL, []rpc.DialOption, error) {
-	baseURLParsed, err := url.Parse(baseURL)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Go URL parsing can place the host in Path if no scheme is provided; place
-	// Path in Host in this case.
-	if baseURLParsed.Host == "" && baseURLParsed.Path != "" {
-		baseURLParsed.Host = baseURLParsed.Path
-		baseURLParsed.Path = ""
-	}
-
-	// Assume "https" scheme if none is provided, and assume 8080 port for "http"
-	// scheme and 443 port for "https" scheme.
-	var secure bool
-	switch baseURLParsed.Scheme {
-	case "http":
-		if baseURLParsed.Port() == "" {
-			baseURLParsed.Host = baseURLParsed.Host + ":" + "8080"
-		}
-	case "https", "":
-		secure = true
-		baseURLParsed.Scheme = "https"
-		if baseURLParsed.Port() == "" {
-			baseURLParsed.Host = baseURLParsed.Host + ":" + "443"
-		}
-	}
-
-	if verifyConnection {
-		// Check if URL is even valid with a TCP dial.
-		conn, err := net.DialTimeout("tcp", baseURLParsed.Host, 10*time.Second)
-		if err != nil {
-			return nil, nil, fmt.Errorf("base URL %q (needed for auth) is currently unreachable (%v). "+
-				"Ensure URL is valid and you are connected to internet", err.Error(), baseURLParsed.Host)
-		}
-		utils.UncheckedError(conn.Close())
-	}
-
-	if secure {
-		return baseURLParsed, nil, nil
-	}
-	return baseURLParsed, []rpc.DialOption{
-		rpc.WithInsecure(),
-		rpc.WithAllowInsecureWithCredentialsDowngrade(),
-	}, nil
-}
 
 func isProdBaseURL(baseURL *url.URL) bool {
 	return strings.HasSuffix(baseURL.Hostname(), "viam.com")
@@ -2216,7 +2638,7 @@ func getBaseURL(c *cli.Context) (*url.URL, *Config, error) {
 	if conf.BaseURL != defaultBaseURL {
 		infof(c.App.ErrWriter, "Using %q as base URL value", conf.BaseURL)
 	}
-	baseURL, _, err := parseBaseURL(conf.BaseURL, true)
+	baseURL, _, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -2914,6 +3336,104 @@ func (c *viamClient) startRobotPartShell(
 	return nil
 }
 
+// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
+const maxCopyAttempts = 6
+
+// retryableCopy attempts to copy files to a part using the shell service with retries.
+// It handles progress manager updates for each attempt and provides helpful error messages.
+// The copyFunc parameter allows for mocking in tests.
+// returns number of attempts made in case it terminates early due to nonretryable error
+func (c *viamClient) retryableCopy(
+	ctx *cli.Context,
+	pm *ProgressManager,
+	copyFunc func() error,
+	isFrom bool,
+) (int, error) {
+	var hadPreviousFailure bool
+	var copyErr error
+
+	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
+		// If we had a previous failure, create a nested step for this retry
+		var attemptStepID string
+		if hadPreviousFailure {
+			attemptStepID = fmt.Sprintf("Attempt-%d", attempt)
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt %d/%d...", attempt, maxCopyAttempts),
+				CompletedMsg: fmt.Sprintf("Attempt %d succeeded", attempt),
+				Status:       StepPending,
+				IndentLevel:  2, // Nested under "copy" which is at level 1
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		copyErr = copyFunc()
+
+		if copyErr == nil {
+			// Success! Complete the step if this was a retry
+			if attemptStepID != "" {
+				if err := pm.Complete(attemptStepID); err != nil {
+					return attempt, err
+				}
+			}
+			return attempt, nil
+		}
+
+		// Handle error
+		hadPreviousFailure = true
+
+		// Print special warning for invalid argument and permission denied errors (in addition to regular error)
+		if s, ok := status.FromError(copyErr); ok {
+			if s.Code() == codes.PermissionDenied {
+				if isFrom {
+					warningf(ctx.App.ErrWriter, "RDK couldn't read the source files on the machine. "+
+						"Try copying from a path the RDK user can read (e.g., $HOME, /tmp), "+
+						"temporarily changing file permissions with 'chmod'.")
+				} else {
+					warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
+						"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
+						"Alternatively, run the RDK as root.")
+				}
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			} else if s.Code() == codes.InvalidArgument {
+				warningf(ctx.App.ErrWriter, "Copy failed with invalid argument: %s", copyErr.Error())
+				_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+				return attempt, copyErr
+			}
+		}
+
+		// Create a step for this failed attempt (so it shows in the output)
+		if attemptStepID == "" {
+			// First attempt - create its step retroactively
+			attemptStepID = "Attempt-1"
+			attemptStep := &Step{
+				ID:           attemptStepID,
+				Message:      fmt.Sprintf("Attempt 1/%d...", maxCopyAttempts),
+				CompletedMsg: "Attempt 1 succeeded",
+				Status:       StepPending,
+				IndentLevel:  2,
+			}
+			pm.steps = append(pm.steps, attemptStep)
+			pm.stepMap[attemptStepID] = attemptStep
+			if err := pm.Start(attemptStepID); err != nil {
+				return attempt, err
+			}
+		}
+
+		// Mark this attempt as failed (this will print the error on next line)
+		_ = pm.Fail(attemptStepID, copyErr) //nolint:errcheck
+	}
+
+	// All attempts failed - return the error from the copy function
+	return maxCopyAttempts, copyErr
+}
+
 func (c *viamClient) copyFilesToMachine(
 	orgStr, locStr, robotStr, partStr string,
 	debug bool,
@@ -3199,6 +3719,10 @@ func ReadOAuthAppAction(c *cli.Context, args readOAuthAppArgs) error {
 		return err
 	}
 
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to read OAuth app")
+	}
+
 	return client.readOAuthAppAction(c, args.OrgID, args.ClientID)
 }
 
@@ -3419,6 +3943,10 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 		return err
 	}
 
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to create an OAuth app")
+	}
+
 	return client.createOAuthAppAction(c, args)
 }
 
@@ -3517,6 +4045,9 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI st
 }
 
 func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthAppRequest, error) {
+	if args.OrgID == "" {
+		return nil, errors.New("must provide an organization ID to update OAuth app")
+	}
 	orgID := args.OrgID
 	clientID := args.ClientID
 	clientName := args.ClientName

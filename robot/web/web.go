@@ -193,7 +193,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
-	logger.Info("Viam RDK shutting down")
+	logger.Info("viam-server shutting down")
 	return ctx.Err()
 }
 
@@ -439,6 +439,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	if err != nil {
 		return err
 	}
+
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+	rpcOpts = append(rpcOpts, rpc.WithStatsHandler(otelStatsHandler))
 
 	ioLogger := svc.logger.Sublogger("networking")
 	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
@@ -732,7 +738,7 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, server rp
 	apiRegs := resource.RegisteredAPIs()
 	for api, apiReg := range apiRegs {
 		apiGetter := resourceGetterForAPI{api, svc.r}
-		if err := apiReg.RegisterRPCService(ctx, server, apiGetter); err != nil {
+		if err := apiReg.RegisterRPCService(ctx, server, apiGetter, svc.logger); err != nil {
 			return err
 		}
 	}

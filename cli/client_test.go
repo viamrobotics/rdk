@@ -10,8 +10,11 @@ import (
 	"io/fs"
 	"maps"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +31,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	robotconfig "go.viam.com/rdk/config"
@@ -170,7 +175,7 @@ func setupWithRunningPart(
 	// this will be the URL we use to make new clients. In a backwards way, this
 	// lets the robot be the one with external auth handling (if auth were being used)
 	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
-	ac.baseURL, _, err = parseBaseURL(ac.conf.BaseURL, false)
+	ac.baseURL, _, err = utils.ParseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Cleanup(func() {
@@ -594,7 +599,7 @@ func TestDataExportTabularAction(t *testing.T) {
 
 func TestBaseURLParsing(t *testing.T) {
 	// Test basic parsing
-	url, rpcOpts, err := parseBaseURL("https://app.viam.com:443", false)
+	url, rpcOpts, err := utils.ParseBaseURL("https://app.viam.com:443", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "443")
 	test.That(t, url.Scheme, test.ShouldEqual, "https")
@@ -602,13 +607,13 @@ func TestBaseURLParsing(t *testing.T) {
 	test.That(t, rpcOpts, test.ShouldBeNil)
 
 	// Test parsing without a port
-	url, _, err = parseBaseURL("https://app.viam.com", false)
+	url, _, err = utils.ParseBaseURL("https://app.viam.com", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "443")
 	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
 
 	// Test parsing locally
-	url, rpcOpts, err = parseBaseURL("http://127.0.0.1:8081", false)
+	url, rpcOpts, err = utils.ParseBaseURL("http://127.0.0.1:8081", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Scheme, test.ShouldEqual, "http")
 	test.That(t, url.Port(), test.ShouldEqual, "8081")
@@ -616,20 +621,20 @@ func TestBaseURLParsing(t *testing.T) {
 	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
 
 	// Test localhost:8080
-	url, _, err = parseBaseURL("http://localhost:8080", false)
+	url, _, err = utils.ParseBaseURL("http://localhost:8080", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "8080")
 	test.That(t, url.Hostname(), test.ShouldEqual, "localhost")
 	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
 
 	// Test no scheme remote
-	url, _, err = parseBaseURL("app.viam.com", false)
+	url, _, err = utils.ParseBaseURL("app.viam.com", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Scheme, test.ShouldEqual, "https")
 	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
 
 	// Test invalid url
-	_, _, err = parseBaseURL(":5", false)
+	_, _, err = utils.ParseBaseURL(":5", false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
 }
 
@@ -1334,7 +1339,11 @@ func TestCreateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1346,6 +1355,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some-org-id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
@@ -1435,7 +1445,11 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1447,6 +1461,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some_org_id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
@@ -1690,4 +1705,413 @@ func TestMergeComponentNameIntoData(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCLIUpdateAction(t *testing.T) {
+	// Save original version to restore later
+	originalVersion := robotconfig.Version
+	defer func() {
+		robotconfig.Version = originalVersion
+	}()
+
+	// Set up a mock latest version
+	mockLatestVersion := "0.104.0"
+	originalGetLatestReleaseVersion := getLatestReleaseVersionFunc
+	getLatestReleaseVersionFunc = func() (string, error) {
+		return mockLatestVersion, nil
+	}
+	defer func() {
+		getLatestReleaseVersionFunc = originalGetLatestReleaseVersion
+	}()
+
+	testLatestVersion, err := latestVersion()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, testLatestVersion.Original(), test.ShouldEqual, mockLatestVersion)
+
+	// Set local version to 0.100.0 (older than mockLatestVersion 0.104.0)
+	robotconfig.Version = "0.100.0"
+	testLocalVersion, err := localVersion()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, testLocalVersion.Original(), test.ShouldEqual, "0.100.0")
+
+	// Test that binaryURL returns a valid URL with correct OS/arch and .exe for Windows
+	actualURL := binaryURL()
+	test.That(t, actualURL, test.ShouldContainSubstring, "https://storage.googleapis.com/packages.viam.com/apps/viam-cli/viam-cli-stable-")
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOOS)
+	test.That(t, actualURL, test.ShouldContainSubstring, runtime.GOARCH)
+	if runtime.GOOS == osWindows {
+		test.That(t, strings.HasSuffix(actualURL, ".exe"), test.ShouldBeTrue)
+	} else {
+		test.That(t, actualURL, test.ShouldNotContainSubstring, ".exe")
+	}
+
+	// Test that downloadBinaryIntoDir succeeds
+	// Create a test HTTP server that serves a mock binary
+	newBinaryContent := []byte("new-binary-content")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write(newBinaryContent)
+	}))
+	defer server.Close()
+
+	// Create temp directory for download
+	tempDir := t.TempDir()
+
+	filename := "/viam-cli-stable"
+	if runtime.GOOS == osWindows {
+		filename += ".exe"
+	}
+	downloadURL := server.URL + filename
+	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir)
+	test.That(t, err, test.ShouldBeNil)
+
+	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
+	expectedFileName := "viam-cli-update"
+	if runtime.GOOS == osWindows {
+		expectedFileName += ".exe"
+	}
+	expectedFileName += ".new"
+	expectedPath := filepath.Join(tempDir, expectedFileName)
+	test.That(t, downloadedPath, test.ShouldEqual, expectedPath)
+
+	// Verify file was created and has correct content
+	downloadedContent, err := os.ReadFile(downloadedPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, downloadedContent, test.ShouldResemble, newBinaryContent)
+
+	// Test that replaceBinary works (create two temp binaries and see if replaced)
+	oldBinaryPath := filepath.Join(tempDir, "old-binary")
+	newBinaryPath := downloadedPath // Use the downloaded file as the "new" binary
+
+	// Create old binary file
+	err = os.WriteFile(oldBinaryPath, []byte("old-binary-content"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Replace old binary with new binary
+	err = replaceBinary(oldBinaryPath, newBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify that old binary location now contains the new binary content
+	// (os.Rename moves the new binary to the old location, so newBinaryPath no longer exists)
+	oldBinary, err := os.ReadFile(oldBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oldBinary, test.ShouldResemble, newBinaryContent)
+	// Verify that newBinaryPath no longer exists (it was moved to oldBinaryPath)
+	_, err = os.ReadFile(newBinaryPath)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+}
+
+func TestRetryableCopy(t *testing.T) {
+	t.Run("SuccessOnFirstAttempt", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		mockCopyFunc := func() error {
+			return nil // Success immediately
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Copy to part
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+		// Verify no retry steps were created
+		retryStepFound := false
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
+
+		// Copy from part
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, errOut.messages, test.ShouldHaveLength, 0)
+
+		// Verify no retry steps were created for the second
+		retryStepFound = false
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepFound = true
+				break
+			}
+		}
+		test.That(t, retryStepFound, test.ShouldBeFalse)
+	})
+
+	t.Run("SuccessAfter2Retries", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			if attemptCount <= 2 {
+				return errors.New("copy failed")
+			}
+			return nil // Success on 3rd attempt
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		// Copy to part
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 3)
+
+		// Verify retry steps were created (attempt 1, 2, and 3)
+		retryStepCount := 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepCount++
+				// Verify IndentLevel is 2 for deeper nesting
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		test.That(t, retryStepCount, test.ShouldEqual, 3) // Attempt-1, Attempt-2, and Attempt-3
+
+		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 2/6 failed:")
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 3)
+
+		// Verify retry steps were created (attempt 1, 2, and 3)
+		retryStepCount = 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepCount++
+				// Verify IndentLevel is 2 for deeper nesting
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		// 3 from first call + 3 from second call
+		test.That(t, retryStepCount, test.ShouldEqual, 6)
+
+		// Verify no duplicate warning messages in errOut (only permission denied warnings should appear)
+		errMsg = strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 1/6 failed:")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt 2/6 failed:")
+	})
+
+	t.Run("SuccessAfter5Retries", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			if attemptCount <= 5 {
+				return errors.New("copy failed")
+			}
+			return nil // Success on 6th attempt
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Verify all retry steps were created (attempt 1 through 6)
+		retryStepCount := 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepCount++
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		test.That(t, retryStepCount, test.ShouldEqual, 6) // attempt-1 through attempt-6
+
+		// No duplicate warning messages should appear (only permission denied warnings)
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "Attempt")
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Verify all retry steps were created (attempt 1 through 6)
+		retryStepCount = 0
+		for _, step := range pm.steps {
+			if strings.Contains(step.ID, "Attempt-") {
+				retryStepCount++
+				test.That(t, step.IndentLevel, test.ShouldEqual, 2)
+			}
+		}
+		// 6 from first call + 6 from second call
+		test.That(t, retryStepCount, test.ShouldEqual, 12)
+
+		// No duplicate warning messages should appear (only permission denied warnings)
+		errMsg = strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldNotContainSubstring, "copy attempt")
+	})
+
+	t.Run("AllAttemptsFail", func(t *testing.T) {
+		cCtx, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		attemptCount := 0
+		mockCopyFunc := func() error {
+			attemptCount++
+			return errors.New("persistent copy failure")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+
+		// Copy from part - reset attemptCount for the second call
+		attemptCount = 0
+		_, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "persistent copy failure")
+		test.That(t, attemptCount, test.ShouldEqual, 6)
+	})
+
+	t.Run("PermissionDeniedError", func(t *testing.T) {
+		cCtx, vc, _, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{},
+			map[string]any{}, "token")
+
+		mockCopyFunc := func() error {
+			return status.Error(codes.PermissionDenied, "permission denied")
+		}
+
+		allSteps := []*Step{
+			{ID: "copy", Message: "Copying package...", CompletedMsg: "Package copied", IndentLevel: 0},
+		}
+		pm := NewProgressManager(allSteps, WithProgressOutput(false))
+		defer pm.Stop()
+
+		err := pm.Start("copy")
+		test.That(t, err, test.ShouldBeNil)
+
+		attemptCount, err := vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			false,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+
+		// Verify permission denied specific warning appears
+		errMsg := strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't write to the default file copy destination")
+		test.That(t, errMsg, test.ShouldContainSubstring, "--home")
+		test.That(t, errMsg, test.ShouldContainSubstring, "run the RDK as root")
+
+		// Copy from part
+		attemptCount, err = vc.retryableCopy(
+			cCtx,
+			pm,
+			mockCopyFunc,
+			true,
+		)
+
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, attemptCount, test.ShouldEqual, 1)
+
+		// Verify permission denied specific warning appears
+		errMsg = strings.Join(errOut.messages, "")
+		test.That(t, errMsg, test.ShouldContainSubstring, "RDK couldn't read the source files on the machine.")
+	})
 }

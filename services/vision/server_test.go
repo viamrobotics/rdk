@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	_ "go.viam.com/rdk/components/camera/register"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
@@ -21,15 +22,16 @@ import (
 	"go.viam.com/rdk/vision/viscapture"
 )
 
-func newServer(m map[resource.Name]vision.Service) (pb.VisionServiceServer, error) {
+func newServer(m map[resource.Name]vision.Service, logger logging.Logger) (pb.VisionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(vision.API, m)
 	if err != nil {
 		return nil, err
 	}
-	return vision.NewRPCServiceServer(coll).(pb.VisionServiceServer), nil
+	return vision.NewRPCServiceServer(coll, logger).(pb.VisionServiceServer), nil
 }
 
 func TestVisionServerFailures(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(t, err, test.ShouldBeNil)
 	imgBytes, err := rimage.EncodeImage(context.Background(), img, utils.MimeTypeJPEG)
@@ -43,7 +45,7 @@ func TestVisionServerFailures(t *testing.T) {
 	}
 	// no service
 	m := map[resource.Name]vision.Service{}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetections(context.Background(), detectRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:vision/vision1 not found"))
@@ -57,18 +59,19 @@ func TestVisionServerFailures(t *testing.T) {
 		vision.Named(testVisionServiceName):  injectVS,
 		vision.Named(testVisionServiceName2): injectVS,
 	}
-	server, err = newServer(m)
+	server, err = newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.GetDetections(context.Background(), detectRequest)
 	test.That(t, err, test.ShouldBeError, passedErr)
 }
 
 func TestServerGetDetections(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectVS := &inject.VisionService{}
 	m := map[resource.Name]vision.Service{
 		visName1: injectVS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// returns response
@@ -101,6 +104,7 @@ func TestServerGetDetections(t *testing.T) {
 }
 
 func TestServerGetProperties(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectVS := &inject.VisionService{}
 	injectVS.GetPropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (*vision.Properties, error) {
 		return &vision.Properties{ClassificationSupported: false, DetectionSupported: true, ObjectPCDsSupported: false}, nil
@@ -108,7 +112,7 @@ func TestServerGetProperties(t *testing.T) {
 	m := map[resource.Name]vision.Service{
 		visName1: injectVS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	extra := map[string]interface{}{}
@@ -127,11 +131,12 @@ func TestServerGetProperties(t *testing.T) {
 }
 
 func TestServerCaptureAllFromCamera(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectVS := &inject.VisionService{}
 	m := map[resource.Name]vision.Service{
 		visName1: injectVS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// returns response

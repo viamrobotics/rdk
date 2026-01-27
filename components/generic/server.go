@@ -8,6 +8,7 @@ import (
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 )
 
@@ -18,7 +19,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs an generic gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceGetter[resource.Resource]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

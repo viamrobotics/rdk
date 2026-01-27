@@ -111,7 +111,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[base.Base](base.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, baseSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, baseSvc, logger), test.ShouldBeNil)
 
 	workingBase.DoFunc = testutils.EchoFunc
 

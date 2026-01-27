@@ -88,7 +88,7 @@ func TestEntrypoint(t *testing.T) {
 		numResources := 21
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo,
-			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
+			// including builtin motion, fake arm, and builtin navigation.
 			numResources = 18
 		}
 
@@ -112,7 +112,7 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 57
+		numReg := 55
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
 			numReg = 47
@@ -560,7 +560,7 @@ func TestTunnelE2E(t *testing.T) {
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "windows" {
-		t.Skip("RSDK-11682: get this to stop flaking on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	// Primarily a regression test for RSDK-10723.
 

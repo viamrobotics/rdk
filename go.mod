@@ -31,9 +31,6 @@ require (
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/fullstorydev/grpcurl v1.8.6
-	github.com/go-audio/audio v1.0.0
-	github.com/go-audio/transforms v0.0.0-20180121090939-51830ccc35a5
-	github.com/go-audio/wav v1.1.0
 	github.com/go-co-op/gocron/v2 v2.18.0
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/go-gl/mathgl v1.0.0
@@ -55,6 +52,7 @@ require (
 	github.com/jhump/protoreflect v1.15.6
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/kylelemons/godebug v1.1.0
+	github.com/kyoh86/nolint v0.0.1
 	github.com/lestrrat-go/jwx v1.2.29
 	github.com/lmittmann/ppm v1.0.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
@@ -65,10 +63,10 @@ require (
 	github.com/muesli/kmeans v0.3.1
 	github.com/nathan-fiscaletti/consolesize-go v0.0.0-20220204101620-317176b6684d
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
-	github.com/pion/interceptor v0.1.41
+	github.com/pion/interceptor v0.1.42
 	github.com/pion/logging v0.2.4
-	github.com/pion/mediadevices v0.8.0
-	github.com/pion/rtp v1.8.25
+	github.com/pion/mediadevices v0.9.0
+	github.com/pion/rtp v1.8.26
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
 	github.com/pterm/pterm v0.12.82
@@ -93,15 +91,14 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.38.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.38.0
 	go.opentelemetry.io/otel/sdk v1.38.0
-	go.opentelemetry.io/otel/trace v1.38.0
 	go.opentelemetry.io/proto/otlp v1.9.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.499
+	go.viam.com/api v0.1.511
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.4.2
+	go.viam.com/utils v0.4.3
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -119,7 +116,6 @@ require (
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	gopkg.in/src-d/go-billy.v4 v4.3.2
 	gorgonia.org/tensor v0.9.24
 	gotest.tools/gotestsum v1.12.2
 	periph.io/x/conn/v3 v3.7.0
@@ -206,7 +202,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gen2brain/malgo v0.11.24 // indirect
 	github.com/gin-gonic/gin v1.9.1 // indirect
-	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
@@ -267,22 +262,22 @@ require (
 	github.com/pierrec/lz4 v2.0.5+incompatible // indirect
 	github.com/pion/datachannel v1.5.10 // indirect
 	github.com/pion/dtls/v2 v2.2.12 // indirect
-	github.com/pion/dtls/v3 v3.0.7 // indirect
-	github.com/pion/ice/v4 v4.0.10 // indirect
+	github.com/pion/dtls/v3 v3.0.8 // indirect
+	github.com/pion/ice/v4 v4.0.13 // indirect
 	github.com/pion/mdns v0.0.12 // indirect
-	github.com/pion/mdns/v2 v2.0.7 // indirect
+	github.com/pion/mdns/v2 v2.1.0 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.16 // indirect
-	github.com/pion/sctp v1.8.40 // indirect
+	github.com/pion/sctp v1.8.41 // indirect
 	github.com/pion/sdp/v3 v3.0.16 // indirect
 	github.com/pion/srtp/v2 v2.0.20 // indirect
-	github.com/pion/srtp/v3 v3.0.8 // indirect
-	github.com/pion/stun/v3 v3.0.0 // indirect
+	github.com/pion/srtp/v3 v3.0.9 // indirect
+	github.com/pion/stun/v3 v3.0.2 // indirect
 	github.com/pion/transport/v2 v2.2.10 // indirect
-	github.com/pion/transport/v3 v3.0.8 // indirect
+	github.com/pion/transport/v3 v3.1.1 // indirect
 	github.com/pion/turn/v2 v2.1.6 // indirect
-	github.com/pion/turn/v4 v4.1.1 // indirect
-	github.com/pion/webrtc/v4 v4.1.6 // indirect
+	github.com/pion/turn/v4 v4.1.3 // indirect
+	github.com/pion/webrtc/v4 v4.1.8 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/profile v1.7.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -321,6 +316,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
+	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect

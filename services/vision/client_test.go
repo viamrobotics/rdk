@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[vision.Service](vision.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -182,7 +182,7 @@ func TestInjectedServiceClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[vision.Service](vision.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()

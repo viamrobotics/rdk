@@ -33,7 +33,7 @@ func TestOpID(t *testing.T) {
 	ctx := context.Background()
 
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 
 	logger, logObserver := logging.NewObservedTestLogger(t)
@@ -157,7 +157,7 @@ func TestOpID(t *testing.T) {
 
 func TestModuleClientTimeoutInterceptor(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

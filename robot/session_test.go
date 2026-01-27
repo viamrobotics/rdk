@@ -39,7 +39,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,

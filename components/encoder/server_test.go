@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/encoder"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -21,7 +22,7 @@ var (
 	errGetPropertiesFailed = errors.New("get properties failed")
 )
 
-func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, error) {
+func newServer(logger logging.Logger) (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, error) {
 	injectEncoder1 := &inject.Encoder{}
 	injectEncoder2 := &inject.Encoder{}
 
@@ -34,11 +35,11 @@ func newServer() (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, err
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return encoder.NewRPCServiceServer(injectSvc).(pb.EncoderServiceServer), injectEncoder1, injectEncoder2, nil
+	return encoder.NewRPCServiceServer(injectSvc, logger).(pb.EncoderServiceServer), injectEncoder1, injectEncoder2, nil
 }
 
 func TestServerGetPosition(t *testing.T) {
-	encoderServer, workingEncoder, failingEncoder, _ := newServer()
+	encoderServer, workingEncoder, failingEncoder, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad encoder
 	req := pb.GetPositionRequest{Name: fakeEncoderName}
@@ -75,7 +76,7 @@ func TestServerGetPosition(t *testing.T) {
 }
 
 func TestServerResetPosition(t *testing.T) {
-	encoderServer, workingEncoder, failingEncoder, _ := newServer()
+	encoderServer, workingEncoder, failingEncoder, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad encoder
 	req := pb.ResetPositionRequest{Name: fakeEncoderName}
@@ -102,7 +103,7 @@ func TestServerResetPosition(t *testing.T) {
 }
 
 func TestServerGetProperties(t *testing.T) {
-	encoderServer, workingEncoder, failingEncoder, _ := newServer()
+	encoderServer, workingEncoder, failingEncoder, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad encoder
 	req := pb.GetPropertiesRequest{Name: fakeEncoderName}
@@ -132,7 +133,7 @@ func TestServerGetProperties(t *testing.T) {
 }
 
 func TestServerExtraParams(t *testing.T) {
-	encoderServer, workingEncoder, _, _ := newServer()
+	encoderServer, workingEncoder, _, _ := newServer(logging.NewTestLogger(t))
 
 	var actualExtra map[string]interface{}
 	workingEncoder.ResetPositionFunc = func(ctx context.Context, extra map[string]interface{}) error {

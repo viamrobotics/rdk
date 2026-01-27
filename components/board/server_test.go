@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/board"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -25,7 +26,7 @@ var (
 	errDigital    = errors.New("unknown digital interrupt error")
 )
 
-func newServer() (pb.BoardServiceServer, *inject.Board, error) {
+func newServer(logger logging.Logger) (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
 	boards := map[resource.Name]board.Board{
 		board.Named(testBoardName): injectBoard,
@@ -34,7 +35,7 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return board.NewRPCServiceServer(boardSvc).(pb.BoardServiceServer), injectBoard, nil
+	return board.NewRPCServiceServer(boardSvc, logger).(pb.BoardServiceServer), injectBoard, nil
 }
 
 func TestServerSetGPIO(t *testing.T) {
@@ -80,7 +81,7 @@ func TestServerSetGPIO(t *testing.T) {
 	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -163,7 +164,7 @@ func TestServerGetGPIO(t *testing.T) {
 	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -248,7 +249,7 @@ func TestServerPWM(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -322,7 +323,7 @@ func TestServerSetPWM(t *testing.T) {
 	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -406,7 +407,7 @@ func TestServerPWMFrequency(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -480,7 +481,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -589,7 +590,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -672,7 +673,7 @@ func TestServerWriteAnalog(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -780,7 +781,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 
@@ -903,7 +904,7 @@ func TestStreamTicks(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
-			server, injectBoard, err := newServer()
+			server, injectBoard, err := newServer(logging.NewTestLogger(t))
 			test.That(t, err, test.ShouldBeNil)
 			var actualExtra map[string]interface{}
 			callbacks := []chan board.Tick{}

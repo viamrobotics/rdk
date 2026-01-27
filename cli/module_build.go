@@ -27,8 +27,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -235,7 +233,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 			job.StartTime.AsTime().Format(time.RFC3339))
 	}
 	// the table is not printed to stdout until the tabwriter is flushed
-	//nolint: errcheck,gosec
+	//nolint: errcheck
 	w.Flush()
 	return nil
 }
@@ -555,7 +553,6 @@ type reloadModuleArgs struct {
 	NoBuild    bool
 	Local      bool
 	NoProgress bool
-	CloudBuild bool
 
 	// CloudConfig is a path to the `viam.json`, or the config containing the robot ID.
 	CloudConfig  string
@@ -700,7 +697,7 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 			return nil, errors.Wrap(err, "failed to open .gitignore file")
 		}
 		defer func() {
-			//nolint:errcheck,gosec // Ignore close error for read-only file
+			//nolint:errcheck // Ignore close error for read-only file
 			file.Close()
 		}()
 
@@ -784,17 +781,28 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(manifest ModuleManifest) (string, error) {
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return "", err
-	}
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
+	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: part.GetRobot(),
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return org.GetId(), nil
+	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+		LocationId: robot.Robot.GetLocation(),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	orgID := location.Location.PrimaryOrgIdentity.GetId()
+
+	if orgID == "" {
+		return "", errors.New("no primary org id found for location")
+	}
+
+	return orgID, nil
 }
 
 func (c *viamClient) triggerCloudReloadBuild(
@@ -814,22 +822,23 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	orgID, err := c.inferOrgIDFromManifest(manifest)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
-
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
+	}
+
+	// use the primary org id for the machine as the reload
+	// module org
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
+		return "", err
 	}
 
 	// App expects `BuildInfo` as the first request
@@ -901,10 +910,11 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 
 // moduleCloudBuildInfo contains information needed to download a cloud build artifact.
 type moduleCloudBuildInfo struct {
-	ID          string
+	ModuleID    string
 	Version     string
 	Platform    string
 	ArchivePath string // Path to the temporary archive that should be deleted after download
+	OrgID       string
 }
 
 // moduleCloudReload triggers a cloud build and returns info needed to download the artifact.
@@ -918,6 +928,18 @@ func (c *viamClient) moduleCloudReload(
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
+		return nil, err
+	}
+
+	part, err := c.getRobotPart(partID)
+	if err != nil {
+		return nil, err
+	}
+	if part.Part == nil {
+		return nil, fmt.Errorf("part with id=%s not found", partID)
+	}
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
 		return nil, err
 	}
 
@@ -938,11 +960,6 @@ func (c *viamClient) moduleCloudReload(
 	}
 	if err := pm.Complete("register"); err != nil {
 		return nil, err
-	}
-
-	id := ctx.String(generalFlagID)
-	if id == "" {
-		id = manifest.ModuleID
 	}
 
 	if err := pm.Start("archive"); err != nil {
@@ -1011,11 +1028,17 @@ func (c *viamClient) moduleCloudReload(
 
 	// Return build info so the caller can download the artifact with a spinner
 	return &moduleCloudBuildInfo{
-		ID:          id,
+		ModuleID:    manifest.ModuleID,
+		OrgID:       orgID,
 		Version:     getReloadVersion(reloadVersionPrefix, partID),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
+}
+
+// IsReloadVersion checks if the version is a reload version.
+func IsReloadVersion(version string) bool {
+	return strings.HasPrefix(version, reloadVersionPrefix)
 }
 
 // ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
@@ -1174,7 +1197,8 @@ func reloadModuleActionInner(
 				return err
 			}
 			downloadArgs := downloadModuleFlags{
-				ID:          buildInfo.ID,
+				ModuleID:    buildInfo.ModuleID,
+				OrgID:       buildInfo.OrgID,
 				Version:     buildInfo.Version,
 				Platform:    buildInfo.Platform,
 				Destination: ".",
@@ -1305,21 +1329,29 @@ func reloadModuleActionInner(
 		if err := pm.Start("upload"); err != nil {
 			return err
 		}
-		err = vc.retryableCopyToPart(
+		copyFunc := func() error {
+			return vc.copyFilesToFqdn(
+				part.Part.Fqdn,
+				globalArgs.Debug,
+				false, // allowRecursion
+				false, // preserve
+				[]string{buildPath},
+				dest,
+				logger,
+				true, // noProgress
+			)
+		}
+		attemptCount, err := vc.retryableCopy(
 			c,
-			part.Part.Fqdn,
-			globalArgs.Debug,
-			[]string{buildPath},
-			dest,
-			logger,
-			partID,
 			pm,
-			vc.copyFilesToFqdn,
+			copyFunc,
+			false,
 		)
 		if err != nil {
 			_ = pm.Fail("upload", err)                               //nolint:errcheck
 			_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-			return err
+			return fmt.Errorf("all %d copy attempts failed. You can retry the copy later, "+
+				"skipping the build step with: viam module reload --no-build --part-id %s", attemptCount, partID)
 		}
 		if err := pm.Complete("upload"); err != nil {
 			return err
@@ -1458,95 +1490,6 @@ func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
 	}
 	return conf.Cloud.ID, nil
-}
-
-// maxCopyAttempts is the number of times to retry copying files to a part before giving up.
-const maxCopyAttempts = 6
-
-// retryableCopyToPart attempts to copy files to a part using the shell service with retries.
-// It handles progress manager updates for each attempt and provides helpful error messages.
-// The copyFunc parameter allows for mocking in tests.
-func (c *viamClient) retryableCopyToPart(
-	ctx *cli.Context,
-	fqdn string,
-	debug bool,
-	paths []string,
-	dest string,
-	logger logging.Logger,
-	partID string,
-	pm *ProgressManager,
-	copyFunc func(fqdn string, debug, allowRecursion, preserve bool,
-		paths []string, destination string, logger logging.Logger, noProgress bool) error,
-) error {
-	var hadPreviousFailure bool
-
-	for attempt := 1; attempt <= maxCopyAttempts; attempt++ {
-		// If we had a previous failure, create a nested step for this retry
-		var attemptStepID string
-		if hadPreviousFailure {
-			attemptStepID = fmt.Sprintf("upload-attempt-%d", attempt)
-			attemptStep := &Step{
-				ID:           attemptStepID,
-				Message:      fmt.Sprintf("Upload attempt %d/%d...", attempt, maxCopyAttempts),
-				CompletedMsg: fmt.Sprintf("Upload attempt %d succeeded", attempt),
-				Status:       StepPending,
-				IndentLevel:  2, // Nested under "upload" which is at level 1
-			}
-			pm.steps = append(pm.steps, attemptStep)
-			pm.stepMap[attemptStepID] = attemptStep
-
-			if err := pm.Start(attemptStepID); err != nil {
-				return err
-			}
-		}
-
-		err := copyFunc(fqdn, debug, false, false, paths, dest, logger, true)
-
-		if err == nil {
-			// Success! Complete the step if this was a retry
-			if attemptStepID != "" {
-				if err := pm.Complete(attemptStepID); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-
-		// Handle error
-		hadPreviousFailure = true
-
-		// Print special warning for permission denied errors (in addition to regular error)
-		if s, ok := status.FromError(err); ok && s.Code() == codes.PermissionDenied {
-			warningf(ctx.App.ErrWriter, "RDK couldn't write to the default file copy destination. "+
-				"If you're running as non-root, try adding --home $HOME or --home /user/username to your CLI command. "+
-				"Alternatively, run the RDK as root.")
-		}
-
-		// Create a step for this failed attempt (so it shows in the output)
-		if attemptStepID == "" {
-			// First attempt - create its step retroactively
-			attemptStepID = "upload-attempt-1"
-			attemptStep := &Step{
-				ID:           attemptStepID,
-				Message:      fmt.Sprintf("Upload attempt 1/%d...", maxCopyAttempts),
-				CompletedMsg: "Upload attempt 1 succeeded",
-				Status:       StepPending,
-				IndentLevel:  2,
-			}
-			pm.steps = append(pm.steps, attemptStep)
-			pm.stepMap[attemptStepID] = attemptStep
-			if err := pm.Start(attemptStepID); err != nil {
-				return err
-			}
-		}
-
-		// Mark this attempt as failed (this will print the error on next line)
-		_ = pm.Fail(attemptStepID, err) //nolint:errcheck
-	}
-
-	// All attempts failed - return a comprehensive error message
-	return fmt.Errorf("all %d upload attempts failed. You can retry the copy later, "+
-		"skipping the build step with: viam module reload --no-build --part-id %s", maxCopyAttempts, partID)
 }
 
 type resolveTargetModuleArgs struct {
