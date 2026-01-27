@@ -9,9 +9,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
-// Compile-time check that *Triangle implements Geometry.
-var _ Geometry = (*Triangle)(nil)
-
 // Triangle is three points and a normal vector.
 // Triangle implements the Geometry interface.
 type Triangle struct {
