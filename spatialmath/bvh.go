@@ -74,24 +74,6 @@ func buildBVHNode(geoms []Geometry) *bvhNode {
 	return node
 }
 
-// computeTrianglesAABB computes the AABB encompassing all given triangles.
-func computeTrianglesAABB(triangles []*Triangle) (r3.Vector, r3.Vector) {
-	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
-	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
-
-	for _, tri := range triangles {
-		for _, pt := range tri.Points() {
-			minPt.X = math.Min(minPt.X, pt.X)
-			minPt.Y = math.Min(minPt.Y, pt.Y)
-			minPt.Z = math.Min(minPt.Z, pt.Z)
-			maxPt.X = math.Max(maxPt.X, pt.X)
-			maxPt.Y = math.Max(maxPt.Y, pt.Y)
-			maxPt.Z = math.Max(maxPt.Z, pt.Z)
-		}
-	}
-	return minPt, maxPt
-}
-
 // computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
 // The returned min and max vectors define the AABB in world coordinates.
 func computeGeometryAABB(g Geometry) (min, max r3.Vector) {
@@ -149,10 +131,8 @@ func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
 // computeBoxAABB computes the AABB for a rotated box.
 // Since the box may be rotated, we need to transform all 8 corners and find the bounds.
 func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
-	// Get half-sizes
 	hx, hy, hz := b.halfSize[0], b.halfSize[1], b.halfSize[2]
 
-	// Generate 8 corners in local space
 	corners := []r3.Vector{
 		{X: -hx, Y: -hy, Z: -hz},
 		{X: -hx, Y: -hy, Z: hz},
@@ -167,7 +147,6 @@ func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
 	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
-	// Transform each corner to world space
 	for _, corner := range corners {
 		worldPt := Compose(b.center, NewPoseFromPoint(corner)).Point()
 		minPt.X = math.Min(minPt.X, worldPt.X)
@@ -184,7 +163,6 @@ func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
 // A capsule is defined by two endpoints (segA, segB) and a radius.
 func computeCapsuleAABB(c *capsule) (r3.Vector, r3.Vector) {
 	r := c.radius
-	// The AABB is the bounding box of two spheres at segA and segB
 	minPt := r3.Vector{
 		X: math.Min(c.segA.X, c.segB.X) - r,
 		Y: math.Min(c.segA.Y, c.segB.Y) - r,
@@ -204,7 +182,6 @@ func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, tri := range m.triangles {
-		// Transform triangle to world space
 		worldTri := tri.TransformTriangle(m.pose)
 		for _, pt := range worldTri.Points() {
 			minPt.X = math.Min(minPt.X, pt.X)
@@ -281,9 +258,9 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 
 // bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
 // The BVH nodes store geometries in local space; poses are applied lazily during traversal.
-func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
+func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
 	if node1 == nil || node2 == nil {
-		return false, math.Inf(1)
+		return false, math.Inf(1), nil
 	}
 
 	// Transform AABBs to world space
@@ -300,7 +277,7 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 
 	// Check if AABBs overlap
 	if !aabbOverlap(min1, max1, min2, max2) {
-		return false, aabbDistance(min1, max1, min2, max2)
+		return false, aabbDistance(min1, max1, min2, max2), nil
 	}
 
 	// Both are leaves - do geometry-geometry checks
@@ -312,28 +289,28 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	// Strategy: descend into the larger node first for better culling
 	if node1.geoms != nil {
 		// node1 is leaf, recurse into node2's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
-		if leftCollide {
-			return true, -1
+		leftCollide, leftDist, err := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
+		if err != nil || leftCollide {
+			return leftCollide, leftDist, err
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
-		if rightCollide {
-			return true, -1
+		rightCollide, rightDist, err := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
+		if err != nil || rightCollide {
+			return rightCollide, rightDist, err
 		}
-		return false, math.Min(leftDist, rightDist)
+		return false, math.Min(leftDist, rightDist), nil
 	}
 
 	if node2.geoms != nil {
 		// node2 is leaf, recurse into node1's children
-		leftCollide, leftDist := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
-		if leftCollide {
-			return true, -1
+		leftCollide, leftDist, err := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
+		if err != nil || leftCollide {
+			return leftCollide, leftDist, err
 		}
-		rightCollide, rightDist := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
-		if rightCollide {
-			return true, -1
+		rightCollide, rightDist, err := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
+		if err != nil || rightCollide {
+			return rightCollide, rightDist, err
 		}
-		return false, math.Min(leftDist, rightDist)
+		return false, math.Min(leftDist, rightDist), nil
 	}
 
 	// Both are internal nodes - check all 4 combinations
@@ -346,21 +323,21 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	}
 
 	for _, pair := range pairs {
-		collide, dist := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
-		if collide {
-			return true, -1
+		collide, dist, err := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
+		if err != nil || collide {
+			return collide, dist, err
 		}
 		if dist < minDist {
 			minDist = dist
 		}
 	}
 
-	return false, minDist
+	return false, minDist, nil
 }
 
 // leafCollidesWithLeaf performs collision checks between two leaf nodes using the Geometry interface.
 // Geometries are stored in local space and transformed on-demand using the provided poses.
-func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64) {
+func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
 	minDist := math.Inf(1)
 
 	for _, g1 := range geoms1 {
@@ -370,9 +347,12 @@ func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisio
 			// Transform geometry to world space
 			worldG2 := g2.Transform(pose2)
 			// Use the Geometry interface's CollidesWith method
-			collides, dist, _ := worldG1.CollidesWith(worldG2, collisionBufferMM)
+			collides, dist, err := worldG1.CollidesWith(worldG2, collisionBufferMM)
+			if err != nil {
+				return false, 0, err
+			}
 			if collides {
-				return true, -1
+				return true, -1, nil
 			}
 			if dist < minDist {
 				minDist = dist
@@ -380,14 +360,14 @@ func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisio
 		}
 	}
 
-	return false, minDist
+	return false, minDist, nil
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.
 // The BVH nodes store geometries in local space; poses are applied lazily during traversal.
-func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
+func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, error) {
 	if node1 == nil || node2 == nil {
-		return math.Inf(1)
+		return math.Inf(1), nil
 	}
 
 	// Transform AABBs to world space
@@ -398,7 +378,7 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	if !aabbOverlap(min1, max1, min2, max2) {
 		// If AABBs don't overlap, the AABB distance is a lower bound
 		// For distant meshes, this is good enough
-		return aabbDistance(min1, max1, min2, max2)
+		return aabbDistance(min1, max1, min2, max2), nil
 	}
 
 	// Both are leaves - compute exact distance
@@ -408,15 +388,27 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 
 	// Recurse into children
 	if node1.geoms != nil {
-		leftDist := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
-		rightDist := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
-		return math.Min(leftDist, rightDist)
+		leftDist, err := bvhDistanceFromBVH(node1, node2.left, pose1, pose2)
+		if err != nil {
+			return 0, err
+		}
+		rightDist, err := bvhDistanceFromBVH(node1, node2.right, pose1, pose2)
+		if err != nil {
+			return 0, err
+		}
+		return math.Min(leftDist, rightDist), nil
 	}
 
 	if node2.geoms != nil {
-		leftDist := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
-		rightDist := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
-		return math.Min(leftDist, rightDist)
+		leftDist, err := bvhDistanceFromBVH(node1.left, node2, pose1, pose2)
+		if err != nil {
+			return 0, err
+		}
+		rightDist, err := bvhDistanceFromBVH(node1.right, node2, pose1, pose2)
+		if err != nil {
+			return 0, err
+		}
+		return math.Min(leftDist, rightDist), nil
 	}
 
 	// Both are internal nodes
@@ -429,13 +421,16 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) float64 {
 	}
 
 	for _, pair := range pairs {
-		dist := bvhDistanceFromBVH(pair[0], pair[1], pose1, pose2)
+		dist, err := bvhDistanceFromBVH(pair[0], pair[1], pose1, pose2)
+		if err != nil {
+			return 0, err
+		}
 		if dist < minDist {
 			minDist = dist
 		}
 	}
 
-	return minDist
+	return minDist, nil
 }
 
 // bvhCollidesWithGeometry traverses the BVH checking against a single geometry.
@@ -496,7 +491,7 @@ func bvhCollidesWithGeometry(node *bvhNode, bvhPose Pose, other Geometry, otherM
 
 // leafDistanceFromLeaf computes the minimum distance between two sets of geometries.
 // Geometries are stored in local space and transformed on-demand using the provided poses.
-func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) float64 {
+func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) (float64, error) {
 	minDist := math.Inf(1)
 
 	for _, g1 := range geoms1 {
@@ -506,12 +501,15 @@ func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) float64 
 			// Transform geometry to world space
 			worldG2 := g2.Transform(pose2)
 			// Use the Geometry interface's DistanceFrom method
-			dist, _ := worldG1.DistanceFrom(worldG2)
+			dist, err := worldG1.DistanceFrom(worldG2)
+			if err != nil {
+				return 0, err
+			}
 			if dist < minDist {
 				minDist = dist
 			}
 		}
 	}
 
-	return minDist
+	return minDist, nil
 }

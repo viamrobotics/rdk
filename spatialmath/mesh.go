@@ -317,11 +317,7 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 			return m.collidesWithGeometryBVH(other, collisionBufferMM)
 		}
 		// Convert box to mesh and check triangle collisions
-		collides, dist := m.collidesWithMesh(other.toMesh(), collisionBufferMM)
-		if collides {
-			return true, -1, nil
-		}
-		return false, dist, nil
+		return m.collidesWithMesh(other.toMesh(), collisionBufferMM)
 	case *capsule:
 		// Use BVH to accelerate mesh vs capsule if available
 		if m.bvh != nil {
@@ -354,17 +350,9 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		return false, dist, nil
 	case *Triangle:
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		collides, dist := m.collidesWithMesh(triMesh, collisionBufferMM)
-		if collides {
-			return true, -1, nil
-		}
-		return false, dist, nil
+		return m.collidesWithMesh(triMesh, collisionBufferMM)
 	case *Mesh:
-		collides, dist := m.collidesWithMesh(other, collisionBufferMM)
-		if collides {
-			return true, -1, nil
-		}
-		return false, dist, nil
+		return m.collidesWithMesh(other, collisionBufferMM)
 	default:
 		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
@@ -400,7 +388,7 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		if encompassed {
 			return 0, nil
 		}
-		return m.distanceFromMesh(other.toMesh()), nil
+		return m.distanceFromMesh(other.toMesh())
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
 	case *point:
@@ -409,9 +397,9 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromSphere(other), nil
 	case *Triangle:
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.distanceFromMesh(triMesh), nil
+		return m.distanceFromMesh(triMesh)
 	case *Mesh:
-		return m.distanceFromMesh(other), nil
+		return m.distanceFromMesh(other)
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 	}
@@ -473,7 +461,7 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration when available for O(log n * log m) performance instead of O(n*m).
-func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64) {
+func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	// Use BVH-accelerated collision if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
 		// Pass poses to BVH collision - BVH stores geometries in local space
@@ -481,7 +469,8 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	}
 
 	// Fallback to brute-force O(n*m) check
-	return m.collidesWithMeshBruteForce(other, collisionBufferMM)
+	collides, dist := m.collidesWithMeshBruteForce(other, collisionBufferMM)
+	return collides, dist, nil
 }
 
 // collidesWithMeshBruteForce is the original O(n*m) collision check.
@@ -549,7 +538,7 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 // Uses BVH acceleration when available.
-func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
+func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
 	// Use BVH-accelerated distance if both meshes have BVH
 	if m.bvh != nil && other.bvh != nil {
 		// Pass poses to BVH distance - BVH stores geometries in local space
@@ -557,7 +546,7 @@ func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
 	}
 
 	// Fallback to brute-force
-	return m.distanceFromMeshBruteForce(other)
+	return m.distanceFromMeshBruteForce(other), nil
 }
 
 // distanceFromMeshBruteForce is the original O(n*m) distance calculation.
