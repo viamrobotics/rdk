@@ -414,7 +414,7 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	if m.bvh == nil {
-		return false, math.Inf(1), nil
+		return true, math.Inf(1), errors.New("mesh did not have a populated bvh field")
 	}
 	otherMin, otherMax := computeGeometryAABB(other)
 	// Pass mesh pose to BVH collision - BVH stores geometries in local space
