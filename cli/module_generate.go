@@ -92,7 +92,7 @@ func promptUnauthenticated() bool {
 					"register the module with Viam.\n\n"+
 					"Would you like to continue without authenticating?").
 				Value(&unauthenticatedMode).
-				Affirmative("Contiue without authentication").
+				Affirmative("Continue without authentication").
 				Negative("Do not continue"),
 		),
 	).WithHeight(15).WithWidth(77)
