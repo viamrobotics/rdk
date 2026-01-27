@@ -103,7 +103,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	}
 
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, false)
 	if err != nil {
 		return err
 	}
@@ -439,7 +439,7 @@ type mlTrainingUploadArgs struct {
 	Type       string
 	Draft      bool
 	URL        string
-	Visibility string
+	Visibility bool
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
@@ -468,7 +468,7 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string, visibility bool) (
 	*packagespb.CreatePackageResponse, error,
 ) {
 	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
@@ -603,10 +603,10 @@ type MLMetadata struct {
 	ModelType  string
 	Framework  string
 	URL        string
-	Visibility string
+	Visibility bool
 }
 
-func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url string, visibility bool) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
