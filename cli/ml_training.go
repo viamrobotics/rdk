@@ -465,14 +465,12 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	printf(c.App.Writer, "Version successfully uploaded with MLTrainingUploadAction! you can view your changes online here: %s. \n"+
 		"To use your training script in the from-registry command, use %s:%s as the script name", url,
 		moduleID.prefix, moduleID.name)
-	println(args.Visibility)
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string, visibility string) (
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	println("uploading training script - ml_training.go")
 	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
 	if err != nil {
 		return nil, err
@@ -608,7 +606,7 @@ type MLMetadata struct {
 	Visibility string
 }
 
-func createMetadata(draft bool, modelType, framework, url string, visibility string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
