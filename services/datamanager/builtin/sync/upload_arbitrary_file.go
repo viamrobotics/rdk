@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 )
@@ -76,6 +79,28 @@ func uploadArbitraryFile(
 		return 0, errors.Wrap(err, "error creating FileUpload client")
 	}
 
+	// Try to infer tags and dataset IDs from the filename query parameters.
+	uploadFileName := path
+	uploadTagsSet := goutils.NewStringSet(tags...)
+	uploadDatasetIDsSet := goutils.NewStringSet(datasetIDs...)
+	if inferredFileName, inferredTags, inferredDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path); ok {
+		uploadFileName = inferredFileName
+		for _, t := range inferredTags {
+			uploadTagsSet.Add(t)
+		}
+		for _, id := range inferredDatasetIDs {
+			uploadDatasetIDsSet.Add(id)
+		}
+		logger.Debugf(
+			"inferred upload metadata from filename query; original=%q upload=%q tags=%v datasetIDs=%v",
+			path,
+			uploadFileName,
+			inferredTags,
+			inferredDatasetIDs,
+		)
+	}
+	uploadFileExt := filepath.Ext(uploadFileName)
+
 	// Send metadata FileUploadRequest.
 	logger.Debugf("datasync.FileUpload request sending metadata for arbitrary file: %s", path)
 	if err := stream.Send(&v1.FileUploadRequest{
@@ -83,10 +108,10 @@ func uploadArbitraryFile(
 			Metadata: &v1.UploadMetadata{
 				PartId:        conn.partID,
 				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      path,
-				FileExtension: filepath.Ext(f.Name()),
-				Tags:          tags,
-				DatasetIds:    datasetIDs,
+				FileName:      uploadFileName,
+				FileExtension: uploadFileExt,
+				Tags:          uploadTagsSet.ToList(),
+				DatasetIds:    uploadDatasetIDsSet.ToList(),
 			},
 		},
 	}); err != nil {
@@ -158,4 +183,45 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr[:numBytesRead]}, nil
+}
+
+func inferTagsAndDatasetIDsFromFilename(path string) (uploadFileName string, tags, datasetIDs []string, ok bool) {
+	lastQ := strings.LastIndex(path, "?")
+	if lastQ < 0 || lastQ == len(path)-1 {
+		return path, nil, nil, false
+	}
+
+	base := path[:lastQ]
+	query := path[lastQ+1:]
+	values, err := url.ParseQuery(query)
+	if err != nil {
+		return path, nil, nil, false
+	}
+
+	// Supported keys:
+	// - tags: "tag1,tag2" (or repeated keys)
+	// - dataset IDs: "dataset1,dataset2" (or repeated keys)
+	// other keys are ignored.
+	tags = splitCommaValues(values["tags"])
+	datasetIDs = splitCommaValues(values["dataset_ids"])
+
+	if len(tags) == 0 && len(datasetIDs) == 0 {
+		return path, nil, nil, false
+	}
+
+	return base, tags, datasetIDs, true
+}
+
+func splitCommaValues(values []string) []string {
+	var out []string
+	for _, v := range values {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			out = append(out, part)
+		}
+	}
+	return out
 }
