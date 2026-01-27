@@ -352,13 +352,15 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	return nil
 }
 
-// StartModule starts the grpc module server.
+// StartModule starts the grpc module server. If unix sockets are supported, we start both a unix socket server and a TCP server.
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
-	if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
-		return err
+	if !rutils.ViamTCPSockets() {
+		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
+			return err
+		}
 	}
 	return svc.startProtocolModuleParentServer(ctx, true)
 }
