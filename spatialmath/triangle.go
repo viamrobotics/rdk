@@ -69,18 +69,7 @@ func (t *Triangle) Centroid() r3.Vector {
 }
 
 // Transform premultiplies the triangle's points with a transform, allowing the triangle to be moved in space.
-// Returns Geometry to satisfy the Geometry interface.
 func (t *Triangle) Transform(toPremultiply Pose) Geometry {
-	return NewLabeledTriangle(
-		Compose(toPremultiply, NewPoseFromPoint(t.p0)).Point(),
-		Compose(toPremultiply, NewPoseFromPoint(t.p1)).Point(),
-		Compose(toPremultiply, NewPoseFromPoint(t.p2)).Point(),
-		t.label,
-	)
-}
-
-// TransformTriangle is like Transform but returns *Triangle for internal use.
-func (t *Triangle) TransformTriangle(toPremultiply Pose) *Triangle {
 	return NewLabeledTriangle(
 		Compose(toPremultiply, NewPoseFromPoint(t.p0)).Point(),
 		Compose(toPremultiply, NewPoseFromPoint(t.p1)).Point(),
@@ -144,35 +133,7 @@ func ClosestPointTrianglePoint(t *Triangle, point r3.Vector) r3.Vector {
 // Pose returns a pose representing the triangle's position and orientation.
 // Position is the centroid, orientation is derived from the normal vector.
 func (t *Triangle) Pose() Pose {
-	centroid := t.Centroid()
-	orientation := orientationFromZAxis(t.normal)
-	return NewPose(centroid, orientation)
-}
-
-// orientationFromZAxis creates an orientation where the given vector is the Z axis.
-func orientationFromZAxis(zAxis r3.Vector) Orientation {
-	z := zAxis
-	if z.Norm() > 0 {
-		z = z.Normalize()
-	} else {
-		z = r3.Vector{X: 0, Y: 0, Z: 1}
-	}
-
-	// Choose an arbitrary vector not parallel to z to cross with
-	arbitrary := r3.Vector{X: 1, Y: 0, Z: 0}
-	if math.Abs(z.Dot(arbitrary)) > 0.9 {
-		arbitrary = r3.Vector{X: 0, Y: 1, Z: 0}
-	}
-
-	x := z.Cross(arbitrary).Normalize()
-	y := z.Cross(x).Normalize()
-
-	// Build rotation matrix
-	return &RotationMatrix{mat: [9]float64{
-		x.X, y.X, z.X,
-		x.Y, y.Y, z.Y,
-		x.Z, y.Z, z.Z,
-	}}
+	return NewPose(t.Centroid(), &OrientationVector{OX: t.normal.X, OY: t.normal.Y, OZ: t.normal.Z})
 }
 
 // Label returns the label of this triangle.

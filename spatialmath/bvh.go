@@ -182,7 +182,7 @@ func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, tri := range m.triangles {
-		worldTri := tri.TransformTriangle(m.pose)
+		worldTri := tri.Transform(m.pose).(*Triangle)
 		for _, pt := range worldTri.Points() {
 			minPt.X = math.Min(minPt.X, pt.X)
 			minPt.Y = math.Min(minPt.Y, pt.Y)

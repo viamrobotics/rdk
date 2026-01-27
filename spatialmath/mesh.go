@@ -433,7 +433,7 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.TransformTriangle(m.pose), pt)
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose).(*Triangle), pt)
 		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist < minDist {
 			minDist = dist
@@ -447,7 +447,8 @@ func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) (bool, float64) {
 	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.TransformTriangle(m.pose), pt)
+		t := tri.Transform(m.pose).(*Triangle)
+		closestPt := ClosestPointTrianglePoint(t, pt)
 		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist <= buffer {
 			return true, -1
@@ -478,11 +479,11 @@ func (m *Mesh) collidesWithMeshBruteForce(other *Mesh, collisionBufferMM float64
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = tri.TransformTriangle(m.pose)
+		worldTris1[i] = tri.Transform(m.pose).(*Triangle)
 	}
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = tri.TransformTriangle(other.pose)
+		worldTris2[i] = tri.Transform(m.pose).(*Triangle)
 	}
 
 	minDist := math.Inf(1)
@@ -554,12 +555,12 @@ func (m *Mesh) distanceFromMeshBruteForce(other *Mesh) float64 {
 	// Transform all triangles to world space
 	worldTris1 := make([]*Triangle, len(m.triangles))
 	for i, tri := range m.triangles {
-		worldTris1[i] = tri.TransformTriangle(m.pose)
+		worldTris1[i] = tri.Transform(m.pose).(*Triangle)
 	}
 
 	worldTris2 := make([]*Triangle, len(other.triangles))
 	for i, tri := range other.triangles {
-		worldTris2[i] = tri.TransformTriangle(other.pose)
+		worldTris2[i] = tri.Transform(m.pose).(*Triangle)
 	}
 
 	minDist := math.Inf(1)
@@ -701,7 +702,7 @@ func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
 	for _, tri := range m.triangles {
 		// mesh triangles are defined relative to their origin so to compare triangle/box
 		// we need to transform each triangle by the mesh's pose.
-		a, err := boxTriangleIntersectionArea(b, tri.TransformTriangle(m.pose))
+		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose).(*Triangle))
 		if err != nil {
 			return -1, err
 		}
@@ -834,7 +835,7 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 
 	for _, tri := range m.triangles {
 		if convertToWorldFrame {
-			tri = tri.TransformTriangle(m.pose)
+			tri = tri.Transform(m.pose).(*Triangle)
 		}
 		for _, pt := range tri.Points() {
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
@@ -867,7 +868,7 @@ func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 	// Write faces
 	for _, tri := range m.triangles {
 		if convertToWorldFrame {
-			tri = tri.TransformTriangle(m.pose)
+			tri = tri.Transform(m.pose).(*Triangle)
 		}
 		buf.WriteString("3")
 		for _, pt := range tri.Points() {
