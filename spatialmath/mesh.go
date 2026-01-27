@@ -58,15 +58,11 @@ func trianglesToGeoms(triangles []*Triangle) []Geometry {
 
 // NewMesh creates a mesh from the given triangles and pose.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
-	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
-	if err != nil {
-		panic(err) // Did not change function signature so code in sanding did not break
-	}
 	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		bvh:       bvhTree,
+		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -155,17 +151,13 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		tri := NewTriangle(pts[0], pts[1], pts[2])
 		triangles = append(triangles, tri)
 	}
-	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
-	if err != nil {
-		return nil, err
-	}
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		bvh:       bvhTree,
+		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}, nil
 }
 
@@ -212,17 +204,13 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 
 		triangles[i] = NewTriangle(v1, v2, v3)
 	}
-	bvhTree, err := buildBVH(trianglesToGeoms(triangles))
-	if err != nil {
-		return nil, err
-	}
 	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		bvh:       bvhTree, // BVH in local space
+		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}, nil
 }
 
@@ -519,10 +507,7 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 	if m.bvh == nil {
 		return false, math.Inf(1), nil
 	}
-	otherMin, otherMax, err := computeGeometryAABB(other)
-	if err != nil {
-		return false, math.Inf(1), err
-	}
+	otherMin, otherMax := computeGeometryAABB(other)
 	// Pass mesh pose to BVH collision - BVH stores geometries in local space
 	return bvhCollidesWithGeometry(m.bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 }

@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -25,27 +24,23 @@ type bvhNode struct {
 const maxGeomsPerLeaf = 4
 
 // buildBVH constructs a BVH from a list of geometries.
-func buildBVH(geoms []Geometry) (*bvhNode, error) {
+func buildBVH(geoms []Geometry) *bvhNode {
 	if len(geoms) == 0 {
-		return nil, errors.New("cannot construct BVH from zero geometries")
+		return nil
 	}
 	return buildBVHNode(geoms)
 }
 
-func buildBVHNode(geoms []Geometry) (*bvhNode, error) {
+func buildBVHNode(geoms []Geometry) *bvhNode {
 	node := &bvhNode{}
 
 	// Compute AABB (axis aligned bounding box) for all geometries
-	var err error
-	node.min, node.max, err = computeGeomsAABB(geoms)
-	if err != nil {
-		return nil, err
-	}
+	node.min, node.max = computeGeomsAABB(geoms)
 
 	// If few enough geometries, make this a leaf node
 	if len(geoms) <= maxGeomsPerLeaf {
 		node.geoms = geoms
-		return node, nil
+		return node
 	}
 
 	// Find the longest axis to split on
@@ -74,47 +69,39 @@ func buildBVHNode(geoms []Geometry) (*bvhNode, error) {
 
 	// Split at median
 	mid := len(geoms) / 2
-	node.left, err = buildBVHNode(geoms[:mid])
-	if err != nil {
-		return nil, err
-	}
-	node.right, err = buildBVHNode(geoms[mid:])
-	if err != nil {
-		return nil, err
-	}
+	node.left = buildBVHNode(geoms[:mid])
+	node.right = buildBVHNode(geoms[mid:])
 
-	return node, nil
+	return node
 }
 
 // computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
 // The returned min and max vectors define the AABB in world coordinates.
-func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector, error) {
+func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 	switch geom := g.(type) {
 	case *Triangle:
-		minPt, maxPt := computeTriangleAABB(geom)
-		return minPt, maxPt, nil
+		return computeTriangleAABB(geom)
 	case *sphere:
-		minPt, maxPt := computeSphereAABB(geom)
-		return minPt, maxPt, nil
+		return computeSphereAABB(geom)
 	case *box:
-		minPt, maxPt := computeBoxAABB(geom)
-		return minPt, maxPt, nil
+
+		return computeBoxAABB(geom)
 	case *capsule:
-		minPt, maxPt := computeCapsuleAABB(geom)
-		return minPt, maxPt, nil
+		return computeCapsuleAABB(geom)
 	case *point:
 		pt := geom.position
-		return pt, pt, nil
+		return pt, pt
 	case *Mesh:
 		// Use existing BVH bounds if available
 		if geom.bvh != nil {
-			return geom.bvh.min, geom.bvh.max, nil
+			return geom.bvh.min, geom.bvh.max
 		}
 		// Fallback: compute from triangles
-		minPt, maxPt := computeMeshAABB(geom)
-		return minPt, maxPt, nil
+		return computeMeshAABB(geom)
 	default:
-		return r3.Vector{}, r3.Vector{}, fmt.Errorf("cannot construct AABB for this geometry %v", errGeometryTypeUnsupported)
+		panic(fmt.Errorf(
+			"cannot construct AABB for: %v, %v", g, errGeometryTypeUnsupported,
+		))
 	}
 }
 
@@ -207,19 +194,16 @@ func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 }
 
 // computeGeomsAABB computes the AABB encompassing all given geometries.
-func computeGeomsAABB(geoms []Geometry) (r3.Vector, r3.Vector, error) {
+func computeGeomsAABB(geoms []Geometry) (r3.Vector, r3.Vector) {
 	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
 
 	for _, g := range geoms {
-		gMin, gMax, err := computeGeometryAABB(g)
-		if err != nil {
-			return r3.Vector{}, r3.Vector{}, err
-		}
+		gMin, gMax := computeGeometryAABB(g)
 		minPt, maxPt = expandAABB(minPt, maxPt, gMin)
 		minPt, maxPt = expandAABB(minPt, maxPt, gMax)
 	}
-	return minPt, maxPt, nil
+	return minPt, maxPt
 }
 
 // aabbOverlap checks if two AABBs overlap.
@@ -256,7 +240,7 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 
 	for _, corner := range corners {
 		worldPt := Compose(pose, NewPoseFromPoint(corner)).Point()
-		minPt, maxPt = expandAABB(minPt, maxPt, worldPt)
+		newMin, newMax = expandAABB(newMin, newMax, worldPt)
 	}
 	return newMin, newMax
 }
