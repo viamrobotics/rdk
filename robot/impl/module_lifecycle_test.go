@@ -895,3 +895,51 @@ func TestImplicitDependencyUpdatesAfterModuleRestart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
 }
+
+func TestModuleAndResourceRemoval(t *testing.T) {
+	// on module 1 "mod" and "h" removal, test that if both module and resource
+	// are removed at the same time, the machine does not attempt to re-construct the
+	// resource.
+	ctx := context.Background()
+	logger, obs := logging.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+
+	obs.TakeAll() // clear logs
+
+	// Reconfigure so that the "mod" and "h" are both removed.
+	cfg = config.Config{}
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "h" is no longer available and that we never attempted to build it.
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
+}
