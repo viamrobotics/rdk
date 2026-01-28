@@ -226,6 +226,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	if registryURL != "" {
 		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
 	}
+	if runtime.GOOS == "windows" && newModule.Language == "python" {
+		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet, "+
+		"You can test locally and then use `viam module upload` to manually update. The uploaded module will only work on windows")
+	}
 	return nil
 }
 
@@ -594,6 +598,13 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+			// Copy .bat files for windows and .sh files for everything else
+			if runtime.GOOS == "windows" && strings.HasSuffix(d.Name(), ".sh"){
+				return nil
+			}
+			if runtime.GOOS != "windows" && strings.HasSuffix(d.Name(), ".bat"){
+				return nil
+			}
 			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", filePath)
 			srcFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
@@ -953,11 +964,20 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
-		manifest.Build = &manifestBuildInfo{
+		if runtime.GOOS == "windows"{
+			manifest.Build = &manifestBuildInfo{
+			Setup: "setup.bat",
+			Build: "build.bat",
+			Path:  "dist/archive.tar.gz",
+			Arch:  []string{"windows/amd64"},
+			}
+		} else{
+			manifest.Build = &manifestBuildInfo{
 			Setup: "./setup.sh",
 			Build: "./build.sh",
 			Path:  "dist/archive.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+			}
 		}
 		manifest.Entrypoint = "dist/main"
 	case golang:

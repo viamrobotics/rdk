@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -145,9 +146,18 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
+
+	// Use cmd.exe on Windows, bash on Unix-like systems
+	shellName := "bash"
+	shellFlag := "-c"
+	if runtime.GOOS == "windows" {
+		shellName = "cmd.exe"
+		shellFlag = "/C"
+	}
+
 	processConfig := pexec.ProcessConfig{
 		Environment: environment,
-		Name:        "bash",
+		Name:        shellName,
 		OneShot:     true,
 		Log:         true,
 		LogWriter:   cCtx.App.Writer,
@@ -156,14 +166,14 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 	logger := logging.NewLogger("x")
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = []string{"-c", manifest.Build.Setup}
+		processConfig.Args = []string{shellFlag, manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger)
 		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = []string{"-c", manifest.Build.Build}
+	processConfig.Args = []string{shellFlag, manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger)
 	if err := proc.Start(cCtx.Context); err != nil {
 		return err
