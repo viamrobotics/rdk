@@ -24,7 +24,7 @@ func CalculateStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int
 }
 
 func calculateJointStepCount(start, end []float64) int {
-	stepSize := .1
+	stepSize := .05
 	steps := 0
 	for idx, s := range start {
 		if idx >= len(end) {
