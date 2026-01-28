@@ -79,6 +79,10 @@ const (
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
+	generalFlagConfig            = "config"
+	generalFlagAttributes        = "attributes"
+	generalFlagFragmentID        = "fragment-id"
+	generalFlagComponent         = "component"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -1130,6 +1134,36 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
 					},
+				},
+				{
+					Name:      "add-machine",
+					Usage:     "move a machine to this location",
+					UsageText: createUsageText("locations add-machine", []string{generalFlagMachine}, true, false),
+					Flags: []cli.Flag{
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagMachine,
+								Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+								Required: true,
+								Usage:    "machine to move to this location",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:        generalFlagLocation,
+								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+								DefaultText: "the default location set with `viam defaults set-location`",
+								Usage:       "location to move the machine to",
+							},
+						},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:    generalFlagOrganization,
+								Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+							},
+						},
+					},
+					Action: createCommandWithT(locationAddMachineAction),
 				},
 			},
 		},
@@ -2585,6 +2619,101 @@ Note: There is no progress meter while copying is in progress.
 							Action:    createCommandWithT(robotsPartRemoveResourceAction),
 						},
 						{
+							Name:      "update",
+							Usage:     "update a machine part's configuration",
+							UsageText: createUsageText("machines part update", []string{generalFlagPart, generalFlagConfig}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagConfig,
+								Required: true,
+								Usage:    "JSON configuration or path to JSON file",
+							}),
+							Action: createCommandWithT(machinesPartUpdateAction),
+						},
+						{
+							Name:  "update-resource",
+							Usage: "update a resource's attributes on a machine part",
+							UsageText: createUsageText(
+								"machines part update-resource",
+								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+									Usage:    "name of the resource to update",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagAttributes,
+									Required: true,
+									Usage:    "JSON attributes or path to JSON file",
+								},
+							}...),
+							Action: createCommandWithT(machinesPartUpdateResourceAction),
+						},
+						{
+							Name:      "add-fragment",
+							Usage:     "add a fragment to a machine part",
+							UsageText: createUsageText("machines part add-fragment", []string{generalFlagPart, generalFlagFragmentID}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagFragmentID,
+								Required: true,
+								Usage:    "ID of the fragment to add",
+							}),
+							Action: createCommandWithT(machinesPartAddFragmentAction),
+						},
+						{
+							Name:      "delete-fragment",
+							Usage:     "remove a fragment from a machine part",
+							UsageText: createUsageText("machines part delete-fragment", []string{generalFlagPart, generalFlagFragmentID}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagFragmentID,
+								Required: true,
+								Usage:    "ID of the fragment to remove",
+							}),
+							Action: createCommandWithT(machinesPartDeleteFragmentAction),
+						},
+						{
+							Name:      "add-job",
+							Usage:     "add a scheduled job to a machine part",
+							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagAttributes,
+								Required: true,
+								Usage:    "JSON job config or path to JSON file (must include name, schedule, resource, method)",
+							}),
+							Action: createCommandWithT(machinesPartAddJobAction),
+						},
+						{
+							Name:  "update-job",
+							Usage: "update a scheduled job on a machine part",
+							UsageText: createUsageText(
+								"machines part update-job",
+								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+									Usage:    "name of the job to update",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagAttributes,
+									Required: true,
+									Usage:    "JSON job config or path to JSON file",
+								},
+							}...),
+							Action: createCommandWithT(machinesPartUpdateJobAction),
+						},
+						{
+							Name:      "delete-job",
+							Usage:     "delete a scheduled job from a machine part",
+							UsageText: createUsageText("machines part delete-job", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagName,
+								Required: true,
+								Usage:    "name of the job to delete",
+							}),
+							Action: createCommandWithT(machinesPartDeleteJobAction),
+						},
+						{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{generalFlagPart}, true, false),
@@ -2922,6 +3051,36 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "resource",
+			Usage:           "enable or disable resources on a machine part",
+			UsageText:       createUsageText("resource", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "enable",
+					Usage:     "enable one or more components on a machine part",
+					UsageText: createUsageText("resource enable", []string{generalFlagPart, generalFlagComponent}, true, false),
+					Flags: append(commonPartFlags, &cli.StringSliceFlag{
+						Name:     generalFlagComponent,
+						Required: true,
+						Usage:    "component name(s) to enable (can be specified multiple times)",
+					}),
+					Action: createCommandWithT(resourceEnableAction),
+				},
+				{
+					Name:      "disable",
+					Usage:     "disable one or more components on a machine part",
+					UsageText: createUsageText("resource disable", []string{generalFlagPart, generalFlagComponent}, true, false),
+					Flags: append(commonPartFlags, &cli.StringSliceFlag{
+						Name:     generalFlagComponent,
+						Required: true,
+						Usage:    "component name(s) to disable (can be specified multiple times)",
+					}),
+					Action: createCommandWithT(resourceDisableAction),
 				},
 			},
 		},

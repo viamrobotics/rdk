@@ -630,6 +630,44 @@ func ListLocationsAction(c *cli.Context, args listLocationsArgs) error {
 	return listLocations(orgStr)
 }
 
+type locationAddMachineArgs struct {
+	Machine      string
+	Location     string
+	Organization string
+}
+
+func locationAddMachineAction(c *cli.Context, args locationAddMachineArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	// Look up location ID
+	locID, err := client.lookupLocationID(args.Location, args.Organization)
+	if err != nil {
+		return err
+	}
+
+	// Look up machine
+	machine, err := client.lookupMachineByName(args.Machine, args.Location, args.Organization)
+	if err != nil {
+		return err
+	}
+
+	// Update the machine's location
+	req := &apppb.UpdateRobotRequest{
+		Id:       machine.Id,
+		Location: locID,
+	}
+	_, err = client.client.UpdateRobot(c.Context, req)
+	if err != nil {
+		return errors.Wrap(err, "failed to move machine to location")
+	}
+
+	printf(c.App.Writer, "Successfully moved machine %s to location %s", machine.Name, locID)
+	return nil
+}
+
 func printMachinePartStatus(c *cli.Context, parts []*apppb.RobotPart) {
 	for i, part := range parts {
 		name := part.Name
@@ -1322,6 +1360,28 @@ func machinesPartDeleteAction(c *cli.Context, args machinesPartDeleteArgs) error
 	return nil
 }
 
+// parseJSONOrFile parses input as JSON if it starts with '{' or '[',
+// otherwise treats it as a file path and reads the JSON from the file.
+func parseJSONOrFile(input string) (map[string]any, error) {
+	var data []byte
+	trimmed := strings.TrimSpace(input)
+	if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+		data = []byte(trimmed)
+	} else {
+		var err error
+		data, err = os.ReadFile(filepath.Clean(input))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to read file %s", input)
+		}
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, errors.Wrap(err, "failed to parse JSON")
+	}
+	return result, nil
+}
+
 func resourcesFromPartConfig(config map[string]any, resourceTypePlural string) ([]map[string]any, error) {
 	var resources []any
 	for k, v := range config {
@@ -1517,6 +1577,489 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	}
 
 	printf(c.App.Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
+	return nil
+}
+
+type machinesPartUpdateArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Config       string
+}
+
+func machinesPartUpdateAction(c *cli.Context, args machinesPartUpdateArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config, err := parseJSONOrFile(args.Config)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse config")
+	}
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully updated part %s configuration", part.Name)
+	return nil
+}
+
+type machinesPartUpdateResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	newAttrs, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse attributes")
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for i, res := range resources {
+			if res["name"] == args.Name {
+				resourceFound = true
+				// Update the attributes
+				res["attributes"] = newAttrs
+				resources[i] = res
+				break
+			}
+		}
+		config[resourceType] = resources
+		if resourceFound {
+			break
+		}
+	}
+
+	if !resourceFound {
+		return fmt.Errorf("resource %s not found on part %s", args.Name, args.Part)
+	}
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully updated resource %s on part %s", args.Name, part.Name)
+	return nil
+}
+
+type machinesPartAddFragmentArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	FragmentID   string
+}
+
+func machinesPartAddFragmentAction(c *cli.Context, args machinesPartAddFragmentArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	// Get existing fragments array or create new one
+	var fragments []any
+	if existingFragments, ok := config["fragments"]; ok {
+		if arr, ok := existingFragments.([]any); ok {
+			fragments = arr
+		}
+	}
+
+	// Check if fragment already exists
+	for _, f := range fragments {
+		if f == args.FragmentID {
+			printf(c.App.Writer, "Fragment %s is already on part %s", args.FragmentID, part.Name)
+			return nil
+		}
+	}
+
+	fragments = append(fragments, args.FragmentID)
+	config["fragments"] = fragments
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully added fragment %s to part %s", args.FragmentID, part.Name)
+	return nil
+}
+
+type machinesPartDeleteFragmentArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	FragmentID   string
+}
+
+func machinesPartDeleteFragmentAction(c *cli.Context, args machinesPartDeleteFragmentArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var fragments []any
+	if existingFragments, ok := config["fragments"]; ok {
+		if arr, ok := existingFragments.([]any); ok {
+			fragments = arr
+		}
+	}
+
+	// Filter out the fragment
+	var newFragments []any
+	found := false
+	for _, f := range fragments {
+		if f != args.FragmentID {
+			newFragments = append(newFragments, f)
+		} else {
+			found = true
+		}
+	}
+
+	if !found {
+		printf(c.App.Writer, "Fragment %s not found on part %s", args.FragmentID, part.Name)
+		return nil
+	}
+
+	config["fragments"] = newFragments
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully removed fragment %s from part %s", args.FragmentID, part.Name)
+	return nil
+}
+
+type machinesPartAddJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Attributes   string
+}
+
+func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	jobConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	// Validate required fields
+	name, ok := jobConfig["name"].(string)
+	if !ok || name == "" {
+		return errors.New("job config must include 'name' field")
+	}
+	if _, ok := jobConfig["schedule"]; !ok {
+		return errors.New("job config must include 'schedule' field")
+	}
+	if _, ok := jobConfig["resource"]; !ok {
+		return errors.New("job config must include 'resource' field")
+	}
+	if _, ok := jobConfig["method"]; !ok {
+		return errors.New("job config must include 'method' field")
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	// Get existing jobs array or create new one
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Check if job with same name exists
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == name {
+				return fmt.Errorf("job with name %s already exists on part %s", name, part.Name)
+			}
+		}
+	}
+
+	jobs = append(jobs, jobConfig)
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully added job %s to part %s", name, part.Name)
+	return nil
+}
+
+type machinesPartUpdateJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	newJobConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Find and update the job
+	found := false
+	for i, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == args.Name {
+				found = true
+				// Merge the new config into existing job, keeping the name
+				for k, v := range newJobConfig {
+					jobMap[k] = v
+				}
+				jobMap["name"] = args.Name // Ensure name doesn't change
+				jobs[i] = jobMap
+				break
+			}
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully updated job %s on part %s", args.Name, part.Name)
+	return nil
+}
+
+type machinesPartDeleteJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func machinesPartDeleteJobAction(c *cli.Context, args machinesPartDeleteJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Filter out the job
+	var newJobs []any
+	found := false
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] != args.Name {
+				newJobs = append(newJobs, j)
+			} else {
+				found = true
+			}
+		} else {
+			newJobs = append(newJobs, j)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = newJobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully deleted job %s from part %s", args.Name, part.Name)
+	return nil
+}
+
+type resourceEnableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Component    []string
+}
+
+func resourceEnableAction(c *cli.Context, args resourceEnableArgs) error {
+	return setResourceDisabledState(c, args.Organization, args.Location, args.Machine, args.Part, args.Component, false)
+}
+
+type resourceDisableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Component    []string
+}
+
+func resourceDisableAction(c *cli.Context, args resourceDisableArgs) error {
+	return setResourceDisabledState(c, args.Organization, args.Location, args.Machine, args.Part, args.Component, true)
+}
+
+func setResourceDisabledState(c *cli.Context, org, loc, machine, partID string, componentNames []string, disabled bool) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(org, loc, machine, partID)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	// Track which components were found and modified
+	modifiedComponents := make([]string, 0)
+	notFoundComponents := make([]string, 0)
+
+	// Look for components in both components and services
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for i, res := range resources {
+			name, ok := res["name"].(string)
+			if !ok {
+				continue
+			}
+			for _, targetName := range componentNames {
+				if name == targetName {
+					if disabled {
+						res["disabled"] = true
+					} else {
+						delete(res, "disabled")
+					}
+					resources[i] = res
+					modifiedComponents = append(modifiedComponents, name)
+					break
+				}
+			}
+		}
+		config[resourceType] = resources
+	}
+
+	// Check for components that were not found
+	for _, targetName := range componentNames {
+		found := false
+		for _, modified := range modifiedComponents {
+			if modified == targetName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			notFoundComponents = append(notFoundComponents, targetName)
+		}
+	}
+
+	if len(notFoundComponents) > 0 {
+		return fmt.Errorf("components not found: %v", notFoundComponents)
+	}
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	action := "enabled"
+	if disabled {
+		action = "disabled"
+	}
+	printf(c.App.Writer, "Successfully %s components on part %s: %v", action, part.Name, modifiedComponents)
 	return nil
 }
 
