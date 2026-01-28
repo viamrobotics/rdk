@@ -60,6 +60,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/stacktrace"
 )
 
 const localConfigPartID = "local-config"
@@ -276,6 +277,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 // This operation is not clean and will not wait for completion.
 func (r *localRobot) Kill() {
 	r.manager.Kill()
+}
+
+// RequestModuleStackTraceDump sends SIGUSR1 to all module processes to request
+// stack trace dumps. This is useful for debugging before shutdown.
+func (r *localRobot) RequestModuleStackTraceDump() {
+	r.manager.RequestModuleStackTraceDump()
 }
 
 // StopAll cancels all current and outstanding operations for the robot and stops all actuators and movement.
@@ -1907,6 +1914,9 @@ func (r *localRobot) RestartModule(ctx context.Context, req robot.RestartModuleR
 }
 
 func (r *localRobot) Shutdown(ctx context.Context) error {
+	stacktrace.LogStackTrace(r.logger)
+	r.RequestModuleStackTraceDump()
+
 	if shutdownFunc := r.shutdownCallback; shutdownFunc != nil {
 		shutdownFunc()
 	} else {

@@ -1923,3 +1923,95 @@ func TestGetAutomaticPort(t *testing.T) {
 		test.That(t, lis.Close(), test.ShouldBeNil)
 	}
 }
+
+func TestStackDump(t *testing.T) {
+	parentAddr := setupSocketWithRobot(t)
+	viamHomeTemp := t.TempDir()
+
+	modPath1 := rtestutils.BuildTempModule(t, "module/testmodule")
+	modPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
+
+	t.Run("one module", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Set up mod manager
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// Add the module
+		err := mgr.Add(ctx, config.Module{
+			Name:    "mod1",
+			ExePath: modPath1,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Send SIGUSR1 to the module
+		mgr.RequestStackTraceDump()
+
+		// Wait for the module to receive the signal and log its distinctive message.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule.").Len(), test.ShouldEqual, 1)
+		})
+	})
+
+	t.Run("no modules", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Set up mod manager
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// No modules, so no SIGUSR1 should be sent
+		mgr.RequestStackTraceDump()
+
+		// Only check for log indicating we attempted to send signals
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Requesting stack trace dump from module").Len(), test.ShouldEqual, 0)
+		})
+	})
+
+	t.Run("multiple modules", func(t *testing.T) {
+		ctx := context.Background()
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Set up mod manager
+		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+			UntrustedEnv: false,
+			ViamHomeDir:  viamHomeTemp,
+		})
+
+		// Add both modules
+		err := mgr.Add(ctx, config.Module{
+			Name:    "mod1",
+			ExePath: modPath1,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		err = mgr.Add(ctx, config.Module{
+			Name:    "mod2",
+			ExePath: modPath2,
+			Type:    config.ModuleTypeLocal,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		// Send SIGUSR1 to both modules
+		mgr.RequestStackTraceDump()
+
+		// Wait for both modules to receive the signal and log their distinctive messages.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule.").Len(), test.ShouldEqual, 1)
+			test.That(tb, logs.FilterMessageSnippet("Received SIGUSR1 signal in testmodule2").Len(), test.ShouldEqual, 1)
+		})
+	})
+}

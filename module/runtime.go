@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/utils/stacktrace"
 )
 
 func moduleStart(
@@ -77,6 +78,10 @@ func moduleStart(
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
+		// Set up SIGUSR1 handler to dump stack traces when viam-server requests it before restart.
+		cleanupSignalHandler := stacktrace.NewSignalHandler(logger)
+		defer cleanupSignalHandler()
+
 		if len(os.Args) < 2 {
 			return errors.New("need socket path as command line argument")
 		}

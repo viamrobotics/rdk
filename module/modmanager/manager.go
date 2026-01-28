@@ -189,6 +189,15 @@ func (mgr *Manager) Kill() {
 	})
 }
 
+// RequestStackTraceDump sends SIGUSR1 to all running modules to request
+// stack trace dumps.
+func (mgr *Manager) RequestStackTraceDump() {
+	mgr.modules.Range(func(_ string, mod *module) bool {
+		mod.requestStackTraceDump()
+		return true
+	})
+}
+
 // Handles returns all the models for each module registered.
 func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
 	res := map[string]modlib.HandlerMap{}
