@@ -10,8 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime"
 	"slices"
 	"strings"
@@ -787,6 +789,10 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
+	}
+	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
+	if runtime.GOOS == osWindows {
+		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
 	//nolint:gosec
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
