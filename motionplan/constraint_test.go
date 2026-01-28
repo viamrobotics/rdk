@@ -346,27 +346,27 @@ func TestCalculateJointStepCount(t *testing.T) {
 	t.Run("no movement", func(t *testing.T) {
 		start := []float64{0, 0, 0}
 		end := []float64{0, 0, 0}
-		test.That(t, calculateJointStepCount(start, end), test.ShouldEqual, 0)
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 0)
 	})
 
 	t.Run("small movement under step size", func(t *testing.T) {
 		start := []float64{0, 0, 0}
 		end := []float64{0.04, 0, 0} // 0.04 rad < defaultJointStepSizeRadians
-		test.That(t, calculateJointStepCount(start, end), test.ShouldEqual, 1)
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 1)
 	})
 
 	t.Run("one radian movement", func(t *testing.T) {
 		start := []float64{0, 0, 0}
 		end := []float64{1.0, 0, 0} // 1 rad / defaultJointStepSizeRadians = 20 steps
-		test.That(t, calculateJointStepCount(start, end), test.ShouldEqual, 20)
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 20)
 	})
 
 	t.Run("large joint movement from sanding collision bug", func(t *testing.T) {
 		// Joint 1 from TestSandingWallCollision moves ~6.7 radians
 		start := []float64{1.06, -3.336, -0.18, 1.90, -1.53, 4.20}
 		end := []float64{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
-		// Joint 1 moves 6.715 rad / defaultJointStepSizeRadians = 135 steps
-		steps := calculateJointStepCount(start, end)
+		// Joint 1 moves 6.715 rad / 0.05 = 135 steps
+		steps := calculateJointStepCount(start, end, 0.05)
 		test.That(t, steps, test.ShouldEqual, 135)
 	})
 }
@@ -375,6 +375,7 @@ func TestCalculateJointStepCount(t *testing.T) {
 func TestSegmentStepCount(t *testing.T) {
 	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur20.json"), "")
 	test.That(t, err, test.ShouldBeNil)
+	jointStepSize := jointStepSizeFromLimits(model.DoF())
 
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.World())
@@ -395,7 +396,7 @@ func TestSegmentStepCount(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
-		jointSteps := calculateJointStepCount(startConfig, endConfig)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
 
 		totalSteps, err := segmentStepCount(segment, 1.0)
 		test.That(t, err, test.ShouldBeNil)
@@ -419,7 +420,7 @@ func TestSegmentStepCount(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
-		jointSteps := calculateJointStepCount(startConfig, endConfig)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
 
 		totalSteps, err := segmentStepCount(segment, 1.0)
 		test.That(t, err, test.ShouldBeNil)
