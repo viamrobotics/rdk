@@ -39,7 +39,7 @@ const (
 	// and added to a dataset outside of the regularly scheduled sync.
 	DatasetDir = "datasetUpload"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
-	grpcConnectionTimeout = 10 * time.Second
+	grpcConnectionTimeout = 120 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
@@ -121,6 +121,7 @@ func New(
 // and starts the cloud connection manager if it hasn't been started yet so it can make a cloud connection
 // 3. starts up the appropriate workers which use the new config.
 func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.ConnectionService) {
+	s.logger.Warnf("~~~~~~~~~~~~~here reconf 1")
 	s.logger.Debug("Reconfigure START")
 	defer s.logger.Debug("Reconfigure END")
 	if s.cloudConnManager == nil {
@@ -157,6 +158,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 
 	// start workers
 	s.startWorkers(config)
+	s.logger.Warnf("~~~~~~~~~~~~~here reconf")
 	if config.schedulerEnabled() {
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * config.SyncIntervalMins
@@ -168,9 +170,11 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.Scheduler = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runScheduler(ctx, tkr, config)
 		})
+		s.logger.Warnf("~~~~~~~~~~~~~here reconf2")
 	} else {
 		s.logger.Info("Sync Disabled")
 	}
+	s.logger.Warnf("~~~~~~~~~~~~~here reconf3")
 
 	// if datacapture is enabled, kick off a go routine to handle disk space filling due to
 	// cached datacapture files
@@ -561,6 +565,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 
 		// wait for the cloud connection to be ready
 		// or the scheduler to be cancelled
+		s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~ ready 1 %+v", s.cloudConn.ready)
 		select {
 		case <-ctx.Done():
 			return
@@ -569,26 +574,32 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 				readyLogged = true
 			}
 		}
+		s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~ ready 2 %+v", s.cloudConn.ready)
 
 		select {
 		case <-ctx.Done():
 			return
 		case <-tkr.C:
 			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
+			s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~")
 			state := s.cloudConn.conn.GetState()
+			s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~ %+v shouldSync=%v", state, shouldSync)
 			online := state == connectivity.Ready
 			if !online {
+				s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~1")
 				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
 					"; waiting for it to be in state: %s", state, connectivity.Ready)
 				continue
 			}
 
 			if !shouldSync {
+				s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~2")
 				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
 				continue
 			}
 
 			if err := s.walkDirsAndSendFilesToSync(ctx, config); err != nil && !errors.Is(err, context.Canceled) {
+				s.logger.Warnf("~~~~~~~~~~~~~~~~~~~~~3 %+v", err)
 				goutils.UncheckedError(err)
 			}
 		}
