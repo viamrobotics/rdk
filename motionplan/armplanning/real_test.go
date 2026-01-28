@@ -427,37 +427,43 @@ func TestSandingWallCollision(t *testing.T) {
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 	plan, _, err := PlanMotion(ctx, logger, req)
 	test.That(t, err, test.ShouldBeNil)
+	
+	t.Run("check trajectory length", func(t *testing.T) {
+		test.That(t, len(res.Trajectory()), test.ShouldBeGreaterThan, 3)
+	}
 
-	// Create plan context to validate the path
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
-	test.That(t, err, test.ShouldBeNil)
-
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
-	test.That(t, err, test.ShouldBeNil)
-
-	trajectory := plan.Trajectory()
-	smallResolution := 0.001
-
-	for j := 0; j < len(trajectory)-1; j++ {
-		start := trajectory[j].ToLinearInputs()
-		end := trajectory[j+1].ToLinearInputs()
-
-		// Default resolution passes
-		err := psc.checkPath(ctx, start, end, false)
+	t.Run("check collision checks pass with smaller resolution", func(t *testing.T) {
+		// Create plan context to validate the path
+		pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
 		test.That(t, err, test.ShouldBeNil)
 
-		// Small resolution noticed the collision when we had large jumps
-		_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
-			ctx,
-			&motionplan.SegmentFS{
-				StartConfiguration: start,
-				EndConfiguration:   end,
-				FS:                 pc.fs,
-			},
-			smallResolution,
-			true,
-		)
+		psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 		test.That(t, err, test.ShouldBeNil)
+
+		trajectory := plan.Trajectory()
+		smallResolution := 0.001
+
+		for j := 0; j < len(trajectory)-1; j++ {
+			start := trajectory[j].ToLinearInputs()
+			end := trajectory[j+1].ToLinearInputs()
+
+			// Default resolution passes
+			err := psc.checkPath(ctx, start, end, false)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Small resolution noticed the collision when we had large jumps
+			_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
+				ctx,
+				&motionplan.SegmentFS{
+					StartConfiguration: start,
+					EndConfiguration:   end,
+					FS:                 pc.fs,
+				},
+				smallResolution,
+				true,
+			)
+			test.That(t, err, test.ShouldBeNil)
+		}
 	}
 }
 
