@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -118,6 +119,11 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 		return "", err
 	}
 
+	if runtime.GOOS == "windows" && manifest.Build != nil && strings.HasSuffix(manifest.Build.Build, ".bat") {
+		return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	}
+
 	if manifest.URL == "" {
 		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
 			"Ex: 'https://github.com/your-username/your-repo'")
@@ -145,9 +151,18 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
+
+	// Use cmd.exe on Windows, bash on Unix-like systems
+	shellName := "bash"
+	shellFlag := "-c"
+	if runtime.GOOS == "windows" {
+		shellName = "cmd.exe"
+		shellFlag = "/C"
+	}
+
 	processConfig := pexec.ProcessConfig{
 		Environment: environment,
-		Name:        "bash",
+		Name:        shellName,
 		OneShot:     true,
 		Log:         true,
 		LogWriter:   cCtx.App.Writer,
@@ -156,14 +171,14 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 	logger := logging.NewLogger("x")
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = []string{"-c", manifest.Build.Setup}
+		processConfig.Args = []string{shellFlag, manifest.Build.Setup}
 		proc := pexec.NewManagedProcess(processConfig, logger)
 		if err := proc.Start(cCtx.Context); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = []string{"-c", manifest.Build.Build}
+	processConfig.Args = []string{shellFlag, manifest.Build.Build}
 	proc := pexec.NewManagedProcess(processConfig, logger)
 	if err := proc.Start(cCtx.Context); err != nil {
 		return err
