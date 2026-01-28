@@ -384,6 +384,7 @@ func TestSegmentStepCount(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("joint steps dominate when cartesian distance is small", func(t *testing.T) {
+		// For a ur20 this config is very close to startConfig in cartesian space but far away in joint space
 		endConfig := []referenceframe.Input{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
 		segment := &SegmentFS{
 			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
@@ -407,6 +408,7 @@ func TestSegmentStepCount(t *testing.T) {
 	})
 
 	t.Run("cartesian steps dominate when joint distance is small", func(t *testing.T) {
+		// Joints are close to startConfig, but quite far in cartesian space
 		endConfig := []referenceframe.Input{1.06, -3.379, -1.26, -0.59, 1.53, 1.06}
 		segment := &SegmentFS{
 			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
