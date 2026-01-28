@@ -8,17 +8,6 @@ endif
 
 PRERELEASE_PATH := $(if $(findstring -dev,$(BUILD_CHANNEL)),"prerelease/","")
 
-appimage-arch:
-	# build appimage for a target architecture using existing aix + viam-server binaries
-	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml
-	if [ "${RELEASE_TYPE}" = "stable" ]; then \
-		cd etc/packaging/appimages; \
-		BUILD_CHANNEL=stable UNAME_M=$(UNAME_M) DPKG_ARCH=$(DPKG_ARCH) appimage-builder --recipe viam-server.yml; \
-	fi
-	mkdir -p etc/packaging/appimages/deploy/
-	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
-	chmod 755 etc/packaging/appimages/deploy/*.AppImage
-
 appimage: server-static
 	cd etc/packaging/appimages && BUILD_CHANNEL=${BUILD_CHANNEL} appimage-builder --recipe viam-server-`uname -m`.yml
 	if [ "${RELEASE_TYPE}" = "stable" ]; then \
