@@ -261,6 +261,25 @@ func TestSandingLargeMove1(t *testing.T) {
 	}
 }
 
+func TestSandingWallAvoid1(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t).Sublogger("mp")
+	ctx := context.Background()
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/sanding-wall-avoid1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+	res, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(res.Trajectory()), test.ShouldBeGreaterThan, 3)
+}
+
 func TestBadSpray1(t *testing.T) {
 	if IsTooSmallForCache() {
 		t.Skip()

@@ -319,10 +319,8 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 		}
 
 		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPos, endPos, resolution)
-		if steps > maxSteps {
-			maxSteps = steps
-		}
+		maxSteps = max(maxSteps, CalculateStepCount(startPos, endPos, resolution))
+		maxSteps = max(maxSteps, calculateJointStepCount(startConfig, endConfig))
 	}
 
 	// Create interpolated configurations for all frames

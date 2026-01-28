@@ -22,3 +22,16 @@ func CalculateStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int
 	nSteps := math.Max(math.Abs(mmDist/stepSize), math.Abs(utils.RadToDeg(rDist.Theta)/stepSize))
 	return int(nSteps) + 1
 }
+
+func calculateJointStepCount(start, end []float64) int {
+	stepSize := .1
+	steps := 0
+	for idx, s := range start {
+		if idx >= len(end) {
+			break
+		}
+		mySteps := int(math.Ceil(math.Abs(end[idx]-s) / stepSize))
+		steps = max(mySteps, steps)
+	}
+	return steps
+}
