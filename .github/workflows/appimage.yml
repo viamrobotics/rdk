@@ -101,68 +101,6 @@ jobs:
         parent: false
         gzip: false
 
-  # this job builds the 32-bit RDK binary
-  appimage-static-32bit:
-    name: static 32-bit for appimage
-    runs-on: ubuntu-small-arm
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-    - uses: docker/setup-buildx-action@v3
-    - uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    # note: we run this way instead of using rdk-devenv as the job's container because of https://github.com/actions/runner/issues/2115 (js-based actions install incomaptible node on 32-bit)
-    - name: build server
-      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c "cd /rdk && make server-static"
-    - name: build aix
-      run: docker run --rm -v $PWD:/rdk ghcr.io/viamrobotics/rdk-devenv:armhf-cache sh -c 'cd /rdk && GOBIN=`pwd`/bin/`uname -s`-`uname -m` go install -ldflags "-s -w" -tags osusergo,netgo github.com/viamrobotics/aix@latest'
-    - name: permissions
-      run: sudo chown -R $USER bin
-    # note: we do this because uname sees the arm64 kernel underneath the armhf container
-    - name: fix platform detection
-      run: mv bin/`uname -s`-`uname -m` bin/`uname -s`-armv7l
-    - uses: actions/upload-artifact@v4
-      with:
-        name: appimage-static-32bit
-        path: |
-          bin/*/viam-server
-          bin/*/aix
-
-  # this job bundles the 32-bit appimage
-  # note: this is a separate job because 1) appimage-builder doesn't work on 32-bit, 2) setup-python doesn't work on arm64
-  appimage-32bit:
-    runs-on: ubuntu-latest
-    needs: appimage-static-32bit
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-    - uses: actions/download-artifact@v4
-      with:
-        name: appimage-static-32bit
-        path: bin/
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    - name: deps
-      run: pip install git+https://github.com/viamrobotics/appimage-builder.git@viam-2025-07-22
-    - name: build
-      env:
-        RELEASE_TYPE: ${{ inputs.release_type }}
-        BUILD_CHANNEL: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
-        UNAME_M: armv7l
-        DPKG_ARCH: armhf
-        APPIMAGE_ARCH: armhf
-      run: make appimage-arch
-    - uses: actions/upload-artifact@v4
-      with:
-        name: appimage-armhf
-        path: etc/packaging/appimages/deploy
-
   output_summary:
     name: Output Summary
     runs-on: ubuntu-latest
@@ -227,7 +165,7 @@ jobs:
 
   appimage_deploy:
     name: AppImage Deploy
-    needs: [appimage_test, appimage-32bit]
+    needs: appimage_test
     runs-on: ubuntu-latest
     env:
       channel: ${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
@@ -241,20 +179,6 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    - uses: actions/download-artifact@v4
-      with:
-        name: appimage-armhf
-        path: etc/packaging/appimages/deploy
-
-    - name: deploy 32-bit
-      uses: google-github-actions/upload-cloud-storage@v0.10.4
-      with:
-        headers: "cache-control: no-cache"
-        path: etc/packaging/appimages/deploy
-        glob: viam-server-*-armhf.AppImage*
-        destination: 'packages.viam.com/apps/viam-server/'
-        parent: false
-
     - name: Publish AppImage
       run: |
         gsutil mv "gs://packages.viam.com/apps/viam-server/testing/appimage/${{ needs.appimage_test.outputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
@@ -264,5 +188,4 @@ jobs:
         echo "### Built AppImages for ${channel}" >> $GITHUB_STEP_SUMMARY
         echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64.AppImage" >> $GITHUB_STEP_SUMMARY
-        echo "- armhf: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-armhf.AppImage" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
