@@ -119,6 +119,11 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 		return "", err
 	}
 
+	if runtime.GOOS == "windows" && manifest.Build != nil && strings.HasSuffix(manifest.Build.Build, ".bat") {
+		return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	}
+
 	if manifest.URL == "" {
 		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
 			"Ex: 'https://github.com/your-username/your-repo'")

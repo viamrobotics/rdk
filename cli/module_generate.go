@@ -227,8 +227,11 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
 	}
 	if runtime.GOOS == "windows" && newModule.Language == "python" {
-		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet, "+
-		"You can test locally and then use `viam module upload` to manually update. The uploaded module will only work on windows")
+		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
+		"You can test locally and then use `viam module upload` to manually upload,\n" +
+		"but the uploaded module will only work on Windows.\n"+
+		"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n" +
+		"and set your local module's executable path to run.bat")
 	}
 	return nil
 }
