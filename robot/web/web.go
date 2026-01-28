@@ -226,36 +226,57 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		return errors.New("module service already started")
 	}
 
+	// Create a viam-module-[randomString] temporary directory to store UDS sock files for
+	// modules. The parent sock file, the sock file used by modules to communicate back to
+	// viam-server, will go in here. Modules' sock files, the sock files used by viam-server
+	// to send gRPC requests, will also go here.
+	//
+	// The permissions on this directory are important. Modules sometimes run as different
+	// users than viam-server (usually through a `sudo` in their entrypoint script).
+	// Communication over sock files means that both the viam-server and module users need
+	// to have read and write access to both sides' files. Use file mode 777 (unrestricted)
+	// for this directory and the parent socket file created below (automatically by
+	// listening).
+	dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "could not create module socket directory")
+	}
+	//nolint:gosec
+	err = os.Chmod(dir, 0o777)
+	if err != nil {
+		return errors.WithMessage(err, "could not update permissions on module socket directory")
+	}
+
 	var lis net.Listener
 	var addr string
-	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if tcpMode {
+		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+		lis, err = net.Listen("tcp", addr)
 		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+			return errors.WithMessage(err, "failed to listen over TCP")
 		}
-
-		if tcpMode {
-			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
-			lis, err = net.Listen("tcp", addr)
-		} else {
-			addr, err = module.CreateSocketAddress(dir, "parent")
-			if err != nil {
-				return errors.WithMessage(err, "module startup failed")
-			}
-			lis, err = net.Listen("unix", addr)
-		}
+	} else {
+		addr, err = module.CreateSocketAddress(dir, "parent")
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen")
+			return errors.WithMessage(err, "could not create filepath for parent socket")
 		}
-		if tcpMode {
-			svc.modAddrs.TCPAddr = lis.Addr().String()
-		} else {
-			svc.modAddrs.UnixAddr = addr
+		lis, err = net.Listen("unix", addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen over UDS")
 		}
-		return nil
-	}); err != nil {
-		return err
+		//nolint:gosec
+		err = os.Chmod(addr, 0o777)
+		if err != nil {
+			return errors.WithMessage(err, "could not update permissions on parent socket")
+		}
 	}
+
+	if tcpMode {
+		svc.modAddrs.TCPAddr = lis.Addr().String()
+	} else {
+		svc.modAddrs.UnixAddr = addr
+	}
+
 	var (
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
