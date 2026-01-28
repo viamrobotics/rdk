@@ -429,8 +429,8 @@ func TestSandingWallCollision(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	
 	t.Run("check trajectory length", func(t *testing.T) {
-		test.That(t, len(res.Trajectory()), test.ShouldBeGreaterThan, 3)
-	}
+		test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 3)
+	})
 
 	t.Run("check collision checks pass with smaller resolution", func(t *testing.T) {
 		// Create plan context to validate the path
@@ -464,7 +464,7 @@ func TestSandingWallCollision(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 		}
-	}
+	})
 }
 
 func BenchmarkBigPlanRequest(b *testing.B) {
