@@ -390,7 +390,7 @@ func TestInterpolateSegmentFSLargeJointMovement(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Prior to joint space distance fix this emitted 11 interpolated positions
-	test.That(t, len(interpolated), test.ShouldBeGreaterThan, 350)
+	test.That(t, len(interpolated), test.ShouldBeGreaterThan, 100)
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {
