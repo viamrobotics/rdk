@@ -41,12 +41,12 @@ appimage-arm64:
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
 
-static-release: server-static-compressed
+static-release: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
-	cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M}
+	cp $^ etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-${UNAME_M}
 	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
-		cp $(BIN_OUTPUT_PATH)/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-${UNAME_M}; \
+		cp $^ etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-${UNAME_M}; \
 	fi
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
