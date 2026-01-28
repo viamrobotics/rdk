@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"slices"
 
@@ -11,10 +12,13 @@ import (
 func ViamTCPSockets() bool {
 	// 2017 support announcement: https://devblogs.microsoft.com/commandline/af_unix-comes-to-windows/
 	defaultVal := false
-	if v := windows.RtlGetVersion(); v.BuildNumber != 0 && v.BuildNumber < 17063 {
+
+	v := windows.RtlGetVersion()
+	if v.BuildNumber != 0 && v.BuildNumber < 17063 {
 		defaultVal = true
 	}
 	envVal := os.Getenv("VIAM_TCP_SOCKETS")
+	fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~RtlGetVersion %+v envVal=%v\n", v, envVal)
 	if envVal == "" {
 		return defaultVal
 	}

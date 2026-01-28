@@ -245,6 +245,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			lis, err = net.Listen("unix", addr)
 		}
 		if err != nil {
+			svc.logger.Warnf("~~~~~~~~~~~~~~~~FAILED TO LISTEN tcpMode=%v, addr=%v", tcpMode, addr)
 			return errors.WithMessage(err, "failed to listen")
 		}
 		if tcpMode {
@@ -357,8 +358,10 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
-	if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
-		return err
+	if !rutils.ViamTCPSockets() {
+		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
+			return err
+		}
 	}
 	return svc.startProtocolModuleParentServer(ctx, true)
 }
