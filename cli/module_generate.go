@@ -228,10 +228,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	}
 	if runtime.GOOS == "windows" && newModule.Language == "python" {
 		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
-		"You can test locally and then use `viam module upload` to manually upload,\n" +
-		"but the uploaded module will only work on Windows.\n"+
-		"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n" +
-		"and set your local module's executable path to run.bat")
+			"You can test locally and then use `viam module upload` to manually upload,\n"+
+			"but the uploaded module will only work on Windows.\n"+
+			"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n"+
+			"and set your local module's executable path to run.bat")
 	}
 	return nil
 }
@@ -533,39 +533,39 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 		return errors.Wrap(err, "failed to create cloud build workflow")
 	}
 
-		workflowPath := path.Join(templatesPath, ".github")
-		workflowFS, err := fs.Sub(templates, workflowPath)
+	workflowPath := path.Join(templatesPath, ".github")
+	workflowFS, err := fs.Sub(templates, workflowPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to create cloud build workflow")
+	}
+
+	err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return errors.Wrap(err, "failed to create cloud build workflow")
+			return err
 		}
-
-		err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
+		if d.IsDir() {
+			if d.Name() != ".github" {
+				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
+				err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
+				if err != nil {
+					return err
+				}
 			}
-			if d.IsDir() {
-				if d.Name() != ".github" {
-					debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
-					err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
-					if err != nil {
-						return err
-					}
-				}
-			} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
-				srcFile, err := templates.Open(path.Join(workflowPath, filePath))
-				if err != nil {
-					return errors.Wrapf(err, "error opening file %s", srcFile)
-				}
-				defer utils.UncheckedErrorFunc(srcFile.Close)
+		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
+			srcFile, err := templates.Open(path.Join(workflowPath, filePath))
+			if err != nil {
+				return errors.Wrapf(err, "error opening file %s", srcFile)
+			}
+			defer utils.UncheckedErrorFunc(srcFile.Close)
 
-				destPath := filepath.Join(destWorkflowPath, filePath)
-				//nolint:gosec
-				destFile, err := os.Create(destPath)
-				if err != nil {
-					return errors.Wrapf(err, "failed to create file %s", destPath)
-				}
-				defer utils.UncheckedErrorFunc(destFile.Close)
+			destPath := filepath.Join(destWorkflowPath, filePath)
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to create file %s", destPath)
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
 
 			_, err = io.Copy(destFile, srcFile)
 			if err != nil {
@@ -602,10 +602,10 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
 			// Copy .bat files for windows and .sh files for everything else
-			if runtime.GOOS == "windows" && strings.HasSuffix(d.Name(), ".sh"){
+			if runtime.GOOS == "windows" && strings.HasSuffix(d.Name(), ".sh") {
 				return nil
 			}
-			if runtime.GOOS != "windows" && strings.HasSuffix(d.Name(), ".bat"){
+			if runtime.GOOS != "windows" && strings.HasSuffix(d.Name(), ".bat") {
 				return nil
 			}
 			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", filePath)
@@ -788,7 +788,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
-	//nolint:gosec
+	
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
 	if runtime.GOOS == "windows" {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
@@ -967,19 +967,19 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
-		if runtime.GOOS == "windows"{
+		if runtime.GOOS == "windows" {
 			manifest.Build = &manifestBuildInfo{
-			Setup: "setup.bat",
-			Build: "build.bat",
-			Path:  "dist/archive.tar.gz",
-			Arch:  []string{"windows/amd64"},
+				Setup: "setup.bat",
+				Build: "build.bat",
+				Path:  "dist/archive.tar.gz",
+				Arch:  []string{"windows/amd64"},
 			}
-		} else{
+		} else {
 			manifest.Build = &manifestBuildInfo{
-			Setup: "./setup.sh",
-			Build: "./build.sh",
-			Path:  "dist/archive.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+				Setup: "./setup.sh",
+				Build: "./build.sh",
+				Path:  "dist/archive.tar.gz",
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
 		manifest.Entrypoint = "dist/main"
