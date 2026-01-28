@@ -7,6 +7,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// defaultJointStepSizeRadians is the maximum joint movement (in radians) per interpolation step.
+// This ensures collision checking granularity in joint space regardless of cartesian distance.
+const defaultJointStepSizeRadians = 0.05
+
 // CalculateStepCount will determine the number of steps which should be used to get from the seed to the goal.
 // The returned value is guaranteed to be at least 1.
 // stepSize represents both the max mm movement per step, and max R4AA degrees per step.
@@ -24,13 +28,12 @@ func CalculateStepCount(seedPos, goalPos spatialmath.Pose, stepSize float64) int
 }
 
 func calculateJointStepCount(start, end []float64) int {
-	stepSize := .05
 	steps := 0
 	for idx, s := range start {
 		if idx >= len(end) {
 			break
 		}
-		mySteps := int(math.Ceil(math.Abs(end[idx]-s) / stepSize))
+		mySteps := int(math.Ceil(math.Abs(end[idx]-s) / defaultJointStepSizeRadians))
 		steps = max(mySteps, steps)
 	}
 	return steps
