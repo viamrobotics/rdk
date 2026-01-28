@@ -1583,9 +1583,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	revision := diff.NewRevision()
-	for _, res := range diff.UnmodifiedResources {
-		r.manager.updateRevision(res.ResourceName(), revision)
+	if existingConfig.Revision != newConfig.Revision {
+		revision := diff.NewRevision()
+		for _, res := range diff.UnmodifiedResources {
+			r.manager.updateRevision(res.ResourceName(), revision)
+		}
 	}
 
 	// this check is deferred because it has to happen at the end of reconfigure.
@@ -1851,12 +1853,20 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 
+	cfg := r.Config()
+
+	// resource configs were not modified, so add them all to the unmodified list. The list is used to
+	// determine which resources need to re-resolve their dependencies.
+	unmod := make([]resource.Config, len(cfg.Components), len(cfg.Components)+len(cfg.Services))
+	copy(unmod, cfg.Components)
+	unmod = append(unmod, cfg.Services...)
 	diff := config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{},
-		Removed:  &config.Config{},
+		Left:                cfg,
+		Right:               cfg,
+		Added:               &config.Config{},
+		Modified:            &config.ModifiedConfigDiff{},
+		Removed:             &config.Config{},
+		UnmodifiedResources: unmod,
 	}
 
 	r.reconfigurationLock.Lock()

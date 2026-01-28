@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
@@ -22,9 +23,10 @@ import (
 // resources in a different namespace. It exists to support tests that require more than
 // one module. It would be better to have a facility to create test modules on demand.
 var (
-	helperModel    = resource.NewModel("rdk", "test", "helper2")
-	testMotorModel = resource.NewModel("rdk", "test", "motor2")
-	myMod          *module.Module
+	helperModel              = resource.NewModel("rdk", "test", "helper2")
+	testMotorModel           = resource.NewModel("rdk", "test", "motor2")
+	testSensorDependentModel = resource.NewModel("rdk", "test", "sensordep")
+	myMod                    *module.Module
 )
 
 func main() {
@@ -54,6 +56,15 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		testMotorModel,
 		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newTestMotor})
 	err = myMod.AddModelFromRegistry(ctx, motor.API, testMotorModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterComponent(
+		sensor.API,
+		testSensorDependentModel,
+		resource.Registration[resource.Resource, resource.NoNativeConfig]{Constructor: newSensorDependent})
+	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
 	if err != nil {
 		return err
 	}
@@ -242,4 +253,24 @@ func (tm *testMotor) DoCommand(_ context.Context, _ map[string]interface{}) (map
 // IsMoving trivially implements motor.Motor.
 func (tm *testMotor) IsMoving(context.Context) (bool, error) {
 	return false, nil
+}
+
+// poorly named but for testing purposes
+func newSensorDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	return &sensorDependent{
+		Named: conf.ResourceName().AsNamed(),
+	}, nil
+}
+
+type sensorDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+}
+
+// Readings always returns a fake Reading.
+func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"hello": "world"}, nil
 }
