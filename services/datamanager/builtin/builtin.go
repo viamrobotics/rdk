@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 var (
@@ -85,6 +86,7 @@ type builtIn struct {
 	capture           *capture.Capture
 	sync              *datasync.Sync
 	diskSummaryLogger *diskSummaryLogger
+	syncDirs          []string
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -200,6 +202,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
+	b.syncDirs = syncConfig.SyncPaths()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
@@ -288,4 +291,36 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
+}
+
+type diskUsageStats struct {
+	AvailableBytes   uint64
+	SizeBytes        uint64
+	AvailablePercent float64
+	DirSummaries     []DirSummary
+}
+
+// Stats satisfies the ftdc.Statser interface and will return the disk usage statistics.
+func (b *builtIn) Stats() any {
+	ctx := context.Background()
+
+	var result diskUsageStats
+
+	usage, err := diskusage.Statfs(b.syncDirs[0])
+	if err == nil {
+		result = diskUsageStats{
+			AvailableBytes:   usage.AvailableBytes,
+			SizeBytes:        usage.SizeBytes,
+			AvailablePercent: usage.AvailablePercent(),
+		}
+	}
+
+	var summaries []DirSummary
+	for _, dir := range b.syncDirs {
+		summaries = append(summaries, DiskSummary(ctx, dir)...)
+	}
+
+	result.DirSummaries = summaries
+
+	return result
 }
