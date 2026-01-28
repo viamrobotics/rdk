@@ -383,8 +383,7 @@ func TestInterpolateSegmentFSLargeJointMovement(t *testing.T) {
 		FS:                 fs,
 	}
 
-	// Use a 1mm/1degree resolution (typical for collision checking)
-	resolution := 1.0
+	resolution := 1.
 
 	interpolated, err := InterpolateSegmentFS(segment, resolution)
 	test.That(t, err, test.ShouldBeNil)

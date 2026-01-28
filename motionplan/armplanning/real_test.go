@@ -427,7 +427,7 @@ func TestSandingWallCollision(t *testing.T) {
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 	plan, _, err := PlanMotion(ctx, logger, req)
 	test.That(t, err, test.ShouldBeNil)
-	
+
 	t.Run("check trajectory length", func(t *testing.T) {
 		test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 3)
 	})
