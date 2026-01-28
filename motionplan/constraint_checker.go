@@ -533,21 +533,12 @@ func segmentStepCount(ci *SegmentFS, resolution float64) (int, error) {
 }
 
 // jointStepSizeFromLimits computes the joint step size as 1/1000 of the largest limit range.
-// If limits are infinite, uses 5..
 func jointStepSizeFromLimits(limits []referenceframe.Limit) float64 {
 	var maxRange float64
 
-	// defaultJointLimitRange is used when a joint has infinite limits (e.g., continuous rotation).
-	defaultJointLimitRange := 5.0
 	for _, limit := range limits {
-		r := limit.Range()
-		if math.IsInf(r, 0) {
-			r = defaultJointLimitRange
-		}
+		_, _, r := limit.GoodLimits()
 		maxRange = max(maxRange, r)
-	}
-	if maxRange == 0 {
-		maxRange = defaultJointLimitRange
 	}
 	return maxRange / 1000
 }
