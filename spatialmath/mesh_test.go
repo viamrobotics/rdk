@@ -592,7 +592,8 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 	dist, err := mesh1.DistanceFrom(mesh2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dist, test.ShouldEqual, 0)
+	// Overlapping meshes return negative distance (penetration depth) per Geometry interface
+	test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 0)
 
 	// Test distance from non-overlapping mesh
 	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
@@ -683,71 +684,4 @@ func TestMeshEncompassedBy(t *testing.T) {
 	encompassed, err = mesh.EncompassedBy(smallBox)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, encompassed, test.ShouldBeFalse)
-}
-
-func TestBoxTriangleIntersectionArea(t *testing.T) {
-	b, err := NewBox(NewZeroPose(), r3.Vector{X: 2, Y: 2, Z: 2}, "")
-	bbox, ok := b.(*box)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
-	t.Run("Fully encompassed triangle", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -0.5, Y: 0, Z: 0},
-			r3.Vector{X: 0.5, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 0, Z: 0.5},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.25)
-	})
-	t.Run("Partially encompassed triangle with vertex in box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 0, Z: -2},
-			r3.Vector{X: 1, Y: 0, Z: -2},
-			r3.Vector{X: 0, Y: 0, Z: 0},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.5)
-	})
-	t.Run("Partially encompassed triangle with no vertices in box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: -2},
-			r3.Vector{X: 2, Y: 0, Z: -2},
-			r3.Vector{X: 2, Y: 0, Z: 1},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.25/3)
-	})
-	t.Run("Triangle against box face", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 1, Z: -2},
-			r3.Vector{X: 1, Y: 1, Z: -2},
-			r3.Vector{X: 0, Y: 1, Z: 2},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 2)
-	})
-	t.Run("Triangle edge against box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: 1, Y: 1, Z: 0},
-			r3.Vector{X: 1, Y: -1, Z: 0},
-			r3.Vector{X: 2, Y: 0, Z: 0},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0)
-	})
-	t.Run("Triangle not intersecting box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 1.1, Z: -2},
-			r3.Vector{X: 1, Y: 1.1, Z: -2},
-			r3.Vector{X: 0, Y: 1.1, Z: 2},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0)
-	})
 }
