@@ -342,6 +342,57 @@ func TestCollisionConstraints(t *testing.T) {
 	}
 }
 
+// TestInterpolateSegmentFSLargeJointMovement verifies that InterpolateSegmentFS produces enough
+// intermediate configurations when joint space movement is large, even if cartesian distance is small.
+// This catches the bug where only cartesian distance was used to calculate step count, missing cases
+// where an arm rotates a joint nearly 360 degrees to reach a nearby pose.
+//
+// These joint values are from TestSandingWallCollision where the planner produced a trajectory
+// with start/goal poses only 10mm apart but joint 1 swings ~384 degrees.
+func TestInterpolateSegmentFSLargeJointMovement(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur20.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// These are the actual joint values from the problematic trajectory in TestSandingWallCollision.
+	// Joint 1 changes from -3.336 to 3.379 radians (~384 degrees), while the end effector
+	// poses are only ~10mm apart.
+	startConfig := []referenceframe.Input{
+		1.0606116928015663,
+		-3.3364680561740925,
+		-0.18259589082216113,
+		1.901973150656734,
+		-1.534823224498082,
+		4.202838433465263,
+	}
+	endConfig := []referenceframe.Input{
+		1.0587534835302792,
+		3.3789657942093747,
+		-1.26485963000687,
+		-0.5893461906885675,
+		1.5347434325642373,
+		1.0593975466125363,
+	}
+
+	segment := &SegmentFS{
+		StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
+		EndConfiguration:   referenceframe.FrameSystemInputs{model.Name(): endConfig}.ToLinearInputs(),
+		FS:                 fs,
+	}
+
+	// Use a 1mm/1degree resolution (typical for collision checking)
+	resolution := 1.0
+
+	interpolated, err := InterpolateSegmentFS(segment, resolution)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Prior to joint space distance fix this emitted 11 interpolated positions
+	test.That(t, len(interpolated), test.ShouldBeGreaterThan, 350)
+}
+
 func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")

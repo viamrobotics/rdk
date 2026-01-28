@@ -412,7 +412,6 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 }
 
 func TestSandingWallCollision(t *testing.T) {
-
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -428,8 +427,6 @@ func TestSandingWallCollision(t *testing.T) {
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 	plan, _, err := PlanMotion(ctx, logger, req)
 	test.That(t, err, test.ShouldBeNil)
-
-	fmt.Println(len(plan.Trajectory()))
 
 	// Create plan context to validate the path
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
@@ -448,8 +445,8 @@ func TestSandingWallCollision(t *testing.T) {
 		// Default resolution passes
 		err := psc.checkPath(ctx, start, end, false)
 		test.That(t, err, test.ShouldBeNil)
-		
-		// Small resolution notices the collision
+
+		// Small resolution noticed the collision when we had large jumps
 		_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
 			ctx,
 			&motionplan.SegmentFS{

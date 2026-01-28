@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // short descriptions of constraints used in error messages.
@@ -318,10 +319,24 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 			return nil, err
 		}
 
-		// Calculate steps needed for this frame
+		// Calculate steps needed for this frame based on pose changes
 		steps := CalculateStepCount(startPos, endPos, resolution)
 		if steps > maxSteps {
 			maxSteps = steps
+		}
+
+		// Also check the maximum element distance in configuration space
+		// This ensures individual joint movements don't exceed the resolution
+		var maxConfigDist float64
+		for i := 0; i < len(startConfig); i++ {
+			configDist := math.Abs(endConfig[i] - startConfig[i])
+			if configDist > maxConfigDist {
+				maxConfigDist = configDist
+			}
+		}
+		configSteps := int(math.Abs(utils.RadToDeg(maxConfigDist) / resolution))
+		if configSteps > maxSteps {
+			maxSteps = configSteps
 		}
 	}
 
