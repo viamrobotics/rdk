@@ -411,6 +411,59 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 	test.That(t, zeros, test.ShouldBeLessThanOrEqualTo, 0)
 }
 
+func TestSandingWallCollision(t *testing.T) {
+
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t).Sublogger("mp")
+	ctx := context.Background()
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/sanding-collision-with-wall.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+	plan, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	fmt.Println(len(plan.Trajectory()))
+
+	// Create plan context to validate the path
+	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	test.That(t, err, test.ShouldBeNil)
+
+	trajectory := plan.Trajectory()
+	smallResolution := 0.001
+
+	for j := 0; j < len(trajectory)-1; j++ {
+		start := trajectory[j].ToLinearInputs()
+		end := trajectory[j+1].ToLinearInputs()
+
+		// Default resolution passes
+		err := psc.checkPath(ctx, start, end, false)
+		test.That(t, err, test.ShouldBeNil)
+		
+		// Small resolution notices the collision
+		_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
+			ctx,
+			&motionplan.SegmentFS{
+				StartConfiguration: start,
+				EndConfiguration:   end,
+				FS:                 pc.fs,
+			},
+			smallResolution,
+			true,
+		)
+		test.That(t, err, test.ShouldBeNil)
+	}
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()
