@@ -1025,13 +1025,18 @@ type RestartStatusResponse struct {
 	// older versions won't report it at all, and agent should let viamserver handle
 	// NeedsRestart logic.
 	DoesNotHandleNeedsRestart bool `json:"does_not_handle_needs_restart,omitempty"`
+	// ModuleServerTCPAddr is the TCP address of the module server, if available.
+	// The module server can be used for unauthenticated local RPC calls.
+	ModuleServerTCPAddr string `json:"module_server_tcp_addr,omitempty"`
 }
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
 		DoesNotHandleNeedsRestart: true,
+		ModuleServerTCPAddr:       modAddrs.TCPAddr,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
