@@ -155,6 +155,18 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 	return err
 }
 
+func (psc *planSegmentContext) displacement(ctx context.Context, start, end *referenceframe.LinearInputs) float64 {
+	ctx, span := trace.StartSpan(ctx, "displacement")
+	defer span.End()
+	return motionplan.FSDisplacementDistance(
+		&motionplan.SegmentFS{
+			StartConfiguration: start,
+			EndConfiguration:   end,
+			FS:                 psc.pc.fs,
+		},
+	)
+}
+
 func translateGoalsToWorldPosition(
 	fs *referenceframe.FrameSystem,
 	start *referenceframe.LinearInputs,
