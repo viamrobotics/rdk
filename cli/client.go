@@ -29,6 +29,7 @@ import (
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -1305,6 +1306,72 @@ func RobotsPartStatusAction(c *cli.Context, args robotsPartStatusArgs) error {
 
 	printMachinePartStatus(c, []*apppb.RobotPart{part})
 
+	return nil
+}
+
+type robotsPartAddFragmentArgs struct {
+	Organization string
+	Location     string
+	Machine      string
+	Part         string
+}
+
+func RobotsPartAddFragmentAction(c *cli.Context, args robotsPartAddFragmentArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	fragmentResp, err := client.client.ListFragments(c.Context, &apppb.ListFragmentsRequest{})
+	if err != nil {
+		return err
+	}
+
+	pbFragments := fragmentResp.Fragments
+
+	idx, err := fuzzyfinder.Find(pbFragments, func(i int) string { return pbFragments[i].Name })
+	if err != nil {
+		return err
+	}
+
+	idToAdd := pbFragments[idx].Id
+	nameToAdd := pbFragments[idx].Name
+
+	conf := part.RobotConfig.AsMap()
+	fragments, ok := conf["fragments"].([]any)
+	if !ok || fragments == nil {
+		fragments = []any{}
+	}
+
+	for _, fragment := range fragments {
+		fragment := fragment.(map[string]any)
+		for k, v := range fragment {
+			if k == "id" && v.(string) == idToAdd {
+				return fmt.Errorf("fragment %s already exists on part %s", nameToAdd, part.Name)
+			}
+		}
+	}
+
+	newFragment := map[string]any{"id": idToAdd}
+	fragments = append(fragments, newFragment)
+	conf["fragments"] = fragments
+	pbConf, err := protoutils.StructToStructPb(conf)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConf}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added fragment %s to part %s", nameToAdd, part.Name)
 	return nil
 }
 

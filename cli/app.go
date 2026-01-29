@@ -2597,6 +2597,13 @@ Note: There is no progress meter while copying is in progress.
 							HideHelpCommand: true,
 							Subcommands: []*cli.Command{
 								{
+									Name:      "add",
+									Usage:     "add a fragment to a part",
+									UsageText: createUsageText("machines part fragments add", []string{generalFlagPart}, true, false),
+									Flags:     commonPartFlags,
+									Action:    createCommandWithT(RobotsPartAddFragmentAction),
+								},
+								{
 									Name:      "remove",
 									Usage:     "remove a fragment from a part",
 									UsageText: createUsageText("machines part fragments remove", []string{generalFlagPart}, true, false),
