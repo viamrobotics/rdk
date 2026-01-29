@@ -270,9 +270,9 @@ func TestCollisionConstraints(t *testing.T) {
 		failName string
 	}{
 		{zeroPos, true, ""},
-		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 0, 0}, true, ""},
+		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 0, 0}, true, ""},
 		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
-		{[]referenceframe.Input{math.Pi / 2, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
+		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 
 	// define external obstacles
@@ -340,6 +340,97 @@ func TestCollisionConstraints(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCalculateJointStepCount(t *testing.T) {
+	t.Run("no movement", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{0, 0, 0}
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 0)
+	})
+
+	t.Run("small movement under step size", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{0.04, 0, 0} // 0.04 rad < defaultJointStepSizeRadians
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 1)
+	})
+
+	t.Run("one radian movement", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{1.0, 0, 0} // 1 rad / defaultJointStepSizeRadians = 20 steps
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 20)
+	})
+
+	t.Run("large joint movement from sanding collision bug", func(t *testing.T) {
+		// Joint 1 from TestSandingWallCollision moves ~6.7 radians
+		start := []float64{1.06, -3.336, -0.18, 1.90, -1.53, 4.20}
+		end := []float64{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
+		// Joint 1 moves 6.715 rad / 0.05 = 135 steps
+		steps := calculateJointStepCount(start, end, 0.05)
+		test.That(t, steps, test.ShouldEqual, 135)
+	})
+}
+
+// TestSegmentStepCount tests that segmentStepCount correctly emits step count from either joint or cartesian excursion
+func TestSegmentStepCount(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur20.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	jointStepSize := jointStepSizeFromLimits(model.DoF())
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	startConfig := []referenceframe.Input{1.06, -3.336, -0.18, 1.90, -1.53, 4.20}
+	startPos, err := model.Transform(startConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("joint steps dominate when cartesian distance is small", func(t *testing.T) {
+		// For a ur20 this config is very close to startConfig in cartesian space but far away in joint space
+		endConfig := []referenceframe.Input{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
+		segment := &SegmentFS{
+			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{model.Name(): endConfig}.ToLinearInputs(),
+			FS:                 fs,
+		}
+		endPos, err := model.Transform(endConfig)
+		test.That(t, err, test.ShouldBeNil)
+
+		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
+
+		totalSteps, err := segmentStepCount(segment, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Joint steps should dominate over cartesian for this trajectory
+		test.That(t, jointSteps, test.ShouldBeGreaterThan, cartesianSteps)
+
+		// segmentStepCount should return the joint step count
+		test.That(t, totalSteps, test.ShouldEqual, jointSteps)
+	})
+
+	t.Run("cartesian steps dominate when joint distance is small", func(t *testing.T) {
+		// Joints are close to startConfig, but quite far in cartesian space
+		endConfig := []referenceframe.Input{1.06, -3.379, -1.26, -0.59, 1.53, 1.06}
+		segment := &SegmentFS{
+			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{model.Name(): endConfig}.ToLinearInputs(),
+			FS:                 fs,
+		}
+		endPos, err := model.Transform(endConfig)
+		test.That(t, err, test.ShouldBeNil)
+
+		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
+
+		totalSteps, err := segmentStepCount(segment, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Cartesian steps should dominate over joint for this trajectory
+		test.That(t, cartesianSteps, test.ShouldBeGreaterThan, jointSteps)
+
+		// segmentStepCount should return the cartesian step count
+		test.That(t, totalSteps, test.ShouldEqual, cartesianSteps)
+	})
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {

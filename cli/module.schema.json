@@ -98,7 +98,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Cloud build iterates over this and buidls for each listed platform.",
+          "description": "Cloud build iterates over this and builds for each listed platform.",
           "default": ["linux/amd64", "linux/arm64"]
         },
         "darwin_deps": {

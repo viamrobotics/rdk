@@ -1439,6 +1439,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	//
+	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
+	r.applyLocalModuleVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1469,11 +1476,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		)
 		return
 	}
-	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
-	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
-	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
-	// can unpack it into a fresh directory rather than reusing the previous one.
-	r.applyLocalModuleVersions(newConfig)
+
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
@@ -1580,9 +1583,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	revision := diff.NewRevision()
-	for _, res := range diff.UnmodifiedResources {
-		r.manager.updateRevision(res.ResourceName(), revision)
+	if existingConfig.Revision != newConfig.Revision {
+		revision := diff.NewRevision()
+		for _, res := range diff.UnmodifiedResources {
+			r.manager.updateRevision(res.ResourceName(), revision)
+		}
 	}
 
 	// this check is deferred because it has to happen at the end of reconfigure.
@@ -1848,12 +1853,20 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 
+	cfg := r.Config()
+
+	// resource configs were not modified, so add them all to the unmodified list. The list is used to
+	// determine which resources need to re-resolve their dependencies.
+	unmod := make([]resource.Config, len(cfg.Components), len(cfg.Components)+len(cfg.Services))
+	copy(unmod, cfg.Components)
+	unmod = append(unmod, cfg.Services...)
 	diff := config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{},
-		Removed:  &config.Config{},
+		Left:                cfg,
+		Right:               cfg,
+		Added:               &config.Config{},
+		Modified:            &config.ModifiedConfigDiff{},
+		Removed:             &config.Config{},
+		UnmodifiedResources: unmod,
 	}
 
 	r.reconfigurationLock.Lock()

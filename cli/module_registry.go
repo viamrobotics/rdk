@@ -1050,13 +1050,14 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 
 type downloadModuleFlags struct {
 	Destination string
-	ID          string
+	ModuleID    string
+	OrgID       string
 	Version     string
 	Platform    string
 }
 
 func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
-	moduleID := flags.ID
+	moduleID := flags.ModuleID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
@@ -1064,46 +1065,59 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 		}
 		moduleID = manifest.ModuleID
 	}
+
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
 	res, err := c.client.GetModule(ctx.Context, req)
 	if err != nil {
 		return "", err
 	}
-	if len(res.Module.Versions) == 0 {
-		return "", errors.New("module has 0 uploaded versions, nothing to download")
-	}
 	requestedVersion := flags.Version
-	var ver *apppb.VersionHistory
-	if requestedVersion == "latest" {
-		ver = res.Module.Versions[len(res.Module.Versions)-1]
-	} else {
-		for _, iVer := range res.Module.Versions {
-			if iVer.Version == requestedVersion {
-				ver = iVer
-				break
+	platform := flags.Platform
+
+	// if not reload version, validate module versions
+	var fullVersion string
+	var packageID string
+	if !IsReloadVersion(requestedVersion) {
+		if len(res.Module.Versions) == 0 {
+			return "", errors.New("module has 0 uploaded versions, nothing to download")
+		}
+
+		var ver *apppb.VersionHistory
+		if requestedVersion == "latest" {
+			ver = res.Module.Versions[len(res.Module.Versions)-1]
+		} else {
+			for _, iVer := range res.Module.Versions {
+				if iVer.Version == requestedVersion {
+					ver = iVer
+					break
+				}
+			}
+			if ver == nil {
+				return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 			}
 		}
-		if ver == nil {
-			return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		if len(ver.Files) == 0 {
+			return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 		}
-	}
-	if len(ver.Files) == 0 {
-		return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
-	}
-	platform := flags.Platform
-	if platform == "" {
-		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-		infof(ctx.App.ErrWriter, "using default platform %s", platform)
-	}
-	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-		return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+
+		if platform == "" {
+			platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+			infof(ctx.App.ErrWriter, "using default platform %s", platform)
+		}
+		if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+			return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+		}
+		fullVersion = fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+		packageID = strings.ReplaceAll(moduleID, ":", "/")
+	} else {
+		fullVersion = fmt.Sprintf("%s-%s", requestedVersion, strings.ReplaceAll(platform, "/", "-"))
+		packageID = fmt.Sprintf("%s/%s", flags.OrgID, res.Module.Name)
 	}
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
 	// note: this is working around a GetPackage quirk where platform messes with version
-	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
 	pkg, err := c.packageClient.GetPackage(ctx.Context, &packagespb.GetPackageRequest{
-		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+		Id:         packageID,
 		Version:    fullVersion,
 		IncludeUrl: &include,
 		Type:       &packageType,

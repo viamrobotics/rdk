@@ -32,6 +32,9 @@ type datasetCreateArgs struct {
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
 func DatasetCreateAction(c *cli.Context, args datasetCreateArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to create a dataset")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -89,6 +92,9 @@ type datasetMergeArgs struct {
 
 // DatasetMergeAction is the corresponding action for 'dataset merge'.
 func DatasetMergeAction(c *cli.Context, args datasetMergeArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to merge datasets")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -127,9 +133,6 @@ func DatasetListAction(c *cli.Context, args datasetListArgs) error {
 	datasetIDs := args.DatasetIDs
 	orgID := args.OrgID
 
-	if orgID != "" && datasetIDs != nil {
-		return errors.New("must specify either dataset IDs or organization ID, got both")
-	}
 	if datasetIDs != nil {
 		if err := client.listDatasetByIDs(datasetIDs); err != nil {
 			return err

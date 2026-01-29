@@ -41,7 +41,7 @@ func TestModularMain(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			if runtime.GOOS == "windows" && tc.UdsMode {
-				t.Skip("todo: test currently does not work on windows CI runners")
+				t.Skip("TODO(RSDK-12871): get this working on win")
 			}
 			t.Parallel()
 			logger := logging.NewTestLogger(t)
