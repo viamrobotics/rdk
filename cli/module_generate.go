@@ -226,7 +226,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	if registryURL != "" {
 		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
 	}
-	if runtime.GOOS == "windows" && newModule.Language == "python" {
+	if runtime.GOOS == osWindows && newModule.Language == "python" { //nolint:goconst
 		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
 			"You can test locally and then use `viam module upload` to manually upload,\n"+
 			"but the uploaded module will only work on Windows.\n"+
@@ -602,10 +602,10 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
 			// Copy .bat files for windows and .sh files for everything else
-			if runtime.GOOS == "windows" && strings.HasSuffix(d.Name(), ".sh") {
+			if runtime.GOOS == osWindows && strings.HasSuffix(d.Name(), ".sh") {
 				return nil
 			}
-			if runtime.GOOS != "windows" && strings.HasSuffix(d.Name(), ".bat") {
+			if runtime.GOOS != osWindows && strings.HasSuffix(d.Name(), ".bat") {
 				return nil
 			}
 			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", filePath)
@@ -627,7 +627,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			if err != nil {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
-			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != "windows" {
+			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != osWindows {
 				//nolint:gosec
 				err = os.Chmod(destPath, 0o750)
 				if err != nil {
@@ -769,7 +769,7 @@ func checkGoPath() (string, error) {
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
 	pythonCmd := "python3"
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		pythonCmd = "python"
 	}
 	cmd := exec.Command(pythonCmd, "--version")
@@ -788,11 +788,12 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
-	
+
 	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == osWindows {
 		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
 	}
+	//nolint:gosec
 	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
@@ -967,7 +968,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "setup.bat",
 				Build: "build.bat",
@@ -984,12 +985,14 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		}
 		manifest.Entrypoint = "dist/main"
 	case golang:
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == osWindows {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "go mod tidy",
-				Build: "go build -tags no_cgo -o bin\\" + module.ModuleName + ".exe cmd/module/main.go && tar czf module.tar.gz meta.json bin/" + module.ModuleName + ".exe",
-				Path:  "module.tar.gz",
-				Arch:  []string{"windows/amd64"},
+				Build: "go build -tags no_cgo -o bin\\" + module.ModuleName +
+					".exe cmd/module/main.go && tar czf module.tar.gz meta.json bin\\" +
+					module.ModuleName + ".exe",
+				Path: "module.tar.gz",
+				Arch: []string{"windows/amd64"},
 			}
 			manifest.Entrypoint = fmt.Sprintf("bin\\%s.exe", module.ModuleName)
 		} else {
