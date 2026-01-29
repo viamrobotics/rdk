@@ -79,11 +79,6 @@ jobs:
         chown -R testbot:testbot .
         sudo -Hu testbot bash -lc 'make clean-all'
 
-    - name: Install MinGW for Windows builds
-      if: matrix.target == 'static-release-win'
-      run: |
-        apt-get update && apt-get install -y mingw-w64
-
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v2
       with:
