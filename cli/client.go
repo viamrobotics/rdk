@@ -1316,6 +1316,7 @@ type robotsPartAddFragmentArgs struct {
 	Part         string
 }
 
+// RobotsPartAddFragmentAction is the corresponding action for 'machines part fragments add'
 func RobotsPartAddFragmentAction(c *cli.Context, args robotsPartAddFragmentArgs) error {
 	client, err := newViamClient(c)
 	if err != nil {
