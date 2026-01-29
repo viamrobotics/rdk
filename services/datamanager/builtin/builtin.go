@@ -82,11 +82,10 @@ type builtIn struct {
 	resource.Named
 	logger logging.Logger
 
-	mu                sync.Mutex
-	capture           *capture.Capture
-	sync              *datasync.Sync
-	diskSummaryLogger *diskSummaryLogger
-	syncDirs          []string
+	mu       sync.Mutex
+	capture  *capture.Capture
+	sync     *datasync.Sync
+	syncDirs []string
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -111,13 +110,12 @@ func New(
 		clk,
 		logger.Sublogger("sync"),
 	)
-	diskSummaryLogger := newDiskSummaryLogger(logger)
+
 	svc := &builtIn{
-		Named:             conf.ResourceName().AsNamed(),
-		logger:            logger,
-		capture:           capture,
-		sync:              sync,
-		diskSummaryLogger: diskSummaryLogger,
+		Named:   conf.ResourceName().AsNamed(),
+		logger:  logger,
+		capture: capture,
+		sync:    sync,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -132,7 +130,6 @@ func (b *builtIn) Close(ctx context.Context) error {
 	defer b.logger.Info("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.diskSummaryLogger.close()
 	b.capture.Close(ctx)
 	b.sync.Close()
 	return nil
@@ -208,7 +205,6 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and cauing bugs due to duplicate work.
-	b.diskSummaryLogger.reconfigure(syncConfig.SyncPaths(), diskSummaryLogInterval)
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
@@ -299,10 +295,15 @@ type diskUsageStats struct {
 		SizeGB           float64
 		AvailablePercent float64
 	}
+	CaptureDirs struct {
+		TotalFiles     int64
+		TotalSizeBytes int64
+	}
 }
 
-// Stats satisfies the ftdc.Statser interface and will return the disk usage statistics.
+// Stats satisfies the ftdc.Statser interface and will return the disk usage and capture directory statistics.
 func (b *builtIn) Stats() any {
+	ctx := context.Background()
 	var result diskUsageStats
 
 	usage, err := diskusage.Statfs(b.syncDirs[0])
@@ -310,6 +311,14 @@ func (b *builtIn) Stats() any {
 		result.DiskUsage.AvailableGB = float64(usage.AvailableBytes) / (1 << 30)
 		result.DiskUsage.SizeGB = float64(usage.SizeBytes) / (1 << 30)
 		result.DiskUsage.AvailablePercent = usage.AvailablePercent()
+	}
+
+	for _, dir := range b.syncDirs {
+		summaries := DiskSummary(ctx, dir)
+		for _, summary := range summaries {
+			result.CaptureDirs.TotalFiles += summary.FileCount
+			result.CaptureDirs.TotalSizeBytes += summary.FileSize
+		}
 	}
 
 	return result
