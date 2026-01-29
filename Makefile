@@ -103,10 +103,9 @@ full-static:
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
 # CGO is enabled to support camera/videosource (webcams), but -tags no_cgo excludes motion planning (nlopt).
 # The camera_register_cgo tag allows camera registration despite no_cgo being set.
-# Requires MinGW cross-compiler.
 windows:
 	mkdir -p bin/windows
-	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -tags no_cgo,camera_register_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-amd64.exe ./web/cmd/server
+	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags no_cgo,camera_register_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-amd64.exe ./web/cmd/server
 	cd bin/windows && zip viam.zip viam-server-amd64.exe
 
 server-static-compressed: server-static
