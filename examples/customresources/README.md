@@ -75,11 +75,3 @@ This is a minimal version of a custom resource module, using the built-in Generi
   * This uses module.json
   * This automatically compiles the module itself first, which can be done manually with `make module`.
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
-
-#### Running
-* From within the demo's directory
-* Run the server implementing custom resources `make run-remote`.
-  * This uses remote.json
-* From a second terminal, run a standard server connecting to the custom resource server as a remote `make run-parent`.
-  * This uses parent.json
-* From a third terminal, run the client that has loaded the custom gizmo api, and talks to it via the parent `make run-client`.
