@@ -294,33 +294,23 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 }
 
 type diskUsageStats struct {
-	AvailableBytes   uint64
-	SizeBytes        uint64
-	AvailablePercent float64
-	DirSummaries     []DirSummary
+	DiskUsage struct {
+		AvailableGB      float64
+		SizeGB           float64
+		AvailablePercent float64
+	}
 }
 
 // Stats satisfies the ftdc.Statser interface and will return the disk usage statistics.
 func (b *builtIn) Stats() any {
-	ctx := context.Background()
-
 	var result diskUsageStats
 
 	usage, err := diskusage.Statfs(b.syncDirs[0])
 	if err == nil {
-		result = diskUsageStats{
-			AvailableBytes:   usage.AvailableBytes,
-			SizeBytes:        usage.SizeBytes,
-			AvailablePercent: usage.AvailablePercent(),
-		}
+		result.DiskUsage.AvailableGB = float64(usage.AvailableBytes) / (1 << 30)
+		result.DiskUsage.SizeGB = float64(usage.SizeBytes) / (1 << 30)
+		result.DiskUsage.AvailablePercent = usage.AvailablePercent()
 	}
-
-	var summaries []DirSummary
-	for _, dir := range b.syncDirs {
-		summaries = append(summaries, DiskSummary(ctx, dir)...)
-	}
-
-	result.DirSummaries = summaries
 
 	return result
 }
