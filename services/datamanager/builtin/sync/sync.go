@@ -59,13 +59,6 @@ type atomicStat struct {
 	uploadFailedFileCount atomic.Uint64
 }
 
-// fileDeletionStats tracks cumulative file deletion metrics for FTDC.
-type fileDeletionStats struct {
-	deletedFileCount atomic.Int64 // Total files deleted since process start
-	deletionRunCount atomic.Int64 // Total deletion runs that resulted in deletions
-	errorCount       atomic.Int64 // Total deletion errors encountered
-}
-
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
 // to the cloud & deleting the upload files.
 // It also manages deleting files if capture is enabled and the disk is about to fill up.
@@ -85,7 +78,7 @@ type Sync struct {
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock             clock.Clock
 	atomicUploadStats *atomicUploadStats
-	fileDeletionStats fileDeletionStats
+	deletedFileCount  atomic.Int64
 
 	configMu sync.Mutex
 	config   Config
@@ -201,17 +194,17 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
-				&s.fileDeletionStats,
+				&s.deletedFileCount,
 			)
 		})
 	}
 }
 
-// Stats returns file deletion and upload metrics for FTDC.
-func (s *Sync) Stats() any {
+// GetStats returns file deletion and upload metrics.
+func (s *Sync) GetStats() any {
 	return map[string]any{
 		// File deletion metrics.
-		"CapacityDeletionFileCount": s.fileDeletionStats.deletedFileCount.Load(),
+		"CapacityDeletionFileCount": s.deletedFileCount.Load(),
 
 		// Upload metrics - arbitrary files.
 		"ArbitraryUploadedFileCount":     s.atomicUploadStats.arbitrary.uploadedFileCount.Load(),
