@@ -1,4 +1,4 @@
-//go:build !no_cgo
+//go:build !no_cgo || camera_register_cgo
 
 // Package register registers all relevant cameras and also API specific functions
 package register
