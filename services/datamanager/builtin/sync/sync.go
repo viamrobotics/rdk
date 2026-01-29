@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -43,10 +44,27 @@ const (
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
-	// syncStatsLogInterval is the interval at which statistics about
-	// data sync are logged.
-	syncStatsLogInterval = time.Minute
 )
+
+// atomicUploadStats tracks cumulative upload statistics for FTDC.
+type atomicUploadStats struct {
+	binary    atomicStat
+	tabular   atomicStat
+	arbitrary atomicStat
+}
+
+type atomicStat struct {
+	uploadedFileCount     atomic.Uint64
+	uploadedBytes         atomic.Uint64
+	uploadFailedFileCount atomic.Uint64
+}
+
+// fileDeletionStats tracks cumulative file deletion metrics for FTDC.
+type fileDeletionStats struct {
+	deletedFileCount atomic.Int64 // Total files deleted since process start
+	deletionRunCount atomic.Int64 // Total deletion runs that resulted in deletions
+	errorCount       atomic.Int64 // Total deletion errors encountered
+}
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
 // to the cloud & deleting the upload files.
@@ -67,6 +85,7 @@ type Sync struct {
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock             clock.Clock
 	atomicUploadStats *atomicUploadStats
+	fileDeletionStats fileDeletionStats
 
 	configMu sync.Mutex
 	config   Config
@@ -80,7 +99,6 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
-	statsWorker         *statsWorker
 	// MaxSyncThreads only exists for tests
 	MaxSyncThreads int
 }
@@ -94,7 +112,6 @@ func New(
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
 	var atomicUploadStats atomicUploadStats
-	statsWorker := newStatsWorker(logger)
 	s := Sync{
 		clock:               clock,
 		configCtx:           configCtx,
@@ -107,7 +124,6 @@ func New(
 		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:           cloudConn{ready: make(chan struct{})},
 		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:         statsWorker,
 		atomicUploadStats:   &atomicUploadStats,
 	}
 	return &s
@@ -134,7 +150,6 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		return
 	}
 	// config changed... stop workers
-	s.statsWorker.reconfigure(s.atomicUploadStats, syncStatsLogInterval)
 	s.config.logDiff(config, s.logger)
 
 	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
@@ -186,15 +201,38 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
+				&s.fileDeletionStats,
 			)
 		})
+	}
+}
+
+// Stats returns file deletion and upload metrics for FTDC.
+func (s *Sync) Stats() any {
+	return map[string]any{
+		// File deletion metrics.
+		"CapacityDeletionFileCount": s.fileDeletionStats.deletedFileCount.Load(),
+
+		// Upload metrics - arbitrary files.
+		"ArbitraryUploadedFileCount":     s.atomicUploadStats.arbitrary.uploadedFileCount.Load(),
+		"ArbitraryUploadedBytes":         s.atomicUploadStats.arbitrary.uploadedBytes.Load(),
+		"ArbitraryUploadFailedFileCount": s.atomicUploadStats.arbitrary.uploadFailedFileCount.Load(),
+
+		// Upload metrics - binary sensor data.
+		"BinaryUploadedFileCount":     s.atomicUploadStats.binary.uploadedFileCount.Load(),
+		"BinaryUploadedBytes":         s.atomicUploadStats.binary.uploadedBytes.Load(),
+		"BinaryUploadFailedFileCount": s.atomicUploadStats.binary.uploadFailedFileCount.Load(),
+
+		// Upload metrics - tabular sensor data.
+		"TabularUploadedFileCount":     s.atomicUploadStats.tabular.uploadedFileCount.Load(),
+		"TabularUploadedBytes":         s.atomicUploadStats.tabular.uploadedBytes.Load(),
+		"TabularUploadFailedFileCount": s.atomicUploadStats.tabular.uploadFailedFileCount.Load(),
 	}
 }
 
 // Close releases all resources managed by data sync.
 func (s *Sync) Close() {
 	s.configCancelFunc()
-	s.statsWorker.close()
 	s.FileDeletingWorkers.Stop()
 	s.Scheduler.Stop()
 	s.workersWg.Wait()

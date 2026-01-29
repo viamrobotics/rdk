@@ -28,6 +28,7 @@ func deleteExcessFilesOnSchedule(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
+	deletionStats *fileDeletionStats,
 ) {
 	if runtime.GOOS == "android" {
 		logger.Debug("file deletion if disk is full is not currently supported on Android")
@@ -44,7 +45,9 @@ func deleteExcessFilesOnSchedule(
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			maybeDeleteExcessFiles(ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger)
+			maybeDeleteExcessFiles(
+				ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger, deletionStats,
+			)
 		}
 	}
 }
@@ -58,11 +61,10 @@ func maybeDeleteExcessFiles(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
+	deletionStats *fileDeletionStats,
 ) {
 	start := clock.Now()
-	logger.Debug("checking disk usage")
 	usage, err := diskusage.Statfs(captureDir)
-	logger.Debugf("disk usage: %s", usage)
 	if err != nil {
 		logger.Error(errors.Wrap(err, "error checking file system stats"))
 		return
@@ -88,9 +90,9 @@ func maybeDeleteExcessFiles(
 	case err != nil:
 		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.String())
 	case deletedFileCount > 0:
-		logger.Infof("%d files have been deleted to avoid the disk filling up, execution time: %s", deletedFileCount, duration.String())
-	default:
-		logger.Debugf("no files deleted, execution time: %s", duration)
+		if deletionStats != nil {
+			deletionStats.deletedFileCount.Add(int64(deletedFileCount))
+		}
 	}
 }
 

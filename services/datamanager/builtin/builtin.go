@@ -289,36 +289,39 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
 
-type diskUsageStats struct {
-	DiskUsage struct {
-		AvailableGB      float64
-		SizeGB           float64
-		AvailablePercent float64
-	}
-	CaptureDirs struct {
-		TotalFiles     int64
-		TotalSizeBytes int64
-	}
-}
-
-// Stats satisfies the ftdc.Statser interface and will return the disk usage and capture directory statistics.
+// Stats satisfies the ftdc.Statser interface and will return the disk usage and sync statistics.
 func (b *builtIn) Stats() any {
 	ctx := context.Background()
-	var result diskUsageStats
+	result := make(map[string]any)
 
+	// Disk usage stats.
 	usage, err := diskusage.Statfs(b.syncDirs[0])
 	if err == nil {
-		result.DiskUsage.AvailableGB = float64(usage.AvailableBytes) / (1 << 30)
-		result.DiskUsage.SizeGB = float64(usage.SizeBytes) / (1 << 30)
-		result.DiskUsage.AvailablePercent = usage.AvailablePercent()
+		result["DiskUsage"] = map[string]any{
+			"AvailableGB":      float64(usage.AvailableBytes) / (1 << 30),
+			"SizeGB":           float64(usage.SizeBytes) / (1 << 30),
+			"AvailablePercent": usage.AvailablePercent(),
+		}
 	}
 
-	for _, dir := range b.syncDirs {
-		summaries := DiskSummary(ctx, dir)
-		for _, summary := range summaries {
-			result.CaptureDirs.TotalFiles += summary.FileCount
-			result.CaptureDirs.TotalSizeBytes += summary.FileSize
+	// Sync stats.
+	if b.sync != nil {
+		syncStats := b.sync.Stats().(map[string]any)
+
+		// Add unsynced file stats.
+		var totalFiles int64
+		var totalBytes int64
+		for _, dir := range b.syncDirs {
+			summaries := DiskSummary(ctx, dir)
+			for _, summary := range summaries {
+				totalFiles += summary.FileCount
+				totalBytes += summary.FileSize
+			}
 		}
+		syncStats["TotalUnsyncedFiles"] = totalFiles
+		syncStats["TotalUnsyncedSizeBytes"] = totalBytes
+
+		result["Sync"] = syncStats
 	}
 
 	return result
