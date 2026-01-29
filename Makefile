@@ -108,7 +108,7 @@ full-static:
 windows:
 	mkdir -p bin/windows
 	CGO_ENABLED=1 CC=gcc CXX=g++ go build -tags no_cgo,camera_register_cgo $(GCFLAGS) \
-		-ldflags="-extldflags='-static -static-libgcc -static-libstdc++' $(COMMON_LDFLAGS)" \
+		-ldflags="-extldflags=-static -extldflags=-static-libgcc -extldflags=-static-libstdc++ $(COMMON_LDFLAGS)" \
 		-o bin/windows/viam-server-amd64.exe ./web/cmd/server
 	cd bin/windows && zip viam.zip viam-server-amd64.exe
 

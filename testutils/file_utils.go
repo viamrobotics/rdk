@@ -70,7 +70,7 @@ func BuildViamServer(tb testing.TB) string {
 		//nolint:gosec
 		builder = exec.Command(
 			"go", "build", "-tags", "no_cgo,camera_register_cgo,osusergo,netgo",
-			"-ldflags=-extldflags='-static -static-libgcc -static-libstdc++' -s -w",
+			"-ldflags=-extldflags=-static -extldflags=-static-libgcc -extldflags=-static-libstdc++ -s -w",
 			"-o", serverPath,
 			"./web/cmd/server",
 		)
