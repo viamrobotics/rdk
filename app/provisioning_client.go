@@ -33,18 +33,12 @@ type GetSmartMachineStatusResponse struct {
 	Errors                     []string
 }
 
-// ProvisioningAPIKey contains an API key ID and the key value.
-type ProvisioningAPIKey struct {
-	ID  string
-	Key string
-}
-
 // CloudConfig is the minimal config to create a /etc/viam.json, containing the smart machine's part ID and secret.
 type CloudConfig struct {
 	ID         string
 	Secret     string
 	AppAddress string
-	APIKey     *ProvisioningAPIKey
+	APIKey     *APIKey
 }
 
 // ProvisioningClient is a gRPC client for method calls to the Provisioning API.
@@ -134,13 +128,13 @@ func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusRespon
 	}
 }
 
-func apiKeyToProto(provisioningAPIKey *ProvisioningAPIKey) *pb.APIKey {
-	if provisioningAPIKey == nil {
+func apiKeyToProto(apiKey *APIKey) *pb.APIKey {
+	if apiKey == nil {
 		return nil
 	}
 	return &pb.APIKey{
-		Id:  provisioningAPIKey.ID,
-		Key: provisioningAPIKey.Key,
+		Id:  apiKey.ID,
+		Key: apiKey.Key,
 	}
 }
 

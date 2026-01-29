@@ -56,7 +56,7 @@ var (
 		LastestConnectionAttempt:   &networkInfo,
 		Errors:                     errorList,
 	}
-	apiKeyConfig = ProvisioningAPIKey{
+	apiKeyConfig = APIKey{
 		ID:  "api-key-id",
 		Key: "api-key-value",
 	}
