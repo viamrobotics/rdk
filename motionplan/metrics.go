@@ -168,33 +168,33 @@ func NewScaledSquaredNormMetric(goalPose spatial.Pose, orientationScale float64)
 // FSDisplacementDistance measures the summed cartesian displacement for all nonzero-dof frames across the segment at a given resolution.
 func FSDisplacementDistance(segment *SegmentFS) float64 {
 	// resolution can be a lot looser than for collision checking here
-	resolution := 5.
+	displacementResolution := 5.
 	// return interpolated segments for nonzero dof frames
-	interpConfigs, err := InterpolateSegmentFS(segment, resolution)
+	interpConfigs, err := InterpolateSegmentFS(segment, displacementResolution)
 	if err != nil {
 		return math.Inf(1)
 	}
-	
+
 	dist := 0.
-	lastPoseStore := map[string]spatial.Pose{}
-	
-	for _, interpCfg := range interpConfigs {
-		for frameName, cfg := range interpCfg.Items() {
+	previousPoses := map[string]spatial.Pose{}
+
+	for _, config := range interpConfigs {
+		for frameName, inputs := range config.Items() {
 			frame := segment.FS.Frame(frameName)
 			if frame == nil {
 				return math.Inf(1)
 			}
 
 			// Calculate this step's pose. If we're not the first step, measure distance to the last step. Store for next iteration.
-			stepPose, err := frame.Transform(cfg)
+			currentPose, err := frame.Transform(inputs)
 			if err != nil {
 				return math.Inf(1)
 			}
-			
-			if lastPose, ok := lastPoseStore[frameName]; ok {
-				dist += WeightedSquaredNormDistance(lastPose, stepPose)
+
+			if lastPose, ok := previousPoses[frameName]; ok {
+				dist += WeightedSquaredNormDistance(lastPose, currentPose)
 			}
-			lastPoseStore[frameName] = stepPose
+			previousPoses[frameName] = currentPose
 		}
 	}
 	return dist

@@ -292,7 +292,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step, false)
-	displacement := psc.displacement(ctx, stepSolution)
+	displacement := sss.psc.displacement(ctx, sss.psc.start, step)
 	sss.logger.Debugf("got score %0.4f displacement %0.4f @ %v - %s - result: %v", myNode.cost, displacement, now, stepSolution.Meta, whyNot)
 	myNode.checkPath = whyNot == nil
 

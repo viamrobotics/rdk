@@ -156,7 +156,7 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 }
 
 func (psc *planSegmentContext) displacement(ctx context.Context, start, end *referenceframe.LinearInputs) float64 {
-	ctx, span := trace.StartSpan(ctx, "displacement")
+	_, span := trace.StartSpan(ctx, "displacement")
 	defer span.End()
 	return motionplan.FSDisplacementDistance(
 		&motionplan.SegmentFS{
