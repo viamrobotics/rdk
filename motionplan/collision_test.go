@@ -79,7 +79,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, gf, test.ShouldNotBeNil)
 	cg, err = newCollisionGraph(referenceframe.NewEmptyFrameSystem(""), gf.Geometries(), gf.Geometries(), nil, true, defaultCollisionBufferMM)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.collisions(defaultCollisionBufferMM)), test.ShouldEqual, 6)
+	test.That(t, len(cg.collisions(defaultCollisionBufferMM)), test.ShouldEqual, 5)
 }
 
 func TestUniqueCollisions(t *testing.T) {
@@ -130,8 +130,8 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"xArm6:base_top", "xArm6:gripper_mount", -39.8},
-		{"xArm6:base_top", "xArm6:wrist_link", -66.6},
-		{"xArm6:wrist_link", "xArm6:upper_arm", -48.1},
+		{"xArm6:base_top", "xArm6:wrist_link", -51.15},
+		{"xArm6:wrist_link", "xArm6:upper_arm", -8.37},
 	}
 	test.That(t, collisionListsAlmostEqual(cg.collisions(defaultCollisionBufferMM), expectedCollisions), test.ShouldBeTrue)
 

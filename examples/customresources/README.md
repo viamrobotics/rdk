@@ -75,17 +75,3 @@ This is a minimal version of a custom resource module, using the built-in Generi
   * This uses module.json
   * This automatically compiles the module itself first, which can be done manually with `make module`.
 * In a separate terminal, run the client with `make run-client` (or move into the client directory and simply run `make`.)
-
-### remoteserver
-This demo provides a standalone server that supports the "mygizmo" component only, intended for use as a "remote" from a parent. The custom server is started and then a parent process can be run which will use the custom server as a "remote" and its custom resource(s) will be mapped through the parent as part of the larger robot. There is also a client demo.
-
-#### Running
-* From within the demo's directory
-* Run the server implementing custom resources `make run-remote`.
-  * This uses remote.json
-* From a second terminal, run a standard server connecting to the custom resource server as a remote `make run-parent`.
-  * This uses parent.json
-* From a third terminal, run the client that has loaded the custom gizmo api, and talks to it via the parent `make run-client`.
-
-#### Notes
-The remote server method of implementing custom resources is deprecated, and the modular methods should be used instead. This demo is maintained for testing purposes. Remotes themselves are still used for connecting to viam-server instances on other physical systems however, which was their original intent.
