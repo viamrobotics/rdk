@@ -64,13 +64,21 @@ func BuildViamServer(tb testing.TB) string {
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
 	} else {
 		// we don't have access to make on Windows, so copy the build command from the Makefile.
+		// CGO is enabled for webcam support - requires mingw-w64 on Windows.
+		// Static linking ensures backwards compatibility with older Windows 10 machines.
 		serverPath += ".exe"
 		//nolint:gosec
 		builder = exec.Command(
-			"go", "build", "-tags", "no_cgo,osusergo,netgo",
-			"-ldflags=-extldflags=-static -s -w",
+			"go", "build", "-tags", "no_cgo,camera_register_cgo,osusergo,netgo",
+			"-ldflags=-extldflags='-static -static-libgcc -static-libstdc++' -s -w",
 			"-o", serverPath,
 			"./web/cmd/server",
+		)
+		// Enable CGO for webcam support with mingw-w64 static linking
+		builder.Env = append(os.Environ(),
+			"CGO_ENABLED=1",
+			"CC=gcc",
+			"CXX=g++",
 		)
 	}
 	// set Dir to root of repo

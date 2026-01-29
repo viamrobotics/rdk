@@ -59,7 +59,9 @@ static-release: server-static-compressed
 
 static-release-win:
 	rm -f bin/static/viam-server-windows.exe
-	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
+	CGO_ENABLED=1 CC=gcc CXX=g++ go build -tags no_cgo,camera_register_cgo,osusergo,netgo \
+		-ldflags="-extldflags='-static -static-libgcc -static-libstdc++' $(COMMON_LDFLAGS)" \
+		-o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
 
 	rm -rf etc/packaging/static/deploy/
