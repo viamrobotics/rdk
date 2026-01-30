@@ -7,7 +7,9 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestSqNormMetric(t *testing.T) {
@@ -47,4 +49,39 @@ func BenchmarkDeltaPose1(b *testing.B) {
 	}
 	// Prevent compiler optimizations interfering with benchmark
 	result = r
+}
+
+func TestFSDisplacementDistance(t *testing.T) {
+	armModel, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "xarm6")
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	test.That(t, fs.AddFrame(armModel, fs.World()), test.ShouldBeNil)
+
+	makeSegment := func(start, end []referenceframe.Input) *SegmentFS {
+		return &SegmentFS{
+			StartConfiguration: referenceframe.FrameSystemInputs{"xarm6": start}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{"xarm6": end}.ToLinearInputs(),
+			FS:                 fs,
+		}
+	}
+
+	home := []referenceframe.Input{0, 0, 0, 0, 0, 0}
+
+	t.Run("zero movement", func(t *testing.T) {
+		test.That(t, FSDisplacementDistance(makeSegment(home, home)), test.ShouldAlmostEqual, 0)
+	})
+
+	t.Run("larger movement produces more displacement", func(t *testing.T) {
+		small := FSDisplacementDistance(makeSegment(home, []referenceframe.Input{0.1, 0, 0, 0, 0, 0}))
+		large := FSDisplacementDistance(makeSegment(home, []referenceframe.Input{0.5, 0, 0, 0, 0, 0}))
+		test.That(t, small, test.ShouldBeGreaterThan, 0)
+		test.That(t, large, test.ShouldBeGreaterThan, small)
+	})
+
+	t.Run("shoulder vs wrist movement", func(t *testing.T) {
+		wrist := FSDisplacementDistance(makeSegment(home, []referenceframe.Input{0, 0, 0, 0, 0.6, 0.6}))
+		shoulder := FSDisplacementDistance(makeSegment(home, []referenceframe.Input{0, 0.5, 0, 0, 0, 0}))
+		test.That(t, shoulder, test.ShouldBeGreaterThan, wrist)
+	})
 }
