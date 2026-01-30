@@ -8,5 +8,5 @@ import (
 )
 
 func TestRTPPassthroughBuild(t *testing.T) {
-	testutils.BuildTempModule(t, "examples/customresources/demos/rtppassthrough")
+	testutils.VerifyDirectoryBuilds(t, "examples/customresources/demos/rtppassthrough")
 }

@@ -8,5 +8,5 @@ import (
 )
 
 func TestOptionalDepsModuleBuild(t *testing.T) {
-	testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+	testutils.VerifyDirectoryBuilds(t, "examples/customresources/demos/optionaldepsmodule")
 }
