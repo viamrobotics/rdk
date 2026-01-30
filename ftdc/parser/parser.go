@@ -373,12 +373,15 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"UserCPU":   {"UserCPUSecs", "ElapsedTimeSecs"},
 	"SystemCPU": {"SystemCPUSecs", "ElapsedTimeSecs"},
 	// PerSec ratios use an empty string denominator.
-	"HeadersProcessedPerSec": {"HeadersProcessed", ""},
-	"TxPacketsPerSec":        {"TxPackets", ""},
-	"RxPacketsPerSec":        {"RxPackets", ""},
-	"TxBytesPerSec":          {"TxBytes", ""},
-	"RxBytesPerSec":          {"RxBytes", ""},
-	"DataSentBytesPerSec":    {"dataSentBytes", ""},
+	"HeadersProcessedPerSec":       {"HeadersProcessed", ""},
+	"TxPacketsPerSec":              {"TxPackets", ""},
+	"RxPacketsPerSec":              {"RxPackets", ""},
+	"TxBytesPerSec":                {"TxBytes", ""},
+	"RxBytesPerSec":                {"RxBytes", ""},
+	"DataSentBytesPerSec":          {"dataSentBytes", ""},
+	"ArbitraryUploadedBytesPerSec": {"ArbitraryUploadedBytes", ""},
+	"BinaryUploadedBytesPerSec":    {"BinaryUploadedBytes", ""},
+	"TabularUploadedBytesPerSec":   {"TabularUploadedBytes", ""},
 
 	// Dan: Just tacking these on -- omitted metrics from this list does not mean they shouldn't* be
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be
