@@ -213,6 +213,7 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 
 // VerifyDirectoryBuilds verifies that the Go code in the specified directory builds successfully.
 // Warnings are allowed; only build failures cause the test to fail.
+func VerifyDirectoryBuilds(tb testing.TB, dir string) {
 	tb.Helper()
 
 	resolvedDir := utils.ResolveFile(dir)
