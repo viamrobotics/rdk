@@ -992,7 +992,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 					".exe cmd/module/main.go && tar czf module.tar.gz meta.json bin\\" +
 					module.ModuleName + ".exe",
 				Path: "module.tar.gz",
-				Arch: []string{"windows/amd64"},
+				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 			}
 			manifest.Entrypoint = fmt.Sprintf("bin\\%s.exe", module.ModuleName)
 		} else {
