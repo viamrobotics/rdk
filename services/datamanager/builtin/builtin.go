@@ -311,7 +311,7 @@ func (b *builtIn) Stats() any {
 		result.DiskUsage = diskUsageStats{
 			AvailableGB:      float64(usage.AvailableBytes) / (1 << 30),
 			SizeGB:           float64(usage.SizeBytes) / (1 << 30),
-			AvailablePercent: usage.AvailablePercent(),
+			AvailablePercent: usage.AvailablePercent() * 100,
 		}
 	}
 
