@@ -19,6 +19,10 @@ const (
 	FSConfigurationDistanceMetric SegmentFSMetricType = "fs_config"
 	// FSConfigurationL2DistanceMetric indicates calculating distance by summing the L2 norm differences of the inputs.
 	FSConfigurationL2DistanceMetric SegmentFSMetricType = "fs_config_l2"
+	// FSConfigurationDisplacementMetric indicates calculating distance by summing cartesian displacement across the inputs.
+	FSConfigurationDisplacementMetric SegmentFSMetricType = "displacement"
+	// FSConfigurationCombinedMetric indicates calculating distance by summing the result of the displacement and L2 metrics.
+	FSConfigurationCombinedMetric SegmentFSMetricType = "combined"
 )
 
 // GoalMetricType is a string enum indicating the type of goal metric to use.
@@ -138,6 +142,11 @@ func FSConfigurationL2Distance(segment *SegmentFS) float64 {
 	return score
 }
 
+// FSConfigurationCombinedDistance is a fs metric which combines displacement and L2 distance.
+func FSConfigurationCombinedDistance(segment *SegmentFS) float64 {
+	return FSDisplacementDistance(segment) + FSConfigurationL2Distance(segment)
+}
+
 // GetConfigurationDistanceFunc returns a function that measures the degree of "closeness"
 // between the two states of a segment according to an algorithm determined by `distType`.
 func GetConfigurationDistanceFunc(distType SegmentFSMetricType) SegmentFSMetric {
@@ -146,6 +155,10 @@ func GetConfigurationDistanceFunc(distType SegmentFSMetricType) SegmentFSMetric 
 		return FSConfigurationDistance
 	case FSConfigurationL2DistanceMetric:
 		return FSConfigurationL2Distance
+	case FSConfigurationDisplacementMetric:
+		return FSDisplacementDistance
+	case FSConfigurationCombinedMetric:
+		return FSConfigurationCombinedDistance
 	default:
 		return FSConfigurationL2Distance
 	}
