@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
 	"sync/atomic"
 
 	"github.com/benbjohnson/clock"

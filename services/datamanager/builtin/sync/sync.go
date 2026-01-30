@@ -59,8 +59,8 @@ type uploadStat struct {
 	uploadFailedFileCount atomic.Uint64
 }
 
-// SyncStats represents the statistics returned by Sync.GetStats().
-type SyncStats struct {
+// Stats represents the statistics returned by Sync.GetStats().
+type Stats struct {
 	// File deletion metric.
 	DeletedFileCount int64
 
@@ -226,8 +226,8 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 }
 
 // GetStats returns cumulative file deletion and upload metrics.
-func (s *Sync) GetStats() SyncStats {
-	return SyncStats{
+func (s *Sync) GetStats() Stats {
+	return Stats{
 		// File deletion metric
 		DeletedFileCount: s.deletedFileCount.Load(),
 

@@ -15,7 +15,6 @@ import (
 	"image"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -43,8 +42,6 @@ var (
 	// At time of writing only a single test depends on it.
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
 	clk = clock.New()
-	// diskSummaryLogInterval is the frequency a summary of the sync paths are logged.
-	diskSummaryLogInterval = time.Minute
 )
 
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
@@ -297,7 +294,7 @@ type diskUsageStats struct {
 
 type dataManagerStats struct {
 	DiskUsage diskUsageStats
-	Sync      datasync.SyncStats
+	Sync      datasync.Stats
 }
 
 // Stats satisfies the ftdc.Statser interface and will return the disk usage and sync statistics.
