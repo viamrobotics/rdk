@@ -1,45 +1,53 @@
 package sync
 
 import (
+	"runtime"
 	"testing"
 
 	"go.viam.com/test"
 )
 
 func TestInferTagsAndDatasetIDsFromFilename(t *testing.T) {
-	t.Run("no query suffix", func(t *testing.T) {
-		path := "/tmp/fooFile.bar"
-		gotName, gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path)
+	t.Run("no tag/dataset segments", func(t *testing.T) {
+		path := "/home/alice/.viam/capture/path/to/file/fooFile.bar"
+		gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path)
 		test.That(t, ok, test.ShouldBeFalse)
-		test.That(t, gotName, test.ShouldEqual, path)
 		test.That(t, gotTags, test.ShouldBeNil)
 		test.That(t, gotDatasetIDs, test.ShouldBeNil)
 	})
 
-	t.Run("tags comma separated", func(t *testing.T) {
-		path := "/tmp/fooFile.bar?tags=tag1,tag2,tagC"
-		gotName, gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path)
+	t.Run("only tag segments", func(t *testing.T) {
+		path := "/home/alice/.viam/capture/tag=tag1/tag=tag2/path/to/file/foo.ex1"
+		gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, gotName, test.ShouldEqual, "/tmp/fooFile.bar")
-		test.That(t, gotTags, test.ShouldResemble, []string{"tag1", "tag2", "tagC"})
+		test.That(t, gotTags, test.ShouldResemble, []string{"tag2", "tag1"})
 		test.That(t, gotDatasetIDs, test.ShouldBeNil)
 	})
 
-	t.Run("repeated tags and dataset ids", func(t *testing.T) {
-		path := "/tmp/fooFile.bar?tags=tag1&tags=tag2%2Ctag3&dataset_ids=ds1,ds2"
-		gotName, gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path)
+	t.Run("tag and dataset segments", func(t *testing.T) {
+		path := "/home/alice/.viam/capture/tag=tag1/tag=tag2/dataset=1023/tag=tagC/dataset=1024/path/to/file/foo.ex1"
+		gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, gotName, test.ShouldEqual, "/tmp/fooFile.bar")
-		test.That(t, gotTags, test.ShouldResemble, []string{"tag1", "tag2", "tag3"})
-		test.That(t, gotDatasetIDs, test.ShouldResemble, []string{"ds1", "ds2"})
+		test.That(t, gotTags, test.ShouldResemble, []string{"tagC", "tag2", "tag1"})
+		test.That(t, gotDatasetIDs, test.ShouldResemble, []string{"1024", "1023"})
 	})
 
-	t.Run("unknown keys do not trigger stripping", func(t *testing.T) {
-		path := "/tmp/a?b.txt"
-		gotName, gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path)
-		test.That(t, ok, test.ShouldBeFalse)
-		test.That(t, gotName, test.ShouldEqual, path)
-		test.That(t, gotTags, test.ShouldBeNil)
-		test.That(t, gotDatasetIDs, test.ShouldBeNil)
+	t.Run("ignores base filename", func(t *testing.T) {
+		path := "/home/alice/.viam/capture/tag=tag1/dataset=ds1/tag=tag2/path/to/file/tag=tag3.jpg"
+		gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, gotTags, test.ShouldResemble, []string{"tag2", "tag1"})
+		test.That(t, gotDatasetIDs, test.ShouldResemble, []string{"ds1"})
+	})
+
+	t.Run("windows style separators", func(t *testing.T) {
+		if runtime.GOOS != "windows" {
+			t.Skip("windows-style paths are only meaningful on Windows")
+		}
+		path := `C:\Users\alice\.viam\capture\tag=tag1\dataset=1023\path\to\file\foo.ex1`
+		gotTags, gotDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, gotTags, test.ShouldResemble, []string{"tag1"})
+		test.That(t, gotDatasetIDs, test.ShouldResemble, []string{"1023"})
 	})
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -80,11 +79,9 @@ func uploadArbitraryFile(
 	}
 
 	// Try to infer tags and dataset IDs from the filename query parameters.
-	uploadFileName := path
 	uploadTagsSet := goutils.NewStringSet(tags...)
 	uploadDatasetIDsSet := goutils.NewStringSet(datasetIDs...)
-	if inferredFileName, inferredTags, inferredDatasetIDs, ok := inferTagsAndDatasetIDsFromFilename(path); ok {
-		uploadFileName = inferredFileName
+	if inferredTags, inferredDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path); ok {
 		for _, t := range inferredTags {
 			uploadTagsSet.Add(t)
 		}
@@ -92,14 +89,13 @@ func uploadArbitraryFile(
 			uploadDatasetIDsSet.Add(id)
 		}
 		logger.Debugf(
-			"inferred upload metadata from filename query; original=%q upload=%q tags=%v datasetIDs=%v",
+			"inferred upload metadata from path segments; file=%q tags=%v datasetIDs=%v",
 			path,
-			uploadFileName,
 			inferredTags,
 			inferredDatasetIDs,
 		)
 	}
-	uploadFileExt := filepath.Ext(uploadFileName)
+	uploadFileExt := filepath.Ext(path)
 
 	// Send metadata FileUploadRequest.
 	logger.Debugf("datasync.FileUpload request sending metadata for arbitrary file: %s", path)
@@ -108,7 +104,7 @@ func uploadArbitraryFile(
 			Metadata: &v1.UploadMetadata{
 				PartId:        conn.partID,
 				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      uploadFileName,
+				FileName:      path,
 				FileExtension: uploadFileExt,
 				Tags:          uploadTagsSet.ToList(),
 				DatasetIds:    uploadDatasetIDsSet.ToList(),
@@ -185,43 +181,36 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 	return &v1.FileData{Data: byteArr[:numBytesRead]}, nil
 }
 
-func inferTagsAndDatasetIDsFromFilename(path string) (uploadFileName string, tags, datasetIDs []string, ok bool) {
-	lastQ := strings.LastIndex(path, "?")
-	if lastQ < 0 || lastQ == len(path)-1 {
-		return path, nil, nil, false
-	}
+// inferTagsAndDatasetIDsFromPath infers tags and dataset IDs from the path of a file.
+// Directory name convention: `.../tag=<tag>/tag=<tag>/dataset=<id>/dataset=<id>/<file>`
+func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string, ok bool) {
+	dir := filepath.Dir(path)
+	for {
+		seg := strings.TrimSpace(filepath.Base(dir))
+		if seg != "" && seg != "." && seg != string(filepath.Separator) {
+			if v, ok := strings.CutPrefix(seg, "tag="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					tags = append(tags, v)
+				}
+			} else if v, ok := strings.CutPrefix(seg, "dataset="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					datasetIDs = append(datasetIDs, v)
+				}
+			}
+		}
 
-	base := path[:lastQ]
-	query := path[lastQ+1:]
-	values, err := url.ParseQuery(query)
-	if err != nil {
-		return path, nil, nil, false
+		// Go up one directory until we can no longer ascend.
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
 	}
-
-	// Supported keys:
-	// - tags: "tag1,tag2" (or repeated keys)
-	// - dataset IDs: "dataset1,dataset2" (or repeated keys)
-	// other keys are ignored.
-	tags = splitCommaValues(values["tags"])
-	datasetIDs = splitCommaValues(values["dataset_ids"])
 
 	if len(tags) == 0 && len(datasetIDs) == 0 {
-		return path, nil, nil, false
+		return nil, nil, false
 	}
-
-	return base, tags, datasetIDs, true
-}
-
-func splitCommaValues(values []string) []string {
-	var out []string
-	for _, v := range values {
-		for _, part := range strings.Split(v, ",") {
-			part = strings.TrimSpace(part)
-			if part == "" {
-				continue
-			}
-			out = append(out, part)
-		}
-	}
-	return out
+	return tags, datasetIDs, true
 }
