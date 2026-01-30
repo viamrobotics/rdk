@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"sync"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
@@ -40,8 +41,10 @@ type Mesh struct {
 	// originalFilePath stores the original URDF mesh path for round-tripping
 	originalFilePath string
 
-	// bvh is the bounding volume hierarchy for accelerated collision detection
-	bvh *bvhNode
+	// bvh is the bounding volume hierarchy for accelerated collision detection.
+	// Built lazily on first collision check via ensureBVH().
+	bvh     *bvhNode
+	bvhOnce sync.Once
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -55,12 +58,12 @@ func trianglesToGeoms(triangles []*Triangle) []Geometry {
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
+// The BVH is built lazily on first collision check for faster mesh loading.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	mesh := &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -155,7 +158,6 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}, nil
 }
 
@@ -208,7 +210,6 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		bvh:       buildBVH(trianglesToGeoms(triangles)),
 	}, nil
 }
 
@@ -286,7 +287,6 @@ func (m *Mesh) Triangles() []*Triangle {
 // Transform transforms the mesh. As triangles are in the mesh's frame, they are unchanged.
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
-	// BVH is also in local space and can be reused - poses are applied lazily during collision checks
 	return &Mesh{
 		pose:             Compose(pose, m.pose),
 		triangles:        m.triangles,
@@ -404,12 +404,15 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	return minDist
 }
 
-// ensureBVH builds the BVH if it hasn't been built yet.
+// ensureBVH builds the BVH if it hasn't been built yet (thread-safe).
 // Returns nil for empty meshes (no triangles).
 func (m *Mesh) ensureBVH() *bvhNode {
-	if m.bvh == nil && len(m.triangles) > 0 {
-		m.bvh = buildBVH(trianglesToGeoms(m.triangles))
-	}
+	m.bvhOnce.Do(func() {
+		// Check if bvh was already set (e.g., copied from another mesh via Transform)
+		if m.bvh == nil && len(m.triangles) > 0 {
+			m.bvh = buildBVH(trianglesToGeoms(m.triangles))
+		}
+	})
 	return m.bvh
 }
 
@@ -524,7 +527,15 @@ func (m *Mesh) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	*m = *mesh
+	// Copy fields explicitly to avoid copying sync.Once.
+	m.pose = mesh.pose
+	m.triangles = mesh.triangles
+	m.label = mesh.label
+	m.fileType = mesh.fileType
+	m.rawBytes = mesh.rawBytes
+	m.originalFilePath = mesh.originalFilePath
+	m.bvh = nil
+	m.bvhOnce = sync.Once{}
 	return nil
 }
 
