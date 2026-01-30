@@ -46,7 +46,7 @@ const (
 	durationBetweenAcquireConnection = time.Second
 )
 
-// atomicUploadStats tracks cumulative upload statistics for FTDC.
+// atomicUploadStats tracks cumulative upload statistics.
 type atomicUploadStats struct {
 	binary    atomicStat
 	tabular   atomicStat
@@ -57,6 +57,31 @@ type atomicStat struct {
 	uploadedFileCount     atomic.Uint64
 	uploadedBytes         atomic.Uint64
 	uploadFailedFileCount atomic.Uint64
+}
+
+// SyncStats represents the statistics returned by Sync.GetStats().
+type SyncStats struct {
+	// File deletion metric.
+	DeletedFileCount int64
+
+	// Unsynced file metrics.
+	TotalUnsyncedFiles     int64
+	TotalUnsyncedSizeBytes int64
+
+	// Upload metrics - arbitrary files.
+	ArbitraryUploadedFileCount     uint64
+	ArbitraryUploadedBytes         uint64
+	ArbitraryUploadFailedFileCount uint64
+
+	// Upload metrics - binary sensor data.
+	BinaryUploadedFileCount     uint64
+	BinaryUploadedBytes         uint64
+	BinaryUploadFailedFileCount uint64
+
+	// Upload metrics - tabular sensor data.
+	TabularUploadedFileCount     uint64
+	TabularUploadedBytes         uint64
+	TabularUploadFailedFileCount uint64
 }
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
@@ -200,26 +225,26 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	}
 }
 
-// GetStats returns file deletion and upload metrics.
-func (s *Sync) GetStats() any {
-	return map[string]any{
-		// File deletion metrics.
-		"CapacityDeletionFileCount": s.deletedFileCount.Load(),
+// GetStats returns cumulative file deletion and upload metrics.
+func (s *Sync) GetStats() SyncStats {
+	return SyncStats{
+		// File deletion metric
+		DeletedFileCount: s.deletedFileCount.Load(),
 
-		// Upload metrics - arbitrary files.
-		"ArbitraryUploadedFileCount":     s.atomicUploadStats.arbitrary.uploadedFileCount.Load(),
-		"ArbitraryUploadedBytes":         s.atomicUploadStats.arbitrary.uploadedBytes.Load(),
-		"ArbitraryUploadFailedFileCount": s.atomicUploadStats.arbitrary.uploadFailedFileCount.Load(),
+		// Upload metrics - arbitrary files
+		ArbitraryUploadedFileCount:     s.atomicUploadStats.arbitrary.uploadedFileCount.Load(),
+		ArbitraryUploadedBytes:         s.atomicUploadStats.arbitrary.uploadedBytes.Load(),
+		ArbitraryUploadFailedFileCount: s.atomicUploadStats.arbitrary.uploadFailedFileCount.Load(),
 
-		// Upload metrics - binary sensor data.
-		"BinaryUploadedFileCount":     s.atomicUploadStats.binary.uploadedFileCount.Load(),
-		"BinaryUploadedBytes":         s.atomicUploadStats.binary.uploadedBytes.Load(),
-		"BinaryUploadFailedFileCount": s.atomicUploadStats.binary.uploadFailedFileCount.Load(),
+		// Upload metrics - binary sensor data
+		BinaryUploadedFileCount:     s.atomicUploadStats.binary.uploadedFileCount.Load(),
+		BinaryUploadedBytes:         s.atomicUploadStats.binary.uploadedBytes.Load(),
+		BinaryUploadFailedFileCount: s.atomicUploadStats.binary.uploadFailedFileCount.Load(),
 
-		// Upload metrics - tabular sensor data.
-		"TabularUploadedFileCount":     s.atomicUploadStats.tabular.uploadedFileCount.Load(),
-		"TabularUploadedBytes":         s.atomicUploadStats.tabular.uploadedBytes.Load(),
-		"TabularUploadFailedFileCount": s.atomicUploadStats.tabular.uploadFailedFileCount.Load(),
+		// Upload metrics - tabular sensor data
+		TabularUploadedFileCount:     s.atomicUploadStats.tabular.uploadedFileCount.Load(),
+		TabularUploadedBytes:         s.atomicUploadStats.tabular.uploadedBytes.Load(),
+		TabularUploadFailedFileCount: s.atomicUploadStats.tabular.uploadFailedFileCount.Load(),
 	}
 }
 
