@@ -79,10 +79,10 @@ type builtIn struct {
 	resource.Named
 	logger logging.Logger
 
-	mu       sync.Mutex
-	capture  *capture.Capture
-	sync     *datasync.Sync
-	syncDirs []string
+	mu        sync.Mutex
+	capture   *capture.Capture
+	sync      *datasync.Sync
+	syncPaths []string
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -198,7 +198,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.syncDirs = syncConfig.SyncPaths()
+	b.syncPaths = syncConfig.SyncPaths()
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and cauing bugs due to duplicate work.
@@ -303,14 +303,14 @@ func (b *builtIn) Stats() any {
 	result := dataManagerStats{}
 
 	b.mu.Lock()
-	syncDirs := b.syncDirs
+	syncPaths := b.syncPaths
 	sync := b.sync
 	b.mu.Unlock()
 
 	// Disk usage stats for the volume containing the main capture directory.
-	// (syncDirs[0] is the main capture directory)
-	if len(syncDirs) > 0 {
-		usage, err := diskusage.Statfs(syncDirs[0])
+	// (syncPaths[0] is the main capture directory)
+	if len(syncPaths) > 0 {
+		usage, err := diskusage.Statfs(syncPaths[0])
 		if err == nil {
 			result.DiskUsage = diskUsageStats{
 				AvailableGB:      float64(usage.AvailableBytes) / (1 << 30),
@@ -324,7 +324,7 @@ func (b *builtIn) Stats() any {
 		// Get unsynced file stats.
 		var totalFiles int64
 		var totalBytes int64
-		for _, dir := range syncDirs {
+		for _, dir := range syncPaths {
 			summaries := DiskSummary(ctx, dir)
 			for _, summary := range summaries {
 				totalFiles += summary.FileCount
