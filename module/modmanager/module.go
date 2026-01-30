@@ -204,7 +204,8 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 // returns true if this module should be run in TCP mode.
 // (based on either global setting or per-module setting).
 func (m *module) tcpMode() bool {
-	return rutils.ViamTCPSockets() || m.cfg.TCPMode
+	use, _ := rutils.OnlyUseViamTCPSockets()
+	return use || m.cfg.TCPMode
 }
 
 // returns true if this module is running in TCP mode.

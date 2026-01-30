@@ -47,7 +47,7 @@ func setupSocketWithRobot(t *testing.T) string {
 
 	var socketAddress string
 	var err error
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TCPParentPort)
 	} else {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -55,7 +55,7 @@ func setupSocketWithRobot(t *testing.T) string {
 	}
 
 	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		return server.InternalAddr().String()
 	}
 	return socketAddress

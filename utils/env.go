@@ -94,12 +94,16 @@ const (
 	// TODO(RSDK-12057): Remove sensitivity to this environment variable once we fully
 	// remove all NeedsRestart checking logic from viam-server.
 	ViamAgentHandlesNeedsRestartChecking = "VIAM_AGENT_HANDLES_NEEDS_RESTART_CHECKING"
+
+	// ViamTCPSocketsEnvVar if set to a true-like value, indicates that TCP sockets should be used
+	// in lieu of Unix sockets.
+	ViamTCPSocketsEnvVar = "VIAM_TCP_SOCKETS"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
 var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 
-// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
+// TCPRegex tests whether a module address is TCP (vs unix sockets). See also OnlyUseViamTCPSockets().
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
