@@ -302,7 +302,8 @@ func (b *builtIn) Stats() any {
 	ctx := context.Background()
 	result := dataManagerStats{}
 
-	// Disk usage stats.
+	// Disk usage stats for the volume containing the main capture directory.
+	// (syncDirs[0] is the main capture directory)
 	usage, err := diskusage.Statfs(b.syncDirs[0])
 	if err == nil {
 		result.DiskUsage = diskUsageStats{
