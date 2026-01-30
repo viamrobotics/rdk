@@ -273,7 +273,7 @@ func (m *Module) Start(ctx context.Context) error {
 		// user than a module (e.g. if the module uses `sudo` to switch users in its
 		// entrypoint script).
 		//nolint:gosec
-		err = os.Chmod(m.addr, 0o777)
+		err = os.Chmod(m.addr, 0o776)
 		if err != nil {
 			return fmt.Errorf("failed to update socket file permissions: %w", err)
 		}

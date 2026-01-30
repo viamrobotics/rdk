@@ -235,8 +235,8 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	// users than viam-server (usually through a `sudo` in their entrypoint script).
 	// Communication over sock files means that both the viam-server and module users need
 	// to have read and write access to both sides' files. Use file mode 777 (unrestricted)
-	// for this directory and the parent socket file created below (automatically by
-	// listening).
+	// for this directory and 776 (mostly unrestricted) for the parent socket file created
+	// below (automatically by listening).
 	dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
 	if err != nil {
 		return errors.WithMessage(err, "could not create module socket directory")
@@ -265,7 +265,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 			return errors.WithMessage(err, "failed to listen over UDS")
 		}
 		//nolint:gosec
-		err = os.Chmod(addr, 0o777)
+		err = os.Chmod(addr, 0o776)
 		if err != nil {
 			return errors.WithMessage(err, "could not update permissions on parent socket")
 		}
