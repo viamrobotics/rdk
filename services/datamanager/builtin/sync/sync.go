@@ -48,18 +48,19 @@ const (
 
 // uploadStats tracks cumulative upload statistics.
 type uploadStats struct {
-	binary    uploadStat
-	tabular   uploadStat
-	arbitrary uploadStat
+	binary    dataTypeUploadStats
+	tabular   dataTypeUploadStats
+	arbitrary dataTypeUploadStats
 }
 
-type uploadStat struct {
+// dataTypeUploadStats tracks cumulative upload statistics for a given data type.
+type dataTypeUploadStats struct {
 	uploadedFileCount     atomic.Uint64
 	uploadedBytes         atomic.Uint64
 	uploadFailedFileCount atomic.Uint64
 }
 
-// Stats represents the statistics returned by Sync.GetStats().
+// Stats represents metric values for a given moment. Returned by Sync.GetStats().
 type Stats struct {
 	// File deletion metric.
 	DeletedFileCount int64
@@ -74,14 +75,14 @@ type Stats struct {
 	ArbitraryUploadFailedFileCount uint64
 
 	// Upload metrics - binary sensor data.
-	BinaryUploadedFileCount     uint64
-	BinaryUploadedBytes         uint64
-	BinaryUploadFailedFileCount uint64
+	BinarySensorUploadedFileCount     uint64
+	BinarySensorUploadedBytes         uint64
+	BinarySensorUploadFailedFileCount uint64
 
 	// Upload metrics - tabular sensor data.
-	TabularUploadedFileCount     uint64
-	TabularUploadedBytes         uint64
-	TabularUploadFailedFileCount uint64
+	TabularSensorUploadedFileCount     uint64
+	TabularSensorUploadedBytes         uint64
+	TabularSensorUploadFailedFileCount uint64
 }
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
@@ -237,14 +238,14 @@ func (s *Sync) GetStats() Stats {
 		ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
 
 		// Upload metrics - binary sensor data
-		BinaryUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
-		BinaryUploadedBytes:         s.uploadStats.binary.uploadedBytes.Load(),
-		BinaryUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
+		BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
+		BinarySensorUploadedBytes:         s.uploadStats.binary.uploadedBytes.Load(),
+		BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
 
 		// Upload metrics - tabular sensor data
-		TabularUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
-		TabularUploadedBytes:         s.uploadStats.tabular.uploadedBytes.Load(),
-		TabularUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
+		TabularSensorUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
+		TabularSensorUploadedBytes:         s.uploadStats.tabular.uploadedBytes.Load(),
+		TabularSensorUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
 	}
 }
 
