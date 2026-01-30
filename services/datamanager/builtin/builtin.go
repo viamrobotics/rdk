@@ -306,7 +306,7 @@ func (b *builtIn) Stats() any {
 
 	// Sync stats.
 	if b.sync != nil {
-		syncStats := b.sync.Stats().(map[string]any)
+		syncStats := b.sync.GetStats().(map[string]any)
 
 		// Add unsynced file stats.
 		var totalFiles int64
