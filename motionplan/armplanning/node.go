@@ -292,6 +292,13 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step, false)
+	// At the moment the following line is just for logging; the value is not otherwise used.
+	// When calculating cost currently, we sum the difference between joint positions but do not account for size of swing arc.
+	// Consider the magnitude of hand movement of a 90 degree wrist turn vs a 90 degree shoulder turn.
+	// Additionally if a straight-line solution is available we currently *always* prefer it to one which requires intermediate inflection
+	// points.
+	// The above state of affairs is meant to optimize for speed of motion planning. The logging is to gather data about the tradeoff
+	// between planning speed and observed total arm movement.
 	displacement := sss.psc.displacement(ctx, sss.psc.start, step)
 	sss.logger.Debugf("got score %0.4f displacement %0.4f @ %v - %s - result: %v", myNode.cost, displacement, now, stepSolution.Meta, whyNot)
 	myNode.checkPath = whyNot == nil
