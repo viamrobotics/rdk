@@ -196,9 +196,9 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
-	b.syncDirs = syncConfig.SyncPaths()
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.syncDirs = syncConfig.SyncPaths()
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and cauing bugs due to duplicate work.
@@ -302,22 +302,29 @@ func (b *builtIn) Stats() any {
 	ctx := context.Background()
 	result := dataManagerStats{}
 
+	b.mu.Lock()
+	syncDirs := b.syncDirs
+	sync := b.sync
+	b.mu.Unlock()
+
 	// Disk usage stats for the volume containing the main capture directory.
 	// (syncDirs[0] is the main capture directory)
-	usage, err := diskusage.Statfs(b.syncDirs[0])
-	if err == nil {
-		result.DiskUsage = diskUsageStats{
-			AvailableGB:      float64(usage.AvailableBytes) / (1 << 30),
-			SizeGB:           float64(usage.SizeBytes) / (1 << 30),
-			AvailablePercent: usage.AvailablePercent() * 100,
+	if len(syncDirs) > 0 {
+		usage, err := diskusage.Statfs(syncDirs[0])
+		if err == nil {
+			result.DiskUsage = diskUsageStats{
+				AvailableGB:      float64(usage.AvailableBytes) / (1 << 30),
+				SizeGB:           float64(usage.SizeBytes) / (1 << 30),
+				AvailablePercent: usage.AvailablePercent() * 100,
+			}
 		}
 	}
 
-	if b.sync != nil {
+	if sync != nil {
 		// Get unsynced file stats.
 		var totalFiles int64
 		var totalBytes int64
-		for _, dir := range b.syncDirs {
+		for _, dir := range syncDirs {
 			summaries := DiskSummary(ctx, dir)
 			for _, summary := range summaries {
 				totalFiles += summary.FileCount
@@ -326,7 +333,7 @@ func (b *builtIn) Stats() any {
 		}
 
 		// Get sync stats and add unsynced file stats.
-		syncStats := b.sync.GetStats()
+		syncStats := sync.GetStats()
 		syncStats.TotalUnsyncedFiles = totalFiles
 		syncStats.TotalUnsyncedSizeBytes = totalBytes
 		result.Sync = syncStats
