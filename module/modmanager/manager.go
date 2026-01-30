@@ -45,7 +45,9 @@ var (
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (*Manager, error) {
-	if !rutils.ViamTCPSockets() {
+	if use, reason := rutils.OnlyUseViamTCPSockets(); use {
+		logger.Infow("Starting ModManager without Unix socket support", "reason", reason)
+	} else {
 		var err error
 		parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
 		if err != nil {

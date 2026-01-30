@@ -357,7 +357,9 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
-	if !rutils.ViamTCPSockets() {
+	if use, reason := rutils.OnlyUseViamTCPSockets(); use {
+		svc.logger.Infow("Not starting unix socket grpc module server", "reason", reason)
+	} else {
 		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
 			return err
 		}
