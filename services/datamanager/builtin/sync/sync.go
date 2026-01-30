@@ -46,14 +46,14 @@ const (
 	durationBetweenAcquireConnection = time.Second
 )
 
-// atomicUploadStats tracks cumulative upload statistics.
-type atomicUploadStats struct {
-	binary    atomicStat
-	tabular   atomicStat
-	arbitrary atomicStat
+// uploadStats tracks cumulative upload statistics.
+type uploadStats struct {
+	binary    uploadStat
+	tabular   uploadStat
+	arbitrary uploadStat
 }
 
-type atomicStat struct {
+type uploadStat struct {
 	uploadedFileCount     atomic.Uint64
 	uploadedBytes         atomic.Uint64
 	uploadFailedFileCount atomic.Uint64
@@ -102,7 +102,7 @@ type Sync struct {
 	filesToSync       chan string
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock             clock.Clock
-	atomicUploadStats *atomicUploadStats
+	uploadStats       *uploadStats
 	deletedFileCount  atomic.Int64
 
 	configMu sync.Mutex
@@ -129,7 +129,7 @@ func New(
 	logger logging.Logger,
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
-	var atomicUploadStats atomicUploadStats
+	var uploadStats uploadStats
 	s := Sync{
 		clock:               clock,
 		configCtx:           configCtx,
@@ -142,7 +142,7 @@ func New(
 		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:           cloudConn{ready: make(chan struct{})},
 		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
-		atomicUploadStats:   &atomicUploadStats,
+		uploadStats:         &uploadStats,
 	}
 	return &s
 }
@@ -232,19 +232,19 @@ func (s *Sync) GetStats() SyncStats {
 		DeletedFileCount: s.deletedFileCount.Load(),
 
 		// Upload metrics - arbitrary files
-		ArbitraryUploadedFileCount:     s.atomicUploadStats.arbitrary.uploadedFileCount.Load(),
-		ArbitraryUploadedBytes:         s.atomicUploadStats.arbitrary.uploadedBytes.Load(),
-		ArbitraryUploadFailedFileCount: s.atomicUploadStats.arbitrary.uploadFailedFileCount.Load(),
+		ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
+		ArbitraryUploadedBytes:         s.uploadStats.arbitrary.uploadedBytes.Load(),
+		ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
 
 		// Upload metrics - binary sensor data
-		BinaryUploadedFileCount:     s.atomicUploadStats.binary.uploadedFileCount.Load(),
-		BinaryUploadedBytes:         s.atomicUploadStats.binary.uploadedBytes.Load(),
-		BinaryUploadFailedFileCount: s.atomicUploadStats.binary.uploadFailedFileCount.Load(),
+		BinaryUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
+		BinaryUploadedBytes:         s.uploadStats.binary.uploadedBytes.Load(),
+		BinaryUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
 
 		// Upload metrics - tabular sensor data
-		TabularUploadedFileCount:     s.atomicUploadStats.tabular.uploadedFileCount.Load(),
-		TabularUploadedBytes:         s.atomicUploadStats.tabular.uploadedBytes.Load(),
-		TabularUploadFailedFileCount: s.atomicUploadStats.tabular.uploadFailedFileCount.Load(),
+		TabularUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
+		TabularUploadedBytes:         s.uploadStats.tabular.uploadedBytes.Load(),
+		TabularUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
 	}
 }
 
@@ -447,7 +447,7 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
 			s.logger.Error(err)
 		}
-		s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+		s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		return
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
@@ -482,9 +482,9 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 			logger.Error(err)
 		}
 		if isBinary {
-			s.atomicUploadStats.binary.uploadFailedFileCount.Add(1)
+			s.uploadStats.binary.uploadFailedFileCount.Add(1)
 		} else {
-			s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+			s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		}
 		return
 	}
@@ -494,11 +494,11 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
 	}
 	if isBinary {
-		s.atomicUploadStats.binary.uploadedFileCount.Add(1)
-		s.atomicUploadStats.binary.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.binary.uploadedFileCount.Add(1)
+		s.uploadStats.binary.uploadedBytes.Add(bytesUploaded)
 	} else {
-		s.atomicUploadStats.tabular.uploadedFileCount.Add(1)
-		s.atomicUploadStats.tabular.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.tabular.uploadedFileCount.Add(1)
+		s.uploadStats.tabular.uploadedBytes.Add(bytesUploaded)
 	}
 }
 
@@ -529,7 +529,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
 			logger.Error(err.Error())
 		}
-		s.atomicUploadStats.arbitrary.uploadFailedFileCount.Add(1)
+		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 		return
 	}
 
@@ -540,8 +540,8 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 	if err := os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
-	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
-	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
+	s.uploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
