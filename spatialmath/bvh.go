@@ -21,6 +21,8 @@ type bvhNode struct {
 }
 
 // maxGeomsPerLeaf is the threshold for splitting BVH nodes.
+// Value of 4 balances tree depth vs leaf iteration cost - small enough to limit
+// linear scans at leaves, large enough to avoid excessive tree overhead.
 const maxGeomsPerLeaf = 4
 
 // buildBVH constructs a BVH from a list of geometries.
@@ -281,12 +283,18 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	if node1.geoms != nil {
 		// node1 is leaf, recurse into node2's children
 		leftCollide, leftDist, err := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
-		if err != nil || leftCollide {
-			return leftCollide, leftDist, err
+		if err != nil {
+			return false, 0, err
+		}
+		if leftCollide {
+			return true, leftDist, nil
 		}
 		rightCollide, rightDist, err := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
-		if err != nil || rightCollide {
-			return rightCollide, rightDist, err
+		if err != nil {
+			return false, 0, err
+		}
+		if rightCollide {
+			return true, rightDist, nil
 		}
 		return false, math.Min(leftDist, rightDist), nil
 	}
@@ -294,12 +302,18 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	if node2.geoms != nil {
 		// node2 is leaf, recurse into node1's children
 		leftCollide, leftDist, err := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
-		if err != nil || leftCollide {
-			return leftCollide, leftDist, err
+		if err != nil {
+			return false, 0, err
+		}
+		if leftCollide {
+			return true, leftDist, nil
 		}
 		rightCollide, rightDist, err := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
-		if err != nil || rightCollide {
-			return rightCollide, rightDist, err
+		if err != nil {
+			return false, 0, err
+		}
+		if rightCollide {
+			return true, rightDist, nil
 		}
 		return false, math.Min(leftDist, rightDist), nil
 	}
@@ -315,8 +329,11 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 
 	for _, pair := range pairs {
 		collide, dist, err := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
-		if err != nil || collide {
-			return collide, dist, err
+		if err != nil {
+			return false, 0, err
+		}
+		if collide {
+			return true, dist, nil
 		}
 		if dist < minDist {
 			minDist = dist

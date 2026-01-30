@@ -32,7 +32,13 @@ func TestBasicTriangleFunctions(t *testing.T) {
 
 	t.Run("transform", func(t *testing.T) {
 		tf := NewPose(r3.Vector{1, 1, 1}, &OrientationVector{OZ: 1, Theta: math.Pi})
-		tri2 := tri.Transform(tf).(*Triangle)
+		transformed := tri.Transform(tf)
+
+		// Triangle.Transform must return *Triangle (not just Geometry) - this is relied upon
+		// throughout the codebase for type assertions like tri.Transform(pose).(*Triangle)
+		tri2, ok := transformed.(*Triangle)
+		test.That(t, ok, test.ShouldBeTrue)
+
 		for i := range tri2.Points() {
 			test.That(t, tri2.Points()[i], test.ShouldResemble, NewPoint(expectedPts[i], "").Transform(tf).Pose().Point())
 		}

@@ -404,28 +404,44 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	return minDist
 }
 
+// ensureBVH builds the BVH if it hasn't been built yet.
+// Returns nil for empty meshes (no triangles).
+func (m *Mesh) ensureBVH() *bvhNode {
+	if m.bvh == nil && len(m.triangles) > 0 {
+		m.bvh = buildBVH(trianglesToGeoms(m.triangles))
+	}
+	return m.bvh
+}
+
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
+	if len(m.triangles) == 0 || len(other.triangles) == 0 {
+		return false, 0, errors.New("cannot check collision on mesh with no triangles")
+	}
 	// Pass poses to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithBVH(m.bvh, other.bvh, m.pose, other.pose, collisionBufferMM)
+	return bvhCollidesWithBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
 }
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
-	if m.bvh == nil {
-		return true, math.Inf(1), errors.New("mesh did not have a populated bvh field")
+	bvh := m.ensureBVH()
+	if bvh == nil {
+		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
 	otherMin, otherMax := computeGeometryAABB(other)
 	// Pass mesh pose to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithGeometry(m.bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	return bvhCollidesWithGeometry(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
 // Uses BVH acceleration for O(log n * log m) performance.
 func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
+	if len(m.triangles) == 0 || len(other.triangles) == 0 {
+		return 0, errors.New("cannot compute distance on mesh with no triangles")
+	}
 	// Pass poses to BVH distance - BVH stores geometries in local space
-	return bvhDistanceFromBVH(m.bvh, other.bvh, m.pose, other.pose)
+	return bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose)
 }
 
 // SetLabel sets the name of the mesh.
