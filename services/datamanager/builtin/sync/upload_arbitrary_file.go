@@ -81,20 +81,19 @@ func uploadArbitraryFile(
 	// Try to infer tags and dataset IDs from the filename query parameters.
 	uploadTagsSet := goutils.NewStringSet(tags...)
 	uploadDatasetIDsSet := goutils.NewStringSet(datasetIDs...)
-	if inferredTags, inferredDatasetIDs, ok := inferTagsAndDatasetIDsFromPath(path); ok {
-		for _, t := range inferredTags {
-			uploadTagsSet.Add(t)
-		}
-		for _, id := range inferredDatasetIDs {
-			uploadDatasetIDsSet.Add(id)
-		}
-		logger.Debugf(
-			"inferred upload metadata from path segments; file=%q tags=%v datasetIDs=%v",
-			path,
-			inferredTags,
-			inferredDatasetIDs,
-		)
+	inferredTags, inferredDatasetIDs := inferTagsAndDatasetIDsFromPath(path)
+	for _, t := range inferredTags {
+		uploadTagsSet.Add(t)
 	}
+	for _, id := range inferredDatasetIDs {
+		uploadDatasetIDsSet.Add(id)
+	}
+	logger.Debugf(
+		"inferred upload metadata from path segments; file=%q tags=%v datasetIDs=%v",
+		path,
+		inferredTags,
+		inferredDatasetIDs,
+	)
 	uploadFileExt := filepath.Ext(path)
 
 	// Send metadata FileUploadRequest.
@@ -183,7 +182,7 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 
 // inferTagsAndDatasetIDsFromPath infers tags and dataset IDs from the path of a file.
 // Directory name convention: `.../tag=<tag>/tag=<tag>/dataset=<id>/dataset=<id>/<file>`
-func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string, ok bool) {
+func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string) {
 	dir := filepath.Dir(path)
 	for {
 		seg := strings.TrimSpace(filepath.Base(dir))
@@ -208,9 +207,5 @@ func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string, ok 
 		}
 		dir = next
 	}
-
-	if len(tags) == 0 && len(datasetIDs) == 0 {
-		return nil, nil, false
-	}
-	return tags, datasetIDs, true
+	return tags, datasetIDs
 }
