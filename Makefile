@@ -88,26 +88,40 @@ test-go: tool-install
 test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
-server:
-	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server ./web/cmd/server
+$(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
+	go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
-server-static:
-	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server ./web/cmd/server
+.PHONY: server
+server: $(BIN_OUTPUT_PATH)/viam-server
 
-full-static:
-	mkdir -p bin/static
-	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
+$(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
+
+.PHONY: server-static
+server-static: $(BIN_OUTPUT_PATH)/viam-server-static
+
+bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
+	mkdir -p $(dir $@)
+	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+
+.PHONY: full-static
+full-static: bin/static/viam-server-$(GOARCH)
 
 # should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
-windows:
-	mkdir -p bin/windows
-	GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-amd64.exe ./web/cmd/server
+bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
+	mkdir -p $(dir $@)
+	GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+
+.PHONY: windows
+windows: bin/windows/viam-server-amd64.exe
 	cd bin/windows && zip viam.zip viam-server-amd64.exe
 
-server-static-compressed: server-static
-	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
+$(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
+	cp $< $@
+	upx --best --lzma $@
+
+.PHONY: server-static-compressed
+server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 clean-all:
 	git clean -fxd
