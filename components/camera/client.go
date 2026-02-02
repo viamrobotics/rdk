@@ -8,6 +8,7 @@ import (
 	"image"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -327,7 +328,8 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return result, nil
 	}
 	// switch distortion model based on model name
-	model := transform.DistortionType(resp.DistortionParameters.Model)
+	// Parse the model as a lowercase string
+	model := transform.DistortionType(strings.ToLower(resp.DistortionParameters.Model))
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
 	if err != nil {
 		return Properties{}, err
