@@ -2,6 +2,7 @@ package transform
 
 import "github.com/pkg/errors"
 
+// BrownConradyK6 is a struct for the terms of the Brown-Conrady model of distortion with 6 radial coefficients.
 type BrownConradyK6 struct {
 	RadialK1     float64 `json:"rk1"`
 	RadialK2     float64 `json:"rk2"`
@@ -13,6 +14,7 @@ type BrownConradyK6 struct {
 	TangentialP2 float64 `json:"tp2"`
 }
 
+// CheckValid checks if the BrownConradyK6 shaped distortion_parameters are valid.
 func (bc *BrownConradyK6) CheckValid() error {
 	if bc == nil {
 		return InvalidDistortionError("BrownConradyK6 shaped distortion_parameters not provided")
@@ -20,6 +22,8 @@ func (bc *BrownConradyK6) CheckValid() error {
 	return nil
 }
 
+// NewBrownConradyK6 returns a new BrownConradyK6 from a list of parameters.
+// The parameters are expected to be in the order: [rk1, rk2, rk3, rk4, rk5, rk6, tp1, tp2]
 func NewBrownConradyK6(inp []float64) (*BrownConradyK6, error) {
 	if len(inp) > 8 {
 		return nil, errors.Errorf("list of parameters too long, expected max 8, got %d", len(inp))
@@ -33,10 +37,12 @@ func NewBrownConradyK6(inp []float64) (*BrownConradyK6, error) {
 	return &BrownConradyK6{inp[0], inp[1], inp[2], inp[3], inp[4], inp[5], inp[6], inp[7]}, nil
 }
 
+// ModelType returns the distortion model type.
 func (bc *BrownConradyK6) ModelType() DistortionType {
 	return BrownConradyK6DistortionType
 }
 
+// Parameters returns the distortion parameters of the Brown-Conrady K6 model as a list of floats.
 func (bc *BrownConradyK6) Parameters() []float64 {
 	if bc == nil {
 		return []float64{}
@@ -44,6 +50,8 @@ func (bc *BrownConradyK6) Parameters() []float64 {
 	return []float64{bc.RadialK1, bc.RadialK2, bc.RadialK3, bc.RadialK4, bc.RadialK5, bc.RadialK6, bc.TangentialP1, bc.TangentialP2}
 }
 
+// Transform distorts the input points x,y according to the Brown-Conrady K6 model as described by OpenCV
+// https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#ga7dfb72c9cf9780a347fbe3d1c47e5d5a
 func (bc *BrownConradyK6) Transform(x, y float64) (float64, float64) {
 	if bc == nil {
 		return x, y
