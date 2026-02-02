@@ -98,6 +98,10 @@ const (
 	moduleBuildFlagWait        = "wait"
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
+
+	firebaseConfigBundleIDFlag = "bundle-id"
+	firebaseConfigJSONPathFlag = "firebase-config-path"
+
 	moduleBuildFlagPlatforms   = "platforms"
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
@@ -1048,6 +1052,37 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createCommandWithT[organizationEnableBillingServiceArgs](OrganizationEnableBillingServiceAction),
+						},
+					},
+				},
+				{
+					Name:            "firebase-config",
+					Usage:           "work with firebase configs",
+					UsageText:       createUsageText("organizations firebase-config", nil, false, true),
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:      "upload",
+							Usage:     "upload a firebase config for a bundle id",
+							UsageText: createUsageText("organizations firebase-config upload", []string{generalFlagOrgID, firebaseConfigBundleIDFlag, firebaseConfigJSONPathFlag}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "the org id to upload the config for",
+								},
+								&cli.StringFlag{
+									Name:     firebaseConfigBundleIDFlag,
+									Required: true,
+									Usage:    "the bundle id to upload the config for",
+								},
+								&cli.StringFlag{
+									Name:     firebaseConfigJSONPathFlag,
+									Required: true,
+									Usage:    "the path to the firebase config json file",
+								},
+							},
+							Action: createCommandWithT[organizationsFirebaseConfigUploadArgs](OrganizationsFirebaseConfigUploadAction),
 						},
 					},
 				},
