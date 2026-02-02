@@ -602,6 +602,29 @@ func mlTrainingMetadataToProto(md MLTrainingMetadata) *pb.MLTrainingMetadata {
 	}
 }
 
+func mlModelVersionToProto(version *MLModelVersion) *pb.MLModelVersion {
+	var createdOn *timestamppb.Timestamp
+	if version.CreatedOn != nil {
+		createdOn = timestamppb.New(*version.CreatedOn)
+	}
+	return &pb.MLModelVersion{
+		Version:   version.Version,
+		CreatedOn: createdOn,
+	}
+}
+
+func mlModelMetadataToProto(md MLModelMetadata) *pb.MLModelMetadata {
+	var versions []*pb.MLModelVersion
+	for _, version := range md.Versions {
+		versions = append(versions, mlModelVersionToProto(version))
+	}
+	return &pb.MLModelMetadata{
+		ModelType:        modelTypeToProto(md.ModelType),
+		ModelFramework:   modelFrameworkToProto(md.ModelFramework),
+		DetailedVersions: versions,
+	}
+}
+
 func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 	switch metadata := item.Metadata.(type) {
 	case *registryItemModuleMetadata:
@@ -623,6 +646,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	case *registryItemMLModelMetadata:
+		protoMetadata := mlModelMetadataToProto(*metadata.MlModelMetadata)
 		return &pb.RegistryItem{
 			ItemId:                         item.ItemID,
 			OrganizationId:                 item.OrganizationID,
@@ -636,7 +660,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			TotalExternalRobotUsage:        int64(item.TotalExternalRobotUsage),
 			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
 			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
-			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
+			Metadata:                       &pb.RegistryItem_MlModelMetadata{MlModelMetadata: protoMetadata},
 			CreatedAt:                      timestamppb.New(*item.CreatedAt),
 			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
