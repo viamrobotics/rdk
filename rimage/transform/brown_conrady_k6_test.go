@@ -82,7 +82,7 @@ func TestBrownConradyK6Transform(t *testing.T) {
 	tx, ty := bc.Transform(x, y)
 
 	r2 := x*x + y*y
-	radDist := 1 + params[0]*r2 + params[1]*r2*r2 + params[2]*r2*r2*r2 + params[3]*r2*r2*r2*r2 + params[4]*r2*r2*r2*r2*r2 + params[5]*r2*r2*r2*r2*r2*r2
+	radDist := 1 + r2*(params[0]+r2*(params[1]+r2*(params[2]+r2*(params[3]+r2*(params[4]+r2*params[5])))))
 	radDistX := x * radDist
 	radDistY := y * radDist
 	tanDistX := 2*params[6]*x*y + params[7]*(r2+2*x*x)

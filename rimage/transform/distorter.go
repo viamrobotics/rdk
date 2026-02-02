@@ -8,7 +8,8 @@ type DistortionType string
 const (
 	// BrownConradyDistortionType is for simple lenses of narrow field easily modeled as a pinhole camera.
 	BrownConradyDistortionType = DistortionType("brown_conrady")
-	// BrownConradyK6DistortionType is for lenses with complex distortion patterns requiring 6 radial coefficients (vs. 3 in standard Brown-Conrady).
+	// BrownConradyK6DistortionType is for lenses with complex distortion patterns requiring 6 radial
+	// coefficients (vs. 3 in standard Brown-Conrady).
 	BrownConradyK6DistortionType = DistortionType("brown_conrady_k6")
 	// InverseBrownConradyDistortionType applies the inverse of Brown-Conrady distortion
 	// (i.e., undistorts distorted points).
