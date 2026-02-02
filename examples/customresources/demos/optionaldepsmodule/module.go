@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/module/trace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -73,6 +74,8 @@ func newFoo(ctx context.Context,
 	conf resource.Config,
 	logger logging.Logger,
 ) (resource.Resource, error) {
+	ctx, span := trace.StartSpan(ctx, "optionaldepsmodule::newFoo")
+	defer span.End()
 	f := &foo{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,

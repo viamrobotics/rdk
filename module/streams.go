@@ -10,10 +10,10 @@ import (
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/trace"
 	"golang.org/x/exp/maps"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/module/trace"
 	"go.viam.com/rdk/resource"
 )
 
