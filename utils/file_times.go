@@ -9,9 +9,9 @@ import (
 
 // getFileTimes returns the creation and modification times for a file.
 // On Unix systems, creation time uses:
-// - macOS/BSD: birthtime (Birthtimespec)
-// - Linux: change time (Ctim) as a fallback, since true creation time
-//   is not available on all filesystems
+//   - macOS/BSD: birthtime (Birthtimespec)
+//   - Linux: change time (Ctim) as a fallback, since true creation time
+//     is not available on all filesystems
 func getFileTimes(info os.FileInfo) (FileTimes, error) {
 	modTime := info.ModTime()
 
