@@ -6,11 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
 )
@@ -76,6 +78,24 @@ func uploadArbitraryFile(
 		return 0, errors.Wrap(err, "error creating FileUpload client")
 	}
 
+	// Try to infer tags and dataset IDs from the filename query parameters.
+	uploadTagsSet := goutils.NewStringSet(tags...)
+	uploadDatasetIDsSet := goutils.NewStringSet(datasetIDs...)
+	inferredTags, inferredDatasetIDs := inferTagsAndDatasetIDsFromPath(path)
+	for _, t := range inferredTags {
+		uploadTagsSet.Add(t)
+	}
+	for _, id := range inferredDatasetIDs {
+		uploadDatasetIDsSet.Add(id)
+	}
+	logger.Debugf(
+		"inferred upload metadata from path segments; file=%q tags=%v datasetIDs=%v",
+		path,
+		inferredTags,
+		inferredDatasetIDs,
+	)
+	uploadFileExt := filepath.Ext(path)
+
 	// Send metadata FileUploadRequest.
 	logger.Debugf("datasync.FileUpload request sending metadata for arbitrary file: %s", path)
 	if err := stream.Send(&v1.FileUploadRequest{
@@ -84,9 +104,9 @@ func uploadArbitraryFile(
 				PartId:        conn.partID,
 				Type:          v1.DataType_DATA_TYPE_FILE,
 				FileName:      path,
-				FileExtension: filepath.Ext(f.Name()),
-				Tags:          tags,
-				DatasetIds:    datasetIDs,
+				FileExtension: uploadFileExt,
+				Tags:          uploadTagsSet.ToList(),
+				DatasetIds:    uploadDatasetIDsSet.ToList(),
 			},
 		},
 	}); err != nil {
@@ -158,4 +178,34 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr[:numBytesRead]}, nil
+}
+
+// inferTagsAndDatasetIDsFromPath infers tags and dataset IDs from the path of a file.
+// Directory name convention: `.../tag=<tag>/tag=<tag>/dataset=<id>/dataset=<id>/<file>`
+func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string) {
+	dir := filepath.Dir(path)
+	for {
+		seg := strings.TrimSpace(filepath.Base(dir))
+		if seg != "" && seg != "." && seg != string(filepath.Separator) {
+			if v, ok := strings.CutPrefix(seg, "tag="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					tags = append(tags, v)
+				}
+			} else if v, ok := strings.CutPrefix(seg, "dataset="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					datasetIDs = append(datasetIDs, v)
+				}
+			}
+		}
+
+		// Go up one directory until we can no longer ascend.
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+	return tags, datasetIDs
 }
