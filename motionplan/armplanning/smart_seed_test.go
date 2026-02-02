@@ -231,3 +231,152 @@ func BenchmarkSmartSeedCacheSearch(t *testing.B) {
 		test.That(t, err, test.ShouldBeNil)
 	}
 }
+
+func BenchmarkFindSeed(b *testing.B) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(b)
+	logger.SetLevel(logging.ERROR)
+
+	armName := "ur5e"
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(b, err, test.ShouldBeNil)
+
+	idealJointValues := pirIdealJointValues
+
+	fs := referenceframe.NewEmptyFrameSystem("pirouette")
+	err = fs.AddFrame(armKinematics, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	ssc, err := smartSeed(fs, logger.Sublogger("smartseed"))
+	test.That(b, err, test.ShouldBeNil)
+
+	for b.Loop() {
+		b.StopTimer()
+		for i, ideal := range idealJointValues {
+			pose, err := armKinematics.Transform(ideal)
+			test.That(b, err, test.ShouldBeNil)
+
+			score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
+
+			b.StartTimer()
+			seeds, _, err := ssc.findSeeds(ctx,
+				referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
+				referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
+				10,
+				logger)
+			b.StopTimer()
+
+			test.That(b, err, test.ShouldBeNil)
+			firstScore := 0.0
+			for ii, seed := range seeds {
+				score2 := referenceframe.InputsL2Distance(seed.Get(armName), idealJointValues[i])
+				if ii == 0 {
+					firstScore = score2
+				}
+				logger.Infof("\t %d %v", ii, score2)
+				if score2 < score1 {
+					break
+				}
+				if score1 == 0 {
+					break
+				}
+			}
+
+			if score1 > 0 {
+				test.That(b, firstScore, test.ShouldBeLessThan, 5)
+			}
+		}
+		b.StartTimer()
+	}
+}
+
+func BenchmarkJustFindSeed(b *testing.B) {
+	ctx := context.Background()
+	_ = ctx
+	logger := logging.NewTestLogger(b)
+	logger.SetLevel(logging.ERROR)
+
+	armName := "ur5e"
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(b, err, test.ShouldBeNil)
+
+	idealJointValues := pirIdealJointValues
+
+	fs := referenceframe.NewEmptyFrameSystem("pirouette")
+	err = fs.AddFrame(armKinematics, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	ssc, err := smartSeed(fs, logger.Sublogger("smartseed"))
+	_ = ssc
+	test.That(b, err, test.ShouldBeNil)
+
+	for _, ideal := range idealJointValues[0:1] {
+		pose, err := armKinematics.Transform(ideal)
+		_ = pose
+		test.That(b, err, test.ShouldBeNil)
+
+		for b.Loop() {
+			_, _, err := ssc.findSeeds(ctx,
+				referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
+				referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
+				10,
+				logger)
+			test.That(b, err, test.ShouldBeNil)
+		}
+	}
+}
+
+func BenchmarkJustDistance(b *testing.B) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(b)
+	logger.SetLevel(logging.ERROR)
+
+	armName := "ur5e"
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(b, err, test.ShouldBeNil)
+
+	idealJointValues := pirIdealJointValues
+
+	fs := referenceframe.NewEmptyFrameSystem("pirouette")
+	err = fs.AddFrame(armKinematics, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	ssc, err := smartSeed(fs, logger.Sublogger("smartseed"))
+	test.That(b, err, test.ShouldBeNil)
+
+	for i, ideal := range idealJointValues[0:1] {
+		pose, err := armKinematics.Transform(ideal)
+		test.That(b, err, test.ShouldBeNil)
+
+		score1 := referenceframe.InputsL2Distance(idealJointValues[0], ideal)
+
+		for b.Loop() {
+			seeds, _, err := ssc.findSeeds(ctx,
+				referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", pose)},
+				referenceframe.FrameSystemInputs{armName: idealJointValues[0]}.ToLinearInputs(),
+				10,
+				logger)
+
+			test.That(b, err, test.ShouldBeNil)
+			firstScore := 0.0
+
+			for ii, seed := range seeds {
+				score2 := referenceframe.InputsL2Distance(seed.Get(armName), idealJointValues[i])
+				if ii == 0 {
+					firstScore = score2
+				}
+				logger.Infof("\t %d %v", ii, score2)
+				if score2 < score1 {
+					break
+				}
+				if score1 == 0 {
+					break
+				}
+			}
+
+			if score1 > 0 {
+				test.That(b, firstScore, test.ShouldBeLessThan, 5)
+			}
+		}
+	}
+}
