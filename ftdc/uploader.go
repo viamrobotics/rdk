@@ -8,10 +8,12 @@ import (
 	"path/filepath"
 
 	v1 "go.viam.com/api/app/datasync/v1"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 type uploader struct {
@@ -21,7 +23,7 @@ type uploader struct {
 	logger         logging.Logger
 
 	toUpload chan string
-	worker   *utils.StoppableWorkers
+	worker   *viamutils.StoppableWorkers
 }
 
 func newUploader(cloudConn rpc.ClientConn, ftdcDir, partID string, logger logging.Logger) *uploader {
@@ -35,7 +37,7 @@ func newUploader(cloudConn rpc.ClientConn, ftdcDir, partID string, logger loggin
 }
 
 func (uploader *uploader) start() {
-	uploader.worker = utils.NewBackgroundStoppableWorkers(uploader.uploadRunner)
+	uploader.worker = viamutils.NewBackgroundStoppableWorkers(uploader.uploadRunner)
 }
 
 func (uploader *uploader) stopAndJoin() {
@@ -66,6 +68,13 @@ func (uploader *uploader) uploadRunner(ctx context.Context) {
 
 func (uploader *uploader) uploadFile(ctx context.Context, filename string) error {
 	uploader.logger.Debugw("Uploading FTDC file", "filename", filename)
+
+	// Get file timestamps
+	fileTimes, err := utils.GetFileTimes(filename)
+	if err != nil {
+		return err
+	}
+
 	binaryClient, err := uploader.dataSyncClient.FileUpload(ctx)
 	if err != nil {
 		return err
@@ -74,10 +83,12 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 	err = binaryClient.Send(&v1.FileUploadRequest{
 		UploadPacket: &v1.FileUploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        uploader.partID,
-				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      filename,
-				FileExtension: filepath.Ext(filename),
+				PartId:         uploader.partID,
+				Type:           v1.DataType_DATA_TYPE_FILE,
+				FileName:       filename,
+				FileExtension:  filepath.Ext(filename),
+				FileCreateTime: timestamppb.New(fileTimes.CreateTime),
+				FileModifyTime: timestamppb.New(fileTimes.ModifyTime),
 			},
 		},
 	})
@@ -99,7 +110,7 @@ func (uploader *uploader) uploadFile(ctx context.Context, filename string) error
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(file.Close)
+	defer viamutils.UncheckedErrorFunc(file.Close)
 
 	uploadBuf := make([]byte, 32*1024)
 	for {
