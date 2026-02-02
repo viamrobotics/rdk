@@ -13,8 +13,10 @@ import (
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 // UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
@@ -72,6 +74,12 @@ func uploadArbitraryFile(
 		return 0, fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos)
 	}
 
+	// Get file timestamps
+	fileTimes, err := utils.GetFileTimes(path)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get file times")
+	}
+
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
 	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
@@ -101,12 +109,14 @@ func uploadArbitraryFile(
 	if err := stream.Send(&v1.FileUploadRequest{
 		UploadPacket: &v1.FileUploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        conn.partID,
-				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      path,
-				FileExtension: uploadFileExt,
-				Tags:          uploadTagsSet.ToList(),
-				DatasetIds:    uploadDatasetIDsSet.ToList(),
+				PartId:         conn.partID,
+				Type:           v1.DataType_DATA_TYPE_FILE,
+				FileName:       path,
+				FileExtension:  uploadFileExt,
+				FileCreateTime: timestamppb.New(fileTimes.CreateTime),
+				FileModifyTime: timestamppb.New(fileTimes.ModifyTime),
+				Tags:           uploadTagsSet.ToList(),
+				DatasetIds:     uploadDatasetIDsSet.ToList(),
 			},
 		},
 	}); err != nil {
