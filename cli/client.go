@@ -1314,6 +1314,7 @@ type robotsPartAddFragmentArgs struct {
 	Location     string
 	Machine      string
 	Part         string
+	Fragment     string
 }
 
 // RobotsPartAddFragmentAction is the corresponding action for 'machines part fragments add'
@@ -1335,13 +1336,31 @@ func RobotsPartAddFragmentAction(c *cli.Context, args robotsPartAddFragmentArgs)
 
 	pbFragments := fragmentResp.Fragments
 
-	idx, err := fuzzyfinder.Find(pbFragments, func(i int) string { return pbFragments[i].Name })
-	if err != nil {
-		return err
-	}
+	var idToAdd, nameToAdd string
 
-	idToAdd := pbFragments[idx].Id
-	nameToAdd := pbFragments[idx].Name
+	if args.Fragment != "" {
+		// Fragment specified, find it by name or ID
+		found := false
+		for _, fragment := range pbFragments {
+			if fragment.Name == args.Fragment || fragment.Id == args.Fragment {
+				idToAdd = fragment.Id
+				nameToAdd = fragment.Name
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("fragment %s not found", args.Fragment)
+		}
+	} else {
+		// No fragment specified, use fuzzyfinder
+		idx, err := fuzzyfinder.Find(pbFragments, func(i int) string { return pbFragments[i].Name })
+		if err != nil {
+			return err
+		}
+		idToAdd = pbFragments[idx].Id
+		nameToAdd = pbFragments[idx].Name
+	}
 
 	conf := part.RobotConfig.AsMap()
 	fragments, ok := conf["fragments"].([]any)
@@ -1381,6 +1400,7 @@ type robotsPartRemoveFragmentArgs struct {
 	Location     string
 	Machine      string
 	Part         string
+	Fragment     string
 }
 
 // given a map of fragment names to IDs, allows the user to select one and returns the chosen name/ID
@@ -1453,9 +1473,34 @@ func RobotsPartRemoveFragmentAction(c *cli.Context, args robotsPartRemoveFragmen
 		return err
 	}
 
-	whichFragment, whichID, err := client.selectFragment(fragmentNamesToIDs)
-	if err != nil {
-		return err
+	var whichFragment, whichID string
+	if args.Fragment != "" {
+		// Fragment name or ID provided, bypass selection
+		var ok bool
+		whichID, ok = fragmentNamesToIDs[args.Fragment]
+		if ok {
+			// Found by name
+			whichFragment = args.Fragment
+		} else {
+			// Check if it's an ID
+			for name, id := range fragmentNamesToIDs {
+				if id == args.Fragment {
+					whichFragment = name
+					whichID = args.Fragment
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return errors.Errorf("fragment %s not found on part %s", args.Fragment, part.Name)
+			}
+		}
+	} else {
+		// No fragment provided, prompt user to select
+		whichFragment, whichID, err = client.selectFragment(fragmentNamesToIDs)
+		if err != nil {
+			return err
+		}
 	}
 
 	conf := part.GetRobotConfig().AsMap()
