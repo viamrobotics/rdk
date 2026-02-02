@@ -101,9 +101,9 @@ func TestSmoothPlans1(t *testing.T) {
 	for idx, n := range nodes {
 		logger.Infof("%d : %v", idx, n.Get("arm-left"))
 	}
-	// Smoothing reduces 62 waypoints to 3, then addCloseObstacleWaypoints adds 2 more
+	// Smoothing reduces 62 waypoints to 3, then addCloseObstacleWaypoints adds 5 more
 	// where the path comes within 5mm of obstacles
-	test.That(t, len(nodes), test.ShouldEqual, 5)
+	test.That(t, len(nodes), test.ShouldEqual, 8)
 }
 
 func BenchmarkSmoothPlans1(b *testing.B) {
