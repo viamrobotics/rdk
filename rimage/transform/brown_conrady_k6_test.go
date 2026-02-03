@@ -78,13 +78,13 @@ func TestConstructorDoesNotModifyInput(t *testing.T) {
 	backing := []float64{0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 99.0, 99.0}
 	params := backing[:6] // Slice with length 6, capacity 8
 
-	orig_full := make([]float64, len(backing))
-	copy(orig_full, backing)
+	origFull := make([]float64, len(backing))
+	copy(origFull, backing)
 
 	NewBrownConradyK6(params)
 
 	// This should FAIL because positions 6-7 changed from 99.0 to 0.0
-	test.That(t, orig_full, test.ShouldResemble, backing)
+	test.That(t, origFull, test.ShouldResemble, backing)
 }
 
 func TestBrownConradyK6Transform(t *testing.T) {
