@@ -31,9 +31,9 @@ func NewBrownConradyK6(inp []float64) (*BrownConradyK6, error) {
 	if len(inp) == 0 {
 		return &BrownConradyK6{}, nil
 	}
-	for i := len(inp); i < 8; i++ { // fill missing values with 0.0
-		inp = append(inp, 0.0)
-	}
+	// Lets copy the callers slice and modify that
+	inp_copied := make([]float64, len(inp))
+	copy(inp_copied, inp)
 	return &BrownConradyK6{inp[0], inp[1], inp[2], inp[3], inp[4], inp[5], inp[6], inp[7]}, nil
 }
 
