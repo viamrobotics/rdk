@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -135,6 +136,8 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+
+	nextMove atomic.Pointer[motion.MoveReq]
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -150,6 +153,7 @@ func NewBuiltIn(
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
 	return ms, nil
 }
 
@@ -218,6 +222,11 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	}
 	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
 	return err == nil, err
+}
+
+func (ms *builtIn) MoveAsync(ctx context.Context, req motion.MoveReq) (bool, error) {
+	ms.nextMove.Store(&req)
+	return true, nil
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
