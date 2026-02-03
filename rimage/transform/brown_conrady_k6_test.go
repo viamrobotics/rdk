@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"fmt"
 	"testing"
 
 	"go.viam.com/test"
@@ -84,12 +83,6 @@ func TestBrownConradyK6Transform(t *testing.T) {
 
 	expectedX := 0.55131578906250000571
 	expectedY := 0.54631578906250000127
-
-	// pring with all decimals
-	println("tx", fmt.Sprintf("%.20f", tx))
-	println("expectedX", fmt.Sprintf("%.20f", expectedX))
-	println("ty", fmt.Sprintf("%.20f", ty))
-	println("expectedY", fmt.Sprintf("%.20f", expectedY))
 
 	test.That(t, tx, test.ShouldAlmostEqual, expectedX, 1e-9)
 	test.That(t, ty, test.ShouldAlmostEqual, expectedY, 1e-9)
