@@ -60,14 +60,13 @@ type dataTypeUploadStats struct {
 	uploadFailedFileCount atomic.Uint64
 }
 
-// Stats represents metric values for a given moment. Returned by Sync.GetStats().
+// FTDCStats represents upload and deleted file metric values for a given moment. Returned by Sync.GetStats().
 type FTDCStats struct {
-	// File deletion metric.
 	FilesDeletedToFreeSpace int64
-
-	Upload FTDCUploadStats
+	Upload                  FTDCUploadStats
 }
 
+// FTDCUploadStats represents upload metric values for a given moment.
 type FTDCUploadStats struct {
 	// Upload metrics - arbitrary files.
 	ArbitraryUploadedFileCount     uint64
