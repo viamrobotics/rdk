@@ -286,7 +286,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 		ms.logger.Info("DBG. Goal:", req.Destination.Pose(), "Execution spent:", execSpent, "Speeds:", speed)
 	}
 
-	if false {
+	if true {
 		ms.execCh <- exec
 	} else {
 		exec()
