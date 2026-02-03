@@ -309,10 +309,10 @@ func (b *builtIn) Stats() any {
 	// Disk usage stats for the volume containing the main capture directory.
 	result.DiskUsage = diskSummary.DiskUsage
 
-	// Sync path and file deletion stats.
+	// Sync path stats.
 	result.SyncPaths = diskSummary.SyncPaths
 
-	// Upload stats.
+	// Upload and deleted file stats.
 	if sync != nil {
 		syncStats := sync.GetStats()
 		result.FilesDeletedToFreeSpace = syncStats.FilesDeletedToFreeSpace
