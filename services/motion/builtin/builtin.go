@@ -273,9 +273,10 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	}
 
 	exec := func() {
+		noInterrupt := context.Background()
 		ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
 		execStart := time.Now()
-		err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
+		err = ms.execute(noInterrupt, plan.Trajectory(), math.MaxFloat64)
 		execSpent := time.Since(execStart)
 
 		speed := make([]float64, len(distances))
