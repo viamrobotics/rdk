@@ -57,6 +57,7 @@ func (bc *BrownConradyK6) Parameters() []float64 {
 
 // Transform distorts the input points x,y according to the Brown-Conrady K6 model as described by OpenCV
 // https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#ga7dfb72c9cf9780a347fbe3d1c47e5d5a
+// X and Y are the undistorted points, X' and Y' are the distorted points after applying the Brown-Conrady model
 func (bc *BrownConradyK6) Transform(x, y float64) (float64, float64) {
 	if bc == nil {
 		return x, y
