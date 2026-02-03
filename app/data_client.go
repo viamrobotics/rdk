@@ -1707,7 +1707,7 @@ func filterToProto(filter *Filter) *pb.Filter {
 }
 
 func captureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
-	// If both are zero, don't send any interval.
+	// If both are zero, don't return an interval.
 	if interval.Start.IsZero() && interval.End.IsZero() {
 		return nil
 	}
