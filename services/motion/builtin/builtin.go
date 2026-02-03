@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -28,7 +27,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -36,6 +34,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -83,8 +82,9 @@ type inputEnabledActuator interface {
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
-	LogFilePath string `json:"log_file_path"`
-	NumThreads  int    `json:"num_threads"`
+	LogFilePath   string `json:"log_file_path"`
+	NumThreads    int    `json:"num_threads"`
+	ExecBatchSize int    `json:"exec_batch_size"`
 
 	PlanFilePath                string `json:"plan_file_path"`
 	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
@@ -137,22 +137,40 @@ type builtIn struct {
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
 
-	nextMove atomic.Pointer[motion.MoveReq]
+	execCh  chan func()
+	workers *goutils.StoppableWorkers
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
 func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		panic(err)
+	}
+
 	ms := &builtIn{
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
 		configuredDefaultExtras: make(map[string]any),
+		execCh:                  make(chan func(), config.ExecBatchSize),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
+	ms.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case fn := <-ms.execCh:
+				fn()
+			}
+		}
+	})
 
 	return ms, nil
 }
@@ -184,6 +202,7 @@ func (ms *builtIn) Reconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
+	ms.logger.Infof("All deps: %+v", deps)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -207,13 +226,13 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
+	ms.workers.Stop()
 	return nil
 }
 
 func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	ms.applyDefaultExtras(req.Extra)
 	start := time.Now()
@@ -222,7 +241,10 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 		return false, err
 	}
 	spent := time.Since(start)
-	ensureDur := time.Duration(req.Extra["ensureMPTimeSpentMS"].(int64)) * time.Millisecond
+	ensureDur := time.Duration(0)
+	if mapDur, ok := req.Extra["ensureMPTimeSpentMS"]; ok {
+		ensureDur = time.Duration(mapDur.(int64)) * time.Millisecond
+	}
 	if ensureDur > spent {
 		ms.logger.Info("Extra mp sleep:", (ensureDur - spent))
 		time.Sleep(ensureDur - spent)
@@ -250,23 +272,27 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 		distances[idx] = last[idx] - firstInp
 	}
 
-	ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
-	execStart := time.Now()
-	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
-	execSpent := time.Since(execStart)
+	exec := func() {
+		ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
+		execStart := time.Now()
+		err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
+		execSpent := time.Since(execStart)
 
-	speed := make([]float64, len(distances))
-	for idx, distance := range distances {
-		speed[idx] = distance / execSpent.Seconds()
+		speed := make([]float64, len(distances))
+		for idx, distance := range distances {
+			speed[idx] = distance / execSpent.Seconds()
+		}
+
+		ms.logger.Info("DBG. Goal:", req.Destination.Pose(), "Execution spent:", execSpent, "Speeds:", speed)
 	}
 
-	ms.logger.Info("DBG. Goal:", req.Destination.Pose(), "Execution spent:", execSpent, "Speeds:", speed)
-	return err == nil, err
-}
+	if false {
+		ms.execCh <- exec
+	} else {
+		exec()
+	}
 
-func (ms *builtIn) MoveAsync(ctx context.Context, req motion.MoveReq) (bool, error) {
-	ms.nextMove.Store(&req)
-	return true, nil
+	return err == nil, err
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {

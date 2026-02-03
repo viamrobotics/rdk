@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
-	_ "go.viam.com/rdk/services/motion/builtin"
+	msBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/test"
 	"golang.org/x/sync/errgroup"
@@ -28,6 +28,8 @@ func TestBufferMoveRequests(t *testing.T) {
 	// connected client.
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
+
+	_ = msBuiltin.Config{}
 
 	// Create a robot with the minimal components for replanning. An arm, a camera, a motion service
 	// and a vision detector.
@@ -49,9 +51,10 @@ func TestBufferMoveRequests(t *testing.T) {
 		},
 		Services: []resource.Config{
 			{
-				Name:  "motionService",
-				API:   motionservice.API,
-				Model: resource.DefaultServiceModel,
+				Name:                "motionService",
+				API:                 motionservice.API,
+				Model:               resource.DefaultServiceModel,
+				ConvertedAttributes: nil,
 			},
 		},
 	}
