@@ -681,6 +681,7 @@ func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	// crashed and thus do not need to be closed.
 	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
+	r.sendTriggerConfig("handleOrphanedResources")
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
