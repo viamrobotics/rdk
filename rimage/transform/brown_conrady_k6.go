@@ -47,6 +47,7 @@ func (bc *BrownConradyK6) ModelType() DistortionType {
 }
 
 // Parameters returns the distortion parameters of the Brown-Conrady K6 model as a list of floats.
+// The parameters are returned in the following order: [rk1, rk2, rk3, rk4, rk5, rk6, tp1, tp2]
 func (bc *BrownConradyK6) Parameters() []float64 {
 	if bc == nil {
 		return []float64{}
