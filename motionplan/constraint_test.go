@@ -106,19 +106,28 @@ func TestConstraintPath(t *testing.T) {
 	constraints := NewEmptyConstraints()
 	constraints.AddLinearConstraint(LinearConstraint{LineToleranceMm: 0.01, OrientationToleranceDegs: 0.01})
 
-	handler, err = NewConstraintChecker(
-		1.0, // collision buffer
-		constraints,
-		referenceframe.FrameSystemPoses{}, // start poses
-		referenceframe.FrameSystemPoses{}, // goal poses
+	seedMap := referenceframe.NewZeroInputs(fs).ToLinearInputs()
+	collisionConstraints, err := NewCollisionConstraints(
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
-		referenceframe.NewZeroInputs(fs).ToLinearInputs(),
 		&referenceframe.WorldState{},
-		logger,
+		nil, // collision specs
+		seedMap,
+		1.0, // collision buffer
 	)
 	test.That(t, err, test.ShouldBeNil)
+
+	topoConstraint, err := NewTopoConstraint(
+		fs,
+		seedMap,
+		referenceframe.FrameSystemPoses{},
+		referenceframe.FrameSystemPoses{},
+		constraints,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	handler = NewConstraintChecker(collisionConstraints, topoConstraint, logger)
 
 	failSeg, err = handler.CheckStateConstraintsAcrossSegmentFS(ctx, segmentFS, 0.5, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -211,20 +220,23 @@ func TestLineFollow(t *testing.T) {
 	// Create a simple linear constraint instead of the old line constraint
 	constraints := NewEmptyConstraints()
 	constraints.AddLinearConstraint(LinearConstraint{LineToleranceMm: 0.001, OrientationToleranceDegs: 0.001})
-	// Create constraint checker with linear constraints
-	opt, err := NewConstraintChecker(
-		1.0, // collision buffer
-		constraints,
-		from, // start poses
-		to,   // goal poses
+
+	// Create constraint checker with linear constraints using the new API
+	collisionConstraints, err := NewCollisionConstraints(
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
-		startCfg,
 		&referenceframe.WorldState{},
-		logger,
+		nil, // collision specs
+		startCfg,
+		1.0, // collision buffer
 	)
 	test.That(t, err, test.ShouldBeNil)
+
+	topoConstraint, err := NewTopoConstraint(fs, startCfg, from, to, constraints)
+	test.That(t, err, test.ShouldBeNil)
+
+	opt := NewConstraintChecker(collisionConstraints, topoConstraint, logger)
 
 	// Test distance calculation using new API
 	dist := WeightedSquaredNormDistance(p1, query)

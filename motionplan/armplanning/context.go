@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"sort"
 	"strings"
 
 	"go.viam.com/utils/trace"
@@ -12,7 +13,26 @@ import (
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
+
+// collisionConstraintCacheEntry caches collision constraints for a specific set of geometries.
+type collisionConstraintCacheEntry struct {
+	constraints map[string]motionplan.CollisionConstraintFunc
+}
+
+// geometrySignature creates a deterministic key from geometry labels for caching.
+func geometrySignature(movingGeoms, staticGeoms []spatialmath.Geometry) string {
+	var labels []string
+	for _, g := range movingGeoms {
+		labels = append(labels, "m:"+g.Label())
+	}
+	for _, g := range staticGeoms {
+		labels = append(labels, "s:"+g.Label())
+	}
+	sort.Strings(labels)
+	return strings.Join(labels, "|")
+}
 
 type planContext struct {
 	fs  *referenceframe.FrameSystem
@@ -28,6 +48,10 @@ type planContext struct {
 
 	planMeta *PlanMeta
 	logger   logging.Logger
+
+	// collisionConstraintCache caches collision constraints keyed by geometry signature.
+	// This avoids recreating identical collision constraints for each segment in a multi-waypoint plan.
+	collisionConstraintCache map[string]*collisionConstraintCacheEntry
 }
 
 func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
@@ -41,6 +65,7 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
 		planMeta:                  meta,
 		logger:                    logger,
+		collisionConstraintCache:  make(map[string]*collisionConstraintCacheEntry),
 	}
 
 	var err error
@@ -86,6 +111,43 @@ type planSegmentContext struct {
 	checker      *motionplan.ConstraintChecker
 }
 
+// getOrCreateCollisionConstraints returns cached collision constraints for the given geometries,
+// or creates and caches new ones if not found.
+func (pc *planContext) getOrCreateCollisionConstraints(
+	movingGeoms, staticGeoms []spatialmath.Geometry,
+	seedMap *referenceframe.LinearInputs,
+) (map[string]motionplan.CollisionConstraintFunc, error) {
+	cacheKey := geometrySignature(movingGeoms, staticGeoms)
+
+	if cached, ok := pc.collisionConstraintCache[cacheKey]; ok {
+		return cached.constraints, nil
+	}
+
+	var collisionSpec []motionplan.CollisionSpecification
+	if pc.request.Constraints != nil {
+		collisionSpec = pc.request.Constraints.CollisionSpecification
+	}
+
+	constraints, err := motionplan.NewCollisionConstraints(
+		pc.fs,
+		movingGeoms,
+		staticGeoms,
+		pc.request.WorldState,
+		collisionSpec,
+		seedMap,
+		pc.planOpts.CollisionBufferMM,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	pc.collisionConstraintCache[cacheKey] = &collisionConstraintCacheEntry{
+		constraints: constraints,
+	}
+
+	return constraints, nil
+}
+
 func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*planSegmentContext, error) {
@@ -113,7 +175,6 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		return nil, err
 	}
 
-	// TODO: this is duplicated work as it's also done in motionplan.NewConstraintChecker
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(pc.fs, start.ToFrameSystemInputs())
 	if err != nil {
 		return nil, err
@@ -121,20 +182,21 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 
 	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
 
-	psc.checker, err = motionplan.NewConstraintChecker(
-		pc.planOpts.CollisionBufferMM,
-		pc.request.Constraints,
-		psc.startPoses,
-		goal,
-		pc.fs,
-		movingRobotGeometries, staticRobotGeometries,
-		start,
-		pc.request.WorldState,
-		pc.logger.Sublogger("constraint"),
-	)
+	collisionConstraints, err := pc.getOrCreateCollisionConstraints(movingRobotGeometries, staticRobotGeometries, start)
 	if err != nil {
 		return nil, err
 	}
+
+	topoConstraint, err := motionplan.NewTopoConstraint(pc.fs, start, psc.startPoses, goal, pc.request.Constraints)
+	if err != nil {
+		return nil, err
+	}
+
+	psc.checker = motionplan.NewConstraintChecker(
+		collisionConstraints,
+		topoConstraint,
+		pc.logger.Sublogger("constraint"),
+	)
 
 	return psc, nil
 }

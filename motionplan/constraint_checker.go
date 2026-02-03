@@ -52,24 +52,17 @@ func NewEmptyConstraintChecker(logger logging.Logger) *ConstraintChecker {
 	return &ConstraintChecker{logger: logger}
 }
 
-// NewConstraintChecker - creates a ConstraintChecker with all the params.
-func NewConstraintChecker(
-	collisionBufferMM float64,
-	constraints *Constraints,
-	startPoses, goalPoses referenceframe.FrameSystemPoses,
+// NewCollisionConstraints creates collision constraint functions by processing the WorldState
+// and collision specifications. These constraints can be shared across multiple segments
+// in a multi-waypoint plan.
+func NewCollisionConstraints(
 	fs *referenceframe.FrameSystem,
-	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
-	seedMap *referenceframe.LinearInputs,
+	movingGeoms, staticGeoms []spatialmath.Geometry,
 	worldState *referenceframe.WorldState,
-	logger logging.Logger,
-) (*ConstraintChecker, error) {
-	if constraints == nil {
-		// Constraints may be nil, but if a motion profile is set in planningOpts
-		// we need it to be a valid pointer to an empty struct.
-		constraints = &Constraints{}
-	}
-	handler := NewEmptyConstraintChecker(logger)
-
+	collisionSpec []CollisionSpecification,
+	seedMap *referenceframe.LinearInputs, //
+	collisionBufferMM float64,
+) (map[string]CollisionConstraintFunc, error) {
 	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
 	if err != nil {
 		return nil, err
@@ -87,7 +80,7 @@ func NewConstraintChecker(
 	}
 
 	allowedCollisions, err := collisionSpecifications(
-		constraints.CollisionSpecification,
+		collisionSpec,
 		frameSystemGeometries,
 		frameNames,
 		worldState.ObstacleNames(),
@@ -96,25 +89,27 @@ func NewConstraintChecker(
 		return nil, err
 	}
 
-	// add collision constraints
-	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+	return CreateAllCollisionConstraints(
 		fs,
-		movingRobotGeometries,
-		staticRobotGeometries,
+		movingGeoms,
+		staticGeoms,
 		worldGeometries,
 		allowedCollisions,
 		collisionBufferMM,
 	)
-	if err != nil {
-		return nil, err
-	}
+}
 
-	err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
-	if err != nil {
-		return nil, err
+// NewConstraintChecker creates a ConstraintChecker with the given collision and topological constraints.
+func NewConstraintChecker(
+	collisionConstraints map[string]CollisionConstraintFunc,
+	topoConstraint StateFSConstraint,
+	logger logging.Logger,
+) *ConstraintChecker {
+	return &ConstraintChecker{
+		collisionConstraints: collisionConstraints,
+		topoConstraint:       topoConstraint,
+		logger:               logger,
 	}
-
-	return handler, nil
 }
 
 // SetCollisionConstraints set the collision constraints explicitly
@@ -122,36 +117,37 @@ func (c *ConstraintChecker) SetCollisionConstraints(cs map[string]CollisionConst
 	c.collisionConstraints = cs
 }
 
-// addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
-// constraints. It will return a bool indicating whether there are any to add.
-func (c *ConstraintChecker) addTopoConstraints(
+// NewTopoConstraint creates a topological constraint function from the given parameters.
+// Returns nil if there are no topological constraints to enforce.
+func NewTopoConstraint(
 	fs *referenceframe.FrameSystem,
 	startCfg *referenceframe.LinearInputs,
-	fromPosesBad, toPoses referenceframe.FrameSystemPoses,
+	startPoses, goalPoses referenceframe.FrameSystemPoses,
 	constraints *Constraints,
-) error {
-	if len(constraints.LinearConstraint) == 0 &&
-		len(constraints.PseudolinearConstraint) == 0 &&
-		len(constraints.OrientationConstraint) == 0 {
-		return nil
+) (StateFSConstraint, error) {
+	if constraints == nil ||
+		(len(constraints.LinearConstraint) == 0 &&
+			len(constraints.PseudolinearConstraint) == 0 &&
+			len(constraints.OrientationConstraint) == 0) {
+		return nil, nil
 	}
 
 	fromPoses := referenceframe.FrameSystemPoses{}
-	for f, b := range fromPosesBad {
-		g := toPoses[f]
+	for f, b := range startPoses {
+		g := goalPoses[f]
 		if g == nil || b.Parent() == g.Parent() {
 			fromPoses[f] = b
 			continue
 		}
 		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent())
 		if err != nil {
-			return err
+			return nil, err
 		}
 		fromPoses[f] = x.(*referenceframe.PoseInFrame)
 	}
 
-	c.topoConstraint = func(state *StateFS) error {
-		for frame, toPIF := range toPoses {
+	return func(state *StateFS) error {
+		for frame, toPIF := range goalPoses {
 			fromPIF := fromPoses[frame]
 
 			if fromPIF.Parent() != toPIF.Parent() {
@@ -190,9 +186,7 @@ func (c *ConstraintChecker) addTopoConstraints(
 		}
 
 		return nil
-	}
-
-	return nil
+	}, nil
 }
 
 func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
