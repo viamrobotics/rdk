@@ -97,7 +97,7 @@ func findReaderAndDriver(
 		if err == nil {
 			path = resolvedPath
 		}
-		reader, driver, err := getReaderAndDriver(filepath.Base(path), constraints, logger)
+		reader, driver, err := getReaderAndDriver(path, constraints, logger)
 		if err != nil {
 			return nil, nil, "", err
 		}
