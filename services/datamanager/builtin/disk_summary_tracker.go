@@ -85,10 +85,17 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 	var earliestTime *time.Time
 
 	for i, summary := range summaries {
+		// Log any errors from the directory summary.
+		if summary.Err != nil {
+			poller.logger.Debugw("error getting directory summary", "path", summary.Path, "error", summary.Err)
+		}
+
 		// The first directory is the main capture directory.
 		if i == 0 {
 			usage, err := diskusage.Statfs(summary.Path)
-			if err == nil {
+			if err != nil {
+				poller.logger.Debugw("failed to get disk usage stats", "path", summary.Path, "error", err)
+			} else {
 				diskSummary.DiskUsage.AvailableGB = float64(usage.AvailableBytes) / (1 << 30)
 				diskSummary.DiskUsage.SizeGB = float64(usage.SizeBytes) / (1 << 30)
 				diskSummary.DiskUsage.AvailablePercent = usage.AvailablePercent() * 100
