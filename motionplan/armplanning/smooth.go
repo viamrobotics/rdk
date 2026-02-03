@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -58,12 +59,11 @@ func smoothPath(
 }
 
 // addCloseObstacleWaypoints interpolates between waypoints and adds new waypoints
-// where the path comes within closeObstacleThresholdMM of an obstacle.
+// where the path comes within twice the minimum distance of an obstacle.
 // This prevents the smoothed path from getting too close to obstacles during interpolation.
 func addCloseObstacleWaypoints(
 	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
-	const closeObstacleThresholdMM = 5.0
 
 	ctx, span := trace.StartSpan(ctx, "addCloseObstacleWaypoints")
 	defer span.End()
@@ -76,7 +76,7 @@ func addCloseObstacleWaypoints(
 
 	for i := 1; i < len(steps); i++ {
 		// Get waypoints that are close to obstacles in this segment
-		closeWaypoints := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i], closeObstacleThresholdMM)
+		closeWaypoints := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
 
 		// Add close waypoints before the current step
 		result = append(result, closeWaypoints...)
@@ -93,14 +93,13 @@ func addCloseObstacleWaypoints(
 
 // findCloseObstacleWaypoints interpolates between start and end configurations
 // and returns configurations where the robot has a local minimum distance to obstacles
-// that is within thresholdMM. Instead of adding every point within the threshold,
+// less than twice the global min distance. Instead of adding every point within the threshold,
 // this finds contiguous "close zones" and adds only the point of closest approach
 // in each zone.
 func findCloseObstacleWaypoints(
 	ctx context.Context,
 	psc *planSegmentContext,
 	start, end *referenceframe.LinearInputs,
-	thresholdMM float64,
 ) []*referenceframe.LinearInputs {
 	segment := &motionplan.SegmentFS{
 		StartConfiguration: start,
@@ -126,6 +125,7 @@ func findCloseObstacleWaypoints(
 	}
 
 	distances := make([]pointDistance, 0, len(interpolated)-2)
+	minDistance := math.Inf(1)
 	for i := 1; i < len(interpolated)-1; i++ {
 		state := &motionplan.StateFS{
 			FS:            psc.pc.fs,
@@ -139,40 +139,19 @@ func findCloseObstacleWaypoints(
 			distance: closestObstacle,
 			hasError: err != nil,
 		}
+		if closestObstacle < minDistance {
+			minDistance = closestObstacle
+		}
 		distances = append(distances, pd)
 	}
 
 	// Find contiguous zones within threshold and select the minimum point in each
 	var closeWaypoints []*referenceframe.LinearInputs
-	inCloseZone := false
-	var zoneMinIdx int
-	var zoneMinDist float64
 
 	for i, pd := range distances {
-		isClose := pd.hasError || pd.distance < thresholdMM
-
-		if isClose {
-			if !inCloseZone {
-				// Starting a new close zone
-				inCloseZone = true
-				zoneMinIdx = i
-				zoneMinDist = pd.distance
-			} else if pd.hasError || pd.distance < zoneMinDist { // Continue in close zone, track minimum
-				zoneMinIdx = i
-				zoneMinDist = pd.distance
-			}
-		} else {
-			if inCloseZone {
-				// Exiting close zone, add the minimum point
-				closeWaypoints = append(closeWaypoints, distances[zoneMinIdx].config)
-				inCloseZone = false
-			}
+		if pd.hasError || pd.distance < minDistance*2 {
+			closeWaypoints = append(closeWaypoints, distances[i].config)
 		}
-	}
-
-	// Handle zone that extends to the end
-	if inCloseZone {
-		closeWaypoints = append(closeWaypoints, distances[zoneMinIdx].config)
 	}
 
 	return closeWaypoints
