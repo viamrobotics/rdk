@@ -207,6 +207,14 @@ func (sa *SimulatedArm) UpdateForTime(now time.Time) {
 		return
 	}
 
+	jointSpeed := sa.speed
+	// Less maxDist, less time to accelerate. Reduce speed in a step function to compensate.
+	if maxDist < 0.015 {
+		jointSpeed /= 5
+	} else if maxDist < 0.02 {
+		jointSpeed /= 3
+	}
+
 	// Find the speed each joint needs to move to finish at the same time.
 	modifiedSpeeds := make([]float64, len(sa.currInputs))
 	for jointIdx, currJointInp := range sa.currInputs {
@@ -220,7 +228,7 @@ func (sa *SimulatedArm) UpdateForTime(now time.Time) {
 
 		// I.e: if we only need to move 1/4 the distance as the `maxDist`, we will travel at 1/4 *
 		// `sa.speed`.
-		modifiedSpeeds[jointIdx] = speedAdjustment * sa.speed
+		modifiedSpeeds[jointIdx] = speedAdjustment * jointSpeed
 	}
 
 	for jointIdx, currJointInp := range sa.currInputs {

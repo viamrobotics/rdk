@@ -267,23 +267,41 @@ func (cff *cacheForFrame) findBoxes(goalPose spatialmath.Pose) []*goalCacheBox {
 	goalPoint := goalPose.Point()
 
 	bestScore := cff.minCartesian.Distance(cff.maxCartesian) / 20
-	distances := make([]e, 0, len(cff.boxes))
-	for _, b := range cff.boxes {
-		d := goalPoint.Distance(b.center)
-		if d < bestScore {
-			bestScore = d
+	best := []e{}
+
+	if false {
+		distances := make([]e, 0, len(cff.boxes))
+		for _, b := range cff.boxes {
+			d := goalPoint.Distance(b.center)
+			if d < bestScore {
+				bestScore = d
+			}
+
+			distances = append(distances, e{b, d})
 		}
 
-		distances = append(distances, e{b, d})
-	}
+		// best := make([]e, 0, 8)
+		for _, e := range distances {
+			if e.d > bestScore*10 {
+				continue
+			}
 
-	best := make([]e, 0, 8)
-	for _, e := range distances {
-		if e.d > bestScore*10 {
-			continue
+			best = append(best, e)
 		}
+	} else if true {
+		for _, b := range cff.boxes {
+			d := goalPoint.Distance(b.center)
+			if d > 10*bestScore {
+				continue
+			}
 
-		best = append(best, e)
+			bestScore = min(bestScore, d)
+			best = append(best, e{b, d})
+		}
+	} else {
+		for _, b := range cff.boxes {
+			best = append(best, e{b, goalPoint.Distance(b.center)})
+		}
 	}
 
 	sort.Slice(best, func(a, b int) bool {

@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -42,8 +43,7 @@ func TestBufferMoveRequests(t *testing.T) {
 				},
 				ConvertedAttributes: &sim.Config{
 					Model: "lite6",
-					// At a `Speed` of 1.0, the test takes about two simulated seconds to complete.
-					Speed: 0.2,
+					Speed: 0.73, // radians per second
 				},
 			},
 		},
@@ -70,10 +70,6 @@ func TestBufferMoveRequests(t *testing.T) {
 	startArmPose, err := armI.EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Create a goal 200 points away on the Z-coordinate.
-	armGoal := spatialmath.Compose(startArmPose, spatialmath.NewPoseFromPoint(r3.Vector{X: -300, Y: 0, Z: 0}))
-	logger.Info("Start arm pose:", startArmPose, "Goal:", armGoal)
-
 	testClock := &errgroup.Group{}
 	defer testClock.Wait()
 
@@ -93,37 +89,129 @@ func TestBufferMoveRequests(t *testing.T) {
 		return nil
 	})
 
+	var armGoal atomic.Pointer[spatialmath.Pose]
 	testClock.Go(func() error {
 		fs, err := framesystem.NewFromService(ctx, robotFs, nil)
 		if err != nil {
 			return err
 		}
 
-		return visualize(ctx, fs, armI, armGoal, logger)
+		return visualizeLess(ctx, fs, armI, &armGoal, logger)
 	})
 
-	moveRequest := motionservice.MoveReq{
-		ComponentName: "arm",
-		Destination:   referenceframe.NewPoseInFrame("world", armGoal),
+	// Init position. Basically the same as all 0s.
+	err = simArm.MoveToJointPositions(ctx, []referenceframe.Input{
+		-2.6070722014992498e-05,
+		0.0003121367481071502,
+		0.0004811931576114148,
+		-1.65975907293614e-05,
+		0.00022126760450191796,
+		0.0006661340012215079,
+	}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Info("Start arm pose:", startArmPose)
+	type scenario struct {
+		pose spatialmath.Pose
+
+		sleepWaitingReceived time.Duration
+		preMPWait            time.Duration
+		mpTime               time.Duration
+	}
+	scenes := []scenario{
+		{
+			pose: spatialmath.NewPose(
+				r3.Vector{X: 87.2858, Y: -0.0854, Z: 154.3494},
+				&spatialmath.OrientationVector{
+					OX:    5.221119372527562e-05,
+					OY:    1.0866956811172634e-25,
+					OZ:    -0.9999999986369956,
+					Theta: 0.038709437428360555,
+				}),
+			sleepWaitingReceived: 0,
+			preMPWait:            26 * time.Millisecond,
+			mpTime:               37 * time.Millisecond,
+		},
+		{
+			pose: spatialmath.NewPose(
+				r3.Vector{X: 88.5368, Y: -0.1742, Z: 155.2143},
+				&spatialmath.OrientationVector{
+					OX:    5.221119372527562e-05,
+					OY:    1.0866956811172634e-25,
+					OZ:    -0.9999999986369956,
+					Theta: 0.038709437428360555,
+				}),
+			sleepWaitingReceived: 19 * time.Millisecond,
+			preMPWait:            28 * time.Millisecond,
+			mpTime:               33 * time.Millisecond,
+		},
+		{
+			pose: spatialmath.NewPose(
+				r3.Vector{X: 91.4828, Y: -0.8744, Z: 156.0627},
+				&spatialmath.OrientationVector{
+					OX:    5.221119372527562e-05,
+					OY:    1.0866956811172634e-25,
+					OZ:    -0.9999999986369956,
+					Theta: 0.038709437428360555,
+				}),
+			sleepWaitingReceived: 28 * time.Millisecond,
+			preMPWait:            19 * time.Millisecond,
+			mpTime:               17 * time.Millisecond,
+		},
+		{
+			pose: spatialmath.NewPose(
+				r3.Vector{X: 125.8221, Y: -3.9480, Z: 161.79193},
+				&spatialmath.OrientationVector{
+					OX:    5.221119372527562e-05,
+					OY:    1.0866956811172634e-25,
+					OZ:    -0.9999999986369956,
+					Theta: 0.038709437428360555,
+				}),
+			sleepWaitingReceived: 42 * time.Millisecond,
+			preMPWait:            6 * time.Millisecond,
+			mpTime:               99 * time.Millisecond,
+		},
+		{
+			pose: spatialmath.NewPose(
+				r3.Vector{X: 348.1348, Y: 2.4793, Z: 155.1889},
+				&spatialmath.OrientationVector{
+					OX:    5.221119372527562e-05,
+					OY:    1.0866956811172634e-25,
+					OZ:    -0.9999999986369956,
+					Theta: 0.038709437428360555,
+				}),
+			sleepWaitingReceived: 52 * time.Millisecond,
+			preMPWait:            26 * time.Millisecond,
+			mpTime:               149 * time.Millisecond,
+		},
 	}
 
-	_, err = motion.Move(ctx, moveRequest)
-	test.That(t, err, test.ShouldBeNil)
+	for _, scene := range scenes {
+		goal := scene.pose
+		time.Sleep(scene.sleepWaitingReceived)
+		time.Sleep(scene.preMPWait)
+		armGoal.Store(&goal)
+		moveRequest := motionservice.MoveReq{
+			ComponentName: "arm",
+			Destination:   referenceframe.NewPoseInFrame("world", goal),
+			Extra: map[string]any{
+				"ensureMPTimeSpentMS": scene.mpTime.Milliseconds(),
+			},
+		}
+
+		_, err = motion.Move(ctx, moveRequest)
+		test.That(t, err, test.ShouldBeNil)
+	}
 }
 
-func visualize(
+func visualizeLess(
 	ctx context.Context,
 	fs *referenceframe.FrameSystem,
 	arm arm.Arm,
-	goalPose spatialmath.Pose,
+	goalPosePtr *atomic.Pointer[spatialmath.Pose],
 	logger logging.Logger,
 ) error {
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
-		panic(err)
-	}
-
-	const arrowHeadAtPose = true
-	if err := viz.DrawPoses([]spatialmath.Pose{goalPose}, []string{"blue"}, arrowHeadAtPose); err != nil {
 		panic(err)
 	}
 
@@ -131,6 +219,13 @@ func visualize(
 		armInputs, err := arm.CurrentInputs(ctx)
 		if err != nil {
 			panic(err)
+		}
+
+		const arrowHeadAtPose = true
+		if goalPose := goalPosePtr.Load(); goalPose != nil {
+			if err := viz.DrawPoses([]spatialmath.Pose{*goalPose}, []string{"blue"}, arrowHeadAtPose); err != nil {
+				panic(err)
+			}
 		}
 
 		fsi := make(referenceframe.FrameSystemInputs)

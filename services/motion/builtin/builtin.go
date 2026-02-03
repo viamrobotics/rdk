@@ -216,11 +216,51 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	ms.applyDefaultExtras(req.Extra)
+	start := time.Now()
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
 		return false, err
 	}
+	spent := time.Since(start)
+	ensureDur := time.Duration(req.Extra["ensureMPTimeSpentMS"].(int64)) * time.Millisecond
+	if ensureDur > spent {
+		ms.logger.Info("Extra mp sleep:", (ensureDur - spent))
+		time.Sleep(ensureDur - spent)
+	}
+
+	var inputs [][]referenceframe.Input
+	for _, fInputs := range plan.Trajectory() {
+		nonTrivialInputs := 0
+		for _, inp := range fInputs {
+			if len(inp) == 0 {
+				continue
+			}
+
+			nonTrivialInputs++
+			if nonTrivialInputs > 1 {
+				panic(fmt.Sprintln("expected one moveable thing:", fInputs, "Size:", len(fInputs)))
+			}
+			inputs = append(inputs, inp)
+		}
+	}
+
+	first, last := inputs[0], inputs[len(inputs)-1]
+	distances := make([]referenceframe.Input, len(first))
+	for idx, firstInp := range first {
+		distances[idx] = last[idx] - firstInp
+	}
+
+	ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
+	execStart := time.Now()
 	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
+	execSpent := time.Since(execStart)
+
+	speed := make([]float64, len(distances))
+	for idx, distance := range distances {
+		speed[idx] = distance / execSpent.Seconds()
+	}
+
+	ms.logger.Info("DBG. Goal:", req.Destination.Pose(), "Execution spent:", execSpent, "Speeds:", speed)
 	return err == nil, err
 }
 
