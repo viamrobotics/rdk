@@ -73,6 +73,20 @@ func TestBrownConradyK6TransformAllZeroes(t *testing.T) {
 	test.That(t, ty, test.ShouldAlmostEqual, 0.5, 1e-9)
 }
 
+func TestConstructorDoesNotModifyInput(t *testing.T) {
+	// Create slice with extra capacity and fill the backing array with sentinel values
+	backing := []float64{0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 99.0, 99.0}
+	params := backing[:6] // Slice with length 6, capacity 8
+
+	orig_full := make([]float64, len(backing))
+	copy(orig_full, backing)
+
+	NewBrownConradyK6(params)
+
+	// This should FAIL because positions 6-7 changed from 99.0 to 0.0
+	test.That(t, orig_full, test.ShouldResemble, backing)
+}
+
 func TestBrownConradyK6Transform(t *testing.T) {
 	// Test with non-zero K4, K5, K6
 	params := []float64{0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001, 0.01, 0.02}
