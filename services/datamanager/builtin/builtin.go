@@ -31,7 +31,6 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/utils/diskusage"
 )
 
 var (
@@ -79,10 +78,10 @@ type builtIn struct {
 	resource.Named
 	logger logging.Logger
 
-	mu        sync.Mutex
-	capture   *capture.Capture
-	sync      *datasync.Sync
-	syncPaths []string
+	mu                 sync.Mutex
+	capture            *capture.Capture
+	sync               *datasync.Sync
+	diskSummaryTracker *diskSummaryTracker
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -108,11 +107,14 @@ func New(
 		logger.Sublogger("sync"),
 	)
 
+	diskSummaryTracker := newDiskSummaryTracker(logger.Sublogger("disk_summary_tracker"))
+
 	svc := &builtIn{
-		Named:   conf.ResourceName().AsNamed(),
-		logger:  logger,
-		capture: capture,
-		sync:    sync,
+		Named:              conf.ResourceName().AsNamed(),
+		logger:             logger,
+		capture:            capture,
+		sync:               sync,
+		diskSummaryTracker: diskSummaryTracker,
 	}
 
 	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
@@ -127,6 +129,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 	defer b.logger.Info("Close END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.diskSummaryTracker.close()
 	b.capture.Close(ctx)
 	b.sync.Close()
 	return nil
@@ -198,10 +201,10 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.syncPaths = syncConfig.SyncPaths()
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
-	// or we could leak goroutines, wasting resources and cauing bugs due to duplicate work.
+	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
+	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths())
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
@@ -286,57 +289,34 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
 
-type diskUsageStats struct {
-	AvailableGB      float64
-	SizeGB           float64
-	AvailablePercent float64
-}
-
 type dataManagerStats struct {
-	DiskUsage diskUsageStats
-	Sync      datasync.Stats
+	SyncPaths               syncPathsSummary
+	DiskUsage               diskUsageSummary
+	FilesDeletedToFreeSpace int64
+	Upload                  datasync.FTDCUploadStats
 }
 
 // Stats satisfies the ftdc.Statser interface and will return the disk usage and sync statistics.
 func (b *builtIn) Stats() any {
-	ctx := context.Background()
 	result := dataManagerStats{}
 
 	b.mu.Lock()
-	syncPaths := b.syncPaths
 	sync := b.sync
 	b.mu.Unlock()
 
+	diskSummary := b.diskSummaryTracker.getSummary()
+
 	// Disk usage stats for the volume containing the main capture directory.
-	// (syncPaths[0] is the main capture directory)
-	if len(syncPaths) > 0 {
-		usage, err := diskusage.Statfs(syncPaths[0])
-		if err == nil {
-			result.DiskUsage = diskUsageStats{
-				AvailableGB:      float64(usage.AvailableBytes) / (1 << 30),
-				SizeGB:           float64(usage.SizeBytes) / (1 << 30),
-				AvailablePercent: usage.AvailablePercent() * 100,
-			}
-		}
-	}
+	result.DiskUsage = diskSummary.DiskUsage
 
+	// Sync path and file deletion stats.
+	result.SyncPaths = diskSummary.SyncPaths
+
+	// Upload stats.
 	if sync != nil {
-		// Get unsynced file stats.
-		var totalFiles int64
-		var totalBytes int64
-		for _, dir := range syncPaths {
-			summaries := DiskSummary(ctx, dir)
-			for _, summary := range summaries {
-				totalFiles += summary.FileCount
-				totalBytes += summary.FileSize
-			}
-		}
-
-		// Get sync stats and add unsynced file stats.
 		syncStats := sync.GetStats()
-		syncStats.TotalUnsyncedFiles = totalFiles
-		syncStats.TotalUnsyncedSizeBytes = totalBytes
-		result.Sync = syncStats
+		result.FilesDeletedToFreeSpace = syncStats.FilesDeletedToFreeSpace
+		result.Upload = syncStats.Upload
 	}
 
 	return result
