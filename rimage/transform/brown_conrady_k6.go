@@ -32,13 +32,13 @@ func NewBrownConradyK6(inp []float64) (*BrownConradyK6, error) {
 		return &BrownConradyK6{}, nil
 	}
 	// Deep copy the input slice
-	inp_copy := make([]float64, len(inp))
-	copy(inp_copy, inp)
+	inpCopy := make([]float64, len(inp))
+	copy(inpCopy, inp)
 	// Fill missing values with 0.0
 	for i := len(inp); i < 8; i++ {
-		inp_copy = append(inp_copy, 0.0)
+		inpCopy = append(inpCopy, 0.0)
 	}
-	return &BrownConradyK6{inp_copy[0], inp_copy[1], inp_copy[2], inp_copy[3], inp_copy[4], inp_copy[5], inp_copy[6], inp_copy[7]}, nil
+	return &BrownConradyK6{inpCopy[0], inpCopy[1], inpCopy[2], inpCopy[3], inpCopy[4], inpCopy[5], inpCopy[6], inpCopy[7]}, nil
 }
 
 // ModelType returns the distortion model type.
