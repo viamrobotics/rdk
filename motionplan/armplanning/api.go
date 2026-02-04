@@ -21,6 +21,10 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+type testOptions struct {
+	doNotCloseObstacles bool
+}
+
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
 	FrameSystem *referenceframe.FrameSystem `json:"frame_system"`
@@ -44,6 +48,8 @@ type PlanRequest struct {
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
+
+	myTestOptions testOptions
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
