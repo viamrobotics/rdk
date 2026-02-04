@@ -64,7 +64,6 @@ func smoothPath(
 func addCloseObstacleWaypoints(
 	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
-
 	ctx, span := trace.StartSpan(ctx, "addCloseObstacleWaypoints")
 	defer span.End()
 
