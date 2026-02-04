@@ -50,6 +50,9 @@ func NewManager(
 	if err != nil {
 		return nil, err
 	}
+	if options.HandleOrphanedResources == nil {
+		return nil, errors.New("Cannot construct modmanager without a handleOrphanedResources function")
+	}
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
 		logger:                  logger.Sublogger("modmanager"),
@@ -965,71 +968,26 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		}
 
 		// If a handleOrphanedResources function is provided, we defer all re-adding to it.
-		// If not, we attempt to re-add here, but note that the original may not be retained.
+		// using an external handler gives us the ability to re-add dependencies in the correct order.
+		orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
+		orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
+		for resourceName := range mod.resources {
+			orphanedResourceNames = append(orphanedResourceNames, resourceName)
+			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
+			// let resource manager re-add instead of manually doing it here.
+			mgr.rMap.Delete(resourceName)
+			delete(mod.resources, resourceName)
+		}
+		mod.logger.Infow("Module resources to be re-added after module restart",
+			"module", mod.cfg.Name,
+			"resources", orphanedResourceNamesStr)
+		unlock()
 		if mgr.handleOrphanedResources != nil {
-			// using an external handler gives us a chance to re-add dependencies in the correct order.
-			orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
-			orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
-			for resourceName := range mod.resources {
-				orphanedResourceNames = append(orphanedResourceNames, resourceName)
-				orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-				// let resource manager re-add instead of manually doing it here.
-				mgr.rMap.Delete(resourceName)
-				delete(mod.resources, resourceName)
-			}
-			mod.logger.Infow("Module resources to be re-added after module restart",
-				"module", mod.cfg.Name,
-				"resources", orphanedResourceNamesStr)
-			unlock()
 			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-		} else {
-			mod.logger.Infow("Module successfully restarted, re-adding resources.", "module", mod.cfg.Name)
-			if len(mod.resources) > 1 {
-				mod.logger.Warnw("handleOrphanedResources function not provided. Will naively to re-add. Original build order may not be retained.",
-					"module", mod.cfg.Name)
-			}
-			var restoredResourceNamesStr []string
-			var orphanedResourceNamesStr []string
-			for resourceName, res := range mod.resources {
-				confProto, err := config.ComponentConfigToProto(&res.conf)
-				if err != nil {
-					mod.logger.Errorw(
-						"Failed to re-add resource after module restarted due to config conversion error",
-						"module",
-						mod.cfg.Name,
-						"resource",
-						resourceName.String(),
-						"error",
-						err,
-					)
-					orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-					continue
-				}
-				_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: res.deps})
-				if err != nil {
-					mod.logger.Errorw(
-						"Failed to re-add resource after module restarted",
-						"module",
-						mod.cfg.Name,
-						"resource",
-						resourceName.String(),
-						"error",
-						err,
-					)
-					orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
-
-					// At this point, the modmanager is no longer managing this resource and should remove it
-					// from its state.
-					mgr.rMap.Delete(resourceName)
-					delete(mod.resources, resourceName)
-					continue
-				}
-				restoredResourceNamesStr = append(restoredResourceNamesStr, resourceName.String())
-			}
-			mod.logger.Warnw("Module resources status after module restart. Add order may not have been retained.",
-				"module", mod.cfg.Name,
-				"readdedResources", restoredResourceNamesStr,
-				"orphanedResources", orphanedResourceNamesStr)
+		} else if len(orphanedResourceNames) > 0 {
+			// NewManager should disallow a nil handleOrphanedResources
+			mod.logger.Warnw("Module successfully restarted, but its resources were not re-added since a handleOrphanedResources "+
+				"function was not provided.", "module", mod.cfg.Name, "prevResources", orphanedResourceNamesStr)
 		}
 		return
 	}
