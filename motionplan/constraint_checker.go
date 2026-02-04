@@ -415,6 +415,50 @@ func CreateAllCollisionConstraints(
 	return constraintFSMap, nil
 }
 
+// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
+// which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
+// outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
+// If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
+func NewCollisionConstraintFS(
+	fs *referenceframe.FrameSystem,
+	moving, static []spatialmath.Geometry,
+	collisionSpecifications []*Collision,
+	reportDistances bool,
+	collisionBufferMM float64,
+) (CollisionConstraintFunc, error) {
+	zeroCG, err := setupZeroCG(fs, moving, static, collisionSpecifications, true, collisionBufferMM)
+	if err != nil {
+		return nil, err
+	}
+
+	movingMap := map[string]spatialmath.Geometry{}
+	for _, geom := range moving {
+		movingMap[geom.Label()] = geom
+	}
+
+	// create constraint from reference collision graph
+	constraint := func(state *StateFS) (float64, error) {
+		// Use FrameSystemGeometries to get all geometries in the frame system
+		internalGeometries, err := state.Geometries()
+		if err != nil {
+			return 0, err
+		}
+
+		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
+		var internalGeoms []spatialmath.Geometry
+		for _, geosInFrame := range internalGeometries {
+			if len(geosInFrame.Geometries()) > 0 {
+				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
+					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
+				}
+			}
+		}
+
+		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+	}
+	return constraint, nil
+}
+
 func setupZeroCG(
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
@@ -437,7 +481,7 @@ func setupZeroCG(
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
 // If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func NewCollisionConstraintFS(
+func NewCollisionConstraintFSOld(
 	n string,
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,

@@ -25,32 +25,6 @@ func collisionsAlmostEqual(c1, c2 Collision) bool {
 		utils.Float64AlmostEqual(c1.penetrationDepth, c2.penetrationDepth, 0.1)
 }
 
-// collisionListsAlmostEqual compares two lists of Collisions and returns if they are almost equal.
-func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
-	if len(cs1) != len(cs2) {
-		return false
-	}
-
-	// loop through list 1 and match with elements in list 2, mark on list of used indexes
-	used := make([]bool, len(cs1))
-	for _, c1 := range cs1 {
-		for i, c2 := range cs2 {
-			if collisionsAlmostEqual(c1, c2) {
-				used[i] = true
-				break
-			}
-		}
-	}
-
-	// loop through list of used indexes
-	for _, c := range used {
-		if !c {
-			return false
-		}
-	}
-	return true
-}
-
 func collisionSpecifications(
 	pbConstraint []CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
