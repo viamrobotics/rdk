@@ -116,7 +116,8 @@ type solutionSolvingState struct {
 
 	moving, nonmoving []string
 
-	goodCost float64
+	goodCost        float64
+	doingSmartSeeds bool
 
 	processCalls int
 	failures     *IkConstraintError
@@ -165,6 +166,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
 	if sss.goodCost > 1 && minRatio > .05 {
+		sss.doingSmartSeeds = true
 		ssc, err := smartSeed(psc.pc.fs, logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
@@ -321,6 +323,11 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	multiple := 100.0
 	minMillis := 10000
+	if !sss.doingSmartSeeds {
+		// if we're not doing small seeds, it means we're doing a very tiny motion
+		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
+		minMillis = 100
+	}
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
