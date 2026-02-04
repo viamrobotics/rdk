@@ -119,6 +119,8 @@ func TestWineCrazyTouch1(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
+	req.myTestOptions.doNotCloseObstacles = true
+
 	plan, _, err := PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -131,8 +133,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 		test.That(t, d, test.ShouldBeLessThan, 0.0001)
 	}
 
-	// Smoothing produces ~4 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
-	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
+	test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
@@ -159,6 +160,22 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
 		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
+	})
+
+	t.Run("regular-noclose", func(t *testing.T) {
+		req.myTestOptions.doNotCloseObstacles = true
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		req.myTestOptions.doNotCloseObstacles = false
+		test.That(t, err, test.ShouldBeNil)
+
+		orig := plan.Trajectory()[0]["arm-right"]
+		for _, tt := range plan.Trajectory() {
+			now := tt["arm-right"]
+			logger.Info(now)
+			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+		}
+
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 	})
 
 	t.Run("orientation", func(t *testing.T) {

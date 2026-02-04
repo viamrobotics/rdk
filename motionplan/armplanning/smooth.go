@@ -54,7 +54,9 @@ func smoothPath(
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
 	steps = smoothPathSimple(ctx, psc, steps)
-	steps = addCloseObstacleWaypoints(ctx, psc, steps)
+	if !psc.pc.request.myTestOptions.doNotCloseObstacles {
+		steps = addCloseObstacleWaypoints(ctx, psc, steps)
+	}
 	return steps
 }
 
