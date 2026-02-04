@@ -410,8 +410,8 @@ func (r *localRobot) completeConfigWorker() {
 		case <-r.configTicker.C:
 			trigger = "ticker"
 		case <-r.triggerConfig:
-			trigger = "remote"
-			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+			trigger = "manually"
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by manually")
 		}
 		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {

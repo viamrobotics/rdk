@@ -963,11 +963,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
-		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
 		// If a handleOrphanedResources function is provided, we defer all re-adding to it.
 		// If not, we attempt to re-add here, but note that the original may not be retained.
 		if mgr.handleOrphanedResources != nil {
+			// using an external handler gives us a chance to re-add dependencies in the correct order.
 			orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
 			orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
 			for resourceName := range mod.resources {
@@ -983,6 +983,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			unlock()
 			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		} else {
+			mod.logger.Infow("Module successfully restarted, re-adding resources.", "module", mod.cfg.Name)
+			if len(mod.resources) > 1 {
+				mod.logger.Warnw("handleOrphanedResources function not provided. Will naively to re-add. Original build order may not be retained.",
+					"module", mod.cfg.Name)
+			}
 			var restoredResourceNamesStr []string
 			var orphanedResourceNamesStr []string
 			for resourceName, res := range mod.resources {
@@ -1021,11 +1026,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 				}
 				restoredResourceNamesStr = append(restoredResourceNamesStr, resourceName.String())
 			}
-			mod.logger.Warnw("Module resources status after module restart. Ordering is not guaranteed; please provide a handleOrphanedResources if ordering is important.",
+			mod.logger.Warnw("Module resources status after module restart. Add order may not have been retained.",
 				"module", mod.cfg.Name,
 				"readdedResources", restoredResourceNamesStr,
 				"orphanedResources", orphanedResourceNamesStr)
-
 		}
 		return
 	}
