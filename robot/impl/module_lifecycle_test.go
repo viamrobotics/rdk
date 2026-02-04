@@ -80,7 +80,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &cfg, logger)
 
 	// Assert that if failOnFirst is false, resources are all available after the first pass.
 	if !failOnFirst {
@@ -403,7 +403,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 
 	h, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -438,7 +438,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// 'h2' and 'h3' should also continue to exist, but fail any requests that depends on 'h'.
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -451,7 +451,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
 
@@ -466,9 +466,9 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err := h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"command": "echo"})
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
@@ -479,7 +479,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to exist and work.
 	//
-	// 'h' is setup to always fail on the its first construction on the module.
+	// 'h' is setup to always fail on the first construction on the module.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
@@ -492,7 +492,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	h, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -512,7 +512,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// 'h2' and 'h3' should also continue to exist, but fail any requests that depends on 'h'.
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -524,7 +524,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
 
@@ -534,13 +534,19 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	test.That(t, err, test.ShouldNotBeNil)
 
 	_, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h2 not available; "+
+		"reason=resource build error: dependency h is not ready yet; reason=resource rdk:component:generic/h not available")
+
+	// test reusing previous handle of h2
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error: code = Unknown desc = resource rdk:component:generic/h2 not found")
 
 	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h3 not available; "+
+		"reason=resource build error: dependency h is not ready yet; reason=resource rdk:component:generic/h not available")
 
 	// Assert that after another attempt at configuring resources, 'h' now exists,
 	// and commands on 'h2' and 'h3' that depend on 'h' succeed.
@@ -554,9 +560,9 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	h2, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err := h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"command": "echo"})
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
