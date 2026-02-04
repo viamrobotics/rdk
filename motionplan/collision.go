@@ -21,106 +21,6 @@ func collisionsAlmostEqual(c1, c2 Collision) bool {
 	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 }
 
-// GeometryGroup is a struct that stores a set of geometries, to be used for collision detection
-type GeometryGroup struct {
-	// TODO: Should this live elsewhere?
-	// TODO: This may be able to be faster by putting all geometries in a BVH
-	geometries map[string]spatialmath.Geometry
-}
-
-// NewGeometryGroup instantiates a GeometryGroup from a list of geometries
-func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error) {
-	geomMap, err := createUniqueCollisionMap(geometries)
-	if err != nil {
-		return nil, err
-	}
-	return &GeometryGroup{
-		geometries: geomMap,
-	}, nil
-}
-
-// CollidesWith checks whether any geometries in this geometry group collide with any geometries in the other geometry group,
-// ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
-// of the closest distance between non-colliding geometries.
-// If exitOnCollision is true it will also return the first collision found if it exists. Otherwise it will return all found collisions.
-func (gg *GeometryGroup) CollidesWith(
-	other *GeometryGroup,
-	fs *referenceframe.FrameSystem,
-	allowedCollisions []Collision,
-	collisionBufferMM float64,
-	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
-) ([]Collision, float64, error) {
-	if other == nil {
-		return nil, math.Inf(-1), fmt.Errorf("other GeometryGroup cannot be nil")
-	}
-
-	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
-
-	collisions := []Collision{}
-	minDistance := math.Inf(1)
-
-	for xName, xGeometry := range gg.geometries {
-		for yName, yGeometry := range other.geometries {
-			if skipCollisionCheck(fs, ignoreList, xName, yName) {
-				continue
-			}
-
-			// If this is a self collision check and we're comparing y to x, we don't want to compare x to y later
-			if _, ok := ignoreList[xName]; !ok {
-				ignoreList[xName] = map[string]bool{}
-			}
-			ignoreList[xName][yName] = true
-
-			dist, err := checkCollision(xGeometry, yGeometry, collisionBufferMM)
-			if err != nil {
-				return nil, math.Inf(-1), err
-			}
-			if dist < collisionBufferMM {
-				collisions = append(collisions, Collision{name1: xName, name2: yName})
-				if !collectAllCollisions {
-					return collisions, dist, nil
-				}
-			}
-			if dist < minDistance {
-				minDistance = dist
-			}
-		}
-	}
-
-	return collisions, minDistance, nil
-}
-
-// checkCollision takes a pair of geometries and returns the distance between them.
-// If this number is less than the CollisionBuffer they can be considered to be in collision.
-func checkCollision(x, y spatialmath.Geometry, collisionBufferMM float64) (float64, error) {
-	col, d, err := x.CollidesWith(y, collisionBufferMM)
-	if err != nil {
-		col, d, err = y.CollidesWith(x, collisionBufferMM)
-		if err != nil {
-			return math.Inf(-1), err
-		}
-	}
-	if col {
-		return math.Inf(-1), err
-	}
-
-	return d, err
-}
-
-func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[string]map[string]bool {
-	ignoreList := map[string]map[string]bool{}
-	for _, collision := range allowedCollisions {
-		if _, ok := ignoreList[collision.name1]; !ok {
-			ignoreList[collision.name1] = map[string]bool{}
-		}
-		if _, ok := ignoreList[collision.name2]; !ok {
-			ignoreList[collision.name2] = map[string]bool{}
-		}
-		ignoreList[collision.name1][collision.name2] = true
-		ignoreList[collision.name2][collision.name1] = true
-	}
-	return ignoreList
-}
 func collisionSpecifications(
 	pbConstraint []CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
@@ -206,6 +106,113 @@ func collisionSpecifications(
 		}
 	}
 	return allowedCollisions, nil
+}
+
+// GeometryGroup is a struct that stores a set of geometries, to be used for collision detection
+type GeometryGroup struct {
+	// TODO: Should this live elsewhere?
+	// TODO: This may be able to be faster by putting all geometries in a BVH
+	geometries map[string]spatialmath.Geometry
+}
+
+// NewGeometryGroup instantiates a GeometryGroup from a list of geometries
+func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error) {
+	geomMap, err := createUniqueCollisionMap(geometries)
+	if err != nil {
+		return nil, err
+	}
+	return &GeometryGroup{
+		geometries: geomMap,
+	}, nil
+}
+
+// CollidesWith checks whether any geometries in this geometry group collide with any geometries in the other geometry group,
+// ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
+// of the closest distance between non-colliding geometries.
+// If exitOnCollision is true it will also return the first collision found if it exists. Otherwise it will return all found collisions.
+func (gg *GeometryGroup) CollidesWith(
+	other *GeometryGroup,
+	fs *referenceframe.FrameSystem,
+	allowedCollisions []Collision,
+	collisionBufferMM float64,
+	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
+) ([]Collision, float64, error) {
+	if other == nil {
+		return nil, math.Inf(-1), fmt.Errorf("other GeometryGroup cannot be nil")
+	}
+
+	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
+
+	collisions := []Collision{}
+	minDistance := math.Inf(1)
+
+	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
+	for xName, xGeometry := range gg.geometries {
+		for yName, yGeometry := range other.geometries {
+			if skipCollisionCheck(fs, ignoreList, xName, yName) {
+				continue
+			}
+
+			// If this is a self collision check and we're comparing y to x, we don't want to compare x to y later.
+			// So save what we have compared with what.
+			if gg == other {
+				if _, ok := ignoreList[xName]; !ok {
+					ignoreList[xName] = map[string]bool{}
+				}
+				ignoreList[xName][yName] = true
+			}
+
+			dist, err := checkCollision(xGeometry, yGeometry, collisionBufferMM)
+			if err != nil {
+				return nil, math.Inf(-1), err
+			}
+			// If we have a collision, store it, and return if the caller wants to fast fail.
+			if dist < collisionBufferMM {
+				collisions = append(collisions, Collision{name1: xName, name2: yName})
+				if !collectAllCollisions {
+					return collisions, dist, nil
+				}
+			}
+			if dist < minDistance {
+				minDistance = dist
+			}
+		}
+	}
+
+	return collisions, minDistance, nil
+}
+
+// checkCollision takes a pair of geometries and returns the distance between them.
+// If this number is less than the CollisionBuffer they can be considered to be in collision.
+func checkCollision(x, y spatialmath.Geometry, collisionBufferMM float64) (float64, error) {
+	col, d, err := x.CollidesWith(y, collisionBufferMM)
+	if err != nil {
+		col, d, err = y.CollidesWith(x, collisionBufferMM)
+		if err != nil {
+			return math.Inf(-1), err
+		}
+	}
+	if col {
+		return math.Inf(-1), err
+	}
+
+	return d, err
+}
+
+// Process a []Collision into a map for easy lookups.
+func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[string]map[string]bool {
+	ignoreList := map[string]map[string]bool{}
+	for _, collision := range allowedCollisions {
+		if _, ok := ignoreList[collision.name1]; !ok {
+			ignoreList[collision.name1] = map[string]bool{}
+		}
+		if _, ok := ignoreList[collision.name2]; !ok {
+			ignoreList[collision.name2] = map[string]bool{}
+		}
+		ignoreList[collision.name1][collision.name2] = true
+		ignoreList[collision.name2][collision.name1] = true
+	}
+	return ignoreList
 }
 
 func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
