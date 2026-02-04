@@ -62,7 +62,7 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 55)
+	test.That(t, len(collectors), test.ShouldEqual, 54)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
@@ -74,7 +74,6 @@ func TestCollectorRegistry(t *testing.T) {
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "GetAudio"},
-		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_input"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "DoCommand"},

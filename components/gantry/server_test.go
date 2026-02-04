@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/gantry"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -36,7 +37,7 @@ var (
 	errGeometriesUnimplemented = errors.New("Geometries unimplemented")
 )
 
-func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
+func newServer(logger logging.Logger) (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
 	gantries := map[resource.Name]gantry.Gantry{
@@ -47,11 +48,11 @@ func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return gantry.NewRPCServiceServer(gantrySvc).(pb.GantryServiceServer), injectGantry, injectGantry2, nil
+	return gantry.NewRPCServiceServer(gantrySvc, logger).(pb.GantryServiceServer), injectGantry, injectGantry2, nil
 }
 
 func TestServer(t *testing.T) {
-	gantryServer, injectGantry, injectGantry2, err := newServer()
+	gantryServer, injectGantry, injectGantry2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var gantryPos []float64

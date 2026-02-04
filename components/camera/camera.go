@@ -101,7 +101,12 @@ func NamedImageFromBytes(data []byte, sourceName, mimeType string, annotations d
 		return NamedImage{}, fmt.Errorf("must provide image bytes to construct a named image from bytes")
 	}
 	if mimeType == "" {
-		return NamedImage{}, fmt.Errorf("must provide a mime type to construct a named image")
+		reader := bytes.NewReader(data)
+		_, format, err := image.DecodeConfig(reader)
+		if err != nil {
+			return NamedImage{}, fmt.Errorf("mime type not provided and could not infer mime type from bytes: %w", err)
+		}
+		mimeType = utils.FormatStringToMimeType(format)
 	}
 	return NamedImage{data: data, SourceName: sourceName, mimeType: mimeType, Annotations: annotations}, nil
 }
@@ -213,10 +218,14 @@ type Camera interface {
 	// Deprecated: Please utilize Images instead.
 	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
 
-	// Images is used for getting simultaneous images from different imagers,
-	// along with associated metadata (just timestamp for now). It's not for getting a time series of images from the same imager.
-	// The extra parameter can be used to pass additional options to the camera resource. The filterSourceNames parameter can be used to filter
-	// only the images from the specified source names. When unspecified, all images are returned.
+	// Images is used for getting simultaneous images from different imagers from 3D cameras along with associated metadata,
+	// and single images from non-3D cameras e.g. webcams, RTSP cameras etc. in the NamedImage list response.
+	// It is not for getting a time series of images from the same imager.
+	//
+	// The filterSourceNames parameter can be used to filter only the images from the specified source names, and
+	// when unspecified, all images are returned.
+	//
+	// The extra parameter can be used to pass additional options to the camera resource.
 	Images(ctx context.Context, filterSourceNames []string, extra map[string]interface{}) ([]NamedImage, resource.ResponseMetadata, error)
 
 	// NextPointCloud returns the next immediately available point cloud, not necessarily one

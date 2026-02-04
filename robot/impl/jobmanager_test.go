@@ -10,14 +10,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
+	"go.viam.com/rdk/components/audioin"
+	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/button"
@@ -56,6 +56,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	"go.viam.com/rdk/testutils/robottestutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestJobManagerDurationAndCronFromJson(t *testing.T) {
@@ -826,26 +827,38 @@ func TestJobManagerComponents(t *testing.T) {
 			return dummyArm, nil
 		}})
 
-	// audioinput
-	dummyAudioInput := inject.NewAudioInput("audio")
-	dummyAudioInput.MediaPropertiesFunc = func(ctx context.Context) (prop.Audio, error) {
-		audio := prop.Audio{
-			ChannelCount: 10,
-			Latency:      3 * time.Second,
-			SampleRate:   128,
-		}
-		return audio, nil
+	// audioin
+	dummyAudioIn := inject.NewAudioIn("audioin")
+	dummyAudioIn.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+		return rutils.Properties{}, nil
 	}
 	resource.RegisterComponent(
-		audioinput.API,
+		audioin.API,
 		model,
-		resource.Registration[audioinput.AudioInput, resource.NoNativeConfig]{Constructor: func(
+		resource.Registration[audioin.AudioIn, resource.NoNativeConfig]{Constructor: func(
 			ctx context.Context,
 			deps resource.Dependencies,
 			conf resource.Config,
 			logger logging.Logger,
-		) (audioinput.AudioInput, error) {
-			return dummyAudioInput, nil
+		) (audioin.AudioIn, error) {
+			return dummyAudioIn, nil
+		}})
+
+	// audioout
+	dummyAudioOut := inject.NewAudioOut("audioout")
+	dummyAudioOut.PropertiesFunc = func(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
+		return rutils.Properties{}, nil
+	}
+	resource.RegisterComponent(
+		audioout.API,
+		model,
+		resource.Registration[audioout.AudioOut, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (audioout.AudioOut, error) {
+			return dummyAudioOut, nil
 		}})
 
 	// base
@@ -1142,8 +1155,13 @@ func TestJobManagerComponents(t *testing.T) {
 			},
 			{
 				Model: model,
-				Name:  "audio",
-				API:   audioinput.API,
+				Name:  "audioin",
+				API:   audioin.API,
+			},
+			{
+				Model: model,
+				Name:  "audioout",
+				API:   audioout.API,
 			},
 			{
 				Model: model,
@@ -1237,10 +1255,18 @@ func TestJobManagerComponents(t *testing.T) {
 			},
 			{
 				config.JobConfigData{
-					Name:     "audio input job",
+					Name:     "audioin job",
 					Schedule: "3s",
-					Resource: "audio",
-					Method:   "Properties",
+					Resource: "audioin",
+					Method:   "GetProperties",
+				},
+			},
+			{
+				config.JobConfigData{
+					Name:     "audioout job",
+					Schedule: "3s",
+					Resource: "audioout",
+					Method:   "GetProperties",
 				},
 			},
 			{
@@ -1378,7 +1404,8 @@ func TestJobManagerComponents(t *testing.T) {
 	}
 	defer func() {
 		resource.Deregister(arm.API, model)
-		resource.Deregister(audioinput.API, model)
+		resource.Deregister(audioin.API, model)
+		resource.Deregister(audioout.API, model)
 		resource.Deregister(base.API, model)
 		resource.Deregister(board.API, model)
 		resource.Deregister(button.API, model)
@@ -1405,9 +1432,9 @@ func TestJobManagerComponents(t *testing.T) {
 		// we will test for succeeded jobs to be the amount we started,
 		// and that there are no failed jobs
 		test.That(tb, logs.FilterMessage("Job triggered").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 18)
+			test.ShouldBeGreaterThanOrEqualTo, 19)
 		test.That(tb, logs.FilterMessage("Job succeeded").Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 18)
+			test.ShouldBeGreaterThanOrEqualTo, 19)
 		test.That(tb, logs.FilterMessage("Job failed").Len(),
 			test.ShouldBeLessThanOrEqualTo, 0)
 	})

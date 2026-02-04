@@ -233,7 +233,7 @@ func (c *viamClient) moduleBuildListAction(cCtx *cli.Context, args moduleBuildLi
 			job.StartTime.AsTime().Format(time.RFC3339))
 	}
 	// the table is not printed to stdout until the tabwriter is flushed
-	//nolint: errcheck,gosec
+	//nolint: errcheck
 	w.Flush()
 	return nil
 }
@@ -697,7 +697,7 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 			return nil, errors.Wrap(err, "failed to open .gitignore file")
 		}
 		defer func() {
-			//nolint:errcheck,gosec // Ignore close error for read-only file
+			//nolint:errcheck // Ignore close error for read-only file
 			file.Close()
 		}()
 
@@ -781,17 +781,28 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(manifest ModuleManifest) (string, error) {
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return "", err
-	}
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
+	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: part.GetRobot(),
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return org.GetId(), nil
+	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+		LocationId: robot.Robot.GetLocation(),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	orgID := location.Location.PrimaryOrgIdentity.GetId()
+
+	if orgID == "" {
+		return "", errors.New("no primary org id found for location")
+	}
+
+	return orgID, nil
 }
 
 func (c *viamClient) triggerCloudReloadBuild(
@@ -811,22 +822,23 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	orgID, err := c.inferOrgIDFromManifest(manifest)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
-
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
+	}
+
+	// use the primary org id for the machine as the reload
+	// module org
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
+		return "", err
 	}
 
 	// App expects `BuildInfo` as the first request
@@ -898,10 +910,11 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 
 // moduleCloudBuildInfo contains information needed to download a cloud build artifact.
 type moduleCloudBuildInfo struct {
-	ID          string
+	ModuleID    string
 	Version     string
 	Platform    string
 	ArchivePath string // Path to the temporary archive that should be deleted after download
+	OrgID       string
 }
 
 // moduleCloudReload triggers a cloud build and returns info needed to download the artifact.
@@ -915,6 +928,18 @@ func (c *viamClient) moduleCloudReload(
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
+		return nil, err
+	}
+
+	part, err := c.getRobotPart(partID)
+	if err != nil {
+		return nil, err
+	}
+	if part.Part == nil {
+		return nil, fmt.Errorf("part with id=%s not found", partID)
+	}
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
 		return nil, err
 	}
 
@@ -935,11 +960,6 @@ func (c *viamClient) moduleCloudReload(
 	}
 	if err := pm.Complete("register"); err != nil {
 		return nil, err
-	}
-
-	id := ctx.String(generalFlagID)
-	if id == "" {
-		id = manifest.ModuleID
 	}
 
 	if err := pm.Start("archive"); err != nil {
@@ -1008,11 +1028,17 @@ func (c *viamClient) moduleCloudReload(
 
 	// Return build info so the caller can download the artifact with a spinner
 	return &moduleCloudBuildInfo{
-		ID:          id,
+		ModuleID:    manifest.ModuleID,
+		OrgID:       orgID,
 		Version:     getReloadVersion(reloadVersionPrefix, partID),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
+}
+
+// IsReloadVersion checks if the version is a reload version.
+func IsReloadVersion(version string) bool {
+	return strings.HasPrefix(version, reloadVersionPrefix)
 }
 
 // ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
@@ -1171,7 +1197,8 @@ func reloadModuleActionInner(
 				return err
 			}
 			downloadArgs := downloadModuleFlags{
-				ID:          buildInfo.ID,
+				ModuleID:    buildInfo.ModuleID,
+				OrgID:       buildInfo.OrgID,
 				Version:     buildInfo.Version,
 				Platform:    buildInfo.Platform,
 				Destination: ".",

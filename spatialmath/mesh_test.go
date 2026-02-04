@@ -592,7 +592,8 @@ func TestMeshDistanceFrom(t *testing.T) {
 
 	dist, err := mesh1.DistanceFrom(mesh2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, dist, test.ShouldEqual, 0)
+	// Overlapping meshes return negative distance (penetration depth) per Geometry interface
+	test.That(t, dist, test.ShouldBeLessThanOrEqualTo, 0)
 
 	// Test distance from non-overlapping mesh
 	mesh3 := makeTestMesh(NewZeroOrientation(), r3.Vector{X: 2, Y: 0, Z: 0},
@@ -685,69 +686,56 @@ func TestMeshEncompassedBy(t *testing.T) {
 	test.That(t, encompassed, test.ShouldBeFalse)
 }
 
-func TestBoxTriangleIntersectionArea(t *testing.T) {
-	b, err := NewBox(NewZeroPose(), r3.Vector{X: 2, Y: 2, Z: 2}, "")
-	bbox, ok := b.(*box)
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
-	t.Run("Fully encompassed triangle", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -0.5, Y: 0, Z: 0},
-			r3.Vector{X: 0.5, Y: 0, Z: 0},
-			r3.Vector{X: 0, Y: 0, Z: 0.5},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.25)
+func TestLazyBVHConstruction(t *testing.T) {
+	tri := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 1, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 1, Z: 0},
+	)
+
+	t.Run("BVH not built at construction time", func(t *testing.T) {
+		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
+		test.That(t, mesh.bvh, test.ShouldBeNil)
 	})
-	t.Run("Partially encompassed triangle with vertex in box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 0, Z: -2},
-			r3.Vector{X: 1, Y: 0, Z: -2},
-			r3.Vector{X: 0, Y: 0, Z: 0},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
+
+	t.Run("BVH built on first collision check", func(t *testing.T) {
+		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
+		test.That(t, mesh.bvh, test.ShouldBeNil)
+
+		sphere, err := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.5)
+
+		_, _, err = mesh.CollidesWith(sphere, 0)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mesh.bvh, test.ShouldNotBeNil)
 	})
-	t.Run("Partially encompassed triangle with no vertices in box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: 0, Y: 0, Z: -2},
-			r3.Vector{X: 2, Y: 0, Z: -2},
-			r3.Vector{X: 2, Y: 0, Z: 1},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0.25/3)
+
+	t.Run("BVH shared via Transform when already built", func(t *testing.T) {
+		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
+
+		// Build BVH by doing a collision check
+		sphere, _ := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
+		mesh.CollidesWith(sphere, 0)
+		test.That(t, mesh.bvh, test.ShouldNotBeNil)
+
+		// Transform should copy the existing BVH pointer
+		transformed := mesh.Transform(NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0})).(*Mesh)
+		test.That(t, transformed.bvh, test.ShouldEqual, mesh.bvh)
 	})
-	t.Run("Triangle against box face", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 1, Z: -2},
-			r3.Vector{X: 1, Y: 1, Z: -2},
-			r3.Vector{X: 0, Y: 1, Z: 2},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 2)
-	})
-	t.Run("Triangle edge against box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: 1, Y: 1, Z: 0},
-			r3.Vector{X: 1, Y: -1, Z: 0},
-			r3.Vector{X: 2, Y: 0, Z: 0},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0)
-	})
-	t.Run("Triangle not intersecting box", func(t *testing.T) {
-		triangle := NewTriangle(
-			r3.Vector{X: -1, Y: 1.1, Z: -2},
-			r3.Vector{X: 1, Y: 1.1, Z: -2},
-			r3.Vector{X: 0, Y: 1.1, Z: 2},
-		)
-		area, err := boxTriangleIntersectionArea(bbox, triangle)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, area, test.ShouldAlmostEqual, 0)
+
+	t.Run("BVH not rebuilt on transformed mesh when copied", func(t *testing.T) {
+		mesh := NewMesh(NewZeroPose(), []*Triangle{tri}, "test")
+
+		// Build BVH on original
+		sphere, _ := NewSphere(NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 5}), 1, "")
+		mesh.CollidesWith(sphere, 0)
+		originalBVH := mesh.bvh
+
+		// Transform and do collision on transformed mesh
+		transformed := mesh.Transform(NewPoseFromPoint(r3.Vector{X: 10, Y: 0, Z: 0})).(*Mesh)
+		transformed.CollidesWith(sphere, 0)
+
+		// Should still be the same BVH pointer (not rebuilt)
+		test.That(t, transformed.bvh, test.ShouldEqual, originalBVH)
 	})
 }

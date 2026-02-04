@@ -51,7 +51,7 @@ func BuildViamServer(tb testing.TB) string {
 	tb.Helper()
 
 	buildOutputPath := tb.TempDir()
-	serverPath := filepath.Join(buildOutputPath, "viam-server")
+	serverPath := filepath.Join(buildOutputPath, "viam-server-static")
 
 	var builder *exec.Cmd
 
@@ -59,6 +59,7 @@ func BuildViamServer(tb testing.TB) string {
 		command := "server-static"
 		if runtime.GOOS == osDarwin {
 			command = "server"
+			serverPath = filepath.Join(buildOutputPath, "viam-server")
 		}
 		builder = exec.Command("make", command)
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)

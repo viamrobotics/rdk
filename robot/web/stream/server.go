@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -43,7 +42,7 @@ type peerState struct {
 	senders     []*webrtc.RTPSender
 }
 
-// Server implements the gRPC audio/video streaming service.
+// Server implements the gRPC video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
 	logger    logging.Logger
@@ -59,7 +58,6 @@ type Server struct {
 
 	streamConfig gostream.StreamConfig
 	videoSources map[string]gostream.HotSwappableVideoSource
-	audioSources map[string]gostream.HotSwappableAudioSource
 }
 
 // Resolution holds the width and height of a video stream.
@@ -86,7 +84,6 @@ func NewServer(
 		isAlive:           true,
 		streamConfig:      streamConfig,
 		videoSources:      map[string]gostream.HotSwappableVideoSource{},
-		audioSources:      map[string]gostream.HotSwappableAudioSource{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -169,11 +166,10 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		return nil, err
 	}
 
-	// return error if resource is neither a camera nor audioinput
+	// return error if resource is not a camera
 	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
-	_, isAudioErr := audioinput.FromProvider(server.robot, streamStateToAdd.Stream.Name())
-	if isCamErr != nil && isAudioErr != nil {
-		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
+	if isCamErr != nil {
+		return nil, errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream)
 	}
 
 	var nameToPeerState map[string]*peerState
@@ -232,13 +228,6 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 			return nil, err
 		}
 	}
-	// if the stream supports audio, add the audio track
-	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.AudioTrackLocal(); haveTrackLocal {
-		if err := addTrack(trackLocal); err != nil {
-			server.logger.Error(err.Error())
-			return nil, err
-		}
-	}
 	if err := streamStateToAdd.Increment(); err != nil {
 		server.logger.Error(err.Error())
 		return nil, err
@@ -268,12 +257,9 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	if !ok {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
-
-	streamName := streamToRemove.Stream.Name()
-	_, isAudioResourceErr := audioinput.FromProvider(server.robot, streamName)
 	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
-	if isAudioResourceErr != nil && isCameraResourceErr != nil {
+	if isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
@@ -461,19 +447,18 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	return nil
 }
 
-// AddNewStreams adds new video and audio streams to the server using the updated set of video and
-// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
-// the streams if applicable.
+// AddNewStreams adds new video streams to the server using the updated set of video sources.
+// It refreshes the sources, checks for a valid stream configuration, and starts the streams
+// if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
-	// Refreshing sources will walk the robot resources for anything implementing the camera and
-	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
+	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
+	// and mutate the `svc.videoSources` map.
 	server.refreshVideoSources(ctx)
-	server.refreshAudioSources()
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
-		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
-		// much if none are present.
-		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
+		// The `streamConfig` dictates the video encoder library to use. We can't do
+		// much if none is present.
+		if len(server.videoSources) != 0 {
 			server.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
@@ -509,23 +494,6 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			continue
 		}
 		server.startVideoStream(ctx, server.videoSources[name], stream)
-	}
-
-	for name := range server.audioSources {
-		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
-		// are "created" and "started". `createStream` and `startAudioStream` have the same
-		// behaviors as described above for video streams.
-		config := gostream.StreamConfig{
-			Name:                name,
-			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
-		}
-		stream, alreadyRegistered, err := server.createStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		server.startAudioStream(ctx, server.audioSources[name], stream)
 	}
 
 	return nil
@@ -583,11 +551,6 @@ func (server *Server) removeMissingStreams() {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
 		shortName := resource.SDPTrackNameToShortName(camName)
-		if _, err := audioinput.FromProvider(server.robot, shortName); err == nil {
-			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
-			// stream in place if its an audio resource.
-			continue
-		}
 
 		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
@@ -687,23 +650,6 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 	}
 }
 
-// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-func (server *Server) refreshAudioSources() {
-	for _, name := range audioinput.NamesFromRobot(server.robot) {
-		input, err := audioinput.FromProvider(server.robot, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := server.audioSources[input.Name().Name]
-		if ok {
-			existing.Swap(input)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		server.audioSources[input.Name().Name] = newSwapper
-	}
-}
-
 func (server *Server) createStream(config gostream.StreamConfig, name string) (gostream.Stream, bool, error) {
 	stream, err := server.NewStream(config)
 	// Skip if stream is already registered, otherwise raise any other errors
@@ -739,14 +685,6 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 	server.startStream(func(opts *BackoffTuningOptions) error {
 		streamVideoCtx, _ := utils.MergeContext(server.closedCtx, ctx)
 		return streamVideoSource(streamVideoCtx, source, stream, opts, server.logger)
-	})
-}
-
-func (server *Server) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	server.startStream(func(opts *BackoffTuningOptions) error {
-		// Merge ctx that may be coming from a Reconfigure.
-		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
 	})
 }
 

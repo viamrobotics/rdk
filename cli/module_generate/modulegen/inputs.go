@@ -41,10 +41,11 @@ type ModuleInputs struct {
 	SDKVersion            string `json:"-"`
 }
 
-// Resources is a list of all the available resources in Viam.
+// Resources is a list of all the resources that are available for custom module generation.
 var Resources = []string{
 	"arm component",
-	"audio_input component",
+	"audio_in component",
+	"audio_out component",
 	"base component",
 	"board component",
 	"button component",
@@ -68,6 +69,15 @@ var Resources = []string{
 	"slam service",
 	"vision service",
 	"world_state_store service",
+}
+
+// ExcludedResources is a list of all the resources that are not available for custom module generation.
+var ExcludedResources = []string{
+	"shell service",
+	"data_manager service",
+	"discovery service",
+	"video service",
+	"base_remote_control service",
 }
 
 // GoModuleTmpl contains necessary information to fill out the go method stubs.

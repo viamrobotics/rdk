@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/posetracker"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -25,7 +26,7 @@ const (
 	bodyFrame     = "bodyFrame"
 )
 
-func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.PoseTracker, error) {
+func newServer(logger logging.Logger) (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.PoseTracker, error) {
 	injectPT1 := &inject.PoseTracker{}
 	injectPT2 := &inject.PoseTracker{}
 
@@ -38,11 +39,11 @@ func newServer() (pb.PoseTrackerServiceServer, *inject.PoseTracker, *inject.Pose
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return posetracker.NewRPCServiceServer(injectSvc).(pb.PoseTrackerServiceServer), injectPT1, injectPT2, nil
+	return posetracker.NewRPCServiceServer(injectSvc, logger).(pb.PoseTrackerServiceServer), injectPT1, injectPT2, nil
 }
 
 func TestGetPoses(t *testing.T) {
-	ptServer, workingPT, failingPT, err := newServer()
+	ptServer, workingPT, failingPT, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var extraOptions map[string]interface{}

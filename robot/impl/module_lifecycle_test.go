@@ -12,11 +12,13 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // create an in-process testing robot with a basic modules config, return the client.
@@ -78,7 +80,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, &cfg, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
 	// Assert that if failOnFirst is false, resources are all available after the first pass.
 	if !failOnFirst {
@@ -209,7 +211,7 @@ func TestRenamedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
@@ -237,7 +239,7 @@ func TestReconfiguredModuleDependentRecovery(t *testing.T) {
 func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' reconfigure, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -281,7 +283,7 @@ func TestReconfiguredModuleDependentRecoveryAfterFailedFirstConstruction(t *test
 func TestRestartModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 	r, _ := setupModuleTest(t, ctx, false, logger)
@@ -324,7 +326,7 @@ func TestRestartModuleDependentRecovery(t *testing.T) {
 func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' restart, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -388,7 +390,7 @@ func TestRestartModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, false, logger)
@@ -405,7 +407,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-	// Wait for crash to be and check if module is added to failedModules.
+	// Wait for crash and check if module is added to failedModules.
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage("Module has unexpectedly exited.").Len(),
@@ -475,7 +477,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T) {
 	// on module 1 'mod' crash and recovery, test that a modular resource ('h2') on module 2 'mod2'
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
-	// continues to be and work.
+	// continues to exist and work.
 	//
 	// 'h' is setup to always fail on the its first construction on the module.
 	ctx := context.Background()
@@ -576,14 +578,11 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod3" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user adds module with valid exec path but exits immediately by injecting a panic
 	panicEnv := map[string]string{
@@ -599,28 +598,22 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod4" gets added to failedModules.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with invalid exec path and it fails to validate
 	cfg.Modules[0].ExePath = "/nonexistent/path/to/invalid"
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user reconfigures module with valid exec path but exits immediately by injecting a panic
 	cfg.Modules[1].ExePath = execFailPath
@@ -628,17 +621,11 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod2" gets added to failedModules
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
-	})
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod2", "mod3", "mod4"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod2 mod3 mod4]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's panic by removing VIAM_TESTMODULE_PANIC.
 	cfg.Modules[1].Environment = nil
@@ -646,26 +633,20 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod2" is removed from failedModules.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod", "mod3"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod mod3]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user renames module and it is added to failedModules
 	cfg.Modules[0].Name = "mod5"
 	r.Reconfigure(ctx, &cfg)
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, failedModules(r), test.ShouldResemble, []string{"mod3", "mod5"})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`May be in failing module: [mod3 mod5]; There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
 
 	// TEST: user fixes broken module's broken exec by providing valid exec paths.
 	cfg.Modules[0].ExePath = execFailPath
@@ -673,11 +654,292 @@ func TestFailedModuleTrackingIntegration(t *testing.T) {
 	r.Reconfigure(ctx, &cfg)
 
 	// Assert that "mod3" is removed from failedModules and empty failedModules log is called.
-	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
-		tb.Helper()
-		test.That(tb, logs.FilterMessage(`resource build error: unknown resource type: `+
-			`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
-			`There may be no module in config that provides this model`).Len(),
-			test.ShouldBeGreaterThanOrEqualTo, 1)
-	})
+	test.That(t, logs.FilterMessage(`resource build error: unknown resource type: `+
+		`API rdk:component:generic with model rdk:builtin:nonexistent not registered; `+
+		`There may be no module in config that provides this model`).Len(),
+		test.ShouldBeGreaterThanOrEqualTo, 1)
+}
+
+func TestImplicitDependencyUpdatesAfterModuleStartupCrash(t *testing.T) {
+	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
+	// test that implicit dependencies are added correctly if resource config
+	// is unchanged.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:        "mod",
+				ExePath:     testPath,
+				Environment: map[string]string{"VIAM_TESTMODULE_PANIC": "1"},
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+
+	_, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Reconfigure so that the "mod" is no longer panicking
+	cfg.Modules[0].Environment = nil
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestImplicitDependencyUpdatesAfterModuleStartupCrashAndConfigMod(t *testing.T) {
+	// on module 1 'mod' crash and then modifying 'mod' to no longer crash,
+	// test that implicit dependencies are added correctly even if the resource config
+	// was modified.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:        "mod",
+				ExePath:     testPath,
+				Environment: map[string]string{"VIAM_TESTMODULE_PANIC": "1"},
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	// Assert that "mod" is in failedModules and that "mod-s" is not reachable while "s" is.
+	test.That(t, r.(*localRobot).manager.moduleManager.FailedModules(), test.ShouldResemble, []string{"mod"})
+
+	_, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldNotBeNil)
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Reconfigure so that the "mod" is no longer panicking and add additional field to "mod-s" attributes
+	cfg.Modules[0].Environment = nil
+	cfg.Components[0].Attributes = rutils.AttributeMap{"sensor": "s", "hello": "world"}
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestImplicitDependencyUpdatesAfterModuleRestart(t *testing.T) {
+	// on module 1 'mod' restart with a different underlying binary,
+	// test that implicit dependencies are added correctly if the resource config
+	// is unchanged.
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	// testmodule2's sensor does not have implicit deps while testmodule's does
+	testPath2 := rtestutils.BuildTempModule(t, "module/testmodule2")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// create a symlink - the test will later replace the module using this symlink
+	newLoc := t.TempDir() + "testmod"
+
+	err := os.Symlink(testPath2, newLoc)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: newLoc,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "mod-s",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s"},
+			},
+			{
+				Name:  "s",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	// Assert that "mod-s" and "s" are both healthy.
+	modS, err := sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"hello": "world"})
+
+	s, err := sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+
+	// Replace symlink point to testmodule instead. Restart "mod" and force a robot reconfiguration
+	// (since module restarts do not automatically build resources).
+	err = os.Remove(newLoc)
+	test.That(t, err, test.ShouldBeNil)
+	err = os.Symlink(testPath, newLoc)
+	test.That(t, err, test.ShouldBeNil)
+	err = r.RestartModule(ctx, robot.RestartModuleRequest{ModuleName: "mod"})
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that retrying resource construction creates all of the resources.
+	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
+
+	// Assert that "mod-s" is now online, "s" is still reachable and we validated the config twice,
+	// once for resolving implicit dependencies and once right before building.
+	modS, err = sensor.FromProvider(r, "mod-s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = modS.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	resp, err = modS.DoCommand(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"validate_calls": 2.0})
+
+	s, err = sensor.FromProvider(r, "s")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestModuleAndResourceRemoval(t *testing.T) {
+	// on module 1 "mod" and "h" removal, test that if both module and resource
+	// are removed at the same time, the machine does not attempt to re-construct the
+	// resource.
+	ctx := context.Background()
+	logger, obs := logging.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+
+	obs.TakeAll() // clear logs
+
+	// Reconfigure so that the "mod" and "h" are both removed.
+	cfg = config.Config{}
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "h" is no longer available and that we never attempted to build it.
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
 }

@@ -232,7 +232,7 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, context.Background(), localConfig, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), localConfig, logger, WithDisableCompleteConfigWorker())
 
 	// make sure calling into remotes don't error
 	fsCfg, err := r.FrameSystemConfig(context.Background())

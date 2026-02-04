@@ -17,6 +17,7 @@ import (
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/slam/internal/testhelper"
@@ -68,7 +69,7 @@ func TestWorkingServer(t *testing.T) {
 	}
 	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
+	slamServer := slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
 	cloudPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 	cloudPathEdited := artifact.MustPath("slam/mock_lidar/1.pcd")
 	pcd, err := os.ReadFile(cloudPath)
@@ -221,7 +222,7 @@ func TestWorkingServer(t *testing.T) {
 		}
 		injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 		test.That(t, err, test.ShouldBeNil)
-		slamServer = slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
+		slamServer = slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
 		poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 
 		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
@@ -280,7 +281,7 @@ func TestFailingServer(t *testing.T) {
 	}
 	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	slamServer := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
+	slamServer := slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
 
 	t.Run("failing GetPosition", func(t *testing.T) {
 		injectSvc.PositionFunc = func(ctx context.Context) (spatial.Pose, error) {
@@ -355,7 +356,7 @@ func TestFailingServer(t *testing.T) {
 	})
 
 	injectAPISvc, _ = resource.NewAPIResourceCollection(slam.API, map[resource.Name]slam.Service{})
-	slamServer = slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
+	slamServer = slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
 	t.Run("failing on nonexistent server", func(t *testing.T) {
 		// test unary endpoint using GetPosition
 		reqGetPositionRequest := &pb.GetPositionRequest{Name: testSlamServiceName}
@@ -380,7 +381,7 @@ func TestServerDoCommand(t *testing.T) {
 	}
 	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
 	test.That(t, err, test.ShouldBeNil)
-	server := slam.NewRPCServiceServer(injectAPISvc).(pb.SLAMServiceServer)
+	server := slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
 
 	cmd, err := protoutils.StructToStructPb(testutils.TestCommand)
 	test.That(t, err, test.ShouldBeNil)

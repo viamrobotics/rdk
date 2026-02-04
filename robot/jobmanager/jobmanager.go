@@ -135,7 +135,7 @@ func New(
 		return nil, err
 	}
 	dialAddr := "unix://" + parentAddr.UnixAddr
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		dialAddr = parentAddr.TCPAddr
 	}
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)
@@ -184,7 +184,7 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
 	resourceType := res.Name().API.SubtypeName
-	// some subtypes have an underscore in their name, like audio_input, input_controller,
+	// some subtypes have an underscore in their name, like audio_in, audio_out, input_controller,
 	// or pose_tracker, while their APIs do not - so we have to remove the underscore.
 	resourceType = strings.ReplaceAll(resourceType, "_", "")
 	services, err := descSource.ListServices()

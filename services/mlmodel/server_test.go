@@ -9,18 +9,19 @@ import (
 	"go.viam.com/test"
 	"gorgonia.org/tensor"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newServer(resources map[resource.Name]mlmodel.Service) (pb.MLModelServiceServer, error) {
+func newServer(resources map[resource.Name]mlmodel.Service, logger logging.Logger) (pb.MLModelServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(mlmodel.API, resources)
 	if err != nil {
 		return nil, err
 	}
-	return mlmodel.NewRPCServiceServer(coll).(pb.MLModelServiceServer), nil
+	return mlmodel.NewRPCServiceServer(coll, logger).(pb.MLModelServiceServer), nil
 }
 
 func TestServerNotFound(t *testing.T) {
@@ -28,7 +29,7 @@ func TestServerNotFound(t *testing.T) {
 		Name: testMLModelServiceName,
 	}
 	resources := map[resource.Name]mlmodel.Service{}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:mlmodel/mlmodel1 not found"))
@@ -45,7 +46,8 @@ func TestServerMetadata(t *testing.T) {
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(resources)
+	logger := logging.NewTestLogger(t)
+	server, err := newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -69,7 +71,7 @@ func TestServerMetadata(t *testing.T) {
 		mlmodel.Named(testMLModelServiceName):  mockSrv,
 		mlmodel.Named(testMLModelServiceName2): mockSrv,
 	}
-	server, err = newServer(resources)
+	server, err = newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = server.Metadata(context.Background(), metadataRequest)
 	test.That(t, err, test.ShouldBeNil)
@@ -159,7 +161,7 @@ func TestServerInfer(t *testing.T) {
 		mlmodel.Named(testMLModelServiceName): mockSrv,
 	}
 
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err := server.Infer(context.Background(), inferRequest)
 	test.That(t, err, test.ShouldBeNil)

@@ -448,9 +448,18 @@ func TestNamedImage(t *testing.T) {
 			_, err := camera.NamedImageFromBytes(nil, sourceName, rutils.MimeTypePNG, annotations)
 			test.That(t, err, test.ShouldBeError, errors.New("must provide image bytes to construct a named image from bytes"))
 		})
-		t.Run("error on empty mime type", func(t *testing.T) {
-			_, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, "", annotations)
-			test.That(t, err, test.ShouldBeError, errors.New("must provide a mime type to construct a named image"))
+		t.Run("auto-infer mime type from bytes", func(t *testing.T) {
+			ni, err := camera.NamedImageFromBytes(testImgPNGBytes, sourceName, "", annotations)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, ni.SourceName, test.ShouldEqual, sourceName)
+			test.That(t, ni.MimeType(), test.ShouldEqual, rutils.MimeTypePNG)
+			test.That(t, ni.Annotations, test.ShouldResemble, annotations)
+		})
+		t.Run("error when mime type is empty and bytes are invalid", func(t *testing.T) {
+			invalidBytes := []byte("not an image")
+			_, err := camera.NamedImageFromBytes(invalidBytes, sourceName, "", annotations)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "could not infer mime type")
 		})
 	})
 

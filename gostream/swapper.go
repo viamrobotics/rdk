@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
@@ -23,10 +22,6 @@ type (
 	// A HotSwappableVideoSource allows for continuous streaming of video of
 	// swappable underlying video sources.
 	HotSwappableVideoSource = HotSwappableMediaSource[image.Image, prop.Video]
-
-	// A HotSwappableAudioSource allows for continuous streaming of audio of
-	// swappable underlying audio sources.
-	HotSwappableAudioSource = HotSwappableMediaSource[wave.Audio, prop.Audio]
 )
 
 type hotSwappableMediaSource[T, U any] struct {
@@ -46,11 +41,6 @@ func NewHotSwappableMediaSource[T, U any](src MediaSource[T]) HotSwappableMediaS
 // NewHotSwappableVideoSource returns a hot swappable video source.
 func NewHotSwappableVideoSource(src VideoSource) HotSwappableVideoSource {
 	return NewHotSwappableMediaSource[image.Image, prop.Video](src)
-}
-
-// NewHotSwappableAudioSource returns a hot swappable audio source.
-func NewHotSwappableAudioSource(src AudioSource) HotSwappableAudioSource {
-	return NewHotSwappableMediaSource[wave.Audio, prop.Audio](src)
 }
 
 var errSwapperClosed = errors.New("hot swapper closed or uninitialized")

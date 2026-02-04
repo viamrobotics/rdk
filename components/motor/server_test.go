@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -27,7 +28,7 @@ var (
 	errSetRPMFailed        = errors.New("set rpm failed")
 )
 
-func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
+func newServer(logger logging.Logger) (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	injectMotor1 := &inject.Motor{}
 	injectMotor2 := &inject.Motor{}
 
@@ -40,12 +41,12 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return motor.NewRPCServiceServer(injectSvc).(pb.MotorServiceServer), injectMotor1, injectMotor2, nil
+	return motor.NewRPCServiceServer(injectSvc, logger).(pb.MotorServiceServer), injectMotor1, injectMotor2, nil
 }
 
 //nolint:dupl
 func TestServerSetPower(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.SetPowerRequest{Name: fakeMotorName}
@@ -72,7 +73,7 @@ func TestServerSetPower(t *testing.T) {
 
 //nolint:dupl
 func TestServerGoFor(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.GoForRequest{Name: fakeMotorName}
@@ -98,7 +99,7 @@ func TestServerGoFor(t *testing.T) {
 }
 
 func TestServerPosition(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.GetPositionRequest{Name: fakeMotorName}
@@ -125,7 +126,7 @@ func TestServerPosition(t *testing.T) {
 }
 
 func TestServerGetProperties(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.GetPropertiesRequest{Name: fakeMotorName}
@@ -153,7 +154,7 @@ func TestServerGetProperties(t *testing.T) {
 }
 
 func TestServerStop(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.StopRequest{Name: fakeMotorName}
@@ -179,7 +180,7 @@ func TestServerStop(t *testing.T) {
 }
 
 func TestServerIsOn(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.IsPoweredRequest{Name: fakeMotorName}
@@ -207,7 +208,7 @@ func TestServerIsOn(t *testing.T) {
 
 //nolint:dupl
 func TestServerGoTo(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.GoToRequest{Name: fakeMotorName}
@@ -234,7 +235,7 @@ func TestServerGoTo(t *testing.T) {
 
 //nolint:dupl
 func TestServerSetRPM(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.SetRPMRequest{Name: fakeMotorName}
@@ -261,7 +262,7 @@ func TestServerSetRPM(t *testing.T) {
 
 //nolint:dupl
 func TestServerResetZeroPosition(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
+	motorServer, workingMotor, failingMotor, _ := newServer(logging.NewTestLogger(t))
 
 	// fails on a bad motor
 	req := pb.ResetZeroPositionRequest{Name: fakeMotorName}
@@ -287,7 +288,7 @@ func TestServerResetZeroPosition(t *testing.T) {
 }
 
 func TestServerExtraParams(t *testing.T) {
-	motorServer, workingMotor, _, _ := newServer()
+	motorServer, workingMotor, _, _ := newServer(logging.NewTestLogger(t))
 
 	var actualExtra map[string]interface{}
 	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64, extra map[string]interface{}) error {

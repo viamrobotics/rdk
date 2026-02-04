@@ -226,36 +226,57 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		return errors.New("module service already started")
 	}
 
+	// Create a viam-module-[randomString] temporary directory to store UDS sock files for
+	// modules. The parent sock file, the sock file used by modules to communicate back to
+	// viam-server, will go in here. Modules' sock files, the sock files used by viam-server
+	// to send gRPC requests, will also go here.
+	//
+	// The permissions on this directory are important. Modules sometimes run as different
+	// users than viam-server (usually through a `sudo` in their entrypoint script).
+	// Communication over sock files means that both the viam-server and module users need
+	// to have read and write access to both sides' files. Use file mode 777 (unrestricted)
+	// for this directory and 776 (mostly unrestricted) for the parent socket file created
+	// below (automatically by listening).
+	dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "could not create module socket directory")
+	}
+	//nolint:gosec
+	err = os.Chmod(dir, 0o777)
+	if err != nil {
+		return errors.WithMessage(err, "could not update permissions on module socket directory")
+	}
+
 	var lis net.Listener
 	var addr string
-	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if tcpMode {
+		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+		lis, err = net.Listen("tcp", addr)
 		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+			return errors.WithMessage(err, "failed to listen over TCP")
 		}
-
-		if tcpMode {
-			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
-			lis, err = net.Listen("tcp", addr)
-		} else {
-			addr, err = module.CreateSocketAddress(dir, "parent")
-			if err != nil {
-				return errors.WithMessage(err, "module startup failed")
-			}
-			lis, err = net.Listen("unix", addr)
-		}
+	} else {
+		addr, err = module.CreateSocketAddress(dir, "parent")
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen")
+			return errors.WithMessage(err, "could not create filepath for parent socket")
 		}
-		if tcpMode {
-			svc.modAddrs.TCPAddr = lis.Addr().String()
-		} else {
-			svc.modAddrs.UnixAddr = addr
+		lis, err = net.Listen("unix", addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen over UDS")
 		}
-		return nil
-	}); err != nil {
-		return err
+		//nolint:gosec
+		err = os.Chmod(addr, 0o776)
+		if err != nil {
+			return errors.WithMessage(err, "could not update permissions on parent socket")
+		}
 	}
+
+	if tcpMode {
+		svc.modAddrs.TCPAddr = lis.Addr().String()
+	} else {
+		svc.modAddrs.UnixAddr = addr
+	}
+
 	var (
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
@@ -352,13 +373,17 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	return nil
 }
 
-// StartModule starts the grpc module server.
+// StartModule starts the grpc module server. If unix sockets are supported, we start both a unix socket server and a TCP server.
 func (svc *webService) StartModule(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 
-	if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
-		return err
+	if use, reason := rutils.OnlyUseViamTCPSockets(); use {
+		svc.logger.Infow("Not starting unix socket grpc module server", "reason", reason)
+	} else {
+		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
+			return err
+		}
 	}
 	return svc.startProtocolModuleParentServer(ctx, true)
 }
@@ -738,7 +763,7 @@ func (svc *webService) initAPIResourceCollections(ctx context.Context, server rp
 	apiRegs := resource.RegisteredAPIs()
 	for api, apiReg := range apiRegs {
 		apiGetter := resourceGetterForAPI{api, svc.r}
-		if err := apiReg.RegisterRPCService(ctx, server, apiGetter); err != nil {
+		if err := apiReg.RegisterRPCService(ctx, server, apiGetter, svc.logger); err != nil {
 			return err
 		}
 	}
@@ -1025,13 +1050,18 @@ type RestartStatusResponse struct {
 	// older versions won't report it at all, and agent should let viamserver handle
 	// NeedsRestart logic.
 	DoesNotHandleNeedsRestart bool `json:"does_not_handle_needs_restart,omitempty"`
+	// ModuleServerTCPAddr is the TCP address of the module server.
+	// The module server can be used for unauthenticated local RPC calls.
+	ModuleServerTCPAddr string `json:"module_server_tcp_addr,omitempty"`
 }
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
+	modAddrs := svc.ModuleAddresses()
 	response := RestartStatusResponse{
 		RestartAllowed:            svc.r.RestartAllowed(),
 		DoesNotHandleNeedsRestart: true,
+		ModuleServerTCPAddr:       modAddrs.TCPAddr,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -204,7 +204,8 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 // returns true if this module should be run in TCP mode.
 // (based on either global setting or per-module setting).
 func (m *module) tcpMode() bool {
-	return rutils.ViamTCPSockets() || m.cfg.TCPMode
+	use, _ := rutils.OnlyUseViamTCPSockets()
+	return use || m.cfg.TCPMode
 }
 
 // returns true if this module is running in TCP mode.
@@ -260,11 +261,10 @@ func (m *module) startProcess(
 	}
 
 	// Create STDOUT and STDERR loggers for the module and turn off log deduplication for
-	// both. Module output through these loggers may contain data like stack traces, which
-	// are repetitive but are not actually "noisy."
+	// the latter. Module output through STDERR in particular may contain data like stack
+	// traces from Golang and Python, which are repetitive but are not actually "noisy."
 	stdoutLogger := m.logger.Sublogger("StdOut")
 	stderrLogger := m.logger.Sublogger("StdErr")
-	stdoutLogger.NeverDeduplicate()
 	stderrLogger.NeverDeduplicate()
 
 	pconf := pexec.ProcessConfig{
@@ -325,9 +325,9 @@ func (m *module) startProcess(
 			}
 		}
 		if !m.isRunningInTCPMode() {
-			// note: we don't do this check in TCP mode because TCP addresses are not file paths and will fail check.
-			// note: CheckSocketOwner on Windows only returns err, if any, from os.Stat.
-			err = modlib.CheckSocketOwner(m.addr)
+			// Ensure that socket file has been created by the module. We don't do this check in
+			// TCP mode because TCP addresses are not file paths and will fail check.
+			_, err = os.Stat(m.addr)
 			if errors.Is(err, fs.ErrNotExist) {
 				continue
 			}

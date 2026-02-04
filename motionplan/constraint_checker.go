@@ -291,38 +291,9 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 // configuration of a segment at a given resolution value.
 func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
-	maxSteps := defaultMinStepCount
-	for frameName, startConfig := range ci.StartConfiguration.Items() {
-		if len(startConfig) == 0 {
-			// No need to interpolate 0dof frames
-			continue
-		}
-		endConfig := ci.EndConfiguration.Get(frameName)
-		if endConfig == nil {
-			return nil, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
-		}
-
-		// Get frame from FrameSystem
-		frame := ci.FS.Frame(frameName)
-		if frame == nil {
-			return nil, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
-		}
-
-		// Calculate positions for this frame's start and end configs
-		startPos, err := frame.Transform(startConfig)
-		if err != nil {
-			return nil, err
-		}
-		endPos, err := frame.Transform(endConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPos, endPos, resolution)
-		if steps > maxSteps {
-			maxSteps = steps
-		}
+	maxSteps, err := segmentStepCount(ci, resolution)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create interpolated configurations for all frames
@@ -520,4 +491,54 @@ func collisionCheckFinish(fs *referenceframe.FrameSystem, internalGeoms, static 
 		return -1, fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
 	}
 	return cg.minDistance, nil
+}
+
+// Computes the quantity of intermediate constraint check steps that should be performed across a segment
+func segmentStepCount(ci *SegmentFS, resolution float64) (int, error) {
+	// Find the frame with the most steps by calculating steps for each frame
+	maxSteps := defaultMinStepCount
+	for frameName, startConfig := range ci.StartConfiguration.Items() {
+		if len(startConfig) == 0 {
+			// No need to interpolate 0dof frames
+			continue
+		}
+		endConfig := ci.EndConfiguration.Get(frameName)
+		if endConfig == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
+		}
+
+		// Get frame from FrameSystem
+		frame := ci.FS.Frame(frameName)
+		if frame == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
+		}
+
+		// Calculate positions for this frame's start and end configs
+		startPos, err := frame.Transform(startConfig)
+		if err != nil {
+			return -1, err
+		}
+		endPos, err := frame.Transform(endConfig)
+		if err != nil {
+			return -1, err
+		}
+
+		// Compute joint step size from the largest limit range, divided by 1000
+		jointStepSize := jointStepSizeFromLimits(frame.DoF())
+
+		maxSteps = max(maxSteps, CalculateStepCount(startPos, endPos, resolution))
+		maxSteps = max(maxSteps, calculateJointStepCount(startConfig, endConfig, jointStepSize))
+	}
+	return maxSteps, nil
+}
+
+// jointStepSizeFromLimits computes the joint step size as 1/1000 of the largest limit range.
+func jointStepSizeFromLimits(limits []referenceframe.Limit) float64 {
+	var maxRange float64
+
+	for _, limit := range limits {
+		_, _, r := limit.GoodLimits()
+		maxRange = max(maxRange, r)
+	}
+	return maxRange / 1000
 }

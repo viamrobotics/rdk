@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/utils"
 )
 
 // Order specifies the order in which data is returned.
@@ -1293,6 +1294,14 @@ func (d *DataClient) FileUploadFromPath(
 	var data []byte
 	// Prepare file data from filepath
 	if filePath != "" {
+		// Get file timestamps before reading the file
+		fileTimes, err := utils.GetFileTimes(filePath)
+		if err != nil {
+			return "", err
+		}
+		metadata.FileCreateTime = timestamppb.New(fileTimes.CreateTime)
+		metadata.FileModifyTime = timestamppb.New(fileTimes.ModifyTime)
+
 		//nolint:gosec
 		fileData, err := os.ReadFile(filePath)
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"go.viam.com/utils"
 )
@@ -63,4 +64,26 @@ func ExpandHomeDir(path string) (string, error) {
 		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
 	}
 	return path, nil
+}
+
+// FileTimes contains the creation and modification times for a file.
+type FileTimes struct {
+	// CreateTime is the file creation time. Platform-specific:
+	// - macOS: birthtime (actual creation time)
+	// - Linux: change time (when metadata was last changed)
+	// - Windows: creation time
+	CreateTime time.Time
+	// ModifyTime is the file modification time (when content was last modified).
+	ModifyTime time.Time
+}
+
+// GetFileTimes returns the creation and modification times for the given file.
+// Implementation is platform-specific and found in file_times.go (Unix/macOS)
+// and file_times_windows.go (Windows).
+func GetFileTimes(path string) (FileTimes, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return FileTimes{}, err
+	}
+	return getFileTimes(info)
 }

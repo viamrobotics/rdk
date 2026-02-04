@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -20,7 +21,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs a motion gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -73,6 +74,8 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
 }
 
+// This is preserving backwards compatibility for older updated clients.
+//
 //nolint:staticcheck
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
@@ -90,7 +93,7 @@ func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	if err != nil {
 		return nil, err
 	}
-	//nolint:staticcheck
+
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
 

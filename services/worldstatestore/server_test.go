@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/worldstatestore"
 	"go.viam.com/rdk/testutils/inject"
@@ -18,18 +19,19 @@ import (
 
 const testWorldStateStoreServiceName = "worldstatestore1"
 
-func newServer(m map[resource.Name]worldstatestore.Service) (pb.WorldStateStoreServiceServer, error) {
+func newServer(m map[resource.Name]worldstatestore.Service, logger logging.Logger) (pb.WorldStateStoreServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(worldstatestore.API, m)
 	if err != nil {
 		return nil, err
 	}
-	return worldstatestore.NewRPCServiceServer(coll).(pb.WorldStateStoreServiceServer), nil
+	return worldstatestore.NewRPCServiceServer(coll, logger).(pb.WorldStateStoreServiceServer), nil
 }
 
 func TestWorldStateStoreServerFailures(t *testing.T) {
 	// Test with no service
+	logger := logging.NewTestLogger(t)
 	m := map[resource.Name]worldstatestore.Service{}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ListUUIDs with no service
@@ -59,11 +61,12 @@ func TestWorldStateStoreServerFailures(t *testing.T) {
 }
 
 func TestServerListUUIDs(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectWSS := &inject.WorldStateStoreService{}
 	m := map[resource.Name]worldstatestore.Service{
 		worldstatestore.Named(testWorldStateStoreServiceName): injectWSS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("successful ListUUIDs", func(t *testing.T) {
@@ -109,11 +112,12 @@ func TestServerListUUIDs(t *testing.T) {
 }
 
 func TestServerGetTransform(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectWSS := &inject.WorldStateStoreService{}
 	m := map[resource.Name]worldstatestore.Service{
 		worldstatestore.Named(testWorldStateStoreServiceName): injectWSS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("successful GetTransform", func(t *testing.T) {
@@ -182,11 +186,12 @@ func TestServerGetTransform(t *testing.T) {
 }
 
 func TestServerStreamTransformChanges(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectWSS := &inject.WorldStateStoreService{}
 	m := map[resource.Name]worldstatestore.Service{
 		worldstatestore.Named(testWorldStateStoreServiceName): injectWSS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("successful StreamTransformChanges", func(t *testing.T) {
@@ -260,11 +265,12 @@ func TestServerStreamTransformChanges(t *testing.T) {
 }
 
 func TestServerDoCommand(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	injectWSS := &inject.WorldStateStoreService{}
 	m := map[resource.Name]worldstatestore.Service{
 		worldstatestore.Named(testWorldStateStoreServiceName): injectWSS,
 	}
-	server, err := newServer(m)
+	server, err := newServer(m, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("successful DoCommand", func(t *testing.T) {

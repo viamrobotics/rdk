@@ -30,7 +30,6 @@ import (
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
@@ -175,7 +174,6 @@ func TestConfigRemote(t *testing.T) {
 		base.Named("foo"),
 		base.Named("myParentIsRemote"),
 		camera.Named("foo:cameraOver"),
-		audioinput.Named("foo:mic1"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
@@ -367,8 +365,6 @@ func TestConfigRemoteWithPrefixes(t *testing.T) {
 		base.Named("myParentIsRemote"),
 		camera.Named("foo:foocameraOver"),
 		camera.Named("bar:barcameraOver"),
-		audioinput.Named("foo:foomic1"),
-		audioinput.Named("bar:barmic1"),
 		movementsensor.Named("foo:foomovement_sensor1"),
 		movementsensor.Named("bar:barmovement_sensor1"),
 		movementsensor.Named("foo:foomovement_sensor2"),
@@ -430,8 +426,6 @@ func TestConfigRemoteWithPrefixes(t *testing.T) {
 		base.Named("myParentIsRemote"),
 		camera.Named("foocameraOver"),
 		camera.Named("barcameraOver"),
-		audioinput.Named("foomic1"),
-		audioinput.Named("barmic1"),
 		movementsensor.Named("foomovement_sensor1"),
 		movementsensor.Named("barmovement_sensor1"),
 		movementsensor.Named("foomovement_sensor2"),
@@ -576,8 +570,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			expected := []resource.Name{
 				arm.Named("bar:barpieceArm"),
 				arm.Named("foo:foopieceArm"),
-				audioinput.Named("bar:barmic1"),
-				audioinput.Named("foo:foomic1"),
 				camera.Named("bar:barcameraOver"),
 				camera.Named("foo:foocameraOver"),
 				movementsensor.Named("bar:barmovement_sensor1"),
@@ -713,7 +705,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	expected := []resource.Name{
 		arm.Named("foo:pieceArm"),
-		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
@@ -731,7 +722,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 11)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 10)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
@@ -935,13 +926,12 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 6)
+	test.That(t, len(resources), test.ShouldEqual, 5)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default motion
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
-		audioinput.Named("mic1"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
@@ -1038,7 +1028,6 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 			arm.Named("remote:arm1"),
 			arm.Named("remote:arm2"),
 			arm.Named("remote:pieceArm"),
-			audioinput.Named("remote:mic1"),
 			camera.Named("remote:cameraOver"),
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
@@ -3397,7 +3386,7 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	actualR := r.(*localRobot)
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
@@ -3892,7 +3881,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 					Revision: rev1,
 				}
 			}
-			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			lr := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			lr.(*localRobot).manager.addRemote(
 				context.Background(),
 				dRobot,
@@ -3982,7 +3971,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot1,
@@ -4183,7 +4172,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 				}
 			}
-			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			remote1.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote2Dummy,
@@ -4194,7 +4183,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			// setup local
 			remoteName1 := "remote1"
 			remote1Dummy := newDummyRobot(t, remote1)
-			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 			lRobot.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote1Dummy,
@@ -5034,7 +5023,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 // prevents that behavior and removes the remote correctly.
 func TestRemovingOfflineRemotes(t *testing.T) {
 	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), WithDisableCompleteConfigWorker())
 	localRobot := r.(*localRobot)
 
 	// Create a context that we can cancel to similuate the remote connection timeout

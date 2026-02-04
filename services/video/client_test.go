@@ -39,7 +39,7 @@ func setupVideoService(t *testing.T, injectVideo *inject.Video) (net.Listener, f
 	resourceAPI, ok, err := resource.LookupAPIRegistration[video.Service](video.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, videoSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, videoSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener)
 	return listener, func() { rpcServer.Stop() }
