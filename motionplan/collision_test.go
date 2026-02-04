@@ -11,16 +11,42 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// collisionListsAlmostEqual compares two lists of Collisions and returns if they are almost equal.
+func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
+	if len(cs1) != len(cs2) {
+		return false
+	}
+
+	// loop through list 1 and match with elements in list 2, mark on list of used indexes
+	used := make([]bool, len(cs1))
+	for _, c1 := range cs1 {
+		for i, c2 := range cs2 {
+			if collisionsAlmostEqual(c1, c2) {
+				used[i] = true
+				break
+			}
+		}
+	}
+
+	// loop through list of used indexes
+	for _, c := range used {
+		if !c {
+			return false
+		}
+	}
+	return true
+}
+
 func TestCollisionsEqual(t *testing.T) {
-	expected := Collision{name1: "a", name2: "b", penetrationDepth: 1}
+	expected := Collision{name1: "a", name2: "b"}
 	cases := []struct {
 		collision Collision
 		success   bool
 	}{
-		{Collision{name1: "a", name2: "b", penetrationDepth: 1}, true},
-		{Collision{name1: "b", name2: "a", penetrationDepth: 1}, true},
-		{Collision{name1: "a", name2: "c", penetrationDepth: 1}, false},
-		{Collision{name1: "b", name2: "a", penetrationDepth: 2}, false},
+		{Collision{name1: "a", name2: "b"}, true},
+		{Collision{name1: "b", name2: "a"}, true},
+		{Collision{name1: "a", name2: "c"}, false},
+		{Collision{name1: "c", name2: "a"}, false},
 	}
 	for _, c := range cases {
 		test.That(t, c.success == collisionsAlmostEqual(expected, c.collision), test.ShouldBeTrue)
@@ -28,12 +54,12 @@ func TestCollisionsEqual(t *testing.T) {
 }
 
 func TestCollisionListsEqual(t *testing.T) {
-	c1a := Collision{name1: "a", name2: "b", penetrationDepth: 1}
-	c1b := Collision{name1: "a", name2: "b", penetrationDepth: 1}
-	c2a := Collision{name1: "c", name2: "d", penetrationDepth: 2}
-	c2b := Collision{name1: "d", name2: "c", penetrationDepth: 2}
-	c3a := Collision{name1: "e", name2: "f", penetrationDepth: 2}
-	c3b := Collision{name1: "f", name2: "e", penetrationDepth: 2}
+	c1a := Collision{name1: "a", name2: "b"}
+	c1b := Collision{name1: "a", name2: "b"}
+	c2a := Collision{name1: "c", name2: "d"}
+	c2b := Collision{name1: "d", name2: "c"}
+	c3a := Collision{name1: "e", name2: "f"}
+	c3b := Collision{name1: "f", name2: "e"}
 	list1 := []Collision{c1a, c2b, c3a}
 	list2 := []Collision{c3b, c1a, c2a}
 	list3 := []Collision{c3b, c1a, c1b}
@@ -43,6 +69,8 @@ func TestCollisionListsEqual(t *testing.T) {
 }
 
 func TestCheckCollisions(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
 	// case 1: small collection of custom geometries, expecting:
 	//      - collisions reported between robot and obstacles
 	//      - no collision between two obstacle geometries or robot geometries
@@ -63,13 +91,19 @@ func TestCheckCollisions(t *testing.T) {
 	obstacles[1].SetLabel("obstacleCube444")
 	obstacles = append(obstacles, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6})))
 	obstacles[2].SetLabel("obstacleCube666")
-	cg, err := newCollisionGraph(referenceframe.NewEmptyFrameSystem(""), robot, obstacles, nil, true, defaultCollisionBufferMM)
+
+	robotGG, err := NewGeometryGroup(robot)
+	test.That(t, err, test.ShouldBeNil)
+	obstacleGG, err := NewGeometryGroup(obstacles)
+	test.That(t, err, test.ShouldBeNil)
+
+	collisions, _, err := robotGG.CollidesWith(obstacleGG, fs, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
-		{"robotCube333", "obstacleCube444", -1},
-		{"robotCube000", "obstacleCube000", -2},
+		{"robotCube333", "obstacleCube444"},
+		{"robotCube000", "obstacleCube000"},
 	}
-	test.That(t, collisionListsAlmostEqual(cg.collisions(defaultCollisionBufferMM), expectedCollisions), test.ShouldBeTrue)
+	test.That(t, collisionListsAlmostEqual(collisions, expectedCollisions), test.ShouldBeTrue)
 
 	// case 2: zero position of xArm6 arm - should have number of collisions = to number of geometries - 1
 	// no external geometries considered, self collision only
@@ -77,80 +111,66 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gf, _ := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
 	test.That(t, gf, test.ShouldNotBeNil)
-	cg, err = newCollisionGraph(referenceframe.NewEmptyFrameSystem(""), gf.Geometries(), gf.Geometries(), nil, true, defaultCollisionBufferMM)
+
+	selfGG, err := NewGeometryGroup(gf.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.collisions(defaultCollisionBufferMM)), test.ShouldEqual, 5)
+	collisions, _, err = selfGG.CollidesWith(selfGG, fs, nil, defaultCollisionBufferMM, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldEqual, 5)
 }
 
 func TestUniqueCollisions(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
-	// zero position of xarm6 arm
+	// zero position of xarm6 arm - get initial collisions to use as allowed collisions
 	input := make([]referenceframe.Input, len(m.DoF()))
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	zeroPositionCG, err := newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""),
-		internalGeometries.Geometries(),
-		internalGeometries.Geometries(),
-		nil,
-		true,
-		defaultCollisionBufferMM,
-	)
+
+	zeroGG, err := NewGeometryGroup(internalGeometries.Geometries())
+	test.That(t, err, test.ShouldBeNil)
+	zeroPositionCollisions, _, err := zeroGG.CollidesWith(zeroGG, fs, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
 	input[0] = 1
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err := newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""),
-		internalGeometries.Geometries(),
-		internalGeometries.Geometries(),
-		zeroPositionCG,
-		true,
-		defaultCollisionBufferMM,
-	)
+
+	gg, err := NewGeometryGroup(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.collisions(defaultCollisionBufferMM)), test.ShouldEqual, 0)
+	collisions, _, err := gg.CollidesWith(gg, fs, zeroPositionCollisions, defaultCollisionBufferMM, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
 	input[4] = 2
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
-	cg, err = newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""),
-		internalGeometries.Geometries(),
-		internalGeometries.Geometries(),
-		zeroPositionCG,
-		true,
-		defaultCollisionBufferMM,
-	)
+
+	gg, err = NewGeometryGroup(internalGeometries.Geometries())
+	test.That(t, err, test.ShouldBeNil)
+	collisions, _, err = gg.CollidesWith(gg, fs, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
-		{"xArm6:base_top", "xArm6:gripper_mount", -39.8},
-		{"xArm6:base_top", "xArm6:wrist_link", -51.15},
-		{"xArm6:wrist_link", "xArm6:upper_arm", -8.37},
+		{"xArm6:base_top", "xArm6:gripper_mount"},
+		{"xArm6:base_top", "xArm6:wrist_link"},
+		{"xArm6:wrist_link", "xArm6:upper_arm"},
 	}
-	test.That(t, collisionListsAlmostEqual(cg.collisions(defaultCollisionBufferMM), expectedCollisions), test.ShouldBeTrue)
+	test.That(t, collisionListsAlmostEqual(collisions, expectedCollisions), test.ShouldBeTrue)
 
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
-	zeroPositionCG.addCollisionSpecification(&expectedCollisions[len(expectedCollisions)-1])
+	zeroPositionCollisions = append(zeroPositionCollisions, expectedCollisions[len(expectedCollisions)-1])
 
-	cg, err = newCollisionGraph(
-		referenceframe.NewEmptyFrameSystem(""),
-		internalGeometries.Geometries(),
-		internalGeometries.Geometries(),
-		zeroPositionCG,
-		true,
-		defaultCollisionBufferMM,
-	)
+	collisions, _, err = gg.CollidesWith(gg, fs, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
 		t,
-		collisionListsAlmostEqual(cg.collisions(defaultCollisionBufferMM), expectedCollisions[:len(expectedCollisions)-1]),
+		collisionListsAlmostEqual(collisions, expectedCollisions[:len(expectedCollisions)-1]),
 		test.ShouldBeTrue,
 	)
 }

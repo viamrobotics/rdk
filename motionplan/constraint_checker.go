@@ -370,18 +370,30 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
-	allowedCollisions []*Collision,
+	allowedCollisions []Collision,
 	collisionBufferMM float64,
 ) (map[string]CollisionConstraintFunc, error) {
 	constraintFSMap := map[string]CollisionConstraintFunc{}
+	movingGG, err := NewGeometryGroup(movingRobotGeometries)
+	if err != nil {
+		return nil, err
+	}
+	worldGG, err := NewGeometryGroup(worldGeometries)
+	if err != nil {
+		return nil, err
+	}
+	staticGG, err := NewGeometryGroup(staticRobotGeometries)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := NewCollisionConstraintFS("world", fs,
-			movingRobotGeometries,
-			worldGeometries,
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingGG,
+			worldGG,
 			allowedCollisions,
-			false,
 			collisionBufferMM,
 		)
 		if err != nil {
@@ -391,11 +403,11 @@ func CreateAllCollisionConstraints(
 	}
 
 	if len(staticRobotGeometries) > 0 {
-		robotConstraintFS, err := NewCollisionConstraintFS("static", fs,
-			movingRobotGeometries,
-			staticRobotGeometries,
+		robotConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingGG,
+			staticGG,
 			allowedCollisions,
-			false,
 			collisionBufferMM)
 		if err != nil {
 			return nil, err
@@ -405,8 +417,13 @@ func CreateAllCollisionConstraints(
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraintFS, err := NewCollisionConstraintFS("self", fs,
-			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingGG,
+			movingGG,
+			allowedCollisions,
+			collisionBufferMM,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -421,20 +438,17 @@ func CreateAllCollisionConstraints(
 // If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
+	moving, static *GeometryGroup,
+	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 ) (CollisionConstraintFunc, error) {
-	zeroCG, err := setupZeroCG(fs, moving, static, collisionSpecifications, true, collisionBufferMM)
+	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecifications, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
 
-	movingMap := map[string]spatialmath.Geometry{}
-	for _, geom := range moving {
-		movingMap[geom.Label()] = geom
-	}
+	// For self-collision checks, moving and static are the same
+	isSelfCollision := moving == static
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
@@ -448,93 +462,62 @@ func NewCollisionConstraintFS(
 		var internalGeoms []spatialmath.Geometry
 		for _, geosInFrame := range internalGeometries {
 			if len(geosInFrame.Geometries()) > 0 {
-				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
+				if _, ok := moving.geometries[geosInFrame.Geometries()[0].Label()]; ok {
 					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 				}
 			}
 		}
-
-		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
-	}
-	return constraint, nil
-}
-
-func setupZeroCG(
-	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
-	collisionBufferMM float64,
-) (*collisionGraph, error) {
-	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(fs, moving, static, nil, reportDistances, collisionBufferMM)
-	if err != nil {
-		return nil, err
-	}
-	for _, specification := range collisionSpecifications {
-		zeroCG.addCollisionSpecification(specification)
-	}
-	return zeroCG, nil
-}
-
-// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
-// which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
-// outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
-// If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
-func NewCollisionConstraintFSOld(
-	n string,
-	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
-	collisionBufferMM float64,
-) (CollisionConstraintFunc, error) {
-	zeroCG, err := setupZeroCG(fs, moving, static, collisionSpecifications, true, collisionBufferMM)
-	if err != nil {
-		return nil, err
-	}
-
-	movingMap := map[string]spatialmath.Geometry{}
-	for _, geom := range moving {
-		movingMap[geom.Label()] = geom
-	}
-
-	// create constraint from reference collision graph
-	constraint := func(state *StateFS) (float64, error) {
-		// Use FrameSystemGeometries to get all geometries in the frame system
-		internalGeometries, err := state.Geometries()
+		internalGG, err := NewGeometryGroup(internalGeoms)
 		if err != nil {
 			return 0, err
 		}
 
-		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
-		var internalGeoms []spatialmath.Geometry
-		for _, geosInFrame := range internalGeometries {
-			if len(geosInFrame.Geometries()) > 0 {
-				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
-					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
-				}
-			}
+		// For self-collision, compare moving geometries against themselves
+		staticToCheck := static
+		if isSelfCollision {
+			staticToCheck = internalGG
 		}
 
-		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+		return collisionDistance(state.FS, internalGG, staticToCheck, ignoreCollisions, collisionBufferMM)
 	}
 	return constraint, nil
 }
 
-func collisionCheckFinish(fs *referenceframe.FrameSystem, internalGeoms, static []spatialmath.Geometry, zeroCG *collisionGraph,
-	reportDistances bool, collisionBufferMM float64,
+func computeInitialCollisionsToIgnore(
+	fs *referenceframe.FrameSystem,
+	moving, static *GeometryGroup,
+	collisionSpecifications []Collision,
+	collisionBufferMM float64,
+) ([]Collision, error) {
+	initialCollisions, _, err := moving.CollidesWith(static, fs, collisionSpecifications, collisionBufferMM, true)
+	if err != nil {
+		return nil, err
+	}
+	initialCollisions = append(initialCollisions, collisionSpecifications...)
+	return initialCollisions, nil
+}
+
+func collisionDistance(
+	fs *referenceframe.FrameSystem,
+	internalGG, static *GeometryGroup,
+	ignoreCollisions []Collision,
+	collisionBufferMM float64,
 ) (float64, error) {
-	cg, err := newCollisionGraph(fs, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+	collisions, minDist, err := internalGG.CollidesWith(static, fs, ignoreCollisions, collisionBufferMM, false)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
-	cs := cg.collisions(collisionBufferMM)
-	if len(cs) != 0 {
+
+	if len(collisions) != 0 {
 		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-		return -1, fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
+		return -1, fmt.Errorf(
+			"violation between %s and %s geometries (total collisions: %d)",
+			collisions[0].name1,
+			collisions[0].name2,
+			len(collisions),
+		)
 	}
-	return cg.minDistance, nil
+	return minDist, nil
 }
 
 // Computes the quantity of intermediate constraint check steps that should be performed across a segment
