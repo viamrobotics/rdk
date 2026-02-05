@@ -389,6 +389,8 @@ var ratioMetricToFields = map[string]ratioMetric{
 	"ArbitraryUploadedBytesPerSec":     {"ArbitraryUploadedBytes", ""},
 	"BinarySensorUploadedBytesPerSec":  {"BinarySensorUploadedBytes", ""},
 	"TabularSensorUploadedBytesPerSec": {"TabularSensorUploadedBytes", ""},
+	"ArbitraryUploadingBytesPerSec":    {"ArbitraryUploadingBytes", ""},
+	"BinarySensorUploadingBytesPerSec": {"BinarySensorUploadingBytes", ""},
 
 	// Dan: Just tacking these on -- omitted metrics from this list does not mean they shouldn't* be
 	// here. Also, personally, sometimes I think not* doing PerSec for these can also be

@@ -56,7 +56,8 @@ type uploadStats struct {
 // dataTypeUploadStats tracks cumulative upload statistics for a given data type.
 type dataTypeUploadStats struct {
 	uploadedFileCount     atomic.Uint64
-	uploadedBytes         atomic.Uint64
+	uploadedBytes         atomic.Uint64 // bytes successfully uploaded (after entire file completes)
+	uploadingBytes        atomic.Uint64 // bytes currently being uploaded (incremental during upload)
 	uploadFailedFileCount atomic.Uint64
 }
 
@@ -70,17 +71,19 @@ type FTDCStats struct {
 type FTDCUploadStats struct {
 	// Upload metrics - arbitrary files.
 	ArbitraryUploadedFileCount     uint64
-	ArbitraryUploadedBytes         uint64
+	ArbitraryUploadedBytes         uint64 // bytes successfully uploaded (completed files)
+	ArbitraryUploadingBytes        uint64 // bytes currently being uploaded (in progress)
 	ArbitraryUploadFailedFileCount uint64
 
 	// Upload metrics - binary sensor data.
 	BinarySensorUploadedFileCount     uint64
-	BinarySensorUploadedBytes         uint64
+	BinarySensorUploadedBytes         uint64 // bytes successfully uploaded (completed files)
+	BinarySensorUploadingBytes        uint64 // bytes currently being uploaded (in progress)
 	BinarySensorUploadFailedFileCount uint64
 
 	// Upload metrics - tabular sensor data.
 	TabularSensorUploadedFileCount     uint64
-	TabularSensorUploadedBytes         uint64
+	TabularSensorUploadedBytes         uint64 // bytes successfully uploaded (completed files)
 	TabularSensorUploadFailedFileCount uint64
 }
 
@@ -235,11 +238,13 @@ func (s *Sync) GetStats() FTDCStats {
 			// Upload metrics - arbitrary files.
 			ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
 			ArbitraryUploadedBytes:         s.uploadStats.arbitrary.uploadedBytes.Load(),
+			ArbitraryUploadingBytes:        s.uploadStats.arbitrary.uploadingBytes.Load(),
 			ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
 
 			// Upload metrics - binary sensor data.
 			BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
 			BinarySensorUploadedBytes:         s.uploadStats.binary.uploadedBytes.Load(),
+			BinarySensorUploadingBytes:        s.uploadStats.binary.uploadingBytes.Load(),
 			BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
 
 			// Upload metrics - tabular sensor data.
@@ -454,11 +459,17 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
+	// Include counter for binary sensor data.
+	var uploadingBytesCounter *atomic.Uint64
+	if isBinary {
+		uploadingBytesCounter = &s.uploadStats.binary.uploadingBytes
+	}
+
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -507,7 +518,9 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(
+			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
+		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
