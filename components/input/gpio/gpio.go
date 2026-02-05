@@ -111,7 +111,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	brd, err := board.FromDependencies(deps, newConf.Board)
+	brd, err := board.FromProvider(deps, newConf.Board)
 	if err != nil {
 		return nil, err
 	}

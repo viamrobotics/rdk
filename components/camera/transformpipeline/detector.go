@@ -6,7 +6,7 @@ import (
 	"image"
 	"strings"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
@@ -79,7 +79,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::detector::Read")
 	defer span.End()
 	// get the bounding boxes from the service
-	srv, err := vision.FromRobot(ds.r, ds.detectorName)
+	srv, err := vision.FromProvider(ds.r, ds.detectorName)
 	if err != nil {
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}

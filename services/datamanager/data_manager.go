@@ -40,7 +40,7 @@ func init() {
 //
 // Sync example:
 //
-//	data, err := datamanager.FromRobot(machine, "my_data_manager")
+//	data, err := datamanager.FromProvider(machine, "my_data_manager")
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
 //
@@ -69,14 +69,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named data manager service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named data manager service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Data Manager service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all data manager services from the given Robot.

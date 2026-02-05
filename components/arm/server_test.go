@@ -2,6 +2,7 @@ package arm_test
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -26,10 +28,11 @@ var (
 	errMoveToJointPositionFailed = errors.New("can't move to joint positions")
 	errStopUnimplemented         = errors.New("Stop unimplemented")
 	errKinematicsUnimplemented   = errors.New("Kinematics unimplemented")
+	errGeometriesUnimplemented   = errors.New("Geometries unimplemented")
 	errArmUnimplemented          = errors.New("not found")
 )
 
-func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
+func newServer(logger logging.Logger) (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
 	arms := map[resource.Name]arm.Arm{
@@ -40,11 +43,11 @@ func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return arm.NewRPCServiceServer(armSvc).(pb.ArmServiceServer), injectArm, injectArm2, nil
+	return arm.NewRPCServiceServer(armSvc, logger).(pb.ArmServiceServer), injectArm, injectArm2, nil
 }
 
 func TestServer(t *testing.T) {
-	armServer, injectArm, injectArm2, err := newServer()
+	armServer, injectArm, injectArm2, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
@@ -64,13 +67,21 @@ func TestServer(t *testing.T) {
 		return model, nil
 	}
 
+	goodKinematicsJSON := func(ctx context.Context) (referenceframe.Model, error) {
+		model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/ur5e.json"), "foo")
+		if err != nil {
+			return nil, err
+		}
+		return model, nil
+	}
+
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
 		return pose1, nil
 	}
 	injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
 		extraOptions = extra
-		return referenceframe.FloatsToInputs(positions), nil
+		return positions, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap spatialmath.Pose, extra map[string]interface{}) error {
 		capArmPos = ap
@@ -81,6 +92,9 @@ func TestServer(t *testing.T) {
 		capArmJointPos = jp
 		extraOptions = extra
 		return nil
+	}
+	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
+		return nil, errGeometriesUnimplemented
 	}
 	injectArm.MoveThroughJointPositionsFunc = func(
 		ctx context.Context,
@@ -256,6 +270,116 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldResemble, errKinematicsUnimplemented)
 	})
 
+	t.Run("get geometries", func(t *testing.T) {
+		positions = []float64{0.0, -math.Pi / 2.0, 0.0, 0.0, math.Pi / 2.0, 0.0}
+		injectArm.KinematicsFunc = goodKinematicsJSON
+		injectArm.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
+			extraOptions = extra
+			return positions, nil
+		}
+		geometries, err := armServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(geometries.Geometries), test.ShouldEqual, 6)
+		// NOTE: these pose values were taken from a working fake Ur5e arm given the input joint positions,
+		// represnting a ground truth value for the geometries.
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[0].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     0.0,
+					Z:     130.0,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 0.0,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[1].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -130.0,
+					Z:     375.0,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[2].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     0.0,
+					Z:     783.6,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: 180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[3].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -80.65,
+					Z:     979.70,
+					OX:    0.0,
+					OY:    -1.0,
+					OZ:    0.0,
+					Theta: -90,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[4].Center,
+				&commonpb.Pose{
+					X:     0.0,
+					Y:     -133.30,
+					Z:     979.70,
+					OX:    -1.0,
+					OY:    0.0,
+					OZ:    0.0,
+					Theta: -90,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+		test.That(
+			t,
+			AssertPosesClose(
+				geometries.Geometries[5].Center,
+				&commonpb.Pose{
+					X:     -99.70,
+					Y:     -133.30,
+					Z:     1029.55,
+					OX:    0.0,
+					OY:    0.0,
+					OZ:    1.0,
+					Theta: -180,
+				},
+			),
+			test.ShouldBeTrue,
+		)
+	})
+
 	t.Run("stop", func(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -271,4 +395,11 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 	})
+}
+
+func AssertPosesClose(expected, actual *commonpb.Pose) bool {
+	return spatialmath.PoseAlmostEqual(
+		spatialmath.NewPoseFromProtobuf(expected),
+		spatialmath.NewPoseFromProtobuf(actual),
+	)
 }

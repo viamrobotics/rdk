@@ -6,9 +6,10 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -255,7 +256,7 @@ func (vs *videoSource) Images(
 		}
 	}()
 	ts := time.Now()
-	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG)
+	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, err
 	}
@@ -263,11 +264,14 @@ func (vs *videoSource) Images(
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (vs *videoSource) NextPointCloud(
+	ctx context.Context,
+	extra map[string]interface{},
+) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
+		return c.NextPointCloud(ctx, extra)
 	}
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")

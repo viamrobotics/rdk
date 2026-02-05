@@ -94,7 +94,7 @@ func TestClassifierSource(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	classifier, err := camera.FromRobot(r, "classification_transform_camera")
+	classifier, err := camera.FromProvider(r, "classification_transform_camera")
 	test.That(t, err, test.ShouldBeNil)
 	defer classifier.Close(ctx)
 

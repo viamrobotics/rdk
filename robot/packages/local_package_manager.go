@@ -49,14 +49,17 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(conf.PackagePath)
 	packagesDataDir := filepath.Join(packagesDir, "data")
+	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
+	if conf.PackagePath != "" {
+		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+			return nil, err
+		}
 
-	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
+		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-		return nil, err
-	}
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
@@ -179,7 +182,7 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 			continue
 		}
 
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
 			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
 				mod.Name, mod.ExePath, err)
@@ -271,7 +274,7 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
 			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err)
 		}

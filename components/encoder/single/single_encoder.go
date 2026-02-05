@@ -151,7 +151,7 @@ func (e *Encoder) Reconfigure(
 	needRestart := existingBoardName != newConf.BoardName ||
 		existingDIPinName != newConf.Pins.I
 
-	board, err := board.FromDependencies(deps, newConf.BoardName)
+	board, err := board.FromProvider(deps, newConf.BoardName)
 	if err != nil {
 		return err
 	}

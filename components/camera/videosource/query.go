@@ -3,13 +3,16 @@ package videosource
 import (
 	"fmt"
 	"math"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/driver/availability"
-	"github.com/pion/mediadevices/pkg/driver/camera"
+	mediadevicescamera "github.com/pion/mediadevices/pkg/driver/camera"
+	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/io/video"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
@@ -17,10 +20,128 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// minResolutionDimension is set to 2 to ensure proper fitness distance calculation for resolution selection.
+// Setting this to 0 would cause mediadevices' IntRanged.Compare() method to treat all values smaller than ideal
+// as equally acceptable. See https://github.com/pion/mediadevices/blob/c10fb000dbbb28597e068468f3175dc68a281bfd/pkg/prop/int.go#L104
+// Setting it to 1 could theoretically allow 1x1 resolutions. 2 is small enough and even,
+// allowing all real camera resolutions while ensuring proper distance calculations.
+const minResolutionDimension = 2
+
 // Below is adapted from github.com/pion/mediadevices.
 // It is further adapted from gostream's query.go
 // However, this is the minimum code needed for webcam to work, placed in this directory.
 // This vastly improves the debugging and feature development experience, by not over-DRY-ing.
+
+// makeConstraints is a helper that returns constraints to mediadevices in order to find and make a video source.
+// Constraints are specifications for the video stream such as frame format, resolution etc.
+func makeConstraints(conf *WebcamConfig, logger logging.Logger) mediadevices.MediaStreamConstraints {
+	return mediadevices.MediaStreamConstraints{
+		Video: func(constraint *mediadevices.MediaTrackConstraints) {
+			if conf.Width > 0 {
+				constraint.Width = prop.IntExact(conf.Width)
+			} else {
+				constraint.Width = prop.IntRanged{Min: minResolutionDimension, Ideal: 640, Max: 4096}
+			}
+
+			if conf.Height > 0 {
+				constraint.Height = prop.IntExact(conf.Height)
+			} else {
+				constraint.Height = prop.IntRanged{Min: minResolutionDimension, Ideal: 480, Max: 2160}
+			}
+
+			if conf.FrameRate > 0.0 {
+				constraint.FrameRate = prop.FloatExact(conf.FrameRate)
+			} else {
+				constraint.FrameRate = prop.FloatRanged{Min: 0.0, Ideal: 30.0, Max: 140.0}
+			}
+
+			if conf.Format == "" {
+				constraint.FrameFormat = prop.FrameFormatOneOf{
+					frame.FormatI420,
+					frame.FormatI444,
+					frame.FormatYUY2,
+					frame.FormatUYVY,
+					frame.FormatRGBA,
+					frame.FormatMJPEG,
+					frame.FormatNV12,
+					frame.FormatNV21,
+					frame.FormatZ16,
+				}
+			} else {
+				constraint.FrameFormat = prop.FrameFormatExact(conf.Format)
+			}
+
+			logger.Debugf("constraints: %v", constraint)
+		},
+	}
+}
+
+// findReaderAndDriver finds a video device and returns an image reader and the driver instance,
+// as well as the path to the driver.
+func findReaderAndDriver(
+	conf *WebcamConfig,
+	path string,
+	logger logging.Logger,
+) (video.Reader, driver.Driver, string, error) {
+	if runtime.GOOS == "linux" {
+		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
+		// So we can call Initialize() only once, and call discover() as many times as we need.
+		mediadevicescamera.Initialize()
+	}
+
+	constraints := makeConstraints(conf, logger)
+
+	// Handle specific path
+	if path != "" {
+		resolvedPath, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			path = resolvedPath
+		}
+
+		var searchPath string
+		if runtime.GOOS == "windows" {
+			// Use full path for windows driver paths for compatibility
+			searchPath = path
+		} else {
+			searchPath = filepath.Base(path)
+		}
+
+		reader, driver, err := getReaderAndDriver(searchPath, constraints, logger)
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		img, release, err := reader.Read()
+		if release != nil {
+			defer release()
+		}
+		if err != nil {
+			return nil, nil, "", err
+		}
+
+		if conf.Width != 0 && conf.Height != 0 {
+			if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
+				logger.Warnf("requested width and height (%dx%d) do not match actual webcam resolution (%dx%d); using actual resolution",
+					conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
+			}
+		}
+		return reader, driver, path, nil
+	}
+
+	// Handle "any" path
+	reader, driver, err := getReaderAndDriver("", constraints, logger)
+	if err != nil {
+		return nil, nil, "", errors.Wrap(err, "found no webcams")
+	}
+	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
+	if len(labels) == 0 {
+		logger.Error("no labels parsed from driver")
+		return nil, nil, "", nil
+	}
+	path = labels[0] // path is always the first element
+
+	return reader, driver, path, nil
+}
 
 // GetNamedVideoSource attempts to find a device (not a screen) by the given name.
 // If name is empty, it finds any device.
@@ -88,7 +209,7 @@ func labelFilter(target string, useSep bool) driver.FilterFn {
 		if !useSep {
 			return d.Info().Label == target
 		}
-		labels := strings.Split(d.Info().Label, camera.LabelSeparator)
+		labels := strings.Split(d.Info().Label, mediadevicescamera.LabelSeparator)
 		for _, label := range labels {
 			if label == target {
 				return true
@@ -103,7 +224,11 @@ func selectVideo(
 	label *string,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), constraints, logger)
+	labelStr := ""
+	if label != nil {
+		labelStr = *label
+	}
+	return selectBestDriver(getVideoFilterBase(), getVideoFilter(label), labelStr, constraints, logger)
 }
 
 func getVideoFilterBase() driver.FilterFn {
@@ -125,6 +250,7 @@ func getVideoFilter(label *string) driver.FilterFn {
 func selectBestDriver(
 	baseFilter driver.FilterFn,
 	filter driver.FilterFn,
+	label string,
 	constraints mediadevices.MediaTrackConstraints,
 	logger logging.Logger,
 ) (driver.Driver, prop.Media, error) {
@@ -146,7 +272,11 @@ func selectBestDriver(
 
 	driverProperties := queryDriverProperties(filter, logger)
 	if len(driverProperties) == 0 {
-		return nil, prop.Media{}, errors.New("found no queryable drivers matching filter")
+		msg := fmt.Sprintf("no queryable drivers for video path: '%s'", label)
+		if label != "" {
+			msg += "; check if the device is available or already in use (busy)"
+		}
+		return nil, prop.Media{}, errors.New(msg)
 	}
 
 	logger.Debugw("found drivers matching specific filter", "count", len(driverProperties))

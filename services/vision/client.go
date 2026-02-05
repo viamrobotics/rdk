@@ -7,11 +7,11 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -303,7 +303,7 @@ func (c *client) CaptureAllFromCamera(
 
 	var img image.Image
 	if resp.Image.Image != nil {
-		mimeType := utils.FormatToMimeType[resp.Image.GetFormat()]
+		mimeType := resp.Image.GetMimeType()
 		img, err = rimage.DecodeImage(ctx, resp.Image.Image, mimeType)
 		if err != nil {
 			return viscapture.VisCapture{}, err

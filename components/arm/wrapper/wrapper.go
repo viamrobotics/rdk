@@ -5,6 +5,8 @@ import (
 	"context"
 	"sync"
 
+	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan/armplanning"
@@ -79,7 +81,7 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	newArm, err := arm.FromDependencies(deps, newConf.ArmName)
+	newArm, err := arm.FromProvider(deps, newConf.ArmName)
 	if err != nil {
 		return err
 	}
@@ -201,6 +203,15 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 		return nil, err
 	}
 	return gif.Geometries(), nil
+}
+
+// Get3DModels returns the 3D models of the arm.
+func (wrapper *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	models, err := wrapper.actual.Get3DModels(ctx, extra)
+	if err != nil {
+		return nil, err
+	}
+	return models, nil
 }
 
 // modelFromPath returns a Model from a given path.

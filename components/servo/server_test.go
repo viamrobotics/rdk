@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/components/servo"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -20,7 +21,7 @@ var (
 	errStopFailed         = errors.New("stop failed")
 )
 
-func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
+func newServer(logger logging.Logger) (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	injectServo := &inject.Servo{}
 	injectServo2 := &inject.Servo{}
 	resourceMap := map[resource.Name]servo.Servo{
@@ -31,11 +32,11 @@ func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return servo.NewRPCServiceServer(injectSvc).(pb.ServoServiceServer), injectServo, injectServo2, nil
+	return servo.NewRPCServiceServer(injectSvc, logger).(pb.ServoServiceServer), injectServo, injectServo2, nil
 }
 
 func TestServoMove(t *testing.T) {
-	servoServer, workingServo, failingServo, err := newServer()
+	servoServer, workingServo, failingServo, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var actualExtra map[string]interface{}
@@ -71,7 +72,7 @@ func TestServoMove(t *testing.T) {
 }
 
 func TestServoGetPosition(t *testing.T) {
-	servoServer, workingServo, failingServo, _ := newServer()
+	servoServer, workingServo, failingServo, _ := newServer(logging.NewTestLogger(t))
 
 	var actualExtra map[string]interface{}
 
@@ -106,7 +107,7 @@ func TestServoGetPosition(t *testing.T) {
 }
 
 func TestServoStop(t *testing.T) {
-	servoServer, workingServo, failingServo, _ := newServer()
+	servoServer, workingServo, failingServo, _ := newServer(logging.NewTestLogger(t))
 
 	var actualExtra map[string]interface{}
 

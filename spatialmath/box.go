@@ -52,7 +52,8 @@ var boxNormals = [6]r3.Vector{
 
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
-	pose            Pose
+	center          Pose
+	centerPt        r3.Vector
 	halfSize        [3]float64
 	boundingSphereR float64
 	label           string
@@ -69,17 +70,22 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	}
 	halfSize := dims.Mul(0.5)
 	return &box{
-		pose:            pose,
+		center:          pose,
+		centerPt:        pose.Point(),
 		halfSize:        [3]float64{halfSize.X, halfSize.Y, halfSize.Z},
 		boundingSphereR: halfSize.Norm(),
 		label:           label,
 	}, nil
 }
 
+func (b *box) Hash() int {
+	return HashPose(b.center) + int((111*b.halfSize[0])+(222*b.halfSize[1])+(333*b.halfSize[2]))
+}
+
 // String returns a human readable string that represents the box.
 func (b *box) String() string {
 	return fmt.Sprintf("Type: Box | Position: X:%.1f, Y:%.1f, Z:%.1f | Dims: X:%.0f, Y:%.0f, Z:%.0f",
-		b.pose.Point().X, b.pose.Point().Y, b.pose.Point().Z, 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
+		b.centerPt.X, b.centerPt.Y, b.centerPt.Z, 2*b.halfSize[0], 2*b.halfSize[1], 2*b.halfSize[2])
 }
 
 func (b *box) MarshalJSON() ([]byte, error) {
@@ -102,7 +108,7 @@ func (b *box) Label() string {
 
 // Pose returns the pose of the box.
 func (b *box) Pose() Pose {
-	return b.pose
+	return b.center
 }
 
 // AlmostEqual compares the box with another geometry and checks if they are equivalent.
@@ -116,13 +122,15 @@ func (b *box) almostEqual(g Geometry) bool {
 			return false
 		}
 	}
-	return PoseAlmostEqualEps(b.pose, other.pose, 1e-6)
+	return PoseAlmostEqualEps(b.center, other.center, 1e-6)
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
 func (b *box) Transform(toPremultiply Pose) Geometry {
+	p := Compose(toPremultiply, b.center)
 	return &box{
-		pose:            Compose(toPremultiply, b.pose),
+		center:          p,
+		centerPt:        p.Point(),
 		halfSize:        b.halfSize,
 		boundingSphereR: b.boundingSphereR,
 		label:           b.label,
@@ -132,7 +140,7 @@ func (b *box) Transform(toPremultiply Pose) Geometry {
 // ToProtobuf converts the box to a Geometry proto message.
 func (b *box) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
-		Center: PoseToProtobuf(b.pose),
+		Center: PoseToProtobuf(b.center),
 		GeometryType: &commonpb.Geometry_Box{
 			Box: &commonpb.RectangularPrism{DimsMm: &commonpb.Vector3{
 				X: 2 * b.halfSize[0],
@@ -144,21 +152,33 @@ func (b *box) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given box collides with the given geometry and returns true if it does.
-func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+// CollidesWith checks if the given box collides with the given geometry and returns true if it
+// does. If there's no collision, the method will return the distance between the box and input
+// geometry. If there is a collision, a negative number is returned.
+func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(b, collisionBufferMM)
 	case *box:
-		return boxVsBoxCollision(b, other, collisionBufferMM), nil
+		c, d := boxVsBoxCollision(b, other, collisionBufferMM)
+		if c {
+			return true, -1, nil
+		}
+		return false, d, nil
 	case *sphere:
-		return sphereVsBoxCollision(other, b, collisionBufferMM), nil
+		col, dist := sphereVsBoxCollision(other, b, collisionBufferMM)
+		if col {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	case *capsule:
-		return capsuleVsBoxCollision(other, b, collisionBufferMM), nil
+		col, d := capsuleVsBoxCollision(other, b, collisionBufferMM)
+		return col, d, nil
 	case *point:
-		return pointVsBoxCollision(other.position, b, collisionBufferMM), nil
+		col, d := pointVsBoxCollision(other.position, b, collisionBufferMM)
+		return col, d, nil
 	default:
-		return true, newCollisionTypeUnsupportedError(b, g)
+		return true, collisionBufferMM, newCollisionTypeUnsupportedError(b, g)
 	}
 }
 
@@ -199,9 +219,9 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 // closestPoint returns the closest point on the specified box to the specified point
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L165
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
-	result := b.pose.Point()
+	result := b.centerPt
 	direction := pt.Sub(result)
-	rm := b.pose.Orientation().RotationMatrix()
+	rm := b.center.Orientation().RotationMatrix()
 	for i := 0; i < 3; i++ {
 		axis := rm.Row(i)
 		distance := direction.Dot(axis)
@@ -217,16 +237,19 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
 func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
-	direction := pt.Sub(b.pose.Point())
-	rm := b.pose.Orientation().RotationMatrix()
+	direction := pt.Sub(b.centerPt)
+	rm := b.center.Orientation().RotationMatrix()
+	//nolint: revive
 	min := math.Inf(1)
 	for i := 0; i < 3; i++ {
 		axis := rm.Row(i)
 		projection := direction.Dot(axis)
 		if distance := math.Abs(projection - b.halfSize[i]); distance < min {
+			//nolint: revive
 			min = distance
 		}
 		if distance := math.Abs(projection + b.halfSize[i]); distance < min {
+			//nolint: revive
 			min = distance
 		}
 	}
@@ -238,7 +261,7 @@ func (b *box) vertices() []r3.Vector {
 	verts := make([]r3.Vector, 0, 8)
 	for _, vert := range boxVertices {
 		offset := NewPoseFromPoint(r3.Vector{X: vert.X * b.halfSize[0], Y: vert.Y * b.halfSize[1], Z: vert.Z * b.halfSize[2]})
-		verts = append(verts, Compose(b.pose, offset).Point())
+		verts = append(verts, Compose(b.center, offset).Point())
 	}
 	return verts
 }
@@ -253,6 +276,7 @@ func (b *box) toMesh() *Mesh {
 			triangles = append(triangles, NewTriangle(verts[tri[0]], verts[tri[1]], verts[tri[2]]))
 		}
 		m.triangles = triangles
+		// bvh is built lazily via ensureBVH() on first collision check
 		b.mesh = m
 	}
 	return b.mesh
@@ -260,7 +284,7 @@ func (b *box) toMesh() *Mesh {
 
 // rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (b *box) rotationMatrix() *RotationMatrix {
-	b.once.Do(func() { b.rotMatrix = b.pose.Orientation().RotationMatrix() })
+	b.once.Do(func() { b.rotMatrix = b.center.Orientation().RotationMatrix() })
 
 	return b.rotMatrix
 }
@@ -268,36 +292,40 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
-func boxVsBoxCollision(a, b *box, collisionBufferMM float64) bool {
-	centerDist := b.pose.Point().Sub(a.pose.Point())
+func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
+	centerDist := b.centerPt.Sub(a.centerPt)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-(a.boundingSphereR+b.boundingSphereR) > collisionBufferMM {
-		return false
+	dist := centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR)
+	if dist > collisionBufferMM {
+		return false, dist
 	}
 
 	rmA := a.rotationMatrix()
 	rmB := b.rotationMatrix()
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
-			return false
+		dist = separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
+		if dist > collisionBufferMM {
+			return false, dist
 		}
-		if separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
-			return false
+		dist = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
+		if dist > collisionBufferMM {
+			return false, dist
 		}
 		for j := 0; j < 3; j++ {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB) > collisionBufferMM {
-					return false
+				dist = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
+				if dist > collisionBufferMM {
+					return false, dist
 				}
 			}
 		}
 	}
-	return true
+	return true, -1
 }
 
 // boxVsBoxDistance takes two boxes as arguments and returns a floating point number.  If this number is nonpositive it represents
@@ -311,7 +339,7 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) bool {
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
-	centerDist := b.pose.Point().Sub(a.pose.Point())
+	centerDist := b.centerPt.Sub(a.centerPt)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBufferMM {
@@ -322,17 +350,20 @@ func boxVsBoxDistance(a, b *box) float64 {
 	rmB := b.rotationMatrix()
 
 	// iterate over axes of box
+	//nolint: revive
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
 		// project onto face of box A
 		separation := separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
 		if separation > max {
+			//nolint: revive
 			max = separation
 		}
 
 		// project onto face of box B
 		separation = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
 		if separation > max {
+			//nolint: revive
 			max = separation
 		}
 
@@ -344,6 +375,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
 				if separation > max {
+					//nolint: revive
 					max = separation
 				}
 			}
@@ -355,7 +387,8 @@ func boxVsBoxDistance(a, b *box) float64 {
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
 func boxInBox(inner, outer *box) bool {
 	for _, vertex := range inner.vertices() {
-		if !pointVsBoxCollision(vertex, outer, defaultCollisionBufferMM) {
+		c, _ := pointVsBoxCollision(vertex, outer, defaultCollisionBufferMM)
+		if !c {
 			return false
 		}
 	}
@@ -369,7 +402,7 @@ func boxInSphere(b *box, s *sphere) bool {
 			return false
 		}
 	}
-	return sphereVsPointDistance(s, b.pose.Point()) <= 0
+	return sphereVsPointDistance(s, b.centerPt) <= 0
 }
 
 // boxInCapsule returns a bool describing if the given box is completely encompassed by the given capsule.

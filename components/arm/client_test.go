@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 	)
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
-	jointPos1 := []referenceframe.Input{{1.}, {2.}, {3.}}
+	jointPos1 := []referenceframe.Input{1., 2., 3.}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 	expectedMoveOptions := arm.MoveOptions{MaxVelRads: 1, MaxAccRads: 2}
 	injectArm := &inject.Arm{}
@@ -89,7 +89,7 @@ func TestClient(t *testing.T) {
 	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
-	jointPos2 := []referenceframe.Input{{4.}, {5.}, {6.}}
+	jointPos2 := []referenceframe.Input{4., 5., 6.}
 	injectArm2 := &inject.Arm{}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos2, nil
@@ -121,7 +121,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc, logger), test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {

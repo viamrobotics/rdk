@@ -219,9 +219,18 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named navigation service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named navigation service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Navigation service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 func mapTypeToProtobuf(mapType MapType) servicepb.MapType {

@@ -54,10 +54,12 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 	compareFrom := (*mat.Dense)(v2m)
 	compareTo := (*mat.Dense)(to)
 
+	//nolint: revive
 	min := math.MaxFloat64
 	for i := 0; i < fromLen; i++ {
 		v := compareFrom.At(0, i)
 		if v < min {
+			//nolint: revive
 			min = v
 		}
 	}

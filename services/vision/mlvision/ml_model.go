@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -110,7 +110,7 @@ func registerMLModelVisionService(
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
-	mlm, err := mlmodel.FromRobot(r, params.ModelName)
+	mlm, err := mlmodel.FromProvider(r, params.ModelName)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +214,7 @@ func registerMLModelVisionService(
 	}
 
 	if params.DefaultCamera != "" {
-		_, err = camera.FromRobot(r, params.DefaultCamera)
+		_, err = camera.FromProvider(r, params.DefaultCamera)
 		if err != nil {
 			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
 		}

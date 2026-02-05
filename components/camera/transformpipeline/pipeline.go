@@ -9,7 +9,7 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
@@ -48,7 +48,7 @@ func init() {
 					return nil, err
 				}
 				sourceName := newConf.Source
-				source, err := camera.FromRobot(actualR, sourceName)
+				source, err := camera.FromProvider(actualR, sourceName)
 				if err != nil {
 					return nil, fmt.Errorf("no source camera for transform pipeline (%s): %w", sourceName, err)
 				}
@@ -138,7 +138,7 @@ func newTransformPipeline(
 		return nil, errors.New("pipeline has no transforms in it")
 	}
 	// check if the source produces a depth image or color image
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, source)
+	img, err := camera.DecodeImageFromCamera(ctx, source, nil, nil)
 
 	var streamType camera.ImageType
 	if err != nil {
@@ -189,18 +189,18 @@ type transformPipeline struct {
 func (tp transformPipeline) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::Read")
 	defer span.End()
-	img, err := camera.DecodeImageFromCamera(ctx, "", nil, tp.src)
+	img, err := camera.DecodeImageFromCamera(ctx, tp.src, nil, nil)
 	if err != nil {
 		return nil, func() {}, err
 	}
 	return img, func() {}, nil
 }
 
-func (tp transformPipeline) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (tp transformPipeline) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::NextPointCloud")
 	defer span.End()
 	if lastElem, ok := tp.pipeline[len(tp.pipeline)-1].(camera.PointCloudSource); ok {
-		pc, err := lastElem.NextPointCloud(ctx)
+		pc, err := lastElem.NextPointCloud(ctx, extra)
 		if err != nil {
 			return nil, errors.Wrap(err, "function NextPointCloud not defined for last videosource in transform pipeline")
 		}

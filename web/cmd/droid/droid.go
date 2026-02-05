@@ -19,7 +19,8 @@ var logger = logging.NewDebugLogger("droid-entrypoint")
 
 // DroidStopHook used by android harness to stop the RDK.
 func DroidStopHook() { //nolint:revive
-	server.ForceRestart = true
+	// We have no users of this droid code, so we no longer support this method.
+	logger.Error("DroidStopHook is no longer supported")
 }
 
 // MainEntry is called by our android app to start the RDK.
@@ -27,7 +28,7 @@ func MainEntry(configPath, writeablePath, osEnv string) {
 	os.Args = append(os.Args, "-config", configPath)
 	for _, envEntry := range strings.Split(osEnv, "\n") {
 		entryParts := strings.SplitN(envEntry, "=", 2)
-		os.Setenv(entryParts[0], entryParts[1]) //nolint:errcheck,gosec
+		os.Setenv(entryParts[0], entryParts[1]) //nolint:errcheck
 	}
 	utils.ContextualMain(server.RunServer, logger)
 }

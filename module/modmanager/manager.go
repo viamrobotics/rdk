@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ import (
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -43,10 +45,12 @@ var (
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (*Manager, error) {
-	var err error
-	parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
-	if err != nil {
-		return nil, err
+	if use, _ := rutils.OnlyUseViamTCPSockets(); !use {
+		var err error
+		parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+		if err != nil {
+			return nil, err
+		}
 	}
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
@@ -63,6 +67,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
+		failedModules:           make(map[string]bool),
 	}
 	return ret, nil
 }
@@ -149,6 +154,9 @@ type Manager struct {
 	// modPeerConnTracker must be updated as modules create/destroy any underlying WebRTC
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
+
+	failedModulesMu sync.RWMutex
+	failedModules   map[string]bool
 }
 
 // Close terminates module connections and processes.
@@ -254,6 +262,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		// The config was already validated, but we must check again before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
+			mgr.AddToFailedModules(conf.Name)
 			errs[i] = err
 			continue
 		}
@@ -268,9 +277,12 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
+				mgr.AddToFailedModules(conf.Name)
 				errs[i] = err
 				return
 			}
+			// module started successfully, remove it from failedModules
+			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -413,7 +425,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 		handledResourceNameStrings = append(handledResourceNameStrings, name.String())
 	}
 
-	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process", "module", conf.Name)
+	mod.logger.CInfow(ctx, "Module configuration changed. Stopping the existing module process to reconfigure", "module", conf.Name)
 
 	if err := mgr.closeModule(mod, true); err != nil {
 		// If removal fails, assume all handled resources are orphaned.
@@ -426,9 +438,14 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
+		// could not start module during reconfiguration, add it to failedModules
+		mgr.AddToFailedModules(conf.Name)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
+
+	// reconfiguration successful, remove from failed modules
+	mgr.deleteFromFailedModules(conf.Name)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -647,15 +664,15 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	mgr.rMap.Delete(name)
 	delete(mod.resources, name)
 	_, err := mod.client.RemoveResource(ctx, &pb.RemoveResourceRequest{Name: name.String()})
-	if err != nil {
+	if err != nil && !errors.Is(err, rdkgrpc.ErrNotConnected) {
 		return err
 	}
 
 	// if the module is marked for removal, actually remove it when the final resource is closed
 	if mod.pendingRemoval && len(mod.resources) == 0 {
-		err = multierr.Combine(err, mgr.closeModule(mod, false))
+		return multierr.Combine(err, mgr.closeModule(mod, false))
 	}
-	return err
+	return nil
 }
 
 // ValidateConfig determines whether the given config is valid and returns its implicit
@@ -687,13 +704,71 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	if err != nil {
 		return nil, nil, err
 	}
-	return resp.Dependencies, resp.OptionalDependencies, nil
+
+	// RSDK-12124: Ignore any dependency that looks like the user is trying to depend on the
+	// framesystem. That can be done through framesystem.FromDependencies in all golang
+	// modular resources, but users may think it's a required return-value from Validate.
+	var requiredImplicitDeps, optionalImplicitDeps []string
+	for _, dep := range resp.Dependencies {
+		switch dep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			continue
+		default:
+			requiredImplicitDeps = append(requiredImplicitDeps, dep)
+		}
+	}
+	for _, optionalDep := range resp.OptionalDependencies {
+		switch optionalDep {
+		case "framesystem", "$framesystem", framesystem.PublicServiceName.String():
+			continue
+		default:
+			optionalImplicitDeps = append(optionalImplicitDeps, optionalDep)
+		}
+	}
+
+	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
-// ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
+// unmodifiedConfigsToValidate finds all unmodified resources that are provided by new/modified modules.
+func (mgr *Manager) unmodifiedConfigsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
+	// create a set of add/modified modules
+	changedMods := make(map[string]bool, len(conf.Added.Modules)+len(conf.Modified.Modules))
+	for _, mod := range conf.Added.Modules {
+		changedMods[mod.Name] = true
+	}
+	for _, mod := range conf.Modified.Modules {
+		changedMods[mod.Name] = true
+	}
+
+	compConfs := make([]resource.Config, 0)
+	serviceConfs := make([]resource.Config, 0)
+
+	for _, c := range conf.UnmodifiedResources {
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			// continue if this resource is not being provided by a module.
+			continue
+		}
+		if _, ok := changedMods[mod.cfg.Name]; !ok {
+			// continue if it is not provided by a new/modified module.
+			continue
+		}
+		if c.API.IsComponent() {
+			compConfs = append(compConfs, c)
+		}
+		if c.API.IsService() {
+			serviceConfs = append(serviceConfs, c)
+		}
+	}
+	return compConfs, serviceConfs
+}
+
+// ResolveImplicitDependencies mutates the passed in diff to add modular implicit dependencies to added
 // and modified resources.
-func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// If something was added or modified, go through components and services in
+// Unmodified resources provided by added/modified modules will also be re-evaluated to
+// make sure implicit dependencies are up-to-date.
+func (mgr *Manager) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
+	// If a module was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
 	validateModularResources := func(confs []resource.Config) {
@@ -711,15 +786,18 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			}
 		}
 	}
-	if conf.Added != nil {
-		validateModularResources(conf.Added.Components)
-		validateModularResources(conf.Added.Services)
-	}
-	if conf.Modified != nil {
-		validateModularResources(conf.Modified.Components)
-		validateModularResources(conf.Modified.Services)
-	}
-	return nil
+	validateModularResources(conf.Added.Components)
+	validateModularResources(conf.Added.Services)
+
+	validateModularResources(conf.Modified.Components)
+	validateModularResources(conf.Modified.Services)
+
+	componentConfs, serviceConfs := mgr.unmodifiedConfigsToValidate(conf)
+
+	validateModularResources(componentConfs)
+	conf.Modified.Components = append(conf.Modified.Components, componentConfs...)
+	validateModularResources(serviceConfs)
+	conf.Modified.Services = append(conf.Modified.Services, serviceConfs...)
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {
@@ -823,6 +901,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
 
+		// Add to failedModules when crash is detected
+		mgr.AddToFailedModules(mod.cfg.Name)
+
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
 		// 2. mgr.Reconfigure, which wants to stop the module and replace it with
@@ -875,8 +956,12 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
+				// restart successful, remove module from failedModules
+				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
+			// could not restart crashed module, add it to failedModules
+			mgr.AddToFailedModules(mod.cfg.Name)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -983,6 +1068,22 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		return mgr.newOnUnexpectedExitHandler(ctx, mod)(oueCtx, exitCode)
 	}
 
+	// Backup module's current managedProcesses and restore them if the restart attempt fails.
+	currentOUEPrevManagedProcess := mod.prevProcess
+	currentOUEManagedProcess := mod.process
+	defer func() {
+		if success {
+			// mod.process (assigned by mod.startProcess) is a new MP. prevProcess is the MP that launched the current OUE.
+			// this line is redundant if the first restart attempt succeeds, but not if there are restart attempt failures in between
+			// (the failed MPs are discarded).
+			mod.prevProcess = currentOUEManagedProcess
+		} else {
+			// if fail: restore module processes state. The failed managedProcess is dormant and will be GC'ed.
+			mod.prevProcess = currentOUEPrevManagedProcess
+			mod.process = currentOUEManagedProcess
+		}
+	}()
+
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
@@ -1036,10 +1137,11 @@ func getFullEnvironment(
 	viamHomeDir string,
 ) map[string]string {
 	environment := map[string]string{
-		"VIAM_HOME":        viamHomeDir,
+		rutils.HomeEnvVar:  viamHomeDir,
 		"VIAM_MODULE_DATA": dataDir,
 		"VIAM_MODULE_NAME": cfg.Name,
 	}
+
 	if cfg.Type == config.ModuleTypeRegistry {
 		environment["VIAM_MODULE_ID"] = cfg.ModuleID
 	}
@@ -1065,7 +1167,7 @@ func getFullEnvironment(
 func DepsToNames(deps resource.Dependencies) []string {
 	var depStrings []string
 	for dep := range deps {
-		depStrings = append(depStrings, resource.RemoveRemoteName(dep).String())
+		depStrings = append(depStrings, dep.String())
 	}
 	return depStrings
 }
@@ -1076,6 +1178,8 @@ func DepsToNames(deps resource.Dependencies) []string {
 // options.ViamHomeDir/module-data/<cloud-robot-id>
 // For local robots, it should be in the form
 // options.ViamHomeDir/module-data/local.
+// For local robots in a testing environment (where no cloud ID is set), it should be in the form:
+// [temp-dir]/module-data/local-testing-[random-string-to-avoid-collisions].
 //
 // If no ViamHomeDir is provided, this will return an empty moduleDataParentDirectory (and no module data directories will be created).
 func getModuleDataParentDirectory(options modmanageroptions.Options) string {
@@ -1086,7 +1190,43 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	}
 	robotID := options.RobotCloudID
 	if robotID == "" {
+		if testing.Testing() {
+			return filepath.Join(os.TempDir(), parentModuleDataFolderName, "local-testing-"+utils.RandomAlphaString(5))
+		}
+
 		robotID = "local"
 	}
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
+}
+
+// AddToFailedModules adds a failing module to the failedModules map.
+func (mgr *Manager) AddToFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules[moduleName] = true
+	mgr.failedModulesMu.Unlock()
+}
+
+func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+	mgr.failedModulesMu.Lock()
+	delete(mgr.failedModules, moduleName)
+	mgr.failedModulesMu.Unlock()
+}
+
+// FailedModules returns the names of all failing modules.
+func (mgr *Manager) FailedModules() []string {
+	mgr.failedModulesMu.RLock()
+	defer mgr.failedModulesMu.RUnlock()
+	var failedModuleNames []string
+	for moduleName := range mgr.failedModules {
+		failedModuleNames = append(failedModuleNames, moduleName)
+	}
+	return failedModuleNames
+}
+
+// ClearFailedModules clears the failedModules map at the start of reconfigure.
+// Modules will be added to failedModules as they fail during the reconfigure process.
+func (mgr *Manager) ClearFailedModules() {
+	mgr.failedModulesMu.Lock()
+	mgr.failedModules = make(map[string]bool)
+	mgr.failedModulesMu.Unlock()
 }

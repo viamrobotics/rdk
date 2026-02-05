@@ -21,9 +21,9 @@ func TestModelLoading(t *testing.T) {
 
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
@@ -31,7 +31,7 @@ func TestModelLoading(t *testing.T) {
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
+	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -78,7 +78,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// transform the model 90 degrees at the joint
-	inputs[0] = Input{math.Pi / 2}
+	inputs[0] = math.Pi / 2
 	geometries, _ = m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
 	link1 = geometries.GeometryByName("test:link1").Pose().Point()
@@ -96,19 +96,70 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// expected output
 	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
 	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
+	pose, err := frame.Transform([]Input{3, 5, math.Pi / 2})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
+	_, err = frame.Transform([]Input{3, 5, 0, 10})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3}))
+	_, err = frame.Transform([]Input{3})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
+	_, err = frame.Transform([]Input{3, 100})
 	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestExtractMeshMapFromModelConfig(t *testing.T) {
+	// Use dummy bytes for testing - no need to load actual files
+	stlBytes := []byte("fake stl data")
+	plyBytes := []byte("fake ply data")
+
+	t.Run("extracts meshes from model config", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			Links: []LinkConfig{
+				{
+					ID: "link1",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        stlBytes,
+						MeshContentType: "stl",
+						MeshFilePath:    "meshes/link1.stl",
+					},
+				},
+				{
+					ID: "link2",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        plyBytes,
+						MeshContentType: "ply",
+						MeshFilePath:    "models/link2.ply",
+					},
+				},
+				{
+					ID: "link3",
+					Geometry: &spatial.GeometryConfig{
+						Type: spatial.BoxType,
+						X:    1, Y: 2, Z: 3,
+					},
+				},
+			},
+		}
+
+		meshMap := extractMeshMapFromModelConfig(cfg)
+		test.That(t, len(meshMap), test.ShouldEqual, 2)
+
+		// Verify STL mesh
+		stlMesh := meshMap["meshes/link1.stl"]
+		test.That(t, stlMesh.ContentType, test.ShouldEqual, "stl")
+		test.That(t, stlMesh.Mesh, test.ShouldResemble, stlBytes)
+
+		// Verify PLY mesh
+		plyMesh := meshMap["models/link2.ply"]
+		test.That(t, plyMesh.ContentType, test.ShouldEqual, "ply")
+		test.That(t, plyMesh.Mesh, test.ShouldResemble, plyBytes)
+	})
 }

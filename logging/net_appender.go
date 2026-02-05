@@ -34,7 +34,7 @@ var (
 type CloudConfig struct {
 	AppAddress string
 	ID         string
-	Secret     string
+	CloudCred  rpc.DialOption
 }
 
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
@@ -516,14 +516,10 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logg
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    "robot-secret",
-				Payload: cloudCfg.Secret,
-			},
-		))
+
+	// Only add credentials when they are set.
+	if cloudCfg.CloudCred != nil {
+		dialOpts = append(dialOpts, cloudCfg.CloudCred)
 	}
 
 	if grpcURL.Scheme == "http" {

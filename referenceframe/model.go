@@ -14,6 +14,8 @@ import (
 	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -37,7 +39,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := UnmarshalModelXML(data, name)
+		meshMap := resp.GetMeshesByUrdfFilepath()
+		modelconf, err := UnmarshalModelXML(data, name, meshMap)
 		if err != nil {
 			return nil, err
 		}
@@ -68,10 +71,42 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
 	case "urdf":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+		// Extract mesh data from geometries and populate mesh map for URDF
+		resp.MeshesByUrdfFilepath = extractMeshMapFromModelConfig(cfg)
 	default:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	}
 	return resp
+}
+
+// extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
+// Returns a map of URDF file paths to proto Mesh messages.
+func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Mesh {
+	meshMap := make(map[string]*commonpb.Mesh)
+
+	// Iterate through all links and extract mesh geometries
+	for _, link := range cfg.Links {
+		if link.Geometry == nil {
+			continue
+		}
+
+		// Check if this is a mesh geometry
+		if link.Geometry.Type == spatialmath.MeshType && len(link.Geometry.MeshData) > 0 {
+			// Use the original URDF mesh path if available
+			meshPath := link.Geometry.MeshFilePath
+			if meshPath == "" {
+				// Fallback if path wasn't preserved (shouldn't happen with URDF)
+				continue
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        link.Geometry.MeshData,
+				ContentType: link.Geometry.MeshContentType,
+			}
+		}
+	}
+
+	return meshMap
 }
 
 // KinematicModelFromFile returns a model frame from a file that defines the kinematics.
@@ -122,14 +157,19 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
 }
 
+// Hash returns a hash value for this simple model.
+func (m *SimpleModel) Hash() int {
+	h := m.hash()
+	for _, f := range m.ordTransforms {
+		h += f.Hash()
+	}
+	return h
+}
+
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	frames, err := m.inputsToFrames(inputs, false)
-	if err != nil && frames == nil {
-		return nil, err
-	}
-	return frames[0].transform, err
+	return m.InputsToTransformOpt(inputs)
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
@@ -312,47 +352,141 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 	if len(m.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
-	var err error
+
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	posIdx := 0
+
 	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		input := inputs[posIdx:dof]
 		posIdx = dof
 
-		pose, errNew := transform.Transform(input)
+		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		if pose == nil || err != nil {
 			return nil, err
 		}
-		multierr.AppendInto(&err, errNew)
+
 		if collectAll {
 			var geometry spatialmath.Geometry
 			gf, err := transform.Geometries(input)
 			if err != nil {
 				return nil, err
 			}
-			geometries := gf.Geometries()
+
+			geometries := gf.geometries
 			if len(geometries) == 0 {
 				geometry = nil
 			} else {
 				geometry = geometries[0]
 			}
+
 			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
 			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
 			if err != nil {
 				return nil, err
 			}
+
 			poses = append(poses, fixedFrame.(*staticFrame))
 		}
+
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
+
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
 	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
-	return poses, err
+	return poses, nil
+}
+
+// InputsToTransformOpt is like `inputsToFrames` but only returns the end effector pose. That allows
+// us to optimize away the recording of intermediate computations.
+func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, error) {
+	if len(m.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+	}
+
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	// composedTransformation := spatialmath.NewZeroPose()
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
+	}
+	posIdx := 0
+
+	// We split up errors into two cases:
+	//
+	// - There are the right number of inputs, but some inputs are outside of the legal limit
+	//   (either physical, or prescribed by the caller)
+	// - Everything else.
+	//
+	// For general errors, we refuse to return a `Pose`. Because we can't assume it's calculated
+	// correctly. When limits are exceeded, we will return the resulting end effector pose in
+	// addition to an out of bounds error. The caller is expected to check if it's interested in OOB
+	// information.
+	//
+	// Dan: My take is that this method should _not_ return an error when an input is out of
+	// bounds. The caller ought to verify that when applicable.
+	var invalidInputsErr error
+	// get quaternions from the base outwards.
+	for _, transformI := range m.ordTransforms {
+		var pose spatialmath.Pose
+
+		switch transform := transformI.(type) {
+		case *staticFrame:
+			if len(transformI.DoF()) != 0 {
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 0)
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(transform.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
+			if len(transformI.DoF()) != 1 {
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 1)
+			}
+
+			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
+				multierr.AppendInto(&invalidInputsErr, err)
+			}
+
+			orientation := transform.InputToOrientation(inputs[posIdx])
+			pose = &spatialmath.DualQuaternion{
+				Number: dualquat.Number{
+					Real: orientation.Quaternion(),
+				},
+			}
+
+			posIdx++
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		default:
+			dof := len(transformI.DoF()) + posIdx
+			input := inputs[posIdx:dof]
+			posIdx = dof
+
+			var err error
+			pose, err = transform.Transform(input)
+			if err != nil {
+				if strings.Contains(err.Error(), OOBErrString) {
+					multierr.AppendInto(&invalidInputsErr, err)
+				} else {
+					return nil, err
+				}
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		}
+	}
+
+	return &composedTransformation, invalidInputsErr
 }
 
 // floatsToString turns a float array into a serializable binary representation
@@ -360,7 +494,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 func floatsToString(inputs []Input) string {
 	b := make([]byte, len(inputs)*8)
 	for i, input := range inputs {
-		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input.Value))
+		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input))
 	}
 	return string(b)
 }

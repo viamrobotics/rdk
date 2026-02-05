@@ -2,10 +2,11 @@ package camera
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -50,13 +51,11 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::NextPointCloud")
 		defer span.End()
 
-		ctx = context.WithValue(ctx, data.FromDMContextKey{}, true)
-
-		pc, err := camera.NextPointCloud(ctx)
+		pc, err := camera.NextPointCloud(ctx, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, nextPointCloud.String(), err)
@@ -113,25 +112,53 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::ReadImage")
 		defer span.End()
 
-		img, metadata, err := camera.Image(ctx, mimeStr, data.FromDMExtraMap)
+		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 
 			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
-		mimeType := data.CameraFormatToMimeType(utils.MimeTypeToFormat[metadata.MimeType])
+		if len(resImgs) == 0 {
+			err = errors.New("no images returned from camera")
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		// Select the corresponding image based on requested mime type if provided
+		var img NamedImage
+		var foundMatchingMimeType bool
+		if mimeStr != "" {
+			for _, candidateImg := range resImgs {
+				if candidateImg.MimeType() == mimeStr {
+					img = candidateImg
+					foundMatchingMimeType = true
+					break
+				}
+			}
+		}
+
+		if !foundMatchingMimeType {
+			img = resImgs[0]
+		}
+
+		imgBytes, err := img.Bytes(ctx)
+		if err != nil {
+			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
+		}
+
+		mimeType := data.MimeTypeStringToMimeType(img.MimeType())
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
-			TimeReceived:  time.Now(),
+			TimeReceived:  resMetadata.CapturedAt,
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			MimeType: mimeType,
-			Payload:  img,
+			MimeType:    mimeType,
+			Annotations: img.Annotations,
+			Payload:     imgBytes,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
@@ -142,15 +169,38 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 	if err != nil {
 		return nil, err
 	}
+
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
 		timeRequested := time.Now()
 		var res data.CaptureResult
 		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc::GetImages")
 		defer span.End()
 
-		resImgs, resMetadata, err := camera.Images(ctx, nil, data.FromDMExtraMap)
+		var filterSourceNames []string
+		filterSourceNamesAny, ok := params.MethodParams["filter_source_names"]
+
+		if ok {
+			unmarshaledFilterSourceNames, err := data.UnmarshalToValueOrString(filterSourceNamesAny)
+			if err != nil {
+				return res, err
+			}
+			switch v := unmarshaledFilterSourceNames.(type) {
+			case []interface{}:
+				for _, nameInterface := range v {
+					name, ok := nameInterface.(string)
+					if !ok {
+						return res, fmt.Errorf("filter_source_names must be a list of strings, but got as an element %T", nameInterface)
+					}
+					filterSourceNames = append(filterSourceNames, name)
+				}
+			default:
+				return res, fmt.Errorf("filter_source_names must be a list of strings, but got %T", v)
+			}
+		}
+
+		resImgs, resMetadata, err := camera.Images(ctx, filterSourceNames, data.FromDMExtraMap)
 		if err != nil {
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
 			return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
@@ -162,8 +212,10 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			if err != nil {
 				return res, data.NewFailedToReadError(params.ComponentName, getImages.String(), err)
 			}
+			annotations := img.Annotations
+			annotations.Classifications = append(annotations.Classifications, data.Classification{Label: img.SourceName})
 			binaries = append(binaries, data.Binary{
-				Annotations: data.Annotations{Classifications: []data.Classification{{Label: img.SourceName}}},
+				Annotations: annotations,
 				Payload:     imgBytes,
 				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
 			})

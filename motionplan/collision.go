@@ -196,12 +196,16 @@ type collisionGraph struct {
 	//    - true:  all distances will be determined and numerically reported
 	//    - false: collisions will be reported as bools, not numerically. Upon finding a collision, will exit early
 	reportDistances bool
+
+	minDistance     float64
+	minDistancePair string
 }
 
 // newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
 // collisions that are reported in the reference CollisionSystem argument will be ignored and not stored as edges in the graph.
 // if the set y is nil, the graph will be instantiated with y = x.
-func newCollisionGraph(x, y []spatial.Geometry,
+func newCollisionGraph(fs *referenceframe.FrameSystem,
+	x, y []spatial.Geometry,
 	reference *collisionGraph,
 	reportDistances bool,
 	collisionBufferMM float64,
@@ -221,11 +225,15 @@ func newCollisionGraph(x, y []spatial.Geometry,
 	cg = &collisionGraph{
 		geometryGraph:   newGeometryGraph(xMap, yMap),
 		reportDistances: reportDistances,
+		minDistance:     math.Inf(1),
 	}
 
 	var distance float64
 	for xName, xGeometry := range cg.x {
 		for yName, yGeometry := range cg.y {
+			if skipCollisionCheck(fs, xName, yName) {
+				continue
+			}
 			if _, ok := cg.getDistance(xName, yName); ok || xGeometry == yGeometry {
 				// geometry pair already has distance information associated with it, or is comparing with itself - skip to next pair
 				continue
@@ -237,6 +245,12 @@ func newCollisionGraph(x, y []spatial.Geometry,
 			} else if distance, err = cg.checkCollision(xGeometry, yGeometry, collisionBufferMM); err != nil {
 				return nil, err
 			}
+
+			if !math.IsNaN(distance) && distance < cg.minDistance {
+				cg.minDistance = distance
+				cg.minDistancePair = fmt.Sprintf("%s with %s", xName, yName)
+			}
+
 			cg.setDistance(xName, yName, distance)
 			if !reportDistances && distance <= collisionBufferMM {
 				// collision found, can return early
@@ -244,6 +258,7 @@ func newCollisionGraph(x, y []spatial.Geometry,
 			}
 		}
 	}
+
 	return cg, nil
 }
 
@@ -259,9 +274,9 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry, collisionBufferM
 		}
 		return dist, nil
 	}
-	col, err := x.CollidesWith(y, collisionBufferMM)
+	col, d, err := x.CollidesWith(y, collisionBufferMM)
 	if err != nil {
-		col, err = y.CollidesWith(x, collisionBufferMM)
+		col, d, err = y.CollidesWith(x, collisionBufferMM)
 		if err != nil {
 			return math.Inf(-1), err
 		}
@@ -269,7 +284,8 @@ func (cg *collisionGraph) checkCollision(x, y spatial.Geometry, collisionBufferM
 	if col {
 		return math.Inf(-1), err
 	}
-	return math.Inf(1), err
+
+	return d, err
 }
 
 // collisionBetween returns a bool describing if the collisionGraph has a collision between the two entities that are specified by name.
@@ -318,4 +334,34 @@ func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geom
 		geomMap[label] = geom
 	}
 	return geomMap, nil
+}
+
+func firstMovingParentOrself(fs *referenceframe.FrameSystem, f referenceframe.Frame) referenceframe.Frame {
+	var err error
+	for f != fs.World() {
+		if len(f.DoF()) > 0 {
+			return f
+		}
+
+		f, err = fs.Parent(f)
+		if err != nil {
+			panic(err) // should be impossible
+		}
+	}
+	return f
+}
+
+func skipCollisionCheck(fs *referenceframe.FrameSystem, xName, yName string) bool {
+	x := fs.Frame(xName)
+	y := fs.Frame(yName)
+
+	if x == nil || y == nil {
+		// something is internal, skip
+		return false
+	}
+
+	xFirstMoving := firstMovingParentOrself(fs, x)
+	yFirstMoving := firstMovingParentOrself(fs, y)
+
+	return xFirstMoving == yFirstMoving
 }

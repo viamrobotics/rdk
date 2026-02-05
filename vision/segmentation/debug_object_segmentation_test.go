@@ -49,7 +49,7 @@ func (h *segmentObjectTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return cloud, nil
 	}
 
@@ -122,7 +122,7 @@ func (h *gripperSegmentTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 	injectCamera := &inject.Camera{}
-	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
 		return cloud, nil
 	}
 

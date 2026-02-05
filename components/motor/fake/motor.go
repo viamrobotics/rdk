@@ -121,7 +121,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	var b board.Board
 	if newConf.BoardName != "" {
 		m.Board = newConf.BoardName
-		b, err = board.FromDependencies(deps, m.Board)
+		b, err = board.FromProvider(deps, m.Board)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	if newConf.Encoder != "" {
 		m.TicksPerRotation = newConf.TicksPerRotation
 
-		e, err := encoder.FromDependencies(deps, newConf.Encoder)
+		e, err := encoder.FromProvider(deps, newConf.Encoder)
 		if err != nil {
 			return err
 		}
@@ -270,7 +270,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 }
 
 // checkSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
-func checkSpeed(rpm, max float64) (string, error) {
+func checkSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed == 0:
 		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()

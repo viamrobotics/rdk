@@ -6,11 +6,13 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +23,8 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -34,12 +38,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -761,7 +763,6 @@ func TestWebWithStreams(t *testing.T) {
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err := svc.Start(ctx, options)
@@ -790,21 +791,12 @@ func TestWebWithStreams(t *testing.T) {
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Add an audio stream
-	audio := &inject.AudioInput{}
-	robot.Mu.Lock()
-	rs[audioinput.Named(audioKey)] = audio
-	robot.Mu.Unlock()
-	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
 	// Test that new streams are available
 	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 3)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
@@ -1078,9 +1070,11 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1144,9 +1138,11 @@ func TestRawClientOperation(t *testing.T) {
 func TestUnaryRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1225,9 +1221,11 @@ func TestUnaryRequestCounter(t *testing.T) {
 func TestStreamingRequestCounter(t *testing.T) {
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1565,10 +1563,11 @@ type clientCall = func(context.Context) error
 func testResourceLimitsAndFTDC(
 	t *testing.T,
 	keyPrefix string,
+	method string,
 	setupBlock func(onEnter, wait func()) setupRobotOption,
 	createCall func(string, logging.Logger) clientCall,
 ) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	blockCall := make(chan struct{})
 	callBlocking := make(chan struct{})
@@ -1599,7 +1598,7 @@ func testResourceLimitsAndFTDC(
 	// Create a caller to invoke the gRPC method used for testing
 	call := createCall(addr, logger)
 
-	// Check that the in flight request counter is zero
+	// Check that the in-flight request counter is zero
 	statsKey := keyPrefix + ".inFlightRequests"
 	stats := svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
@@ -1617,7 +1616,7 @@ func testResourceLimitsAndFTDC(
 	// counters have been updated.
 	<-callBlocking
 
-	// Check that the in flight request counter has increased to 1
+	// Check that the in-flight request counter has increased to 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1626,9 +1625,53 @@ func testResourceLimitsAndFTDC(
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
 	test.That(t, err.Error(), test.ShouldEndWith,
-		fmt.Sprintf("exceeded request limit 1 on resource %v", keyPrefix))
+		fmt.Sprintf(
+			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
+				"See %v for troubleshooting steps",
+			keyPrefix,
+			web.ReqLimitExceededURL,
+		),
+	)
 
-	// In flight requests counter should still only be 1
+	// Assert that an appropriate warning log was output by the server.
+	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+
+	var fields map[string]any
+	err = json.Unmarshal(
+		[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+		&fields,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields["method"], test.ShouldEqual, method)
+	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+	{
+		offendingClientInformation := fields["offending_client_information"]
+		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		// Assert exact values on inflight_requests and rejected_requests and assert the rest
+		// of the fields simply exist.
+		inFlightRequests := offendingClientInformationM["inflight_requests"]
+		inFlightRequestsM, ok := inFlightRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, 1)
+		rejectedRequests := offendingClientInformationM["rejected_requests"]
+		rejectedRequestsM, ok := rejectedRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, 1)
+		test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
+	}
+	test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
+
+	// In-flight requests counter should still only be 1
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 1)
 
@@ -1636,7 +1679,7 @@ func testResourceLimitsAndFTDC(
 	close(blockCall)
 	clientCallsWg.Wait()
 
-	// In flight requests counter should be back to 0
+	// In-flight requests counter should be back to 0
 	stats = svc.RequestCounter().Stats().(map[string]int64)
 	test.That(t, stats[statsKey], test.ShouldEqual, 0)
 }
@@ -1646,6 +1689,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"arm1.viam.component.arm.v1.ArmService",
+			"/viam.component.arm.v1.ArmService/GetEndPosition",
 			func(onEnter, wait func()) setupRobotOption {
 				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 					onEnter()
@@ -1675,6 +1719,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		testResourceLimitsAndFTDC(
 			t,
 			"viam.robot.v1.RobotService",
+			"/viam.robot.v1.RobotService/GetMachineStatus",
 			func(onEnter, wait func()) setupRobotOption {
 				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
 					onEnter()
@@ -1702,5 +1747,120 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				}
 			},
 		)
+	})
+	t.Run("request counter map pruning", func(t *testing.T) {
+		// Primarily a regression test for RSDK-12896. Ensures that a client that has
+		// connected, invoked a gRPC method on a resource, and disconnected before the request
+		// limit exceeded is actually hit is not included in all_other_client_information.
+
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Lower resource requests limit for test.
+		originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
+		t.Cleanup(func() {
+			os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
+		})
+
+		// Create and start web service of injected robot.
+		callBlocking := make(chan struct{})
+		blockCall := make(chan struct{})
+		var numTimesEndPositionInvoked int
+		ctx, injectRobot := setupRobotCtx(
+			t,
+			withArmEndPosition(func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
+				// Do NOT block on first call to EndPosition.
+				if numTimesEndPositionInvoked++; numTimesEndPositionInvoked < 2 {
+					return pos, nil
+				}
+				close(callBlocking)
+				<-blockCall
+				return pos, nil
+			}))
+		defer injectRobot.Close(ctx)
+		svc := web.New(injectRobot, logger)
+		defer svc.Stop()
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := svc.Start(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Create a client, invoke EndPosition on the arm resource, and then close the client.
+		// This EndPosition call should not block but should add the pc to rc.requestsPerPC
+		// and rc.pcToClientMetadata.
+		conn, err := rgrpc.Dial(context.Background(), addr, logger)
+		test.That(t, err, test.ShouldBeNil)
+		armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = armClient.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, armClient.Close(ctx), test.ShouldBeNil)
+		utils.UncheckedErrorFunc(conn.Close)
+
+		// Wait for two logs indicating the connection closure: one from the client-side
+		// ("webrtc.client") and one from the server-side ("networking"):
+		var observedCSChangedLogs *observer.ObservedLogs
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			observedCSChangedLogs = logs.FilterMessageSnippet("connection state changed")
+			test.That(tb, observedCSChangedLogs.Len(), test.ShouldEqual, 2)
+		})
+		csChangedLogs := observedCSChangedLogs.All()
+		test.That(t, strings.HasSuffix(csChangedLogs[0].LoggerName, "webrtc.client"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[0].ContextMap()["conn_state"], test.ShouldEqual, "closed")
+		test.That(t, strings.HasSuffix(csChangedLogs[1].LoggerName, "networking"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[1].ContextMap()["conn_state"], test.ShouldEqual, "closed")
+
+		// Create a new client, and invoke EndPosition in a goroutine on the arm resource.
+		// This EndPosition call should block and should add to rc.requestsPerPC and
+		// rc.pcToClientMetadata.
+		conn, err = rgrpc.Dial(context.Background(), addr, logger)
+		t.Cleanup(func() {
+			utils.UncheckedErrorFunc(conn.Close)
+		})
+		test.That(t, err, test.ShouldBeNil)
+		armClient, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+		clientCallsWg := sync.WaitGroup{}
+		clientCallsWg.Go(func() {
+			_, err = armClient.EndPosition(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		// Wait for the gRPC call to reach our function so we know the request is "in-flight."
+		<-callBlocking
+
+		// Invoke EndPosition for a _third_ time. We should now error due to the limit.
+		_, err = armClient.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+		test.That(t, err.Error(), test.ShouldEndWith,
+			fmt.Sprintf(
+				"exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService (your client is responsible for 1). "+
+					"See %v for troubleshooting steps",
+				web.ReqLimitExceededURL,
+			),
+		)
+
+		// Assert that an appropriate warning log was output by the server. In generating this
+		// warning log, the request counter should have pruned the first of the two clients
+		// from the appropriate maps.
+		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+		var fields map[string]any
+		err = json.Unmarshal(
+			[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+			&fields,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// Assert that the first of the two clients is no longer included in
+		// "all_other_client_information" now that it has disconnected. No need to assert on
+		// any of the other fields, as the subtests above will do that.
+		test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
+
+		// Release the original call and wait for it to complete
+		close(blockCall)
+		clientCallsWg.Wait()
 	})
 }

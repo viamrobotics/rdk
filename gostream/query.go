@@ -13,7 +13,6 @@ import (
 	"github.com/pion/mediadevices/pkg/driver/availability"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
-	"github.com/pion/mediadevices/pkg/wave"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/logging"
@@ -121,44 +120,6 @@ func GetAnyVideoSource(
 	return newVideoSourceFromDriver(d, selectedMedia)
 }
 
-// GetAnyAudioSource attempts to find any suitable audio device.
-func GetAnyAudioSource(
-	constraints mediadevices.MediaStreamConstraints,
-	logger logging.Logger,
-) (MediaSource[wave.Audio], error) {
-	d, selectedMedia, err := getUserAudioDriver(constraints, nil, logger)
-	if err != nil {
-		return nil, err
-	}
-	return newAudioSourceFromDriver(d, selectedMedia, logger)
-}
-
-// GetNamedAudioSource attempts to find an audio device by the given name.
-func GetNamedAudioSource(
-	name string,
-	constraints mediadevices.MediaStreamConstraints,
-	logger logging.Logger,
-) (MediaSource[wave.Audio], error) {
-	d, selectedMedia, err := getUserAudioDriver(constraints, &name, logger)
-	if err != nil {
-		return nil, err
-	}
-	return newAudioSourceFromDriver(d, selectedMedia, logger)
-}
-
-// GetPatternedAudioSource attempts to find an audio device by the given label pattern.
-func GetPatternedAudioSource(
-	labelPattern *regexp.Regexp,
-	constraints mediadevices.MediaStreamConstraints,
-	logger logging.Logger,
-) (MediaSource[wave.Audio], error) {
-	d, selectedMedia, err := getUserAudioDriverPattern(constraints, labelPattern, logger)
-	if err != nil {
-		return nil, err
-	}
-	return newAudioSourceFromDriver(d, selectedMedia, logger)
-}
-
 // DeviceInfo describes a driver.
 type DeviceInfo struct {
 	ID         string
@@ -176,11 +137,6 @@ func QueryVideoDevices() []DeviceInfo {
 // QueryScreenDevices lists all known screen devices.
 func QueryScreenDevices() []DeviceInfo {
 	return getDriverInfo(driver.GetManager().Query(getScreenFilterBase()), true)
-}
-
-// QueryAudioDevices lists all known audio devices.
-func QueryAudioDevices() []DeviceInfo {
-	return getDriverInfo(driver.GetManager().Query(getAudioFilterBase()), true)
 }
 
 func getDriverInfo(drivers []driver.Driver, useSep bool) []DeviceInfo {
@@ -211,11 +167,6 @@ func QueryScreenDevicesLabels() []string {
 // QueryVideoDeviceLabels lists all known video devices (not a screen).
 func QueryVideoDeviceLabels() []string {
 	return getDriversLabels(driver.GetManager().Query(getVideoFilterBase()), true)
-}
-
-// QueryAudioDeviceLabels lists all known audio devices.
-func QueryAudioDeviceLabels() []string {
-	return getDriversLabels(driver.GetManager().Query(getAudioFilterBase()), true)
 }
 
 func getDriversLabels(drivers []driver.Driver, useSep bool) []string {
@@ -306,56 +257,6 @@ func newVideoSourceFromDriver(
 	return newMediaSource[image.Image](videoDriver, mediaReaderFuncNoCtx[image.Image](reader.Read), mediaProp.Video), nil
 }
 
-func getUserAudioDriver(
-	constraints mediadevices.MediaStreamConstraints,
-	label *string,
-	logger logging.Logger,
-) (driver.Driver, prop.Media, error) {
-	var audioConstraints mediadevices.MediaTrackConstraints
-	if constraints.Audio != nil {
-		constraints.Audio(&audioConstraints)
-	}
-	return selectAudio(audioConstraints, label, logger)
-}
-
-func getUserAudioDriverPattern(
-	constraints mediadevices.MediaStreamConstraints,
-	labelPattern *regexp.Regexp,
-	logger logging.Logger,
-) (driver.Driver, prop.Media, error) {
-	var audioConstraints mediadevices.MediaTrackConstraints
-	if constraints.Audio != nil {
-		constraints.Audio(&audioConstraints)
-	}
-	return selectVideoPattern(audioConstraints, labelPattern, logger)
-}
-
-func newAudioSourceFromDriver(
-	audioDriver driver.Driver,
-	mediaProp prop.Media,
-	logger logging.Logger,
-) (MediaSource[wave.Audio], error) {
-	recorder, ok := audioDriver.(driver.AudioRecorder)
-	if !ok {
-		return nil, errors.New("driver not a driver.AudioRecorder")
-	}
-
-	if driverStatus := audioDriver.Status(); driverStatus != driver.StateClosed {
-		logger.Warnw("audio driver is not closed, attempting to close and reopen", "status", driverStatus)
-		if err := audioDriver.Close(); err != nil {
-			logger.Errorw("error closing driver", "error", err)
-		}
-	}
-	if err := audioDriver.Open(); err != nil {
-		return nil, err
-	}
-	reader, err := recorder.AudioRecord(mediaProp)
-	if err != nil {
-		return nil, err
-	}
-	return newMediaSource[wave.Audio](audioDriver, mediaReaderFuncNoCtx[wave.Audio](reader.Read), mediaProp.Audio), nil
-}
-
 func labelFilter(target string, useSep bool) driver.FilterFn {
 	return driver.FilterFn(func(d driver.Driver) bool {
 		if !useSep {
@@ -408,14 +309,6 @@ func selectScreenPattern(
 	return selectBestDriver(getScreenFilterBase(), getScreenFilterPattern(labelPattern), constraints, logger)
 }
 
-func selectAudio(
-	constraints mediadevices.MediaTrackConstraints,
-	label *string,
-	logger logging.Logger,
-) (driver.Driver, prop.Media, error) {
-	return selectBestDriver(getAudioFilterBase(), getAudioFilter(label), constraints, logger)
-}
-
 func getVideoFilterBase() driver.FilterFn {
 	typeFilter := driver.FilterVideoRecorder()
 	notScreenFilter := driver.FilterNot(driver.FilterDeviceType(driver.Screen))
@@ -453,18 +346,6 @@ func getScreenFilter(label *string) driver.FilterFn {
 func getScreenFilterPattern(labelPattern *regexp.Regexp) driver.FilterFn {
 	filter := getScreenFilterBase()
 	filter = driver.FilterAnd(filter, labelFilterPattern(labelPattern, true))
-	return filter
-}
-
-func getAudioFilterBase() driver.FilterFn {
-	return driver.FilterAudioRecorder()
-}
-
-func getAudioFilter(label *string) driver.FilterFn {
-	filter := getAudioFilterBase()
-	if label != nil {
-		filter = driver.FilterAnd(filter, labelFilter(*label, true))
-	}
 	return filter
 }
 

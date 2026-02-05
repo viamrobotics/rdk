@@ -431,6 +431,7 @@ func _ratioOffFrom135Finish(a float64) float64 {
 }
 
 func rgbToHsv(r, g, b uint8) (uint16, uint8, uint8) {
+	//nolint: revive
 	min := utils.MinUint8(utils.MinUint8(r, g), b)
 	v := utils.MaxUint8(utils.MaxUint8(r, g), b)
 	C := float64(v - min)

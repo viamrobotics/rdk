@@ -5,6 +5,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -26,10 +27,6 @@ import (
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
 
-// FromDMContextKey is used to check whether the context is from data management.
-// Deprecated: use a camera.Extra with camera.NewContext instead.
-type FromDMContextKey struct{}
-
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
 
@@ -37,7 +34,10 @@ const FromDMString = "fromDataManagement"
 var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
+var (
+	errNoCaptureToStoreMsg = "no capture from filter module"
+	ErrNoCaptureToStore    = status.Error(codes.FailedPrecondition, errNoCaptureToStoreMsg)
+)
 
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
@@ -209,7 +209,7 @@ func (c *collector) getAndPushNextReading() {
 	}
 
 	if err != nil {
-		if errors.Is(err, ErrNoCaptureToStore) {
+		if IsNoCaptureToStoreError(err) {
 			c.logger.Debug("capture filtered out by modular resource")
 			return
 		}
@@ -360,6 +360,7 @@ func (c *collector) logCaptureErrs() {
 				continue
 			}
 		}
+
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
 			var failedToReadError *FailedToReadError
@@ -419,7 +420,7 @@ func NewDoCommandCaptureFunc[T interface {
 			if payloadAny.TypeUrl == "" && len(payloadAny.Value) == 0 {
 				payload = make(map[string]interface{})
 			} else {
-				unmarshaledPayload, err := unmarshalToValueOrString(payloadAny)
+				unmarshaledPayload, err := UnmarshalToValueOrString(payloadAny)
 				if err != nil {
 					return result, err
 				}
@@ -437,7 +438,7 @@ func NewDoCommandCaptureFunc[T interface {
 
 		values, err := resource.DoCommand(ctx, payload)
 		if err != nil {
-			if errors.Is(err, ErrNoCaptureToStore) {
+			if IsNoCaptureToStoreError(err) {
 				return result, err
 			}
 			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
@@ -447,9 +448,9 @@ func NewDoCommandCaptureFunc[T interface {
 	}
 }
 
-// unmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
+// UnmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
 // or extracts the string value if it's a string type.
-func unmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
+func UnmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
 	// Try to unmarshal to Struct first
 	structVal := &structpb.Struct{}
 	if err := v.UnmarshalTo(structVal); err == nil {
@@ -502,4 +503,9 @@ func flattenValue(val *structpb.Value) interface{} {
 	default:
 		return val
 	}
+}
+
+// IsNoCaptureToStoreError returns true if the error is NoCaptureToStoreError. Use this instead of errors.Is.
+func IsNoCaptureToStoreError(err error) bool {
+	return status.Code(err) == codes.FailedPrecondition && strings.Contains(err.Error(), errNoCaptureToStoreMsg)
 }

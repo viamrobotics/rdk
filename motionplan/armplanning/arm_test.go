@@ -31,14 +31,14 @@ func TestOOBArmMotion(t *testing.T) {
 	// instantiate out of bounds arm
 	notReal, err := fake.NewArm(context.Background(), nil, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	OOBFloats := []float64{0, 0, 0, 0, 0, 720}
+	OOBFloats := []referenceframe.Input{0, 0, 0, 0, 0, 720}
 	injectedArm := &inject.Arm{
 		Arm: notReal,
 		JointPositionsFunc: func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
-			return referenceframe.FloatsToInputs(OOBFloats), nil
+			return OOBFloats, nil
 		},
 		CurrentInputsFunc: func(ctx context.Context) ([]referenceframe.Input, error) {
-			return referenceframe.FloatsToInputs(OOBFloats), nil
+			return OOBFloats, nil
 		},
 	}
 
@@ -56,12 +56,12 @@ func TestOOBArmMotion(t *testing.T) {
 	})
 
 	t.Run("MoveToJointPositions fails OOB and moving further OOB", func(t *testing.T) {
-		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 900}), nil)
+		err := injectedArm.MoveToJointPositions(context.Background(), []referenceframe.Input{0, 0, 0, 0, 0, 900}, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("MoveToJointPositions succeeds when OOB and moving further in-bounds", func(t *testing.T) {
-		err := injectedArm.MoveToJointPositions(context.Background(), referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
+		err := injectedArm.MoveToJointPositions(context.Background(), []referenceframe.Input{0, 0, 0, 0, 0, 0}, nil)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

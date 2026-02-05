@@ -443,7 +443,7 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 }
 
 // additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
-func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig, tracing TracingConfig) map[string]string {
 	env := make(map[string]string)
 	if cloud != nil {
 		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
@@ -469,6 +469,9 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 		sort.Strings(keyIDs)
 		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
 		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
+	}
+	if tracing.IsEnabled() {
+		env[rutils.ViamModuleTracingEnvVar] = "1"
 	}
 	return env
 }
@@ -634,7 +637,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// add additional environment vars to modules
 	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
-	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth, cfg.Tracing)
 	if len(env) > 0 {
 		for idx := 0; idx < len(cfg.Modules); idx++ {
 			cfg.Modules[idx].MergeEnvVars(env)
@@ -727,14 +730,12 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotSecret,
-				Payload: cloudCfg.Secret,
-			},
-		))
+
+	cloudCreds := cloudCfg.GetCloudCredsDialOpt()
+
+	// Only add credentials when they are set.
+	if cloudCreds != nil {
+		dialOpts = append(dialOpts, cloudCreds)
 	}
 
 	if u.Scheme == "http" {

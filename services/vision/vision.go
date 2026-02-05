@@ -42,7 +42,7 @@ func init() {
 //
 // DetectionsFromCamera example:
 //
-//	myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//	myDetectorService, err := vision.FromProvider(machine, "my_detector")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -63,7 +63,7 @@ func init() {
 //
 //	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		myCam, err := camera.FromProvider(machine, "my_camera")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -71,7 +71,7 @@ func init() {
 //		// Get an image from the camera decoded as an image.Image
 //		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//		myDetectorService, err := vision.FromRobot(machine, "my_detector")
+//		myDetectorService, err := vision.FromProvider(machine, "my_detector")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -89,7 +89,7 @@ func init() {
 //
 // ClassificationsFromCamera example:
 //
-//	myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//	myClassifierService, err := vision.FromProvider(machine, "my_classifier")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -109,7 +109,7 @@ func init() {
 //
 //	 // add "go.viam.com/rdk/utils" to imports to use this code snippet
 //
-//		myCam, err := camera.FromRobot(machine, "my_camera")
+//		myCam, err := camera.FromProvider(machine, "my_camera")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -117,7 +117,7 @@ func init() {
 //		// Get an image from the camera decoded as an image.Image
 //		img, err = camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeJPEG, nil, myCam)
 //
-//		myClassifierService, err := vision.FromRobot(machine, "my_classifier")
+//		myClassifierService, err := vision.FromProvider(machine, "my_classifier")
 //		if err != nil {
 //			logger.Error(err)
 //			return
@@ -135,7 +135,7 @@ func init() {
 //
 // GetObjectPointClouds example:
 //
-//	mySegmenterService, err := vision.FromRobot(machine, "my_segmenter")
+//	mySegmenterService, err := vision.FromProvider(machine, "my_segmenter")
 //	if err != nil {
 //		logger.Error(err)
 //		return
@@ -225,14 +225,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named vision service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named vision service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named vision service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named vision service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Vision service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // Properties returns various information regarding the current vision service,

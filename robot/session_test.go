@@ -39,7 +39,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
@@ -63,6 +63,7 @@ func init() {
 // We should NOT add a strict deadline to this test - we had that before and it resulted
 // in flaky tests (see RSDK-2493).
 func TestSessions(t *testing.T) {
+	t.Parallel()
 	for _, windowSize := range []time.Duration{
 		config.DefaultSessionHeartbeatWindow,
 		time.Second * 5,
@@ -186,7 +187,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor1, err := motor.FromRobot(roboClient, "motor1")
+			motor1, err := motor.FromProvider(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("get position of motor1 which will not be safety monitored")
@@ -202,7 +203,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor1, err = motor.FromRobot(roboClient, "motor1")
+			motor1, err = motor.FromProvider(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("set power of motor1 which will be safety monitored")
@@ -220,7 +221,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor2, err := motor.FromRobot(roboClient, "motor2")
+			motor2, err := motor.FromProvider(roboClient, "motor2")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("set power of motor2 which will be safety monitored")
@@ -418,7 +419,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err := motor.FromRobot(roboClient, "rem1motor1")
+	motor1, err := motor.FromProvider(roboClient, "rem1motor1")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -444,7 +445,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1motor1")
+	motor1, err = motor.FromProvider(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// this should cause safety monitoring
@@ -465,7 +466,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1motor1")
+	motor1, err = motor.FromProvider(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("set power of rem1:motor1 which will be safety monitored")
@@ -492,7 +493,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor2, err := motor.FromRobot(roboClient, "rem1motor2")
+	motor2, err := motor.FromProvider(roboClient, "rem1motor2")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -592,9 +593,9 @@ func TestSessionsMixedClients(t *testing.T) {
 	roboClient2, err := client.New(ctx, addr, logger.Sublogger("client2"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.FromRobot(roboClient2, "motor1")
+	motor1Client2, err := motor.FromProvider(roboClient2, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
@@ -691,7 +692,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
 	//    `SetPower` operation. The robot's heartbeat thread will call `motor1.Stop`. While Client 2 sent a command
 	//    to the motor, it used Client 1's session and never sent heartbeats.
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// clients made directly with a connection will not send heartbeats.
@@ -798,7 +799,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
 	//    `SetPower` operation. As Client 2 never sent a successful command to the motor (even if it did, Client 2
 	//    won't sent heartbeats), the robot's heartbeat thread will call `motor1.Stop`.
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// clients made directly with a connection will not send heartbeats.

@@ -112,7 +112,7 @@ func TestClientWorkingService(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[slam.Service](slam.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc, logger)
 
 	go workingServer.Serve(listener)
 	defer workingServer.Stop()
@@ -307,7 +307,7 @@ func TestFailingClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[slam.Service](slam.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), failingServer, failingSvc)
+	resourceAPI.RegisterRPCService(context.Background(), failingServer, failingSvc, logger)
 
 	go failingServer.Serve(listener)
 	defer failingServer.Stop()

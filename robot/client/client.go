@@ -16,7 +16,11 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,6 +29,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -125,6 +130,11 @@ type RobotClient struct {
 
 	pc         *webrtc.PeerConnection
 	sharedConn *grpc.SharedConn
+}
+
+// GetResource implements resource.Provider for a RobotClient by looking up a resource by name.
+func (rc *RobotClient) GetResource(name resource.Name) (resource.Resource, error) {
+	return rc.ResourceByName(name)
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -289,6 +299,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 	}
 
+	otelStatsHandler := otelgrpc.NewClientHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
@@ -308,6 +323,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		// sending version metadata
 		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
+		// sending traces across the network
+		rpc.WithDialStatsHandler(otelStatsHandler),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module
@@ -527,6 +544,29 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
+			// A NotFound error from the WebRTC dial means that the client is able to reach
+			// the signaling server but the machine is not. If the machine is running viam-server but not connected to the signaling server,
+			// it is expected to only be available to clients on the same network. If the errors returned from grpc dials are timeouts or mDNS
+			// failing to find a candidate, it implies that the machine is not connected to the same network the client is.
+			// In that case, filtering out the errors from grpc dials should reduce noise and give clients a clearer idea of what to do next.
+			if statusErr := status.Convert(err); statusErr != nil &&
+				statusErr.Code() == codes.NotFound &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) {
+				return err
+			}
+			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
+			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
+			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
+			// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded
+			// and candidate not found errors.
+			const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
+			if errors.Is(err, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
+				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
+					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
@@ -705,6 +745,12 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, error) {
 	if err := rc.checkConnected(); err != nil {
 		return nil, err
+	}
+
+	// if the request is for the public framesystem,
+	// return the robot client since it implements framesystem
+	if name == framesystem.PublicServiceName {
+		return rc, nil
 	}
 
 	rc.mu.RLock()
@@ -1256,6 +1302,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.State = robot.StateRunning
 	}
 
+	if resp.GetJobStatuses() != nil {
+		tspbToTime := func(tspb *timestamppb.Timestamp, _ int) time.Time {
+			return tspb.AsTime()
+		}
+		mStatus.JobStatuses = make(map[string]robot.JobStatus, len(resp.GetJobStatuses()))
+		for _, js := range resp.GetJobStatuses() {
+			mStatus.JobStatuses[js.GetJobName()] = robot.JobStatus{
+				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
+				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
+			}
+		}
+	}
+
 	return mStatus, nil
 }
 
@@ -1273,6 +1332,14 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
+	req := &pb.SendTracesRequest{ResourceSpans: spans}
+	_, err := rc.client.SendTraces(ctx, req)
+	return err
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
@@ -1397,6 +1464,49 @@ func (rc *RobotClient) getClientConn() rpc.ClientConn {
 	return rc.sharedConn
 }
 
+type viamClientInfoKeyType int
+
+const viamClientInfoKeyID = viamClientInfoKeyType(iota)
+
+// GetViamClientInfo returns the client info (("", false) if not set or non-string) for
+// the request. The client info will look like
+// "[type-of-sdk];[sdk-version];[api-version]".
+func GetViamClientInfo(ctx context.Context) (string, bool) {
+	valI := ctx.Value(viamClientInfoKeyID)
+	if val, ok := valI.(string); ok {
+		return val, true
+	}
+
+	return "", false
+}
+
+const viamClientInfoMetadataKey = "viam_client"
+
+// ViamClientInfoUnaryServerInterceptor examines the incoming metadata for the
+// "viam_client" key and, if found, attaches its associated value to the context so that
+// the value may accessed by the `handler` (and any function/method it calls) if needed.
+// The value associated with this key should be the one set by all SDKs by client
+// interceptors like the ones below, and will be in the form
+// "[type-of-sdk];[sdk-version];[api-version]".
+func ViamClientInfoUnaryServerInterceptor(
+	ctx context.Context,
+	req interface{},
+	info *googlegrpc.UnaryServerInfo,
+	handler googlegrpc.UnaryHandler,
+) (interface{}, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+
+	values := meta.Get(viamClientInfoMetadataKey)
+	if len(values) == 1 {
+		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
+	}
+
+	return handler(ctx, req)
+}
+
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -1406,13 +1516,9 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 		invoker googlegrpc.UnaryInvoker,
 		opts ...googlegrpc.CallOption,
 	) error {
-		md, err := robot.Version()
-		if err != nil {
-			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
-			return invoker(ctx, method, req, reply, cc, opts...)
-		}
+		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -1426,13 +1532,9 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		streamer googlegrpc.Streamer,
 		opts ...googlegrpc.CallOption,
 	) (cs googlegrpc.ClientStream, err error) {
-		md, err := robot.Version()
-		if err != nil {
-			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
-			return streamer(ctx, desc, cc, method, opts...)
-		}
+		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }

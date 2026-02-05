@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 	"time"
@@ -34,14 +35,20 @@ var scripts embed.FS
 var templates embed.FS
 
 const (
-	version        = "0.1.0"
-	basePath       = "module_generate"
-	templatePrefix = "tmpl-"
-	python         = "python"
-	golang         = "go"
+	version                        = "0.1.0"
+	basePath                       = "module_generate"
+	templatePrefix                 = "tmpl-"
+	python                         = "python"
+	golang                         = "go"
+	moduleVisibilityPrivate        = "private"
+	moduleVisibilityPublic         = "public"
+	moduleVisibilityPublicUnlisted = "public_unlisted"
 )
 
-var supportedModuleGenLanguages = []string{python, golang}
+var (
+	supportedModuleGenLanguages = []string{python, golang}
+	visibilityOption            = []string{moduleVisibilityPrivate, moduleVisibilityPublic, moduleVisibilityPublicUnlisted}
+)
 
 var (
 	scriptsPath   = filepath.Join(basePath, "scripts")
@@ -53,11 +60,10 @@ var unauthenticatedMode = false
 type generateModuleArgs struct {
 	Name            string
 	Language        string
-	Public          bool
+	Visibility      string
 	PublicNamespace string
 	ResourceSubtype string
 	ModelName       string
-	EnableCloud     bool
 	Register        bool
 	DryRun          bool
 }
@@ -84,9 +90,9 @@ func promptUnauthenticated() bool {
 				Description("In order to register a module with Viam, you must be authenticated.\n"+
 					"You can continue to generate a module, but you will be unable to\n"+
 					"register the module with Viam.\n\n"+
-					"Would you like to conitnue without authenticating?").
+					"Would you like to continue without authenticating?").
 				Value(&unauthenticatedMode).
-				Affirmative("Contiue without authentication").
+				Affirmative("Continue without authentication").
 				Negative("Do not continue"),
 		),
 	).WithHeight(15).WithWidth(77)
@@ -106,14 +112,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var err error
 
 	newModule = &modulegen.ModuleInputs{
-		ModuleName:       args.Name,
-		Language:         args.Language,
-		IsPublic:         args.Public,
-		Namespace:        args.PublicNamespace,
-		ResourceSubtype:  args.ResourceSubtype,
-		ModelName:        args.ModelName,
-		EnableCloudBuild: args.EnableCloud,
-		RegisterOnApp:    args.Register,
+		ModuleName:      args.Name,
+		Language:        args.Language,
+		Visibility:      args.Visibility,
+		Namespace:       args.PublicNamespace,
+		ResourceSubtype: args.ResourceSubtype,
+		ModelName:       args.ModelName,
+		RegisterOnApp:   args.Register,
 	}
 
 	if err := newModule.CheckResourceAndSetType(); err != nil {
@@ -135,6 +140,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 
 	s := spinner.New()
 	var fatalError error
+	var registryURL string
 	nonFatalError := false
 	gArgs, err := getGlobalArgs(cCtx)
 	if err != nil {
@@ -157,7 +163,8 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		}
 
 		s.Title("Creating module and generating manifest...")
-		if err = createModuleAndManifest(cCtx, c, *newModule, globalArgs); err != nil {
+		registryURL, err = createModuleAndManifest(cCtx, c, *newModule, globalArgs)
+		if err != nil {
 			fatalError = err
 			return
 		}
@@ -214,7 +221,19 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		cwd = "."
 	}
 	printf(cCtx.App.Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
+	if registryURL != "" {
+		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
+	}
 	return nil
+}
+
+// returns model name based on chosen resource
+func modelName(module *modulegen.ModuleInputs) string {
+	resourceName := strings.Fields(module.Resource)[0]
+	if resourceName == "generic" {
+		resourceName = resourceName + "_" + strings.Fields(module.Resource)[1]
+	}
+	return resourceName
 }
 
 // Prompt the user for information regarding the module they want to create
@@ -276,7 +295,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Description("For more details about modular resources, view the documentation at \nhttps://docs.viam.com/registry/"),
 			huh.NewInput().
 				Title("Set a module name:").
-				Description("The module name can contain only alphanumeric characters, dashes, and underscores.").
+				Description("This can be the name of the piece of hardware, the challenge you are trying to solve,\n"+
+					"the name of the project, etc.\n"+
+					"The module name can contain only alphanumeric characters, dashes, and underscores.").
 				Value(&module.ModuleName).
 				Placeholder("my-module").
 				Suggestions([]string{"my-module"}).
@@ -300,11 +321,14 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					huh.NewOption("Go", golang),
 				).
 				Value(&module.Language),
-			huh.NewConfirm().
-				Title("Visibility").
-				Affirmative("Public").
-				Negative("Private").
-				Value(&module.IsPublic),
+			huh.NewSelect[string]().
+				Title("Visibiity:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&module.Visibility),
 			huh.NewInput().
 				Title("Namespace/Organization ID").
 				Value(&module.Namespace).
@@ -323,7 +347,12 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
 					"The model name can contain only alphanumeric characters, dashes, and underscores.").
-				Placeholder("my-model").
+				PlaceholderFunc(func() string {
+					return modelName(module)
+				}, &module.Resource).
+				SuggestionsFunc(func() []string {
+					return []string{modelName(module)}
+				}, &module.Resource).
 				Value(&module.ModelName).
 				Validate(func(s string) error {
 					if s == "" {
@@ -335,10 +364,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					}
 					return nil
 				}),
-			huh.NewConfirm().
-				Title("Enable cloud build").
-				Description("If enabled, this will generate GitHub workflows to build your module.").
-				Value(&module.EnableCloudBuild),
 			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
@@ -444,7 +469,9 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 
 	modelTriple := fmt.Sprintf("%s:%s:%s", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelTriple = modelTriple
-	newModule.ModelReadmeLink = "README.md#" + generateAnchor(fmt.Sprintf("Model %s", modelTriple))
+	// Create separate model documentation file instead of README section
+	modelDocFilename := fmt.Sprintf("%s_%s_%s.md", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
+	newModule.ModelReadmeLink = modelDocFilename
 	newModule.ModuleReadmeLink = defaultReadmeFilename
 }
 
@@ -485,61 +512,62 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 		return errors.Wrap(err, "failed to render README.md")
 	}
 
-	// Render workflows for cloud build
-	if module.EnableCloudBuild {
-		debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
-		destWorkflowPath := filepath.Join(module.ModuleName, ".github")
-		if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
-			return errors.Wrap(err, "failed to create cloud build workflow")
-		}
-
-		workflowPath := filepath.Join(templatesPath, ".github")
-		workflowFS, err := fs.Sub(templates, workflowPath)
-		if err != nil {
-			return errors.Wrap(err, "failed to create cloud build workflow")
-		}
-
-		err = fs.WalkDir(workflowFS, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				if d.Name() != ".github" {
-					debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
-					err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o750)
-					if err != nil {
-						return err
-					}
-				}
-			} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", path)
-				srcFile, err := templates.Open(filepath.Join(workflowPath, path))
-				if err != nil {
-					return errors.Wrapf(err, "error opening file %s", srcFile)
-				}
-				defer utils.UncheckedErrorFunc(srcFile.Close)
-
-				destPath := filepath.Join(destWorkflowPath, path)
-				//nolint:gosec
-				destFile, err := os.Create(destPath)
-				if err != nil {
-					return errors.Wrapf(err, "failed to create file %s", destPath)
-				}
-				defer utils.UncheckedErrorFunc(destFile.Close)
-
-				_, err = io.Copy(destFile, srcFile)
-				if err != nil {
-					return errors.Wrapf(err, "error executing template for %s", destPath)
-				}
-			}
-			return nil
-		})
-		if err != nil {
-			return errors.Wrap(err, "failed to render all common files")
-		}
-		return nil
+	// Render model documentation file
+	if err := renderModelDoc(module); err != nil {
+		return errors.Wrap(err, "failed to render model documentation")
 	}
 
+	// Render workflows for cloud build
+	debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
+	destWorkflowPath := filepath.Join(module.ModuleName, ".github")
+	if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
+		return errors.Wrap(err, "failed to create cloud build workflow")
+	}
+
+	workflowPath := filepath.Join(templatesPath, ".github")
+	workflowFS, err := fs.Sub(templates, workflowPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to create cloud build workflow")
+	}
+
+	err = fs.WalkDir(workflowFS, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() != ".github" {
+				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
+				err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o750)
+				if err != nil {
+					return err
+				}
+			}
+		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", path)
+			srcFile, err := templates.Open(filepath.Join(workflowPath, path))
+			if err != nil {
+				return errors.Wrapf(err, "error opening file %s", srcFile)
+			}
+			defer utils.UncheckedErrorFunc(srcFile.Close)
+
+			destPath := filepath.Join(destWorkflowPath, path)
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to create file %s", destPath)
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
+
+			_, err = io.Copy(destFile, srcFile)
+			if err != nil {
+				return errors.Wrapf(err, "error executing template for %s", destPath)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to render all common files")
+	}
 	return nil
 }
 
@@ -804,18 +832,20 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	return version, nil
 }
 
-func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) (string, error) {
 	var moduleID moduleID
+	var registryURL string
 	if module.RegisterOnApp {
 		debugf(cCtx.App.Writer, globalArgs.Debug, "Registering module with Viam")
 		moduleResponse, err := c.createModule(module.ModuleName, module.OrgID)
 		if err != nil {
-			return errors.Wrap(err, "failed to register module")
+			return "", errors.Wrap(err, "failed to register module")
 		}
 		moduleID, err = parseModuleID(moduleResponse.GetModuleId())
 		if err != nil {
-			return errors.Wrap(err, "failed to parse module identifier")
+			return "", errors.Wrap(err, "failed to parse module identifier")
 		}
+		registryURL = moduleResponse.GetUrl()
 	} else {
 		debugf(cCtx.App.Writer, globalArgs.Debug, "Creating a local-only module")
 		moduleID.name = module.ModuleName
@@ -823,9 +853,9 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 	}
 	err := renderManifest(cCtx, moduleID.String(), module, globalArgs)
 	if err != nil {
-		return errors.Wrap(err, "failed to render manifest")
+		return "", errors.Wrap(err, "failed to render manifest")
 	}
-	return nil
+	return registryURL, nil
 }
 
 // Create the README.md file.
@@ -860,24 +890,55 @@ func renderReadme(module modulegen.ModuleInputs) error {
 	return nil
 }
 
+// Create the model documentation file.
+func renderModelDoc(module modulegen.ModuleInputs) error {
+	const modelDocTemplate = "MODEL_DOC.md"
+	modelDocTemplatePath, err := templates.Open(filepath.Join(templatesPath, modelDocTemplate))
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(modelDocTemplatePath.Close)
+
+	tBytes, err := io.ReadAll(modelDocTemplatePath)
+	if err != nil {
+		return err
+	}
+
+	tmpl, err := template.New(modelDocTemplate).Parse(string(tBytes))
+	if err != nil {
+		return err
+	}
+
+	modelDocDest := filepath.Join(module.ModuleName, module.ModelReadmeLink)
+	//nolint:gosec
+	destFile, err := os.Create(modelDocDest)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(destFile.Close)
+
+	err = tmpl.Execute(destFile, module)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Create the meta.json manifest.
 func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
 
-	visibility := moduleVisibilityPrivate
-	if module.IsPublic {
-		visibility = moduleVisibilityPublic
+	visibility := module.Visibility
+	if !slices.Contains(visibilityOption, visibility) {
+		visibility = moduleVisibilityPrivate
+		warningf(c.App.Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
 	}
 
-	modelDescription := "Provide a short (100 characters or less) description of this model here"
-	manifest := moduleManifest{
-		Schema:      "https://dl.viam.dev/module.schema.json",
-		ModuleID:    moduleID,
-		Visibility:  visibility,
-		Description: fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
-		Models: []ModuleComponent{
-			{API: module.API, Model: module.ModelTriple, MarkdownLink: &module.ModelReadmeLink, Description: &modelDescription},
-		},
+	manifest := ModuleManifest{
+		Schema:       "https://dl.viam.dev/module.schema.json",
+		ModuleID:     moduleID,
+		Visibility:   visibility,
+		Description:  fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
 		MarkdownLink: &module.ModuleReadmeLink,
 	}
 	switch module.Language {
@@ -888,11 +949,7 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 			Path:  "dist/archive.tar.gz",
 			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
-		if module.EnableCloudBuild {
-			manifest.Entrypoint = "dist/main"
-		} else {
-			manifest.Entrypoint = "./run.sh"
-		}
+		manifest.Entrypoint = "dist/main"
 	case golang:
 		manifest.Build = &manifestBuildInfo{
 			Setup: "make setup",

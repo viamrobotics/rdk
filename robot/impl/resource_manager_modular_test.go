@@ -433,10 +433,7 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 	return nil, nil, nil
 }
 
-func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return nil
+func (m *dummyModMan) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
 }
 
 func (m *dummyModMan) CleanModuleDataDirectory() error {
@@ -454,6 +451,13 @@ func (m *dummyModMan) Close(ctx context.Context) error {
 
 func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
 	return nil
+}
+
+func (m *dummyModMan) FailedModules() []string {
+	return nil
+}
+
+func (m *dummyModMan) ClearFailedModules() {
 }
 
 func TestTwoModulesSameName(t *testing.T) {

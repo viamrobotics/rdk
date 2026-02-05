@@ -3,7 +3,6 @@ package builtin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -20,7 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 	pb "go.viam.com/api/service/motion/v1"
-	vutils "go.viam.com/utils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -33,7 +32,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/motion/builtin/state"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
@@ -74,16 +72,6 @@ const (
 	defaultExecuteEpsilon              = 0.01 // rad or mm
 )
 
-var (
-	defaultPositionPollingHz = 1.
-	defaultObstaclePollingHz = 1.
-)
-
-var (
-	stateTTL              = time.Hour * 24
-	stateTTLCheckInterval = time.Minute
-)
-
 // inputEnabledActuator is an actuator that interacts with the frame system.
 // This allows us to figure out where the actuator currently is and then
 // move it. Input units are always in meters or radians.
@@ -97,9 +85,10 @@ type Config struct {
 	LogFilePath string `json:"log_file_path"`
 	NumThreads  int    `json:"num_threads"`
 
-	PlanFilePath           string `json:"plan_file_path"`
-	LogPlannerErrors       bool   `json:"log_planner_errors"`
-	LogSlowPlanThresholdMS int    `json:"log_slow_plan_threshold_ms"`
+	PlanFilePath                string `json:"plan_file_path"`
+	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
+	LogPlannerErrors            bool   `json:"log_planner_errors"`
+	LogSlowPlanThresholdMS      int    `json:"log_slow_plan_threshold_ms"`
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
@@ -145,7 +134,6 @@ type builtIn struct {
 	visionServices          map[string]vision.Service
 	components              map[string]resource.Resource
 	logger                  logging.Logger
-	state                   *state.State
 	configuredDefaultExtras map[string]any
 }
 
@@ -210,24 +198,11 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
-	if ms.state != nil {
-		ms.state.Stop()
-	}
 
-	state, err := state.NewState(stateTTL, stateTTLCheckInterval, ms.logger)
-	if err != nil {
-		return err
-	}
-	ms.state = state
 	return nil
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-	if ms.state != nil {
-		ms.state.Stop()
-	}
 	return nil
 }
 
@@ -246,84 +221,11 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 }
 
 func (ms *builtIn) MoveOnMap(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnMap called with %s", req)
-
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	ms.applyDefaultExtras(req.Extra)
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnMapRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
-}
-
-type validatedExtra struct {
-	maxReplans       int
-	replanCostFactor float64
-	extra            map[string]interface{}
-}
-
-func newValidatedExtra(extra map[string]interface{}) (validatedExtra, error) {
-	maxReplans := -1
-	replanCostFactor := defaultReplanCostFactor
-	v := validatedExtra{}
-	if extra == nil {
-		v.extra = map[string]interface{}{"smooth_iter": defaultSmoothIter}
-		return v, nil
-	}
-	if replansRaw, ok := extra["max_replans"]; ok {
-		if replans, ok := replansRaw.(int); ok {
-			maxReplans = replans
-		}
-	}
-
-	if costFactorRaw, ok := extra["replan_cost_factor"]; ok {
-		costFactor, ok := costFactorRaw.(float64)
-		if !ok {
-			return validatedExtra{}, errors.New("could not interpret replan_cost_factor field as float")
-		}
-		replanCostFactor = costFactor
-	}
-
-	if _, ok := extra["smooth_iter"]; !ok {
-		extra["smooth_iter"] = defaultSmoothIter
-	}
-	if _, ok := extra["collision_buffer_mm"]; !ok {
-		extra["collision_buffer_mm"] = defaultCollisionBuffer
-	}
-
-	return validatedExtra{
-		maxReplans:       maxReplans,
-		replanCostFactor: replanCostFactor,
-		extra:            extra,
-	}, nil
+	return uuid.Nil, fmt.Errorf("MoveOnMap not supported by builtin")
 }
 
 func (ms *builtIn) MoveOnGlobe(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
-	if err := ctx.Err(); err != nil {
-		return uuid.Nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	ms.logger.CDebugf(ctx, "MoveOnGlobe called with %s", req)
-	// TODO: Deprecated: remove once no motion apis use the opid system
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
-
-	ms.applyDefaultExtras(req.Extra)
-	id, err := state.StartExecution(ctx, ms.state, req.ComponentName, req, ms.newMoveOnGlobeRequest)
-	if err != nil {
-		return uuid.Nil, err
-	}
-
-	return id, nil
+	return uuid.Nil, fmt.Errorf("MoveOnGlobeReqe not supported by builtin")
 }
 
 // GetPose is deprecated.
@@ -344,36 +246,21 @@ func (ms *builtIn) StopPlan(
 	ctx context.Context,
 	req motion.StopPlanReq,
 ) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.StopExecutionByResource(req.ComponentName)
+	return fmt.Errorf("StopPlan not supported by builtin")
 }
 
 func (ms *builtIn) ListPlanStatuses(
 	ctx context.Context,
 	req motion.ListPlanStatusesReq,
 ) ([]motion.PlanStatusWithID, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.ListPlanStatuses(req)
+	return nil, fmt.Errorf("ListPlanStatuses not supported by builtin")
 }
 
 func (ms *builtIn) PlanHistory(
 	ctx context.Context,
 	req motion.PlanHistoryReq,
 ) ([]motion.PlanWithStatus, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	return ms.state.PlanHistory(req)
+	return nil, fmt.Errorf("PlanHistory not supported by builtin")
 }
 
 // DoCommand supports two commands which are specified through the command map
@@ -573,7 +460,7 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		if wp.Poses() != nil {
 			step := referenceframe.FrameSystemPoses{}
 			for fName, destination := range wp.Poses() {
-				tf, err := frameSys.Transform(fsInputs, destination, solvingFrame)
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
 				if err != nil {
 					return nil, err
 				}
@@ -605,7 +492,12 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	start := time.Now()
 	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
-		err := ms.writePlanRequest(planRequest)
+		var traceID string
+		if span := trace.FromContext(ctx); span != nil {
+			traceID = span.SpanContext().TraceID().String()
+		}
+
+		err := ms.writePlanRequest(planRequest, plan, start, traceID, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -788,22 +680,42 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
-func (ms *builtIn) writePlanRequest(req *armplanning.PlanRequest) error {
-	fn := filepath.Join(ms.conf.PlanFilePath, fmt.Sprintf("plan-%s.json", time.Now().Format(time.RFC3339)))
-	ms.logger.Infof("writing plan to %s", fn)
+func (ms *builtIn) writePlanRequest(
+	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID string, planError error,
+) error {
+	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
-	data, err := json.MarshalIndent(req, "", "  ")
-	if err != nil {
+	if planError != nil {
+		planExtra += "-err"
+	}
+
+	if plan != nil {
+		totalL2 := 0.0
+
+		t := plan.Trajectory()
+		for idx := 1; idx < len(t); idx++ {
+			for k := range t[idx] {
+				myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+				totalL2 += myl2n
+			}
+		}
+
+		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
+	}
+
+	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
+		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
+	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
+		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+	} else {
+		fn = filepath.Join(ms.conf.PlanFilePath, fn)
+	}
+
+	dir := filepath.Dir(fn)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
-	file, err := os.OpenFile(filepath.Clean(fn), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	defer vutils.UncheckedErrorFunc(file.Close)
-	_, err = file.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	ms.logger.Infof("writing plan to %s", fn)
+	return req.WriteToFile(fn)
 }

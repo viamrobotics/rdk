@@ -53,6 +53,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/components/servo"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
@@ -347,8 +348,16 @@ func TestStatusClient(t *testing.T) {
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
 
-	injectCamera.ImageFunc = func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-		return imgBuf.Bytes(), camera.ImageMetadata{MimeType: rutils.MimeTypePNG}, nil
+	injectCamera.ImagesFunc = func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+		namedImg, err := camera.NamedImageFromBytes(imgBuf.Bytes(), "", rutils.MimeTypePNG, data.Annotations{})
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
+		}
+		return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -383,74 +392,74 @@ func TestStatusClient(t *testing.T) {
 
 	armSvc1, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1, logger))
 
 	armSvc2, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2, logger))
 
 	baseSvc, err := resource.NewAPIResourceCollection(base.API, map[resource.Name]base.Base{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc))
+	gServer1.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc, logger))
 
 	baseSvc2, err := resource.NewAPIResourceCollection(base.API, map[resource.Name]base.Base{base.Named("base1"): &inject.Base{}})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc2))
+	gServer2.RegisterService(&basepb.BaseService_ServiceDesc, base.NewRPCServiceServer(baseSvc2, logger))
 
 	boardSvc1, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc1))
+	gServer1.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc1, logger))
 
 	boardSvc2, err := resource.NewAPIResourceCollection(board.API, map[resource.Name]board.Board{board.Named("board1"): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc2))
+	gServer2.RegisterService(&boardpb.BoardService_ServiceDesc, board.NewRPCServiceServer(boardSvc2, logger))
 
 	cameraSvc1, err := resource.NewAPIResourceCollection(camera.API, map[resource.Name]camera.Camera{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc1))
+	gServer1.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc1, logger))
 
 	cameraSvc2, err := resource.NewAPIResourceCollection(camera.API, map[resource.Name]camera.Camera{camera.Named("camera1"): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc2))
+	gServer2.RegisterService(&camerapb.CameraService_ServiceDesc, camera.NewRPCServiceServer(cameraSvc2, logger))
 
 	gripperSvc1, err := resource.NewAPIResourceCollection(gripper.API, map[resource.Name]gripper.Gripper{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc1))
+	gServer1.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc1, logger))
 
 	gripperSvc2, err := resource.NewAPIResourceCollection(gripper.API,
 		map[resource.Name]gripper.Gripper{gripper.Named("gripper1"): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc2))
+	gServer2.RegisterService(&gripperpb.GripperService_ServiceDesc, gripper.NewRPCServiceServer(gripperSvc2, logger))
 
 	inputControllerSvc1, err := resource.NewAPIResourceCollection(input.API, map[resource.Name]input.Controller{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc1))
+	gServer1.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc1, logger))
 
 	inputControllerSvc2, err := resource.NewAPIResourceCollection(
 		input.API, map[resource.Name]input.Controller{input.Named("inputController1"): injectInputDev})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc2))
+	gServer2.RegisterService(&inputcontrollerpb.InputControllerService_ServiceDesc, input.NewRPCServiceServer(inputControllerSvc2, logger))
 
 	motorSvc, err := resource.NewAPIResourceCollection(motor.API, map[resource.Name]motor.Motor{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc))
+	gServer1.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc, logger))
 
 	motorSvc2, err := resource.NewAPIResourceCollection(motor.API,
 		map[resource.Name]motor.Motor{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc2))
+	gServer2.RegisterService(&motorpb.MotorService_ServiceDesc, motor.NewRPCServiceServer(motorSvc2, logger))
 
 	servoSvc, err := resource.NewAPIResourceCollection(servo.API, map[resource.Name]servo.Servo{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc))
+	gServer1.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc, logger))
 
 	servoSvc2, err := resource.NewAPIResourceCollection(servo.API, map[resource.Name]servo.Servo{servo.Named("servo1"): injectServo})
 	test.That(t, err, test.ShouldBeNil)
-	gServer2.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc2))
+	gServer2.RegisterService(&servopb.ServoService_ServiceDesc, servo.NewRPCServiceServer(servoSvc2, logger))
 
 	sensorSvc, err := resource.NewAPIResourceCollection(sensor.API, map[resource.Name]sensor.Sensor{})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&sensorpb.SensorService_ServiceDesc, sensor.NewRPCServiceServer(sensorSvc))
+	gServer1.RegisterService(&sensorpb.SensorService_ServiceDesc, sensor.NewRPCServiceServer(sensorSvc, logger))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -492,7 +501,7 @@ func TestStatusClient(t *testing.T) {
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.FromRobot(client, "arm1")
+	arm1, err := arm.FromProvider(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -510,10 +519,10 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	_, err = base.FromRobot(client, "base1")
+	_, err = base.FromProvider(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	board1, err := board.FromRobot(client, "board1")
+	board1, err := board.FromProvider(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
 	pin, err := board1.GPIOPinByName("pin")
@@ -521,15 +530,15 @@ func TestStatusClient(t *testing.T) {
 	_, err = pin.Get(context.Background(), nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	camera1, err := camera.FromRobot(client, "camera1")
+	camera1, err := camera.FromProvider(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
-	imgBytes, metadata, err := camera1.Image(context.Background(), rutils.MimeTypeJPEG, nil)
+	namedImages, metadata, err := camera1.Images(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	test.That(t, imgBytes, test.ShouldBeNil)
-	test.That(t, metadata, test.ShouldResemble, camera.ImageMetadata{})
+	test.That(t, len(namedImages), test.ShouldEqual, 0)
+	test.That(t, metadata, test.ShouldResemble, resource.ResponseMetadata{})
 
-	gripper1, err := gripper.FromRobot(client, "gripper1")
+	gripper1, err := gripper.FromProvider(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -538,7 +547,7 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	motor1, err := motor.FromRobot(client, "motor1")
+	motor1, err := motor.FromProvider(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	err = motor1.SetPower(context.Background(), 0, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -547,13 +556,13 @@ func TestStatusClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	sensorDevice, err := sensor.FromRobot(client, "sensor1")
+	sensorDevice, err := sensor.FromProvider(client, "sensor1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = sensorDevice.Readings(context.Background(), make(map[string]interface{}))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	servo1, err := servo.FromRobot(client, "servo1")
+	servo1, err := servo.FromProvider(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 5, nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -589,49 +598,49 @@ func TestStatusClient(t *testing.T) {
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, err = arm.FromRobot(client, "arm1")
+	arm1, err = arm.FromProvider(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.EndPosition(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatialmath.PoseAlmostEqual(pos, pose1), test.ShouldBeTrue)
 
-	_, err = base.FromRobot(client, "base1")
+	_, err = base.FromProvider(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = board.FromRobot(client, "board1")
+	_, err = board.FromProvider(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
 
-	camera1, err = camera.FromRobot(client, "camera1")
+	camera1, err = camera.FromProvider(client, "camera1")
 	test.That(t, err, test.ShouldBeNil)
 
-	frame, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeRawRGBA, nil, camera1)
+	frame, err := camera.DecodeImageFromCamera(context.Background(), camera1, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 
-	gripper1, err = gripper.FromRobot(client, "gripper1")
+	gripper1, err = gripper.FromProvider(client, "gripper1")
 	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 
-	inputDev, err := input.FromRobot(client, "inputController1")
+	inputDev, err := input.FromProvider(client, "inputController1")
 	test.That(t, err, test.ShouldBeNil)
 	controlList, err := inputDev.Controls(context.Background(), map[string]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
-	motor1, err = motor.FromRobot(client, "motor1")
+	motor1, err = motor.FromProvider(client, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor1, test.ShouldNotBeNil)
 
-	motor2, err := motor.FromRobot(client, "motor2")
+	motor2, err := motor.FromProvider(client, "motor2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor2, test.ShouldNotBeNil)
 
-	servo1, err = servo.FromRobot(client, "servo1")
+	servo1, err = servo.FromProvider(client, "servo1")
 	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 4, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -995,7 +1004,8 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 		t.Helper()
 
 		client.connected.Store(false)
-		//nolint:staticcheck // the status API is deprecated
+
+		//nolint:staticcheck
 		_, err = client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, status.Code(err), test.ShouldEqual, codes.Unavailable)
 		test.That(t, err.Error(), test.ShouldContainSubstring, fmt.Sprintf("not connected to remote robot at %s", listener.Addr().String()))
@@ -1006,7 +1016,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("stream call to connected remote", func(t *testing.T) {
 		t.Helper()
 
-		//nolint:staticcheck // the status API is deprecated
+		//nolint:staticcheck
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		ssc.Recv()
@@ -1016,7 +1026,7 @@ func TestClientStreamDisconnectHandler(t *testing.T) {
 	t.Run("receive call from stream of disconnected remote", func(t *testing.T) {
 		t.Helper()
 
-		//nolint:staticcheck // the status API is deprecated
+		//nolint:staticcheck
 		ssc, err := client.client.StreamStatus(context.Background(), &pb.StreamStatusRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
@@ -1084,7 +1094,7 @@ func TestClientReconnect(t *testing.T) {
 
 	armSvc2, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2, logger))
 
 	go gServer.Serve(listener)
 
@@ -1120,7 +1130,7 @@ func TestClientReconnect(t *testing.T) {
 
 	gServer2 := grpc.NewServer()
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot))
-	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2))
+	gServer2.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc2, logger))
 
 	// Note: There's a slight chance this test can fail if someone else
 	// claims the port we just released by closing the server.
@@ -1603,6 +1613,7 @@ func TestForeignResource(t *testing.T) {
 }
 
 func TestNewRobotClientRefresh(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
@@ -1722,7 +1733,7 @@ func TestRemoteClientMatch(t *testing.T) {
 
 	armSvc1, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{arm.Named("remote:arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1, logger))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -1774,7 +1785,7 @@ func TestRemoteClientDuplicate(t *testing.T) {
 		arm.Named("remote2:arm1"): injectArm,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1))
+	gServer1.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc1, logger))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -2020,8 +2031,8 @@ func TestCurrentInputs(t *testing.T) {
 	testName2 := resource.NewName(testAPI, "arm2")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName():  []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
-		testName2.ShortName(): []referenceframe.Input{{math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}, {0}},
+		testName.ShortName():  []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi},
+		testName2.ShortName(): []referenceframe.Input{math.Pi, -math.Pi, 0, math.Pi, -math.Pi, 0},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
@@ -2052,7 +2063,7 @@ func TestCurrentInputs(t *testing.T) {
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc, logger))
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)

@@ -9,7 +9,6 @@ import (
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/service/summation/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 // API is the full API definition.
@@ -20,9 +19,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named Summation from the given Robot.
-func FromRobot(r robot.Robot, name string) (Summation, error) {
-	return robot.ResourceFromRobot[Summation](r, Named(name))
+// FromProvider is a helper for getting the named Summation
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Summation, error) {
+	return resource.FromProvider[Summation](provider, Named(name))
 }
 
 func init() {
@@ -55,7 +55,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer returns a new RPC server for the summation API.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Summation]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Summation], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

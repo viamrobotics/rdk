@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/module/trace"
 	"go.viam.com/rdk/resource"
 )
 
@@ -73,6 +74,8 @@ func newFoo(ctx context.Context,
 	conf resource.Config,
 	logger logging.Logger,
 ) (resource.Resource, error) {
+	ctx, span := trace.StartSpan(ctx, "optionaldepsmodule::newFoo")
+	defer span.End()
 	f := &foo{
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
@@ -93,13 +96,13 @@ func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
 		return err
 	}
 
-	f.requiredMotor, err = motor.FromDependencies(deps, fooConfig.RequiredMotor)
+	f.requiredMotor, err = motor.FromProvider(deps, fooConfig.RequiredMotor)
 	if err != nil {
 		return fmt.Errorf("could not get required motor %s from dependencies",
 			fooConfig.RequiredMotor)
 	}
 
-	f.optionalMotor, err = motor.FromDependencies(deps, fooConfig.OptionalMotor)
+	f.optionalMotor, err = motor.FromProvider(deps, fooConfig.OptionalMotor)
 	if err != nil {
 		f.logger.Infof("could not get optional motor %s from dependencies; continuing",
 			fooConfig.OptionalMotor)
@@ -188,7 +191,7 @@ func newMutualOptionalChild(ctx context.Context,
 		return nil, err
 	}
 
-	moc.otherMOC, err = generic.FromDependencies(deps, mutualOptionalChildConfig.OtherMOC)
+	moc.otherMOC, err = generic.FromProvider(deps, mutualOptionalChildConfig.OtherMOC)
 	if err != nil {
 		moc.logger.Infof("could not get other MOC %s from dependencies; continuing",
 			mutualOptionalChildConfig.OtherMOC)

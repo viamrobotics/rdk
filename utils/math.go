@@ -140,7 +140,7 @@ func ScaleByPct(n int, pct float64) int {
 
 // SampleRandomIntRange samples a random integer within a range given by [min, max]
 // using the given rand.Rand.
-func SampleRandomIntRange(min, max int, r *rand.Rand) int {
+func SampleRandomIntRange(min, max int, r *rand.Rand) int { //nolint: revive
 	return r.Intn(max-min+1) + min
 }
 
@@ -156,7 +156,7 @@ func Float32AlmostEqual(a, b, epsilon float32) bool {
 
 // Clamp returns min if value is lesser than min, max if value is greater them max or value if the input value is
 // between min and max.
-func Clamp(value, min, max float64) float64 {
+func Clamp(value, min, max float64) float64 { //nolint: revive
 	if value < min {
 		return min
 	} else if value > max {

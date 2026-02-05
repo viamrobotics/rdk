@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,9 +9,12 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -94,7 +98,9 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
 	}
 
-	<-ctx.Context.Done()
+	notifyCtx, _ := signal.NotifyContext(ctx.Context, os.Interrupt, syscall.SIGTERM)
+
+	<-notifyCtx.Done()
 
 	if err := httpServer.Shutdown(context.Background()); err != nil {
 		return fmt.Errorf("error shutting down server: %w", err)
@@ -277,11 +283,9 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 			if err != nil {
 				return fmt.Errorf("error reading response body: %w", err)
 			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil {
-					printf(l.logger, "Error closing response body: %v", err)
-				}
-			}()
+			if err := resp.Body.Close(); err != nil {
+				printf(l.logger, "Error closing response body: %v", err)
+			}
 
 			if strings.Contains(originalPath, "/machine") {
 				// take first 3 components if available ([1 empty]/[2 machine]/[3 machine ID]/....)
@@ -304,6 +308,8 @@ func (l *localAppTestingServer) addBaseTagToHTMLResponse() func(resp *http.Respo
 				resp.Body = io.NopCloser(strings.NewReader(newBody))
 				resp.ContentLength = int64(len(newBody))
 				resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
+			} else {
+				resp.Body = io.NopCloser(bytes.NewReader(body))
 			}
 		}
 		return nil

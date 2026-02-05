@@ -25,7 +25,10 @@ type Geometry interface {
 	Transform(Pose) Geometry
 
 	// CollidesWith returns a bool describing if the two geometries are within the given float of colliding with each other.
-	CollidesWith(Geometry, float64) (bool, error)
+	// The 2nd return value is -1 if there is a collision, and if not, a lower bound of the distance between the objects.
+	// It is meant to be computed quickly.
+	// If it cannot be, should just return buffer
+	CollidesWith(other Geometry, buffer float64) (bool, float64, error)
 
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
@@ -47,6 +50,8 @@ type Geometry interface {
 	// ToProtobuf converts a Geometry to its protobuf representation.
 	ToProtobuf() *commonpb.Geometry
 
+	Hash() int
+
 	json.Marshaler
 }
 
@@ -60,6 +65,7 @@ const (
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
+	MeshType    = GeometryType("mesh")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -76,6 +82,11 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// parameters used for defining a mesh
+	MeshData        []byte `json:"mesh_data,omitempty"`         // Binary mesh file data
+	MeshContentType string `json:"mesh_content_type,omitempty"` // e.g., "stl", "ply"
+	MeshFilePath    string `json:"mesh_file_path,omitempty"`    // Original URDF mesh path (e.g., "meshes/ur20/collision/base.stl")
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -105,6 +116,12 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Label = gType.label
 	case *point:
 		config.Type = PointType
+		config.Label = gType.label
+	case *Mesh:
+		config.Type = MeshType
+		config.MeshData = gType.rawBytes
+		config.MeshContentType = string(gType.fileType)
+		config.MeshFilePath = gType.originalFilePath
 		config.Label = gType.label
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
@@ -139,6 +156,24 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
+	case MeshType:
+		if len(config.MeshData) == 0 {
+			return nil, fmt.Errorf("mesh geometry requires mesh data")
+		}
+		// Create proto Mesh and use NewMeshFromProto
+		protoMesh := &commonpb.Mesh{
+			Mesh:        config.MeshData,
+			ContentType: config.MeshContentType,
+		}
+		mesh, err := NewMeshFromProto(offset, protoMesh, config.Label)
+		if err != nil {
+			return nil, err
+		}
+		// Preserve the original file path for round-tripping
+		if config.MeshFilePath != "" {
+			mesh.SetOriginalFilePath(config.MeshFilePath)
+		}
+		return mesh, nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}

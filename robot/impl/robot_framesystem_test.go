@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -18,11 +19,13 @@ import (
 	"go.viam.com/rdk/resource"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
 func TestFrameSystemConfigWithRemote(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	// make the remote robots
 	remoteConfig, err := config.Read(context.Background(), rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"), nil)
@@ -137,7 +140,8 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 
 	// expected error as remote parent frame is missing
 	_, err = referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "references non-existent parent")
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"Cannot construct frame system. Some parts are not linked to the world frame")
 
 	// reconfigure to no longer have remote parent frame
 	localConfig = &config.Config{
@@ -197,6 +201,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 }
 
 func TestServiceWithUnavailableRemote(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	o1 := &spatialmath.R4AA{math.Pi / 2., 0, 0, 1}
 	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
@@ -227,7 +232,7 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, context.Background(), localConfig, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), localConfig, logger, WithDisableCompleteConfigWorker())
 
 	// make sure calling into remotes don't error
 	fsCfg, err := r.FrameSystemConfig(context.Background())
@@ -236,4 +241,72 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
+}
+
+func TestModularFramesystemDependency(t *testing.T) {
+	// Primarily a regression test for RSDK-9430/12124. Ensures that a modular resource can
+	// depend on the framesystem service and use the service through that dependency,
+	// whether through the constructor or the Reconfigure method.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	testFSDependentModel := resource.NewModel("rdk", "test", "fsdep")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "fsDep",
+				Model: testFSDependentModel,
+				API:   generic.API,
+			},
+			{
+				Name:  "foo",
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+			{
+				Name:  "myParentIsFoo",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: "foo",
+				},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	fsDep, err := r.ResourceByName(generic.Named("fsDep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err := fsDep.DoCommand(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
+
+	// Do a meaningless reconfigure (random attributes) to force a ReconfigureResource call
+	// to `fsDep` that will try to grab the framesystem from the passed in deps.
+	cfg.Components[0].Attributes = rutils.AttributeMap{"not": "used"}
+	r.Reconfigure(ctx, cfg)
+
+	// Assert that `fsDep` is still reachable and usable.
+	fsDep, err = r.ResourceByName(generic.Named("fsDep"))
+	test.That(t, err, test.ShouldBeNil)
+
+	resp, err = fsDep.DoCommand(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
+	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
 }

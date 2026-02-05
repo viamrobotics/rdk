@@ -8,6 +8,8 @@ run:
 linters:
   enable-all: true
   disable:
+    - recvcheck
+    - iface
     - asasalint
     - canonicalheader
     - containedctx
@@ -15,7 +17,6 @@ linters:
     - copyloopvar # TODO(go1.23): reenable in follow-up
     - cyclop
     - depguard
-    - execinquery
     - exhaustruct
     - exportloopref
     - fatcontext # TODO(go1.23): reenable in follow-up
@@ -27,11 +28,14 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocyclo
+    - godot # A comment included a table. This added a period to the end of the table.
     - gofmt
     - goimports
-    - gomnd
     - importas
     - inamedparam
+    # ineffassign creates subtle bugs. See
+    # https://github.com/viamrobotics/rdk/pull/5445/commits/c1f67c54e350e4581ff694290db478b87a75a050#r2503703401
+    - ineffassign
     - interfacebloat
     - intrange # TODO(go1.23): reenable in follow-up
     - ireturn
@@ -55,6 +59,8 @@ linters:
     - tenv # TODO(go1.23): reenable in follow-up
     - testpackage
     - thelper # false positives
+    - tparallel # there are valid reasons to have top-level t.Parallel() but serial subtests
+    - unparam # not useful
     - varnamelen
     - wrapcheck
     - wsl
@@ -76,6 +82,7 @@ linters-settings:
       - composites
   gosec:
     excludes:
+      - G104 # Unhandled errors. These are already linted on, no need to double lint.
       - G115 # TODO(go1.23): maybe reenable
   revive:
     # Unfortunately configuring a single rules disables all other rules, even
@@ -113,6 +120,16 @@ linters-settings:
   gocritic:
     disabled-checks:
       - ifElseChain
+  gomoddirectives:
+    replace-allow-list: [github.com/hashicorp/go-getter]
+  stylecheck:
+    checks:
+      - all
+      - "-ST1005" # Low value complaint. Can remove when gosimple rewrites code in place instead of failing.
+  gosimple:
+    checks:
+      - all
+      - "-S1002" # Low value complaint. Can remove when gosimple rewrites code in place instead of failing.
 issues:
   exclude-rules:
     - path: _test\.go$

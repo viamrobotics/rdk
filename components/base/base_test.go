@@ -29,15 +29,15 @@ func TestFromRobot(t *testing.T) {
 	expected := []string{"base1", "base2"}
 	testutils.VerifySameElements(t, base.NamesFromRobot(r), expected)
 
-	_, err := base.FromRobot(r, "base1")
+	_, err := base.FromProvider(r, "base1")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = base.FromRobot(r, "base2")
+	_, err = base.FromProvider(r, "base2")
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = base.FromRobot(r, "base0")
+	_, err = base.FromProvider(r, "base0")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	_, err = base.FromRobot(r, "g")
+	_, err = base.FromProvider(r, "g")
 	test.That(t, err, test.ShouldNotBeNil)
 }

@@ -77,6 +77,16 @@ func (r4 *R4AA) ToQuat() quat.Number {
 	return quat.Number{w, ax, ay, az}
 }
 
+// Hash returns a hash value for this R4AA.
+func (r4 *R4AA) Hash() int {
+	hash := 0
+	hash += (5 * (int(r4.Theta*1000) + 1000)) * 2
+	hash += (6 * (int(r4.RX*1000) + 2000)) * 3
+	hash += (7 * (int(r4.RY*1000) + 3000)) * 4
+	hash += (8 * (int(r4.RZ*1000) + 4000)) * 5
+	return hash
+}
+
 // Normalize scales the x, y, and z components of a R4 axis angle to be on the unit sphere.
 func (r4 *R4AA) Normalize() {
 	norm := math.Sqrt(r4.RX*r4.RX + r4.RY*r4.RY + r4.RZ*r4.RZ)

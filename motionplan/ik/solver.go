@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"strings"
 
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -25,14 +24,24 @@ const (
 	defaultGoalThreshold = defaultEpsilon * defaultEpsilon
 )
 
+// CostFunc is the function to minimize.
+type CostFunc func(context.Context, []float64) float64
+
+// SeedSolveMetaData meta data about how a seed did
+type SeedSolveMetaData struct {
+	Attempts int
+	Errors   int
+	Valid    int
+}
+
 // Solver defines an interface which, provided with seed inputs and a function to minimize to zero, will output all found
 // solutions to the provided channel until cancelled or otherwise completes.
 type Solver interface {
-	referenceframe.Limited
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
-	Solve(ctx context.Context, solutions chan<- *Solution, seed []float64,
-		travelPercent []float64, minFunc func([]float64) float64, rseed int) (int, error)
+	Solve(ctx context.Context, solutions chan<- *Solution,
+		seeds [][]float64, limits [][]referenceframe.Limit,
+		minFunc CostFunc, rseed int) (int, []SeedSolveMetaData, error)
 }
 
 // Solution is the struct returned from an IK solver. It contains the solution configuration, the score of the solution, and a flag
@@ -41,6 +50,7 @@ type Solution struct {
 	Configuration []float64
 	Score         float64
 	Exact         bool
+	Meta          string
 }
 
 // generateRandomPositions generates a random set of positions within the limits of this solver.
@@ -65,40 +75,40 @@ func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float
 }
 
 func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+	//nolint: revive
 	var min, max []float64
 	for _, limit := range limits {
+		//nolint: revive
 		min = append(min, limit.Min)
+		//nolint: revive
 		max = append(max, limit.Max)
 	}
+
 	return min, max
 }
 
-// NewMetricMinFunc takes a metric and a frame, and converts to a function able to be minimized with Solve().
-func NewMetricMinFunc(metric motionplan.StateMetric, frame referenceframe.Frame, logger logging.Logger) func([]float64) float64 {
-	return func(x []float64) float64 {
-		mInput := &motionplan.State{Frame: frame}
-		inputs := referenceframe.FloatsToInputs(x)
-		eePos, err := frame.Transform(inputs)
-		if eePos == nil || (err != nil && !strings.Contains(err.Error(), referenceframe.OOBErrString)) {
-			logger.Errorw("error calculating frame Transform in IK", "error", err)
-			return math.Inf(1)
-		}
-		mInput.Configuration = inputs
-		mInput.Position = eePos
-		return metric(mInput)
-	}
-}
-
 // DoSolve is a synchronous wrapper around Solver.Solve.
-func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float64, seed []float64) ([][]float64, error) {
+// rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
+//
+//	but will fail if you have to move. 1 means search the entire range.
+func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
+	seeds [][]float64, limits [][]referenceframe.Limit,
+) ([][]float64, []SeedSolveMetaData, error) {
+	limits, err := fixLimits(len(seeds), limits)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	solutionGen := make(chan *Solution)
 
 	var solveErrors error
+	var meta []SeedSolveMetaData
 
 	go func() {
 		defer close(solutionGen)
-		_, err := solver.Solve(ctx, solutionGen, seed, nil, solveFunc, 1)
+		_, m, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
 		solveErrors = err
+		meta = m
 	}()
 
 	var solutions [][]float64
@@ -107,12 +117,79 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc func([]float64) float
 	}
 
 	if solveErrors != nil {
-		return nil, solveErrors
+		return nil, nil, solveErrors
 	}
 
 	if len(solutions) == 0 {
-		return nil, fmt.Errorf("unable to solve for position")
+		return nil, nil, fmt.Errorf("unable to solve for position")
 	}
 
-	return solutions, nil
+	return solutions, meta, nil
+}
+
+func fixLimits(numSeeds int, limits [][]referenceframe.Limit) ([][]referenceframe.Limit, error) {
+	if numSeeds == len(limits) {
+		return limits, nil
+	}
+
+	if len(limits) == 0 {
+		return nil, fmt.Errorf("have no limits")
+	}
+
+	if len(limits) > 1 {
+		return nil, fmt.Errorf("if not specifying limit for every seed, can only specify 1, not %d", len(limits))
+	}
+
+	newLimits := [][]referenceframe.Limit{}
+
+	for range numSeeds {
+		newLimits = append(newLimits, limits[0])
+	}
+
+	return newLimits, nil
+}
+
+// ComputeAdjustLimits adjusts limits by delta.
+func ComputeAdjustLimits(seed []float64, limits []referenceframe.Limit, delta float64) []referenceframe.Limit {
+	if delta <= 0 || delta >= 1 {
+		return limits
+	}
+
+	newLimits := []referenceframe.Limit{}
+
+	for i, s := range seed {
+		lmin, lmax, r := limits[i].GoodLimits()
+		d := r * delta
+
+		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+	}
+	return newLimits
+}
+
+// ComputeAdjustLimitsArray adjusts limits by deltas for each limit
+func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, deltas []float64) []referenceframe.Limit {
+	if len(limits) != len(seed) || len(deltas) != len(seed) {
+		panic(fmt.Errorf("bad args seed: %d limits: %d deltas: %d", len(seed), len(limits), len(deltas)))
+	}
+	newLimits := []referenceframe.Limit{}
+
+	for i, s := range seed {
+		lmin, lmax, r := limits[i].GoodLimits()
+		d := r * deltas[i]
+
+		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
+	}
+	return newLimits
+}
+
+// NewMetricMinFunc creates a cost function that minimizes distance to a goal pose using the specified metric
+func NewMetricMinFunc(metricFunc func(spatialmath.Pose) float64, frame referenceframe.Frame, logger logging.Logger) CostFunc {
+	return func(ctx context.Context, inputs []float64) float64 {
+		currentPose, err := frame.Transform(inputs)
+		if err != nil {
+			logger.Debugf("Transform error in metric: %v", err)
+			return math.Inf(1)
+		}
+		return metricFunc(currentPose)
+	}
 }

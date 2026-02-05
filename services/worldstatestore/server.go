@@ -5,11 +5,12 @@ import (
 	"errors"
 	"io"
 
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
+	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -20,7 +21,7 @@ type serviceServer struct {
 }
 
 // NewRPCServiceServer constructs a the world state store gRPC service server.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

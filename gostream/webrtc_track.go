@@ -156,29 +156,16 @@ func (s *trackLocalStaticRTP) Write(b []byte) (n int, err error) {
 // trackLocalStaticSample is a TrackLocal that has a pre-set codec and accepts Samples.
 // If you wish to send a RTP Packet use trackLocalStaticRTP.
 type trackLocalStaticSample struct {
-	packetizer   rtp.Packetizer
-	rtpTrack     *trackLocalStaticRTP
-	sampler      samplerFunc
-	isAudio      bool
-	clockRate    uint32
-	audioLatency time.Duration
+	packetizer rtp.Packetizer
+	rtpTrack   *trackLocalStaticRTP
+	sampler    samplerFunc
+	clockRate  uint32
 }
 
 // newVideoTrackLocalStaticSample returns a trackLocalStaticSample for video.
 func newVideoTrackLocalStaticSample(c webrtc.RTPCodecCapability, id, streamID string) *trackLocalStaticSample {
 	return &trackLocalStaticSample{
 		rtpTrack: newtrackLocalStaticRTP(c, id, streamID),
-	}
-}
-
-// newAudioTrackLocalStaticSample returns a trackLocalStaticSample for audio.
-func newAudioTrackLocalStaticSample(
-	c webrtc.RTPCodecCapability,
-	id, streamID string,
-) *trackLocalStaticSample {
-	return &trackLocalStaticSample{
-		rtpTrack: newtrackLocalStaticRTP(c, id, streamID),
-		isAudio:  true,
 	}
 }
 
@@ -193,13 +180,13 @@ func (s *trackLocalStaticSample) StreamID() string { return s.rtpTrack.StreamID(
 // RID is the RTP stream identifier.
 func (s *trackLocalStaticSample) RID() string { return s.rtpTrack.RID() }
 
-// Kind controls if this TrackLocal is audio or video.
-func (s *trackLocalStaticSample) Kind() webrtc.RTPCodecType { return s.rtpTrack.Kind() }
-
 // Codec gets the Codec of the track.
 func (s *trackLocalStaticSample) Codec() webrtc.RTPCodecCapability {
 	return s.rtpTrack.Codec()
 }
+
+// Kind controls if this TrackLocal is audio or video.
+func (s *trackLocalStaticSample) Kind() webrtc.RTPCodecType { return s.rtpTrack.Kind() }
 
 const rtpOutboundMTU = 1200
 
@@ -240,12 +227,6 @@ func (s *trackLocalStaticSample) Bind(t webrtc.TrackLocalContext) (webrtc.RTPCod
 	return codec, nil
 }
 
-func (s *trackLocalStaticSample) setAudioLatency(latency time.Duration) {
-	s.rtpTrack.mu.Lock()
-	defer s.rtpTrack.mu.Unlock()
-	s.audioLatency = latency
-}
-
 // Unbind implements the teardown logic when the track is no longer needed. This happens
 // because a track has been stopped.
 func (s *trackLocalStaticSample) Unbind(t webrtc.TrackLocalContext) error {
@@ -263,16 +244,9 @@ func (s *trackLocalStaticSample) WriteData(frame []byte) error {
 		s.rtpTrack.mu.Unlock()
 		return nil
 	}
-	if s.isAudio && s.audioLatency == 0 {
-		return nil
-	}
 	sampler := s.sampler
 	if sampler == nil {
-		if s.isAudio {
-			s.sampler = newAudioSampler(s.clockRate, s.audioLatency)
-		} else {
-			s.sampler = newVideoSampler(s.clockRate)
-		}
+		s.sampler = newVideoSampler(s.clockRate)
 	}
 
 	s.rtpTrack.mu.Unlock()
@@ -318,8 +292,6 @@ func payloaderForCodec(codec webrtc.RTPCodecCapability) (rtp.Payloader, error) {
 	switch strings.ToLower(codec.MimeType) {
 	case strings.ToLower(webrtc.MimeTypeH264):
 		return &codecs.H264Payloader{}, nil
-	case strings.ToLower(webrtc.MimeTypeOpus):
-		return &codecs.OpusPayloader{}, nil
 	case strings.ToLower(webrtc.MimeTypeVP8):
 		return &codecs.VP8Payloader{}, nil
 	case strings.ToLower(webrtc.MimeTypeVP9):
@@ -346,15 +318,6 @@ func newVideoSampler(clockRate uint32) samplerFunc {
 		duration := now.Sub(lastTimestamp).Seconds()
 		samples := uint32(math.Round(clockRateFloat * duration))
 		lastTimestamp = now
-		return samples
-	})
-}
-
-// newAudioSampler creates a audio sampler that uses a fixed latency and
-// the codec's clock rate to come up with a duration for each sample.
-func newAudioSampler(clockRate uint32, latency time.Duration) samplerFunc {
-	samples := uint32(math.Round(float64(clockRate) * latency.Seconds()))
-	return samplerFunc(func() uint32 {
 		return samples
 	})
 }

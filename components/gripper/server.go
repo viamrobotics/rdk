@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -28,7 +29,7 @@ type serviceServer struct {
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceGetter[Gripper]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gripper], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

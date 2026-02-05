@@ -17,6 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-getter"
+	errw "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
@@ -34,6 +36,9 @@ const (
 var (
 	_ Manager       = (*cloudManager)(nil)
 	_ ManagerSyncer = (*cloudManager)(nil)
+
+	// the test suite can set this to non-zero to test resume behavior
+	maxBytesForTesting int64
 )
 
 type cloudManager struct {
@@ -179,7 +184,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
+		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,
@@ -194,7 +199,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return m.downloadFileWithChecksum(ctx, url, dstPath)
 			},
 		)
 		if err != nil {
@@ -335,72 +340,78 @@ func sanitizeURLForLogs(u string) string {
 
 // LogProgressWriter is a writer that logs progress.
 type logProgressWriter struct {
-	totalWrittenBytes int64
-	totalBytes        int64
-	name              string
-	startTime         time.Time
-	lastLogTime       time.Time
-	logFrequency      time.Duration
-	logger            logging.Logger
+	totalBytes   int64
+	name         string
+	startTime    time.Time
+	lastLogTime  time.Time
+	logFrequency time.Duration
+	logger       logging.Logger
 }
 
 func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int64) *logProgressWriter {
 	return &logProgressWriter{
-		totalWrittenBytes: 0,
-		totalBytes:        totalBytes,
-		startTime:         time.Now(),
-		lastLogTime:       time.Now(),
-		name:              jobName,
-		logFrequency:      time.Second * 5,
-		logger:            logger,
+		totalBytes:   totalBytes,
+		startTime:    time.Now(),
+		lastLogTime:  time.Now(),
+		name:         jobName,
+		logFrequency: time.Second * 5,
+		logger:       logger,
 	}
 }
 
-func (wc *logProgressWriter) Write(p []byte) (int, error) {
+// log progress at Info level, update lastLogTime, return logged message.
+func (wc *logProgressWriter) Update(curSize int64) string {
 	currentTime := time.Now()
-	bytesWritten := len(p)
-	wc.totalWrittenBytes += int64(bytesWritten)
-
-	if wc.totalWrittenBytes < wc.totalBytes || wc.totalBytes == 0 {
-		if currentTime.Sub(wc.lastLogTime) > wc.logFrequency {
-			// unknown pct if totalBytes is 0. Log what's available.
-			var pctStr string
-			if wc.totalBytes == 0 {
-				pctStr = "?%"
-			} else {
-				pctStr = fmt.Sprintf("%.0f%%", float64(wc.totalWrittenBytes)/float64(wc.totalBytes)*100)
-			}
-			// Prevent NPE if logFrequency is also 0. non-exact is fine for display purposes
-			if currentTime == wc.startTime {
-				currentTime = currentTime.Add(time.Second)
-			}
-			wc.logger.Infof("%s: downloaded %d / %d bytes (%s) [%.0f KB/s]",
-				wc.name,
-				wc.totalWrittenBytes,
-				wc.totalBytes,
-				pctStr,
-				float64(wc.totalWrittenBytes)/currentTime.Sub(wc.startTime).Seconds()/1024)
-			wc.lastLogTime = currentTime
-		}
-	} else {
-		wc.logger.Infof("%s: downloaded %d bytes (100%%) in %v",
-			wc.name,
-			wc.totalWrittenBytes,
-			currentTime.Sub(wc.startTime))
+	if currentTime.Equal(wc.startTime) {
+		return ""
 	}
-	return bytesWritten, nil
+
+	var msg string
+	if curSize < wc.totalBytes || wc.totalBytes == 0 {
+		// unknown pct if totalBytes is 0. Log what's available.
+		var pctStr string
+		if wc.totalBytes == 0 {
+			pctStr = "?%"
+		} else {
+			pctStr = fmt.Sprintf("%.0f%%", float64(curSize)/float64(wc.totalBytes)*100)
+		}
+		// todo: more useful to compute data rate from last tick, rather than from start
+		msg = fmt.Sprintf("%s: downloaded %.2f / %.2f MB (%s) [%.0f KB/s]",
+			wc.name,
+			float64(curSize)/1e6,
+			float64(wc.totalBytes)/1e6,
+			pctStr,
+			float64(curSize)/currentTime.Sub(wc.startTime).Seconds()/1024)
+		wc.logger.Info(msg)
+		wc.lastLogTime = currentTime
+	} else {
+		msg = fmt.Sprintf("%s: downloaded %.2f MB (100%%) in %v",
+			wc.name,
+			float64(curSize)/1e6,
+			currentTime.Sub(wc.startTime))
+		wc.logger.Info(msg)
+	}
+	return msg
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(
+// downloader with header-based checksum logic and partials support.
+func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
-	url string,
+	rawURL string,
 	downloadPath string,
-	partID string,
-	partSecret string,
 ) (string, string, error) {
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	getReq.Header.Add("part_id", partID)
-	getReq.Header.Add("secret", partSecret)
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
+
+	headers := make(http.Header)
+	if m.cloudConfig.APIKey.IsFullySet() {
+		headers.Add("key_id", m.cloudConfig.APIKey.ID)
+		headers.Add("key", m.cloudConfig.APIKey.Key)
+	} else {
+		headers.Add("part_id", m.cloudConfig.ID)
+		headers.Add("secret", m.cloudConfig.Secret)
+	}
+	getReq.Header = headers
+
 	if err != nil {
 		return "", "", err
 	}
@@ -418,29 +429,47 @@ func (m *cloudManager) downloadFileFromGCSURL(
 
 	contentType := resp.Header.Get("Content-Type")
 	checksum := getGoogleHash(resp.Header, "crc32c")
-
-	//nolint:gosec // safe
-	out, err := os.Create(downloadPath)
+	expectedChecksumBytes, err := base64.StdEncoding.DecodeString(checksum)
 	if err != nil {
-		return checksum, contentType, err
+		return "", "", fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err)
 	}
-	defer utils.UncheckedErrorFunc(out.Close)
+
+	if stat, err := os.Stat(downloadPath); err == nil {
+		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	g := getter.HttpGetter{
+		MaxBytes: maxBytesForTesting,
+		Header:   headers,
+		Client:   &m.httpClient,
+	}
+	g.SetClient(&getter.Client{Ctx: ctx})
+	progressCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go utils.PanicCapturingGo(func() {
+		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength)
+	})
+	if err := g.GetFile(downloadPath, parsedURL); err != nil {
+		return "", "", errw.Wrap(err, "downloading file")
+	}
 
 	hash := crc32Hash()
-	w := io.MultiWriter(out, hash, newLogProgressWriter(m.logger, downloadPath, resp.ContentLength))
-
-	_, err = io.CopyN(w, resp.Body, maxPackageSize)
-	if err != nil && !errors.Is(err, io.EOF) {
-		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, err
-	}
-
-	checksumBytes, err := base64.StdEncoding.DecodeString(checksum)
+	destFile, err := os.Open(downloadPath) //nolint:gosec
 	if err != nil {
-		return "", "", fmt.Errorf("failed to decode expected checksum: %s %w", checksum, err)
+		return "", "", err
+	}
+	defer utils.UncheckedErrorFunc(destFile.Close)
+	_, err = io.Copy(hash, destFile)
+	if err != nil {
+		return "", "", err
 	}
 
-	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
+	trimmedChecksumBytes := trimLeadingZeroes(expectedChecksumBytes)
 	trimmedOutHashBytes := trimLeadingZeroes(hash.Sum(nil))
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
@@ -449,7 +478,7 @@ func (m *cloudManager) downloadFileFromGCSURL(
 			"download did not match expected hash:\n"+
 				"  pre-trimmed: %x vs. %x\n"+
 				"  trimmed:     %x vs. %x",
-			checksumBytes, hash.Sum(nil),
+			expectedChecksumBytes, hash.Sum(nil),
 			trimmedChecksumBytes, trimmedOutHashBytes,
 		)
 	}

@@ -68,7 +68,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -120,7 +120,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cachedCloud.GetCloudCredsDialOpt(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -162,7 +162,7 @@ func TestFromReader(t *testing.T) {
 		fakeServer.StoreDeviceConfig(robotPartID, protoConfig, certProto)
 
 		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
-		appConn, err := grpc.NewAppConn(ctx, appAddress, secret, robotPartID, logger)
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer appConn.Close()
 		cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
@@ -207,7 +207,7 @@ func TestStoreToCache(t *testing.T) {
 	}
 	cfg.Cloud = cloud
 
-	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, logger)
+	appConn, err := grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cfg.Cloud.GetCloudCredsDialOpt(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 
@@ -414,7 +414,7 @@ func TestReadTLSFromCache(t *testing.T) {
 func TestAdditionalModuleEnvVars(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
 		expected := map[string]string{}
-		observed := additionalModuleEnvVars(nil, AuthConfig{})
+		observed := additionalModuleEnvVars(nil, AuthConfig{}, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 
@@ -432,7 +432,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 			utils.PrimaryOrgIDEnvVar:  cloud1.PrimaryOrgID,
 			utils.LocationIDEnvVar:    cloud1.LocationID,
 		}
-		observed := additionalModuleEnvVars(&cloud1, AuthConfig{})
+		observed := additionalModuleEnvVars(&cloud1, AuthConfig{}, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 
@@ -442,7 +442,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 
 	t.Run("auth with external creds", func(t *testing.T) {
 		expected := map[string]string{}
-		observed := additionalModuleEnvVars(nil, authWithExternalCreds)
+		observed := additionalModuleEnvVars(nil, authWithExternalCreds, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 	apiKeyID := "abc"
@@ -459,7 +459,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 			utils.APIKeyEnvVar:   apiKey,
 			utils.APIKeyIDEnvVar: apiKeyID,
 		}
-		observed := additionalModuleEnvVars(nil, authWithAPIKeyCreds)
+		observed := additionalModuleEnvVars(nil, authWithAPIKeyCreds, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 
@@ -485,10 +485,10 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 			utils.APIKeyEnvVar:   apiKey,
 			utils.APIKeyIDEnvVar: apiKeyID,
 		}
-		observed := additionalModuleEnvVars(nil, order1)
+		observed := additionalModuleEnvVars(nil, order1, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 
-		observed = additionalModuleEnvVars(nil, order2)
+		observed = additionalModuleEnvVars(nil, order2, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 
@@ -502,7 +502,7 @@ func TestAdditionalModuleEnvVars(t *testing.T) {
 			utils.APIKeyEnvVar:        apiKey,
 			utils.APIKeyIDEnvVar:      apiKeyID,
 		}
-		observed := additionalModuleEnvVars(&cloud1, authWithAPIKeyCreds)
+		observed := additionalModuleEnvVars(&cloud1, authWithAPIKeyCreds, TracingConfig{})
 		test.That(t, observed, test.ShouldResemble, expected)
 	})
 }

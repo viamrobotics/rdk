@@ -97,7 +97,9 @@ func PointAngle(a, b image.Point) float64 {
 
 // BoundingBox TODO.
 func BoundingBox(pts []image.Point) image.Rectangle {
+	//nolint: revive
 	min := image.Point{math.MaxInt32, math.MaxInt32}
+	//nolint: revive
 	max := image.Point{0, 0}
 
 	for _, p := range pts {

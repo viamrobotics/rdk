@@ -213,13 +213,27 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 			}
 		}
 	} else {
+		// Since file may be streamed (see copyFile in copy_rpc.go), write to a temp file (filename.download) and rename after the download
+		// has completed. This way a temporary network blip won't leave a corrupted partial file in the expected location.
+		// Technically the temp file can be deleted upon any Copy error, but it will also be clobbered next time we retry.
+		fullPathTmp := fullPath + ".download"
+
 		//nolint:gosec // this is from an authenticated/authorized connection
-		localFile, err := os.OpenFile(fullPath, os.O_CREATE|os.O_WRONLY, fileMode)
+		localFile, err := os.OpenFile(fullPathTmp, os.O_CREATE|os.O_WRONLY, fileMode)
 		if err != nil {
 			return err
 		}
 		if _, err := io.Copy(localFile, file.Data); err != nil {
-			return multierr.Combine(err, localFile.Close())
+			closeErr := localFile.Close()
+			// Remove partially downloaded file if possible. Don't error if it does not exist.
+			cleanupErr := os.Remove(fullPathTmp)
+			if errors.Is(cleanupErr, fs.ErrNotExist) {
+				cleanupErr = nil
+			}
+			return multierr.Combine(err, closeErr, cleanupErr)
+		}
+		if err := os.Rename(fullPathTmp, fullPath); err != nil {
+			return err
 		}
 	}
 	if copier.preserve {

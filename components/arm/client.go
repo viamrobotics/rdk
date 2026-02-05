@@ -86,7 +86,10 @@ func (c *client) MoveToJointPositions(ctx context.Context, positions []reference
 	m, err := c.Kinematics(ctx)
 	if err != nil {
 		warnKinematicsUnsafe(ctx, c.logger, err)
+	} else if err := CheckDesiredJointPositions(ctx, c, positions); err != nil {
+		return err
 	}
+
 	jp, err := referenceframe.JointPositionsFromInputs(m, positions)
 	if err != nil {
 		return err
@@ -113,11 +116,18 @@ func (c *client) MoveThroughJointPositions(
 		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
 	}
 	allJPs := make([]*pb.JointPositions, 0, len(positions))
+	hasKinematics := true
 	m, err := c.Kinematics(ctx)
 	if err != nil {
+		hasKinematics = false
 		warnKinematicsUnsafe(ctx, c.logger, err)
 	}
 	for _, position := range positions {
+		if hasKinematics {
+			if err := CheckDesiredJointPositions(ctx, c, position); err != nil {
+				return err
+			}
+		}
 		jp, err := referenceframe.JointPositionsFromInputs(m, position)
 		if err != nil {
 			return err
@@ -219,6 +229,21 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 		return nil, err
 	}
 	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+}
+
+func (c *client) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Get3DModels(ctx, &commonpb.Get3DModelsRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Models, nil
 }
 
 // warnKinematicsUnsafe is a helper function to warn the user that no kinematics have been supplied for the conversion between
