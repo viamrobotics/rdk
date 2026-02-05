@@ -91,7 +91,9 @@ func maybeDeleteExcessFiles(
 	case err != nil:
 		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.String())
 	case count > 0:
-		deletedFileCount.Add(int64(count))
+		if deletedFileCount != nil {
+			deletedFileCount.Add(int64(count))
+		}
 	}
 }
 

@@ -242,7 +242,9 @@ func uploadBinarySensorData(
 	}
 
 	// Count bytes uploaded.
-	bytesUploadingCounter.Add(uint64(len(sd.GetBinary())))
+	if bytesUploadingCounter != nil {
+		bytesUploadingCounter.Add(uint64(len(sd.GetBinary())))
+	}
 
 	return nil
 }
