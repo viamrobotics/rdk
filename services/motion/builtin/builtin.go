@@ -165,9 +165,13 @@ func NewBuiltIn(
 		for {
 			select {
 			case <-ctx.Done():
+				ms.logger.Info("Worker ctx stopped")
 				return
 			case fn := <-ms.execCh:
+				start := time.Now()
+				ms.logger.Info("Executing function. Start:", start)
 				fn()
+				ms.logger.Info("Executing function. Time:", time.Since(start))
 			}
 		}
 	})
