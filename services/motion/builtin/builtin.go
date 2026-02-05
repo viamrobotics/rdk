@@ -138,6 +138,7 @@ type builtIn struct {
 	configuredDefaultExtras map[string]any
 
 	execCh  chan func()
+	endPos  []referenceframe.Input
 	workers *goutils.StoppableWorkers
 }
 
@@ -236,12 +237,12 @@ func (ms *builtIn) Close(ctx context.Context) error {
 
 func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
-	defer ms.mu.RUnlock()
 
 	ms.applyDefaultExtras(req.Extra)
 	start := time.Now()
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
+		ms.mu.RUnlock()
 		return false, err
 	}
 	spent := time.Since(start)
@@ -276,11 +277,12 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 		distances[idx] = last[idx] - firstInp
 	}
 
+	traj := plan.Trajectory()
 	exec := func() {
 		noInterrupt := context.Background()
 		ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
 		execStart := time.Now()
-		err = ms.execute(noInterrupt, plan.Trajectory(), math.MaxFloat64)
+		err = ms.execute(noInterrupt, traj, math.MaxFloat64)
 		execSpent := time.Since(execStart)
 
 		speed := make([]float64, len(distances))
@@ -292,8 +294,13 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	}
 
 	if true {
+		ms.mu.RUnlock()
 		ms.execCh <- exec
+		ms.mu.Lock()
+		ms.endPos = traj[len(traj)-1][req.ComponentName]
+		ms.mu.Unlock()
 	} else {
+		ms.mu.RUnlock()
 		exec()
 	}
 
@@ -508,6 +515,10 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		return nil, err
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+	if ms.endPos != nil {
+		ms.logger.Info("Overriding end position. Current:", fsInputs[req.ComponentName], "End:", ms.endPos)
+		fsInputs[req.ComponentName] = ms.endPos
+	}
 
 	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {

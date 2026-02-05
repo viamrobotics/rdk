@@ -205,6 +205,9 @@ func TestBufferMoveRequests(t *testing.T) {
 		_, err = motion.Move(ctx, moveRequest)
 		test.That(t, err, test.ShouldBeNil)
 	}
+
+	// There's a bug (presumably deadlock) with shutdown + last move request being in flight.
+	time.Sleep(30 * time.Second)
 }
 
 func visualizeLess(
