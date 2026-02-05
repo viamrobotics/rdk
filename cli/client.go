@@ -1520,6 +1520,197 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+type machinesPartAddJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Attributes   string
+}
+
+func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	jobConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	// Validate required fields
+	name, ok := jobConfig["name"].(string)
+	if !ok || name == "" {
+		return errors.New("job config must include 'name' field")
+	}
+	if _, ok := jobConfig["schedule"]; !ok {
+		return errors.New("job config must include 'schedule' field")
+	}
+	if _, ok := jobConfig["resource"]; !ok {
+		return errors.New("job config must include 'resource' field")
+	}
+	if _, ok := jobConfig["method"]; !ok {
+		return errors.New("job config must include 'method' field")
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	// Get existing jobs array or create new one
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Check if job with same name exists
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == name {
+				return fmt.Errorf("job with name %s already exists on part %s", name, part.Name)
+			}
+		}
+	}
+
+	jobs = append(jobs, jobConfig)
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully added job %s to part %s", name, part.Name)
+	return nil
+}
+
+type machinesPartUpdateJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	newJobConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Find and update the job
+	found := false
+	for i, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == args.Name {
+				found = true
+				// Merge the new config into existing job, keeping the name
+				for k, v := range newJobConfig {
+					jobMap[k] = v
+				}
+				jobMap["name"] = args.Name // Ensure name doesn't change
+				jobs[i] = jobMap
+				break
+			}
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully updated job %s on part %s", args.Name, part.Name)
+	return nil
+}
+
+type machinesPartDeleteJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func machinesPartDeleteJobAction(c *cli.Context, args machinesPartDeleteJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Filter out the job
+	var newJobs []any
+	found := false
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] != args.Name {
+				newJobs = append(newJobs, j)
+			} else {
+				found = true
+			}
+		} else {
+			newJobs = append(newJobs, j)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = newJobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully deleted job %s from part %s", args.Name, part.Name)
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string

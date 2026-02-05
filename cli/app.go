@@ -78,6 +78,7 @@ const (
 	generalFlagNoProgress        = "no-progress"
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
+	generalFlagAttributes        = "attributes"
 	generalFlagDryRun            = "dry-run"
 
 	moduleFlagLanguage        = "language"
@@ -2754,6 +2755,48 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
+						},
+						{
+							Name:      "add-job",
+							Usage:     "add a scheduled job to a machine part",
+							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagAttributes,
+								Required: true,
+								Usage:    "JSON job config or path to JSON file (must include name, schedule, resource, method)",
+							}),
+							Action: createCommandWithT(machinesPartAddJobAction),
+						},
+						{
+							Name:  "update-job",
+							Usage: "update a scheduled job on a machine part",
+							UsageText: createUsageText(
+								"machines part update-job",
+								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+									Usage:    "name of the job to update",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagAttributes,
+									Required: true,
+									Usage:    "JSON job config or path to JSON file",
+								},
+							}...),
+							Action: createCommandWithT(machinesPartUpdateJobAction),
+						},
+						{
+							Name:      "delete-job",
+							Usage:     "delete a scheduled job from a machine part",
+							UsageText: createUsageText("machines part delete-job", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagName,
+								Required: true,
+								Usage:    "name of the job to delete",
+							}),
+							Action: createCommandWithT(machinesPartDeleteJobAction),
 						},
 						{
 							Name:  "shell",
