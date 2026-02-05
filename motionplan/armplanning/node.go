@@ -412,7 +412,11 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	ikTime := time.Second
+	if !solvingState.doingSmartSeeds {
+		ikTime = 100 * time.Millisecond
+	}
+	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
 		return nil, err
 	}

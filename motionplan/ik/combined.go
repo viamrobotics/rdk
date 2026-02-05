@@ -3,6 +3,7 @@ package ik
 import (
 	"context"
 	"sync"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -24,13 +25,14 @@ func CreateCombinedIKSolver(
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
+	maxTime time.Duration,
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{
 		logger: logger,
 	}
 
 	for i := 1; i <= nCPU; i++ {
-		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
+		nloptSolver, err := CreateNloptSolver(logger, -1, true, true, maxTime)
 		if err != nil {
 			return nil, err
 		}

@@ -3,6 +3,7 @@ package ik
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/arm/v1"
@@ -26,7 +27,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 10), m, logger)
 
 	t.Run("not exact", func(t *testing.T) {
-		ik, err := CreateNloptSolver(logger, -1, false, true)
+		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
@@ -34,7 +35,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	})
 
 	t.Run("exact", func(t *testing.T) {
-		ik, err := CreateNloptSolver(logger, -1, true, true)
+		ik, err := CreateNloptSolver(logger, -1, true, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, meta, err := DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
@@ -53,7 +54,7 @@ func TestCreateNloptSolver(t *testing.T) {
 		seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
 		solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
-		ik, err := CreateNloptSolver(logger, -1, false, true)
+		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
