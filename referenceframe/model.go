@@ -121,6 +121,13 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	}
 }
 
+// mimicMapping describes how a mimic frame's input is derived from a source frame's input.
+type mimicMapping struct {
+	sourceInputIdx int // index into the reduced (non-mimic) input array
+	multiplier     float64
+	offset         float64
+}
+
 // SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
 	baseFrame
@@ -128,6 +135,7 @@ type SimpleModel struct {
 	ordTransforms []Frame
 	modelConfig   *ModelConfigJSON
 	poseCache     sync.Map
+	mimicMappings map[int]*mimicMapping // key is index into ordTransforms
 }
 
 // NewSimpleModel constructs a new model.
@@ -135,6 +143,26 @@ func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
 		baseFrame: baseFrame{name: name},
 	}
+}
+
+// setMimicMappings sets the mimic mappings and rebuilds limits to exclude mimic frames.
+func (m *SimpleModel) setMimicMappings(mappings map[int]*mimicMapping) {
+	m.mimicMappings = mappings
+	m.limits = []Limit{}
+	for i, transform := range m.ordTransforms {
+		if len(transform.DoF()) > 0 && m.mimicMappings[i] == nil {
+			m.limits = append(m.limits, transform.DoF()...)
+		}
+	}
+}
+
+// isMimic returns true if the frame at ordTransforms index i is a mimic frame.
+func (m *SimpleModel) isMimic(i int) bool {
+	if m.mimicMappings == nil {
+		return false
+	}
+	_, ok := m.mimicMappings[i]
+	return ok
 }
 
 // GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
@@ -163,6 +191,12 @@ func (m *SimpleModel) Hash() int {
 	for _, f := range m.ordTransforms {
 		h += f.Hash()
 	}
+	for idx, mm := range m.mimicMappings {
+		h += (idx + 1) * 31
+		h += mm.sourceInputIdx * 37
+		h += int(mm.multiplier*1000) * 41
+		h += int(mm.offset*1000) * 43
+	}
 	return h
 }
 
@@ -176,7 +210,11 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for i, transform := range m.OrdTransforms() {
+		if m.isMimic(i) {
+			// Skip mimic frames; they derive their input from the source joint
+			continue
+		}
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -200,7 +238,10 @@ func (m *SimpleModel) OrdTransforms() []Frame {
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for i, transform := range m.OrdTransforms() {
+		if m.isMimic(i) {
+			continue
+		}
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
@@ -215,7 +256,10 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for i, transform := range m.OrdTransforms() {
+		if m.isMimic(i) {
+			continue
+		}
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
@@ -359,10 +403,16 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 	posIdx := 0
 
 	// get quaternions from the base outwards.
-	for _, transform := range m.ordTransforms {
-		dof := len(transform.DoF()) + posIdx
-		input := inputs[posIdx:dof]
-		posIdx = dof
+	for i, transform := range m.ordTransforms {
+		var input []Input
+		if mm := m.mimicMappings[i]; mm != nil {
+			// Mimic frame: derive input from source, do not advance posIdx
+			input = []Input{mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset}
+		} else {
+			dof := len(transform.DoF()) + posIdx
+			input = inputs[posIdx:dof]
+			posIdx = dof
+		}
 
 		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
@@ -433,8 +483,11 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 	// bounds. The caller ought to verify that when applicable.
 	var invalidInputsErr error
 	// get quaternions from the base outwards.
-	for _, transformI := range m.ordTransforms {
+	for i, transformI := range m.ordTransforms {
 		var pose spatialmath.Pose
+
+		// Check if this is a mimic frame
+		mm := m.mimicMappings[i]
 
 		switch transform := transformI.(type) {
 		case *staticFrame:
@@ -450,25 +503,36 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 				return nil, NewIncorrectDoFError(len(transformI.DoF()), 1)
 			}
 
-			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
-				multierr.AppendInto(&invalidInputsErr, err)
+			var inputVal Input
+			if mm != nil {
+				inputVal = mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset
+			} else {
+				if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
+					multierr.AppendInto(&invalidInputsErr, err)
+				}
+				inputVal = inputs[posIdx]
+				posIdx++
 			}
 
-			orientation := transform.InputToOrientation(inputs[posIdx])
+			orientation := transform.InputToOrientation(inputVal)
 			pose = &spatialmath.DualQuaternion{
 				Number: dualquat.Number{
 					Real: orientation.Quaternion(),
 				},
 			}
 
-			posIdx++
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
 			}
 		default:
-			dof := len(transformI.DoF()) + posIdx
-			input := inputs[posIdx:dof]
-			posIdx = dof
+			var input []Input
+			if mm != nil {
+				input = []Input{mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset}
+			} else {
+				dof := len(transformI.DoF()) + posIdx
+				input = inputs[posIdx:dof]
+				posIdx = dof
+			}
 
 			var err error
 			pose, err = transform.Transform(input)

@@ -841,6 +841,21 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				}
 			}
 		}
+		// Compare mimic mappings
+		if len(f1.mimicMappings) != len(f2.mimicMappings) {
+			return false, nil
+		}
+		for idx, mm1 := range f1.mimicMappings {
+			mm2, ok := f2.mimicMappings[idx]
+			if !ok {
+				return false, nil
+			}
+			if mm1.sourceInputIdx != mm2.sourceInputIdx ||
+				math.Abs(mm1.multiplier-mm2.multiplier) > epsilon ||
+				math.Abs(mm1.offset-mm2.offset) > epsilon {
+				return false, nil
+			}
+		}
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}

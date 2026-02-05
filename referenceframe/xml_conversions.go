@@ -321,6 +321,13 @@ type limit struct {
 	Upper   float64  `xml:"upper,attr"` // translation limits are in meters, revolute limits are in radians
 }
 
+type mimicXML struct {
+	XMLName    xml.Name `xml:"mimic"`
+	Joint      string   `xml:"joint,attr"`
+	Multiplier *float64 `xml:"multiplier,attr,omitempty"`
+	Offset     float64  `xml:"offset,attr,omitempty"`
+}
+
 type axis struct {
 	XMLName xml.Name `xml:"axis"`
 	XYZ     string   `xml:"xyz,attr"` // "x y z" format, in meters

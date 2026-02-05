@@ -9,6 +9,12 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+// ErrMimicSourceNotFound is returned when a mimic joint references a source joint that doesn't exist.
+var ErrMimicSourceNotFound = errors.New("mimic joint references non-existent source joint")
+
+// ErrCircularMimicReference is returned when mimic joint references form a cycle.
+var ErrCircularMimicReference = errors.New("circular mimic joint reference detected")
+
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
 
@@ -124,7 +130,121 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 
 	model.SetOrdTransforms(ot)
 
+	// Build mimic mappings if any joints have mimic configs
+	if cfg.KinParamType == "SVA" || cfg.KinParamType == "" {
+		mimicMappings, err := buildMimicMappings(cfg.Joints, model.ordTransforms)
+		if err != nil {
+			return nil, err
+		}
+		if len(mimicMappings) > 0 {
+			model.setMimicMappings(mimicMappings)
+		}
+	}
+
 	return model, nil
+}
+
+// buildMimicMappings identifies mimic joints, resolves chains, detects cycles, and computes
+// the sourceInputIdx for each mimic frame.
+func buildMimicMappings(joints []JointConfig, ordTransforms []Frame) (map[int]*mimicMapping, error) {
+	// Build a map of joint ID -> MimicConfig for joints that have mimic set
+	mimicConfigs := map[string]*MimicConfig{}
+	for i := range joints {
+		if joints[i].Mimic != nil {
+			mimicConfigs[joints[i].ID] = joints[i].Mimic
+		}
+	}
+	if len(mimicConfigs) == 0 {
+		return nil, nil
+	}
+
+	// Resolve mimic chains: if A mimics B and B mimics C, then A should mimic C
+	// with composed multiplier and offset.
+	resolvedMimics := map[string]*MimicConfig{}
+	for jointID, mc := range mimicConfigs {
+		// Walk the chain to find the ultimate source
+		visited := map[string]bool{jointID: true}
+		currentMC := mc
+		composedMultiplier := currentMC.EffectiveMultiplier()
+		composedOffset := currentMC.Offset
+
+		sourceJoint := currentMC.Joint
+		for {
+			nextMC, ok := mimicConfigs[sourceJoint]
+			if !ok {
+				// sourceJoint is not a mimic, it's the ultimate source
+				break
+			}
+			if visited[sourceJoint] {
+				return nil, fmt.Errorf("%w: joint %q", ErrCircularMimicReference, jointID)
+			}
+			visited[sourceJoint] = true
+
+			// Compose: if A = m1*B + o1, and B = m2*C + o2, then A = m1*(m2*C + o2) + o1 = m1*m2*C + m1*o2 + o1
+			composedOffset = composedMultiplier*nextMC.Offset + composedOffset
+			composedMultiplier *= nextMC.EffectiveMultiplier()
+			sourceJoint = nextMC.Joint
+		}
+
+		mult := composedMultiplier
+		resolvedMimics[jointID] = &MimicConfig{
+			Joint:      sourceJoint,
+			Multiplier: &mult,
+			Offset:     composedOffset,
+		}
+	}
+
+	// Build a map of frame name -> ordTransforms index
+	frameNameToIdx := map[string]int{}
+	for i, f := range ordTransforms {
+		frameNameToIdx[f.Name()] = i
+	}
+
+	// Find the ordTransforms index of each source joint and compute its input index
+	// (counting only non-mimic DoF frames before it)
+	mimicFrameIndices := map[int]bool{}
+	for jointID := range resolvedMimics {
+		if idx, ok := frameNameToIdx[jointID]; ok {
+			mimicFrameIndices[idx] = true
+		}
+	}
+
+	// Compute the input index for each non-mimic DoF frame
+	frameIdxToInputIdx := map[int]int{}
+	inputIdx := 0
+	for i, f := range ordTransforms {
+		if len(f.DoF()) > 0 && !mimicFrameIndices[i] {
+			frameIdxToInputIdx[i] = inputIdx
+			inputIdx += len(f.DoF())
+		}
+	}
+
+	// Build the final mimic mappings
+	result := map[int]*mimicMapping{}
+	for jointID, mc := range resolvedMimics {
+		mimicIdx, ok := frameNameToIdx[jointID]
+		if !ok {
+			continue // joint not in ordTransforms (shouldn't happen)
+		}
+
+		sourceIdx, ok := frameNameToIdx[mc.Joint]
+		if !ok {
+			return nil, fmt.Errorf("%w: joint %q references source %q", ErrMimicSourceNotFound, jointID, mc.Joint)
+		}
+
+		sourceInputIdx, ok := frameIdxToInputIdx[sourceIdx]
+		if !ok {
+			return nil, fmt.Errorf("%w: joint %q references source %q which has no DoF", ErrMimicSourceNotFound, jointID, mc.Joint)
+		}
+
+		result[mimicIdx] = &mimicMapping{
+			sourceInputIdx: sourceInputIdx,
+			multiplier:     mc.EffectiveMultiplier(),
+			offset:         mc.Offset,
+		}
+	}
+
+	return result, nil
 }
 
 // ParseModelJSONFile will read a given file and then parse the contained JSON data.
