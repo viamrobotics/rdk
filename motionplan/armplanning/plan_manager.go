@@ -35,7 +35,7 @@ func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanReq
 // planMultiWaypoint plans a motion through multiple waypoints, using identical constraints for each
 // Any constraints, etc, will be held for the entire motion.
 // return trajector (always, even with error), which goal we got to, error.
-func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe.LinearInputs, int, error) {
+func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "planMultiWaypoint")
 	defer span.End()
 
@@ -51,17 +51,17 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 	linearTraj := []*referenceframe.LinearInputs{pm.request.StartState.LinearConfiguration()}
 	start, err := pm.request.StartState.ComputePoses(ctx, pm.request.FrameSystem)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
-			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
+			return linearTraj, err // note: here and below, we return traj because of ReturnPartialPlan
 		}
 
 		to, err := g.ComputePoses(ctx, pm.request.FrameSystem)
 		if err != nil {
-			return linearTraj, i, err
+			return linearTraj, err
 		}
 
 		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
@@ -72,13 +72,13 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		if len(g.Configuration()) > 0 {
 			newTraj, err := pm.planToDirectJoints(ctx, linearTraj[len(linearTraj)-1], g)
 			if err != nil {
-				return linearTraj, i, err
+				return linearTraj, err
 			}
 			linearTraj = append(linearTraj, newTraj...)
 		} else {
 			subGoals, cbirrtAllowed, err := pm.generateWaypoints(ctx, start, to)
 			if err != nil {
-				return linearTraj, i, err
+				return linearTraj, err
 			}
 
 			if len(subGoals) > 1 {
@@ -95,7 +95,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 				newTraj, err := pm.planSingleGoal(ctx, linearTraj[len(linearTraj)-1], sg, cbirrtAllowed)
 				if err != nil {
 					pm.logger.Infof("\t subgoal %d failed after %v with: %v", subGoalIdx, time.Since(singleGoalStart), err)
-					return linearTraj, i, err
+					return linearTraj, err
 				}
 				pm.logger.Infof("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				linearTraj = append(linearTraj, newTraj...)
@@ -104,7 +104,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		start = to
 	}
 
-	return linearTraj, len(pm.request.Goals), nil
+	return linearTraj, nil
 }
 
 func (pm *planManager) planToDirectJoints(
