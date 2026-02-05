@@ -4,4 +4,6 @@
 /cli/CONTRIBUTING.md @viamrobotics/sdk-netcode
 /cli/STYLEGUIDE.md @viamrobotics/sdk-netcode
 /cli/internal/ @viamrobotics/sdk-netcode
-
+/components/ @viamrobotics/sdk-netcode
+/services/ @viamrobotics/sdk-netcode
+/app/ @viamrobotics/sdk-netcode
