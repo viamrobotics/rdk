@@ -455,7 +455,7 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		collisionSpecs := []Collision{{"box1", "box3"}}
 		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecs, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(ignoreList), test.ShouldBeGreaterThanOrEqualTo, 2) // at least initial collision + spec
+		test.That(t, len(ignoreList), test.ShouldEqual, 2)
 
 		// Verify the specification collision is included
 		found := false
