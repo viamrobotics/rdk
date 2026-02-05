@@ -174,3 +174,98 @@ func TestUniqueCollisions(t *testing.T) {
 		test.ShouldBeTrue,
 	)
 }
+
+func TestGeometryGroupErrors(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("duplicate geometry names", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("duplicate")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("duplicate")
+		_, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate")
+	})
+
+	t.Run("unnamed geometries", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("")
+		gg, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(gg.geometries), test.ShouldEqual, 2)
+		// Verify unnamed geometries get unique names
+		names := make(map[string]bool)
+		for name := range gg.geometries {
+			names[name] = true
+			test.That(t, name, test.ShouldStartWith, unnamedCollisionGeometryPrefix)
+		}
+		test.That(t, len(names), test.ShouldEqual, 2)
+	})
+
+	t.Run("nil other geometry group", func(t *testing.T) {
+		geom := bc1.Transform(spatial.NewZeroPose())
+		geom.SetLabel("test")
+		validGG, err := NewGeometryGroup([]spatial.Geometry{geom})
+		test.That(t, err, test.ShouldBeNil)
+		_, _, err = validGG.CollidesWith(nil, fs, nil, defaultCollisionBufferMM, true)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
+	})
+}
+
+func TestGeometryGroupMinDistance(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create two non-colliding geometries with known separation
+	geom1 := bc1.Transform(spatial.NewZeroPose())
+	geom1.SetLabel("box1")
+	geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
+	geom2.SetLabel("box2")
+
+	gg1, err := NewGeometryGroup([]spatial.Geometry{geom1})
+	test.That(t, err, test.ShouldBeNil)
+	gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
+	test.That(t, err, test.ShouldBeNil)
+
+	collisions, minDist, err := gg1.CollidesWith(gg2, fs, nil, defaultCollisionBufferMM, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldEqual, 0)
+	test.That(t, minDist, test.ShouldBeGreaterThan, 8.0)
+}
+
+func TestGeometryGroupEarlyExit(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create multiple colliding geometries
+	geom1 := bc1.Transform(spatial.NewZeroPose())
+	geom1.SetLabel("box1")
+	geom2 := bc1.Transform(spatial.NewZeroPose())
+	geom2.SetLabel("box2")
+	geom3 := bc1.Transform(spatial.NewZeroPose())
+	geom3.SetLabel("box3")
+
+	gg, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2, geom3})
+	test.That(t, err, test.ShouldBeNil)
+
+	// With collectAllCollisions=false, should return first collision only
+	collisions, _, err := gg.CollidesWith(gg, fs, nil, defaultCollisionBufferMM, false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldEqual, 1)
+
+	// With collectAllCollisions=true, should return all collisions
+	collisions, _, err = gg.CollidesWith(gg, fs, nil, defaultCollisionBufferMM, true)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
+}

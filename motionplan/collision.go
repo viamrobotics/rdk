@@ -129,7 +129,7 @@ func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error)
 // CollidesWith checks whether any geometries in this geometry group collide with any geometries in the other geometry group,
 // ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
 // of the closest distance between non-colliding geometries.
-// If exitOnCollision is true it will also return the first collision found if it exists. Otherwise it will return all found collisions.
+// If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
 func (gg *GeometryGroup) CollidesWith(
 	other *GeometryGroup,
 	fs *referenceframe.FrameSystem,
@@ -167,7 +167,7 @@ func (gg *GeometryGroup) CollidesWith(
 				return nil, math.Inf(-1), err
 			}
 			// If we have a collision, store it, and return if the caller wants to fast fail.
-			if dist < collisionBufferMM {
+			if math.IsInf(dist, -1) {
 				collisions = append(collisions, Collision{name1: xName, name2: yName})
 				if !collectAllCollisions {
 					return collisions, dist, nil
@@ -182,8 +182,8 @@ func (gg *GeometryGroup) CollidesWith(
 	return collisions, minDistance, nil
 }
 
-// checkCollision takes a pair of geometries and returns the distance between them.
-// If this number is less than the CollisionBuffer they can be considered to be in collision.
+// checkCollision takes a pair of geometries and returns the reported (lower bound estimate) distance between them if they are not
+// in collision. If they are in collision, returns math.Inf(-1).
 func checkCollision(x, y spatialmath.Geometry, collisionBufferMM float64) (float64, error) {
 	col, d, err := x.CollidesWith(y, collisionBufferMM)
 	if err != nil {
@@ -193,10 +193,9 @@ func checkCollision(x, y spatialmath.Geometry, collisionBufferMM float64) (float
 		}
 	}
 	if col {
-		return math.Inf(-1), err
+		return math.Inf(-1), nil
 	}
-
-	return d, err
+	return d, nil
 }
 
 // Process a []Collision into a map for easy lookups.
@@ -255,7 +254,7 @@ func skipCollisionCheck(fs *referenceframe.FrameSystem, ignoreList map[string]ma
 	}
 
 	if _, ok := ignoreList[yName]; ok && ignoreList[yName][xName] {
-		// We are comparing to ourselves and we already did this check in the other order
+		// Already checked this pair in the other order
 		return true
 	}
 
@@ -263,7 +262,7 @@ func skipCollisionCheck(fs *referenceframe.FrameSystem, ignoreList map[string]ma
 	y := fs.Frame(yName)
 
 	if x == nil || y == nil {
-		// something is internal, skip
+		// Geometry not in frame system (e.g. internal to a component), must check for collision
 		return false
 	}
 
