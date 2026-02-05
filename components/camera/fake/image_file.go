@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -159,7 +160,7 @@ func (fs *fileSource) Images(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG)
+		namedImg, err := camera.NamedImageFromImage(img, "preloaded", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -172,7 +173,7 @@ func (fs *fileSource) Images(
 			return nil, resource.ResponseMetadata{}, err
 		}
 
-		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG)
+		namedImg, err := camera.NamedImageFromImage(img, "color", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -184,7 +185,7 @@ func (fs *fileSource) Images(
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
-		namedImg, err := camera.NamedImageFromImage(dm, "depth", utils.MimeTypeRawDepth)
+		namedImg, err := camera.NamedImageFromImage(dm, "depth", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -197,7 +198,7 @@ func (fs *fileSource) Images(
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters,
 // or the pointcloud from file if set.
-func (fs *fileSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (fs *fileSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if fs.PointCloudFN != "" {
 		return pointcloud.NewFromFile(fs.PointCloudFN, "")
 	}
@@ -252,14 +253,14 @@ func (ss *StaticSource) Images(
 	}
 	imgs := []camera.NamedImage{}
 	if ss.ColorImg != nil {
-		namedImg, err := camera.NamedImageFromImage(ss.ColorImg, "color", utils.MimeTypeJPEG)
+		namedImg, err := camera.NamedImageFromImage(ss.ColorImg, "color", utils.MimeTypeJPEG, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
 		imgs = append(imgs, namedImg)
 	}
 	if ss.DepthImg != nil {
-		namedImg, err := camera.NamedImageFromImage(ss.DepthImg, "depth", utils.MimeTypeRawDepth)
+		namedImg, err := camera.NamedImageFromImage(ss.DepthImg, "depth", utils.MimeTypeRawDepth, data.Annotations{})
 		if err != nil {
 			return nil, resource.ResponseMetadata{}, err
 		}
@@ -270,7 +271,7 @@ func (ss *StaticSource) Images(
 }
 
 // NextPointCloud returns the point cloud from projecting the rgb and depth image using the intrinsic parameters.
-func (ss *StaticSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (ss *StaticSource) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if ss.Proj == nil {
 		return nil, transform.NewNoIntrinsicsError("camera intrinsics not found in config")
 	}

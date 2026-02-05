@@ -85,11 +85,11 @@ func TestEntrypoint(t *testing.T) {
 
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
-		numResources := 20
+		numResources := 21
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo,
-			// including fake audioinput, builtin motion, fake arm, and builtin navigation.
-			numResources = 16
+			// including builtin motion, fake arm, and builtin navigation.
+			numResources = 18
 		}
 
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
@@ -112,10 +112,10 @@ func TestEntrypoint(t *testing.T) {
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
 
-		numReg := 53
+		numReg := 55
 		if runtime.GOOS == "windows" {
 			// windows build excludes builtin models that use cgo
-			numReg = 44
+			numReg = 47
 		}
 		test.That(t, registrations, test.ShouldHaveLength, numReg)
 
@@ -233,6 +233,7 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -351,6 +352,7 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
+	t.Parallel()
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
@@ -393,6 +395,7 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
+	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
 	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
@@ -555,8 +558,9 @@ func TestTunnelE2E(t *testing.T) {
 }
 
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
-		t.Skip("RSDK-11682: get this to stop flaking on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	// Primarily a regression test for RSDK-10723.
 

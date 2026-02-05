@@ -3,10 +3,14 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"net"
+	"slices"
 	"testing"
+	"time"
 
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	gotestutils "go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -15,6 +19,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -81,13 +86,13 @@ func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependen
 		return err
 	}
 
-	oc.requiredMotor, err = motor.FromDependencies(deps, optionalChildConfig.RequiredMotor)
+	oc.requiredMotor, err = motor.FromProvider(deps, optionalChildConfig.RequiredMotor)
 	if err != nil {
 		return fmt.Errorf("could not get required motor %s from dependencies",
 			optionalChildConfig.RequiredMotor)
 	}
 
-	oc.optionalMotor, err = motor.FromDependencies(deps, optionalChildConfig.OptionalMotor)
+	oc.optionalMotor, err = motor.FromProvider(deps, optionalChildConfig.OptionalMotor)
 	if err != nil {
 		oc.logger.Infof("could not get optional motor %s from dependencies; continuing",
 			optionalChildConfig.OptionalMotor)
@@ -621,6 +626,204 @@ func TestModularOptionalDependencies(t *testing.T) {
 	}
 }
 
+func TestModularOptionalDependencyOnRemote(t *testing.T) {
+	// Ensures that a modular resource can optionally depend upon a remote resource.
+	//
+	// In this case, the modular resource will be constructed with the remote resource as a
+	// dependency since it will be available at the time of construction. The modular
+	// resource will then also be _reconfigured_ to have the optional resource (a noop).
+	// This redundant reconfigure is not great, but is part of the design of our system.
+	//
+	// Later, if the remote goes offline, the modular resource will NOT be reconfigured and
+	// instead will just have an unusable gRPC client for the remote resource until the
+	// remote comes back online. This behavior is distinct from optionally depending upon a
+	// local resource, where the dependent resource _will_ be reconfigured in the event that
+	// the local resource is removed (see above test). The justification for this difference
+	// in behavior is that we don't want network blips to cause constant reconfigures of
+	// resources optionally depending on remote resources.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Set up a remote robot with a motor we will depend on optionally.
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                "m1",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	remote := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	options, listener, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remote.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Configure a local robot whose modular foo component has a required dependency on a
+	// local motor "m" and an optional dependency on the remote motor "m1".
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"))
+
+	// Assert that the foo component built successfully and was also reconfigured. Then
+	// assert that its optional dependency on the remote motor is reachable.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+
+	// Take the remote robot offline and wait for local robot to notice.
+	localResourceNames := slices.DeleteFunc(lr.ResourceNames(), func(name resource.Name) bool {
+		return name.ContainsRemoteNames()
+	})
+	allResourceNames := lr.ResourceNames()
+	test.That(t, remote.Close(ctx), test.ShouldBeNil)
+	gotestutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		verifyReachableResourceNames(tb, lr, localResourceNames)
+	})
+
+	// Assert that the foo component did NOT reconfigure again but its optional dependency
+	// on the remote motor is now unreachable.
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unreachable"})
+
+	// Bring up a new remote robot on the same address and wait for local robot to notice.
+	remote2 := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote2"))
+	listener, err = net.Listen("tcp", listener.Addr().String())
+	test.That(t, err, test.ShouldBeNil)
+	options.Network.Listener = listener
+	err = remote2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+	gotestutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		verifyReachableResourceNames(tb, lr, allResourceNames)
+	})
+
+	// Assert that the foo component did NOT reconfigure, but its optional dependency on the
+	// remote motor is now reachable.
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
+func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
+	// Ensures that a modular resource can optionally depend upon a remote resource on a remote with prefix.
+	//
+	// In this case, the modular resource will be constructed with the remote resource as a
+	// dependency since it will be available at the time of construction. The modular
+	// resource will then also be _reconfigured_ to have the optional resource (a noop).
+	// This redundant reconfigure is not great, but is part of the design of our system.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Set up a remote robot with a motor we will depend on optionally.
+	remoteCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                "m1",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	remote := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := remote.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Configure a local robot whose modular foo component has a required dependency on a
+	// local motor "m" and an optional dependency on the remote motor "m1".
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "remote-m1",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+				Prefix:  "remote-",
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"))
+
+	// Assert that the foo component built successfully and was also reconfigured. Then
+	// assert that its optional dependency on the remote motor is reachable.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
 // Contains _another_ MOC that this MOC will optionally depend upon.
 type mutualOptionalChildConfig struct {
 	OtherMOC string `json:"other_moc"`
@@ -672,7 +875,7 @@ func (moc *mutualOptionalChild) Reconfigure(ctx context.Context, deps resource.D
 		return err
 	}
 
-	moc.otherMOC, err = generic.FromDependencies(deps, mutualOptionalChildConfig.OtherMOC)
+	moc.otherMOC, err = generic.FromProvider(deps, mutualOptionalChildConfig.OtherMOC)
 	if err != nil {
 		moc.logger.Infof("could not get other MOC %s from dependencies; continuing",
 			mutualOptionalChildConfig.OtherMOC)

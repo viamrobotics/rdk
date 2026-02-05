@@ -6,13 +6,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/utils"
 )
 
 // UploadChunkSize defines the size of the data included in each message of a FileUpload stream.
@@ -70,23 +74,49 @@ func uploadArbitraryFile(
 		return 0, fmt.Errorf("error trying to seek to beginning of file %s: expected position 0, instead got to position %d", path, pos)
 	}
 
+	// Get file timestamps
+	fileTimes, err := utils.GetFileTimes(path)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to get file times")
+	}
+
 	logger.Debugf("datasync.FileUpload request started for arbitrary file: %s", path)
 	stream, err := conn.client.FileUpload(ctx)
 	if err != nil {
 		return 0, errors.Wrap(err, "error creating FileUpload client")
 	}
 
+	// Try to infer tags and dataset IDs from the filename query parameters.
+	uploadTagsSet := goutils.NewStringSet(tags...)
+	uploadDatasetIDsSet := goutils.NewStringSet(datasetIDs...)
+	inferredTags, inferredDatasetIDs := inferTagsAndDatasetIDsFromPath(path)
+	for _, t := range inferredTags {
+		uploadTagsSet.Add(t)
+	}
+	for _, id := range inferredDatasetIDs {
+		uploadDatasetIDsSet.Add(id)
+	}
+	logger.Debugf(
+		"inferred upload metadata from path segments; file=%q tags=%v datasetIDs=%v",
+		path,
+		inferredTags,
+		inferredDatasetIDs,
+	)
+	uploadFileExt := filepath.Ext(path)
+
 	// Send metadata FileUploadRequest.
 	logger.Debugf("datasync.FileUpload request sending metadata for arbitrary file: %s", path)
 	if err := stream.Send(&v1.FileUploadRequest{
 		UploadPacket: &v1.FileUploadRequest_Metadata{
 			Metadata: &v1.UploadMetadata{
-				PartId:        conn.partID,
-				Type:          v1.DataType_DATA_TYPE_FILE,
-				FileName:      path,
-				FileExtension: filepath.Ext(f.Name()),
-				Tags:          tags,
-				DatasetIds:    datasetIDs,
+				PartId:         conn.partID,
+				Type:           v1.DataType_DATA_TYPE_FILE,
+				FileName:       path,
+				FileExtension:  uploadFileExt,
+				FileCreateTime: timestamppb.New(fileTimes.CreateTime),
+				FileModifyTime: timestamppb.New(fileTimes.ModifyTime),
+				Tags:           uploadTagsSet.ToList(),
+				DatasetIds:     uploadDatasetIDsSet.ToList(),
 			},
 		},
 	}); err != nil {
@@ -158,4 +188,34 @@ func readNextFileChunk(f *os.File) (*v1.FileData, error) {
 		return nil, err
 	}
 	return &v1.FileData{Data: byteArr[:numBytesRead]}, nil
+}
+
+// inferTagsAndDatasetIDsFromPath infers tags and dataset IDs from the path of a file.
+// Directory name convention: `.../tag=<tag>/tag=<tag>/dataset=<id>/dataset=<id>/<file>`
+func inferTagsAndDatasetIDsFromPath(path string) (tags, datasetIDs []string) {
+	dir := filepath.Dir(path)
+	for {
+		seg := strings.TrimSpace(filepath.Base(dir))
+		if seg != "" && seg != "." && seg != string(filepath.Separator) {
+			if v, ok := strings.CutPrefix(seg, "tag="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					tags = append(tags, v)
+				}
+			} else if v, ok := strings.CutPrefix(seg, "dataset="); ok {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					datasetIDs = append(datasetIDs, v)
+				}
+			}
+		}
+
+		// Go up one directory until we can no longer ascend.
+		next := filepath.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+	return tags, datasetIDs
 }

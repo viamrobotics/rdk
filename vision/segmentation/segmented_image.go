@@ -98,9 +98,11 @@ func (si *SegmentedImage) At(x, y int) color.Color {
 }
 
 func (si *SegmentedImage) createPalette() {
+	//nolint: revive
 	max := 0
 	for _, v := range si.dots {
 		if v > max {
+			//nolint: revive
 			max = v
 		}
 	}

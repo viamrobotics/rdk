@@ -17,9 +17,9 @@ import (
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	ut "go.viam.com/rdk/utils"
 )

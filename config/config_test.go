@@ -201,14 +201,24 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
+	err = invalidCloud.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -475,14 +485,24 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
+	err = invalidCloud.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -1118,9 +1138,6 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap 
 }
 
 func TestPackageConfig(t *testing.T) {
-	homeDir, _ := os.UserHomeDir()
-	viamDotDir := filepath.Join(homeDir, ".viam")
-
 	packageTests := []struct {
 		config               config.PackageConfig
 		shouldFailValidation bool
@@ -1141,7 +1158,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_module",
 				Version: "1.2",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "module", "my_org-my_module-1_2"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "module", "my_org-my_module-1_2"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1150,7 +1167,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_ml_model",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "ml_model", "my_org-my_ml_model-latest"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "ml_model", "my_org-my_ml_model-latest"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1159,7 +1176,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_slam_map",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "slam_map", "my_org-my_slam_map-latest"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "slam_map", "my_org-my_slam_map-latest"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1188,7 +1205,7 @@ func TestPackageConfig(t *testing.T) {
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)
-		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(viamDotDir, "packages"))
+		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(rutils.ViamDotDir, "packages"))
 		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
 	}
 }
@@ -1521,6 +1538,80 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 						Name:    "foo",
 						Address: "localhost:12345",
 						Prefix:  "fooprefix",
+					},
+				},
+			},
+		},
+		{
+			name: "resource",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+		},
+		{
+			name: "resource with log config",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
 			},

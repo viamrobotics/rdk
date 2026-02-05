@@ -180,7 +180,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return ErrCaptureDirectoryConfigurationDisabled
 	}
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		// If this error occurs it's a resource graph error
 		return err
@@ -215,7 +215,7 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 	if name == "" {
 		return nil, false
 	}
-	syncSensor, err := sensor.FromDependencies(deps, name)
+	syncSensor, err := sensor.FromProvider(deps, name)
 	if err != nil {
 		// see sync.Config for how this affects whether or not scheduled sync will run
 		logger.Errorw(

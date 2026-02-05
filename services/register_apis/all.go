@@ -12,5 +12,6 @@ import (
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/shell"
 	_ "go.viam.com/rdk/services/slam"
+	_ "go.viam.com/rdk/services/video"
 	_ "go.viam.com/rdk/services/worldstatestore"
 )

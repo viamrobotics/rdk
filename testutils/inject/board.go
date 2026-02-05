@@ -22,7 +22,7 @@ type Board struct {
 	GPIOPinByNameFunc          func(name string) (board.GPIOPin, error)
 	gpioPinByNameCap           []interface{}
 	CloseFunc                  func(ctx context.Context) error
-	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error
+	SetPowerModeFunc           func(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration, extra map[string]interface{}) error
 	StreamTicksFunc            func(ctx context.Context,
 		interrupts []board.DigitalInterrupt, ch chan board.Tick, extra map[string]interface{}) error
 }
@@ -113,11 +113,11 @@ func (b *Board) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 // SetPowerMode sets the board to the given power mode. If
 // provided, the board will exit the given power mode after
 // the specified duration.
-func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration) error {
+func (b *Board) SetPowerMode(ctx context.Context, mode boardpb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
 	if b.SetPowerModeFunc == nil {
-		return b.Board.SetPowerMode(ctx, mode, duration)
+		return b.Board.SetPowerMode(ctx, mode, duration, extra)
 	}
-	return b.SetPowerModeFunc(ctx, mode, duration)
+	return b.SetPowerModeFunc(ctx, mode, duration, extra)
 }
 
 // StreamTicks calls the injected StreamTicks or the real version.

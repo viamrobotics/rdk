@@ -3,11 +3,16 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"slices"
 )
 
-// ViamTCPSockets returns true if an env is set or if the platform requires it.
-func ViamTCPSockets() bool {
-	return slices.Contains(EnvTrueValues, os.Getenv("VIAM_TCP_SOCKETS"))
+// OnlyUseViamTCPSockets returns true if TCP sockets should be used in lieu of Unix sockets.
+func OnlyUseViamTCPSockets() (use bool, reason string) {
+	envVal := os.Getenv(ViamTCPSocketsEnvVar)
+	if slices.Contains(EnvTrueValues, envVal) {
+		return true, fmt.Sprintf("Env var %s=%s", ViamTCPSocketsEnvVar, envVal)
+	}
+	return false, ""
 }

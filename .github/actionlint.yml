@@ -17,7 +17,5 @@ self-hosted-runner:
     - buildjet-16vcpu-ubuntu-2204-arm
     - buildjet-32vcpu-ubuntu-2204-arm
     - buildjet-pinned-location_de_arm
-    # Include windows-2025 as a "self-hosted" runner because our actionlint version is so
-    # old, that it's unaware this runner label exists. See
-    # https://viam.atlassian.net/browse/RSDK-11699.
-    - windows-2025
+    - ubuntu-16-core
+    - ubuntu-arm-16-core

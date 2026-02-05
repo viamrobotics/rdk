@@ -59,7 +59,7 @@ You can then query resources and also grab a resource by its name.
   	logger.Info(robot.ResourceNames())
 
 	// grab a motor by its name and query for its position
-	m1, err := motor.FromRobot(robot, "motor1")
+	m1, err := motor.FromProvider(robot, "motor1")
 	if err != nil {
 		logger.Fatal(err)
 	}

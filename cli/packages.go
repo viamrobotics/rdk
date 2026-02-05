@@ -190,6 +190,9 @@ type packageUploadArgs struct {
 
 // PackageUploadAction is the corresponding action for "packages upload".
 func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to upload a package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -275,7 +278,7 @@ func (c *viamClient) uploadPackage(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, nil, stream, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextPackageUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -284,8 +287,7 @@ func (c *viamClient) uploadPackage(
 	return resp, errs
 }
 
-func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, error) {
-	// get the next chunk of bytes from the file
+func getBytesFromFile(file *os.File) ([]byte, error) {
 	byteArr := make([]byte, moduleUploadChunkSize)
 	numBytesRead, err := file.Read(byteArr)
 	if err != nil {
@@ -294,11 +296,20 @@ func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageReques
 	if numBytesRead < moduleUploadChunkSize {
 		byteArr = byteArr[:numBytesRead]
 	}
+
+	return byteArr, nil
+}
+
+func getNextPackageUploadRequest(file *os.File) (*packagespb.CreatePackageRequest, int, error) {
+	byteArr, err := getBytesFromFile(file)
+	if err != nil {
+		return nil, 0, err
+	}
 	return &packagespb.CreatePackageRequest{
 		Package: &packagespb.CreatePackageRequest_Contents{
 			Contents: byteArr,
 		},
-	}, nil
+	}, len(byteArr), nil
 }
 
 func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {

@@ -18,7 +18,10 @@ import (
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
-	"go.viam.com/utils"
+	otelresource "go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.viam.com/utils/perf"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -36,7 +39,7 @@ func main() {
 
 func realMain() error {
 	ctx := context.Background()
-	logger := logging.NewLogger("cmd-plan")
+	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
@@ -58,21 +61,45 @@ func realMain() error {
 		if err != nil {
 			return fmt.Errorf("couldn't create %s %w", *cpu, err)
 		}
-		defer utils.UncheckedError(f.Close())
 
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
 			return fmt.Errorf("could not start CPU profile: %w", err)
 		}
-		defer pprof.StopCPUProfile()
+		defer func() {
+			pprof.StopCPUProfile()
+			err = f.Close()
+			if err != nil {
+				logger.Errorf("couldn't write profiling file: %v", err)
+			}
+		}()
 	}
 
+	_ = reg
+
+	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
+	// WARN+ logs. Let's start with DEBUG everywhere and:
+	logger.SetLevel(logging.DEBUG)
 	if *verbose {
-		logger.SetLevel(logging.DEBUG)
+		// For verbose keep everything at DEBUG and only claw back `ik` logs to INFO.
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.ik",
+				Level:   "INFO",
+			},
+		}, logger)
+	} else {
+		// For regular cmd-plan runs, leave `mp` at DEBUG, and promote underneath loggers to emit
+		// INFO+ logs.
+		reg.Update([]logging.LoggerPatternConfig{
+			{
+				Pattern: "*.mp.*",
+				Level:   "INFO",
+			},
+		}, logger)
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-
 	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
 	if err != nil {
 		return err
@@ -86,11 +113,33 @@ func realMain() error {
 		req.PlannerOptions.RandomSeed = *seed
 	}
 
+	err = armplanning.PrepSmartSeed(req.FrameSystem, logger)
+	if err != nil {
+		return err
+	}
+
 	logger.Infof("starting motion planning for %d goals", len(req.Goals))
 	mylog := log.New(os.Stdout, "", 0)
 	start := time.Now()
 
+	metricsExporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
+		ReportingInterval: time.Second * 10,
+		TracesDisabled:    true,
+	})
+	if err := metricsExporter.Start(); err != nil {
+		return err
+	}
+
+	spansExporter := perf.NewOtelDevelopmentExporter()
+	//nolint: errcheck
+	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
+	trace.AddExporters(spansExporter)
+
 	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	if err := trace.Shutdown(ctx); err != nil {
+		logger.Errorw("Got error while shutting down tracing", "err", err)
+	}
+	metricsExporter.Stop()
 	if *interactive {
 		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
@@ -98,15 +147,15 @@ func realMain() error {
 		return nil
 	}
 	if err != nil {
+		if plan != nil {
+			mylog.Printf("error but partial result of length: %d", len(plan.Trajectory()))
+		}
 		return err
 	}
 
 	if len(plan.Path()) != len(plan.Trajectory()) {
 		return fmt.Errorf("path and trajectory not the same %d vs %d", len(plan.Path()), len(plan.Trajectory()))
 	}
-
-	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
-		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
@@ -145,7 +194,7 @@ func realMain() error {
 			}
 			mylog.Printf("\t\t %s", c)
 			mylog.Printf("\t\t\t %v", pp)
-			mylog.Printf("\t\t\t %v", t[c])
+			mylog.Printf("\t\t\t joints: %v", logging.FloatArrayFormat{"%0.2f", t[c]})
 			if idx > 0 {
 				p := plan.Trajectory()[idx-1][c]
 
@@ -162,6 +211,8 @@ func realMain() error {
 		}
 	}
 
+	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
+		time.Since(start).Truncate(time.Millisecond), len(req.Goals), len(plan.Trajectory()))
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
@@ -202,14 +253,17 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
-				&motionplan.SegmentFS{plan.Trajectory()[idx-1], plan.Trajectory()[idx], req.FrameSystem},
-				2)
+				&motionplan.SegmentFS{
+					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
+					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+					FS:                 req.FrameSystem,
+				}, 2)
 			if err != nil {
 				return err
 			}
 
 			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp); err != nil {
+				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
 					return err
 				}
 
@@ -234,7 +288,7 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
 	for _, goalPlanState := range req.Goals {
-		poses, err := goalPlanState.ComputePoses(req.FrameSystem)
+		poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
 		if err != nil {
 			return err
 		}
@@ -388,7 +442,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					logger.Println("Rendering failed solution")
 					logger.Println("  Err:", errStr)
 					logger.Println("  Inputs:", configuration)
-					if err := viz.DrawFrameSystem(req.FrameSystem, configuration); err != nil {
+					if err := viz.DrawFrameSystem(req.FrameSystem, configuration.ToFrameSystemInputs()); err != nil {
 						return err
 					}
 					break searchLoop

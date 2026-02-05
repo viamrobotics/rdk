@@ -22,6 +22,7 @@ type Diff struct {
 	Removed             *Config
 	ResourcesEqual      bool
 	NetworkEqual        bool
+	TracingEqual        bool
 	LogEqual            bool
 	JobsEqual           bool
 	PrettyDiff          string
@@ -98,7 +99,14 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 	logDifferent := diffLogCfg(&left, &right)
 	diff.LogEqual = !logDifferent
 
+	tracingDifferent := diffTracing(&left, &right)
+	diff.TracingEqual = !tracingDifferent
+
 	return &diff, nil
+}
+
+func diffTracing(left, right *Config) bool {
+	return left.Tracing != right.Tracing
 }
 
 func prettyDiff(left, right Config) (string, error) {
@@ -136,6 +144,9 @@ func prettyDiff(left, right Config) (string, error) {
 				if conf.Cloud.LocationSecrets[i].Secret != "" {
 					conf.Cloud.LocationSecrets[i].Secret = mask
 				}
+			}
+			if conf.Cloud.APIKey.Key != "" {
+				conf.Cloud.APIKey.Key = mask
 			}
 			// Not really a secret but annoying to diff
 			if conf.Cloud.TLSCertificate != "" {
@@ -252,7 +263,7 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
-			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !componentDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -381,7 +392,7 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
-			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !serviceDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue

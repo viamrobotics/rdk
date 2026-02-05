@@ -70,7 +70,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 	validServiceModel := mysum.Model
 	validComponentModel := mygizmo.Model
 
-	resourceError := "resource with API %s and model %s not yet registered"
+	resourceError := "resource with API %q and model %q not yet registered"
 	testCases := []struct {
 		api   resource.API
 		model resource.Model
@@ -138,7 +138,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 
 func TestModuleFunctions(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -536,7 +536,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -575,7 +575,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -635,7 +635,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -676,7 +676,7 @@ func TestAttributeConversion(t *testing.T) {
 	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -923,7 +923,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 	testName := resource.NewName(testAPI, "arm1")
 
 	expectedInputs := referenceframe.FrameSystemInputs{
-		testName.ShortName(): []referenceframe.Input{{0}, {math.Pi}, {-math.Pi}, {0}, {math.Pi}, {-math.Pi}},
+		testName.ShortName(): []referenceframe.Input{0, math.Pi, -math.Pi, 0, math.Pi, -math.Pi},
 	}
 	injectArm := &inject.Arm{
 		JointPositionsFunc: func(ctx context.Context, extra map[string]any) ([]referenceframe.Input, error) {
@@ -947,7 +947,7 @@ func TestNewFrameSystemClient(t *testing.T) {
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, resources)
 	test.That(t, err, test.ShouldBeNil)
-	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc))
+	gServer.RegisterService(&armpb.ArmService_ServiceDesc, arm.NewRPCServiceServer(armSvc, logger))
 	robotpb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 
 	go gServer.Serve(listener)

@@ -57,6 +57,12 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
 
+	tracingCfg, err := TracingConfigFromProto(proto.Tracing, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting tracing config from proto")
+	}
+	cfg.Tracing = tracingCfg
+
 	cfg.Modules = toRDKSlice(proto.Modules, ModuleConfigFromProto, logger)
 	cfg.Components = toRDKSlice(proto.Components, ComponentConfigFromProto, logger)
 	cfg.Remotes = toRDKSlice(proto.Remotes, RemoteConfigFromProto, logger)
@@ -668,6 +674,33 @@ func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig, _ logging.Logger) (
 	return &maintenanceConfig, nil
 }
 
+// TracingConfigFromProto creates a [TracingConfig] from the proto equivalent.
+func TracingConfigFromProto(proto *pb.TracingConfig, _ logging.Logger) (TracingConfig, error) {
+	tcfg := TracingConfig{}
+	if proto == nil {
+		return tcfg, nil
+	}
+	tcfg.Enabled = proto.Enabled
+	tcfg.Disk = proto.Disk
+	tcfg.Console = proto.Console
+	tcfg.OTLPEndpoint = proto.OtlpEndpoint
+	return tcfg, nil
+}
+
+// TracingConfigToProto converts a [TracingConfig] to the proto equivalent.
+func TracingConfigToProto(cfg *TracingConfig) (*pb.TracingConfig, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+	protoConfig := &pb.TracingConfig{
+		Enabled:      cfg.Enabled,
+		Disk:         cfg.Disk,
+		Console:      cfg.Console,
+		OtlpEndpoint: cfg.OTLPEndpoint,
+	}
+	return protoConfig, nil
+}
+
 // AuthConfigToProto converts AuthConfig to the proto equivalent.
 func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	handlers, err := mapSliceWithErrors(auth.Handlers, authHandlerConfigToProto)
@@ -1032,6 +1065,9 @@ func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
 		}
 		protoConfig.Command = command
 	}
+	if jc.LogConfiguration != nil {
+		protoConfig.LogConfiguration = &pb.LogConfiguration{Level: strings.ToLower(jc.LogConfiguration.Level.String())}
+	}
 	return protoConfig, nil
 }
 
@@ -1048,6 +1084,15 @@ func JobsConfigFromProto(proto *pb.JobConfig, _ logging.Logger) (*JobConfig, err
 
 	if proto.Command != nil {
 		jobConfig.Command = proto.Command.AsMap()
+	}
+	if proto.LogConfiguration != nil {
+		if proto.GetLogConfiguration() != nil {
+			level, err := logging.LevelFromString(proto.GetLogConfiguration().Level)
+			if err != nil {
+				level = logging.INFO
+			}
+			jobConfig.LogConfiguration = &resource.LogConfig{Level: level}
+		}
 	}
 	return jobConfig, nil
 }

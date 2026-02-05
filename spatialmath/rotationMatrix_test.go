@@ -11,7 +11,7 @@ import (
 
 func TestQuaternionConversion(t *testing.T) {
 	// Test that conversion to rotation matrix to quaternion is correct
-	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/examples/index.htm
+	// https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/examples/index.htm
 	cos45 := 0.7071067811865476
 	cases := []struct {
 		input    [9]float64

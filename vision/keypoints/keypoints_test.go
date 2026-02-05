@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-func generateRandomKeypoint(max int) image.Point {
+func generateRandomKeypoint(max int) image.Point { //nolint: revive
 	x := utils.AbsInt(rand.Intn(max))
 	y := utils.AbsInt(rand.Intn(max))
 	return image.Point{x, y}

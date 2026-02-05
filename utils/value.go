@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/md5" //nolint:gosec
+	"encoding/hex"
 	"math/rand"
 	"os"
 	"strings"
@@ -97,4 +99,26 @@ func MapOver[T, U any](items []T, fn func(T) (U, error)) ([]U, error) {
 // In sensitive contexts please use a third-party library for this.
 func SanitizePath(path string) string {
 	return strings.ReplaceAll(path, string(os.PathSeparator), "-")
+}
+
+// RIndex returns item at `index` of `items`, with support for negative indexes, or `fallback` if out of bounds.
+func RIndex[T any](items []T, index int, fallback T) T {
+	if index >= len(items) || index < -len(items) {
+		return fallback
+	}
+	if index >= 0 {
+		return items[index]
+	}
+	return items[len(items)+index]
+}
+
+// HashString returns last `n` characters of the md5sum of `input` string.
+func HashString(input string, n int) string {
+	h := md5.New() //nolint:gosec
+	h.Write([]byte(input))
+	ret := hex.EncodeToString(h.Sum(nil))
+	if n > 0 {
+		return ret[len(ret)-n:]
+	}
+	return ret
 }

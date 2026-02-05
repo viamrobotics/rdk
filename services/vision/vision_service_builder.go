@@ -5,7 +5,7 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -60,7 +60,7 @@ func NewService(
 	}
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromDependencies(deps, cameraName)
+		return camera.FromProvider(deps, cameraName)
 	}
 
 	return &vizModel{
@@ -106,7 +106,7 @@ func DeprecatedNewService(
 	logger := r.Logger()
 
 	getCamera := func(cameraName string) (camera.Camera, error) {
-		return camera.FromRobot(r, cameraName)
+		return camera.FromProvider(r, cameraName)
 	}
 
 	return &vizModel{
@@ -159,9 +159,16 @@ func (vm *vizModel) DetectionsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
+	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	if len(namedImages) == 0 {
+		return nil, errors.Errorf("no images returned from camera %s", cameraName)
+	}
+	img, err := namedImages[0].Image(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 	return vm.detectorFunc(ctx, img)
 }
@@ -209,9 +216,16 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
+	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	if len(namedImages) == 0 {
+		return nil, errors.Errorf("no images returned from camera %s", cameraName)
+	}
+	img, err := namedImages[0].Image(ctx)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 
 	fullClassifications, err := vm.classifierFunc(ctx, img)
@@ -271,9 +285,16 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not find camera named %s", cameraName)
 	}
-	img, err := camera.DecodeImageFromCamera(ctx, "", extra, cam)
+	namedImages, _, err := cam.Images(ctx, nil, extra)
 	if err != nil {
 		return viscapture.VisCapture{}, errors.Wrapf(err, "could not get image from %s", cameraName)
+	}
+	if len(namedImages) == 0 {
+		return viscapture.VisCapture{}, errors.Errorf("no images returned from camera %s", cameraName)
+	}
+	img, err := namedImages[0].Image(ctx)
+	if err != nil {
+		return viscapture.VisCapture{}, errors.Wrapf(err, "could not decode image from %s", cameraName)
 	}
 
 	var detections []objectdetection.Detection

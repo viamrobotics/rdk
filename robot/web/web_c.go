@@ -27,15 +27,18 @@ func (svc *webService) Reconfigure(ctx context.Context, _ resource.Dependencies,
 }
 
 func (svc *webService) closeStreamServer() {
-	if err := svc.streamServer.Close(); err != nil {
-		svc.logger.Errorw("error closing stream server", "error", err)
-	}
+	// streamServer is called by svc.stopWeb, which is called by both Stop and Close in the shutdown process.
+	if svc.streamServer != nil {
+		if err := svc.streamServer.Close(); err != nil {
+			svc.logger.Errorw("error closing stream server", "error", err)
+		}
 
-	// RSDK-10570: Nil out the stream server such that we recreate it on a `runWeb` call. Recreating
-	// the stream server is important for passing in a fresh `svc.cancelCtx` that's in an alive
-	// state. The stream server checks that context, for example, when handling the AddStream API
-	// call.
-	svc.streamServer = nil
+		// RSDK-10570: Nil out the stream server such that we recreate it on a `runWeb` call. Recreating
+		// the stream server is important for passing in a fresh `svc.cancelCtx` that's in an alive
+		// state. The stream server checks that context, for example, when handling the AddStream API
+		// call.
+		svc.streamServer = nil
+	}
 }
 
 func (svc *webService) initStreamServer(ctx context.Context, srv rpc.Server) error {

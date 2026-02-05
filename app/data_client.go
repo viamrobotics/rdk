@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/utils"
 )
 
 // Order specifies the order in which data is returned.
@@ -318,6 +319,8 @@ type TabularDataByMQLOptions struct {
 	// PipelineID is the ID of the pipeline to query. Required if TabularDataSourceType
 	// is TabularDataSourceTypePipelineSink.
 	PipelineID string
+	// QueryPrefixName specifies the name of the saved query to prepend to the provided MQL query.
+	QueryPrefixName string
 }
 
 // CreateDataPipelineOptions contains optional parameters for CreateDataPipeline.
@@ -360,6 +363,12 @@ type StreamingDataCaptureUploadOptions struct {
 	Tags             []string
 	DatasetIDs       []string
 	DataRequestTimes *[2]time.Time
+}
+
+// BinaryDataByIDsOptions contains optional parameters for BinaryDataByIDs.
+type BinaryDataByIDsOptions struct {
+	// IncludeBinary controls whether binary data is included in the response.
+	IncludeBinary bool
 }
 
 // FileUploadOptions represents optional parameters for the FileUploadFromPath & FileUploadFromBytes methods.
@@ -577,11 +586,17 @@ func (d *DataClient) TabularDataByMQL(
 		}
 	}
 
-	resp, err := d.dataClient.TabularDataByMQL(ctx, &pb.TabularDataByMQLRequest{
+	req := &pb.TabularDataByMQLRequest{
 		OrganizationId: organizationID,
 		MqlBinary:      mqlBinary,
 		DataSource:     dataSource,
-	})
+	}
+
+	if opts.QueryPrefixName != "" {
+		req.QueryPrefixName = &opts.QueryPrefixName
+	}
+
+	resp, err := d.dataClient.TabularDataByMQL(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -703,9 +718,14 @@ func (d *DataClient) BinaryDataByFilter(
 }
 
 // BinaryDataByIDs queries binary data and metadata based on given IDs.
-func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string) ([]*BinaryData, error) {
+// opts is optional; if not provided, IncludeBinary defaults to true for backward compatibility.
+func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string, opts ...*BinaryDataByIDsOptions) ([]*BinaryData, error) {
+	includeBinary := true // default for backward compatibility
+	if len(opts) > 0 && opts[0] != nil {
+		includeBinary = opts[0].IncludeBinary
+	}
 	resp, err := d.dataClient.BinaryDataByIDs(ctx, &pb.BinaryDataByIDsRequest{
-		IncludeBinary: true,
+		IncludeBinary: includeBinary,
 		BinaryDataIds: binaryDataIDs,
 	})
 	if err != nil {
@@ -720,6 +740,19 @@ func (d *DataClient) BinaryDataByIDs(ctx context.Context, binaryDataIDs []string
 		data[i] = binData
 	}
 	return data, nil
+}
+
+// CreateBinaryDataSignedURL creates a signed URL for a given binary data ID.
+// The signed URL can be used for public access to the binary data for a limited time.
+func (d *DataClient) CreateBinaryDataSignedURL(ctx context.Context, binaryDataID string, expirationMinutes uint32) (string, error) {
+	resp, err := d.dataClient.CreateBinaryDataSignedURL(ctx, &pb.CreateBinaryDataSignedURLRequest{
+		BinaryDataId:      binaryDataID,
+		ExpirationMinutes: &expirationMinutes,
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.SignedUrl, nil
 }
 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
@@ -1261,6 +1294,14 @@ func (d *DataClient) FileUploadFromPath(
 	var data []byte
 	// Prepare file data from filepath
 	if filePath != "" {
+		// Get file timestamps before reading the file
+		fileTimes, err := utils.GetFileTimes(filePath)
+		if err != nil {
+			return "", err
+		}
+		metadata.FileCreateTime = timestamppb.New(fileTimes.CreateTime)
+		metadata.FileModifyTime = timestamppb.New(fileTimes.ModifyTime)
+
 		//nolint:gosec
 		fileData, err := os.ReadFile(filePath)
 		if err != nil {

@@ -4,7 +4,6 @@ import (
 	"math"
 	"testing"
 
-	pb "go.viam.com/api/component/arm/v1"
 	"go.viam.com/test"
 )
 
@@ -16,21 +15,11 @@ func TestJointPositions(t *testing.T) {
 	test.That(t, JointPositionsToRadians(j), test.ShouldResemble, in)
 }
 
-func TestBasicConversions(t *testing.T) {
-	jp := &pb.JointPositions{Values: []float64{45, 55}}
-	radians := JointPositionsToRadians(jp)
-	test.That(t, jp, test.ShouldResemble, JointPositionsFromRadians(radians))
-
-	floats := []float64{45, 55, 27}
-	inputs := FloatsToInputs(floats)
-	test.That(t, floats, test.ShouldResemble, InputsToFloats(inputs))
-}
-
 func TestInterpolateValues(t *testing.T) {
-	jp1 := FloatsToInputs([]float64{0, 4})
-	jp2 := FloatsToInputs([]float64{8, -8})
-	jpHalf := FloatsToInputs([]float64{4, -2})
-	jpQuarter := FloatsToInputs([]float64{2, 1})
+	jp1 := []Input{0, 4}
+	jp2 := []Input{8, -8}
+	jpHalf := []Input{4, -2}
+	jpQuarter := []Input{2, 1}
 
 	interp1 := interpolateInputs(jp1, jp2, 0.5)
 	interp2 := interpolateInputs(jp1, jp2, 0.25)

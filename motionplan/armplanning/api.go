@@ -4,14 +4,14 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
@@ -20,6 +20,10 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+type testOptions struct {
+	doNotCloseObstacles bool
+}
 
 // PlanRequest is a struct to store all the data necessary to make a call to PlanMotion.
 type PlanRequest struct {
@@ -40,13 +44,12 @@ type PlanRequest struct {
 	StartState *PlanState `json:"start_state"`
 	// The data representation of the robot's environment.
 	WorldState *referenceframe.WorldState `json:"world_state"`
-	// Set of bounds which the robot must remain within while navigating. This is used only for kinematic bases
-	// and not arms.
-	BoundingRegions []*commonpb.Geometry `json:"bounding_regions"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *motionplan.Constraints `json:"constraints"`
 	// Other more granular parameters for the plan used to move the robot.
 	PlannerOptions *PlannerOptions `json:"planner_options"`
+
+	myTestOptions testOptions
 }
 
 // validatePlanRequest ensures PlanRequests are not malformed.
@@ -61,7 +64,7 @@ func (req *PlanRequest) validatePlanRequest() error {
 	if req.StartState == nil {
 		return errors.New("PlanRequest cannot have nil StartState")
 	}
-	if req.StartState.configuration == nil {
+	if req.StartState.structuredConfiguration == nil {
 		return errors.New("PlanRequest cannot have nil StartState configuration")
 	}
 	if req.PlannerOptions == nil {
@@ -69,12 +72,13 @@ func (req *PlanRequest) validatePlanRequest() error {
 	}
 
 	// If we have a start configuration, check for correctness. Reuse FrameSystemPoses compute function to provide error.
-	if len(req.StartState.configuration) > 0 {
-		_, err := req.StartState.configuration.ComputePoses(req.FrameSystem)
+	if len(req.StartState.structuredConfiguration) > 0 {
+		_, err := req.StartState.structuredConfiguration.ComputePoses(req.FrameSystem)
 		if err != nil {
 			return err
 		}
 	}
+
 	// if we have start poses, check we have valid frames
 	for fName, pif := range req.StartState.poses {
 		if req.FrameSystem.Frame(fName) == nil {
@@ -117,15 +121,10 @@ func (req *PlanRequest) validatePlanRequest() error {
 		req.WorldState = newWS
 	}
 
-	boundingRegions, err := referenceframe.NewGeometriesFromProto(req.BoundingRegions)
-	if err != nil {
-		return err
-	}
-
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
-	for i, goalState := range req.Goals {
+	for _, goalState := range req.Goals {
 		for fName, pif := range goalState.poses {
-			if len(goalState.configuration) > 0 {
+			if len(goalState.structuredConfiguration) > 0 {
 				return errors.New("individual goals cannot have both configuration and poses populated")
 			}
 
@@ -133,46 +132,11 @@ func (req *PlanRequest) validatePlanRequest() error {
 			if req.FrameSystem.Frame(goalParentFrame) == nil {
 				return referenceframe.NewParentFrameMissingError(fName, goalParentFrame)
 			}
-
-			if len(boundingRegions) > 0 {
-				// Check that robot components start within bounding regions.
-				// Bounding regions are for 2d planning, which requires a start pose
-				if len(goalState.poses) > 0 && len(req.StartState.poses) > 0 {
-					goalFrame := req.FrameSystem.Frame(fName)
-					if goalFrame == nil {
-						return referenceframe.NewFrameMissingError(fName)
-					}
-					buffer := req.PlannerOptions.CollisionBufferMM
-					// check that the request frame's geometries are within or in collision with the bounding regions
-					robotGifs, err := goalFrame.Geometries(make([]referenceframe.Input, len(goalFrame.DoF())))
-					if err != nil {
-						return err
-					}
-					if i == 0 {
-						// Only need to check start poses once
-						startPose, ok := req.StartState.poses[fName]
-						if !ok {
-							return fmt.Errorf("goal frame %s does not have a start pose", fName)
-						}
-						var robotGeoms []spatialmath.Geometry
-						for _, geom := range robotGifs.Geometries() {
-							robotGeoms = append(robotGeoms, geom.Transform(startPose.Pose()))
-						}
-						robotGeomBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(robotGeoms, boundingRegions, buffer)
-						if robotGeomBoundingRegionCheck(&motionplan.State{}) != nil {
-							return fmt.Errorf("frame named %s is not within the provided bounding regions", fName)
-						}
-					}
-
-					// check that the destination is within or in collision with the bounding regions
-					destinationAsGeom := []spatialmath.Geometry{spatialmath.NewPoint(pif.Pose().Point(), "")}
-					destinationBoundingRegionCheck := motionplan.NewBoundingRegionConstraint(destinationAsGeom, boundingRegions, buffer)
-					if destinationBoundingRegionCheck(&motionplan.State{}) != nil {
-						return errors.New("destination was not within the provided bounding regions")
-					}
-				}
-			}
 		}
+	}
+
+	if req.Constraints == nil {
+		req.Constraints = &motionplan.Constraints{}
 	}
 	return nil
 }
@@ -201,7 +165,7 @@ func PlanFrameMotion(ctx context.Context,
 		Goals: []*PlanState{
 			{poses: referenceframe.FrameSystemPoses{f.Name(): referenceframe.NewPoseInFrame(referenceframe.World, dst)}},
 		},
-		StartState:     &PlanState{configuration: referenceframe.FrameSystemInputs{f.Name(): seed}},
+		StartState:     &PlanState{structuredConfiguration: referenceframe.FrameSystemInputs{f.Name(): seed}},
 		Constraints:    constraints,
 		PlannerOptions: planOpts,
 	})
@@ -219,15 +183,23 @@ type PlanMeta struct {
 }
 
 // PlanMotion plans a motion from a provided plan request.
-func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest) (motionplan.Plan, PlanMeta, error) {
+func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanRequest) (motionplan.Plan, *PlanMeta, error) {
+	logger := parentLogger.Sublogger("mp")
+
 	start := time.Now()
+	meta := &PlanMeta{}
+	ctx, span := trace.StartSpan(ctx, "PlanMotion")
+	defer func() {
+		meta.Duration = time.Since(start)
+		span.End()
+	}()
 
 	if err := request.validatePlanRequest(); err != nil {
-		return nil, PlanMeta{}, err
+		return nil, meta, err
 	}
 	logger.CDebugf(ctx, "constraint specs for this step: %v", request.Constraints)
 	logger.CDebugf(ctx, "motion config for this step: %v", request.PlannerOptions)
-	logger.CDebugf(ctx, "start position: %v", request.StartState.configuration)
+	logger.CDebugf(ctx, "start position: %v", request.StartState.structuredConfiguration)
 
 	if request.PlannerOptions == nil {
 		request.PlannerOptions = NewBasicPlannerOptions()
@@ -236,25 +208,20 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 	// Theoretically, a plan could be made between two poses, by running IK on both the start and end poses to create sets of seed and
 	// goal configurations. However, the blocker here is the lack of a "known good" configuration used to determine which obstacles
 	// are allowed to collide with one another.
-	if request.StartState.configuration == nil {
-		return nil, PlanMeta{}, errors.New("must populate start state configuration")
+	if request.StartState.structuredConfiguration == nil {
+		return nil, meta, errors.New("must populate start state configuration")
 	}
 
-	sfPlanner, err := newPlanManager(logger, request)
+	sfPlanner, err := newPlanManager(ctx, logger, request, meta)
 	if err != nil {
-		return nil, PlanMeta{}, err
+		return nil, meta, err
 	}
 
-	meta := PlanMeta{}
-	defer func() {
-		meta.Duration = time.Since(start)
-	}()
-
-	traj, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
+	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
-			logger.Infof("returning partial plan")
+			logger.Infof("returning partial plan, error: %v", err)
 		} else {
 			return nil, meta, err
 		}
@@ -262,7 +229,7 @@ func PlanMotion(ctx context.Context, logger logging.Logger, request *PlanRequest
 
 	meta.GoalsProcessed = goalsProcessed
 
-	t, err := motionplan.NewSimplePlanFromTrajectory(traj, request.FrameSystem)
+	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {
 		return nil, meta, err
 	}
@@ -317,4 +284,24 @@ func ReadRequestFromFile(fileName string) (*PlanRequest, error) {
 	}
 
 	return req, nil
+}
+
+// WriteToFile write a request to a .json file.
+func (req *PlanRequest) WriteToFile(fileName string) error {
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

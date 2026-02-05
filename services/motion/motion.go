@@ -210,10 +210,10 @@ type PlanWithStatus struct {
 //
 // Move example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
+//	gripperName := "my_gripper"
 //
 //	// Define a destination Pose
 //	destination := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.0}))
@@ -307,7 +307,7 @@ type PlanWithStatus struct {
 //
 // StopPlan example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //	myBaseResourceName := base.Named("myBase")
 //
 //	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
@@ -323,7 +323,7 @@ type PlanWithStatus struct {
 //
 // ListPlanStatuses example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //
 //	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
 //	planStatuses, err := motionService.ListPlanStatuses(context.Background(), motion.ListPlanStatusesReq{})
@@ -428,14 +428,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named motion service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named motion service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named motion service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named motion service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Motion service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // ToProto converts a PlanWithStatus to a *pb.PlanWithStatus.

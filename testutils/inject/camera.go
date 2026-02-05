@@ -19,13 +19,12 @@ type Camera struct {
 	name                 resource.Name
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
 	ImagesFunc           func(
 		ctx context.Context,
 		filterSourceNames []string,
 		extra map[string]interface{},
 	) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	NextPointCloudFunc func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
 	CloseFunc          func(ctx context.Context) error
@@ -43,25 +42,14 @@ func (c *Camera) Name() resource.Name {
 }
 
 // NextPointCloud calls the injected NextPointCloud or the real version.
-func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *Camera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if c.NextPointCloudFunc != nil {
-		return c.NextPointCloudFunc(ctx)
+		return c.NextPointCloudFunc(ctx, extra)
 	}
 	if c.Camera != nil {
-		return c.Camera.NextPointCloud(ctx)
+		return c.Camera.NextPointCloud(ctx, extra)
 	}
 	return nil, errors.New("NextPointCloud unimplemented")
-}
-
-// Image calls the injected Image or the real version.
-func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	if c.ImageFunc != nil {
-		return c.ImageFunc(ctx, mimeType, extra)
-	}
-	if c.Camera != nil {
-		return c.Camera.Image(ctx, mimeType, extra)
-	}
-	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no Image function available")
 }
 
 // Properties calls the injected Properties or the real version.

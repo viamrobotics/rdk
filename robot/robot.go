@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
@@ -26,6 +28,20 @@ import (
 const (
 	platform = "rdk"
 )
+
+// Version gets added as grpc metadata for every request. Computing this fresh requires reading the
+// binary file from disk. This is expensive, hence we cache it once at startup.
+var Version VersionResponse
+
+func init() {
+	var err error
+	if Version, err = version(); err != nil {
+		Version = VersionResponse{
+			Version:    "unknown",
+			APIVersion: "unknown",
+		}
+	}
+}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
@@ -79,6 +95,7 @@ const (
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
 	framesystem.RobotFrameSystem
+	resource.Provider
 
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.
@@ -176,6 +193,9 @@ type LocalRobot interface {
 	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
 	// returned in the case of name collisions.
 	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
+
+	// WriteTraceMessages writes trace spans to any configured exporters.
+	WriteTraceMessages(context.Context, []*otlpv1.ResourceSpans) error
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -328,9 +348,16 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources []resource.Status
-	Config    config.Revision
-	State     MachineState
+	Resources   []resource.Status
+	Config      config.Revision
+	State       MachineState
+	JobStatuses map[string]JobStatus
+}
+
+// JobStatus encapsulates status information about a single JobManager job.
+type JobStatus struct {
+	RecentSuccessfulRuns []time.Time
+	RecentFailedRuns     []time.Time
 }
 
 // VersionResponse encapsulates the version info of the robot.
@@ -343,7 +370,7 @@ type VersionResponse struct {
 // Version returns platform, version and API version of the robot.
 // platform will always be `rdk`
 // If built without a version tag,  will be dev-<git hash>.
-func Version() (VersionResponse, error) {
+func version() (VersionResponse, error) {
 	var result VersionResponse
 	result.Platform = platform
 

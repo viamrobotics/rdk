@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"time"
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -27,17 +28,11 @@ const (
 	// default number of seconds to try to solve in total before returning.
 	defaultTimeout = 300.
 
-	// default number of times to try to smooth the path.
-	defaultSmoothIter = 100
-
 	// random seed.
 	defaultRandomSeed = 0
 
 	// When breaking down a path into smaller waypoints, add a waypoint every this many mm of movement.
 	defaultStepSizeMM = 10
-
-	// Number of planner iterations before giving up.
-	defaultPlanIter = 1500
 
 	// The maximum percent of a joints range of motion to allow per step.
 	defaultFrameStep = 0.01
@@ -71,16 +66,10 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	opt.Resolution = defaultResolution
 	opt.Timeout = defaultTimeout
 
-	opt.PlanIter = defaultPlanIter
 	opt.FrameStep = defaultFrameStep
 	opt.InputIdentDist = defaultInputIdentDist
 	opt.IterBeforeRand = defaultIterBeforeRand
 
-	opt.SmoothIter = defaultSmoothIter
-
-	opt.NumThreads = defaultNumThreads
-
-	opt.PathStepSize = defaultStepSizeMM
 	opt.CollisionBufferMM = defaultCollisionBufferMM
 	opt.RandomSeed = defaultRandomSeed
 
@@ -92,10 +81,6 @@ type PlannerOptions struct {
 	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
 	// configurations for nodes.
 	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
-
-	// Acceptable arc length around the goal orientation vector for any solution. This is the additional parameter used to acquire
-	// the goal metric only if the GoalMetricType is ik.ArcLengthConvergence
-	ArcLengthTolerance float64 `json:"arc_length_tolerance"`
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
@@ -110,17 +95,8 @@ type PlannerOptions struct {
 	// Number of seconds before terminating planner
 	Timeout float64 `json:"timeout"`
 
-	// Number of times to try to smooth the path
-	SmoothIter int `json:"smooth_iter"`
-
-	// Number of cpu cores to use
-	NumThreads int `json:"num_threads"`
-
 	// How close to get to the goal
 	GoalThreshold float64 `json:"goal_threshold"`
-
-	// Number of planner iterations before giving up.
-	PlanIter int `json:"plan_iter"`
 
 	// The maximum percent of a joints range of motion to allow per step.
 	FrameStep float64 `json:"frame_step"`
@@ -150,10 +126,6 @@ type PlannerOptions struct {
 	// outputs for a given set of identical inputs
 	RandomSeed int `json:"rseed"`
 
-	// The max movement allowed for each step on the path from the initial random seed for a solution
-	// to the goal.
-	PathStepSize float64 `json:"path_step_size"`
-
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
 }
@@ -181,38 +153,23 @@ func NewPlannerOptionsFromExtra(extra map[string]interface{}) (*PlannerOptions, 
 }
 
 // getGoalMetric creates the distance metric for the solver using the configured options.
-func (p *PlannerOptions) getGoalMetric(goal referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
-	metrics := map[string]motionplan.StateMetric{}
-	frames := map[string]string{}
+func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) motionplan.StateFSMetric {
+	cartesianScale := 0.1
+	orientScale := 10.0
 
-	for frame, goalInFrame := range goal {
-		frames[frame] = goalInFrame.Parent()
-		switch p.GoalMetricType {
-		case motionplan.PositionOnly:
-			metrics[frame] = motionplan.NewPositionOnlyMetric(goalInFrame.Pose())
-		case motionplan.SquaredNorm:
-			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-		case motionplan.ArcLengthConvergence:
-			metrics[frame] = motionplan.NewPoseFlexOVMetricConstructor(p.ArcLengthTolerance)(goalInFrame.Pose())
-		default:
-			metrics[frame] = motionplan.NewSquaredNormMetric(goalInFrame.Pose())
-		}
+	if p.GoalMetricType == motionplan.PositionOnly {
+		orientScale = 0
 	}
 
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
-		for frame, goalMetric := range metrics {
-			poseParent := frames[frame]
-			currPose, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), poseParent)
+		for frame, goal := range goals {
+			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent())
 			if err != nil {
-				panic(fmt.Errorf("fs: %v err: %w frame: %s poseParent: %v", state.FS.FrameNames(), err, frame, poseParent))
+				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}
 
-			score += goalMetric(&motionplan.State{
-				Position:      currPose.(*referenceframe.PoseInFrame).Pose(),
-				Configuration: state.Configuration[frame],
-				Frame:         state.FS.Frame(frame),
-			})
+			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
 		}
 		return score
 	}
@@ -226,4 +183,8 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.MinScore = minScore
+}
+
+func (p *PlannerOptions) timeoutDuration() time.Duration {
+	return time.Duration(p.Timeout * float64(time.Second))
 }

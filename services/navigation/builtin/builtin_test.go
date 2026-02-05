@@ -61,7 +61,7 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := navigation.FromRobot(myRobot, "test_navigation")
+	svc, err := navigation.FromProvider(myRobot, "test_navigation")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())
@@ -596,7 +596,7 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = navigation.FromRobot(myRobot, "test_navigation")
+		_, err = navigation.FromProvider(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, tc.expectedError)
 	}

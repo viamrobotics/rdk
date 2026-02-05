@@ -5,11 +5,11 @@ import (
 	"errors"
 	"io"
 
-	"go.opencensus.io/trace"
 	commonPB "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/worldstatestore/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"

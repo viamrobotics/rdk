@@ -153,7 +153,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	}
 
 	// set baseWidth and wheelCircumference from the new base properties
-	newBase, err := base.FromDependencies(deps, newConf.Base)
+	newBase, err := base.FromProvider(deps, newConf.Base)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 	for i := range newConf.LeftMotors {
 		var motorLeft, motorRight motor.Motor
 
-		motorLeft, err = motor.FromDependencies(deps, newConf.LeftMotors[i])
+		motorLeft, err = motor.FromProvider(deps, newConf.LeftMotors[i])
 		if err != nil {
 			return err
 		}
@@ -185,7 +185,7 @@ func (o *odometry) Reconfigure(ctx context.Context, deps resource.Dependencies, 
 			return motor.NewPropertyUnsupportedError(properties, newConf.LeftMotors[i])
 		}
 
-		motorRight, err = motor.FromDependencies(deps, newConf.RightMotors[i])
+		motorRight, err = motor.FromProvider(deps, newConf.RightMotors[i])
 		if err != nil {
 			return err
 		}

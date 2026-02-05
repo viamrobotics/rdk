@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -49,11 +50,11 @@ var defaultTunnelConnectionTimeout = 10 * time.Second
 // a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	robot robot.Robot
+	robot robot.LocalRobot
 }
 
 // New constructs a gRPC service server for a Robot.
-func New(robot robot.Robot) pb.RobotServiceServer {
+func New(robot robot.LocalRobot) pb.RobotServiceServer {
 	return &Server{
 		robot: robot,
 	}
@@ -61,6 +62,12 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb.SendTracesResponse, error) {
+	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
 }
 
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.
@@ -551,16 +558,30 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
+	if mStatus.JobStatuses != nil {
+		if len(mStatus.JobStatuses) > 0 {
+			timeToTspb := func(t time.Time, _ int) *timestamppb.Timestamp {
+				return timestamppb.New(t)
+			}
+			if result.JobStatuses == nil {
+				result.JobStatuses = make([]*pb.JobStatus, 0, len(mStatus.JobStatuses))
+			}
+			for jobName, jobHistory := range mStatus.JobStatuses {
+				result.JobStatuses = append(result.JobStatuses, &pb.JobStatus{
+					JobName:              jobName,
+					RecentSuccessfulRuns: lo.Map(jobHistory.RecentSuccessfulRuns, timeToTspb),
+					RecentFailedRuns:     lo.Map(jobHistory.RecentFailedRuns, timeToTspb),
+				})
+			}
+		}
+	}
+
 	return &result, nil
 }
 
 // GetVersion returns version information about the robot.
 func (s *Server) GetVersion(ctx context.Context, _ *pb.GetVersionRequest) (*pb.GetVersionResponse, error) {
-	result, err := robot.Version()
-	if err != nil {
-		return nil, err
-	}
-
+	result := robot.Version
 	return &pb.GetVersionResponse{
 		Platform:   result.Platform,
 		Version:    result.Version,

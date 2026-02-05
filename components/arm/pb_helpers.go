@@ -13,7 +13,7 @@ type MoveOptions struct {
 
 func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	if protobuf == nil {
-		protobuf = &pb.MoveOptions{}
+		return nil
 	}
 
 	var vel, acc float64

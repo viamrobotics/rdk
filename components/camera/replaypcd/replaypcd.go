@@ -167,7 +167,7 @@ func newPCDCamera(
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
 	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee
@@ -386,7 +386,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.APIKey = replayCamConfig.APIKey
 	replay.APIKeyID = replayCamConfig.APIKeyID
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
 	}

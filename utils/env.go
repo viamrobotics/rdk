@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,7 +16,7 @@ import (
 const (
 	// DefaultResourceConfigurationTimeout is the default resource configuration
 	// timeout.
-	DefaultResourceConfigurationTimeout = time.Minute
+	DefaultResourceConfigurationTimeout = 2 * time.Minute
 
 	// ResourceConfigurationTimeoutEnvVar is the environment variable that can
 	// be set to override DefaultResourceConfigurationTimeout as the duration
@@ -72,19 +71,39 @@ const (
 	// PrimaryOrgIDEnvVar is the environment variable that contains the primary org ID of the machine.
 	PrimaryOrgIDEnvVar = "VIAM_PRIMARY_ORG_ID"
 
+	// HomeEnvVar is the environment variable that contains the VIAM_HOME directory of the machine.
+	HomeEnvVar = "VIAM_HOME"
+
 	// ViamResourceRequestsLimitEnvVar is the environment that controls the
 	// per-resource gRPC request limit. If it is unset or invalid the limit
 	// defaults to 100.
 	ViamResourceRequestsLimitEnvVar = "VIAM_RESOURCE_REQUESTS_LIMIT"
 
-	// GetImagesInStreamServerEnvVar is the environment variable that enables the GetImages feature flag in stream server.
-	GetImagesInStreamServerEnvVar = "VIAM_GET_IMAGES_IN_STREAM_SERVER"
+	// ViamModuleTracingEnvVar is the environment variable that configures
+	// modules to record trace spans and send them to their parent viam-server
+	// process. Any non-empty string other than "0" or "false" enables module
+	// tracing.
+	ViamModuleTracingEnvVar = "VIAM_MODULE_TRACING"
+
+	// ViamAgentHandlesNeedsRestartChecking is the environment variable that viam-agent will
+	// set before starting viam-server to indicate that agent is a new enough version to
+	// have its own background loop that runs NeedsRestart against app.viam.com to determine
+	// if the system needs a restart. MUST be kept in line with the equivalent value in the
+	// agent repo.
+	//
+	// TODO(RSDK-12057): Remove sensitivity to this environment variable once we fully
+	// remove all NeedsRestart checking logic from viam-server.
+	ViamAgentHandlesNeedsRestartChecking = "VIAM_AGENT_HANDLES_NEEDS_RESTART_CHECKING"
+
+	// ViamTCPSocketsEnvVar if set to a true-like value, indicates that TCP sockets should be used
+	// in lieu of Unix sockets.
+	ViamTCPSocketsEnvVar = "VIAM_TCP_SOCKETS"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
 var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 
-// TCPRegex tests whether a module address is TCP (vs unix sockets). See also ViamTCPSockets().
+// TCPRegex tests whether a module address is TCP (vs unix sockets). See also OnlyUseViamTCPSockets().
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
@@ -185,9 +204,14 @@ func GetenvInt(v string, def int) int {
 	return num
 }
 
-// GetImagesInStreamServer returns true iff an env bool was set to use the GetImages feature flag in stream server.
-func GetImagesInStreamServer() bool {
-	return slices.Contains(EnvTrueValues, os.Getenv(GetImagesInStreamServerEnvVar))
+// GetenvBool gets a variable from the environment, and returns as bool, if can't, then uses default.
+func GetenvBool(v string, def bool) bool {
+	x := os.Getenv(v)
+	if x == "" {
+		return def
+	}
+
+	return x[0] == 't' || x[0] == 'T' || x[0] == '1'
 }
 
 // CleanWindowsSocketPath mutates socket paths on windows only so they

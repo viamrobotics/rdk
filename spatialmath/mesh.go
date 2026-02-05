@@ -6,14 +6,14 @@ import (
 	"io"
 	"math"
 	"os"
+	"sync"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
-
-	"go.viam.com/rdk/utils"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
@@ -23,7 +23,10 @@ import (
 // The set of supported mesh file types.
 type meshType string
 
-const plyType = meshType("ply")
+const (
+	plyType = meshType("ply")
+	stlType = meshType("stl")
+)
 
 // Mesh is a set of triangles at some pose. Triangle points are in the frame of the mesh.
 type Mesh struct {
@@ -34,9 +37,28 @@ type Mesh struct {
 	// information used for encoding to protobuf
 	fileType meshType
 	rawBytes []byte
+
+	// originalFilePath stores the original URDF mesh path for round-tripping
+	originalFilePath string
+
+	// bvh is the bounding volume hierarchy for accelerated collision detection.
+	// Built lazily on first collision check via ensureBVH().
+	bvh     *bvhNode
+	bvhOnce sync.Once
+}
+
+// trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
+// The triangles remain in local space.
+func trianglesToGeoms(triangles []*Triangle) []Geometry {
+	geoms := make([]Geometry, len(triangles))
+	for i, t := range triangles {
+		geoms[i] = t
+	}
+	return geoms
 }
 
 // NewMesh creates a mesh from the given triangles and pose.
+// The BVH is built lazily on first collision check for faster mesh loading.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	mesh := &Mesh{
 		pose:      pose,
@@ -45,7 +67,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	}
 
 	// Convert triangles to PLY for protobuf
-	plyBytes := mesh.trianglesToPLYBytes()
+	plyBytes := mesh.TrianglesToPLYBytes(false) // Keep it in the local frame
 	mesh.fileType = plyType
 	mesh.rawBytes = plyBytes
 
@@ -65,7 +87,33 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newMeshFromBytes(NewZeroPose(), bytes, path)
+	mesh, err := newMeshFromBytes(NewZeroPose(), bytes, path)
+	if err != nil {
+		return nil, err
+	}
+	mesh.SetOriginalFilePath(path)
+	return mesh, nil
+}
+
+// NewMeshFromSTLFile is a helper function to create a Mesh geometry from an STL file.
+func NewMeshFromSTLFile(path string) (*Mesh, error) {
+	//nolint:gosec
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	//nolint:errcheck
+	defer file.Close()
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	mesh, err := newMeshFromSTLBytes(NewZeroPose(), bytes, path)
+	if err != nil {
+		return nil, err
+	}
+	mesh.SetOriginalFilePath(path)
+	return mesh, nil
 }
 
 func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err error) {
@@ -113,14 +161,91 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 	}, nil
 }
 
+func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
+	// Binary STL format:
+	// 80 bytes - header
+	// 4 bytes - number of triangles (uint32, little endian)
+	// For each triangle (50 bytes total):
+	//   12 bytes - normal vector (3 floats)
+	//   12 bytes - vertex 1 (3 floats)
+	//   12 bytes - vertex 2 (3 floats)
+	//   12 bytes - vertex 3 (3 floats)
+	//   2 bytes - attribute byte count (unused)
+
+	if len(data) < 84 {
+		return nil, errors.New("STL file too small")
+	}
+
+	// Read number of triangles (bytes 80-83, little endian uint32)
+	numTriangles := uint32(data[80]) | uint32(data[81])<<8 | uint32(data[82])<<16 | uint32(data[83])<<24
+
+	expectedSize := 84 + int(numTriangles)*50
+	if len(data) < expectedSize {
+		return nil, fmt.Errorf("STL file size mismatch: expected %d bytes, got %d", expectedSize, len(data))
+	}
+
+	triangles := make([]*Triangle, numTriangles)
+	offset := 84
+
+	for i := uint32(0); i < numTriangles; i++ {
+		// Skip normal vector (12 bytes)
+		offset += 12
+
+		// Read 3 vertices
+		v1 := readSTLVertex(data, offset)
+		offset += 12
+		v2 := readSTLVertex(data, offset)
+		offset += 12
+		v3 := readSTLVertex(data, offset)
+		offset += 12
+
+		// Skip attribute byte count (2 bytes)
+		offset += 2
+
+		triangles[i] = NewTriangle(v1, v2, v3)
+	}
+	return &Mesh{
+		pose:      pose,
+		triangles: triangles,
+		label:     label,
+		fileType:  stlType,
+		rawBytes:  data,
+	}, nil
+}
+
+// readSTLVertex reads a 3D vertex from STL binary data at the given offset.
+// Each coordinate is a 32-bit float in little endian format.
+// Converts from meters to millimeters by multiplying by 1000.
+func readSTLVertex(data []byte, offset int) r3.Vector {
+	x := math.Float32frombits(uint32(data[offset]) | uint32(data[offset+1])<<8 | uint32(data[offset+2])<<16 | uint32(data[offset+3])<<24)
+	y := math.Float32frombits(uint32(data[offset+4]) | uint32(data[offset+5])<<8 | uint32(data[offset+6])<<16 | uint32(data[offset+7])<<24)
+	z := math.Float32frombits(uint32(data[offset+8]) | uint32(data[offset+9])<<8 | uint32(data[offset+10])<<16 | uint32(data[offset+11])<<24)
+
+	// Convert from meters to millimeters
+	return r3.Vector{X: float64(x) * 1000, Y: float64(y) * 1000, Z: float64(z) * 1000}
+}
+
 // NewMeshFromProto creates a new mesh from a protobuf mesh.
 func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
 	switch m.ContentType {
 	case string(plyType):
 		return newMeshFromBytes(pose, m.Mesh, label)
+	case string(stlType):
+		return newMeshFromSTLBytes(pose, m.Mesh, label)
 	default:
 		return nil, fmt.Errorf("unsupported Mesh type: %s", m.ContentType)
 	}
+}
+
+// SetOriginalFilePath sets the original URDF file path for this mesh.
+// This is used to preserve the mesh path when round-tripping through URDF.
+func (m *Mesh) SetOriginalFilePath(path string) {
+	m.originalFilePath = path
+}
+
+// OriginalFilePath returns the original URDF file path for this mesh, if set.
+func (m *Mesh) OriginalFilePath() string {
+	return m.originalFilePath
 }
 
 // String returns a human readable string that represents the box.
@@ -130,14 +255,19 @@ func (m *Mesh) String() string {
 }
 
 // ToProtobuf converts a Mesh to its protobuf representation.
-// Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message.
+// Meshes are always converted to PLY format for compatibility with the visualizer.
+// Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message
 func (m *Mesh) ToProtobuf() *commonpb.Geometry {
+	// Convert mesh to PLY format for visualizer compatibility
+	// The visualizer expects all meshes to be in PLY format
+	plyBytes := m.TrianglesToPLYBytes(false)
+
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(m.pose),
 		GeometryType: &commonpb.Geometry_Mesh{
 			Mesh: &commonpb.Mesh{
-				ContentType: string(m.fileType),
-				Mesh:        m.rawBytes,
+				ContentType: "ply",
+				Mesh:        plyBytes,
 			},
 		},
 		Label: m.label,
@@ -158,38 +288,35 @@ func (m *Mesh) Triangles() []*Triangle {
 func (m *Mesh) Transform(pose Pose) Geometry {
 	// Triangle points are in frame of mesh, like the corners of a box, so no need to transform them
 	return &Mesh{
-		pose:      Compose(pose, m.pose),
-		triangles: m.triangles,
-		label:     m.label,
-		fileType:  m.fileType,
-		rawBytes:  m.rawBytes,
+		pose:             Compose(pose, m.pose),
+		triangles:        m.triangles,
+		label:            m.label,
+		fileType:         m.fileType,
+		rawBytes:         m.rawBytes,
+		originalFilePath: m.originalFilePath,
+		bvh:              m.bvh,
 	}
 }
 
-// CollidesWith checks if the given mesh collides with the given geometry and returns true if it does.
-func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+// CollidesWith checks if the given mesh collides with the given geometry and returns true if it
+// does. If there's no collision, the method will return the distance between the mesh and input
+// geometry. If there is a collision, a negative number is returned.
+func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *box:
 		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
 		encompassed := m.boxIntersectsVertex(other)
 		if encompassed {
-			return true, nil
+			return true, -1, nil
 		}
-		// Convert box to mesh and check triangle collisions
-		return m.collidesWithMesh(other.toMesh(), collisionBufferMM), nil
-	case *capsule:
-		// Use existing capsule vs mesh distance check
-		// TODO: This is inefficient! Replace with a function with a short-circuit.
-		dist := capsuleVsMeshDistance(other, m)
-		return dist <= collisionBufferMM, nil
-	case *point:
-		return m.collidesWithSphere(&sphere{pose: NewPoseFromPoint(other.position)}, collisionBufferMM), nil
-	case *sphere:
-		return m.collidesWithSphere(other, collisionBufferMM), nil
-	case *Mesh:
-		return m.collidesWithMesh(other, collisionBufferMM), nil
+		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+	case *capsule, *point, *sphere, *Mesh:
+		return m.collidesWithGeometryBVH(other, collisionBufferMM)
+	case *Triangle:
+		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
+		return m.collidesWithMesh(triMesh, collisionBufferMM)
 	default:
-		return true, newCollisionTypeUnsupportedError(m, g)
+		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
 }
 
@@ -203,7 +330,7 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 	}
 	// For all other geometry types, check if all vertices of all triangles are inside
 	for _, pt := range m.ToPoints(1) {
-		collides, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
+		collides, _, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
 		if err != nil {
 			return false, err
 		}
@@ -223,15 +350,18 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		if encompassed {
 			return 0, nil
 		}
-		return m.distanceFromMesh(other.toMesh()), nil
+		return m.distanceFromMesh(other.toMesh())
 	case *capsule:
 		return capsuleVsMeshDistance(other, m), nil
 	case *point:
 		return m.distanceFromSphere(&sphere{pose: NewPoseFromPoint(other.position)}), nil
 	case *sphere:
 		return m.distanceFromSphere(other), nil
+	case *Triangle:
+		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
+		return m.distanceFromMesh(triMesh)
 	case *Mesh:
-		return m.distanceFromMesh(other), nil
+		return m.distanceFromMesh(other)
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 	}
@@ -251,7 +381,8 @@ func (m *Mesh) boxIntersectsVertex(b *box) bool {
 			}
 			pointMap[key] = pt
 			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			if pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM) {
+			c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
+			if c {
 				return true
 			}
 		}
@@ -264,7 +395,7 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	minDist := math.Inf(1)
 	// Transform all triangles to world space once
 	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
+		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose).(*Triangle), pt)
 		dist := closestPt.Sub(pt).Norm() - s.radius
 		if dist < minDist {
 			minDist = dist
@@ -273,107 +404,47 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	return minDist
 }
 
-func (m *Mesh) collidesWithSphere(s *sphere, buffer float64) bool {
-	pt := s.pose.Point()
-	// Transform all triangles to world space once
-	for _, tri := range m.triangles {
-		closestPt := ClosestPointTrianglePoint(tri.Transform(m.pose), pt)
-		if closestPt.Sub(pt).Norm() <= s.radius+buffer {
-			return true
+// ensureBVH builds the BVH if it hasn't been built yet (thread-safe).
+// Returns nil for empty meshes (no triangles).
+func (m *Mesh) ensureBVH() *bvhNode {
+	m.bvhOnce.Do(func() {
+		// Check if bvh was already set (e.g., copied from another mesh via Transform)
+		if m.bvh == nil && len(m.triangles) > 0 {
+			m.bvh = buildBVH(trianglesToGeoms(m.triangles))
 		}
-	}
-	return false
+	})
+	return m.bvh
 }
 
-// collidesWithMesh checks if this mesh collides with another mesh
-// TODO: This function is *begging* for GPU acceleration.
-func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) bool {
-	// Transform all triangles to world space
-	worldTris1 := make([]*Triangle, len(m.triangles))
-	for i, tri := range m.triangles {
-		worldTris1[i] = tri.Transform(m.pose)
+// collidesWithMesh checks if this mesh collides with another mesh.
+// Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
+func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
+	if len(m.triangles) == 0 || len(other.triangles) == 0 {
+		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
-	worldTris2 := make([]*Triangle, len(other.triangles))
-	for i, tri := range other.triangles {
-		worldTris2[i] = tri.Transform(other.pose)
+	// Pass poses to BVH collision - BVH stores geometries in local space
+	return bvhCollidesWithBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+}
+
+// collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
+func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
+	bvh := m.ensureBVH()
+	if bvh == nil {
+		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
-
-	// Check if any triangles from either mesh collide.
-	// If two triangles intersect, then the segment between two vertices of one triangle intersects the other triangle.
-	for _, worldTri1 := range worldTris1 {
-		p1 := worldTri1.Points()
-
-		for _, worldTri2 := range worldTris2 {
-			p2 := worldTri2.Points()
-
-			// Check segments from tri1 against tri2
-			for i := 0; i < 3; i++ {
-				start := p1[i]
-				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
-					return true
-				}
-			}
-
-			// Check segments from tri2 against tri1
-			for i := 0; i < 3; i++ {
-				start := p2[i]
-				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				if bestSegPt.Sub(bestTriPt).Norm() <= collisionBufferMM {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	otherMin, otherMax := computeGeometryAABB(other)
+	// Pass mesh pose to BVH collision - BVH stores geometries in local space
+	return bvhCollidesWithGeometry(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
-func (m *Mesh) distanceFromMesh(other *Mesh) float64 {
-	// Transform all triangles to world space
-	worldTris1 := make([]*Triangle, len(m.triangles))
-	for i, tri := range m.triangles {
-		worldTris1[i] = tri.Transform(m.pose)
+// Uses BVH acceleration for O(log n * log m) performance.
+func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
+	if len(m.triangles) == 0 || len(other.triangles) == 0 {
+		return 0, errors.New("cannot compute distance on mesh with no triangles")
 	}
-
-	worldTris2 := make([]*Triangle, len(other.triangles))
-	for i, tri := range other.triangles {
-		worldTris2[i] = tri.Transform(other.pose)
-	}
-
-	minDist := math.Inf(1)
-	for _, worldTri1 := range worldTris1 {
-		p1 := worldTri1.Points()
-
-		for _, worldTri2 := range worldTris2 {
-			p2 := worldTri2.Points()
-
-			// Check segments from tri1 against tri2
-			for i := 0; i < 3; i++ {
-				start := p1[i]
-				end := p1[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri2)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist < minDist {
-					minDist = dist
-				}
-			}
-
-			// Check segments from tri2 against tri1
-			for i := 0; i < 3; i++ {
-				start := p2[i]
-				end := p2[(i+1)%3]
-				bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, worldTri1)
-				dist := bestSegPt.Sub(bestTriPt).Norm()
-				if dist < minDist {
-					minDist = dist
-				}
-			}
-		}
-	}
-	return minDist
+	// Pass poses to BVH distance - BVH stores geometries in local space
+	return bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose)
 }
 
 // SetLabel sets the name of the mesh.
@@ -441,158 +512,49 @@ func (m *Mesh) ToPoints(density float64) []r3.Vector {
 	return points
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (m *Mesh) UnmarshalJSON(data []byte) error {
+	var g commonpb.Geometry
+	if err := protojson.Unmarshal(data, &g); err != nil {
+		return err
+	}
+	if _, ok := g.GeometryType.(*commonpb.Geometry_Mesh); !ok {
+		return errors.New("geometry is not a mesh")
+	}
+
+	pose := NewPoseFromProtobuf(g.GetCenter())
+	mesh, err := NewMeshFromProto(pose, g.GetMesh(), g.Label)
+	if err != nil {
+		return err
+	}
+	// Copy fields explicitly to avoid copying sync.Once.
+	m.pose = mesh.pose
+	m.triangles = mesh.triangles
+	m.label = mesh.label
+	m.fileType = mesh.fileType
+	m.rawBytes = mesh.rawBytes
+	m.originalFilePath = mesh.originalFilePath
+	m.bvh = nil
+	m.bvhOnce = sync.Once{}
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 func (m *Mesh) MarshalJSON() ([]byte, error) {
-	return nil, errors.New("MarshalJSON not yet implemented for Mesh")
+	return protojson.Marshal(m.ToProtobuf())
 }
 
-// MeshBoxIntersectionArea calculates the summed area of all triangles in a mesh
-// that intersect with a box geometry and returns the total intersection area.
-func MeshBoxIntersectionArea(mesh, theBox Geometry) (float64, error) {
-	m, err := utils.AssertType[*Mesh](mesh)
-	if err != nil {
-		return -1, err
-	}
-	b, err := utils.AssertType[*box](theBox)
-	if err != nil {
-		return -1, err
-	}
-
-	// Sum the intersection area for each triangle
-	totalArea := 0.0
-	for _, tri := range m.triangles {
-		// mesh triangles are defined relative to their origin so to compare triangle/box
-		// we need to transform each triangle by the mesh's pose.
-		a, err := boxTriangleIntersectionArea(b, tri.Transform(m.pose))
-		if err != nil {
-			return -1, err
-		}
-		totalArea += a
-	}
-	return totalArea, nil
-}
-
-// boxTriangleIntersectionArea calculates the area of intersection between a box and a triangle.
-// Returns 0 if there's no intersection, the full triangle area if fully enclosed,
-// or the actual intersection area otherwise.
-func boxTriangleIntersectionArea(b *box, t *Triangle) (float64, error) {
-	// Quick check if they don't intersect at all
-	mesh := NewMesh(NewZeroPose(), []*Triangle{t}, "")
-	collides, err := b.CollidesWith(mesh, defaultCollisionBufferMM)
-	if err != nil {
-		return -1, err
-	}
-	if !collides {
-		return 0, nil
-	}
-
-	// Check if triangle is fully enclosed by the box
-	enclosed := true
-	for _, pt := range t.Points() {
-		if !pointVsBoxCollision(pt, b, defaultCollisionBufferMM) {
-			enclosed = false
-			break
-		}
-	}
-	if enclosed {
-		return t.Area(), nil
-	}
-
-	// Clip triangle against each of the six box planes
-	vertices := t.Points()
-
-	// Get box in world space
-	boxPose := b.Pose()
-	boxCenter := boxPose.Point()
-	boxRM := boxPose.Orientation().RotationMatrix()
-
-	// For each of the six box faces, clip the polygon
-	for faceIdx := 0; faceIdx < 6; faceIdx++ {
-		// Determine face normal and position
-		axis := faceIdx / 2                // 0 for X, 1 for Y, 2 for Z
-		sign := float64(1 - 2*(faceIdx%2)) // +1 for even indices, -1 for odd indices
-
-		// Get face normal in world coordinates
-		normal := boxRM.Row(axis).Mul(sign)
-
-		// Get face point in world coordinates
-		facePoint := boxCenter.Add(boxRM.Row(axis).Mul(sign * b.halfSize[axis]))
-
-		// Clip polygon against this plane
-		vertices = clipPolygonAgainstPlane(vertices, facePoint, normal)
-
-		// If no vertices left, intersection area is 0
-		if len(vertices) < 3 {
-			return 0, nil
-		}
-	}
-
-	// Calculate area of the resulting polygon by triangulating it
-	// TODO: all passed in vertices should be coplanar with the triangle normal but this is not explicitly checked
-	return calculatePolygonAreaWithTriangulation(vertices), nil
-}
-
-// clipPolygonAgainstPlane clips a convex polygon against a plane and returns the vertices of the clipped polygon.
-func clipPolygonAgainstPlane(vertices []r3.Vector, planePoint, planeNormal r3.Vector) []r3.Vector {
-	if len(vertices) < 3 {
-		return vertices
-	}
-
-	result := make([]r3.Vector, 0, len(vertices)*2)
-
-	// For each edge in the polygon
-	for i := 0; i < len(vertices); i++ {
-		j := (i + 1) % len(vertices)
-
-		// Get signed distances from vertices to plane
-		di := planeNormal.Dot(vertices[i].Sub(planePoint))
-		dj := planeNormal.Dot(vertices[j].Sub(planePoint))
-
-		// If current vertex is inside (negative dot product)
-		if di <= floatEpsilon {
-			result = append(result, vertices[i])
-		}
-
-		// If edge crosses the plane (vertices on opposite sides)
-		if (di * dj) < 0 {
-			// Calculate intersection point
-			t := di / (di - dj)
-			intersection := vertices[i].Add(vertices[j].Sub(vertices[i]).Mul(t))
-			result = append(result, intersection)
-		}
-	}
-
-	return result
-}
-
-// calculatePolygonAreaWithTriangulation calculates the area of a polygon by triangulating it. All provided vertices must be coplanar.
-// TODO: nothing is enforcing that the vertices be coplanar.
-func calculatePolygonAreaWithTriangulation(vertices []r3.Vector) float64 {
-	// For a malformed polygon there will be no area.
-	switch length := len(vertices); {
-	case length < 3:
-		return 0
-	case length == 3:
-		// For a 3-vertex polygon, just calculate triangle area directly
-		return NewTriangle(vertices[0], vertices[1], vertices[2]).Area()
-	default:
-		// For polygons with more vertices, triangulate using fan triangulation
-		// This works for convex polygons, which is what we have after clipping
-		totalArea := 0.0
-		for i := 1; i < len(vertices)-1; i++ {
-			totalArea += NewTriangle(vertices[0], vertices[i], vertices[i+1]).Area()
-		}
-		return totalArea
-	}
-}
-
-// trianglesToPLYBytes converts the mesh's triangles to bytes in PLY format.
-func (m *Mesh) trianglesToPLYBytes() []byte {
+// TrianglesToPLYBytes converts the mesh's triangles to bytes in PLY format. The boolean determines
+// whether to convert to the world frame or keep it in the local frame.
+func (m *Mesh) TrianglesToPLYBytes(convertToWorldFrame bool) []byte {
 	// Collect all unique vertices and create vertex-to-index mapping
 	vertexMap := make(map[string]int)
 	vertices := make([]r3.Vector, 0)
 
 	for _, tri := range m.triangles {
+		if convertToWorldFrame {
+			tri = tri.Transform(m.pose).(*Triangle)
+		}
 		for _, pt := range tri.Points() {
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
@@ -623,18 +585,33 @@ func (m *Mesh) trianglesToPLYBytes() []byte {
 
 	// Write faces
 	for _, tri := range m.triangles {
-		buf.WriteString("3 ")
-		for i, pt := range tri.Points() {
+		if convertToWorldFrame {
+			tri = tri.Transform(m.pose).(*Triangle)
+		}
+		buf.WriteString("3")
+		for _, pt := range tri.Points() {
 			// Convert from millimeters back to meters for lookup
 			scaledPt := r3.Vector{X: pt.X / 1000.0, Y: pt.Y / 1000.0, Z: pt.Z / 1000.0}
 			key := fmt.Sprintf("%.10f,%.10f,%.10f", scaledPt.X, scaledPt.Y, scaledPt.Z)
-			if i > 0 {
-				buf.WriteString(" ")
-			}
-			buf.WriteString(fmt.Sprintf("%d", vertexMap[key]))
+			buf.WriteString(fmt.Sprintf(" %d", vertexMap[key]))
 		}
 		buf.WriteString("\n")
 	}
 
 	return buf.Bytes()
+}
+
+// Hash returns a hash value for this mesh.
+func (m *Mesh) Hash() int {
+	hash := HashPose(m.pose)
+	hash += hashString(m.label) * 11
+	hash += len(m.triangles) * 12
+	// Include a sample of triangle hashes for efficiency
+	for i, tri := range m.triangles {
+		if i >= 10 { // Only hash first 10 triangles for performance
+			break
+		}
+		hash += tri.Hash() * (13 + i)
+	}
+	return hash
 }

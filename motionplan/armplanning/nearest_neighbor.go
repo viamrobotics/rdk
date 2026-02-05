@@ -10,7 +10,10 @@ import (
 type NodeDistanceMetric func(a, b *node) float64
 
 func nodeConfigurationDistanceFunc(node1, node2 *node) float64 {
-	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{StartConfiguration: node1.inputs, EndConfiguration: node2.inputs})
+	return motionplan.FSConfigurationL2Distance(&motionplan.SegmentFS{
+		StartConfiguration: node1.inputs,
+		EndConfiguration:   node2.inputs,
+	})
 }
 
 func nearestNeighbor(seed *node, tree rrtMap, nodeDistanceFunc NodeDistanceMetric) *node {

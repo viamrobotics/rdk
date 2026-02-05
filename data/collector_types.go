@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	dataPB "go.viam.com/api/app/data/v1"
 	datasyncPB "go.viam.com/api/app/datasync/v1"
-	camerapb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/protoutils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -212,7 +211,7 @@ func (dt CaptureType) ToProto() datasyncPB.DataType {
 // MethodToCaptureType returns the DataType of the method.
 func MethodToCaptureType(methodName string) CaptureType {
 	switch methodName {
-	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera:
+	case nextPointCloud, readImage, pointCloudMap, GetImages, captureAllFromCamera, getAudio:
 		return CaptureTypeBinary
 	default:
 		return CaptureTypeTabular
@@ -231,17 +230,19 @@ type Timestamps struct {
 // MimeType represents the mime type of the sensor data.
 type MimeType int
 
-// This follows the mime types supported in
+// This follows the MIME types supported in
 // https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
 const (
-	// MimeTypeUnspecified means that the mime type was not specified.
+	// MimeTypeUnspecified means that the MIME type was not specified.
 	MimeTypeUnspecified MimeType = iota
-	// MimeTypeImageJpeg means that the mime type is jpeg.
+	// MimeTypeImageJpeg is image/jpeg.
 	MimeTypeImageJpeg
-	// MimeTypeImagePng means that the mime type is png.
+	// MimeTypeImagePng is image/png.
 	MimeTypeImagePng
-	// MimeTypeApplicationPcd means that the mime type is pcd.
+	// MimeTypeApplicationPcd is pointcloud/pcd.
 	MimeTypeApplicationPcd
+	// MimeTypeVideoMP4 is video/mp4.
+	MimeTypeVideoMP4
 )
 
 // ToProto converts MimeType to datasyncPB.
@@ -255,6 +256,8 @@ func (mt MimeType) ToProto() datasyncPB.MimeType {
 		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
 	case MimeTypeApplicationPcd:
 		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
+	case MimeTypeVideoMP4:
+		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
 	default:
 		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
 	}
@@ -271,26 +274,9 @@ func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
 		return MimeTypeImagePng
 	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
 		return MimeTypeApplicationPcd
-	default:
-		return MimeTypeUnspecified
-	}
-}
+	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
+		return MimeTypeVideoMP4
 
-// CameraFormatToMimeType converts a camera camerapb.Format into a MimeType.
-func CameraFormatToMimeType(f camerapb.Format) MimeType {
-	switch f {
-	case camerapb.Format_FORMAT_UNSPECIFIED:
-		return MimeTypeUnspecified
-	case camerapb.Format_FORMAT_JPEG:
-		return MimeTypeImageJpeg
-	case camerapb.Format_FORMAT_PNG:
-		return MimeTypeImagePng
-	case camerapb.Format_FORMAT_RAW_RGBA:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	case camerapb.Format_FORMAT_RAW_DEPTH:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
 	default:
 		return MimeTypeUnspecified
 	}
@@ -312,18 +298,6 @@ func MimeTypeStringToMimeType(mimeType string) MimeType {
 	default:
 		return MimeTypeUnspecified
 	}
-}
-
-// MimeTypeToCameraFormat converts a data.MimeType into a camerapb.Format.
-func MimeTypeToCameraFormat(mt MimeType) camerapb.Format {
-	if mt == MimeTypeImageJpeg {
-		return camerapb.Format_FORMAT_JPEG
-	}
-
-	if mt == MimeTypeImagePng {
-		return camerapb.Format_FORMAT_PNG
-	}
-	return camerapb.Format_FORMAT_UNSPECIFIED
 }
 
 // Binary represents an element of a binary capture result response.
@@ -352,6 +326,15 @@ type BoundingBox struct {
 	YMaxNormalized float64
 }
 
+func (bb BoundingBox) String() string {
+	confString := ""
+	if bb.Confidence != nil {
+		confString = fmt.Sprintf(" %0.1f%%", 100**bb.Confidence)
+	}
+	return fmt.Sprintf("%s%s (%0.2f, %0.2f) (%0.2f, %0.2f)", bb.Label, confString,
+		bb.XMinNormalized, bb.YMinNormalized, bb.XMaxNormalized, bb.YMaxNormalized)
+}
+
 // Classification represents a labeled classification
 // with an optional confidence interval between 0 and 1.
 type Classification struct {
@@ -363,6 +346,42 @@ type Classification struct {
 type Annotations struct {
 	BoundingBoxes   []BoundingBox
 	Classifications []Classification
+}
+
+// AnnotationsFromProto converts *dataPB.Annotations to Annotations.
+func AnnotationsFromProto(protoAnnotations *dataPB.Annotations) Annotations {
+	if protoAnnotations == nil {
+		return Annotations{}
+	}
+
+	var bboxes []BoundingBox
+	if protoAnnotations.Bboxes != nil {
+		for _, bb := range protoAnnotations.Bboxes {
+			bboxes = append(bboxes, BoundingBox{
+				Label:          bb.Label,
+				Confidence:     bb.Confidence,
+				XMinNormalized: bb.XMinNormalized,
+				XMaxNormalized: bb.XMaxNormalized,
+				YMinNormalized: bb.YMinNormalized,
+				YMaxNormalized: bb.YMaxNormalized,
+			})
+		}
+	}
+
+	var classifications []Classification
+	if protoAnnotations.Classifications != nil {
+		for _, c := range protoAnnotations.Classifications {
+			classifications = append(classifications, Classification{
+				Label:      c.Label,
+				Confidence: c.Confidence,
+			})
+		}
+	}
+
+	return Annotations{
+		BoundingBoxes:   bboxes,
+		Classifications: classifications,
+	}
 }
 
 // Empty returns true when Annotations are empty.
@@ -413,6 +432,12 @@ const (
 	ExtJpeg = ".jpeg"
 	// ExtPng is the file extension for png files.
 	ExtPng = ".png"
+	// ExtMP3 is the file extension for mp3 files.
+	ExtMP3 = ".mp3"
+	// ExtWav is the file extension for wav files.
+	ExtWav = ".wav"
+	// ExtMP4 is the file extension for mp4 files.
+	ExtMP4 = ".mp4"
 )
 
 // getFileExt gets the file extension for a capture file.
@@ -433,6 +458,16 @@ func getFileExt(dataType CaptureType, methodName string, parameters map[string]i
 				return ExtPng
 			case rutils.MimeTypePCD:
 				return ExtPcd
+			default:
+				return ExtDefault
+			}
+		}
+		if methodName == getAudio {
+			switch parameters["codec"] {
+			case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
+				return ExtWav
+			case rutils.CodecMP3:
+				return ExtMP3
 			default:
 				return ExtDefault
 			}

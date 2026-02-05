@@ -30,6 +30,7 @@ type Options struct {
 	BaseURL     string
 	Entity      string
 	Credentials rpc.Credentials
+	DialOptions []rpc.DialOption
 }
 
 var dialDirectGRPC = rpc.DialDirectGRPC
@@ -49,16 +50,30 @@ func CreateViamClientWithOptions(ctx context.Context, options Options, logger lo
 		return nil, err
 	}
 
-	if options.Credentials.Payload == "" || options.Entity == "" {
-		return nil, errors.New("entity and payload cannot be empty")
-	}
-	opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
-
-	conn, err := dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
-	if err != nil {
-		return nil, err
+	var conn rpc.ClientConn
+	if len(options.DialOptions) > 0 {
+		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, options.DialOptions...)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		if options.Credentials.Payload == "" || options.Entity == "" {
+			return nil, errors.New("entity and payload cannot be empty")
+		}
+		opts := rpc.WithEntityCredentials(options.Entity, options.Credentials)
+		conn, err = dialDirectGRPC(ctx, serviceHost.Host, logger, opts)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &ViamClient{conn: conn}, nil
+}
+
+// WithDialOptions creates a new Options struct with the given dial options.
+func WithDialOptions(opts ...rpc.DialOption) Options {
+	return Options{
+		DialOptions: opts,
+	}
 }
 
 // CreateViamClientWithAPIKey creates a ViamClient with an API key.
@@ -89,6 +104,21 @@ func CreateViamClientFromEnvVars(ctx context.Context, options *Options, logger l
 	}
 
 	return CreateViamClientWithAPIKey(ctx, *options, apiKey, apiKeyID, logger)
+}
+
+// ConnectFromCLIToken creates a ViamClient using cached CLI credentials.
+func ConnectFromCLIToken(ctx context.Context, logger logging.Logger) (*ViamClient, error) {
+	c, err := utils.ConfigFromPath(utils.GetCLICachePath())
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateViamClientWithOptions(ctx, WithDialOptions(dopts...), logger)
 }
 
 // AppClient initializes and returns an AppClient instance used to make app method calls.

@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	toggleswitch "go.viam.com/rdk/components/switch"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -24,7 +25,7 @@ var (
 
 const testSwitchName2 = "switch3"
 
-func newServer() (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, *inject.Switch, error) {
+func newServer(logger logging.Logger) (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, *inject.Switch, error) {
 	injectSwitch := &inject.Switch{}
 	injectSwitch2 := &inject.Switch{}
 	injectSwitch3 := &inject.Switch{}
@@ -37,11 +38,11 @@ func newServer() (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, *injec
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	return toggleswitch.NewRPCServiceServer(switchSvc).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, injectSwitch3, nil
+	return toggleswitch.NewRPCServiceServer(switchSvc, logger).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, injectSwitch3, nil
 }
 
 func TestServer(t *testing.T) {
-	switchServer, injectSwitch, injectSwitch2, injectSwitch3, err := newServer()
+	switchServer, injectSwitch, injectSwitch2, injectSwitch3, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var switchName string

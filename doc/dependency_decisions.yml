@@ -249,3 +249,30 @@
   - codeberg.org/go-latex/latex
   - BSD-3
   - *2
+- - :license
+  - github.com/hashicorp/go-version
+  - Mozilla Public License 2.0
+  - :who: abe-winter
+    :why:
+    :versions: []
+    :when: 2025-12-12 19:13:52.214415883 Z
+- - :license
+  - github.com/viam-labs/go-getter
+  - Mozilla Public License 2.0
+  - :who: abe-winter
+    :why:
+    :versions: []
+    :when: 2025-12-12 19:14:00.917864260 Z
+- - :license
+  - github.com/muhlemmer/gu
+  - The Unlicense
+  - :who: abe-winter
+    :why:
+    :versions: []
+    :when: 2025-12-12 19:16:05.003744792 Z
+- - :permit
+  - Mozilla Public License 2.0
+  - :who: abe-winter
+    :why:
+    :versions: []
+    :when: 2025-12-12 19:17:22.857628537 Z

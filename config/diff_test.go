@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"go.viam.com/test"
@@ -603,6 +604,10 @@ func TestDiffSanitize(t *testing.T) {
 			{ID: "id1", Secret: "sec1"},
 			{ID: "id2", Secret: "sec2"},
 		},
+		APIKey: config.APIKey{
+			ID:  "api_key_id",
+			Key: "sec3",
+		},
 		TLSCertificate: "foo",
 		TLSPrivateKey:  "bar",
 	}
@@ -674,6 +679,7 @@ func TestDiffSanitize(t *testing.T) {
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[0].Secret)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.LocationSecrets[1].Secret)
+	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.APIKey.Key)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSCertificate)
 	test.That(t, diffStr, test.ShouldNotContainSubstring, cloud1.TLSPrivateKey)
 	for _, hdlr := range auth1.Handlers {
@@ -756,6 +762,10 @@ func TestDiffRevision(t *testing.T) {
 			config.Diff{
 				Added:    &config.Config{},
 				Modified: &config.ModifiedConfigDiff{},
+				UnmodifiedResources: []resource.Config{
+					{Name: "comp1"},
+					{Name: "serv1"},
+				},
 			},
 		},
 		{
@@ -879,13 +889,15 @@ func TestDiffRevision(t *testing.T) {
 			},
 		},
 	} {
-		diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
-		test.That(t, err, test.ShouldBeNil)
+		t.Run(tc.name, func(t *testing.T) {
+			diff, err := config.DiffConfigs(tc.oldCfg, tc.newCfg, false)
+			test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
-		test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
-		test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
-		test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
+			test.That(t, diff.NewRevision(), test.ShouldEqual, tc.newCfg.Revision)
+			test.That(t, diff.Added, test.ShouldResemble, tc.expectedDiff.Added)
+			test.That(t, diff.Modified, test.ShouldResemble, tc.expectedDiff.Modified)
+			test.That(t, diff.UnmodifiedResources, test.ShouldResemble, tc.expectedDiff.UnmodifiedResources)
+		})
 	}
 }
 
@@ -1045,6 +1057,72 @@ func TestDiffJobCfg(t *testing.T) {
 			diff, err := config.DiffConfigs(tc.LeftCfg, tc.RightCfg, true)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, diff.JobsEqual, test.ShouldEqual, tc.JobsEqual)
+		})
+	}
+}
+
+func TestDiffTracing(t *testing.T) {
+	cases := []struct {
+		name  string
+		left  config.TracingConfig
+		right config.TracingConfig
+	}{
+		{
+			name:  "Both empty",
+			left:  config.TracingConfig{},
+			right: config.TracingConfig{},
+		},
+		{
+			name: "Both full",
+			left: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+			right: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "differ, left empty",
+			left: config.TracingConfig{},
+			right: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "differ, right empty",
+			left: config.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+			right: config.TracingConfig{},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Not much to test, at time of writing the implementation is just
+			// checking `!=` between two structs. Use reflect.DeepEqual to determine
+			// the expected result. If the struct changes in a way that requires a
+			// deep equality check in the future this test should fail.
+			shouldEqual := reflect.DeepEqual(c.left, c.right)
+			diff, err := config.DiffConfigs(
+				config.Config{Tracing: c.left},
+				config.Config{Tracing: c.right},
+				true,
+			)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, diff.TracingEqual, test.ShouldEqual, shouldEqual)
 		})
 	}
 }

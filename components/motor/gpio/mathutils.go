@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/components/encoder"
 )
 
-func fixPowerPct(powerPct, max float64) float64 {
+func fixPowerPct(powerPct, max float64) float64 { //nolint: revive
 	powerPct = math.Min(powerPct, max)
 	powerPct = math.Max(powerPct, -1*max)
 	return powerPct

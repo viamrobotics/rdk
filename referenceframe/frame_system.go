@@ -11,6 +11,8 @@ import (
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils/protoutils"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/logging"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -72,11 +74,19 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, ErrNoWorldConnection
 		}
 	}
+
 	// Topologically sort parts
-	sortedParts, err := TopologicallySortParts(allParts)
-	if err != nil {
-		return nil, err
+	sortedParts, unlinkedParts := TopologicallySortParts(allParts)
+	if len(unlinkedParts) > 0 {
+		strs := make([]string, len(unlinkedParts))
+		for idx, part := range unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+
+		return nil, fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
+			strs)
 	}
+
 	if len(sortedParts) != len(allParts) {
 		return nil, errors.Errorf(
 			"frame system has disconnected frames. connected frames: %v, all frames: %v",
@@ -84,6 +94,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			getPartNames(allParts),
 		)
 	}
+
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
 		// make the frames from the configs
@@ -99,6 +110,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, err
 		}
 	}
+
 	return fs, nil
 }
 
@@ -200,7 +212,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 
 // Transform takes in a Transformable object and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable, dst string) (Transformable, error) {
+func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, dst string) (Transformable, error) {
 	src := object.Parent()
 	if src == dst {
 		return object, nil
@@ -213,7 +225,7 @@ func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable
 		return nil, NewFrameMissingError(dst)
 	}
 
-	var tfParent *PoseInFrame
+	var tfParentDQ spatial.DualQuaternion
 	var err error
 	if _, ok := object.(*GeometriesInFrame); ok && src != World {
 		// We don't want to apply the final transformation when that is taken care of by the geometries
@@ -225,14 +237,44 @@ func (sfs *FrameSystem) Transform(inputs FrameSystemInputs, object Transformable
 		if !exists {
 			return nil, NewParentFrameNilError(srcFrame.Name())
 		}
-		tfParent, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
 	} else {
-		tfParent, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
 	}
 	if err != nil {
 		return nil, err
 	}
-	return object.Transform(tfParent), nil
+	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src}), nil
+}
+
+// TransformToDQ is like `Transform` except it outputs a `DualQuaternion` that can be converted into
+// a `Pose`. The advantage of being more manual is to avoid memory allocations when unnecessary. As
+// only a pointer to a `DualQuaternion` satisfies the `Pose` interface.
+//
+// This also avoids an allocation by accepting a frame name as the input rather than a
+// `Transformable`. Saving the caller from making an allocation if the resulting pose is the only
+// desired output.
+func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string) (
+	spatial.DualQuaternion, error,
+) {
+	if !sfs.frameExists(frame) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(frame)
+	}
+
+	if !sfs.frameExists(parent) {
+		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
+	}
+
+	tfParent, err := sfs.transformFromParent(inputs, sfs.Frame(frame), sfs.Frame(parent))
+	if err != nil {
+		return spatial.DualQuaternion{}, err
+	}
+
+	ret := tfParent.Transformation(dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	})
+	return spatial.DualQuaternion{Number: ret}, nil
 }
 
 // Name returns the name of the simpleFrameSystem.
@@ -350,21 +392,26 @@ func (sfs *FrameSystem) DivideFrameSystem(newRoot Frame) (*FrameSystem, error) {
 	return newFS, nil
 }
 
-func (sfs *FrameSystem) getFrameToWorldTransform(inputMap FrameSystemInputs, src Frame) (spatial.Pose, error) {
+// GetFrameToWorldTransform computes the position of src in the world frame based on inputMap.
+func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
+
 	if !sfs.frameExists(src.Name()) {
-		return nil, NewFrameMissingError(src.Name())
+		return ret, NewFrameMissingError(src.Name())
 	}
 
 	// If src is nil it is interpreted as the world frame
 	var err error
-	srcToWorld := spatial.NewZeroPose()
 	if src != nil {
-		srcToWorld, err = sfs.composeTransforms(src, inputMap)
-		if err != nil && srcToWorld == nil {
-			return nil, err
+		ret, err = sfs.composeTransforms(src, inputs)
+		if err != nil {
+			return ret, err
 		}
 	}
-	return srcToWorld, err
+	return ret, err
 }
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
@@ -396,44 +443,69 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 			sfs.parents[frameName] = replacementFrame.Name()
 		}
 	}
+
 	// add replacementFrame to frame system with parent of replaceMe
 	return sfs.AddFrame(replacementFrame, replaceMeParent)
 }
 
 // Returns the relative pose between the parent and the destination frame.
-func (sfs *FrameSystem) transformFromParent(inputMap FrameSystemInputs, src, dst Frame) (*PoseInFrame, error) {
-	dstToWorld, err := sfs.getFrameToWorldTransform(inputMap, dst)
+func (sfs *FrameSystem) transformFromParent(inputs *LinearInputs, src, dst Frame) (spatial.DualQuaternion, error) {
+	srcToWorld, err := sfs.GetFrameToWorldTransform(inputs, src)
 	if err != nil {
-		return nil, err
+		return spatial.DualQuaternion{}, err
 	}
-	srcToWorld, err := sfs.getFrameToWorldTransform(inputMap, src)
+
+	if dst.Name() == World {
+		return spatial.DualQuaternion{srcToWorld}, nil
+	}
+
+	dstToWorld, err := sfs.GetFrameToWorldTransform(inputs, dst)
 	if err != nil {
-		return nil, err
+		return spatial.DualQuaternion{}, err
 	}
 
 	// transform from source to world, world to target parent
-	return NewPoseInFrame(dst.Name(), spatial.PoseBetween(dstToWorld, srcToWorld)), nil
+	invA := spatial.DualQuaternion{Number: dualquat.ConjQuat(dstToWorld)}
+	result := spatial.DualQuaternion{Number: invA.Transformation(srcToWorld)}
+	return result, nil
 }
 
-// composeTransforms computes the transformation of the provide Frame to the World Frame, using the provided FrameSystemInputs.
-func (sfs *FrameSystem) composeTransforms(frame Frame, inputMap FrameSystemInputs) (spatial.Pose, error) {
-	q := spatial.NewZeroPose() // empty initial dualquat
-	var errAll error
+// composeTransforms assumes there is one moveable frame and its DoF is equal to the `inputs`
+// length.
+func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInputs) (dualquat.Number, error) {
+	ret := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
+	}
+
+	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		// Transform() gives FROM q TO parent. Add new transforms to the left.
-		inputs, err := inputMap.GetFrameInputs(frame)
-		if err != nil {
-			return nil, err
+		var pose spatial.Pose
+		var err error
+
+		if len(frame.DoF()) == 0 {
+			pose, err = frame.Transform([]Input{})
+			if err != nil {
+				return ret, err
+			}
+		} else {
+			frameInputs := linearInputs.Get(frame.Name())
+			numMoveableFrames++
+			if len(frame.DoF()) != len(frameInputs) {
+				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+			}
+
+			pose, err = frame.Transform(frameInputs)
+			if err != nil {
+				return ret, err
+			}
 		}
-		pose, err := frame.Transform(inputs)
-		if err != nil && pose == nil {
-			return nil, err
-		}
-		multierr.AppendInto(&errAll, err)
-		q = spatial.Compose(pose, q)
+
+		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
-	return q, errAll
+
+	return ret, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
@@ -500,7 +572,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// NewZeroInputs returns a zeroed input map ensuring all frames have inputs.
+// NewZeroInputs returns a zeroed FrameSystemInputs ensuring all frames have inputs.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
@@ -512,27 +584,44 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
+// NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
+func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
+	positions := NewLinearInputs()
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame != nil {
+			positions.Put(fn, make([]Input, len(frame.DoF())))
+		}
+	}
+	return positions
+}
+
 // InterpolateFS interpolates.
-func InterpolateFS(fs *FrameSystem, from, to FrameSystemInputs, by float64) (FrameSystemInputs, error) {
-	interp := make(FrameSystemInputs)
-	for fn, fromInputs := range from {
+func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*LinearInputs, error) {
+	interp := NewLinearInputs()
+	for fn, fromInputs := range from.Items() {
 		if len(fromInputs) == 0 {
 			continue
 		}
+
 		frame := fs.Frame(fn)
 		if frame == nil {
 			return nil, NewFrameMissingError(fn)
 		}
-		toInputs, ok := to[fn]
-		if !ok {
+
+		toInputs := to.Get(fn)
+		if toInputs == nil {
 			return nil, fmt.Errorf("frame with name %s not found in `to` interpolation inputs", fn)
 		}
+
 		interpInputs, err := frame.Interpolate(fromInputs, toInputs, by)
 		if err != nil {
 			return nil, err
 		}
-		interp[fn] = interpInputs
+
+		interp.Put(fn, interpInputs)
 	}
+
 	return interp, nil
 }
 
@@ -552,24 +641,35 @@ func FrameSystemToPCD(system *FrameSystem, inputs FrameSystemInputs, logger logg
 	return vectorMap, nil
 }
 
-// FrameSystemGeometries takes in a framesystem and returns a map where all elements are GeometriesInFrames with a World reference frame.
+// FrameSystemGeometries takes in a framesystem and returns a map where all elements are
+// GeometriesInFrames with a World reference frame. `FrameSystemGeometriesLinearInputs` is preferred
+// for hot paths. This function is otherwise kept around for backwards compatibility.
 func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[string]*GeometriesInFrame, error) {
+	return FrameSystemGeometriesLinearInputs(fs, inputMap.ToLinearInputs())
+}
+
+// FrameSystemGeometriesLinearInputs takes in a framesystem and returns a LinearInputs where all
+// elements are GeometriesInFrames with a World reference frame. This is preferred for hot
+// paths. But requires the caller to manage a `LinearInputs`.
+func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInputs) (map[string]*GeometriesInFrame, error) {
 	var errAll error
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
-		inputs, err := inputMap.GetFrameInputs(frame)
+		inputs, err := linearInputs.GetFrameInputs(frame)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		geosInFrame, err := frame.Geometries(inputs)
 		if err != nil {
 			errAll = multierr.Append(errAll, err)
 			continue
 		}
+
 		if len(geosInFrame.Geometries()) > 0 {
-			transformed, err := fs.Transform(inputMap, geosInFrame, World)
+			transformed, err := fs.Transform(linearInputs, geosInFrame, World)
 			if err != nil {
 				errAll = multierr.Append(errAll, err)
 				continue
@@ -577,6 +677,7 @@ func FrameSystemGeometries(fs *FrameSystem, inputMap FrameSystemInputs) (map[str
 			allGeometries[name] = transformed.(*GeometriesInFrame)
 		}
 	}
+
 	return allGeometries, errAll
 }
 
@@ -707,52 +808,71 @@ func getPartNames(parts []*FrameSystemPart) []string {
 	return names
 }
 
-// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
-// sorts them, beginning at the world node.
-func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, error) {
+// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and sorts them,
+// beginning at the world node. The world frame is not included in the output.
+//
+// Parts that are missing a parent will be ignored and returned as part of the second return
+// value. If it's important that all inputs are connected to the world frame, a caller must
+// conditionally error on that second return value.
+//
+// Given each node can only have one parent, and we always return the tree rooted at the world
+// frame, cycles are impossible. The "unlinked" second return value might be unlinked because a
+// parent does not exist, or the nodes are in a cycle with each other.
+func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*FrameSystemPart) {
 	// set up directory to check existence of parents
-	existingParts := make(map[string]bool, len(parts))
-	existingParts[World] = true
+	partNameIndex := make(map[string]bool, len(parts))
+	partNameIndex[World] = true
 	for _, part := range parts {
-		existingParts[part.FrameConfig.Name()] = true
+		partNameIndex[part.FrameConfig.Name()] = true
 	}
+
 	// make map of children
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
 		parent := part.FrameConfig.Parent()
-		if !existingParts[parent] {
-			return nil, NewParentFrameMissingError(part.FrameConfig.Name(), parent)
+		if !partNameIndex[parent] {
+			continue
 		}
-		children[part.FrameConfig.Parent()] = append(children[part.FrameConfig.Parent()], part)
+
+		children[parent] = append(children[parent], part)
 	}
-	topoSortedParts := []*FrameSystemPart{} // keep track of tree structure
+
 	// If there are no frames, return the empty list
 	if len(children) == 0 {
-		return topoSortedParts, nil
+		return nil, parts
 	}
-	stack := make([]string, 0)
-	visited := make(map[string]struct{})
-	if _, ok := children[World]; !ok {
-		return nil, ErrNoWorldConnection
-	}
-	stack = append(stack, World)
+
+	queue := make([]string, 0)
+	visited := make(map[string]bool)
+	topoSortedParts := []*FrameSystemPart{}
+	queue = append(queue, World)
 	// begin adding frames to tree
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
+	for len(queue) != 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		if visited[parent] {
+			return nil, nil
 		}
-		visited[parent] = struct{}{}
+
+		visited[parent] = true
 		sort.Slice(children[parent], func(i, j int) bool {
 			return children[parent][i].FrameConfig.Name() < children[parent][j].FrameConfig.Name()
 		}) // sort alphabetically within the topological sort
+
 		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, part.FrameConfig.Name())
+			queue = append(queue, part.FrameConfig.Name())
 			topoSortedParts = append(topoSortedParts, part)
 		}
 	}
-	return topoSortedParts, nil
+
+	unlinkedParts := make([]*FrameSystemPart, 0, 4)
+	for _, part := range parts {
+		if !visited[part.FrameConfig.Name()] {
+			unlinkedParts = append(unlinkedParts, part)
+		}
+	}
+
+	return topoSortedParts, unlinkedParts
 }
 
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {

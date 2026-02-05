@@ -9,7 +9,6 @@ import (
 	"net"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -36,8 +35,6 @@ import (
 	nc "go.viam.com/rdk/web/networkcheck"
 )
 
-var viamDotDir = filepath.Join(rutils.PlatformHomeDir(), ".viam")
-
 // Arguments for the command.
 type Arguments struct {
 	AllowInsecureCreds         bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
@@ -50,7 +47,7 @@ type Arguments struct {
 	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
 	RevealSensitiveConfigDiffs bool   `flag:"reveal-sensitive-config-diffs,usage=show config diffs"`
 	UntrustedEnv               bool   `flag:"untrusted-env,usage=disable processes and shell from running in a untrusted environment"`
-	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out telemetry data (metrics and spans)"`
+	OutputTelemetry            bool   `flag:"output-telemetry,usage=print out metrics data"`
 	DisableMulticastDNS        bool   `flag:"disable-mdns,usage=disable server discovery through multicast DNS"`
 	DumpResourcesPath          string `flag:"dump-resources,usage=dump all resource registrations as json to the provided file path"`
 	EnableFTDC                 bool   `flag:"ftdc,default=true,usage=enable fulltime data capture for diagnostics"`
@@ -60,11 +57,11 @@ type Arguments struct {
 }
 
 type robotServer struct {
-	args          Arguments
-	logger        logging.Logger
-	registry      *logging.Registry
-	conn          rpc.ClientConn
-	signalingConn rpc.ClientConn
+	args                                       Arguments
+	rootLogger, configLogger, networkingLogger logging.Logger
+	registry                                   *logging.Registry
+	conn                                       rpc.ClientConn
+	signalingConn                              rpc.ClientConn
 }
 
 func logViamEnvVariables(logger logging.Logger) {
@@ -87,6 +84,18 @@ func logViamEnvVariables(logger logging.Logger) {
 	if rutils.PlatformHomeDir() != "" {
 		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
 	}
+	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
+	value, alreadySet := os.LookupEnv(rutils.HomeEnvVar)
+	err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir)
+	// if we successfully overwrite VIAM_HOME, log
+	if err == nil && alreadySet {
+		logger.Infof("Environment variable %v was overwritten from %v to %v", rutils.HomeEnvVar, value, rutils.ViamDotDir)
+	} else if err != nil && !alreadySet {
+		logger.Infof("Unable to set %v environment variable, continuing with startup", rutils.HomeEnvVar)
+	}
+	if value, exists := os.LookupEnv(rutils.HomeEnvVar); exists {
+		viamEnvVariables = append(viamEnvVariables, rutils.HomeEnvVar, value)
+	}
 	if len(viamEnvVariables) != 0 {
 		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
 	}
@@ -101,9 +110,9 @@ func logVersion(logger logging.Logger) {
 		versionFields = append(versionFields, "git_rev", config.GitRevision)
 	}
 	if len(versionFields) != 0 {
-		logger.Infow("Viam RDK", versionFields...)
+		logger.Infow("viam-server", versionFields...)
 	} else {
-		logger.Info("Viam RDK built from source; version unknown")
+		logger.Info("viam-server built from source; version unknown")
 	}
 }
 
@@ -129,33 +138,44 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return dumpResourceRegistrations(argsParsed.DumpResourcesPath)
 	}
 
-	logger, registry := logging.NewBlankLoggerWithRegistry("rdk")
+	// The root logger has the name "rdk" and represents the root of the logger tree. We use
+	// the root logger to attach appenders like the net appender that should be on all of
+	// its Subloggers. Some logger names, like "rdk.networking", will be treated as
+	// diagnostic in app and some, like "rdk.modmanager", will be treated as user-facing.
+	// Most users will only care about startup/shutdown/reconfiguration/module-output, but
+	// NetCode will often need to see more log output when diagnosing an issue. `app` has
+	// special logic to only render user-facing logs by default in the "Logs" tab.
+	rootLogger, registry := logging.NewBlankLoggerWithRegistry("rdk")
 	// Dan: We changed from a constructor that defaulted to INFO to `NewBlankLoggerWithRegistry`
 	// which defaults to DEBUG. We pessimistically set the level to INFO to ensure parity. Though I
 	// expect `InitLoggingSettings` will always put the logger into the right state without any
 	// observable side-effects.
-	logger.SetLevel(logging.INFO)
+	rootLogger.SetLevel(logging.INFO)
+
+	configLogger := rootLogger.Sublogger("config")
+	networkingLogger := rootLogger.Sublogger("networking")
+
 	if argsParsed.OutputLogFile != "" {
 		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
 		defer func() {
 			utils.UncheckedError(closer.Close())
 		}()
-		logger.AddAppender(logWriter)
+		registry.AddAppenderToAll(logWriter)
 	} else {
-		logger.AddAppender(logging.NewStdoutAppender())
+		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(logger)
-	config.InitLoggingSettings(logger, argsParsed.Debug)
+	logging.RegisterEventLogger(rootLogger, "viam-server")
+	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
 		// log startup info here and return if version flag.
-		logStartupInfo(logger)
+		logStartupInfo(rootLogger)
 		return
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
+		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTestDNS */)
 		return
 	}
 
@@ -163,13 +183,13 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	var startupInfoLogged bool
 	defer func() {
 		if !startupInfoLogged {
-			logger.CInfo(ctx, "error starting viam-server, logging version and exiting")
-			logStartupInfo(logger)
+			rootLogger.CInfo(ctx, "error starting viam-server, logging version and exiting")
+			logStartupInfo(rootLogger)
 		}
 	}()
 
 	if argsParsed.ConfigFile == "" {
-		logger.Error("please specify a config file through the -config parameter.")
+		rootLogger.Error("please specify a config file through the -config parameter.")
 		return
 	}
 
@@ -188,13 +208,18 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	var appConn, signalingConn rpc.ClientConn
 
 	// Read the config from disk and use it to initialize the remote logger.
-	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, logger.Sublogger("config"))
+	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, configLogger)
 	if err != nil {
 		return err
 	}
 
 	if argsParsed.OutputTelemetry {
-		exporter := perf.NewDevelopmentExporter()
+		// Only handle printing metrics. Trace span exporting is now handled in the
+		// robot config.
+		exporter := perf.NewDevelopmentExporterWithOptions(perf.DevelopmentExporterOptions{
+			ReportingInterval: time.Second * 10,
+			TracesDisabled:    true,
+		})
 		if err := exporter.Start(); err != nil {
 			return err
 		}
@@ -205,8 +230,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	// serialized manner
 	if cfgFromDisk.Cloud != nil {
 		cloud := cfgFromDisk.Cloud
-		appConnLogger := logger.Sublogger("networking").Sublogger("app_connection")
-		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.Secret, cloud.ID, appConnLogger)
+
+		cloudCreds := cfgFromDisk.Cloud.GetCloudCredsDialOpt()
+		appConnLogger := networkingLogger.Sublogger("app_connection")
+		appConn, err = grpc.NewAppConn(ctx, cloud.AppAddress, cloud.ID, cloudCreds, appConnLogger)
 		if err != nil {
 			return err
 		}
@@ -214,8 +241,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 		// if SignalingAddress is specified and different from AppAddress, create a new connection to it. Otherwise reuse appConn.
 		if cloud.SignalingAddress != "" && cloud.SignalingAddress != cloud.AppAddress {
-			signalingConnLogger := logger.Sublogger("networking").Sublogger("signaling_connection")
-			signalingConn, err = grpc.NewAppConn(ctx, cloud.SignalingAddress, cloud.Secret, cloud.ID, signalingConnLogger)
+			signalingConnLogger := networkingLogger.Sublogger("signaling_connection")
+			signalingConn, err = grpc.NewAppConn(
+				ctx, cloud.SignalingAddress, cloud.ID, cloudCreds, signalingConnLogger)
 			if err != nil {
 				return err
 			}
@@ -223,47 +251,53 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		} else {
 			signalingConn = appConn
 		}
-	}
 
-	// Start remote logging with config from disk.
-	// This is to ensure we make our best effort to write logs for failures loading the remote config.
-	if cfgFromDisk.Cloud != nil && (cfgFromDisk.Cloud.LogPath != "" || cfgFromDisk.Cloud.AppAddress != "") {
-		netAppender, err := logging.NewNetAppender(
-			&logging.CloudConfig{
-				AppAddress: cfgFromDisk.Cloud.AppAddress,
-				ID:         cfgFromDisk.Cloud.ID,
-				Secret:     cfgFromDisk.Cloud.Secret,
-			},
-			appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
-		)
-		if err != nil {
-			return err
+		// Start remote logging with config from disk.
+		// This is to ensure we make our best effort to write logs for failures loading the remote config.
+		if cloud.AppAddress != "" {
+			netAppender, err := logging.NewNetAppender(
+				&logging.CloudConfig{
+					AppAddress: cloud.AppAddress,
+					ID:         cloud.ID,
+					CloudCred:  cloudCreds,
+				},
+				appConn, false, logging.NewLogger("NetAppender-loggerWithoutNet"),
+			)
+			if err != nil {
+				return err
+			}
+			defer netAppender.Close()
+
+			registry.AddAppenderToAll(netAppender)
 		}
-		defer netAppender.Close()
-
-		registry.AddAppenderToAll(netAppender)
 	}
 	// log startup info and run network checks after netlogger is initialized so it's captured in cloud machine logs.
-	logStartupInfo(logger)
+	logStartupInfo(rootLogger)
 	startupInfoLogged = true
 
-	// Have goutils use the logger we've just configured.
-	golog.ReplaceGloabl(logger.AsZap())
+	// The golog global logger is unused in rdk. But, goutils still makes infrequent use of
+	// it for a hodgepodge of messages. Use the rootLogger ("rdk") here, as those goutils
+	// messages are not of one specific category and are not noisy enough to be put under
+	// a diagnostic logger.
+	golog.ReplaceGloabl(rootLogger.AsZap())
 
-	go nc.RunNetworkChecks(ctx, logger, true /* continueRunningTestDNS */)
+	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
+	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
 
 	server := robotServer{
-		logger:        logger,
-		args:          argsParsed,
-		registry:      registry,
-		conn:          appConn,
-		signalingConn: signalingConn,
+		rootLogger:       rootLogger,
+		configLogger:     configLogger,
+		networkingLogger: networkingLogger,
+		args:             argsParsed,
+		registry:         registry,
+		conn:             appConn,
+		signalingConn:    signalingConn,
 	}
 
 	// Run the server with remote logging enabled.
 	err = server.runServer(ctx)
 	if err != nil {
-		logger.Error("Fatal error running server, exiting now:", err)
+		rootLogger.Error("Fatal error running server, exiting now:", err)
 	}
 
 	return err
@@ -273,10 +307,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 // is read the logger may be initialized to remote log. This ensure we capture errors starting up the server and report to the cloud.
 func (s *robotServer) runServer(ctx context.Context) error {
 	if s.conn != nil {
-		s.logger.CInfo(ctx, "Getting up-to-date config from cloud...")
+		s.configLogger.CInfo(ctx, "Getting up-to-date config from cloud...")
 	}
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
-	cfg, err := config.Read(ctx, s.args.ConfigFile, s.logger, s.conn)
+	cfg, err := config.Read(ctx, s.args.ConfigFile, s.configLogger, s.conn)
 	if err != nil {
 		return err
 	}
@@ -284,7 +318,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
-		s.logger.Errorw("error serving web", "error", err)
+		s.rootLogger.Errorw("error serving web", "error", err)
 	}
 
 	return err
@@ -314,7 +348,9 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 			return weboptions.Options{}, err
 		}
 		if host == "" || host == "0.0.0.0" || host == "::" {
-			s.logger.Warn("binding to all interfaces without authentication")
+			// Use rootLogger instead of networkingLogger here to be user-facing. This log has
+			// important security implications that users have control over.
+			s.rootLogger.Warn("binding to all interfaces without authentication")
 		}
 	}
 	return options, nil
@@ -335,7 +371,7 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
-		out.PackagePath = path.Join(viamDotDir, "packages")
+		out.PackagePath = path.Join(rutils.ViamDotDir, "packages")
 	}
 
 	return out, nil
@@ -352,7 +388,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 	// changes.
 	startTime := time.Now()
 	r.Reconfigure(ctx, currCfg)
-	s.logger.CInfow(ctx, "Robot reconfigured with full config", "time_to_reconfigure", time.Since(startTime).String())
+	s.configLogger.CInfow(ctx, "Robot constructed with full config", "time_to_construct", time.Since(startTime).String())
 	for {
 		select {
 		case <-ctx.Done():
@@ -365,7 +401,7 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 		case cfg := <-watcher.Config():
 			processedConfig, err := s.processConfig(cfg)
 			if err != nil {
-				s.logger.Errorw("reconfiguration aborted: error processing config", "error", err)
+				s.configLogger.Errorw("reconfiguration aborted: error processing config", "error", err)
 				continue
 			}
 
@@ -380,24 +416,24 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			// flag to restart web service if necessary
 			diff, err := config.DiffConfigs(*currCfg, *processedConfig, s.args.RevealSensitiveConfigDiffs)
 			if err != nil {
-				s.logger.Errorw("reconfiguration aborted: error diffing config", "error", err)
+				s.configLogger.Errorw("reconfiguration aborted: error diffing config", "error", err)
 				continue
 			}
 			var options weboptions.Options
 
 			if !diff.NetworkEqual {
 				// TODO(RSDK-2694): use internal web service reconfiguration instead
-				s.logger.Info("network/auth config change detected, restarting web service")
+				s.rootLogger.Info("network/auth config change detected, restarting web service")
 				r.StopWeb()
 				options, err = s.createWebOptions(processedConfig)
 				if err != nil {
-					s.logger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
+					s.configLogger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 					continue
 				}
 			}
 
 			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
-				s.logger.Infof("Config watcher detected bind address change: updating %v -> %v",
+				s.configLogger.Infof("Config watcher detected bind address change: updating %v -> %v",
 					currCfg.Network.BindAddress,
 					processedConfig.Network.BindAddress)
 			}
@@ -409,22 +445,22 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 				// Only display the warning when the user attempted to change the `log` field of
 				// the config.
 				if !diff.LogEqual {
-					s.logger.Debug("Detected potential changes to log patterns; updating logger levels")
-					s.logger.Warn(
+					s.configLogger.Debug("Detected potential changes to log patterns; updating logger levels")
+					s.configLogger.Warn(
 						"Changes to 'log' field may not affect modular logs. " +
 							"Use 'log_level' in module config or 'log_configuration' in resource config instead",
 					)
 				}
-				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.logger)
+				config.UpdateLoggerRegistryFromConfig(s.registry, processedConfig, s.rootLogger)
 			}
 
 			r.Reconfigure(ctx, processedConfig)
 
 			if !diff.NetworkEqual {
 				if err := r.StartWeb(ctx, options); err != nil {
-					s.logger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
+					s.configLogger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
 				}
-				s.logger.Info("web service restart finished")
+				s.configLogger.Info("web service restart finished")
 			}
 			currCfg = processedConfig
 		}
@@ -435,8 +471,11 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	ctx, cancel := context.WithCancel(ctx)
 
 	hungShutdownDeadline := 60 * time.Second
+	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
+	// viam-server stack traces by default on app.viam.com.
+	stackTraceLogger := s.rootLogger.Sublogger("stack_traces")
 	slowWatcher, slowWatcherCancel := utils.SlowGoroutineWatcherAfterContext(
-		ctx, hungShutdownDeadline, "server is taking a while to shutdown", s.logger)
+		ctx, hungShutdownDeadline, "server is taking a while to shutdown", stackTraceLogger)
 
 	doneServing := make(chan struct{})
 
@@ -484,7 +523,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 					if robot != nil {
 						robot.Kill()
 					}
-					s.logger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
+					s.rootLogger.Fatalw("server failed to cleanly shutdown after deadline", "deadline", hungShutdownDeadline)
 					return true
 				}
 			case <-doneServing:
@@ -506,7 +545,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 				if checkDone() {
 					return
 				}
-				s.logger.Warnw("Waiting for clean shutdown", "time_elapsed",
+				s.rootLogger.Warnw("Waiting for clean shutdown", "time_elapsed",
 					time.Since(shutdownStarted).String())
 			}
 		}
@@ -517,7 +556,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		slowWatcherCancel()
 		<-slowWatcher
 	}()
-	s.logger.CInfo(ctx, "Processing initial robot config...")
+	s.configLogger.CInfo(ctx, "Processing initial robot config...")
 	fullProcessedConfig, err := s.processConfig(cfg)
 	if err != nil {
 		return err
@@ -527,13 +566,16 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// updates to the registry will be handled by the config watcher goroutine.
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.logger)
+	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.configLogger)
 
-	if fullProcessedConfig.Cloud != nil {
+	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
+	// handling restart checking for us (relevant environment variable is unset).
+	if fullProcessedConfig.Cloud != nil && os.Getenv(rutils.ViamAgentHandlesNeedsRestartChecking) == "" {
+		s.rootLogger.CInfo(ctx, "Agent does not handle checking needs restart functionality; will handle in server")
 		cloudRestartCheckerActive = make(chan struct{})
 		utils.PanicCapturingGo(func() {
 			defer close(cloudRestartCheckerActive)
-			restartCheck := newRestartChecker(cfg.Cloud, s.logger, s.conn)
+			restartCheck := newRestartChecker(cfg.Cloud, s.rootLogger, s.conn)
 			restartInterval := defaultNeedsRestartCheckInterval
 
 			for {
@@ -543,14 +585,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 
 				mustRestart, newRestartInterval, err := restartCheck.needsRestart(ctx)
 				if err != nil {
-					s.logger.Infow("failed to check restart", "error", err)
+					s.networkingLogger.Infow("failed to check restart", "error", err)
 					continue
 				}
 
 				restartInterval = newRestartInterval
 
 				if mustRestart {
-					logStackTraceAndCancel(cancel, s.logger)
+					logStackTraceAndCancel(cancel, s.rootLogger)
 				}
 			}
 		})
@@ -562,7 +604,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}
 
 	shutdownCallbackOpt := robotimpl.WithShutdownCallback(func() {
-		logStackTraceAndCancel(cancel, s.logger)
+		logStackTraceAndCancel(cancel, s.rootLogger)
 	})
 	robotOptions = append(robotOptions, shutdownCallbackOpt)
 
@@ -590,12 +632,12 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	minimalProcessedConfig.Initial = true
 
 	startTime := time.Now()
-	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.logger, robotOptions...)
+	myRobot, err := robotimpl.New(ctx, &minimalProcessedConfig, s.conn, s.rootLogger, robotOptions...)
 	if err != nil {
 		cancel()
 		return err
 	}
-	s.logger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
+	s.configLogger.CInfow(ctx, "Robot created with minimal config", "time_to_create", time.Since(startTime).String())
 
 	theRobotLock.Lock()
 	theRobot = myRobot
@@ -605,7 +647,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(ctx, cfg, s.logger.Sublogger("config"), s.conn)
+	watcher, err := config.NewWatcher(ctx, cfg, s.configLogger, s.conn)
 	if err != nil {
 		cancel()
 		return err
@@ -629,14 +671,14 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 		cancel()
 		<-onWatchDone
 	}()
-	s.logger.CInfo(ctx, "Config watcher started")
+	s.configLogger.CInfo(ctx, "Config watcher started")
 
 	// Create initial web options with `minimalProcessedConfig`.
 	options, err := s.createWebOptions(&minimalProcessedConfig)
 	if err != nil {
 		return err
 	}
-	return web.RunWeb(ctx, theRobot, options, s.logger)
+	return web.RunWeb(ctx, theRobot, options, s.rootLogger)
 }
 
 // dumpResourceRegistrations prints all builtin resource registrations as a json array
@@ -687,6 +729,9 @@ func dumpResourceRegistrations(outputPath string) error {
 }
 
 func logStackTraceAndCancel(cancel context.CancelFunc, logger logging.Logger) {
+	// "rdk.stack_traces" is listed as a diagnostic logger in app; users will not see
+	// viam-server stack traces by default on app.viam.com.
+	logger = logger.Sublogger("stack_traces")
 	bufSize := 1 << 20
 	traces := make([]byte, bufSize)
 	traceSize := runtime.Stack(traces, true)

@@ -47,7 +47,7 @@ func setupSocketWithRobot(t *testing.T) string {
 
 	var socketAddress string
 	var err error
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TCPParentPort)
 	} else {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -55,7 +55,7 @@ func setupSocketWithRobot(t *testing.T) string {
 	}
 
 	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		return server.InternalAddr().String()
 	}
 	return socketAddress
@@ -88,12 +88,56 @@ func setupModManager(
 		}
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)
 		for _, m := range modules {
-			// managedProcess.Stop waits on the process lock and for all logging to
-			// end before returning.
-			m.process.Stop()
+			// stopProcess stops both OUE from trying to restart and also calls managedProcess.Stop,
+			// which will wait on the process lock and for all longging to end before returning.
+			err = m.stopProcess()
+
+			// wait for any modules' managedProcesses goroutines to complete.
+			m.wait()
 		}
 	})
 	return mgr
+}
+
+// Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
+// in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
+func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
+	modPath := filepath.Join(t.TempDir(), "run.sh")
+	err := os.WriteFile(modPath, []byte("#!/bin/sh\n\nsleep 2\nexit 1"), 0o755)
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, mode := range []string{"unix", "tcp"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			logger := logging.NewTestLogger(t)
+
+			if mode == "tcp" {
+				os.Setenv("VIAM_TCP_SOCKETS", "yes")
+				t.Cleanup(func() { os.Unsetenv("VIAM_TCP_SOCKETS") })
+			}
+
+			parentAddr := setupSocketWithRobot(t)
+
+			viamHomeTemp := t.TempDir()
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+
+			err = mgr.Add(context.Background(), config.Module{
+				Name:     "test",
+				ExePath:  modPath,
+				Type:     config.ModuleTypeLocal,
+				ModuleID: "will:crash",
+			})
+			test.That(t, err, test.ShouldNotBeNil)
+			if mode == "unix" {
+				// exits with err from startModuleProcess
+				test.That(t, err.Error(), test.ShouldContainSubstring, "module test exited too quickly after attempted startup")
+			} else {
+				// exits with err from checkReady (short circuit after detecting module crashed)
+				test.That(t, err.Error(), test.ShouldContainSubstring,
+					"error while waiting for module to be ready test: module process exited unexpectedly")
+			}
+		})
+	}
 }
 
 func TestModManagerFunctions(t *testing.T) {
@@ -161,7 +205,7 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, mod.process.Stop(), test.ShouldBeNil)
 
 			modEnv := mod.getFullEnvironment(viamHomeTemp, filepath.Join(viamHomeTemp, "packages"))
-			test.That(t, modEnv["VIAM_HOME"], test.ShouldEqual, viamHomeTemp)
+			test.That(t, modEnv[rutils.HomeEnvVar], test.ShouldEqual, viamHomeTemp)
 			test.That(t, modEnv["VIAM_MODULE_DATA"], test.ShouldEqual, "module-data-dir")
 			test.That(t, modEnv["VIAM_MODULE_ID"], test.ShouldEqual, "new:york")
 			test.That(t, modEnv["SMART"], test.ShouldEqual, "MACHINES")
@@ -621,6 +665,13 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
+		// limit to 1 OUE restart attempt for this test
+		originalInterval := oueRestartInterval
+		t.Cleanup(func() {
+			oueRestartInterval = originalInterval
+		})
+		oueRestartInterval = time.Hour
+
 		logger, logs := logging.NewObservedTestLogger(t)
 
 		// Precompile module to avoid timeout issues when building takes too long.
@@ -664,10 +715,18 @@ func TestModuleReloading(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
+		// wait for OUE launch
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
+				test.ShouldEqual, 1)
+		})
+
+		// wait for OUE -> attemptRestart error
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
-				test.ShouldBeGreaterThanOrEqualTo, 1)
+				test.ShouldEqual, 1)
 		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)
@@ -678,8 +737,6 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that logs reflect that test-module crashed and was not
 		// successfully restarted.
-		test.That(t, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
-			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
 
@@ -1031,7 +1088,11 @@ func TestModuleMisc(t *testing.T) {
 		test.That(t, resp, test.ShouldNotBeNil)
 		dataFullPath, ok := resp["fullpath"].(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, dataFullPath, test.ShouldEqual, filepath.Join(testViamHomeDir, "module-data", "local", "test-module", "data.txt"))
+		// Assert that file path for module data is believable. Because we are in a test
+		// environment, the path will be in an unknown temporary directory and there will be a
+		// random string in the middle to avoid collisions with other tests.
+		test.That(t, strings.Contains(dataFullPath, filepath.Join("module-data", "local-testing-")), test.ShouldBeTrue)
+		test.That(t, strings.HasSuffix(dataFullPath, filepath.Join("test-module", "data.txt")), test.ShouldBeTrue)
 		dataFileContents, err := os.ReadFile(dataFullPath)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, string(dataFileContents), test.ShouldEqual, "hello, world!")
@@ -1249,6 +1310,7 @@ func greenLog(t *testing.T, msg string) {
 }
 
 func TestRTPPassthrough(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1459,6 +1521,7 @@ func TestRTPPassthrough(t *testing.T) {
 }
 
 func TestAddStreamMaxTrackErr(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	logger := logging.NewInMemoryLogger(t)
 
@@ -1573,6 +1636,7 @@ func TestBadModuleFailsFast(t *testing.T) {
 // process information (e.g: CPU usage) is in sync with the Process IDs (PIDs) that are actually
 // running.
 func TestFTDCAfterModuleCrash(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS != "linux" {
 		t.Skip(t.Name(), "only runs on Linux due to a dependency on the /proc filesystem")
 	}

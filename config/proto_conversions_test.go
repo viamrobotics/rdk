@@ -1106,12 +1106,149 @@ func TestJobsConfigProtoConversions(t *testing.T) {
 			Command: map[string]any{
 				"arg1": true,
 			},
+			LogConfiguration: &resource.LogConfig{
+				Level: logging.DEBUG,
+			},
 		},
 	}
 
 	proto, err = JobsConfigToProto(&testJobConfigCommand)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proto.LogConfiguration.Level, test.ShouldEqual, "debug")
 	out, err = JobsConfigFromProto(proto, logger)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, out.LogConfiguration.Level, test.ShouldEqual, logging.DEBUG)
 	test.That(t, *out, test.ShouldResemble, testJobConfigCommand)
+}
+
+func TestTracingConfigToProtoEmpty(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  *TracingConfig
+	}{
+		{
+			name: "nil",
+			cfg:  nil,
+		},
+		{
+			name: "empty",
+			cfg:  &TracingConfig{},
+		},
+		{
+			name: "all enabled",
+			cfg: &TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "all set, manually disabled",
+			cfg: &TracingConfig{
+				Enabled:      false,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "enabled, none set",
+			cfg: &TracingConfig{
+				Enabled: true,
+			},
+		},
+		{
+			name: "some enabled",
+			cfg: &TracingConfig{
+				Enabled: true,
+				Disk:    true,
+			},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg := c.cfg
+			protoCfg, err := TracingConfigToProto(cfg)
+			test.That(t, err, test.ShouldBeNil)
+
+			if cfg == nil {
+				test.That(t, protoCfg, test.ShouldBeNil)
+				return
+			}
+
+			test.That(t, protoCfg.Enabled, test.ShouldResemble, cfg.Enabled)
+			test.That(t, protoCfg.Disk, test.ShouldResemble, cfg.Disk)
+			test.That(t, protoCfg.Console, test.ShouldResemble, cfg.Console)
+			test.That(t, protoCfg.OtlpEndpoint, test.ShouldResemble, cfg.OTLPEndpoint)
+		})
+	}
+}
+
+func TestTracingConfigFromProto(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  *pb.TracingConfig
+	}{
+		{
+			name: "nil",
+			cfg:  nil,
+		},
+		{
+			name: "empty",
+			cfg:  &pb.TracingConfig{},
+		},
+		{
+			name: "all enabled",
+			cfg: &pb.TracingConfig{
+				Enabled:      true,
+				Disk:         true,
+				Console:      true,
+				OtlpEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "all set, manually disabled",
+			cfg: &pb.TracingConfig{
+				Enabled:      false,
+				Disk:         true,
+				Console:      true,
+				OtlpEndpoint: "localhost:4317",
+			},
+		},
+		{
+			name: "enabled, none set",
+			cfg: &pb.TracingConfig{
+				Enabled: true,
+			},
+		},
+		{
+			name: "some enabled",
+			cfg: &pb.TracingConfig{
+				Enabled: true,
+				Disk:    true,
+			},
+		},
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			cfg := c.cfg
+			traceCfg, err := TracingConfigFromProto(cfg, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			if cfg == nil {
+				test.That(t, traceCfg, test.ShouldBeZeroValue)
+				return
+			}
+
+			test.That(t, traceCfg.Enabled, test.ShouldResemble, cfg.Enabled)
+			test.That(t, traceCfg.Disk, test.ShouldResemble, cfg.Disk)
+			test.That(t, traceCfg.Console, test.ShouldResemble, cfg.Console)
+			test.That(t, traceCfg.OTLPEndpoint, test.ShouldResemble, cfg.OtlpEndpoint)
+		})
+	}
 }

@@ -49,7 +49,7 @@ type typeSpecificConfigData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
-	LogConfiguration          *LogConfig                 `json:"log_configuration"`
+	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
@@ -61,7 +61,7 @@ type configData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
-	LogConfiguration          *LogConfig                 `json:"log_configuration"`
+	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
