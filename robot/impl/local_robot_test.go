@@ -2721,6 +2721,8 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
+	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
 	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
@@ -2732,13 +2734,15 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(), test.ShouldEqual, 1)
 	})
 
-	testutils.WaitForAssertionWithSleep(t, 10*time.Second, 10, func(tb testing.TB) {
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
 		tb.Helper()
-		resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldNotBeNil)
-		test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
+		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
 	})
+
+	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldNotBeNil)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
