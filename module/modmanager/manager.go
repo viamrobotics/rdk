@@ -982,13 +982,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			"module", mod.cfg.Name,
 			"resources", orphanedResourceNamesStr)
 		unlock()
-		if mgr.handleOrphanedResources != nil {
-			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-		} else if len(orphanedResourceNames) > 0 {
-			// NewManager should disallow a nil handleOrphanedResources
-			mod.logger.Warnw("Module successfully restarted, but its resources were not re-added since a handleOrphanedResources "+
-				"function was not provided.", "module", mod.cfg.Name, "prevResources", orphanedResourceNamesStr)
-		}
+		mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		return
 	}
 }
