@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"runtime/pprof"
 	"slices"
@@ -53,6 +54,7 @@ func realMain() error {
 	cpu := flag.String("cpu", "", "cpu profiling")
 	interactive := flag.Bool("i", false, "interactive")
 	host := flag.String("host", "", "host to execute on")
+	forceMotion := flag.Bool("force-move", false, "")
 
 	flag.Parse()
 
@@ -241,7 +243,7 @@ func realMain() error {
 	}
 
 	if *host != "" {
-		err := executeOnArm(ctx, *host, plan, logger)
+		err := executeOnArm(ctx, *host, plan, *forceMotion, logger)
 		if err != nil {
 			return err
 		}
@@ -479,7 +481,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	}
 }
 
-func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger logging.Logger) error {
+func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force bool, logger logging.Logger) error {
 	byComponent := map[string][][]referenceframe.Input{}
 
 	for _, s := range plan.Trajectory() {
@@ -529,6 +531,24 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger
 		ie, ok := r.(framesystem.InputEnabled)
 		if !ok {
 			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
+		}
+
+		cur, err := ie.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+
+		for j, v := range cur {
+			delta := math.Abs(v - allInputs[0][j])
+			if delta > .01 {
+				err = fmt.Errorf("joint %d for resource %s too far start: %0.5f go: %0.5f delta: %0.5f",
+					j, cName, v, allInputs[0][j], delta)
+				if force {
+					logger.Warnf("ignoring %v", err)
+				} else {
+					return err
+				}
+			}
 		}
 
 		logger.Infof("sending %d positions to %s", len(allInputs), cName)
