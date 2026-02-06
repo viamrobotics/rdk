@@ -91,6 +91,21 @@ var lite6WristLinkGLB []byte
 //go:embed lite6/gripper_mount.glb
 var lite6GripperMountGLB []byte
 
+//go:embed so101/base.glb
+var so101BaseGLB []byte
+
+//go:embed so101/shoulder.glb
+var so101ShoulderGLB []byte
+
+//go:embed so101/upper_arm.glb
+var so101UpperArmGLB []byte
+
+//go:embed so101/lower_arm.glb
+var so101LowerArmGLB []byte
+
+//go:embed so101/wrist.glb
+var so101WristGLB []byte
+
 // ArmTo3DModelParts maps arm model names to their list of 3D model part names.
 var ArmTo3DModelParts = map[string][]string{
 	"ur5e": {
@@ -128,6 +143,13 @@ var ArmTo3DModelParts = map[string][]string{
 		"lower_forearm",
 		"wrist_link",
 		"gripper_mount",
+	},
+	"so101": {
+		"base",
+		"shoulder",
+		"upper_arm",
+		"lower_arm",
+		"wrist",
 	},
 }
 
@@ -283,6 +305,35 @@ func ThreeDMeshFromName(model, name string) commonpb.Mesh {
 		case "gripper_mount":
 			return commonpb.Mesh{
 				Mesh:        lite6GripperMountGLB,
+				ContentType: "model/gltf-binary",
+			}
+		}
+	case "so101":
+		switch name {
+		case "base":
+			return commonpb.Mesh{
+				Mesh:        so101BaseGLB,
+				ContentType: "model/gltf-binary",
+			}
+
+		case "shoulder":
+			return commonpb.Mesh{
+				Mesh:        so101ShoulderGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "upper_arm":
+			return commonpb.Mesh{
+				Mesh:        so101UpperArmGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "lower_arm":
+			return commonpb.Mesh{
+				Mesh:        so101LowerArmGLB,
+				ContentType: "model/gltf-binary",
+			}
+		case "wrist":
+			return commonpb.Mesh{
+				Mesh:        so101WristGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}

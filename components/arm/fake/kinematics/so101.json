@@ -1,0 +1,220 @@
+{
+    "name": "SO101",
+    "kinematic_param_type": "SVA",
+    "links": [
+      {
+        "id": "base",
+        "parent": "world",
+        "translation": {
+          "x": 38.8353,
+          "y": -8.97657e-6,
+          "z": 62.4
+        },
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": 3.14159,
+            "pitch": 4.18253e-17,
+            "yaw": -3.14159
+          }
+        },
+        "geometry": {
+          "type": "box",
+          "x": 95.6,
+          "y": 111.0,
+          "z": 87.0,
+          "translation": {
+            "x": 16.826,
+            "y": -0.000007,
+            "z": 33.6
+          }
+        }
+      },
+      {
+        "id": "shoulder",
+        "parent": "1",
+        "translation": {
+          "x": -30.3992,
+          "y": -18.2778,
+          "z": -54.2
+        },
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": -1.5708,
+            "pitch": -1.5708,
+            "yaw": 0
+          }
+        },
+        "geometry": {
+          "type": "box",
+          "x": 62.8,
+          "y": 55.1,
+          "z": 111.0,
+          "translation": {
+            "x": -19.1992,
+            "y": 1.162469,
+            "z": -9.1
+          }
+        }
+      },
+      {
+        "id": "upper_arm",
+        "translation": {
+          "x": -112.57,
+          "y": -28.0,
+          "z": 1.73763e-13
+        },
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": -3.63608e-16,
+            "pitch": 8.74301e-16,
+            "yaw": 1.5708
+          }
+        },
+        "parent": "2",
+        "geometry": {
+          "type": "box",
+          "x": 142.104,
+          "y": 50.2,
+          "z": 67.3,
+          "translation": {
+            "x": -59.118,
+            "y": -13.1,
+            "z": 20.14993
+          }
+        }
+      },
+      {
+        "id": "lower_arm",
+        "parent": "3",
+        "translation": {
+          "x": -134.9,
+          "y": 5.2,
+          "z": 3.62355e-14
+        },
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": 4.02456e-15,
+            "pitch": 8.67362e-16,
+            "yaw": -1.5708
+          }
+        },
+        "geometry": {
+          "type": "box",
+          "x": 157.099,
+          "y": 36.8999,
+          "z": 64.4,
+          "translation": {
+            "x": -66.551,
+            "y": 3.45,
+            "z": 20.19965
+          }
+        }
+      },
+      {
+        "id": "wrist",
+        "parent": "4",
+        "translation": {
+          "x": 5.55112e-14,
+          "y": -61.1,
+          "z": 18.1
+        },
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": 1.5708,
+            "pitch": 0.0486795,
+            "yaw": 3.14159
+          }
+        },
+        "geometry": {
+          "type": "box",
+          "x": 35.7,
+          "y": 62.3,
+          "z": 77.8,
+          "translation": {
+            "x": -2.17,
+            "y": -26.935,
+            "z": 22.14943
+          }
+        }
+      },
+      {
+        "id": "tool",
+        "parent": "5",
+        "orientation": {
+          "type": "euler_angles",
+          "value": {
+            "roll": 0,
+            "pitch": 3.14159,
+            "yaw": 0.0486795
+          }
+        }
+      }
+    ],
+    "joints": [
+      {
+        "id": "1",
+        "parent": "base",
+        "type": "revolute",
+        "axis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "min": -109.9998753,
+        "max": 109.9998753
+      },
+      {
+        "id": "2",
+        "parent": "shoulder",
+        "type": "revolute",
+        "axis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "min": -100.0000429,
+        "max": 100.0000429
+      },
+      {
+        "id": "3",
+        "parent": "upper_arm",
+        "type": "revolute",
+        "axis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "min": -96.82987,
+        "max": 96.82987
+      },
+      {
+        "id": "4",
+        "parent": "lower_arm",
+        "type": "revolute",
+        "axis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "min": -94.99984018,
+        "max": 94.99984018
+      },
+      {
+        "id": "5",
+        "parent": "wrist",
+        "type": "revolute",
+        "axis": {
+          "x": 0,
+          "y": 0,
+          "z": 1
+        },
+        "min": -157.2110246,
+        "max": 162.7893417
+      }
+    ]
+  }
