@@ -80,7 +80,7 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, &cfg, logger)
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
 
 	// Assert that if failOnFirst is false, resources are all available after the first pass.
 	if !failOnFirst {
@@ -454,6 +454,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
+	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
 
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
@@ -519,6 +521,8 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
 
+	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 3)
+
 	// Assert that restoring the testmodule binary restores the module but not 'h'.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -528,30 +532,37 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 			test.ShouldEqual, 1)
 	})
 
-	// Assert that 'h' is not available, but 'h2' and 'h3' are.
+	// Before 'h' is rebuilt, assert that 'h' is not available, but 'h2' and 'h3' are.
 	// 'h2' and 'h3' should continue to fail any requests that depends on 'h'.
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h not available; "+
+		"reason=resource not initialized yet")
 
 	_, err = r.ResourceByName(generic.Named("h2"))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h2 not available; "+
-		"reason=resource build error: dependency h is not ready yet; reason=resource rdk:component:generic/h not available")
+	test.That(t, err, test.ShouldBeNil)
 
 	// test reusing previous handle of h2
 	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error: code = Unknown desc = resource rdk:component:generic/h2 not found")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error: code = Unknown "+
+		"desc = resource rdk:component:generic/h not available; reason=resource not initialized yet")
 
 	_, err = r.ResourceByName(generic.Named("h3"))
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h3 not available; "+
-		"reason=resource build error: dependency h is not ready yet; reason=resource rdk:component:generic/h not available")
+	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that after another attempt at configuring resources, 'h' now exists,
+	// Assert that after an attempt at configuring resources, 'h' now exists,
 	// and commands on 'h2' and 'h3' that depend on 'h' succeed.
 	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 	test.That(t, anyChanges, test.ShouldBeTrue)
+	// do this twice because 'h' will fail to build the first time (failOnFirst).
+	anyChanges = r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	})
 
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
