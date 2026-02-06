@@ -23,10 +23,14 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/trace"
 
+	"go.viam.com/rdk/cli"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -48,6 +52,7 @@ func realMain() error {
 	loop := flag.Int("loop", 1, "loop")
 	cpu := flag.String("cpu", "", "cpu profiling")
 	interactive := flag.Bool("i", false, "interactive")
+	host := flag.String("host", "", "host to execute on")
 
 	flag.Parse()
 
@@ -221,6 +226,13 @@ func realMain() error {
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
+		}
+	}
+
+	if *host != "" {
+		err := executeOnArm(ctx, *host, plan, logger)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -454,4 +466,63 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("Unknown command. Type `h` for help.")
 		}
 	}
+}
+
+func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger logging.Logger) error {
+	if len(plan.Trajectory()[0]) > 1 {
+		// the code below works, just doesn't feel safe
+		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(plan.Trajectory()[0]))
+	}
+
+	c, err := cli.ConfigFromCache(nil)
+	if err != nil {
+		return err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return err
+	}
+
+	theRobot, err := client.New(
+		ctx,
+		host,
+		logger,
+		client.WithDialOptions(dopts...),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := theRobot.Close(ctx)
+		if err != nil {
+			logger.Errorf("cannot close robot: %v", err)
+		}
+	}()
+
+	byComponent := map[string][][]referenceframe.Input{}
+
+	for _, s := range plan.Trajectory() {
+		for cName, inputs := range s {
+			byComponent[cName] = append(byComponent[cName], inputs)
+		}
+	}
+
+	for cName, allInputs := range byComponent {
+		r, err := robot.ResourceByName(theRobot, cName)
+		if err != nil {
+			return err
+		}
+
+		ie, ok := r.(framesystem.InputEnabled)
+		if !ok {
+			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
+		}
+		err = ie.GoToInputs(ctx, allInputs...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
