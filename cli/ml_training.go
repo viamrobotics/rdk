@@ -439,7 +439,7 @@ type mlTrainingUploadArgs struct {
 	Type       string
 	Draft      bool
 	URL        string
-	Visibility bool
+	Visibility string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
