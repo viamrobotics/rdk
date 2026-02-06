@@ -476,6 +476,12 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig, tracing TracingConfi
 	return env
 }
 
+// ProcessLocalConfigForTesting invokes processConfig with fromCloud: false. To be used
+// for testing that is not in this package but needs the side effects of processConfig.
+func ProcessLocalConfigForTesting(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, false, logger)
+}
+
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
 // If any part of this function errors, the function will exit and no part of the new config will be returned
 // until it is corrected.
