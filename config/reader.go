@@ -568,7 +568,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// Look through all associated configs for a resource config and link it to the configs that each associated config is linked to
 	convertAndAssociateResourceConfigs := func(
 		resName *resource.Name,
-		remoteName *string,
 		associatedCfgs []resource.AssociatedResourceConfig,
 	) error {
 		for subIdx, associatedConf := range associatedCfgs {
@@ -585,15 +584,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				}
 				// associated resource configs for local resources might be missing the resource name,
 				// which can be inferred from its resource config.
-				// associated resource configs for remote resources might be missing the remote name for the resource,
-				// which can be inferred from its remote config.
 				converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
 					newName := oldName
 					if resName != nil {
 						newName = *resName
-					}
-					if remoteName != nil {
-						newName = newName.PrependRemote(*remoteName)
 					}
 					return newName
 				})
@@ -614,7 +608,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			resName := copied.ResourceName()
 
 			// convert and associate user-written associated resource configs here.
-			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
+			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
 		}
@@ -630,7 +624,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
-		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
+		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}
