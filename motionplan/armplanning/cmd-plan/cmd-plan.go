@@ -101,6 +101,10 @@ func realMain() error {
 				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
+			{
+				Pattern: "*.networking.*",
+				Level:   "INFO",
+			},
 		}, logger)
 	}
 
@@ -212,6 +216,13 @@ func realMain() error {
 					myl2n,
 					referenceframe.InputsLinfDistance(p, t[c]),
 					cart)
+
+				deltas := []float64{}
+				for i, a := range t[c] {
+					deltas = append(deltas, a-p[i])
+				}
+
+				mylog.Printf("\t\t\t\t deltas: %v", logging.FloatArrayFormat{"%0.5f", deltas})
 			}
 		}
 	}
@@ -519,6 +530,9 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger
 		if !ok {
 			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
 		}
+
+		logger.Infof("sending %d positions to %s", len(allInputs), cName)
+
 		err = ie.GoToInputs(ctx, allInputs...)
 		if err != nil {
 			return err
