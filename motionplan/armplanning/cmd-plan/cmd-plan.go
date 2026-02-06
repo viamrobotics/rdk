@@ -469,9 +469,18 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 }
 
 func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger logging.Logger) error {
-	if len(plan.Trajectory()[0]) > 1 {
-		// the code below works, just doesn't feel safe
-		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(plan.Trajectory()[0]))
+	byComponent := map[string][][]referenceframe.Input{}
+
+	for _, s := range plan.Trajectory() {
+		for cName, inputs := range s {
+			if len(inputs) > 0 {
+				byComponent[cName] = append(byComponent[cName], inputs)
+			}
+		}
+	}
+
+	if len(byComponent) > 1 {
+		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent))
 	}
 
 	c, err := cli.ConfigFromCache(nil)
@@ -499,14 +508,6 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, logger
 			logger.Errorf("cannot close robot: %v", err)
 		}
 	}()
-
-	byComponent := map[string][][]referenceframe.Input{}
-
-	for _, s := range plan.Trajectory() {
-		for cName, inputs := range s {
-			byComponent[cName] = append(byComponent[cName], inputs)
-		}
-	}
 
 	for cName, allInputs := range byComponent {
 		r, err := robot.ResourceByName(theRobot, cName)
