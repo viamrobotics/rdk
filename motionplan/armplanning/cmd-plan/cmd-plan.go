@@ -234,6 +234,16 @@ func realMain() error {
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
+	// Print delta statistics if trajectory has more than 5 points
+	if len(plan.Trajectory()) > 5 {
+		stats := armplanning.TrajectoryDeltaStats(plan.Trajectory())
+		mylog.Printf("\nDelta Statistics (trajectory length: %d):", len(plan.Trajectory()))
+		for _, s := range stats {
+			mylog.Printf("  %s:%d: avg=%0.5f stddev=%0.5f outside1=%d outside2=%d (n=%d)",
+				s.Component, s.JointIdx, s.Mean, s.StdDev, s.Outside1, s.Outside2, s.Count)
+		}
+	}
+
 	for i := 0; i < *loop; i++ {
 		err = visualize(req, plan, mylog)
 		if err != nil {
