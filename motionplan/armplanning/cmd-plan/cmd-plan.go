@@ -146,7 +146,7 @@ func realMain() error {
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 
-	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
@@ -227,6 +227,10 @@ func realMain() error {
 				mylog.Printf("\t\t\t\t deltas: %v", logging.FloatArrayFormat{"%0.5f", deltas})
 			}
 		}
+	}
+
+	if meta.PartialError != nil {
+		mylog.Printf("partial results, error: %v", meta.PartialError)
 	}
 
 	mylog.Printf("planning took %v for %d goals => trajectory length: %d",

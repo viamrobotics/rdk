@@ -177,8 +177,9 @@ func PlanFrameMotion(ctx context.Context,
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration time.Duration
-	Partial  bool
+	Duration     time.Duration
+	Partial      bool
+	PartialError error
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -220,6 +221,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
+			meta.PartialError = err
 			logger.Infof("returning partial plan, error: %v", err)
 		} else {
 			return nil, meta, err
