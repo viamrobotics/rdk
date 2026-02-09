@@ -501,12 +501,11 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		dist, err := collisionDistance(gg1, gg2, nil, defaultCollisionBufferMM)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "violation")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "box1")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "box2")
-		test.That(t, dist, test.ShouldEqual, -1)
+		collisions, _, err := gg1.CollidesWith(gg2, nil, defaultCollisionBufferMM, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldNotBeEmpty)
+		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
+		test.That(t, collisions[0].name2, test.ShouldBeIn, "box1", "box2")
 	})
 
 	t.Run("no collision returns positive distance", func(t *testing.T) {
@@ -520,9 +519,10 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		dist, err := collisionDistance(gg1, gg2, nil, defaultCollisionBufferMM)
+		collisions, minDist, err := gg1.CollidesWith(gg2, nil, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, dist, test.ShouldBeGreaterThan, 0)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
 	})
 
 	t.Run("ignored collision returns positive distance", func(t *testing.T) {
@@ -537,9 +537,10 @@ func TestCollisionDistance(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ignoreList := []Collision{{"box1", "box2"}}
-		dist, err := collisionDistance(gg1, gg2, ignoreList, defaultCollisionBufferMM)
+		collisions, minDist, err := gg1.CollidesWith(gg2, ignoreList, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, dist, test.ShouldBeGreaterThan, 0)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
 	})
 }
 

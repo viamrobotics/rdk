@@ -478,7 +478,19 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGG
 		}
 
-		return collisionDistance(internalGG, staticToCheck, ignoreCollisions, collisionBufferMM)
+		collisions, minDist, err := internalGG.CollidesWith(staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		if err != nil {
+			return -1, err
+		}
+		if len(collisions) != 0 {
+			return -1, fmt.Errorf(
+				"violation between %s and %s geometries (total collisions: %d)",
+				collisions[0].name1,
+				collisions[0].name2,
+				len(collisions),
+			)
+		}
+		return minDist, nil
 	}
 	return constraint, nil
 }
@@ -531,28 +543,6 @@ func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 *
 		}
 	}
 	return skipList
-}
-
-func collisionDistance(
-	internalGG, static *GeometryGroup,
-	ignoreCollisions []Collision,
-	collisionBufferMM float64,
-) (float64, error) {
-	collisions, minDist, err := internalGG.CollidesWith(static, ignoreCollisions, collisionBufferMM, false)
-	if err != nil {
-		return -1, err
-	}
-
-	if len(collisions) != 0 {
-		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-		return -1, fmt.Errorf(
-			"violation between %s and %s geometries (total collisions: %d)",
-			collisions[0].name1,
-			collisions[0].name2,
-			len(collisions),
-		)
-	}
-	return minDist, nil
 }
 
 // Computes the quantity of intermediate constraint check steps that should be performed across a segment
