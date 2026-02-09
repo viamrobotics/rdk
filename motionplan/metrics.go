@@ -92,6 +92,13 @@ func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
 	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling, TranslationCloud{})
 }
 
+// TranslationCloud describes a leeway on the X/Y/Z axis for a goal pose. Suppose we care about
+// moving an arm exactly on top of a surface (the Z axis), but are open to the destination X or Y
+// values being a little bit off. We'd use a TranslationCloud of:
+//
+// X: [-1.0, 1.0]
+// Y: [-1.0, 1.0]
+// Z: [0.0, 0.0]
 type TranslationCloud struct {
 	X [2]float64 `json:"X"`
 	Y [2]float64 `json:"Y"`
@@ -103,7 +110,8 @@ type TranslationCloud struct {
 // the delta between poses exceeds the limits set by the cloud. A default zero-value
 // `TranslationCloud` will behave as if there is no leeway.
 func WeightedSquaredNormDistanceWithOptions(
-	start, end spatial.Pose, cartesianScale, orientScale float64, translationCloud TranslationCloud) float64 {
+	start, end spatial.Pose, cartesianScale, orientScale float64, translationCloud TranslationCloud,
+) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := 0.0
 	if orientScale > 0 {
@@ -142,7 +150,7 @@ func WeightedSquaredNormDistanceWithOptions(
 
 // TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of
 // obstacles rather than terminating the RRT tree when an obstacle is hit
-//
+
 // FSConfigurationDistance is a fs metric which will sum the abs differences in each input from
 // start to end.
 func FSConfigurationDistance(segment *SegmentFS) float64 {

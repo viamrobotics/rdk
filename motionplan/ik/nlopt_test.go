@@ -24,7 +24,7 @@ func TestCreateNloptSolver(t *testing.T) {
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
-	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 10), m, logger)
+	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 10, motionplan.TranslationCloud{}), m, logger)
 
 	t.Run("not exact", func(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
