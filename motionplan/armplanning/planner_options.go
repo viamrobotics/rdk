@@ -83,6 +83,15 @@ type PlannerOptions struct {
 	// starting or ending state poses into configurations for nodes.
 	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
 
+	// {"X": [min,max], "Y": [min,max], "Z":[min,max]}. IK solutions with X,Y,Zs (respective) within
+	// the min/max of the original goal won't count for against the goal score. The default value of
+	// [0, 0] will act as if the goal (in that dimension) must be exact.
+	//
+	// Dan: I learned that the [2]float64 is not type checked when unmarshalling. I.e: if a user
+	// writes: `"Y": [-2, 2, 4]`, Go will happily unmarshal that into a `[2]float64{-2, 2}` and drop
+	// the `4`.
+	TranslationCloud motionplan.TranslationCloud `json:"goal_translation_cloud"`
+
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider.
 	MaxSolutions int `json:"max_ik_solutions"`
@@ -170,7 +179,9 @@ func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) mo
 				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}
 
-			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
+			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq,
+				cartesianScale, orientScale,
+				p.TranslationCloud)
 		}
 		return score
 	}

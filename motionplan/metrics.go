@@ -89,11 +89,21 @@ func OrientDist(o1, o2 spatial.Orientation) float64 {
 
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
-	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling)
+	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling, TranslationCloud{})
 }
 
-// WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for gradient descent.
-func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianScale, orientScale float64) float64 {
+type TranslationCloud struct {
+	X [2]float64 `json:"X"`
+	Y [2]float64 `json:"Y"`
+	Z [2]float64 `json:"Z"`
+}
+
+// WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for
+// gradient descent. A `TranslationCloud` will only score deviations from the X, Y and Z axis when
+// the delta between poses exceeds the limits set by the cloud. A default zero-value
+// `TranslationCloud` will behave as if there is no leeway.
+func WeightedSquaredNormDistanceWithOptions(
+	start, end spatial.Pose, cartesianScale, orientScale float64, translationCloud TranslationCloud) float64 {
 	// Increase weight for orientation since it's a small number
 	orientDelta := 0.0
 	if orientScale > 0 {
@@ -104,52 +114,27 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 	}
 
 	ptDelta := 0.0
+	// A `cartesianScale` of 0 means we don't care where the end effector goes, just how its
+	// oriented. Which feels unrealistic, but we support it.
 	if cartesianScale > 0 {
-		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
-
-		used := false
+		// First get the difference between the poses.
 		ptSubDelta := end.Point().Sub(start.Point())
-		if end.Point().X != start.Point().X &&
-			translationCloud.X[0] != translationCloud.X[1] &&
-			translationCloud.X[0] <= ptSubDelta.X && ptSubDelta.X <= translationCloud.X[1] {
+
+		// For each axis, see if the difference is within our "cloud" of acceptable poses. If it is,
+		// for scoring purposes, zero out the delta.
+		if translationCloud.X[0] <= ptSubDelta.X && ptSubDelta.X <= translationCloud.X[1] {
 			ptSubDelta.X = 0
-			used = true
 		}
 
-		if end.Point().Y != start.Point().Y &&
-			translationCloud.Y[0] != translationCloud.Y[1] &&
-			translationCloud.Y[0] <= ptSubDelta.Y && ptSubDelta.Y <= translationCloud.Y[1] {
+		if translationCloud.Y[0] <= ptSubDelta.Y && ptSubDelta.Y <= translationCloud.Y[1] {
 			ptSubDelta.Y = 0
-			used = true
 		}
 
-		if end.Point().Z != start.Point().Z &&
-			translationCloud.Z[0] <= ptSubDelta.Z && ptSubDelta.Z <= translationCloud.Z[1] {
+		if translationCloud.Z[0] <= ptSubDelta.Z && ptSubDelta.Z <= translationCloud.Z[1] {
 			ptSubDelta.Z = 0
-			used = true
 		}
 
-		pt2Delta := ptSubDelta.Mul(cartesianScale).Norm2()
-		if used {
-			pretty.Println(map[string]any{
-				"Trans:":      translationCloud,
-				"Orig Pt:":    end.Point().Sub(start.Point()),
-				"New Pt:":     ptSubDelta,
-				"Orig Score:": ptDelta,
-				"New Score:":  pt2Delta,
-				"Score diff:": ptDelta - pt2Delta,
-			})
-
-			if math.Abs(ptDelta-pt2Delta) < 1e-9 {
-				panic(fmt.Sprintln("Should be bigger diff. Orig:", ptDelta, "New:", pt2Delta))
-			}
-		}
-
-		if !used && math.Abs(pt2Delta-ptDelta) > 1e-9 {
-			panic(fmt.Sprintln("bad compute. End:", end, "Start:", start, "PtDelta:", ptDelta, "Pt2Delta:", pt2Delta))
-		}
-
-		ptDelta = pt2Delta
+		ptDelta = ptSubDelta.Mul(cartesianScale).Norm2()
 	}
 
 	return ptDelta + orientDelta
@@ -204,8 +189,8 @@ func NewSquaredNormMetric(goalPose spatial.Pose) func(spatial.Pose) float64 {
 }
 
 // NewScaledSquaredNormMetric creates a metric function with scaled orientation weight
-func NewScaledSquaredNormMetric(goalPose spatial.Pose, orientationScale float64) func(spatial.Pose) float64 {
+func NewScaledSquaredNormMetric(goalPose spatial.Pose, orientationScale float64, transCloud TranslationCloud) func(spatial.Pose) float64 {
 	return func(currentPose spatial.Pose) float64 {
-		return WeightedSquaredNormDistanceWithOptions(currentPose, goalPose, 0.1, orientationScale)
+		return WeightedSquaredNormDistanceWithOptions(currentPose, goalPose, 0.1, orientationScale, transCloud)
 	}
 }
