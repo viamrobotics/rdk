@@ -143,6 +143,10 @@ func TestPlanStep(t *testing.T) {
 // - BenchmarkGoalMetric-16                 	  940275	      1145 ns/op	     640 B/op	      11 allocs/op
 // - BenchmarkGoalMetric-24                 	  312554	      3740 ns/op	     336 B/op	       6 allocs/op
 // - BenchmarkGoalMetric-16                    	 1214918         980.4 ns/op	     208 B/op	       4 allocs/op
+// ed4c3c803f7ac576220ff976eaf470d3ded631b5 onwards:
+// - BenchmarkGoalMetric-16                 	 1233466         963.7 ns/op	     160 B/op	       3 allocs/op
+// TranslationCloud onwards:
+// - BenchmarkGoalMetric-16                 	 1320103         902.0 ns/op	     160 B/op	       3 allocs/op
 func BenchmarkGoalMetric(b *testing.B) {
 	goalInFrame := referenceframe.NewPoseInFrame(
 		"world",
@@ -184,7 +188,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 		Configuration: inps,
 		FS:            fs,
 	})
-	test.That(b, ans, test.ShouldAlmostEqual, 6.1075976675485745e+06)
+	test.That(b, ans, test.ShouldAlmostEqual, 61678.11636911973)
 
 	for b.Loop() {
 		metricFn(&motionplan.StateFS{
