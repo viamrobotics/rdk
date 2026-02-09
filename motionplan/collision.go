@@ -126,12 +126,12 @@ func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error)
 	}, nil
 }
 
-// CollidesWith checks whether any geometries in this geometry group collide with any geometries in the other geometry group,
+// CheckCollisions checks whether any geometries in one geometry group collide with any geometries in another,
 // ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
 // of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
-func (gg *GeometryGroup) CollidesWith(
-	other *GeometryGroup,
+func CheckCollisions(
+	gg, other *GeometryGroup,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
@@ -152,8 +152,8 @@ func (gg *GeometryGroup) CollidesWith(
 				continue
 			}
 
-			// If this is a self collision check and we're comparing y to x, we don't want to compare x to y later.
-			// So save what we have compared with what.
+			// Self collision checks are done by passing in the same struct for both gg and other.
+			// So 
 			if gg == other {
 				if _, ok := ignoreList[xName]; !ok {
 					ignoreList[xName] = map[string]bool{}

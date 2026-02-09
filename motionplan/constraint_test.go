@@ -501,7 +501,7 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		collisions, _, err := gg1.CollidesWith(gg2, nil, defaultCollisionBufferMM, false)
+		collisions, _, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
 		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
@@ -519,7 +519,7 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		collisions, minDist, err := gg1.CollidesWith(gg2, nil, defaultCollisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -537,7 +537,7 @@ func TestCollisionDistance(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ignoreList := []Collision{{"box1", "box2"}}
-		collisions, minDist, err := gg1.CollidesWith(gg2, ignoreList, defaultCollisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions(gg1, gg2, ignoreList, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)

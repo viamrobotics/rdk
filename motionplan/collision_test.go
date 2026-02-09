@@ -95,7 +95,7 @@ func TestCheckCollisions(t *testing.T) {
 	obstacleGG, err := NewGeometryGroup(obstacles)
 	test.That(t, err, test.ShouldBeNil)
 
-	collisions, _, err := robotGG.CollidesWith(obstacleGG, nil, defaultCollisionBufferMM, true)
+	collisions, _, err := CheckCollisions(robotGG, obstacleGG, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube333", "obstacleCube444"},
@@ -112,7 +112,7 @@ func TestCheckCollisions(t *testing.T) {
 
 	selfGG, err := NewGeometryGroup(gf.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err = selfGG.CollidesWith(selfGG, nil, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(selfGG, selfGG, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 5)
 }
@@ -128,7 +128,7 @@ func TestUniqueCollisions(t *testing.T) {
 
 	zeroGG, err := NewGeometryGroup(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	zeroPositionCollisions, _, err := zeroGG.CollidesWith(zeroGG, nil, defaultCollisionBufferMM, true)
+	zeroPositionCollisions, _, err := CheckCollisions(zeroGG, zeroGG, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
@@ -138,7 +138,7 @@ func TestUniqueCollisions(t *testing.T) {
 
 	gg, err := NewGeometryGroup(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err := gg.CollidesWith(gg, zeroPositionCollisions, defaultCollisionBufferMM, false)
+	collisions, _, err := CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 
@@ -149,7 +149,7 @@ func TestUniqueCollisions(t *testing.T) {
 
 	gg, err = NewGeometryGroup(internalGeometries.Geometries())
 	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err = gg.CollidesWith(gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"xArm6:base_top", "xArm6:gripper_mount"},
@@ -161,7 +161,7 @@ func TestUniqueCollisions(t *testing.T) {
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
 	zeroPositionCollisions = append(zeroPositionCollisions, expectedCollisions[len(expectedCollisions)-1])
 
-	collisions, _, err = gg.CollidesWith(gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
@@ -207,7 +207,7 @@ func TestGeometryGroupErrors(t *testing.T) {
 		geom.SetLabel("test")
 		validGG, err := NewGeometryGroup([]spatial.Geometry{geom})
 		test.That(t, err, test.ShouldBeNil)
-		_, _, err = validGG.CollidesWith(nil, nil, defaultCollisionBufferMM, true)
+		_, _, err = CheckCollisions(validGG, nil, nil, defaultCollisionBufferMM, true)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	})
@@ -228,7 +228,7 @@ func TestGeometryGroupMinDistance(t *testing.T) {
 	gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 	test.That(t, err, test.ShouldBeNil)
 
-	collisions, minDist, err := gg1.CollidesWith(gg2, nil, defaultCollisionBufferMM, true)
+	collisions, minDist, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 	test.That(t, minDist, test.ShouldBeGreaterThan, 8.0)
@@ -250,12 +250,12 @@ func TestGeometryGroupEarlyExit(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// With collectAllCollisions=false, should return first collision only
-	collisions, _, err := gg.CollidesWith(gg, nil, defaultCollisionBufferMM, false)
+	collisions, _, err := CheckCollisions(gg, gg, nil, defaultCollisionBufferMM, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 1)
 
 	// With collectAllCollisions=true, should return all collisions
-	collisions, _, err = gg.CollidesWith(gg, nil, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(gg, gg, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
 }

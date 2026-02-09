@@ -478,7 +478,7 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGG
 		}
 
-		collisions, minDist, err := internalGG.CollidesWith(staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions(internalGG, staticToCheck, ignoreCollisions, collisionBufferMM, false)
 		if err != nil {
 			return -1, err
 		}
@@ -502,7 +502,7 @@ func computeInitialCollisionsToIgnore(
 	collisionBufferMM float64,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := group1.CollidesWith(group2, collisionSpecifications, collisionBufferMM, true)
+	initialCollisions, _, err := CheckCollisions(group1, group2, collisionSpecifications, collisionBufferMM, true)
 	if err != nil {
 		return nil, err
 	}
