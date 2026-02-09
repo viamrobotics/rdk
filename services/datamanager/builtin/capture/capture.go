@@ -276,21 +276,6 @@ func (c *Capture) initializeOrUpdateCollector(
 	config Config,
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
-	// NOTE(benjirewis): This is a hacky way of maintaining backward compatibility for data
-	// collection resource names.
-	//
-	// Since RSDK-10662, users cannot refer to a resource "foo" on a remote "remote" as
-	// "remote:foo". However, all historical data for that resource will still be under
-	// "remote:foo" in app. res.Name.ShortName() will contain the remote prefix if there is
-	// one (e.g. the "remote:" of "remote:foo"), while collectorConfig.Name.ShortName() will
-	// not. res.Name.ShortName() returns "remote:foo" because we still use the old format
-	// internally to disambiguate between identically-named remote resources. We want to use
-	// the old format here when necessary so that data for remote resources always shows up
-	// under the same name in app.
-	if collectorConfig.Name.ShortName() != res.Name().ShortName() {
-		collectorConfig.Name = res.Name()
-	}
-
 	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
