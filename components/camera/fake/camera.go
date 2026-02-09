@@ -23,11 +23,14 @@ import (
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -92,11 +95,6 @@ func NewCamera(
 		bufAndCBByID:   make(map[rtppassthrough.SubscriptionID]bufAndCB),
 		logger:         logger,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, cam, resModel, camera.ColorStream)
-	if err != nil {
-		return nil, err
-	}
-
 	if cam.RTPPassthrough {
 		msg := "rtp_passthrough is enabled. This resource will ignore width, height, and animated config params"
 		logger.CWarn(ctx, msg)
@@ -111,7 +109,7 @@ func NewCamera(
 			return nil, err
 		}
 	}
-	return camera.FromVideoSource(conf.ResourceName(), src), nil
+	return cam, nil
 }
 
 // Config are the attributes of the fake camera config.
@@ -381,6 +379,42 @@ func (c *Camera) unsubscribeAll() {
 		delete(c.bufAndCBByID, id)
 		bufAndCB.buf.Close()
 	}
+}
+
+// Images returns the image from Read as a NamedImage slice.
+func (c *Camera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	img, release, err := c.Read(ctx)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	defer release()
+	namedImg, err := camera.NamedImageFromImage(img, "", rdkutils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+}
+
+// Properties returns the camera properties.
+func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
+	props := camera.Properties{
+		SupportsPCD: true,
+		ImageType:   camera.ColorStream,
+	}
+	if c.Model != nil {
+		props.IntrinsicParams = c.Model.PinholeCameraIntrinsics
+		props.DistortionParams = c.Model.Distortion
+	}
+	return props, nil
+}
+
+// Geometries returns the geometries associated with this camera.
+func (c *Camera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{}, nil
 }
 
 // Close does nothing.
