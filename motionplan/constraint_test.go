@@ -505,7 +505,9 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
 		geom2.SetLabel("box2")
 
-		collisions, minDist, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false)
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -518,7 +520,9 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		ignoreList := []Collision{{"box1", "box2"}}
-		collisions, minDist, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, false)
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, false,
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
