@@ -65,8 +65,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{baseFrame: baseFrame{name: "test"}}
-	m.SetOrdTransforms([]Frame{frame1, frame2, frame3})
+	m := NewSerialModel("test", []Frame{frame1, frame2, frame3})
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
@@ -111,6 +110,100 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// gets the correct limits back
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestTreeTopologyParsing(t *testing.T) {
+	// Parse a tree topology model with branching fingers
+	m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/tree_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m.Name(), test.ShouldEqual, "tree_gripper")
+
+	smodel, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// DoF should count all joints: wrist_joint (1) + finger1_joint (1) + finger2_joint (1) = 3
+	test.That(t, len(m.DoF()), test.ShouldEqual, 3)
+
+	// primaryOutputFrame should be as specified in JSON
+	test.That(t, smodel.primaryOutputFrame, test.ShouldEqual, "finger1_tip")
+
+	// Transform with zero inputs should return the finger1_tip pose
+	zeroInputs := make([]Input, 3)
+	pose, err := m.Transform(zeroInputs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldNotBeNil)
+	// finger1_tip at zero: wrist (0 rotation) -> palm (z+50) -> finger1_joint (0 translation) -> finger1_tip (z+30)
+	// Total: z = 80
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{0, 0, 80}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+func TestTreeGeometries(t *testing.T) {
+	// Parse a tree topology model
+	m, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/tree_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Geometries should return geometry from ALL branches
+	zeroInputs := make([]Input, len(m.DoF()))
+	geoms, err := m.Geometries(zeroInputs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geoms, test.ShouldNotBeNil)
+
+	// We should have geometries from palm, finger1_tip, and finger2_tip (links with geometry)
+	allGeoms := geoms.Geometries()
+	test.That(t, len(allGeoms), test.ShouldBeGreaterThanOrEqualTo, 3)
+}
+
+func TestMultiLeafNoPrimaryOutputFrame(t *testing.T) {
+	// A tree with multiple leaves and no primary_output_frame should fail
+	_, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/missinglink.json"), "")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, ErrNeedPrimaryOutputFrame.Error())
+}
+
+func TestSerialChainBackwardCompat(t *testing.T) {
+	// Load existing arm model and verify it produces identical results
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	smodel, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Should have the correct DoF
+	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
+
+	// Transform should work with valid inputs (all zeros are valid for all joints)
+	inputs := make([]Input, 6)
+	pose, err := m.Transform(inputs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldNotBeNil)
+
+	// Geometries should work
+	geoms, err := m.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geoms, test.ShouldNotBeNil)
+
+	// Should have frames in the internal FS
+	test.That(t, len(smodel.framesInOrder()), test.ShouldBeGreaterThan, 0)
+}
+
+func TestNewSerialModel(t *testing.T) {
+	// Build model via NewSerialModel
+	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	model := NewSerialModel("gantry", []Frame{x, y})
+
+	// Should have 2 DoF
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+	// Transform should work
+	pose, err := model.Transform([]Input{10, 20})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
+
+	// Should have 2 frames
+	test.That(t, len(model.framesInOrder()), test.ShouldEqual, 2)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

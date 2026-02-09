@@ -7,6 +7,12 @@ import (
 // ErrNeedOneEndEffector is an error indicating that exactly one end effector is required.
 var ErrNeedOneEndEffector = errors.New("need exactly one end effector")
 
+// ErrNeedPrimaryOutputFrame is an error indicating that a model has multiple end effectors
+// and requires a primary_output_frame to be specified.
+var ErrNeedPrimaryOutputFrame = errors.New(
+	"model has multiple end effectors; set primary_output_frame to designate which frame Transform() returns",
+)
+
 // ErrCircularReference is an error indicating that a circular path exists somewhere between the end effector and the world.
 var ErrCircularReference = errors.New("infinite loop finding path from end effector to world")
 

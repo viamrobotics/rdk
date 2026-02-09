@@ -826,20 +826,15 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
-		ordTransforms1 := f1.OrdTransforms()
-		ordTransforms2 := f2.OrdTransforms()
-		if len(ordTransforms1) != len(ordTransforms2) {
+		if f1.primaryOutputFrame != f2.primaryOutputFrame {
 			return false, nil
-		} else {
-			for i, f := range ordTransforms1 {
-				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
-				if err != nil {
-					return false, err
-				}
-				if !frameEquality {
-					return false, nil
-				}
-			}
+		}
+		fsEqual, err := frameSystemsAlmostEqual(f1.internalFS, f2.internalFS, epsilon)
+		if err != nil {
+			return false, err
+		}
+		if !fsEqual {
+			return false, nil
 		}
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)

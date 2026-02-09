@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 )
 
 // ErrNoModelInformation is used when there is no model information.
@@ -14,12 +14,13 @@ var ErrNoModelInformation = errors.New("no model information")
 
 // ModelConfigJSON represents all supported fields in a kinematics JSON file.
 type ModelConfigJSON struct {
-	Name         string          `json:"name"`
-	KinParamType string          `json:"kinematic_param_type,omitempty"`
-	Links        []LinkConfig    `json:"links,omitempty"`
-	Joints       []JointConfig   `json:"joints,omitempty"`
-	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
-	OriginalFile *ModelFile
+	Name               string          `json:"name"`
+	KinParamType       string          `json:"kinematic_param_type,omitempty"`
+	Links              []LinkConfig    `json:"links,omitempty"`
+	Joints             []JointConfig   `json:"joints,omitempty"`
+	DHParams           []DHParamConfig `json:"dhParams,omitempty"`
+	PrimaryOutputFrame string          `json:"primary_output_frame,omitempty"`
+	OriginalFile       *ModelFile
 }
 
 // ModelFile is a struct that stores the raw bytes of the file used to create the model as well as its extension,
@@ -116,13 +117,35 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
-	// Create an ordered list of transforms
-	ot, err := sortTransforms(transforms, parentMap)
+	// Build the internal frame system from transforms and parent map
+	internalFS, leaves, err := buildModelFrameSystem(transforms, parentMap)
 	if err != nil {
 		return nil, err
 	}
 
-	model.SetOrdTransforms(ot)
+	// Determine primary output frame
+	primaryOutput := cfg.PrimaryOutputFrame
+	if primaryOutput == "" {
+		if len(leaves) == 1 {
+			primaryOutput = leaves[0]
+		} else {
+			return nil, fmt.Errorf("%w; have %v", ErrNeedPrimaryOutputFrame, leaves)
+		}
+	} else if internalFS.Frame(primaryOutput) == nil {
+		return nil, fmt.Errorf("primary_output_frame %q not found in model", primaryOutput)
+	}
+
+	// Build LinearInputs schema from the FrameSystem (BFS order)
+	zeroInputs := NewZeroLinearInputs(internalFS)
+	schema, err := zeroInputs.GetSchema(internalFS)
+	if err != nil {
+		return nil, err
+	}
+
+	model.internalFS = internalFS
+	model.primaryOutputFrame = primaryOutput
+	model.inputSchema = schema
+	model.limits = schema.GetLimits()
 
 	return model, nil
 }
@@ -137,54 +160,89 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	return UnmarshalModelJSON(jsonData, modelName)
 }
 
-// Create an ordered list of transforms given a mapping of child to parent frames.
-func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]Frame, error) {
-	// find the end effector first - determine which transforms have no children
-	// copy the map of children -> parents
-	ees := map[string]string{}
-	for child, parent := range parents {
-		ees[child] = parent
-	}
-	// now remove all parents
-	for _, parent := range parents {
-		delete(ees, parent)
-	}
-	// ensure there is only on end effector
-	if len(ees) != 1 {
-		return nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, ees)
+// buildModelFrameSystem constructs a FrameSystem from the given transforms and parent map
+// using BFS from roots (frames whose parent is not in transforms). Returns the FrameSystem,
+// leaf frame names, and error. Detects cycles by checking all nodes were visited.
+func buildModelFrameSystem(transforms map[string]Frame, parents map[string]string) (
+	*FrameSystem, []string, error,
+) {
+	fs := NewEmptyFrameSystem("internal")
+
+	// Identify roots: frames whose parent is not in transforms (i.e. parent is external/world)
+	// Build children map for BFS
+	children := make(map[string][]string)
+	roots := make([]string, 0)
+	isChild := make(map[string]bool)
+
+	for name, parent := range parents {
+		if _, inTransforms := transforms[parent]; !inTransforms {
+			// This frame's parent is external (e.g. "world" or not in the model)
+			roots = append(roots, name)
+		} else {
+			children[parent] = append(children[parent], name)
+			isChild[name] = true
+		}
 	}
 
-	// start the search from the end effector
-	curr := maps.Keys(ees)[0]
-	seen := map[string]bool{curr: true}
-	orderedTransforms := []Frame{}
-	for i := 0; i < len(parents); i++ {
+	// Sort roots alphabetically for determinism
+	sort.Strings(roots)
+	// Sort children alphabetically for determinism
+	for k := range children {
+		sort.Strings(children[k])
+	}
+
+	// BFS from roots
+	queue := make([]string, 0, len(transforms))
+	queue = append(queue, roots...)
+	visited := make(map[string]bool, len(transforms))
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		if visited[curr] {
+			return nil, nil, ErrCircularReference
+		}
+		visited[curr] = true
+
 		frame, ok := transforms[curr]
 		if !ok {
-			return nil, NewFrameNotInListOfTransformsError(curr)
-		}
-		orderedTransforms = append(orderedTransforms, frame)
-
-		// find the parent of the current transform
-		parent, ok := parents[curr]
-		if !ok {
-			return nil, NewParentFrameNotInMapOfParentsError(curr)
+			return nil, nil, NewFrameNotInListOfTransformsError(curr)
 		}
 
-		// make sure it wasn't seen, mark it seen, then add it to the list
-		if seen[parent] {
-			return nil, ErrCircularReference
+		// Determine the parent frame in the FrameSystem
+		parentName := parents[curr]
+		var parentFrame Frame
+		if _, inTransforms := transforms[parentName]; !inTransforms {
+			// Parent is external, attach to world
+			parentFrame = fs.World()
+		} else {
+			parentFrame = fs.Frame(parentName)
+			if parentFrame == nil {
+				return nil, nil, NewParentFrameMissingError(curr, parentName)
+			}
 		}
-		seen[parent] = true
 
-		// update the frame to add next
-		curr = parent
+		if err := fs.AddFrame(frame, parentFrame); err != nil {
+			return nil, nil, err
+		}
+
+		queue = append(queue, children[curr]...)
 	}
 
-	// After the above loop, the transforms are in reverse order, so we reverse the list.
-	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
-		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
+	// Check that all nodes were visited (detect disconnected components / cycles)
+	if len(visited) != len(transforms) {
+		return nil, nil, ErrCircularReference
 	}
 
-	return orderedTransforms, nil
+	// Find leaves: frames that have no children
+	leaves := make([]string, 0)
+	for name := range transforms {
+		if len(children[name]) == 0 {
+			leaves = append(leaves, name)
+		}
+	}
+	sort.Strings(leaves)
+
+	return fs, leaves, nil
 }

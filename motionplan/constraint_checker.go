@@ -264,7 +264,7 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		_, err := state.Geometries()
 		if err != nil {
 			return 0, err
-		}
+		}makeAllowedCollisionsLookup
 	}
 
 	closest := math.Inf(1)
