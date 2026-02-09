@@ -153,6 +153,7 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
+		//nolint:gosec // user-provided build commands from meta.json are intentionally executed
 		cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Setup)
 		cmd.Env = env
 		cmd.Stdout = cCtx.App.Writer
@@ -162,6 +163,7 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
+	//nolint:gosec // user-provided build commands from meta.json are intentionally executed
 	cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Build)
 	cmd.Env = env
 	cmd.Stdout = cCtx.App.Writer
