@@ -487,8 +487,6 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 }
 
 func TestCollisionDistance(t *testing.T) {
-	fs := referenceframe.NewEmptyFrameSystem("")
-
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -503,7 +501,7 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		dist, err := collisionDistance(fs, gg1, gg2, nil, defaultCollisionBufferMM)
+		dist, err := collisionDistance(gg1, gg2, nil, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "violation")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "box1")
@@ -522,7 +520,7 @@ func TestCollisionDistance(t *testing.T) {
 		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
 		test.That(t, err, test.ShouldBeNil)
 
-		dist, err := collisionDistance(fs, gg1, gg2, nil, defaultCollisionBufferMM)
+		dist, err := collisionDistance(gg1, gg2, nil, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dist, test.ShouldBeGreaterThan, 0)
 	})
@@ -539,7 +537,7 @@ func TestCollisionDistance(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		ignoreList := []Collision{{"box1", "box2"}}
-		dist, err := collisionDistance(fs, gg1, gg2, ignoreList, defaultCollisionBufferMM)
+		dist, err := collisionDistance(gg1, gg2, ignoreList, defaultCollisionBufferMM)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dist, test.ShouldBeGreaterThan, 0)
 	})

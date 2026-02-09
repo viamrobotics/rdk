@@ -132,7 +132,6 @@ func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error)
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
 func (gg *GeometryGroup) CollidesWith(
 	other *GeometryGroup,
-	fs *referenceframe.FrameSystem,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
@@ -149,7 +148,7 @@ func (gg *GeometryGroup) CollidesWith(
 	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
 	for xName, xGeometry := range gg.geometries {
 		for yName, yGeometry := range other.geometries {
-			if skipCollisionCheck(fs, ignoreList, xName, yName) {
+			if skipCollisionCheck(ignoreList, xName, yName) {
 				continue
 			}
 
@@ -247,7 +246,7 @@ func firstMovingParentOrself(fs *referenceframe.FrameSystem, f referenceframe.Fr
 	return f
 }
 
-func skipCollisionCheck(fs *referenceframe.FrameSystem, ignoreList map[string]map[string]bool, xName, yName string) bool {
+func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName string) bool {
 	// Skip comparing a geometry to itself
 	if xName == yName {
 		return true
@@ -257,17 +256,5 @@ func skipCollisionCheck(fs *referenceframe.FrameSystem, ignoreList map[string]ma
 		// Already checked this pair in the other order
 		return true
 	}
-
-	x := fs.Frame(xName)
-	y := fs.Frame(yName)
-
-	if x == nil || y == nil {
-		// Geometry not in frame system (e.g. internal to a component), must check for collision
-		return false
-	}
-
-	xFirstMoving := firstMovingParentOrself(fs, x)
-	yFirstMoving := firstMovingParentOrself(fs, y)
-
-	return xFirstMoving == yFirstMoving
+	return false
 }

@@ -478,32 +478,67 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGG
 		}
 
-		return collisionDistance(state.FS, internalGG, staticToCheck, ignoreCollisions, collisionBufferMM)
+		return collisionDistance(internalGG, staticToCheck, ignoreCollisions, collisionBufferMM)
 	}
 	return constraint, nil
 }
 
 func computeInitialCollisionsToIgnore(
 	fs *referenceframe.FrameSystem,
-	moving, static *GeometryGroup,
+	group1, group2 *GeometryGroup,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 ) ([]Collision, error) {
-	initialCollisions, _, err := moving.CollidesWith(static, fs, collisionSpecifications, collisionBufferMM, true)
+	// Geometries in collision at move start should thereafter be ignored
+	initialCollisions, _, err := group1.CollidesWith(group2, collisionSpecifications, collisionBufferMM, true)
 	if err != nil {
 		return nil, err
 	}
+	
+	// Add collision specifications
 	initialCollisions = append(initialCollisions, collisionSpecifications...)
+	
+	// Add coparented static frames that could never be brought into collision
+	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
+
 	return initialCollisions, nil
 }
 
+func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 *GeometryGroup) []Collision {
+	skipList := []Collision{}
+	
+	// Skip comparing a geometry to itself
+	for g1Name, _ := range group1.geometries {
+		for g2Name, _ := range group2.geometries {
+			if g1Name == g2Name {
+				continue
+			}
+
+			x := fs.Frame(g1Name)
+			y := fs.Frame(g2Name)
+
+			if x == nil || y == nil {
+				// Geometry not in frame system (e.g. internal to a component), must check for collision
+				continue
+			}
+
+			xFirstMoving := firstMovingParentOrself(fs, x)
+			yFirstMoving := firstMovingParentOrself(fs, y)
+
+			if xFirstMoving == yFirstMoving {
+				skipList = append(skipList, Collision{name1: g1Name, name2: g2Name})
+			}
+		}
+	}
+	return skipList
+}
+
 func collisionDistance(
-	fs *referenceframe.FrameSystem,
 	internalGG, static *GeometryGroup,
 	ignoreCollisions []Collision,
 	collisionBufferMM float64,
 ) (float64, error) {
-	collisions, minDist, err := internalGG.CollidesWith(static, fs, ignoreCollisions, collisionBufferMM, false)
+	collisions, minDist, err := internalGG.CollidesWith(static, ignoreCollisions, collisionBufferMM, false)
 	if err != nil {
 		return -1, err
 	}
