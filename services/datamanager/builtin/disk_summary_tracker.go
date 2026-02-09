@@ -11,6 +11,8 @@ import (
 	"go.viam.com/rdk/utils/diskusage"
 )
 
+// diskSummaryTracker runs in the background and periodically (every minute) collects
+// disk usage stats, which are reported to FTDC.
 type diskSummaryTracker struct {
 	diskSummary diskSummary
 	logger      logging.Logger
