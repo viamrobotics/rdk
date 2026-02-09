@@ -173,7 +173,7 @@ func newFTDC(logger logging.Logger) *FTDC {
 	}
 }
 
-// Add regsiters a new staters that will be recorded in future FTDC loop iterations.
+// Add registers a new statser that will be recorded in future FTDC loop iterations.
 func (ftdc *FTDC) Add(name string, statser Statser) {
 	ftdc.mu.Lock()
 	defer ftdc.mu.Unlock()
