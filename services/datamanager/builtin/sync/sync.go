@@ -55,8 +55,8 @@ type uploadStats struct {
 
 // dataTypeUploadStats tracks cumulative upload statistics for a given data type.
 type dataTypeUploadStats struct {
+	completedUploadBytes  atomic.Uint64 // bytes successfully uploaded (after entire file completes)
 	uploadedFileCount     atomic.Uint64
-	uploadedBytes         atomic.Uint64 // bytes successfully uploaded (after entire file completes)
 	uploadingBytes        atomic.Uint64 // bytes currently being uploaded (incremental during upload)
 	uploadFailedFileCount atomic.Uint64
 }
@@ -71,19 +71,19 @@ type FTDCStats struct {
 type FTDCUploadStats struct {
 	// Upload metrics - arbitrary files.
 	ArbitraryUploadedFileCount     uint64
-	ArbitraryUploadedBytes         uint64 // bytes successfully uploaded (completed files)
+	ArbitraryCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
 	ArbitraryUploadingBytes        uint64 // bytes currently being uploaded (in progress)
 	ArbitraryUploadFailedFileCount uint64
 
 	// Upload metrics - binary sensor data.
 	BinarySensorUploadedFileCount     uint64
-	BinarySensorUploadedBytes         uint64 // bytes successfully uploaded (completed files)
+	BinarySensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
 	BinarySensorUploadingBytes        uint64 // bytes currently being uploaded (in progress)
 	BinarySensorUploadFailedFileCount uint64
 
 	// Upload metrics - tabular sensor data.
 	TabularSensorUploadedFileCount     uint64
-	TabularSensorUploadedBytes         uint64 // bytes successfully uploaded (completed files)
+	TabularSensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
 	TabularSensorUploadFailedFileCount uint64
 }
 
@@ -236,20 +236,20 @@ func (s *Sync) GetStats() FTDCStats {
 
 		Upload: FTDCUploadStats{
 			// Upload metrics - arbitrary files.
+			ArbitraryCompletedUploadBytes:  s.uploadStats.arbitrary.completedUploadBytes.Load(),
 			ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
-			ArbitraryUploadedBytes:         s.uploadStats.arbitrary.uploadedBytes.Load(),
 			ArbitraryUploadingBytes:        s.uploadStats.arbitrary.uploadingBytes.Load(),
 			ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
 
 			// Upload metrics - binary sensor data.
+			BinarySensorCompletedUploadBytes:  s.uploadStats.binary.completedUploadBytes.Load(),
 			BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
-			BinarySensorUploadedBytes:         s.uploadStats.binary.uploadedBytes.Load(),
 			BinarySensorUploadingBytes:        s.uploadStats.binary.uploadingBytes.Load(),
 			BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
 
 			// Upload metrics - tabular sensor data.
+			TabularSensorCompletedUploadBytes:  s.uploadStats.tabular.completedUploadBytes.Load(),
 			TabularSensorUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
-			TabularSensorUploadedBytes:         s.uploadStats.tabular.uploadedBytes.Load(),
 			TabularSensorUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
 		},
 	}
@@ -508,10 +508,10 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 	if isBinary {
 		s.uploadStats.binary.uploadedFileCount.Add(1)
-		s.uploadStats.binary.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
 	} else {
 		s.uploadStats.tabular.uploadedFileCount.Add(1)
-		s.uploadStats.tabular.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.tabular.completedUploadBytes.Add(bytesUploaded)
 	}
 }
 
@@ -556,7 +556,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
-	s.uploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
