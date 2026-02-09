@@ -115,29 +115,40 @@ type SimpleModel struct {
 	modelConfig        *ModelConfigJSON
 }
 
-// NewSimpleModel constructs a new empty model.
+// NewSimpleModel constructs a new empty model with no kinematics.
 func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
 		baseFrame: baseFrame{name: name},
 	}
 }
 
-// NewSerialModel constructs a model from a serial chain of frames.
-// frame[0] is attached to the world, frame[i] parent=frame[i-1].
-// The last frame becomes the primary output frame.
-// Duplicate frame names are automatically made unique.
-func NewSerialModel(name string, frames []Frame) *SimpleModel {
-	m := NewSimpleModel(name)
-	if len(frames) == 0 {
-		return m
+// NewModel constructs a model from a FrameSystem and a primary output frame.
+// The primary output frame must exist in fs and determines what Transform() returns.
+func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
+	if fs.Frame(primaryOutputFrame) == nil {
+		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
 	}
-	m.buildSerialFS(frames)
-	return m
+
+	m := &SimpleModel{
+		baseFrame:          baseFrame{name: name},
+		internalFS:         fs,
+		primaryOutputFrame: primaryOutputFrame,
+	}
+
+	zeroInputs := NewZeroLinearInputs(fs)
+	schema, err := zeroInputs.GetSchema(fs)
+	if err != nil {
+		return nil, err
+	}
+	m.inputSchema = schema
+	m.limits = schema.GetLimits()
+
+	return m, nil
 }
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
-// joint limits overridden. Overrides are keyed by frame name.
-// Each override replaces the first DoF limit of the matching frame.
+// joint limits overridden. Overrides are keyed by frame name. Each override replaces the
+// first DoF limit of the matching frame.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
 	cloned, err := Clone(base)
 	if err != nil {
@@ -157,11 +168,28 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 	return m, nil
 }
 
-// buildSerialFS builds the internal FrameSystem from a serial chain of frames,
-// deduplicating names as needed.
-func (m *SimpleModel) buildSerialFS(frames []Frame) {
-	internalFS := NewEmptyFrameSystem("internal")
-	parentFrame := internalFS.World()
+// MoveableFrameNames returns the names of frames with non-zero DoF, in schema order.
+func (m *SimpleModel) MoveableFrameNames() []string {
+	if m.inputSchema == nil {
+		return nil
+	}
+	var names []string
+	for _, name := range m.inputSchema.FrameNamesInOrder() {
+		frame := m.internalFS.Frame(name)
+		if frame != nil && len(frame.DoF()) > 0 {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// NewSerialFrameSystem builds a FrameSystem from a serial chain of frames.
+// frame[0] parent=world, frame[i] parent=frame[i-1].
+// Duplicate frame names are automatically made unique.
+// Returns the FrameSystem and the name of the last frame (for use as primaryOutputFrame).
+func NewSerialFrameSystem(frames []Frame) (*FrameSystem, string, error) {
+	fs := NewEmptyFrameSystem("internal")
+	parentFrame := fs.World()
 	nameCounts := map[string]int{}
 
 	for _, f := range frames {
@@ -169,29 +197,13 @@ func (m *SimpleModel) buildSerialFS(frames []Frame) {
 		if nameCounts[f.Name()] > 1 {
 			f = NewNamedFrame(f, fmt.Sprintf("%s_%d", f.Name(), nameCounts[f.Name()]))
 		}
-		if err := internalFS.AddFrame(f, parentFrame); err != nil {
-			continue
+		if err := fs.AddFrame(f, parentFrame); err != nil {
+			return nil, "", err
 		}
 		parentFrame = f
 	}
 
-	m.primaryOutputFrame = parentFrame.Name()
-	m.internalFS = internalFS
-	m.rebuildSchema()
-}
-
-// rebuildSchema rebuilds the inputSchema and limits from the internalFS.
-func (m *SimpleModel) rebuildSchema() {
-	if m.internalFS == nil {
-		return
-	}
-	zeroInputs := NewZeroLinearInputs(m.internalFS)
-	schema, err := zeroInputs.GetSchema(m.internalFS)
-	if err != nil {
-		return
-	}
-	m.inputSchema = schema
-	m.limits = schema.GetLimits()
+	return fs, parentFrame.Name(), nil
 }
 
 // framesInOrder returns the Frame objects in schema order.
@@ -405,14 +417,22 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		return nil, err
 	}
 
+	var frames []Frame
 	if len(limits) == 3 {
 		theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
 		if err != nil {
 			return nil, err
 		}
-		return NewSerialModel(name, []Frame{x, y, theta, geometry}), nil
+		frames = []Frame{x, y, theta, geometry}
+	} else {
+		frames = []Frame{x, y, geometry}
 	}
-	return NewSerialModel(name, []Frame{x, y, geometry}), nil
+
+	fs, lastFrame, err := NewSerialFrameSystem(frames)
+	if err != nil {
+		return nil, err
+	}
+	return NewModel(name, fs, lastFrame)
 }
 
 // ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after

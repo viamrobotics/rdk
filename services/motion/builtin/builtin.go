@@ -376,7 +376,18 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, mods)
+		// Resolve override keys: try name first, fall back to moveable-frame index.
+		resolved := make(map[string]referenceframe.Limit, len(mods))
+		moveableNames := sm.MoveableFrameNames()
+		for key, limit := range mods {
+			if idx, err := strconv.Atoi(key); err == nil && idx >= 0 && idx < len(moveableNames) {
+				resolved[moveableNames[idx]] = limit
+			} else {
+				resolved[key] = limit
+			}
+		}
+
+		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
 		if err != nil {
 			return nil, err
 		}

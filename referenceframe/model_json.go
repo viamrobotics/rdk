@@ -55,8 +55,6 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		modelName = cfg.Name
 	}
 
-	model := NewSimpleModel(modelName)
-	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
@@ -135,17 +133,11 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, fmt.Errorf("primary_output_frame %q not found in model", primaryOutput)
 	}
 
-	// Build LinearInputs schema from the FrameSystem (BFS order)
-	zeroInputs := NewZeroLinearInputs(internalFS)
-	schema, err := zeroInputs.GetSchema(internalFS)
+	model, err := NewModel(modelName, internalFS, primaryOutput)
 	if err != nil {
 		return nil, err
 	}
-
-	model.internalFS = internalFS
-	model.primaryOutputFrame = primaryOutput
-	model.inputSchema = schema
-	model.limits = schema.GetLimits()
+	model.modelConfig = cfg
 
 	return model, nil
 }

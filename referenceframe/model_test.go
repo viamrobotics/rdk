@@ -65,7 +65,10 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := NewSerialModel("test", []Frame{frame1, frame2, frame3})
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{frame1, frame2, frame3})
+	test.That(t, err, test.ShouldBeNil)
+	m, err := NewModel("test", fs, lastFrame)
+	test.That(t, err, test.ShouldBeNil)
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
@@ -186,24 +189,26 @@ func TestSerialChainBackwardCompat(t *testing.T) {
 	test.That(t, len(smodel.framesInOrder()), test.ShouldBeGreaterThan, 0)
 }
 
-func TestNewSerialModel(t *testing.T) {
-	// Build model via NewSerialModel
+func TestNewModel(t *testing.T) {
 	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
 	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
 
-	model := NewSerialModel("gantry", []Frame{x, y})
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{x, y})
+	test.That(t, err, test.ShouldBeNil)
+	model, err := NewModel("gantry", fs, lastFrame)
+	test.That(t, err, test.ShouldBeNil)
 
-	// Should have 2 DoF
 	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
-	// Transform should work
+
 	pose, err := model.Transform([]Input{10, 20})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
 
-	// Should have 2 frames
-	test.That(t, len(model.framesInOrder()), test.ShouldEqual, 2)
+	// Invalid primary output frame should error
+	_, err = NewModel("bad", fs, "nonexistent")
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {
