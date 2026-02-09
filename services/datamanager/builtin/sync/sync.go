@@ -459,7 +459,8 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
-	// Include counter for binary sensor data.
+	// Include counter for binary sensor data because larger binary data files are uploaded via our streaming API, so updating
+	// a counter during the upload provides a more granular rate metric.
 	var uploadingBytesCounter *atomic.Uint64
 	if isBinary {
 		uploadingBytesCounter = &s.uploadStats.binary.uploadingBytes
