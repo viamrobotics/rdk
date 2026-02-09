@@ -85,10 +85,10 @@ func (Transformation) JSONSchema() *jsonschema.Schema {
 func buildTransform(
 	ctx context.Context,
 	r robot.Robot,
-	source camera.VideoSource,
+	source camera.Camera,
 	stream camera.ImageType,
 	tr Transformation,
-) (camera.VideoSource, camera.ImageType, error) {
+) (camera.Camera, camera.ImageType, error) {
 	switch transformType(tr.Type) {
 	case transformTypeUnspecified:
 		return source, stream, nil
@@ -107,7 +107,7 @@ func buildTransform(
 	}
 }
 
-func propsFromVideoSource(ctx context.Context, source camera.Camera) (camera.Properties, error) {
+func propsFromCamera(ctx context.Context, source camera.Camera) (camera.Properties, error) {
 	var camProps camera.Properties
 
 	props, err := source.Properties(ctx)
