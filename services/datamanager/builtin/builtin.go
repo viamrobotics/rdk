@@ -300,10 +300,6 @@ type dataManagerStats struct {
 func (b *builtIn) Stats() any {
 	result := dataManagerStats{}
 
-	b.mu.Lock()
-	sync := b.sync
-	b.mu.Unlock()
-
 	diskSummary := b.diskSummaryTracker.getSummary()
 
 	// Disk usage stats for the volume containing the main capture directory.
@@ -313,8 +309,8 @@ func (b *builtIn) Stats() any {
 	result.SyncPaths = diskSummary.SyncPaths
 
 	// Upload and deleted file stats.
-	if sync != nil {
-		syncStats := sync.GetStats()
+	if b.sync != nil {
+		syncStats := b.sync.GetStats()
 		result.FilesDeletedToFreeSpace = syncStats.FilesDeletedToFreeSpace
 		result.Upload = syncStats.Upload
 	}
