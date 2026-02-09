@@ -446,14 +446,12 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		moving, err := NewGeometryGroup([]spatial.Geometry{geom1})
-		test.That(t, err, test.ShouldBeNil)
-		static, err := NewGeometryGroup([]spatial.Geometry{geom2})
-		test.That(t, err, test.ShouldBeNil)
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
 
 		// Test that initial collisions are detected and combined with specifications
 		collisionSpecs := []Collision{{"box1", "box3"}}
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecs, defaultCollisionBufferMM)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecs, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 2)
 
@@ -475,12 +473,10 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
 		geom2.SetLabel("box2")
 
-		moving, err := NewGeometryGroup([]spatial.Geometry{geom1})
-		test.That(t, err, test.ShouldBeNil)
-		static, err := NewGeometryGroup([]spatial.Geometry{geom2})
-		test.That(t, err, test.ShouldBeNil)
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
 
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 0)
 	})
@@ -496,12 +492,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		gg1, err := NewGeometryGroup([]spatial.Geometry{geom1})
-		test.That(t, err, test.ShouldBeNil)
-		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
-		test.That(t, err, test.ShouldBeNil)
-
-		collisions, _, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, false)
+		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
 		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
@@ -514,12 +505,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
 		geom2.SetLabel("box2")
 
-		gg1, err := NewGeometryGroup([]spatial.Geometry{geom1})
-		test.That(t, err, test.ShouldBeNil)
-		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
-		test.That(t, err, test.ShouldBeNil)
-
-		collisions, minDist, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
@@ -531,13 +517,8 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		gg1, err := NewGeometryGroup([]spatial.Geometry{geom1})
-		test.That(t, err, test.ShouldBeNil)
-		gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
-		test.That(t, err, test.ShouldBeNil)
-
 		ignoreList := []Collision{{"box1", "box2"}}
-		collisions, minDist, err := CheckCollisions(gg1, gg2, ignoreList, defaultCollisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
 		test.That(t, minDist, test.ShouldBeGreaterThan, 0)

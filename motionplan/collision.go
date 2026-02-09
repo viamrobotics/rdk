@@ -108,36 +108,25 @@ func collisionSpecifications(
 	return allowedCollisions, nil
 }
 
-// GeometryGroup is a struct that stores a set of geometries, to be used for collision detection
-type GeometryGroup struct {
-	// TODO: Should this live elsewhere?
-	// TODO: This may be able to be faster by putting all geometries in a BVH
-	geometries map[string]spatialmath.Geometry
-}
-
-// NewGeometryGroup instantiates a GeometryGroup from a list of geometries
-func NewGeometryGroup(geometries []spatialmath.Geometry) (*GeometryGroup, error) {
-	geomMap, err := createUniqueCollisionMap(geometries)
-	if err != nil {
-		return nil, err
-	}
-	return &GeometryGroup{
-		geometries: geomMap,
-	}, nil
-}
-
-// CheckCollisions checks whether any geometries in one geometry group collide with any geometries in another,
+// CheckCollisions checks whether any geometries in one set collide with any geometries in another,
 // ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
 // of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
+// isSelfCollision should be true when gg and other represent the same set of geometries (to avoid double-counting pairs).
 func CheckCollisions(
-	gg, other *GeometryGroup,
+	gg, other []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
+	isSelfCollision bool,
 ) ([]Collision, float64, error) {
-	if other == nil {
-		return nil, math.Inf(-1), fmt.Errorf("other GeometryGroup cannot be nil")
+	ggMap, err := createUniqueCollisionMap(gg)
+	if err != nil {
+		return nil, math.Inf(-1), err
+	}
+	otherMap, err := createUniqueCollisionMap(other)
+	if err != nil {
+		return nil, math.Inf(-1), err
 	}
 
 	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
@@ -146,15 +135,14 @@ func CheckCollisions(
 	minDistance := math.Inf(1)
 
 	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
-	for xName, xGeometry := range gg.geometries {
-		for yName, yGeometry := range other.geometries {
+	for xName, xGeometry := range ggMap {
+		for yName, yGeometry := range otherMap {
 			if skipCollisionCheck(ignoreList, xName, yName) {
 				continue
 			}
 
-			// Self collision checks are done by passing in the same struct for both gg and other.
-			// So 
-			if gg == other {
+			// For self collision checks, mark this pair as checked so we don't check it again in the other direction.
+			if isSelfCollision {
 				if _, ok := ignoreList[xName]; !ok {
 					ignoreList[xName] = map[string]bool{}
 				}

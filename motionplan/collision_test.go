@@ -90,12 +90,7 @@ func TestCheckCollisions(t *testing.T) {
 	obstacles = append(obstacles, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6})))
 	obstacles[2].SetLabel("obstacleCube666")
 
-	robotGG, err := NewGeometryGroup(robot)
-	test.That(t, err, test.ShouldBeNil)
-	obstacleGG, err := NewGeometryGroup(obstacles)
-	test.That(t, err, test.ShouldBeNil)
-
-	collisions, _, err := CheckCollisions(robotGG, obstacleGG, nil, defaultCollisionBufferMM, true)
+	collisions, _, err := CheckCollisions(robot, obstacles, nil, defaultCollisionBufferMM, true, false)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube333", "obstacleCube444"},
@@ -110,9 +105,8 @@ func TestCheckCollisions(t *testing.T) {
 	gf, _ := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
 	test.That(t, gf, test.ShouldNotBeNil)
 
-	selfGG, err := NewGeometryGroup(gf.Geometries())
-	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err = CheckCollisions(selfGG, selfGG, nil, defaultCollisionBufferMM, true)
+	selfGeoms := gf.Geometries()
+	collisions, _, err = CheckCollisions(selfGeoms, selfGeoms, nil, defaultCollisionBufferMM, true, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 5)
 }
@@ -126,9 +120,8 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
-	zeroGG, err := NewGeometryGroup(internalGeometries.Geometries())
-	test.That(t, err, test.ShouldBeNil)
-	zeroPositionCollisions, _, err := CheckCollisions(zeroGG, zeroGG, nil, defaultCollisionBufferMM, true)
+	zeroGeoms := internalGeometries.Geometries()
+	zeroPositionCollisions, _, err := CheckCollisions(zeroGeoms, zeroGeoms, nil, defaultCollisionBufferMM, true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
@@ -136,9 +129,8 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
-	gg, err := NewGeometryGroup(internalGeometries.Geometries())
-	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err := CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, false)
+	geoms := internalGeometries.Geometries()
+	collisions, _, err := CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, false, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 
@@ -147,9 +139,8 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
-	gg, err = NewGeometryGroup(internalGeometries.Geometries())
-	test.That(t, err, test.ShouldBeNil)
-	collisions, _, err = CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
+	geoms = internalGeometries.Geometries()
+	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"xArm6:base_top", "xArm6:gripper_mount"},
@@ -161,7 +152,7 @@ func TestUniqueCollisions(t *testing.T) {
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
 	zeroPositionCollisions = append(zeroPositionCollisions, expectedCollisions[len(expectedCollisions)-1])
 
-	collisions, _, err = CheckCollisions(gg, gg, zeroPositionCollisions, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
@@ -171,7 +162,7 @@ func TestUniqueCollisions(t *testing.T) {
 	)
 }
 
-func TestGeometryGroupErrors(t *testing.T) {
+func TestCollisionMapErrors(t *testing.T) {
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -180,7 +171,7 @@ func TestGeometryGroupErrors(t *testing.T) {
 		geom1.SetLabel("duplicate")
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("duplicate")
-		_, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2})
+		_, err := createUniqueCollisionMap([]spatial.Geometry{geom1, geom2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate")
 	})
@@ -190,30 +181,17 @@ func TestGeometryGroupErrors(t *testing.T) {
 		geom1.SetLabel("")
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("")
-		gg, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2})
+		geomMap, err := createUniqueCollisionMap([]spatial.Geometry{geom1, geom2})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(gg.geometries), test.ShouldEqual, 2)
+		test.That(t, len(geomMap), test.ShouldEqual, 2)
 		// Verify unnamed geometries get unique names
-		names := make(map[string]bool)
-		for name := range gg.geometries {
-			names[name] = true
+		for name := range geomMap {
 			test.That(t, name, test.ShouldStartWith, unnamedCollisionGeometryPrefix)
 		}
-		test.That(t, len(names), test.ShouldEqual, 2)
-	})
-
-	t.Run("nil other geometry group", func(t *testing.T) {
-		geom := bc1.Transform(spatial.NewZeroPose())
-		geom.SetLabel("test")
-		validGG, err := NewGeometryGroup([]spatial.Geometry{geom})
-		test.That(t, err, test.ShouldBeNil)
-		_, _, err = CheckCollisions(validGG, nil, nil, defaultCollisionBufferMM, true)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot be nil")
 	})
 }
 
-func TestGeometryGroupMinDistance(t *testing.T) {
+func TestCollisionMinDistance(t *testing.T) {
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -223,18 +201,15 @@ func TestGeometryGroupMinDistance(t *testing.T) {
 	geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
 	geom2.SetLabel("box2")
 
-	gg1, err := NewGeometryGroup([]spatial.Geometry{geom1})
-	test.That(t, err, test.ShouldBeNil)
-	gg2, err := NewGeometryGroup([]spatial.Geometry{geom2})
-	test.That(t, err, test.ShouldBeNil)
-
-	collisions, minDist, err := CheckCollisions(gg1, gg2, nil, defaultCollisionBufferMM, true)
+	collisions, minDist, err := CheckCollisions(
+		[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, true, false,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 	test.That(t, minDist, test.ShouldBeGreaterThan, 8.0)
 }
 
-func TestGeometryGroupEarlyExit(t *testing.T) {
+func TestCollisionEarlyExit(t *testing.T) {
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -246,16 +221,15 @@ func TestGeometryGroupEarlyExit(t *testing.T) {
 	geom3 := bc1.Transform(spatial.NewZeroPose())
 	geom3.SetLabel("box3")
 
-	gg, err := NewGeometryGroup([]spatial.Geometry{geom1, geom2, geom3})
-	test.That(t, err, test.ShouldBeNil)
+	geoms := []spatial.Geometry{geom1, geom2, geom3}
 
 	// With collectAllCollisions=false, should return first collision only
-	collisions, _, err := CheckCollisions(gg, gg, nil, defaultCollisionBufferMM, false)
+	collisions, _, err := CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, false, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 1)
 
 	// With collectAllCollisions=true, should return all collisions
-	collisions, _, err = CheckCollisions(gg, gg, nil, defaultCollisionBufferMM, true)
+	collisions, _, err = CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, true, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
 }

@@ -374,27 +374,16 @@ func CreateAllCollisionConstraints(
 	collisionBufferMM float64,
 ) (map[string]CollisionConstraintFunc, error) {
 	constraintFSMap := map[string]CollisionConstraintFunc{}
-	movingGG, err := NewGeometryGroup(movingRobotGeometries)
-	if err != nil {
-		return nil, err
-	}
-	worldGG, err := NewGeometryGroup(worldGeometries)
-	if err != nil {
-		return nil, err
-	}
-	staticGG, err := NewGeometryGroup(staticRobotGeometries)
-	if err != nil {
-		return nil, err
-	}
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
-			movingGG,
-			worldGG,
+			movingRobotGeometries,
+			worldGeometries,
 			allowedCollisions,
 			collisionBufferMM,
+			false,
 		)
 		if err != nil {
 			return nil, err
@@ -405,10 +394,12 @@ func CreateAllCollisionConstraints(
 	if len(staticRobotGeometries) > 0 {
 		robotConstraintFS, err := NewCollisionConstraintFS(
 			fs,
-			movingGG,
-			staticGG,
+			movingRobotGeometries,
+			staticRobotGeometries,
 			allowedCollisions,
-			collisionBufferMM)
+			collisionBufferMM,
+			false,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -419,10 +410,11 @@ func CreateAllCollisionConstraints(
 	if len(movingRobotGeometries) > 1 {
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			fs,
-			movingGG,
-			movingGG,
+			movingRobotGeometries,
+			movingRobotGeometries,
 			allowedCollisions,
 			collisionBufferMM,
+			true,
 		)
 		if err != nil {
 			return nil, err
@@ -435,20 +427,23 @@ func CreateAllCollisionConstraints(
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
-// If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
-	moving, static *GeometryGroup,
+	moving, static []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
+	isSelfCollision bool,
 ) (CollisionConstraintFunc, error) {
-	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecifications, collisionBufferMM)
+	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecifications, collisionBufferMM, isSelfCollision)
 	if err != nil {
 		return nil, err
 	}
 
-	// For self-collision checks, moving and static are the same
-	isSelfCollision := moving == static
+	// Build a label set for filtering frame system geometries to only those in `moving`
+	movingLabels := map[string]bool{}
+	for _, g := range moving {
+		movingLabels[g.Label()] = true
+	}
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
@@ -462,23 +457,19 @@ func NewCollisionConstraintFS(
 		var internalGeoms []spatialmath.Geometry
 		for _, geosInFrame := range internalGeometries {
 			if len(geosInFrame.Geometries()) > 0 {
-				if _, ok := moving.geometries[geosInFrame.Geometries()[0].Label()]; ok {
+				if movingLabels[geosInFrame.Geometries()[0].Label()] {
 					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 				}
 			}
-		}
-		internalGG, err := NewGeometryGroup(internalGeoms)
-		if err != nil {
-			return 0, err
 		}
 
 		// For self-collision, compare moving geometries against themselves
 		staticToCheck := static
 		if isSelfCollision {
-			staticToCheck = internalGG
+			staticToCheck = internalGeoms
 		}
 
-		collisions, minDist, err := CheckCollisions(internalGG, staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		collisions, minDist, err := CheckCollisions(internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, isSelfCollision)
 		if err != nil {
 			return -1, err
 		}
@@ -497,31 +488,33 @@ func NewCollisionConstraintFS(
 
 func computeInitialCollisionsToIgnore(
 	fs *referenceframe.FrameSystem,
-	group1, group2 *GeometryGroup,
+	group1, group2 []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
+	isSelfCollision bool,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := CheckCollisions(group1, group2, collisionSpecifications, collisionBufferMM, true)
+	initialCollisions, _, err := CheckCollisions(group1, group2, collisionSpecifications, collisionBufferMM, true, isSelfCollision)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add collision specifications
 	initialCollisions = append(initialCollisions, collisionSpecifications...)
-	
+
 	// Add coparented static frames that could never be brought into collision
 	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
 
 	return initialCollisions, nil
 }
 
-func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 *GeometryGroup) []Collision {
+func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
 	skipList := []Collision{}
-	
-	// Skip comparing a geometry to itself
-	for g1Name, _ := range group1.geometries {
-		for g2Name, _ := range group2.geometries {
+
+	for _, g1 := range group1 {
+		g1Name := g1.Label()
+		for _, g2 := range group2 {
+			g2Name := g2.Label()
 			if g1Name == g2Name {
 				continue
 			}
