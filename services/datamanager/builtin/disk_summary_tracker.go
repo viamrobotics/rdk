@@ -49,7 +49,11 @@ func (poller *diskSummaryTracker) reconfigure(dirs []string) {
 	if poller.worker != nil {
 		poller.worker.Stop()
 	}
+
 	poller.logger.Debug("datamanager disk state summary tracker running...")
+	// Calculate and set the initial summary.
+	poller.calculateAndSetSummary(context.Background(), dirs)
+
 	poller.worker = goutils.NewStoppableWorkerWithTicker(
 		diskSummaryTrackerInterval,
 		func(ctx context.Context) {
