@@ -106,15 +106,60 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 	ptDelta := 0.0
 	if cartesianScale > 0 {
 		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
+
+		used := false
+		ptSubDelta := end.Point().Sub(start.Point())
+		if end.Point().X != start.Point().X &&
+			translationCloud.X[0] != translationCloud.X[1] &&
+			translationCloud.X[0] <= ptSubDelta.X && ptSubDelta.X <= translationCloud.X[1] {
+			ptSubDelta.X = 0
+			used = true
+		}
+
+		if end.Point().Y != start.Point().Y &&
+			translationCloud.Y[0] != translationCloud.Y[1] &&
+			translationCloud.Y[0] <= ptSubDelta.Y && ptSubDelta.Y <= translationCloud.Y[1] {
+			ptSubDelta.Y = 0
+			used = true
+		}
+
+		if end.Point().Z != start.Point().Z &&
+			translationCloud.Z[0] <= ptSubDelta.Z && ptSubDelta.Z <= translationCloud.Z[1] {
+			ptSubDelta.Z = 0
+			used = true
+		}
+
+		pt2Delta := ptSubDelta.Mul(cartesianScale).Norm2()
+		if used {
+			pretty.Println(map[string]any{
+				"Trans:":      translationCloud,
+				"Orig Pt:":    end.Point().Sub(start.Point()),
+				"New Pt:":     ptSubDelta,
+				"Orig Score:": ptDelta,
+				"New Score:":  pt2Delta,
+				"Score diff:": ptDelta - pt2Delta,
+			})
+
+			if math.Abs(ptDelta-pt2Delta) < 1e-9 {
+				panic(fmt.Sprintln("Should be bigger diff. Orig:", ptDelta, "New:", pt2Delta))
+			}
+		}
+
+		if !used && math.Abs(pt2Delta-ptDelta) > 1e-9 {
+			panic(fmt.Sprintln("bad compute. End:", end, "Start:", start, "PtDelta:", ptDelta, "Pt2Delta:", pt2Delta))
+		}
+
+		ptDelta = pt2Delta
 	}
 
 	return ptDelta + orientDelta
 }
 
-// TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of obstacles rather than terminating
-// the RRT tree when an obstacle is hit
-
-// FSConfigurationDistance is a fs metric which will sum the abs differences in each input from start to end.
+// TODO(RSDK-2557): Writing a PenetrationDepthMetric will allow cbirrt to path along the sides of
+// obstacles rather than terminating the RRT tree when an obstacle is hit
+//
+// FSConfigurationDistance is a fs metric which will sum the abs differences in each input from
+// start to end.
 func FSConfigurationDistance(segment *SegmentFS) float64 {
 	score := 0.
 	for frame, cfg := range segment.StartConfiguration.Items() {

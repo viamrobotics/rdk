@@ -76,26 +76,27 @@ func NewBasicPlannerOptions() *PlannerOptions {
 	return opt
 }
 
-// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
+// PlannerOptions are a set of options to be passed to a planner which will specify how to solve a
+// motion planning problem.
 type PlannerOptions struct {
-	// This is used to create functions which are passed to IK for solving. This may be used to turn starting or ending state poses into
-	// configurations for nodes.
+	// This is used to create functions which are passed to IK for solving. This may be used to turn
+	// starting or ending state poses into configurations for nodes.
 	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
 
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
-	// Max number of ik solutions to consider
+	// Max number of ik solutions to consider.
 	MaxSolutions int `json:"max_ik_solutions"`
 
-	// Movements that score below this amount are considered "good enough" and returned immediately
+	// Movements that score below this amount are considered "good enough" and returned immediately.
 	MinScore float64 `json:"min_ik_score"`
 
 	// Check constraints are still met every this many mm/degrees of movement.
 	Resolution float64 `json:"resolution"`
 
-	// Number of seconds before terminating planner
+	// Number of seconds before terminating planner.
 	Timeout float64 `json:"timeout"`
 
-	// How close to get to the goal
+	// How close to get to the goal.
 	GoalThreshold float64 `json:"goal_threshold"`
 
 	// The maximum percent of a joints range of motion to allow per step.
@@ -110,20 +111,20 @@ type PlannerOptions struct {
 	// Number of seeds to pre-generate for bidirectional position-only solving.
 	PositionSeeds int `json:"position_seeds"`
 
-	// If at least one intermediate waypoint is solved for, but the plan fails before reaching the ultimate goal,
-	// this will if true return the valid plan up to the last solved waypoint.
+	// If at least one intermediate waypoint is solved for, but the plan fails before reaching the
+	// ultimate goal, this will if true return the valid plan up to the last solved waypoint.
 	ReturnPartialPlan bool `json:"return_partial_plan"`
 
-	// Determines the algorithm that the planner will use to measure the degree of "closeness" between two states of the robot
-	// See metrics.go for options
+	// Determines the algorithm that the planner will use to measure the degree of "closeness"
+	// between two states of the robot See metrics.go for options.
 	ConfigurationDistanceMetric motionplan.SegmentFSMetricType `json:"configuration_distance_metric"`
 
 	// No two geometries that did not start the motion in collision may come within this distance of
 	// one another at any time during a motion.
 	CollisionBufferMM float64 `json:"collision_buffer_mm"`
 
-	// The random seed used by motion algorithms during planning. This parameter guarantees deterministic
-	// outputs for a given set of identical inputs
+	// The random seed used by motion algorithms during planning. This parameter guarantees
+	// deterministic outputs for a given set of identical inputs.
 	RandomSeed int `json:"rseed"`
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
