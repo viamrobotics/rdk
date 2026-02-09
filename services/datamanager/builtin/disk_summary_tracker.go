@@ -42,33 +42,26 @@ const diskSummaryTrackerInterval = 1 * time.Minute
 func newDiskSummaryTracker(logger logging.Logger) *diskSummaryTracker {
 	return &diskSummaryTracker{
 		logger: logger,
-		worker: goutils.NewBackgroundStoppableWorkers(),
 	}
 }
 
 func (poller *diskSummaryTracker) reconfigure(dirs []string) {
-	poller.worker.Stop()
-	poller.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
-		poller.logger.Debug("datamanager disk state summary tracker starting...")
-
-		// Calculate and set the initial summary.
-		poller.calculateAndSetSummary(ctx, dirs)
-
-		t := time.NewTicker(diskSummaryTrackerInterval)
-		defer t.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				poller.calculateAndSetSummary(ctx, dirs)
-			}
-		}
-	})
+	if poller.worker != nil {
+		poller.worker.Stop()
+	}
+	poller.logger.Debug("datamanager disk state summary tracker running...")
+	poller.worker = goutils.NewStoppableWorkerWithTicker(
+		diskSummaryTrackerInterval,
+		func(ctx context.Context) {
+			poller.calculateAndSetSummary(ctx, dirs)
+		},
+	)
 }
 
 func (poller *diskSummaryTracker) close() {
-	poller.worker.Stop()
+	if poller.worker != nil {
+		poller.worker.Stop()
+	}
 }
 
 func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, dirs []string) {
