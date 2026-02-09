@@ -1,8 +1,10 @@
 package armplanning
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -132,6 +134,97 @@ func TestPlanStep(t *testing.T) {
 			})
 		}
 	})
+}
+
+// TestParseTranslationCloud asserts that the `TranslationCloud` objects from a motion plan request
+// can be serialized/deserialized through JSON.
+//
+// For better or worse, it starts with a non-trivial plan request file written out prior to
+// `TranslationCloud`s existence and manipulates it. This was merely chosen for convenience.
+func TestParseTranslationCloud(t *testing.T) {
+	// Read a request in that was written prior to the API change.
+	origReqJSONBytes, err := os.ReadFile("data/wine-crazy-touch.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	// Unmarshal that back into an unstructured map of Go primitives.
+	origReqMap := make(map[string]any)
+	err = json.Unmarshal(origReqJSONBytes, &origReqMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	optionsMap := origReqMap["planner_options"].(map[string]any)
+	// Add a Go primitive version of a `TranslationCloud`.
+	optionsMap["goal_translation_cloud"] = map[string]any{"X": [2]float64{-2.0, 2.0}, "Y": [2]float64{-1.0, 4.0}}
+
+	// Turn that modified map back into JSON bytes.
+	modReqJSONBytes, err := json.Marshal(origReqMap)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Unmarshal into our structured type for motion plan API requests.
+	newReq := &PlanRequest{}
+	err = json.Unmarshal(modReqJSONBytes, newReq)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that the `TranslationCloud` round-tripped.
+	test.That(t, newReq.PlannerOptions.TranslationCloud.X, test.ShouldEqual, [2]float64{-2.0, 2.0})
+	test.That(t, newReq.PlannerOptions.TranslationCloud.Y, test.ShouldEqual, [2]float64{-1.0, 4.0})
+	test.That(t, newReq.PlannerOptions.TranslationCloud.Z, test.ShouldEqual, [2]float64{})
+}
+
+func TestTranslationCloudScoring(t *testing.T) {
+	// These are the constants production code currently uses. Which makes using distances of 10 on
+	// any given axis convenient for computing the "sum of squares" score.
+	const cartesianScale, orientScale = 0.1, 10.0
+	goalPose := spatialmath.NewZeroPose()
+
+	for _, tc := range []struct {
+		CandidatePose spatialmath.Pose
+		UsesCloud     bool
+		CloudScore    float64
+	}{
+		// CandidatePose exactly matches the goal pose. The (default) cloud has no effect. The
+		// CloudScore equals the "non-cloud" score.
+		{
+			CandidatePose: spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+			UsesCloud:     false,
+			CloudScore:    0.0,
+		},
+
+		// CandidatePose is outside the cloud on every axis. CloudScore equals the "non-cloud"
+		// score.
+		{
+			CandidatePose: spatialmath.NewPoseFromPoint(r3.Vector{10, 10, 10}),
+			UsesCloud:     false,
+			CloudScore:    3.0,
+		},
+
+		// The X axis is within the cloud. The cloud score only counts the Y and Z.
+		{
+			CandidatePose: spatialmath.NewPoseFromPoint(r3.Vector{1, 10, 10}),
+			UsesCloud:     true,
+			CloudScore:    2.0,
+		},
+
+		// The X and Y axis is within the cloud. The cloud score only counts the Z.
+		{
+			CandidatePose: spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 10}),
+			UsesCloud:     true,
+			CloudScore:    1.0,
+		},
+	} {
+		defaultScore := motionplan.WeightedSquaredNormDistanceWithOptions(goalPose, tc.CandidatePose,
+			cartesianScale, orientScale,
+			motionplan.TranslationCloud{})
+		cloudScore := motionplan.WeightedSquaredNormDistanceWithOptions(goalPose, tc.CandidatePose,
+			cartesianScale, orientScale,
+			motionplan.TranslationCloud{X: [2]float64{-1, 1}, Y: [2]float64{-2, 2}})
+
+		if tc.UsesCloud {
+			test.That(t, cloudScore, test.ShouldEqual, tc.CloudScore)
+		} else {
+			test.That(t, cloudScore, test.ShouldEqual, defaultScore)
+			test.That(t, cloudScore, test.ShouldEqual, tc.CloudScore)
+		}
+	}
 }
 
 // BenchmarkGoalMetric
