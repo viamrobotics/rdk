@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -20,7 +19,7 @@ const (
 	orientationConstraintDescription = "orientation constraint"
 	planarConstraintDescription      = "planar constraint"
 
-	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created.
+	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
 	obstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
@@ -38,10 +37,17 @@ type StateFSConstraint func(*StateFS) error
 // first return is closest target
 type CollisionConstraintFunc func(*StateFS) (float64, error)
 
+// CollisionConstraints holds the three types of collision constraints that may be active during planning.
+type CollisionConstraints struct {
+	Obstacle      CollisionConstraintFunc // moving geometries vs world obstacles
+	RobotToRobot  CollisionConstraintFunc // moving robot component vs stationary robot component
+	SelfCollision CollisionConstraintFunc // moving geometries vs themselves
+}
+
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
-	collisionConstraints map[string]CollisionConstraintFunc
+	collisionConstraints CollisionConstraints
 	topoConstraint       StateFSConstraint
 
 	logger logging.Logger
@@ -118,7 +124,7 @@ func NewConstraintChecker(
 }
 
 // SetCollisionConstraints set the collision constraints explicitly
-func (c *ConstraintChecker) SetCollisionConstraints(cs map[string]CollisionConstraintFunc) {
+func (c *ConstraintChecker) SetCollisionConstraints(cs CollisionConstraints) {
 	c.collisionConstraints = cs
 }
 
@@ -269,12 +275,21 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 
 	closest := math.Inf(1)
 
-	for name, cFunc := range c.collisionConstraints {
-		d, err := cFunc(state)
+	for _, pair := range []struct {
+		name string
+		fn   CollisionConstraintFunc
+	}{
+		{obstacleConstraintDescription, c.collisionConstraints.Obstacle},
+		{robotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
+		{selfCollisionConstraintDescription, c.collisionConstraints.SelfCollision},
+	} {
+		if pair.fn == nil {
+			continue
+		}
+		d, err := pair.fn(state)
 		closest = min(closest, d)
 		if err != nil {
-			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
-			return -1, errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
+			return -1, errors.Wrap(err, pair.name)
 		}
 	}
 
@@ -372,8 +387,8 @@ func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
-) (map[string]CollisionConstraintFunc, error) {
-	constraintFSMap := map[string]CollisionConstraintFunc{}
+) (CollisionConstraints, error) {
+	var constraints CollisionConstraints
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
@@ -386,9 +401,9 @@ func CreateAllCollisionConstraints(
 			false,
 		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[obstacleConstraintDescription] = obstacleConstraintFS
+		constraints.Obstacle = obstacleConstraintFS
 	}
 
 	if len(staticRobotGeometries) > 0 {
@@ -401,9 +416,9 @@ func CreateAllCollisionConstraints(
 			false,
 		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[robotCollisionConstraintDescription] = robotConstraintFS
+		constraints.RobotToRobot = robotConstraintFS
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
@@ -417,11 +432,11 @@ func CreateAllCollisionConstraints(
 			true,
 		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[selfCollisionConstraintDescription] = selfCollisionConstraintFS
+		constraints.SelfCollision = selfCollisionConstraintFS
 	}
-	return constraintFSMap, nil
+	return constraints, nil
 }
 
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
