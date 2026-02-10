@@ -262,6 +262,7 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraints(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	zeroPos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	cases := []struct {
@@ -323,6 +324,7 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -434,6 +436,7 @@ func TestSegmentStepCount(t *testing.T) {
 }
 
 func TestComputeInitialCollisionsToIgnore(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	fs := referenceframe.NewEmptyFrameSystem("")
 
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
@@ -451,7 +454,8 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 
 		// Test that initial collisions are detected and combined with specifications
 		collisionSpecs := []Collision{{"box1", "box3"}}
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecs, defaultCollisionBufferMM, false)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static,
+			collisionSpecs, defaultCollisionBufferMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 2)
 
@@ -476,13 +480,14 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		moving := []spatial.Geometry{geom1}
 		static := []spatial.Geometry{geom2}
 
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM, false)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 0)
 	})
 }
 
 func TestCollisionDistance(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -492,7 +497,8 @@ func TestCollisionDistance(t *testing.T) {
 		geom2 := bc1.Transform(spatial.NewZeroPose())
 		geom2.SetLabel("box2")
 
-		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false)
+		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
+			defaultCollisionBufferMM, false, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
 		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
@@ -506,7 +512,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, logger,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -521,7 +527,7 @@ func TestCollisionDistance(t *testing.T) {
 
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, logger,
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -530,6 +536,8 @@ func TestCollisionDistance(t *testing.T) {
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {
+	logger := logging.NewTestLogger(b)
+
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
@@ -578,6 +586,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		logger,
 	)
 	test.That(b, err, test.ShouldBeNil)
 

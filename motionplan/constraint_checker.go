@@ -110,6 +110,7 @@ func NewConstraintChecker(
 		worldGeometries,
 		allowedCollisions,
 		collisionBufferMM,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -387,6 +388,7 @@ func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) (CollisionConstraints, error) {
 	var constraints CollisionConstraints
 
@@ -399,6 +401,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -414,6 +417,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -430,6 +434,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			true,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -448,8 +453,10 @@ func NewCollisionConstraintFS(
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
+	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
-	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static, collisionSpecifications, collisionBufferMM, isSelfCollision)
+	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
+		collisionSpecifications, collisionBufferMM, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -484,7 +491,8 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGeoms
 		}
 
-		collisions, minDist, err := CheckCollisions(internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, isSelfCollision)
+		collisions, minDist, err := CheckCollisions(
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, logger)
 		if err != nil {
 			return -1, err
 		}
@@ -506,10 +514,11 @@ func computeInitialCollisionsToIgnore(
 	group1, group2 []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
-	isSelfCollision bool,
+	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
-	initialCollisions, _, err := CheckCollisions(group1, group2, collisionSpecifications, collisionBufferMM, true, isSelfCollision)
+	initialCollisions, _, err := CheckCollisions(
+		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
 	if err != nil {
 		return nil, err
 	}

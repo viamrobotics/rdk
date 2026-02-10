@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -112,13 +113,12 @@ func collisionSpecifications(
 // ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
 // of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
-// isSelfCollision should be true when gg and other represent the same set of geometries (to avoid double-counting pairs).
 func CheckCollisions(
 	gg, other []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
-	isSelfCollision bool,
+	logger logging.Logger,
 ) ([]Collision, float64, error) {
 	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
@@ -137,52 +137,42 @@ func CheckCollisions(
 	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
 	for xName, xGeometry := range ggMap {
 		for yName, yGeometry := range otherMap {
+			// `skipCollisionCheck` can mutate the `ignoreList` in the event geometry labels are
+			// shared between the two input bags of geometries. Such that any pair of geometries are
+			// only checked once.
 			if skipCollisionCheck(ignoreList, xName, yName) {
 				continue
 			}
 
-			// For self collision checks, mark this pair as checked so we don't check it again in the other direction.
-			if isSelfCollision {
-				if _, ok := ignoreList[xName]; !ok {
-					ignoreList[xName] = map[string]bool{}
+			isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
+			if err != nil {
+				// Dan: This is FUD. Let's log a warning if changing which `CollidesWith` function
+				// gets invoked changes whether an error is generated. I don't understand why we
+				// wouldn't trust the error case to be shared in both invocation options, but we
+				// _would_ trust the non-error case to be equivalent.
+				if _, _, reverseErr := yGeometry.CollidesWith(xGeometry, collisionBufferMM); reverseErr == nil {
+					logger.Warnf("X.CollidesWith(Y) errored, but Y.CollidesWith(X) did not. "+
+						"Err: %v Type(X): %T Type(Y): %T X: %+v Y: %+v",
+						err, xGeometry, yGeometry, xGeometry, yGeometry)
 				}
-				ignoreList[xName][yName] = true
+
+				return nil, -1, err
 			}
 
-			dist, err := checkCollision(xGeometry, yGeometry, collisionBufferMM)
-			if err != nil {
-				return nil, math.Inf(-1), err
-			}
-			// If we have a collision, store it, and return if the caller wants to fast fail.
-			if math.IsInf(dist, -1) {
+			if isCollision {
+				// If there's a collision, add it to the return slice. And optionally early-return.
 				collisions = append(collisions, Collision{name1: xName, name2: yName})
 				if !collectAllCollisions {
-					return collisions, dist, nil
+					return collisions, distance, nil
 				}
-			}
-			if dist < minDistance {
-				minDistance = dist
+			} else {
+				// If this pair does not collide, update the `minDistance`.
+				minDistance = min(minDistance, distance)
 			}
 		}
 	}
 
 	return collisions, minDistance, nil
-}
-
-// checkCollision takes a pair of geometries and returns the reported (lower bound estimate) distance between them if they are not
-// in collision. If they are in collision, returns math.Inf(-1).
-func checkCollision(x, y spatialmath.Geometry, collisionBufferMM float64) (float64, error) {
-	col, d, err := x.CollidesWith(y, collisionBufferMM)
-	if err != nil {
-		col, d, err = y.CollidesWith(x, collisionBufferMM)
-		if err != nil {
-			return math.Inf(-1), err
-		}
-	}
-	if col {
-		return math.Inf(-1), nil
-	}
-	return d, nil
 }
 
 // Process a []Collision into a map for easy lookups.
@@ -244,5 +234,16 @@ func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName stri
 		// Already checked this pair in the other order
 		return true
 	}
+
+	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
+	// the ignoreList to (potentially) avoid that reverse computation.
+	for _, pair := range [][2]string{{xName, yName}, {yName, xName}} {
+		left, right := pair[0], pair[1]
+		if _, ok := ignoreList[left]; !ok {
+			ignoreList[left] = map[string]bool{}
+		}
+		ignoreList[left][right] = true
+	}
+
 	return false
 }
