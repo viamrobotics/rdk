@@ -121,7 +121,6 @@ type Config struct {
 	Animated       bool `json:"animated,omitempty"`
 	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
 	Model          bool `json:"model,omitempty"`
-	Fail           bool `json:"fail,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
