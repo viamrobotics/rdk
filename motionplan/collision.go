@@ -146,17 +146,13 @@ func CheckCollisions(
 
 			isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
 			if err != nil {
-				// Dan: This is FUD. Let's log a warning if changing which `CollidesWith` function
-				// gets invoked changes whether an error is generated. I don't understand why we
-				// wouldn't trust the error case to be shared in both invocation options, but we
-				// _would_ trust the non-error case to be equivalent.
-				if _, _, reverseErr := yGeometry.CollidesWith(xGeometry, collisionBufferMM); reverseErr == nil {
-					logger.Warnf("X.CollidesWith(Y) errored, but Y.CollidesWith(X) did not. "+
-						"Err: %v Type(X): %T Type(Y): %T X: %+v Y: %+v",
-						err, xGeometry, yGeometry, xGeometry, yGeometry)
+				// Due to how Geometry is currently set up, each geometry must know how to collide with each other type. But this is not
+				// always possible with geometries that live in different packages, due to Go circular dependency issues. Thus if we have
+				// an error, we need to check to opposite direction.
+				isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
+				if err != nil {
+					return nil, -1, err
 				}
-
-				return nil, -1, err
 			}
 
 			if isCollision {
