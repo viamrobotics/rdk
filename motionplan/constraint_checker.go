@@ -110,7 +110,6 @@ func NewConstraintChecker(
 		worldGeometries,
 		allowedCollisions,
 		collisionBufferMM,
-		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -388,7 +387,6 @@ func CreateAllCollisionConstraints(
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
-	logger logging.Logger,
 ) (CollisionConstraints, error) {
 	var constraints CollisionConstraints
 
@@ -401,7 +399,6 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
-			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -417,7 +414,6 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
-			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -434,7 +430,6 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			true,
-			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -453,7 +448,6 @@ func NewCollisionConstraintFS(
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
-	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
 		collisionSpecifications, collisionBufferMM)

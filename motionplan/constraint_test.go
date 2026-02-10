@@ -324,7 +324,6 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
-		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -584,7 +583,6 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
-		logger,
 	)
 	test.That(b, err, test.ShouldBeNil)
 
