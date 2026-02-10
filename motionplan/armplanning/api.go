@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -251,10 +250,7 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	if err != nil {
 		return err
 	}
-	_, err = model.Transform(inputs)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New("cannot move arm: " + err.Error())
-	} else if err != nil {
+	if _, err = model.Transform(inputs); err != nil {
 		return err
 	}
 
