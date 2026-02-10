@@ -60,16 +60,16 @@ const (
 func newTestServer(r *inject.Robot, logger logging.Logger) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	return &Server{
-		closedCtx:           closedCtx,
-		closedFn:            closedFn,
-		robot:               r,
-		logger:              logger,
-		nameToStreamState:   map[string]*state.StreamState{},
-		videoSources:        map[string]gostream.HotSwappableVideoSource{},
-		streamErrors:        map[string]*streamErrorState{},
-		debugLogInterval:    testDebugInterval,
-		warnRepeatInterval:  testWarnInterval,
-		isAlive:             true,
+		closedCtx:          closedCtx,
+		closedFn:           closedFn,
+		robot:              r,
+		logger:             logger,
+		nameToStreamState:  map[string]*state.StreamState{},
+		videoSources:       map[string]gostream.HotSwappableVideoSource{},
+		streamErrors:       map[string]*streamErrorState{},
+		debugLogInterval:   testDebugInterval,
+		warnRepeatInterval: testWarnInterval,
+		isAlive:            true,
 	}
 }
 
