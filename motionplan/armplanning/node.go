@@ -412,7 +412,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	ikTime := time.Second
+	ikTime := psc.ikSearchTimeMax
 	if !solvingState.doingSmartSeeds {
 		ikTime = 100 * time.Millisecond
 	}

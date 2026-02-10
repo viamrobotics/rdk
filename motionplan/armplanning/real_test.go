@@ -532,3 +532,21 @@ func BenchmarkPlanningOnMeshes(b *testing.B) {
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
+
+func TestMidPoint(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/sanding_approach_hover_plan_request.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(plan.Trajectory()), test.ShouldEqual, 3)
+
+}
