@@ -119,9 +119,14 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 		return "", err
 	}
 
-	if runtime.GOOS == osWindows && manifest.Build != nil && strings.HasSuffix(manifest.Build.Build, ".bat") {
-		return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
-			"Build locally with 'viam module build local' and upload with 'viam module upload'")
+	// Check if this is a Windows Python module by looking for src/main.py
+	if runtime.GOOS == osWindows && manifest.Build != nil {
+		manifestDir := filepath.Dir(args.Module)
+		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
+		if _, err := os.Stat(mainPyPath); err == nil {
+			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+				"Build locally with 'viam module build local' and upload with 'viam module upload'")
+		}
 	}
 
 	if manifest.URL == "" {
