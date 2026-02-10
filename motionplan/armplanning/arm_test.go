@@ -46,7 +46,7 @@ func TestOOBArmMotion(t *testing.T) {
 		pose := spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
 		err := armplanning.MoveArm(context.Background(), logger, injectedArm, pose)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "input out of bounds")
+		test.That(t, err.Error(), test.ShouldContainSubstring, referenceframe.OOBErrString)
 	})
 
 	t.Run("MoveToJointPositions fails OOB and moving further OOB", func(t *testing.T) {

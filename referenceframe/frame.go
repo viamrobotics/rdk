@@ -20,6 +20,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
+const OOBErrString = "input out of bounds"
+
 // Limit represents the limits of motion for a Frame.
 type Limit struct {
 	Min float64
@@ -237,7 +240,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
 			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				"input out of bounds", "input", inputs[i], "needs to be within range", lim))
+				OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
 
