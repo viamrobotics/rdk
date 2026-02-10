@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
-	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -20,9 +19,6 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
-
-// OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
-const OOBErrString = "input out of bounds"
 
 // Limit represents the limits of motion for a Frame.
 type Limit struct {
@@ -165,14 +161,8 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's
 	// reference frame.
 	//
-	// If the transform cannot be computed, the returned pose will be nil and the error will not be
-	// nil.
-	//
-	// If the transform _can_ be computed, but one or more of the inputs is outside of the
-	// prescribed frame limits, both a pose _and_ an "out of bounds" error will be returned. Callers
-	// that need to avoid propagating out of bounds (OOB) inputs errors can simply error
-	// check. Callers that do not want to terminate on OOB errors must check if the pose is
-	// returned.
+	// If the transform cannot be computed (including if inputs are out of bounds), the returned
+	// pose will be nil and the error will not be nil.
 	Transform([]Input) (spatial.Pose, error)
 
 	// Interpolate interpolates the given amount between the two sets of inputs.
@@ -247,7 +237,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
 			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i], "needs to be within range", lim))
+				"input out of bounds", "input", inputs[i], "needs to be within range", lim))
 		}
 	}
 
@@ -482,12 +472,10 @@ func (pf *translationalFrame) Hash() int {
 
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := pf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+	if err := pf.validInputs(input); err != nil {
 		return nil, err
 	}
-	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), err
+	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
@@ -506,10 +494,10 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 	pose, err := pf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+	if err != nil {
 		return nil, err
 	}
-	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
+	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), nil
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
@@ -574,13 +562,11 @@ func (rf *rotationalFrame) Hash() int {
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := rf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+	if err := rf.validInputs(input); err != nil {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
-	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), nil
 }
 
 func (rf *rotationalFrame) InputToOrientation(input Input) spatial.R4AA {
