@@ -282,6 +282,7 @@ func (m *SimpleModel) Hash() int {
 }
 
 // Transform returns the pose of the primary output frame given the flat input vector.
+// When inputs are out of bounds, Transform returns both the computed pose and an OOB error.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	li, err := m.toLinearInputs(inputs)
 	if err != nil {
@@ -295,7 +296,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 
 	dq, err := m.internalFS.GetFrameToWorldTransform(li, primaryFrame)
 	if err != nil {
-		return nil, err
+		return &spatialmath.DualQuaternion{Number: dq}, err
 	}
 
 	return &spatialmath.DualQuaternion{Number: dq}, nil
@@ -415,6 +416,11 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.internalFS = newModel.internalFS
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
+	} else {
+		fs := NewEmptyFrameSystem(frameName)
+		m.internalFS = fs
+		m.primaryOutputFrame = fs.World().Name()
+		m.inputSchema = &LinearInputsSchema{}
 	}
 	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model

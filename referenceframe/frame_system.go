@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -478,6 +479,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		Dual: quat.Number{},
 	}
 
+	var oobErr error
 	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		var pose spatial.Pose
@@ -497,7 +499,11 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 
 			pose, err = frame.Transform(frameInputs)
 			if err != nil {
-				return ret, err
+				if strings.Contains(err.Error(), OOBErrString) {
+					oobErr = err
+				} else {
+					return ret, err
+				}
 			}
 		}
 
@@ -505,7 +511,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
 
-	return ret, nil
+	return ret, oobErr
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
