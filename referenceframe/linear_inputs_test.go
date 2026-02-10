@@ -54,19 +54,19 @@ func TestLinearInputsLimits(t *testing.T) {
 	// frame and a 2dof simple model. We envision the 2dof simple model as an arm with 2 joints and
 	// 3 links.
 	fs := NewEmptyFrameSystem("fs")
-	fs.AddFrame(NewZeroStaticFrame("0dof"), fs.World())
+	err := fs.AddFrame(NewZeroStaticFrame("0dof"), fs.World())
+	test.That(t, err, test.ShouldBeNil)
 
 	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(rotFrame, fs.World())
+	err = fs.AddFrame(rotFrame, fs.World())
+	test.That(t, err, test.ShouldBeNil)
 
-	// Dan: It's unclear my by-hand construction of an arm and adding it to the frame system is
-	// completely kosher. For the purpose of this test though, I see it behaving as I need it to.
 	baseArmFrame := NewZeroStaticFrame("base")
 	shoulderArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
 	test.That(t, err, test.ShouldBeNil)
 	upperArmFrame := NewZeroStaticFrame("upperArm")
-	elbowArmFrame, err := NewRotationalFrame("shoulder", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
 	test.That(t, err, test.ShouldBeNil)
 	handArmFrame := NewZeroStaticFrame("hand")
 	armFS, lastArmFrame, err := NewSerialFrameSystem([]Frame{
@@ -75,12 +75,8 @@ func TestLinearInputsLimits(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	armFrame, err := NewModel("arm", armFS, lastArmFrame)
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(armFrame, fs.World())
-	fs.AddFrame(baseArmFrame, armFrame)
-	fs.AddFrame(shoulderArmFrame, baseArmFrame)
-	fs.AddFrame(upperArmFrame, shoulderArmFrame)
-	fs.AddFrame(elbowArmFrame, upperArmFrame)
-	fs.AddFrame(handArmFrame, elbowArmFrame)
+	err = fs.AddFrame(armFrame, fs.World())
+	test.That(t, err, test.ShouldBeNil)
 
 	// Create inputs, do a transform call that succeeds.
 	li := NewLinearInputs()
