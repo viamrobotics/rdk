@@ -6,6 +6,7 @@ import (
 	"image"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -49,18 +50,26 @@ func makeTestStream(t *testing.T, name string, logger logging.Logger) gostream.S
 	return stream
 }
 
+const (
+	testDebugInterval = 10 * time.Millisecond
+	testWarnInterval  = 50 * time.Millisecond
+)
+
 // newTestServer builds a test Server with minimal fields without starting the background monitor goroutine.
+// It uses short throttle intervals for fast tests.
 func newTestServer(r *inject.Robot, logger logging.Logger) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	return &Server{
-		closedCtx:         closedCtx,
-		closedFn:          closedFn,
-		robot:             r,
-		logger:            logger,
-		nameToStreamState: map[string]*state.StreamState{},
-		videoSources:      map[string]gostream.HotSwappableVideoSource{},
-		prevStreamErrors:  map[string]string{},
-		isAlive:           true,
+		closedCtx:           closedCtx,
+		closedFn:            closedFn,
+		robot:               r,
+		logger:              logger,
+		nameToStreamState:   map[string]*state.StreamState{},
+		videoSources:        map[string]gostream.HotSwappableVideoSource{},
+		streamErrors:        map[string]*streamErrorState{},
+		debugLogInterval:    testDebugInterval,
+		warnRepeatInterval:  testWarnInterval,
+		isAlive:             true,
 	}
 }
 
@@ -76,7 +85,7 @@ func filterLogsByLevelAndMessage(logs []observer.LoggedEntry, level zapcore.Leve
 	return result
 }
 
-func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
+func TestRemoveMissingStreams_LogThrottling(t *testing.T) {
 	logger, observedLogs := logging.NewObservedTestLogger(t)
 
 	r := &inject.Robot{}
@@ -100,7 +109,7 @@ func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
 
 	const msg = "Camera unavailable"
 
-	// --- First call: error should be logged at WARN ---
+	// --- First call: new error should be logged at WARN ---
 	observedLogs.TakeAll() // clear any setup logs
 	server.removeMissingStreams()
 
@@ -108,19 +117,28 @@ func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 1)
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
 
-	// --- Second call with same error: should be logged at DEBUG ---
+	// --- Immediate repeat: should be suppressed (within debug interval) ---
+	server.removeMissingStreams()
+
+	allLogs = observedLogs.TakeAll()
+	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 0)
+	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
+
+	// --- After debug interval: should log at DEBUG ---
+	time.Sleep(testDebugInterval)
 	server.removeMissingStreams()
 
 	allLogs = observedLogs.TakeAll()
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 0)
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 1)
 
-	// --- Third call with same error: still DEBUG ---
+	// --- After warn interval: should re-WARN even though error is the same ---
+	time.Sleep(testWarnInterval)
 	server.removeMissingStreams()
 
 	allLogs = observedLogs.TakeAll()
-	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 0)
-	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 1)
+	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 1)
+	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
 
 	// --- Camera becomes healthy: should clear tracked state ---
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
@@ -134,7 +152,7 @@ func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
 	allLogs = observedLogs.TakeAll()
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 0)
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
-	test.That(t, server.prevStreamErrors, test.ShouldNotContainKey, "cam1")
+	test.That(t, server.streamErrors, test.ShouldNotContainKey, "cam1")
 
 	// --- Same error returns after recovery: should WARN again ---
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
@@ -148,7 +166,7 @@ func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
 	allLogs = observedLogs.TakeAll()
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 1)
 
-	// --- Different error: should WARN again ---
+	// --- Different error: should WARN again regardless of timing ---
 	newErr := fmt.Errorf("config validation failed")
 	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		if name == camera.Named("cam1") {
@@ -161,11 +179,4 @@ func TestRemoveMissingStreams_LogDeduplication(t *testing.T) {
 	allLogs = observedLogs.TakeAll()
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 1)
 	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 0)
-
-	// --- Repeated different error: should be DEBUG ---
-	server.removeMissingStreams()
-
-	allLogs = observedLogs.TakeAll()
-	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.WarnLevel, msg)), test.ShouldEqual, 0)
-	test.That(t, len(filterLogsByLevelAndMessage(allLogs, zapcore.DebugLevel, msg)), test.ShouldEqual, 1)
 }

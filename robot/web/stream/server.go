@@ -26,10 +26,19 @@ import (
 )
 
 const (
-	monitorCameraInterval = time.Second
-	retryDelay            = 50 * time.Millisecond
-	backoffCooldown       = 30 * time.Second
+	monitorCameraInterval     = time.Second
+	retryDelay                = 50 * time.Millisecond
+	backoffCooldown           = 30 * time.Second
+	defaultDebugLogInterval   = time.Minute
+	defaultWarnRepeatInterval = 5 * time.Minute
 )
+
+// streamErrorState tracks per-camera error logging timestamps for throttling.
+type streamErrorState struct {
+	lastError    string
+	lastWarnTime time.Time
+	lastLogTime  time.Time
+}
 
 const (
 	optionsCommandResize = iota
@@ -56,9 +65,11 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
 
-	streamConfig     gostream.StreamConfig
-	videoSources     map[string]gostream.HotSwappableVideoSource
-	prevStreamErrors map[string]string // key: camName, val: last logged error string
+	streamConfig       gostream.StreamConfig
+	videoSources       map[string]gostream.HotSwappableVideoSource
+	streamErrors       map[string]*streamErrorState // map of camera name to error state
+	debugLogInterval   time.Duration                // interval at which to log repeated debug messages
+	warnRepeatInterval time.Duration                // interval at which to log repeated warning messages
 }
 
 // Resolution holds the width and height of a video stream.
@@ -76,16 +87,18 @@ func NewServer(
 ) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	server := &Server{
-		closedCtx:         closedCtx,
-		closedFn:          closedFn,
-		robot:             robot,
-		logger:            logger,
-		nameToStreamState: map[string]*state.StreamState{},
-		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
-		isAlive:           true,
-		streamConfig:      streamConfig,
-		videoSources:      map[string]gostream.HotSwappableVideoSource{},
-		prevStreamErrors:  map[string]string{},
+		closedCtx:          closedCtx,
+		closedFn:           closedFn,
+		robot:              robot,
+		logger:             logger,
+		nameToStreamState:  map[string]*state.StreamState{},
+		activePeerStreams:  map[*webrtc.PeerConnection]map[string]*peerState{},
+		isAlive:            true,
+		streamConfig:       streamConfig,
+		videoSources:       map[string]gostream.HotSwappableVideoSource{},
+		streamErrors:       map[string]*streamErrorState{},
+		debugLogInterval:   defaultDebugLogInterval,
+		warnRepeatInterval: defaultWarnRepeatInterval,
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -560,19 +573,29 @@ func (server *Server) removeMissingStreams() {
 			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
 			// have the right set of exceptions here, we log the error and ignore.
 			if err != nil {
-				// only log at WARN for new/changed errors, DEBUG for repeats.
-				errStr := err.Error()
-				if prev, ok := server.prevStreamErrors[camName]; ok && prev == errStr {
-					server.logger.Debugw("Camera unavailable, will retry on next reconfiguration",
-						"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
-				} else {
-					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration",
-						"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
-					server.prevStreamErrors[camName] = errStr
+				now := time.Now()
+				logFields := []interface{}{
+					"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err),
+				}
+				prev, ok := server.streamErrors[camName]
+				if !ok || prev.lastError != err.Error() {
+					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					server.streamErrors[camName] = &streamErrorState{
+						lastError:    err.Error(),
+						lastWarnTime: now,
+						lastLogTime:  now,
+					}
+				} else if now.Sub(prev.lastWarnTime) >= server.warnRepeatInterval {
+					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					prev.lastWarnTime = now
+					prev.lastLogTime = now
+				} else if now.Sub(prev.lastLogTime) >= server.debugLogInterval {
+					server.logger.Debugw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					prev.lastLogTime = now
 				}
 			} else {
 				// Camera is healthy, clear any previously tracked error.
-				delete(server.prevStreamErrors, camName)
+				delete(server.streamErrors, camName)
 			}
 			continue
 		}
@@ -581,7 +604,7 @@ func (server *Server) removeMissingStreams() {
 		// first. Such that we only try closing/unsubscribing once.
 		server.logger.Infow("Camera doesn't exist. Closing its streams",
 			"camera", camName, "err", err, "Type", fmt.Sprintf("%T", err))
-		delete(server.prevStreamErrors, camName)
+		delete(server.streamErrors, camName)
 		delete(server.nameToStreamState, key)
 
 		for pc, peerStateByCamName := range server.activePeerStreams {
