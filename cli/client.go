@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	cron "github.com/robfig/cron/v3"
+
 	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
@@ -1520,6 +1522,132 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+// parseJSONOrFile tries to read input as a file, falls back to parsing as inline JSON
+func parseJSONOrFile(input string) (map[string]any, error) {
+	var data []byte
+	if fileData, err := os.ReadFile(input); err == nil {
+		data = fileData
+	} else {
+		data = []byte(input)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// validateJobConfig validates the fields of a job config map. When isUpdate is true,
+// only provided fields are validated (partial updates are allowed).
+// partConfig is used to warn about unrecognized resource names.
+func validateJobConfig(w io.Writer, jobConfig map[string]any, partConfig map[string]any, isUpdate bool) error {
+	// Validate schedule format if provided (or required for add).
+	// Valid values: "continuous", a Go duration (e.g. "5s", "1h30m"), or a cron expression (5-6 fields).
+	if schedule, ok := jobConfig["schedule"].(string); ok {
+		if err := validateJobSchedule(schedule); err != nil {
+			return err
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'schedule' field (string)")
+	}
+
+	// Validate resource is a non-empty string. Warn if not found in config
+	// (could still be a built-in or remote resource).
+	if resource, ok := jobConfig["resource"].(string); ok {
+		if resource == "" {
+			return errors.New("'resource' field must be a non-empty string")
+		}
+		if !resourceExistsInConfig(partConfig, resource) {
+			warningf(w,
+				"resource %q not found in part config; job will fail if this resource does not exist on the machine "+
+					"(note: built-in and remote resources may not appear in config)",
+				resource,
+			)
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'resource' field (string)")
+	}
+
+	// Validate method is a non-empty string. Warn if it doesn't look like a known
+	// gRPC method (e.g. "DoCommand", "GetReadings"). Methods are PascalCase.
+	if method, ok := jobConfig["method"].(string); ok {
+		if method == "" {
+			return errors.New("'method' field must be a non-empty string")
+		}
+		if method[0] < 'A' || method[0] > 'Z' {
+			warningf(w,
+				"method %q does not look like a valid gRPC method name (expected PascalCase, e.g. 'DoCommand', 'GetReadings')",
+				method,
+			)
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'method' field (string)")
+	}
+
+	// Validate command is a JSON object (map) if provided.
+	if command, ok := jobConfig["command"]; ok {
+		if _, ok := command.(map[string]any); !ok {
+			return errors.New("'command' field must be a JSON object")
+		}
+	}
+
+	// Validate log_configuration.level if provided.
+	// Valid values: "debug", "info", "warn", "warning", "error".
+	if logConfig, ok := jobConfig["log_configuration"].(map[string]any); ok {
+		if level, ok := logConfig["level"].(string); ok {
+			validLevels := map[string]bool{
+				"debug": true, "info": true, "warn": true, "warning": true, "error": true,
+			}
+			if !validLevels[strings.ToLower(level)] {
+				return fmt.Errorf("log_configuration level must be one of: debug, info, warn, warning, error; got %q", level)
+			}
+		}
+	}
+
+	return nil
+}
+
+// resourceExistsInConfig checks if a resource name exists in the part's components or services.
+func resourceExistsInConfig(config map[string]any, name string) bool {
+	for _, key := range []string{"components", "services"} {
+		if arr, ok := config[key].([]any); ok {
+			for _, item := range arr {
+				if m, ok := item.(map[string]any); ok {
+					if m["name"] == name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// validateJobSchedule checks that schedule is "continuous", a valid Go duration, or a valid cron expression.
+// This mirrors the parsing logic in robot/jobmanager/jobmanager.go scheduleJob().
+func validateJobSchedule(schedule string) error {
+	if strings.ToLower(schedule) == "continuous" {
+		return nil
+	}
+	if _, err := time.ParseDuration(schedule); err == nil {
+		return nil
+	}
+	// Try parsing as cron. Use 6-field (with seconds) parser if there are 6+ fields,
+	// otherwise use standard 5-field parser. This matches the jobmanager's behavior.
+	withSeconds := len(strings.Fields(schedule)) >= 6
+	if withSeconds {
+		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+		if _, err := p.Parse(schedule); err != nil {
+			return fmt.Errorf("invalid schedule %q: %w", schedule, err)
+		}
+	} else {
+		if _, err := cron.ParseStandard(schedule); err != nil {
+			return fmt.Errorf("invalid schedule %q: %w", schedule, err)
+		}
+	}
+	return nil
+}
+
 type machinesPartAddJobArgs struct {
 	Part         string
 	Machine      string
@@ -1544,22 +1672,15 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 		return errors.Wrap(err, "failed to parse job config")
 	}
 
-	// Validate required fields
+	// Validate required fields and format
 	name, ok := jobConfig["name"].(string)
 	if !ok || name == "" {
-		return errors.New("job config must include 'name' field")
+		return errors.New("job config must include 'name' field (string)")
 	}
-	if _, ok := jobConfig["schedule"]; !ok {
-		return errors.New("job config must include 'schedule' field")
-	}
-	if _, ok := jobConfig["resource"]; !ok {
-		return errors.New("job config must include 'resource' field")
-	}
-	if _, ok := jobConfig["method"]; !ok {
-		return errors.New("job config must include 'method' field")
-	}
-
 	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(c.App.ErrWriter, jobConfig, config, false); err != nil {
+		return err
+	}
 
 	// Get existing jobs array or create new one
 	var jobs []any
@@ -1585,7 +1706,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully added job %s to part %s", name, part.Name)
+	printf(c.App.Writer, "successfully added job %s to part %s", name, part.Name)
 	return nil
 }
 
@@ -1615,6 +1736,9 @@ func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs)
 	}
 
 	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(c.App.ErrWriter, newJobConfig, config, true); err != nil {
+		return err
+	}
 
 	var jobs []any
 	if existingJobs, ok := config["jobs"]; ok {
@@ -1650,7 +1774,7 @@ func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs)
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully updated job %s on part %s", args.Name, part.Name)
+	printf(c.App.Writer, "successfully updated job %s on part %s", args.Name, part.Name)
 	return nil
 }
 
@@ -1707,7 +1831,7 @@ func machinesPartDeleteJobAction(c *cli.Context, args machinesPartDeleteJobArgs)
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully deleted job %s from part %s", args.Name, part.Name)
+	printf(c.App.Writer, "successfully deleted job %s from part %s", args.Name, part.Name)
 	return nil
 }
 
