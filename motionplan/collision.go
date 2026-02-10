@@ -157,6 +157,10 @@ func CheckCollisions(
 
 			if isCollision {
 				// If there's a collision, add it to the return slice. And optionally early-return.
+				if xName > yName {
+					// Deterministically order collisions to prevent noisy errors
+					xName, yName = yName, xName
+				}
 				collisions = append(collisions, Collision{name1: xName, name2: yName})
 				if !collectAllCollisions {
 					return collisions, distance, nil
