@@ -498,10 +498,9 @@ func NewCollisionConstraintFS(
 		}
 		if len(collisions) != 0 {
 			return -1, fmt.Errorf(
-				"violation between %s and %s geometries (total collisions: %d)",
+				"violation between %s and %s geometries",
 				collisions[0].name1,
 				collisions[0].name2,
-				len(collisions),
 			)
 		}
 		return minDist, nil
