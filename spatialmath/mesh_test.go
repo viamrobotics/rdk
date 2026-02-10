@@ -1,11 +1,16 @@
 package spatialmath
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 )
 
@@ -30,6 +35,50 @@ func makeSimpleTriangleMesh() Geometry {
 		r3.Vector{X: 0, Y: 1, Z: 10},
 	)
 	return makeTestMesh(NewZeroOrientation(), r3.Vector{}, []*Triangle{tri1, tri2, tri3})
+}
+
+func makeLargeTestTriangles(nx, ny int) []*Triangle {
+	triangles := make([]*Triangle, 0, 2*nx*ny)
+	for x := range nx {
+		for y := range ny {
+			z00 := float64((x + y) % 2)
+			z10 := float64((x + 1 + y) % 2)
+			z01 := float64((x + y + 1) % 2)
+			z11 := float64((x + y + 2) % 2)
+
+			p00 := r3.Vector{X: float64(x), Y: float64(y), Z: z00}
+			p10 := r3.Vector{X: float64(x + 1), Y: float64(y), Z: z10}
+			p01 := r3.Vector{X: float64(x), Y: float64(y + 1), Z: z01}
+			p11 := r3.Vector{X: float64(x + 1), Y: float64(y + 1), Z: z11}
+
+			triangles = append(triangles, NewTriangle(p00, p10, p11), NewTriangle(p00, p11, p01))
+		}
+	}
+	return triangles
+}
+
+func trianglesToBinarySTL(triangles []*Triangle) []byte {
+	var buf bytes.Buffer
+	header := make([]byte, 80)
+	_, _ = buf.Write(header)
+	_ = binary.Write(&buf, binary.LittleEndian, uint32(len(triangles)))
+
+	for _, tri := range triangles {
+		// Normal vector (unused by parser).
+		_ = binary.Write(&buf, binary.LittleEndian, float32(0))
+		_ = binary.Write(&buf, binary.LittleEndian, float32(0))
+		_ = binary.Write(&buf, binary.LittleEndian, float32(0))
+
+		// STL coordinates are meters; mesh geometry uses mm.
+		for _, pt := range tri.Points() {
+			_ = binary.Write(&buf, binary.LittleEndian, float32(pt.X/1000))
+			_ = binary.Write(&buf, binary.LittleEndian, float32(pt.Y/1000))
+			_ = binary.Write(&buf, binary.LittleEndian, float32(pt.Z/1000))
+		}
+
+		_ = binary.Write(&buf, binary.LittleEndian, uint16(0)) // attribute byte count
+	}
+	return buf.Bytes()
 }
 
 func assertMeshesNearlyEqual(t *testing.T, mesh1, mesh2 *Mesh) {
@@ -130,6 +179,65 @@ func TestMeshTransform(t *testing.T) {
 
 	// Original mesh should be unchanged
 	test.That(t, mesh.Pose().Point().X, test.ShouldEqual, 0)
+}
+
+func TestNewMeshAutoDecimates(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	mesh := NewMesh(NewZeroPose(), triangles, "dense")
+	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+}
+
+func TestNewMeshFromPLYFileAutoDecimates(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
+	plyBytes := source.TrianglesToPLYBytes(false)
+
+	path := filepath.Join(t.TempDir(), "large_mesh.ply")
+	err := os.WriteFile(path, plyBytes, 0o600)
+	test.That(t, err, test.ShouldBeNil)
+
+	mesh, err := NewMeshFromPLYFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+}
+
+func TestNewMeshFromSTLFileAutoDecimates(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	stlBytes := trianglesToBinarySTL(triangles)
+
+	path := filepath.Join(t.TempDir(), "large_mesh.stl")
+	err := os.WriteFile(path, stlBytes, 0o600)
+	test.That(t, err, test.ShouldBeNil)
+
+	mesh, err := NewMeshFromSTLFile(path)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+}
+
+func TestNewMeshFromProtoAutoDecimates(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
+	plyBytes := source.TrianglesToPLYBytes(false)
+
+	mesh, err := NewMeshFromProto(NewZeroPose(), &commonpb.Mesh{
+		ContentType: string(plyType),
+		Mesh:        plyBytes,
+	}, "dense")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+}
+
+func TestAutoDecimationAppliesToVisualizationMesh(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	mesh := NewMesh(NewZeroPose(), triangles, "dense")
+	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+
+	// Visualization should use the same decimated mesh representation.
+	proto := mesh.ToProtobuf()
+	visMesh, err := NewMeshFromProto(NewZeroPose(), proto.GetMesh(), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(visMesh.Triangles()), test.ShouldEqual, len(mesh.Triangles()))
+	test.That(t, len(visMesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {
@@ -684,6 +792,49 @@ func TestMeshEncompassedBy(t *testing.T) {
 	encompassed, err = mesh.EncompassedBy(smallBox)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, encompassed, test.ShouldBeFalse)
+}
+
+func TestMeshEncompassedByMesh(t *testing.T) {
+	outerGeom, err := NewBox(NewZeroPose(), r3.Vector{X: 20, Y: 20, Z: 20}, "")
+	test.That(t, err, test.ShouldBeNil)
+	outerMesh := outerGeom.(*box).toMesh()
+
+	innerMesh := makeSimpleTriangleMesh().(*Mesh)
+	encompassed, err := innerMesh.EncompassedBy(outerMesh)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, encompassed, test.ShouldBeTrue)
+
+	farAway := innerMesh.Transform(NewPoseFromPoint(r3.Vector{X: 100, Y: 0, Z: 0})).(*Mesh)
+	encompassed, err = farAway.EncompassedBy(outerMesh)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, encompassed, test.ShouldBeFalse)
+}
+
+func TestMeshConservativeDecimate(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	original := &Mesh{
+		pose:      NewZeroPose(),
+		triangles: triangles,
+		label:     "dense",
+		fileType:  plyType,
+	}
+	original.rawBytes = original.TrianglesToPLYBytes(false)
+	test.That(t, len(original.Triangles()), test.ShouldEqual, 3000)
+
+	decimated, err := original.ConservativeDecimate(DefaultConservativeDecimatedTriangleCount)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+
+	encompassed, err := original.EncompassedBy(decimated)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, encompassed, test.ShouldBeTrue)
+}
+
+func TestMeshConservativeDecimateNoop(t *testing.T) {
+	mesh := makeSimpleTriangleMesh().(*Mesh)
+	decimated, err := mesh.ConservativeDecimate(DefaultConservativeDecimatedTriangleCount)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, decimated, test.ShouldEqual, mesh)
 }
 
 func TestLazyBVHConstruction(t *testing.T) {
