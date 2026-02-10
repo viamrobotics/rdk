@@ -56,8 +56,9 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
 
-	streamConfig gostream.StreamConfig
-	videoSources map[string]gostream.HotSwappableVideoSource
+	streamConfig     gostream.StreamConfig
+	videoSources     map[string]gostream.HotSwappableVideoSource
+	prevStreamErrors map[string]string // key: camName, val: last logged error string
 }
 
 // Resolution holds the width and height of a video stream.
@@ -84,6 +85,7 @@ func NewServer(
 		isAlive:           true,
 		streamConfig:      streamConfig,
 		videoSources:      map[string]gostream.HotSwappableVideoSource{},
+		prevStreamErrors:  map[string]string{},
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -554,12 +556,20 @@ func (server *Server) removeMissingStreams() {
 
 		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
-			// Cameras can go through transient states during reconfigure that don't necessarily
-			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
-			// have the right set of exceptions here, we log the error and ignore.
 			if err != nil {
-				server.logger.Warnw("Error getting camera from robot",
-					"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
+				// only log at WARN for new/changed errors, DEBUG for repeats.
+				errStr := err.Error()
+				if prev, ok := server.prevStreamErrors[camName]; ok && prev == errStr {
+					server.logger.Debugw("Camera unavailable, will retry on next reconfiguration",
+						"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
+				} else {
+					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration",
+						"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
+					server.prevStreamErrors[camName] = errStr
+				}
+			} else {
+				// Camera is healthy, clear any previously tracked error.
+				delete(server.prevStreamErrors, camName)
 			}
 			continue
 		}
@@ -568,6 +578,7 @@ func (server *Server) removeMissingStreams() {
 		// first. Such that we only try closing/unsubscribing once.
 		server.logger.Infow("Camera doesn't exist. Closing its streams",
 			"camera", camName, "err", err, "Type", fmt.Sprintf("%T", err))
+		delete(server.prevStreamErrors, camName)
 		delete(server.nameToStreamState, key)
 
 		for pc, peerStateByCamName := range server.activePeerStreams {

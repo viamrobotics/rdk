@@ -61,6 +61,9 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
+	if newConf.Fail {
+		return nil, errors.New("failing now!!!")
+	}
 	_, _, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
@@ -121,6 +124,7 @@ type Config struct {
 	Animated       bool `json:"animated,omitempty"`
 	RTPPassthrough bool `json:"rtp_passthrough,omitempty"`
 	Model          bool `json:"model,omitempty"`
+	Fail           bool `json:"fail,omitempty"`
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
