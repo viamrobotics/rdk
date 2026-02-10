@@ -53,7 +53,7 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 	var err error
 
 	// nlopt should try only once
-	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true)
+	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true, time.Second)
 	if err != nil {
 		return nil, err
 	}

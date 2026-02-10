@@ -427,7 +427,10 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase.
+// New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
+// This model is intended to be used with a mobile base and has either 2DOF corresponding to  a state of x, y
+// or has 3DOF corresponding to a state of x, y, and theta, where x and y are the positional coordinates
+// the base is located about and theta is the rotation about the z axis.
 func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatialmath.Geometry) (Model, error) {
 	if len(limits) != 2 && len(limits) != 3 {
 		return nil,
@@ -459,22 +462,4 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	}
 
 	return NewSerialModel(name, frames)
-}
-
-// ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after
-// transforming it by the given inputs even when if the inputs given would violate the Limits of the frame.
-func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-	if inputs == nil {
-		return nil, errors.New("cannot compute position for nil joints")
-	}
-	if frame == nil {
-		return nil, errors.New("cannot compute position for nil frame")
-	}
-
-	pose, err := frame.Transform(inputs)
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
-		return nil, err
-	}
-
-	return pose, nil
 }

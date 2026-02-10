@@ -24,7 +24,6 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
@@ -145,27 +144,31 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
-	processConfig := pexec.ProcessConfig{
-		Environment: environment,
-		Name:        "bash",
-		OneShot:     true,
-		Log:         true,
-		LogWriter:   cCtx.App.Writer,
+
+	// Build environment slice from map, inheriting current environment
+	env := os.Environ()
+	for k, v := range environment {
+		env = append(env, k+"="+v)
 	}
-	// Required logger for the ManagedProcess. Not used
-	logger := logging.NewLogger("x")
+
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = []string{"-c", manifest.Build.Setup}
-		proc := pexec.NewManagedProcess(processConfig, logger)
-		if err := proc.Start(cCtx.Context); err != nil {
+		//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+		cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Setup)
+		cmd.Env = env
+		cmd.Stdout = cCtx.App.Writer
+		cmd.Stderr = cCtx.App.Writer
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = []string{"-c", manifest.Build.Build}
-	proc := pexec.NewManagedProcess(processConfig, logger)
-	if err := proc.Start(cCtx.Context); err != nil {
+	//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+	cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Build)
+	cmd.Env = env
+	cmd.Stdout = cCtx.App.Writer
+	cmd.Stderr = cCtx.App.Writer
+	if err := cmd.Run(); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
