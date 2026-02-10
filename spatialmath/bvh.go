@@ -163,6 +163,19 @@ func expandAABB(minPt, maxPt, pt r3.Vector) (r3.Vector, r3.Vector) {
 	return newMinPt, newMaxPt
 }
 
+// rotatedAABBExtents computes world-space AABB extents using Arvo's abs(R) * extents.
+func rotatedAABBExtents(rm *RotationMatrix, extents r3.Vector) r3.Vector {
+	return r3.Vector{
+		X: math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(0, 1))*extents.Y + math.Abs(rm.At(0, 2))*extents.Z,
+		Y: math.Abs(rm.At(1, 0))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(1, 2))*extents.Z,
+		Z: math.Abs(rm.At(2, 0))*extents.X + math.Abs(rm.At(2, 1))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z,
+	}
+}
+
+func aabbFromCenterExtents(center, extents r3.Vector) (r3.Vector, r3.Vector) {
+	return center.Sub(extents), center.Add(extents)
+}
+
 // computeSphereAABB computes the AABB for a sphere.
 func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
 	center := s.Pose().Point()
@@ -174,16 +187,9 @@ func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
 func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
 	rm := b.center.Orientation().RotationMatrix()
 	center := b.center.Point()
-	hx, hy, hz := b.halfSize[0], b.halfSize[1], b.halfSize[2]
-
-	// Arvo's OBB->AABB method: extents are abs(R) * halfSize.
-	ex := math.Abs(rm.At(0, 0))*hx + math.Abs(rm.At(0, 1))*hy + math.Abs(rm.At(0, 2))*hz
-	ey := math.Abs(rm.At(1, 0))*hx + math.Abs(rm.At(1, 1))*hy + math.Abs(rm.At(1, 2))*hz
-	ez := math.Abs(rm.At(2, 0))*hx + math.Abs(rm.At(2, 1))*hy + math.Abs(rm.At(2, 2))*hz
-
-	minPt := r3.Vector{X: center.X - ex, Y: center.Y - ey, Z: center.Z - ez}
-	maxPt := r3.Vector{X: center.X + ex, Y: center.Y + ey, Z: center.Z + ez}
-	return minPt, maxPt
+	halfSize := r3.Vector{X: b.halfSize[0], Y: b.halfSize[1], Z: b.halfSize[2]}
+	worldExtents := rotatedAABBExtents(rm, halfSize)
+	return aabbFromCenterExtents(center, worldExtents)
 }
 
 // computeCapsuleAABB computes the AABB for a capsule.
@@ -254,15 +260,8 @@ func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 	extents := maxPt.Sub(minPt).Mul(0.5)
 
 	worldCenter := TransformPoint(rm, trans, center)
-
-	// Arvo's OBB->AABB method: extents are abs(R) * localExtents.
-	ex := math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(0, 1))*extents.Y + math.Abs(rm.At(0, 2))*extents.Z
-	ey := math.Abs(rm.At(1, 0))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(1, 2))*extents.Z
-	ez := math.Abs(rm.At(2, 0))*extents.X + math.Abs(rm.At(2, 1))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z
-
-	newMin := r3.Vector{X: worldCenter.X - ex, Y: worldCenter.Y - ey, Z: worldCenter.Z - ez}
-	newMax := r3.Vector{X: worldCenter.X + ex, Y: worldCenter.Y + ey, Z: worldCenter.Z + ez}
-	return newMin, newMax
+	worldExtents := rotatedAABBExtents(rm, extents)
+	return aabbFromCenterExtents(worldCenter, worldExtents)
 }
 
 // bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
