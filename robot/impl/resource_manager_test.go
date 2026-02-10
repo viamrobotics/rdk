@@ -2052,7 +2052,16 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
 	manager.startModuleManager(
-		context.Background(), config.ParentSockAddrs{}, nil, false, "", "", robot.Logger(), t.TempDir(), grpc.NewModPeerConnTracker())
+		context.Background(),
+		config.ParentSockAddrs{},
+		func(_ context.Context, _ []resource.Name) {},
+		false,
+		"",
+		"",
+		robot.Logger(),
+		t.TempDir(),
+		grpc.NewModPeerConnTracker(),
+	)
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)
