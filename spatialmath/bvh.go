@@ -25,6 +25,34 @@ type bvhNode struct {
 // linear scans at leaves, large enough to avoid excessive tree overhead.
 const maxGeomsPerLeaf = 4
 
+type geometryCentroidSorter struct {
+	geoms     []Geometry
+	centroids []r3.Vector
+	axis      int
+}
+
+func (s geometryCentroidSorter) Len() int {
+	return len(s.geoms)
+}
+
+func (s geometryCentroidSorter) Less(i, j int) bool {
+	ci := s.centroids[i]
+	cj := s.centroids[j]
+	switch s.axis {
+	case 0:
+		return ci.X < cj.X
+	case 1:
+		return ci.Y < cj.Y
+	default:
+		return ci.Z < cj.Z
+	}
+}
+
+func (s geometryCentroidSorter) Swap(i, j int) {
+	s.geoms[i], s.geoms[j] = s.geoms[j], s.geoms[i]
+	s.centroids[i], s.centroids[j] = s.centroids[j], s.centroids[i]
+}
+
 // buildBVH constructs a BVH from a list of geometries.
 func buildBVH(geoms []Geometry) *bvhNode {
 	if len(geoms) == 0 {
@@ -54,19 +82,15 @@ func buildBVHNode(geoms []Geometry) *bvhNode {
 		axis = 2 // Z
 	}
 
-	// Sort geometries by centroid along the chosen axis
-	// For geometries, we use Pose().Point() as the centroid
-	sort.Slice(geoms, func(i, j int) bool {
-		ci := geoms[i].Pose().Point()
-		cj := geoms[j].Pose().Point()
-		switch axis {
-		case 0:
-			return ci.X < cj.X
-		case 1:
-			return ci.Y < cj.Y
-		default:
-			return ci.Z < cj.Z
-		}
+	// Precompute centroids so sort comparisons don't repeatedly allocate and compute orientation.
+	centroids := make([]r3.Vector, len(geoms))
+	for i, g := range geoms {
+		centroids[i] = geometryCentroid(g)
+	}
+	sort.Sort(geometryCentroidSorter{
+		geoms:     geoms,
+		centroids: centroids,
+		axis:      axis,
 	})
 
 	// Split at median
@@ -75,6 +99,13 @@ func buildBVHNode(geoms []Geometry) *bvhNode {
 	node.right = buildBVHNode(geoms[mid:])
 
 	return node
+}
+
+func geometryCentroid(g Geometry) r3.Vector {
+	if tri, ok := g.(*Triangle); ok {
+		return tri.Centroid()
+	}
+	return g.Pose().Point()
 }
 
 // computeGeometryAABB returns the axis-aligned bounding box for any Geometry.
@@ -109,6 +140,11 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 	}
 }
 
+// ComputeGeometryAABB returns the axis-aligned bounding box for any Geometry.
+func ComputeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
+	return computeGeometryAABB(g)
+}
+
 // computeTriangleAABB computes the AABB for a single triangle.
 func computeTriangleAABB(t *Triangle) (r3.Vector, r3.Vector) {
 	pts := t.Points()
@@ -140,29 +176,18 @@ func computeSphereAABB(s *sphere) (r3.Vector, r3.Vector) {
 		r3.Vector{X: center.X + r, Y: center.Y + r, Z: center.Z + r}
 }
 
-// computeBoxAABB computes the AABB for a rotated box.
-// Since the box may be rotated, we need to transform all 8 corners and find the bounds.
 func computeBoxAABB(b *box) (r3.Vector, r3.Vector) {
+	rm := b.center.Orientation().RotationMatrix()
+	center := b.center.Point()
 	hx, hy, hz := b.halfSize[0], b.halfSize[1], b.halfSize[2]
 
-	corners := []r3.Vector{
-		{X: -hx, Y: -hy, Z: -hz},
-		{X: -hx, Y: -hy, Z: hz},
-		{X: -hx, Y: hy, Z: -hz},
-		{X: -hx, Y: hy, Z: hz},
-		{X: hx, Y: -hy, Z: -hz},
-		{X: hx, Y: -hy, Z: hz},
-		{X: hx, Y: hy, Z: -hz},
-		{X: hx, Y: hy, Z: hz},
-	}
+	// Arvo's OBB->AABB method: extents are abs(R) * halfSize.
+	ex := math.Abs(rm.At(0, 0))*hx + math.Abs(rm.At(0, 1))*hy + math.Abs(rm.At(0, 2))*hz
+	ey := math.Abs(rm.At(1, 0))*hx + math.Abs(rm.At(1, 1))*hy + math.Abs(rm.At(1, 2))*hz
+	ez := math.Abs(rm.At(2, 0))*hx + math.Abs(rm.At(2, 1))*hy + math.Abs(rm.At(2, 2))*hz
 
-	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
-	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
-
-	for _, corner := range corners {
-		worldPt := Compose(b.center, NewPoseFromPoint(corner)).Point()
-		minPt, maxPt = expandAABB(minPt, maxPt, worldPt)
-	}
+	minPt := r3.Vector{X: center.X - ex, Y: center.Y - ey, Z: center.Z - ez}
+	maxPt := r3.Vector{X: center.X + ex, Y: center.Y + ey, Z: center.Z + ez}
 	return minPt, maxPt
 }
 
@@ -187,12 +212,13 @@ func computeCapsuleAABB(c *capsule) (r3.Vector, r3.Vector) {
 func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+	rm := m.pose.Orientation().RotationMatrix()
+	trans := m.pose.Point()
 
 	for _, tri := range m.triangles {
-		worldTri := tri.Transform(m.pose).(*Triangle)
-		for _, pt := range worldTri.Points() {
-			minPt, maxPt = expandAABB(minPt, maxPt, pt)
-		}
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p0))
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p1))
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p2))
 	}
 	return minPt, maxPt
 }
@@ -225,27 +251,22 @@ func aabbDistance(min1, max1, min2, max2 r3.Vector) float64 {
 	return math.Sqrt(dx*dx + dy*dy + dz*dz)
 }
 
-// transformAABB transforms an AABB by a pose, returning a new (potentially larger) AABB.
 func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
-	// Get the 8 corners of the AABB
-	corners := []r3.Vector{
-		{X: minPt.X, Y: minPt.Y, Z: minPt.Z},
-		{X: minPt.X, Y: minPt.Y, Z: maxPt.Z},
-		{X: minPt.X, Y: maxPt.Y, Z: minPt.Z},
-		{X: minPt.X, Y: maxPt.Y, Z: maxPt.Z},
-		{X: maxPt.X, Y: minPt.Y, Z: minPt.Z},
-		{X: maxPt.X, Y: minPt.Y, Z: maxPt.Z},
-		{X: maxPt.X, Y: maxPt.Y, Z: minPt.Z},
-		{X: maxPt.X, Y: maxPt.Y, Z: maxPt.Z},
-	}
+	rm := pose.Orientation().RotationMatrix()
+	trans := pose.Point()
 
-	newMin := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
-	newMax := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+	center := minPt.Add(maxPt).Mul(0.5)
+	extents := maxPt.Sub(minPt).Mul(0.5)
 
-	for _, corner := range corners {
-		worldPt := Compose(pose, NewPoseFromPoint(corner)).Point()
-		newMin, newMax = expandAABB(newMin, newMax, worldPt)
-	}
+	worldCenter := TransformPoint(rm, trans, center)
+
+	// Arvo's OBB->AABB method: extents are abs(R) * localExtents.
+	ex := math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(0, 1))*extents.Y + math.Abs(rm.At(0, 2))*extents.Z
+	ey := math.Abs(rm.At(1, 0))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(1, 2))*extents.Z
+	ez := math.Abs(rm.At(2, 0))*extents.X + math.Abs(rm.At(2, 1))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z
+
+	newMin := r3.Vector{X: worldCenter.X - ex, Y: worldCenter.Y - ey, Z: worldCenter.Z - ez}
+	newMax := r3.Vector{X: worldCenter.X + ex, Y: worldCenter.Y + ey, Z: worldCenter.Z + ez}
 	return newMin, newMax
 }
 
@@ -347,13 +368,18 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 // Geometries are stored in local space and transformed on-demand using the provided poses.
 func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
 	minDist := math.Inf(1)
+	worldGeoms1 := make([]Geometry, len(geoms1))
+	worldGeoms2 := make([]Geometry, len(geoms2))
 
-	for _, g1 := range geoms1 {
-		// Transform geometry to world space
-		worldG1 := g1.Transform(pose1)
-		for _, g2 := range geoms2 {
-			// Transform geometry to world space
-			worldG2 := g2.Transform(pose2)
+	for i, g := range geoms1 {
+		worldGeoms1[i] = g.Transform(pose1)
+	}
+	for i, g := range geoms2 {
+		worldGeoms2[i] = g.Transform(pose2)
+	}
+
+	for _, worldG1 := range worldGeoms1 {
+		for _, worldG2 := range worldGeoms2 {
 			// Use the Geometry interface's CollidesWith method
 			collides, dist, err := worldG1.CollidesWith(worldG2, collisionBufferMM)
 			if err != nil {
@@ -508,13 +534,18 @@ func bvhCollidesWithGeometry(
 // Geometries are stored in local space and transformed on-demand using the provided poses.
 func leafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose) (float64, error) {
 	minDist := math.Inf(1)
+	worldGeoms1 := make([]Geometry, len(geoms1))
+	worldGeoms2 := make([]Geometry, len(geoms2))
 
-	for _, g1 := range geoms1 {
-		// Transform geometry to world space
-		worldG1 := g1.Transform(pose1)
-		for _, g2 := range geoms2 {
-			// Transform geometry to world space
-			worldG2 := g2.Transform(pose2)
+	for i, g := range geoms1 {
+		worldGeoms1[i] = g.Transform(pose1)
+	}
+	for i, g := range geoms2 {
+		worldGeoms2[i] = g.Transform(pose2)
+	}
+
+	for _, worldG1 := range worldGeoms1 {
+		for _, worldG2 := range worldGeoms2 {
 			// Use the Geometry interface's DistanceFrom method
 			dist, err := worldG1.DistanceFrom(worldG2)
 			if err != nil {
