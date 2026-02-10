@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -558,7 +557,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	}
 
 	frameMap := make(map[string]Frame, 0)
-	for name, tF := range serFS.Frames {oo
+	for name, tF := range serFS.Frames {
 		frame, err := jsonToFrame(tF)
 		if err != nil {
 			return err
