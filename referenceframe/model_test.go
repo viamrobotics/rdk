@@ -211,6 +211,101 @@ func TestNewModel(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
+func TestHash(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1})
+	test.That(t, err, test.ShouldBeNil)
+	m1, err := NewModel("model_a", fs, lastFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Hash should be stable across calls
+	h1 := m1.Hash()
+	h2 := m1.Hash()
+	test.That(t, h1, test.ShouldEqual, h2)
+
+	// Different model name should produce a different hash
+	fs2, lastFrame2, err := NewSerialFrameSystem([]Frame{j1})
+	test.That(t, err, test.ShouldBeNil)
+	m2, err := NewModel("model_b", fs2, lastFrame2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, m1.Hash(), test.ShouldNotEqual, m2.Hash())
+}
+
+func TestNewModelWithLimitOverrides(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+	base, err := NewModel("test", fs, lastFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Override the limit of j1
+	newLimit := Limit{Min: -0.5, Max: 0.5}
+	overridden, err := NewModelWithLimitOverrides(base, map[string]Limit{"j1": newLimit})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The overridden model should reflect the new limit
+	test.That(t, overridden.DoF()[0], test.ShouldResemble, newLimit)
+	// j2 should be unchanged
+	test.That(t, overridden.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+	// Original model should be unchanged
+	test.That(t, base.DoF()[0], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+
+	// Override a nonexistent frame should error
+	_, err = NewModelWithLimitOverrides(base, map[string]Limit{"nonexistent": newLimit})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
+}
+
+func TestNewSerialFrameSystemDuplicateNames(t *testing.T) {
+	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The second frame should have been renamed to avoid collision
+	test.That(t, lastFrame, test.ShouldEqual, "joint_2")
+
+	// Both frames should be accessible in the frame system
+	test.That(t, fs.Frame("joint"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("joint_2"), test.ShouldNotBeNil)
+}
+
+func TestProtobufRoundtrip(t *testing.T) {
+	// Build a model with a rotational joint (degrees<->radians conversion) and a translational joint
+	rot, err := NewRotationalFrame("rot", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	trans, err := NewTranslationalFrame("trans", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, lastFrame, err := NewSerialFrameSystem([]Frame{rot, trans})
+	test.That(t, err, test.ShouldBeNil)
+	m, err := NewModel("test", fs, lastFrame)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Inputs in radians/mm
+	origInputs := []Input{math.Pi / 4, 50.0}
+
+	// Convert to protobuf (rotational value should become degrees)
+	jp := m.ProtobufFromInput(origInputs)
+	test.That(t, jp.Values[0], test.ShouldAlmostEqual, 45.0, 1e-10) // pi/4 = 45 degrees
+	test.That(t, jp.Values[1], test.ShouldAlmostEqual, 50.0, 1e-10) // translational stays the same
+
+	// Convert back from protobuf
+	roundtripped := m.InputFromProtobuf(jp)
+	test.That(t, len(roundtripped), test.ShouldEqual, 2)
+	test.That(t, roundtripped[0], test.ShouldAlmostEqual, origInputs[0], 1e-10)
+	test.That(t, roundtripped[1], test.ShouldAlmostEqual, origInputs[1], 1e-10)
+}
+
 func TestExtractMeshMapFromModelConfig(t *testing.T) {
 	// Use dummy bytes for testing - no need to load actual files
 	stlBytes := []byte("fake stl data")

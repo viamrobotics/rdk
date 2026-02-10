@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -135,7 +136,7 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 		primaryOutputFrame: primaryOutputFrame,
 	}
 
-	zeroInputs := NewZeroLinearInputs(fs)
+	zeroInputs := newZeroLinearInputsTopological(fs)
 	schema, err := zeroInputs.GetSchema(fs)
 	if err != nil {
 		return nil, err
@@ -144,6 +145,46 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	m.limits = schema.GetLimits()
 
 	return m, nil
+}
+
+// newZeroLinearInputsTopological builds a zero-valued LinearInputs by walking the FrameSystem
+// in BFS order from world. This gives a deterministic parent-before-child ordering,
+// unlike NewZeroLinearInputs which iterates over the FrameSystem's internal map.
+func newZeroLinearInputsTopological(fs *FrameSystem) *LinearInputs {
+	positions := NewLinearInputs()
+
+	// Build children lookup from the parents map.
+	childrenOf := map[string][]string{}
+	for _, name := range fs.FrameNames() {
+		parent, err := fs.Parent(fs.Frame(name))
+		if err != nil || parent == nil {
+			continue
+		}
+		childrenOf[parent.Name()] = append(childrenOf[parent.Name()], name)
+	}
+
+	// Sort children at each level for determinism within siblings.
+	for k := range childrenOf {
+		sort.Strings(childrenOf[k])
+	}
+
+	// BFS from world.
+	queue := []string{World}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+
+		if cur != World {
+			frame := fs.Frame(cur)
+			if frame != nil {
+				positions.Put(cur, make([]Input, len(frame.DoF())))
+			}
+		}
+
+		queue = append(queue, childrenOf[cur]...)
+	}
+
+	return positions
 }
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
