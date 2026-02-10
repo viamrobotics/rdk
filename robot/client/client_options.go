@@ -42,6 +42,10 @@ type robotClientOpts struct {
 	initialConnectionAttempts *int
 
 	modName string
+
+	// doNotWaitForRunning allows connecting to a still-initializing machine
+	// without waiting for it to reach the running state. Only useful in tests.
+	doNotWaitForRunning bool
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -124,6 +128,15 @@ func WithDisableSessions() RobotClientOption {
 func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.dialOptions = opts
+	})
+}
+
+// WithDoNotWaitForRunning returns a RobotClientOption that allows connecting to a
+// still-initializing machine without waiting for it to reach the running state.
+// Only useful in tests.
+func WithDoNotWaitForRunning() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.doNotWaitForRunning = true
 	})
 }
 
