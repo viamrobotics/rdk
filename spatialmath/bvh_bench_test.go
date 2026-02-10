@@ -98,27 +98,6 @@ func benchmarkLegacyLeafDistanceFromLeaf(geoms1, geoms2 []Geometry, pose1, pose2
 	return minDist, nil
 }
 
-func benchmarkLegacyLeafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
-	minDist := math.Inf(1)
-	for _, g1 := range geoms1 {
-		worldG1 := g1.Transform(pose1)
-		for _, g2 := range geoms2 {
-			worldG2 := g2.Transform(pose2)
-			collides, dist, err := worldG1.CollidesWith(worldG2, collisionBufferMM)
-			if err != nil {
-				return false, 0, err
-			}
-			if collides {
-				return true, -1, nil
-			}
-			if dist < minDist {
-				minDist = dist
-			}
-		}
-	}
-	return false, minDist, nil
-}
-
 func benchmarkBuildBVHLegacy(geoms []Geometry) *bvhNode {
 	if len(geoms) == 0 {
 		return nil
@@ -160,146 +139,6 @@ func benchmarkBuildBVHLegacyNode(geoms []Geometry) *bvhNode {
 	node.left = benchmarkBuildBVHLegacyNode(geoms[:mid])
 	node.right = benchmarkBuildBVHLegacyNode(geoms[mid:])
 	return node
-}
-
-func benchmarkBvhCollidesWithBVHLegacyLeaves(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
-	if node1 == nil || node2 == nil {
-		return false, math.Inf(1), nil
-	}
-
-	min1, max1 := transformAABB(node1.min, node1.max, pose1)
-	min2, max2 := transformAABB(node2.min, node2.max, pose2)
-
-	min1.X -= collisionBufferMM
-	min1.Y -= collisionBufferMM
-	min1.Z -= collisionBufferMM
-	max1.X += collisionBufferMM
-	max1.Y += collisionBufferMM
-	max1.Z += collisionBufferMM
-
-	if !aabbOverlap(min1, max1, min2, max2) {
-		return false, aabbDistance(min1, max1, min2, max2), nil
-	}
-
-	if node1.geoms != nil && node2.geoms != nil {
-		return benchmarkLegacyLeafCollidesWithLeaf(node1.geoms, node2.geoms, pose1, pose2, collisionBufferMM)
-	}
-
-	if node1.geoms != nil {
-		leftCollide, leftDist, err := benchmarkBvhCollidesWithBVHLegacyLeaves(node1, node2.left, pose1, pose2, collisionBufferMM)
-		if err != nil {
-			return false, 0, err
-		}
-		if leftCollide {
-			return true, leftDist, nil
-		}
-		rightCollide, rightDist, err := benchmarkBvhCollidesWithBVHLegacyLeaves(node1, node2.right, pose1, pose2, collisionBufferMM)
-		if err != nil {
-			return false, 0, err
-		}
-		if rightCollide {
-			return true, rightDist, nil
-		}
-		return false, math.Min(leftDist, rightDist), nil
-	}
-
-	if node2.geoms != nil {
-		leftCollide, leftDist, err := benchmarkBvhCollidesWithBVHLegacyLeaves(node1.left, node2, pose1, pose2, collisionBufferMM)
-		if err != nil {
-			return false, 0, err
-		}
-		if leftCollide {
-			return true, leftDist, nil
-		}
-		rightCollide, rightDist, err := benchmarkBvhCollidesWithBVHLegacyLeaves(node1.right, node2, pose1, pose2, collisionBufferMM)
-		if err != nil {
-			return false, 0, err
-		}
-		if rightCollide {
-			return true, rightDist, nil
-		}
-		return false, math.Min(leftDist, rightDist), nil
-	}
-
-	minDist := math.Inf(1)
-	pairs := [][2]*bvhNode{
-		{node1.left, node2.left},
-		{node1.left, node2.right},
-		{node1.right, node2.left},
-		{node1.right, node2.right},
-	}
-
-	for _, pair := range pairs {
-		collide, dist, err := benchmarkBvhCollidesWithBVHLegacyLeaves(pair[0], pair[1], pose1, pose2, collisionBufferMM)
-		if err != nil {
-			return false, 0, err
-		}
-		if collide {
-			return true, dist, nil
-		}
-		if dist < minDist {
-			minDist = dist
-		}
-	}
-	return false, minDist, nil
-}
-
-func benchmarkBvhDistanceFromBVHLegacyLeaves(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, error) {
-	if node1 == nil || node2 == nil {
-		return math.Inf(1), nil
-	}
-
-	min1, max1 := transformAABB(node1.min, node1.max, pose1)
-	min2, max2 := transformAABB(node2.min, node2.max, pose2)
-	if !aabbOverlap(min1, max1, min2, max2) {
-		return aabbDistance(min1, max1, min2, max2), nil
-	}
-
-	if node1.geoms != nil && node2.geoms != nil {
-		return benchmarkLegacyLeafDistanceFromLeaf(node1.geoms, node2.geoms, pose1, pose2)
-	}
-
-	if node1.geoms != nil {
-		leftDist, err := benchmarkBvhDistanceFromBVHLegacyLeaves(node1, node2.left, pose1, pose2)
-		if err != nil {
-			return 0, err
-		}
-		rightDist, err := benchmarkBvhDistanceFromBVHLegacyLeaves(node1, node2.right, pose1, pose2)
-		if err != nil {
-			return 0, err
-		}
-		return math.Min(leftDist, rightDist), nil
-	}
-
-	if node2.geoms != nil {
-		leftDist, err := benchmarkBvhDistanceFromBVHLegacyLeaves(node1.left, node2, pose1, pose2)
-		if err != nil {
-			return 0, err
-		}
-		rightDist, err := benchmarkBvhDistanceFromBVHLegacyLeaves(node1.right, node2, pose1, pose2)
-		if err != nil {
-			return 0, err
-		}
-		return math.Min(leftDist, rightDist), nil
-	}
-
-	minDist := math.Inf(1)
-	pairs := [][2]*bvhNode{
-		{node1.left, node2.left},
-		{node1.left, node2.right},
-		{node1.right, node2.left},
-		{node1.right, node2.right},
-	}
-	for _, pair := range pairs {
-		dist, err := benchmarkBvhDistanceFromBVHLegacyLeaves(pair[0], pair[1], pose1, pose2)
-		if err != nil {
-			return 0, err
-		}
-		if dist < minDist {
-			minDist = dist
-		}
-	}
-	return minDist, nil
 }
 
 func BenchmarkTriangleCentroidExtraction(b *testing.B) {
@@ -485,30 +324,9 @@ func BenchmarkBVHVsBVHQuery(b *testing.B) {
 		}
 	})
 
-	b.Run("collides_legacy_leaf_loop_overlap", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			collides, d, err := benchmarkBvhCollidesWithBVHLegacyLeaves(node1, node2, identity, identity, 0)
-			if err != nil {
-				b.Fatal(err)
-			}
-			benchmarkBoolSink = collides
-			benchmarkFloatSink = d
-		}
-	})
-
 	b.Run("distance_current_overlap", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			d, err := bvhDistanceFromBVH(node1, node2, identity, identity)
-			if err != nil {
-				b.Fatal(err)
-			}
-			benchmarkFloatSink = d
-		}
-	})
-
-	b.Run("distance_legacy_leaf_loop_overlap", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			d, err := benchmarkBvhDistanceFromBVHLegacyLeaves(node1, node2, identity, identity)
 			if err != nil {
 				b.Fatal(err)
 			}
