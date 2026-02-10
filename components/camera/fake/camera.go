@@ -61,9 +61,6 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
-	if newConf.Fail {
-		return nil, errors.New("failing now!!!")
-	}
 	_, _, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
