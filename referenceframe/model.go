@@ -147,65 +147,28 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	return m, nil
 }
 
-// newZeroLinearInputsTopological builds a zero-valued LinearInputs by walking the FrameSystem
-// in BFS order from world. This gives a deterministic parent-before-child ordering,
-// unlike NewZeroLinearInputs which iterates over the FrameSystem's internal map.
-func newZeroLinearInputsTopological(fs *FrameSystem) *LinearInputs {
-	positions := NewLinearInputs()
-
-	// Build children lookup from the parents map.
-	childrenOf := map[string][]string{}
-	for _, name := range fs.FrameNames() {
-		parent, err := fs.Parent(fs.Frame(name))
-		if err != nil || parent == nil {
-			continue
-		}
-		childrenOf[parent.Name()] = append(childrenOf[parent.Name()], name)
-	}
-
-	// Sort children at each level for determinism within siblings.
-	for k := range childrenOf {
-		sort.Strings(childrenOf[k])
-	}
-
-	// BFS from world.
-	queue := []string{World}
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-
-		if cur != World {
-			frame := fs.Frame(cur)
-			if frame != nil {
-				positions.Put(cur, make([]Input, len(frame.DoF())))
-			}
-		}
-
-		queue = append(queue, childrenOf[cur]...)
-	}
-
-	return positions
-}
-
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
 // joint limits overridden. Overrides are keyed by frame name. Each override replaces the
 // first DoF limit of the matching frame.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
-	cloned, err := Clone(base)
+	newFS, err := cloneFrameSystem(base.internalFS)
 	if err != nil {
 		return nil, err
 	}
-	m := cloned.(*SimpleModel)
 
 	for name, limit := range overrides {
-		frame := m.internalFS.Frame(name)
+		frame := newFS.Frame(name)
 		if frame == nil || len(frame.DoF()) == 0 {
 			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
 		}
 		frame.DoF()[0] = limit
 	}
 
-	m.limits = m.inputSchema.GetLimits()
+	m, err := NewModel(base.name, newFS, base.primaryOutputFrame)
+	if err != nil {
+		return nil, err
+	}
+	m.modelConfig = base.modelConfig
 	return m, nil
 }
 
@@ -291,6 +254,7 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 // Hash returns a hash value for this simple model.
 func (m *SimpleModel) Hash() int {
 	h := m.hash()
+	h += hashString(m.name)
 	for _, f := range m.framesInOrder() {
 		h += f.Hash()
 	}

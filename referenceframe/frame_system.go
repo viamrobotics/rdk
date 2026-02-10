@@ -875,6 +875,69 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 	return topoSortedParts, unlinkedParts
 }
 
+// bfsFrameNames returns frame names in BFS order from world. Children at each level are
+// sorted alphabetically for determinism.
+func bfsFrameNames(fs *FrameSystem) []string {
+	childrenOf := map[string][]string{}
+	for _, name := range fs.FrameNames() {
+		parent, err := fs.Parent(fs.Frame(name))
+		if err != nil || parent == nil {
+			continue
+		}
+		childrenOf[parent.Name()] = append(childrenOf[parent.Name()], name)
+	}
+	for k := range childrenOf {
+		sort.Strings(childrenOf[k])
+	}
+
+	var result []string
+	queue := []string{World}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur != World {
+			result = append(result, cur)
+		}
+		queue = append(queue, childrenOf[cur]...)
+	}
+	return result
+}
+
+// newZeroLinearInputsTopological builds a zero-valued LinearInputs by walking the FrameSystem
+// in BFS order from world. This gives a deterministic parent-before-child ordering,
+// unlike NewZeroLinearInputs which iterates over the FrameSystem's internal map.
+func newZeroLinearInputsTopological(fs *FrameSystem) *LinearInputs {
+	positions := NewLinearInputs()
+	for _, name := range bfsFrameNames(fs) {
+		frame := fs.Frame(name)
+		if frame != nil {
+			positions.Put(name, make([]Input, len(frame.DoF())))
+		}
+	}
+	return positions
+}
+
+// cloneFrameSystem creates a deep copy of a FrameSystem by cloning each frame individually
+// and rebuilding the parent-child relationships.
+func cloneFrameSystem(fs *FrameSystem) (*FrameSystem, error) {
+	newFS := NewEmptyFrameSystem(fs.name)
+	for _, name := range bfsFrameNames(fs) {
+		frame := fs.Frame(name)
+		clonedFrame, err := Clone(frame)
+		if err != nil {
+			return nil, fmt.Errorf("cloning frame %q: %w", name, err)
+		}
+		parent, err := fs.Parent(frame)
+		if err != nil {
+			return nil, err
+		}
+		if err := newFS.AddFrame(clonedFrame, newFS.Frame(parent.Name())); err != nil {
+			return nil, err
+		}
+	}
+	return newFS, nil
+}
+
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
 	if fs1 == nil {
 		return fs2 == nil, nil
