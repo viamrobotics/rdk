@@ -262,7 +262,6 @@ func TestLineFollow(t *testing.T) {
 }
 
 func TestCollisionConstraints(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	zeroPos := []referenceframe.Input{0, 0, 0, 0, 0, 0}
 	cases := []struct {
@@ -533,8 +532,6 @@ func TestCollisionDistance(t *testing.T) {
 }
 
 func BenchmarkCollisionConstraints(b *testing.B) {
-	logger := logging.NewTestLogger(b)
-
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(b, err, test.ShouldBeNil)
