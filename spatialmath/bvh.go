@@ -140,11 +140,6 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 	}
 }
 
-// ComputeGeometryAABB returns the axis-aligned bounding box for any Geometry.
-func ComputeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
-	return computeGeometryAABB(g)
-}
-
 // computeTriangleAABB computes the AABB for a single triangle.
 func computeTriangleAABB(t *Triangle) (r3.Vector, r3.Vector) {
 	pts := t.Points()
