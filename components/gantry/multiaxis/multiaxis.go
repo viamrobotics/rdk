@@ -100,11 +100,7 @@ func newMultiAxis(
 		}
 		frames = append(frames, k)
 	}
-	fs, lastFrame, err := referenceframe.NewSerialFrameSystem(frames)
-	if err != nil {
-		return nil, err
-	}
-	mAx.model, err = referenceframe.NewModel(mAx.Name().Name, fs, lastFrame)
+	mAx.model, err = referenceframe.NewSerialModel(mAx.Name().Name, frames)
 	if err != nil {
 		return nil, err
 	}

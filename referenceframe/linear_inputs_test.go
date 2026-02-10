@@ -69,11 +69,9 @@ func TestLinearInputsLimits(t *testing.T) {
 	elbowArmFrame, err := NewRotationalFrame("elbow", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
 	test.That(t, err, test.ShouldBeNil)
 	handArmFrame := NewZeroStaticFrame("hand")
-	armFS, lastArmFrame, err := NewSerialFrameSystem([]Frame{
+	armFrame, err := NewSerialModel("arm", []Frame{
 		baseArmFrame, shoulderArmFrame, upperArmFrame, elbowArmFrame, handArmFrame,
 	})
-	test.That(t, err, test.ShouldBeNil)
-	armFrame, err := NewModel("arm", armFS, lastArmFrame)
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(armFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)

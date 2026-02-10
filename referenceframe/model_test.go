@@ -65,9 +65,7 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{frame1, frame2, frame3})
-	test.That(t, err, test.ShouldBeNil)
-	m, err := NewModel("test", fs, lastFrame)
+	m, err := NewSerialModel("test", []Frame{frame1, frame2, frame3})
 	test.That(t, err, test.ShouldBeNil)
 
 	// test zero pose of model
@@ -195,9 +193,7 @@ func TestNewModel(t *testing.T) {
 	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{x, y})
-	test.That(t, err, test.ShouldBeNil)
-	model, err := NewModel("gantry", fs, lastFrame)
+	model, err := NewSerialModel("gantry", []Frame{x, y})
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
@@ -207,7 +203,9 @@ func TestNewModel(t *testing.T) {
 	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// Invalid primary output frame should error
-	_, err = NewModel("bad", fs, "nonexistent")
+	badFS, _, err := NewSerialFrameSystem([]Frame{x, y})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = NewModel("bad", badFS, "nonexistent")
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -215,9 +213,7 @@ func TestHash(t *testing.T) {
 	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1})
-	test.That(t, err, test.ShouldBeNil)
-	m1, err := NewModel("model_a", fs, lastFrame)
+	m1, err := NewSerialModel("model_a", []Frame{j1})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Hash should be stable across calls
@@ -226,9 +222,7 @@ func TestHash(t *testing.T) {
 	test.That(t, h1, test.ShouldEqual, h2)
 
 	// Different model name should produce a different hash
-	fs2, lastFrame2, err := NewSerialFrameSystem([]Frame{j1})
-	test.That(t, err, test.ShouldBeNil)
-	m2, err := NewModel("model_b", fs2, lastFrame2)
+	m2, err := NewSerialModel("model_b", []Frame{j1})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m1.Hash(), test.ShouldNotEqual, m2.Hash())
 }
@@ -239,9 +233,7 @@ func TestNewModelWithLimitOverrides(t *testing.T) {
 	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
-	test.That(t, err, test.ShouldBeNil)
-	base, err := NewModel("test", fs, lastFrame)
+	base, err := NewSerialModel("test", []Frame{j1, j2})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Override the limit of j1
@@ -286,9 +278,7 @@ func TestProtobufRoundtrip(t *testing.T) {
 	trans, err := NewTranslationalFrame("trans", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{rot, trans})
-	test.That(t, err, test.ShouldBeNil)
-	m, err := NewModel("test", fs, lastFrame)
+	m, err := NewSerialModel("test", []Frame{rot, trans})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Inputs in radians/mm

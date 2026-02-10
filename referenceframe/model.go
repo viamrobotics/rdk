@@ -135,7 +135,13 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 		primaryOutputFrame: primaryOutputFrame,
 	}
 
-	zeroInputs := newZeroLinearInputsTopological(fs)
+	zeroInputs := NewLinearInputs()
+	for _, name := range bfsFrameNames(fs) {
+		frame := fs.Frame(name)
+		if frame != nil {
+			zeroInputs.Put(name, make([]Input, len(frame.DoF())))
+		}
+	}
 	schema, err := zeroInputs.GetSchema(fs)
 	if err != nil {
 		return nil, err
@@ -144,6 +150,16 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	m.limits = schema.GetLimits()
 
 	return m, nil
+}
+
+// NewSerialModel is a convenience constructor that builds a Model from a serial chain of frames.
+// It combines NewSerialFrameSystem and NewModel into a single call.
+func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
+	fs, lastFrame, err := NewSerialFrameSystem(frames)
+	if err != nil {
+		return nil, err
+	}
+	return NewModel(name, fs, lastFrame)
 }
 
 // NewModelWithLimitOverrides constructs a new model identical to base but with the specified
@@ -432,11 +448,7 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		frames = []Frame{x, y, geometry}
 	}
 
-	fs, lastFrame, err := NewSerialFrameSystem(frames)
-	if err != nil {
-		return nil, err
-	}
-	return NewModel(name, fs, lastFrame)
+	return NewSerialModel(name, frames)
 }
 
 // ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after

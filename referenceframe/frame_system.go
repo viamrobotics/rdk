@@ -903,20 +903,6 @@ func bfsFrameNames(fs *FrameSystem) []string {
 	return result
 }
 
-// newZeroLinearInputsTopological builds a zero-valued LinearInputs by walking the FrameSystem
-// in BFS order from world. This gives a deterministic parent-before-child ordering,
-// unlike NewZeroLinearInputs which iterates over the FrameSystem's internal map.
-func newZeroLinearInputsTopological(fs *FrameSystem) *LinearInputs {
-	positions := NewLinearInputs()
-	for _, name := range bfsFrameNames(fs) {
-		frame := fs.Frame(name)
-		if frame != nil {
-			positions.Put(name, make([]Input, len(frame.DoF())))
-		}
-	}
-	return positions
-}
-
 // cloneFrameSystem creates a deep copy of a FrameSystem by cloning each frame individually
 // and rebuilding the parent-child relationships.
 func cloneFrameSystem(fs *FrameSystem) (*FrameSystem, error) {
