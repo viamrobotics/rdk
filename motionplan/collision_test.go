@@ -6,7 +6,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -70,7 +69,6 @@ func TestCollisionListsEqual(t *testing.T) {
 }
 
 func TestCheckCollisions(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	// case 1: small collection of custom geometries, expecting:
 	//      - collisions reported between robot and obstacles
 	//      - no collision between two obstacle geometries or robot geometries
@@ -92,7 +90,7 @@ func TestCheckCollisions(t *testing.T) {
 	obstacles = append(obstacles, bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{6, 6, 6})))
 	obstacles[2].SetLabel("obstacleCube666")
 
-	collisions, _, err := CheckCollisions(robot, obstacles, nil, defaultCollisionBufferMM, true, logger)
+	collisions, _, err := CheckCollisions(robot, obstacles, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"robotCube333", "obstacleCube444"},
@@ -108,14 +106,12 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, gf, test.ShouldNotBeNil)
 
 	selfGeoms := gf.Geometries()
-	collisions, _, err = CheckCollisions(selfGeoms, selfGeoms, nil, defaultCollisionBufferMM, true, logger)
+	collisions, _, err = CheckCollisions(selfGeoms, selfGeoms, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 5)
 }
 
 func TestUniqueCollisions(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
 	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -125,7 +121,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
 	zeroGeoms := internalGeometries.Geometries()
-	zeroPositionCollisions, _, err := CheckCollisions(zeroGeoms, zeroGeoms, nil, defaultCollisionBufferMM, true, logger)
+	zeroPositionCollisions, _, err := CheckCollisions(zeroGeoms, zeroGeoms, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
@@ -134,7 +130,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
 	geoms := internalGeometries.Geometries()
-	collisions, _, err := CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, false, logger)
+	collisions, _, err := CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
 
@@ -144,7 +140,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 
 	geoms = internalGeometries.Geometries()
-	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true, logger)
+	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	expectedCollisions := []Collision{
 		{"xArm6:base_top", "xArm6:gripper_mount"},
@@ -156,7 +152,7 @@ func TestUniqueCollisions(t *testing.T) {
 	// case 3: add a collision specification that the last element of expectedCollisions should be ignored
 	zeroPositionCollisions = append(zeroPositionCollisions, expectedCollisions[len(expectedCollisions)-1])
 
-	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true, logger)
+	collisions, _, err = CheckCollisions(geoms, geoms, zeroPositionCollisions, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
@@ -196,8 +192,6 @@ func TestCollisionMapErrors(t *testing.T) {
 }
 
 func TestCollisionMinDistance(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -208,7 +202,7 @@ func TestCollisionMinDistance(t *testing.T) {
 	geom2.SetLabel("box2")
 
 	collisions, minDist, err := CheckCollisions(
-		[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, true, logger,
+		[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, true,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 0)
@@ -216,7 +210,6 @@ func TestCollisionMinDistance(t *testing.T) {
 }
 
 func TestCollisionEarlyExit(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -231,12 +224,12 @@ func TestCollisionEarlyExit(t *testing.T) {
 	geoms := []spatial.Geometry{geom1, geom2, geom3}
 
 	// With collectAllCollisions=false, should return first collision only
-	collisions, _, err := CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, false, logger)
+	collisions, _, err := CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldEqual, 1)
 
 	// With collectAllCollisions=true, should return all collisions
-	collisions, _, err = CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, true, logger)
+	collisions, _, err = CheckCollisions(geoms, geoms, nil, defaultCollisionBufferMM, true)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(collisions), test.ShouldBeGreaterThan, 1)
 }

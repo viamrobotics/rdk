@@ -5,7 +5,6 @@ import (
 	"math"
 	"strconv"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -118,7 +117,6 @@ func CheckCollisions(
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
-	logger logging.Logger,
 ) ([]Collision, float64, error) {
 	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
@@ -157,11 +155,12 @@ func CheckCollisions(
 
 			if isCollision {
 				// If there's a collision, add it to the return slice. And optionally early-return.
-				if xName > yName {
+				n1, n2 := xName, yName
+				if n1 > n2 {
 					// Deterministically order collisions to prevent noisy errors
-					xName, yName = yName, xName
+					n1, n2 = n2, n1
 				}
-				collisions = append(collisions, Collision{name1: xName, name2: yName})
+				collisions = append(collisions, Collision{name1: n1, name2: n2})
 				if !collectAllCollisions {
 					return collisions, distance, nil
 				}

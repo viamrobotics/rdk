@@ -456,7 +456,7 @@ func NewCollisionConstraintFS(
 	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
-		collisionSpecifications, collisionBufferMM, logger)
+		collisionSpecifications, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
@@ -492,7 +492,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := CheckCollisions(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, logger)
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
 		if err != nil {
 			return -1, err
 		}
@@ -513,11 +513,10 @@ func computeInitialCollisionsToIgnore(
 	group1, group2 []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
-	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
+		group1, group2, collisionSpecifications, collisionBufferMM, true)
 	if err != nil {
 		return nil, err
 	}
