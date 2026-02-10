@@ -117,8 +117,12 @@ type SimpleModel struct {
 
 // NewSimpleModel constructs a new empty model with no kinematics.
 func NewSimpleModel(name string) *SimpleModel {
+	fs := NewEmptyFrameSystem(name)
 	return &SimpleModel{
-		baseFrame: baseFrame{name: name},
+		baseFrame:          baseFrame{name: name},
+		internalFS:         fs,
+		primaryOutputFrame: fs.World().Name(),
+		inputSchema:        &LinearInputsSchema{},
 	}
 }
 
