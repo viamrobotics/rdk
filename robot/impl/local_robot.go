@@ -914,7 +914,13 @@ func (r *localRobot) newResource(
 	return res, nil
 }
 
+// updateWeakAndOptionalDependents will return early if no resource has been updated since the last
+// time we updated weak and optional dependents, otherwise it will reconfigure every resource that
+// has weak or optional dependents, regardless of whether anything has changed.
 func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
+	if r.lastWeakAndOptionalDependentsRound.Load() >= r.manager.resources.CurrLogicalClockValue() {
+		return
+	}
 	// Track the current value of the resource graph's logical clock. This will later be
 	// used to determine if updateWeakAndOptionalDependents should be called during
 	// completeConfig.

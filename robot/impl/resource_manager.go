@@ -725,9 +725,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakAndOptionalDependents(ctx)
-			}
+			lr.updateWeakAndOptionalDependents(ctx)
+			break
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
