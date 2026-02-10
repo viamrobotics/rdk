@@ -556,6 +556,9 @@ func (server *Server) removeMissingStreams() {
 
 		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
+			// Cameras can go through transient states during reconfigure that don't necessarily
+			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
+			// have the right set of exceptions here, we log the error and ignore.
 			if err != nil {
 				// only log at WARN for new/changed errors, DEBUG for repeats.
 				errStr := err.Error()
