@@ -564,12 +564,6 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	// info-level logging.
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 
-	// TEMPORARY: wrap the module binary in a script that delays startup by 15 seconds
-	// to simulate CI load and reliably reproduce the DoNotWaitForRunning race.
-	wrapperPath := filepath.Join(t.TempDir(), "slow_module.sh")
-	err := os.WriteFile(wrapperPath, []byte("#!/bin/bash\nsleep 15\nexec "+testModulePath+" \"$@\"\n"), 0o755)
-	test.That(t, err, test.ShouldBeNil)
-
 	helperModel := resource.NewModel("rdk", "test", "helper")
 	machineAddress := "127.0.0.1:23659"
 
@@ -577,7 +571,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 		Modules: []config.Module{
 			{
 				Name:    "testModule",
-				ExePath: wrapperPath,
+				ExePath: testModulePath,
 			},
 		},
 		Components: []resource.Config{
@@ -606,10 +600,6 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 		args := []string{"viam-server", "-config", cfgFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
-
-	// // TEMPORARY: simulate the race where another parallel test's client skips waiting for running.
-	// client.DoNotWaitForRunning.Store(true)
-	// defer client.DoNotWaitForRunning.Store(false)
 
 	// Create an SDK client to the server that was started on 127.0.0.1:23659.
 	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
