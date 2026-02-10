@@ -479,7 +479,6 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		Dual: quat.Number{},
 	}
 
-	var oobErr error
 	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
 		var pose spatial.Pose
@@ -499,11 +498,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 
 			pose, err = frame.Transform(frameInputs)
 			if err != nil {
-				if strings.Contains(err.Error(), OOBErrString) {
-					oobErr = err
-				} else {
-					return ret, err
-				}
+				return ret, err
 			}
 		}
 
@@ -511,7 +506,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
 
-	return ret, oobErr
+	return ret, nil
 }
 
 // MarshalJSON serializes a FrameSystem into JSON format.
@@ -563,7 +558,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	}
 
 	frameMap := make(map[string]Frame, 0)
-	for name, tF := range serFS.Frames {
+	for name, tF := range serFS.Frames {oo
 		frame, err := jsonToFrame(tF)
 		if err != nil {
 			return err
