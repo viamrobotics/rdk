@@ -988,13 +988,12 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		if runtime.GOOS == osWindows {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "go mod tidy",
-				Build: "go build -tags no_cgo -o bin\\" + module.ModuleName +
-					".exe cmd/module/main.go && tar czf module.tar.gz meta.json bin\\" +
-					module.ModuleName + ".exe",
+				Build: "go build -tags no_cgo -o bin/" + module.ModuleName +
+					" cmd/module/main.go && tar czf module.tar.gz meta.json bin/" +
+					module.ModuleName,
 				Path: "module.tar.gz",
 				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 			}
-			manifest.Entrypoint = fmt.Sprintf("bin\\%s.exe", module.ModuleName)
 		} else {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "make setup",
@@ -1002,8 +1001,8 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 				Path:  "module.tar.gz",
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 			}
-			manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
