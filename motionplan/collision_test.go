@@ -22,7 +22,7 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 	used := make([]bool, len(cs1))
 	for _, c1 := range cs1 {
 		for i, c2 := range cs2 {
-			if collisionsAlmostEqual(c1, c2) {
+			if collisionsEqual(c1, c2) {
 				used[i] = true
 				break
 			}
@@ -50,7 +50,7 @@ func TestCollisionsEqual(t *testing.T) {
 		{Collision{name1: "c", name2: "a"}, false},
 	}
 	for _, c := range cases {
-		test.That(t, c.success == collisionsAlmostEqual(expected, c.collision), test.ShouldBeTrue)
+		test.That(t, c.success == collisionsEqual(expected, c.collision), test.ShouldBeTrue)
 	}
 }
 
