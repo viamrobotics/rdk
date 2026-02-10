@@ -16,8 +16,8 @@ type Collision struct {
 	name1, name2 string
 }
 
-// collisionsAlmostEqual compares two Collisions and returns if they are equal (names can be in either order).
-func collisionsAlmostEqual(c1, c2 Collision) bool {
+// collisionsEqual compares two Collisions and returns if they are equal (names can be in either order).
+func collisionsEqual(c1, c2 Collision) bool {
 	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 }
 
