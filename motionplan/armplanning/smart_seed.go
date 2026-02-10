@@ -404,7 +404,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, err
 	}
 
-	logger.Infof("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
+	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
@@ -506,7 +506,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	goalPoint := goalPose.Point()
 	n := goalPoint.Norm()
-	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
+	logger.Debugf("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
 		frameName, goalPose, logging.FloatArrayFormat{"", start}, n, ssc.rawCache[frameName].maxNorm)
 
 	if n > ssc.rawCache[frameName].maxNorm {
@@ -524,7 +524,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
 
-	logger.Infof("startDistance: %v num boxes: %d", startDistance, len(boxes))
+	logger.Debugf("startDistance: %v num boxes: %d", startDistance, len(boxes))
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
@@ -558,7 +558,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Infof("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
+	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
 
 	best = best[0:cutIdx]
 
@@ -576,7 +576,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Infof("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
+	logger.Debugf("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
 
 	best = best[0:cutIdx]
 
