@@ -110,7 +110,7 @@ type localRobot struct {
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
-	triggerConfig              chan struct{}
+	triggerConfig              chan string
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 	shutdownCallback           func()
@@ -368,7 +368,7 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	select {
 	case <-r.closeContext.Done():
 		return
-	case r.triggerConfig <- struct{}{}:
+	case r.triggerConfig <- caller:
 	default:
 		r.Logger().CDebugw(
 			r.closeContext,
@@ -409,9 +409,8 @@ func (r *localRobot) completeConfigWorker() {
 			return
 		case <-r.configTicker.C:
 			trigger = "ticker"
-		case <-r.triggerConfig:
-			trigger = "remote"
-			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		case trigger = <-r.triggerConfig:
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by caller", "trigger", trigger)
 		}
 		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {
@@ -494,7 +493,7 @@ func newWithResources(
 		cancelBackgroundWorkers: cancel,
 		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
 		// (as long as there is 1 queued, further messages can be safely discarded).
-		triggerConfig:              make(chan struct{}, 1),
+		triggerConfig:              make(chan string, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
@@ -681,6 +680,7 @@ func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	// crashed and thus do not need to be closed.
 	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
+	r.sendTriggerConfig("module crash/restart handler")
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
