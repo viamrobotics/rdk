@@ -79,7 +79,7 @@ require (
 	github.com/spf13/cast v1.5.0
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v2 v2.10.3
-	github.com/viam-labs/motion-tools v0.19.2
+	github.com/viam-labs/motion-tools v1.9.0
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.16
 	github.com/xfmoulet/qoi v0.2.0
