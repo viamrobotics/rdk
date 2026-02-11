@@ -1755,11 +1755,11 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 
 	// 4. event-type-specific validation
 	switch eventType {
-	case "part_data_ingested": //nolint:goconst
+	case "part_data_ingested": 
 		if err := validateDataIngested(event); err != nil {
 			return err
 		}
-	case "conditional_data_ingested":
+	case "conditional_data_ingested": //nolint:goconst
 		if err := validateConditionalDataIngested(w, event, config); err != nil {
 			return err
 		}
