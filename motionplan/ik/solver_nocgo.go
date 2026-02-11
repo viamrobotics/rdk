@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/logging"
@@ -16,6 +17,7 @@ func CreateNloptSolver(
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
+	maxTime time.Duration,
 ) (*NloptIK, error) {
 	return nil, errors.New("nlopt is not supported on this build")
 }

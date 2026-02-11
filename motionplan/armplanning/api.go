@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -177,9 +176,9 @@ func PlanFrameMotion(ctx context.Context,
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration       time.Duration
-	Partial        bool
-	GoalsProcessed int
+	Duration     time.Duration
+	Partial      bool
+	PartialError error
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -217,17 +216,16 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 		return nil, meta, err
 	}
 
-	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
+	trajAsInps, err := sfPlanner.planMultiWaypoint(ctx)
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
+			meta.PartialError = err
 			logger.Infof("returning partial plan, error: %v", err)
 		} else {
 			return nil, meta, err
 		}
 	}
-
-	meta.GoalsProcessed = goalsProcessed
 
 	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {
@@ -252,10 +250,7 @@ func MoveArm(ctx context.Context, logger logging.Logger, a arm.Arm, dst spatialm
 	if err != nil {
 		return err
 	}
-	_, err = model.Transform(inputs)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New("cannot move arm: " + err.Error())
-	} else if err != nil {
+	if _, err = model.Transform(inputs); err != nil {
 		return err
 	}
 

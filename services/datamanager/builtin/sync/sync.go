@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -43,10 +44,48 @@ const (
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
-	// syncStatsLogInterval is the interval at which statistics about
-	// data sync are logged.
-	syncStatsLogInterval = time.Minute
 )
+
+// uploadStats tracks cumulative upload statistics.
+type uploadStats struct {
+	binary    dataTypeUploadStats
+	tabular   dataTypeUploadStats
+	arbitrary dataTypeUploadStats
+}
+
+// dataTypeUploadStats tracks cumulative upload statistics for a given data type.
+type dataTypeUploadStats struct {
+	completedUploadBytes  atomic.Uint64 // bytes successfully uploaded (after entire file completes)
+	uploadedFileCount     atomic.Uint64
+	uploadingBytes        atomic.Uint64 // bytes currently being uploaded (incremental during upload)
+	uploadFailedFileCount atomic.Uint64
+}
+
+// FTDCStats represents upload and deleted file metric values for a given moment. Returned by Sync.GetStats().
+type FTDCStats struct {
+	FilesDeletedToFreeSpace int64
+	Upload                  FTDCUploadStats
+}
+
+// FTDCUploadStats represents upload metric values for a given moment.
+type FTDCUploadStats struct {
+	// Upload metrics - arbitrary files.
+	ArbitraryUploadedFileCount     uint64
+	ArbitraryCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	ArbitraryUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	ArbitraryUploadFailedFileCount uint64
+
+	// Upload metrics - binary sensor data.
+	BinarySensorUploadedFileCount     uint64
+	BinarySensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	BinarySensorUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	BinarySensorUploadFailedFileCount uint64
+
+	// Upload metrics - tabular sensor data.
+	TabularSensorUploadedFileCount     uint64
+	TabularSensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	TabularSensorUploadFailedFileCount uint64
+}
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
 // to the cloud & deleting the upload files.
@@ -66,7 +105,8 @@ type Sync struct {
 	filesToSync       chan string
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
 	clock             clock.Clock
-	atomicUploadStats *atomicUploadStats
+	uploadStats       *uploadStats
+	deletedFileCount  atomic.Int64
 
 	configMu sync.Mutex
 	config   Config
@@ -80,7 +120,6 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
-	statsWorker         *statsWorker
 	// MaxSyncThreads only exists for tests
 	MaxSyncThreads int
 }
@@ -93,8 +132,7 @@ func New(
 	logger logging.Logger,
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
-	var atomicUploadStats atomicUploadStats
-	statsWorker := newStatsWorker(logger)
+	var uploadStats uploadStats
 	s := Sync{
 		clock:               clock,
 		configCtx:           configCtx,
@@ -107,8 +145,7 @@ func New(
 		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
 		cloudConn:           cloudConn{ready: make(chan struct{})},
 		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:         statsWorker,
-		atomicUploadStats:   &atomicUploadStats,
+		uploadStats:         &uploadStats,
 	}
 	return &s
 }
@@ -134,7 +171,6 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		return
 	}
 	// config changed... stop workers
-	s.statsWorker.reconfigure(s.atomicUploadStats, syncStatsLogInterval)
 	s.config.logDiff(config, s.logger)
 
 	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
@@ -186,15 +222,42 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
+				&s.deletedFileCount,
 			)
 		})
+	}
+}
+
+// GetStats returns cumulative file deletion and upload metrics.
+func (s *Sync) GetStats() FTDCStats {
+	return FTDCStats{
+		// File deletion metric.
+		FilesDeletedToFreeSpace: s.deletedFileCount.Load(),
+
+		Upload: FTDCUploadStats{
+			// Upload metrics - arbitrary files.
+			ArbitraryCompletedUploadBytes:  s.uploadStats.arbitrary.completedUploadBytes.Load(),
+			ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
+			ArbitraryUploadingBytes:        s.uploadStats.arbitrary.uploadingBytes.Load(),
+			ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
+
+			// Upload metrics - binary sensor data.
+			BinarySensorCompletedUploadBytes:  s.uploadStats.binary.completedUploadBytes.Load(),
+			BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
+			BinarySensorUploadingBytes:        s.uploadStats.binary.uploadingBytes.Load(),
+			BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
+
+			// Upload metrics - tabular sensor data.
+			TabularSensorCompletedUploadBytes:  s.uploadStats.tabular.completedUploadBytes.Load(),
+			TabularSensorUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
+			TabularSensorUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
+		},
 	}
 }
 
 // Close releases all resources managed by data sync.
 func (s *Sync) Close() {
 	s.configCancelFunc()
-	s.statsWorker.close()
 	s.FileDeletingWorkers.Stop()
 	s.Scheduler.Stop()
 	s.workersWg.Wait()
@@ -391,16 +454,23 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
 			s.logger.Error(err)
 		}
-		s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+		s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		return
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
+
+	// Include counter for binary sensor data because larger binary data files are uploaded via our streaming API, so updating
+	// a counter during the upload provides a more granular rate metric.
+	var uploadingBytesCounter *atomic.Uint64
+	if isBinary {
+		uploadingBytesCounter = &s.uploadStats.binary.uploadingBytes
+	}
 
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -426,9 +496,9 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 			logger.Error(err)
 		}
 		if isBinary {
-			s.atomicUploadStats.binary.uploadFailedFileCount.Add(1)
+			s.uploadStats.binary.uploadFailedFileCount.Add(1)
 		} else {
-			s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+			s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		}
 		return
 	}
@@ -438,18 +508,20 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
 	}
 	if isBinary {
-		s.atomicUploadStats.binary.uploadedFileCount.Add(1)
-		s.atomicUploadStats.binary.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.binary.uploadedFileCount.Add(1)
+		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
 	} else {
-		s.atomicUploadStats.tabular.uploadedFileCount.Add(1)
-		s.atomicUploadStats.tabular.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.tabular.uploadedFileCount.Add(1)
+		s.uploadStats.tabular.completedUploadBytes.Add(bytesUploaded)
 	}
 }
 
 func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(
+			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
+		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -473,7 +545,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
 			logger.Error(err.Error())
 		}
-		s.atomicUploadStats.arbitrary.uploadFailedFileCount.Add(1)
+		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 		return
 	}
 
@@ -484,8 +556,8 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLast
 	if err := os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
-	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
-	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
+	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.

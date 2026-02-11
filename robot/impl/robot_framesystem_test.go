@@ -125,7 +125,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	rr, ok := r2.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- struct{}{}
+	rr.triggerConfig <- "TestFrameSystemConfigWithRemote"
 
 	finalSet := []resource.Name{
 		base.Named("foo"),

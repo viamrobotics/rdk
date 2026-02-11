@@ -424,7 +424,7 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		rr.triggerConfig <- struct{}{}
+		rr.triggerConfig <- "TestRobotReconfigure"
 
 		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 20, func(tb testing.TB) {
 			_, err = robot.ResourceByName(mockNamed("mock2"))
@@ -2873,7 +2873,7 @@ func TestRobotReconfigure(t *testing.T) {
 		// The newly set configuration fixes the `mock6` component. A (second) reconfig should pick
 		// that up and consequently bubble up the working `mock6` change to anything that depended
 		// on `mock6`, notably `armFake`.
-		rr.triggerConfig <- struct{}{}
+		rr.triggerConfig <- "TestRobotReconfigure"
 
 		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 30, func(tb testing.TB) {
 			armFake, err := robot.ResourceByName(mockNamed("armFake"))

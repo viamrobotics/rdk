@@ -61,6 +61,7 @@ const (
 	generalFlagPart              = "part"
 	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
+	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
@@ -2671,6 +2672,34 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
+							Name:            "fragments",
+							Usage:           "work with fragments on a part",
+							UsageText:       createUsageText("machines part fragments", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:      "add",
+									Usage:     "add a fragment to a part",
+									UsageText: createUsageText("machines part fragments add", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to add (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartAddFragmentAction),
+								},
+								{
+									Name:      "remove",
+									Usage:     "remove a fragment from a part",
+									UsageText: createUsageText("machines part fragments remove", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to remove (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartRemoveFragmentAction),
+								},
+							},
+						},
+						{
 							Name:      "restart",
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagPart}, true, false),
@@ -3818,6 +3847,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    formatAcceptedValues("visibility of the training script", "public", "private"),
+							Required: false,
 						},
 					},
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),

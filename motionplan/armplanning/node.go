@@ -116,7 +116,8 @@ type solutionSolvingState struct {
 
 	moving, nonmoving []string
 
-	goodCost float64
+	goodCost        float64
+	doingSmartSeeds bool
 
 	processCalls int
 	failures     *IkConstraintError
@@ -165,6 +166,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
 	if sss.goodCost > 1 && minRatio > .05 {
+		sss.doingSmartSeeds = true
 		ssc, err := smartSeed(psc.pc.fs, logger)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create smartSeeder: %w", err)
@@ -178,13 +180,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 
-		logger.Infof("got %d altSeeds", len(altSeeds))
+		logger.Debugf("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			logger.Infof("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	} else {
 		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
@@ -321,6 +323,11 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	multiple := 100.0
 	minMillis := 10000
+	if !sss.doingSmartSeeds {
+		// if we're not doing small seeds, it means we're doing a very tiny motion
+		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
+		minMillis = 100
+	}
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 {
 		multiple = 0
@@ -355,7 +362,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.logger.Infof("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
 			elapsed, timeToSearch, sss.firstSolutionTime)
@@ -365,7 +372,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
-		sss.logger.Infof("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		sss.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
 		return true
 	}
 
@@ -405,7 +412,11 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold)
+	ikTime := time.Second
+	if !solvingState.doingSmartSeeds {
+		ikTime = 100 * time.Millisecond
+	}
+	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
 		return nil, err
 	}

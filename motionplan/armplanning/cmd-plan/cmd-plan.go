@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"runtime/pprof"
 	"slices"
@@ -23,10 +24,14 @@ import (
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/trace"
 
+	"go.viam.com/rdk/cli"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -48,6 +53,8 @@ func realMain() error {
 	loop := flag.Int("loop", 1, "loop")
 	cpu := flag.String("cpu", "", "cpu profiling")
 	interactive := flag.Bool("i", false, "interactive")
+	host := flag.String("host", "", "host to execute on")
+	forceMotion := flag.Bool("force-move", false, "")
 
 	flag.Parse()
 
@@ -96,6 +103,10 @@ func realMain() error {
 				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
+			{
+				Pattern: "*.networking.*",
+				Level:   "INFO",
+			},
 		}, logger)
 	}
 
@@ -135,7 +146,7 @@ func realMain() error {
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 
-	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
@@ -207,8 +218,19 @@ func realMain() error {
 					myl2n,
 					referenceframe.InputsLinfDistance(p, t[c]),
 					cart)
+
+				deltas := []float64{}
+				for i, a := range t[c] {
+					deltas = append(deltas, a-p[i])
+				}
+
+				mylog.Printf("\t\t\t\t deltas: %v", logging.FloatArrayFormat{"%0.5f", deltas})
 			}
 		}
+	}
+
+	if meta.PartialError != nil {
+		mylog.Printf("partial results, error: %v", meta.PartialError)
 	}
 
 	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
@@ -216,11 +238,28 @@ func realMain() error {
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
+	// Print delta statistics if trajectory has more than 5 points
+	if len(plan.Trajectory()) > 5 {
+		stats := armplanning.TrajectoryDeltaStats(plan.Trajectory())
+		mylog.Printf("\nDelta Statistics (trajectory length: %d):", len(plan.Trajectory()))
+		for _, s := range stats {
+			mylog.Printf("  %s:%d: avg=%0.5f stddev=%0.5f outside1=%d outside2=%d (n=%d)",
+				s.Component, s.JointIdx, s.Mean, s.StdDev, s.Outside1, s.Outside2, s.Count)
+		}
+	}
+
 	for i := 0; i < *loop; i++ {
 		err = visualize(req, plan, mylog)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
+		}
+	}
+
+	if *host != "" {
+		err := executeOnArm(ctx, *host, plan, *forceMotion, logger)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -454,4 +493,85 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("Unknown command. Type `h` for help.")
 		}
 	}
+}
+
+func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force bool, logger logging.Logger) error {
+	byComponent := map[string][][]referenceframe.Input{}
+
+	for _, s := range plan.Trajectory() {
+		for cName, inputs := range s {
+			if len(inputs) > 0 {
+				byComponent[cName] = append(byComponent[cName], inputs)
+			}
+		}
+	}
+
+	if len(byComponent) > 1 {
+		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent))
+	}
+
+	c, err := cli.ConfigFromCache(nil)
+	if err != nil {
+		return err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return err
+	}
+
+	theRobot, err := client.New(
+		ctx,
+		host,
+		logger,
+		client.WithDialOptions(dopts...),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := theRobot.Close(ctx)
+		if err != nil {
+			logger.Errorf("cannot close robot: %v", err)
+		}
+	}()
+
+	for cName, allInputs := range byComponent {
+		r, err := robot.ResourceByName(theRobot, cName)
+		if err != nil {
+			return err
+		}
+
+		ie, ok := r.(framesystem.InputEnabled)
+		if !ok {
+			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
+		}
+
+		cur, err := ie.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+
+		for j, v := range cur {
+			delta := math.Abs(v - allInputs[0][j])
+			if delta > .01 {
+				err = fmt.Errorf("joint %d for resource %s too far start: %0.5f go: %0.5f delta: %0.5f",
+					j, cName, v, allInputs[0][j], delta)
+				if force {
+					logger.Warnf("ignoring %v", err)
+				} else {
+					return err
+				}
+			}
+		}
+
+		logger.Infof("sending %d positions to %s", len(allInputs), cName)
+
+		err = ie.GoToInputs(ctx, allInputs...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
