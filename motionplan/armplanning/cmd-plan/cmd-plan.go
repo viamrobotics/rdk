@@ -59,6 +59,7 @@ func realMain() error {
 	host := flag.String("host", "", "host to execute on")
 	forceMotion := flag.Bool("force-move", false, "")
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
+	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 
 	flag.Parse()
 
@@ -156,7 +157,7 @@ func realMain() error {
 	}
 	metricsExporter.Stop()
 	if *interactive {
-		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
+		if interactiveErr := doInteractive(req, plan, err, mylog, *showPoses); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
 		}
 		return nil
@@ -253,7 +254,7 @@ func realMain() error {
 	}
 
 	for i := 0; i < *loop; i++ {
-		err = visualize(req, plan, mylog)
+		err = visualize(req, plan, mylog, *showPoses)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
@@ -277,7 +278,7 @@ func realMain() error {
 	return nil
 }
 
-func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -300,6 +301,68 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		return err
 	}
 
+	if showPoses {
+		// Helper to check if a frame or any ancestor has DOF (is moving)
+		isMovingFrame := func(frameName string) bool {
+			frame := req.FrameSystem.Frame(frameName)
+			if frame == nil {
+				return false
+			}
+			// Check if this frame has DOF
+			if len(frame.DoF()) > 0 {
+				return true
+			}
+			// Walk up the parent chain to see if any ancestor has DOF
+			parent, err := req.FrameSystem.Parent(frame)
+			for parent != nil && err == nil {
+				if len(parent.DoF()) > 0 {
+					return true
+				}
+				parent, err = req.FrameSystem.Parent(parent)
+			}
+			return false
+		}
+
+		// Draw shadows for path positions - moving components and their descendants
+		// Alternate colors to distinguish different path positions
+		shadowColors := []string{"blue", "red"}
+		for idx := range plan.Path() {
+			gifs, err := referenceframe.FrameSystemGeometries(req.FrameSystem, plan.Trajectory()[idx])
+			if err != nil {
+				return err
+			}
+			// Pick color for this path position (alternating)
+			shadowColor := shadowColors[idx%len(shadowColors)]
+
+			// Draw shadows only for moving frames and their descendants
+			for frameName, gif := range gifs {
+				// Skip if this frame and all ancestors are static
+				if !isMovingFrame(frameName) {
+					continue
+				}
+
+				// Create copies with unique labels to not interfere with animation
+				shadowGeometries := make([]spatialmath.Geometry, len(gif.Geometries()))
+				for i, geom := range gif.Geometries() {
+					// Copy geometry without additional transformation (identity transform)
+					shadowGeom := geom.Transform(spatialmath.NewZeroPose())
+					shadowGeom.SetLabel(fmt.Sprintf("shadow_%d_%s_%d", idx, geom.Label(), i))
+					shadowGeometries[i] = shadowGeom
+				}
+				// Use the original parent frame from gif
+				shadowGIF := referenceframe.NewGeometriesInFrame(gif.Parent(), shadowGeometries)
+				colors := make([]string, len(shadowGeometries))
+				for i := range colors {
+					colors[i] = shadowColor
+				}
+				if err := viz.DrawGeometries(shadowGIF, colors); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Now animate through the path
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
@@ -364,7 +427,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	return nil
 }
 
-func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
+func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
@@ -398,7 +461,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	for {
 		if render {
 			if planErr == nil {
-				if err := visualize(req, plan, logger); err != nil {
+				if err := visualize(req, plan, logger, showPoses); err != nil {
 					return err
 				}
 			} else {
