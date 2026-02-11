@@ -1744,7 +1744,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	// warn about unknown event keys
 	validEventKeys := map[string]bool{"type": true}
 	switch eventType {
-	case "part_data_ingested":
+	case "part_data_ingested": //nolint:goconst
 		validEventKeys["data_ingested"] = true
 	case "conditional_data_ingested":
 		validEventKeys["conditional"] = true
@@ -1755,7 +1755,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 
 	// 4. event-type-specific validation
 	switch eventType {
-	case "part_data_ingested":
+	case "part_data_ingested": //nolint:goconst
 		if err := validateDataIngested(event); err != nil {
 			return err
 		}
