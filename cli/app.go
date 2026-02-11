@@ -2593,24 +2593,28 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("machines part update-resource",
 								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
 							Description: `Update fields on an existing resource. The --attributes flag accepts inline JSON or a path
-to a JSON file. Only the fields you provide are updated; all other fields are left unchanged.
-For nested objects (like "attributes"), only the keys you include are updated — keys you
-don't include keep their existing values. To delete a field, set it to null.
+to a JSON file. The "name" field cannot be changed (it is used to identify the resource).
 
-The "name" field cannot be changed (it is used to identify the resource).
+How updates work:
+  - Only the fields you provide are updated; all other fields are left unchanged.
+  - For nested objects (like "attributes"), only the keys you include are updated.
+  - For lists (like "service_configs" or "capture_methods"), items are matched by their
+    identifier field (type, method, name, or id). Existing items are updated and new items
+    are added.
+  - Null values are ignored.
 
 Examples:
   # Update a single nested attribute (other attributes like "board" are preserved)
   viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
     --name my-sensor --attributes '{"attributes": {"pin": "12"}}'
 
-  # Delete a nested attribute
-  viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes '{"attributes": {"board": null}}'
-
   # Change the model
   viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
     --name my-sensor --attributes '{"model": "acme:demo:my-sensor"}'
+
+  # Add a data capture method (existing methods are preserved)
+  viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+    --name my-sensor --attributes /path/to/capture-config.json
 
   # Update from a JSON file
   viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
