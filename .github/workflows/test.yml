@@ -154,6 +154,7 @@ jobs:
         brew install pkg-config
         brew install nlopt-static
         brew install x264
+        brew install ffmpeg
     - name: test
       run: |
         make test-go
