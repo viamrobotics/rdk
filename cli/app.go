@@ -80,6 +80,7 @@ const (
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
+	generalFlagAttributes        = "attributes"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -2949,6 +2950,65 @@ Note: There is no progress meter while copying is in progress.
 									Action: createCommandWithT[motionSetPoseArgs](motionSetPoseAction),
 								},
 							},
+						},
+						{
+							Name:  "add-trigger",
+							Usage: "add a trigger to a machine part",
+							UsageText: createUsageText(
+								"machines part add-trigger", []string{generalFlagPart, generalFlagAttributes}, true, false,
+							),
+							Description: `Add a trigger to a machine part by providing a JSON trigger configuration.
+
+The --attributes flag accepts either inline JSON or a path to a JSON file.
+
+Example trigger for part_online (liveness):
+  {
+    "name": "my-online-trigger",
+    "event": {"type": "part_online"},
+    "notifications": [{"type": "email", "value": "user@example.com", "seconds_between_notifications": 60}]
+  }
+
+Example trigger for part_data_ingested:
+  {
+    "name": "my-data-trigger",
+    "event": {"type": "part_data_ingested", "data_ingested": {"data_types": ["binary"]}},
+    "notifications": [{"type": "webhook", "value": "https://example.com/hook", "seconds_between_notifications": 0}]
+  }
+
+Example trigger for conditional_data_ingested (data_capture_method format is subtype:name:method):
+  {
+    "name": "my-conditional-trigger",
+    "event": {
+      "type": "conditional_data_ingested",
+      "conditional": {
+        "data_capture_method": "sensor:my-sensor:Readings",
+        "condition": {
+          "evals": [{"operator": "gt", "value": {"readings": {"cpu": 80}}}]
+        }
+      }
+    },
+    "notifications": [{"type": "email", "value": "user@example.com", "seconds_between_notifications": 10}]
+  }
+
+Example trigger for conditional_logs_ingested:
+  {
+    "name": "my-log-trigger",
+    "event": {"type": "conditional_logs_ingested", "log_levels": ["error", "warn"]},
+    "notifications": [{"type": "email", "value": "all_machine_owners"}]
+  }`,
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagAttributes,
+								Required: true,
+								Usage:    "JSON trigger config or path to JSON file",
+							}),
+							Action: createCommandWithT[machinesPartAddTriggerArgs](machinesPartAddTriggerAction),
+						},
+						{
+							Name:      "delete-trigger",
+							Usage:     "delete a trigger from a machine part",
+							UsageText: createUsageText("machines part delete-trigger", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: true}),
+							Action:    createCommandWithT[machinesPartDeleteTriggerArgs](machinesPartDeleteTriggerAction),
 						},
 					},
 				},

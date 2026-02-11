@@ -1522,6 +1522,475 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+type machinesPartAddTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Attributes   string
+}
+
+type machinesPartDeleteTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+// parseJSONOrFile tries to parse s as JSON; if that fails and s is a valid file path, reads the file and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
+	var result map[string]any
+	if err := json.Unmarshal([]byte(s), &result); err == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("input is neither valid JSON nor a readable file path: %w", err)
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("file %s does not contain valid JSON: %w", s, err)
+	}
+	return result, nil
+}
+
+func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArgs) error {
+	triggerConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return err
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	if err := validateTriggerConfig(c.App.ErrWriter, config, triggerConfig); err != nil {
+		return err
+	}
+
+	name, _ := triggerConfig["name"].(string)
+
+	triggers, err := resourcesFromPartConfig(config, "triggers")
+	if err != nil {
+		return err
+	}
+	for _, t := range triggers {
+		if t["name"] == name {
+			return fmt.Errorf("trigger with name %q already exists", name)
+		}
+	}
+
+	triggers = append(triggers, triggerConfig)
+	config["triggers"] = triggers
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added trigger %q", name)
+	return nil
+}
+
+func machinesPartDeleteTriggerAction(c *cli.Context, args machinesPartDeleteTriggerArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	triggers, err := resourcesFromPartConfig(config, "triggers")
+	if err != nil {
+		return err
+	}
+
+	var updatedTriggers []map[string]any
+	found := false
+	for _, t := range triggers {
+		if t["name"] == args.Name {
+			found = true
+		} else {
+			updatedTriggers = append(updatedTriggers, t)
+		}
+	}
+
+	if !found {
+		printf(c.App.Writer, "trigger %q not found", args.Name)
+		return nil
+	}
+
+	config["triggers"] = updatedTriggers
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully deleted trigger %q", args.Name)
+	return nil
+}
+
+// validDataCaptureMethods maps component/service subtypes to their valid data capture method names.
+var validDataCaptureMethods = map[string][]string{
+	"arm":     {"EndPosition", "JointPositions", "DoCommand"},
+	"audioin": {"GetAudio", "DoCommand"},
+	"base":    {"DoCommand"},
+	"board":   {"Analogs", "Gpios", "DoCommand"},
+	"button":  {"DoCommand"},
+	"camera":  {"NextPointCloud", "ReadImage", "GetImages", "DoCommand"},
+	"encoder": {"TicksCount", "DoCommand"},
+	"gantry":  {"Position", "Lengths", "DoCommand"},
+	"generic": {"DoCommand"},
+	"gripper": {"DoCommand"},
+	"input":   {"DoCommand"},
+	"motor":   {"Position", "IsPowered", "DoCommand"},
+	"movement_sensor": {
+		"Position", "LinearVelocity", "AngularVelocity", "CompassHeading",
+		"LinearAcceleration", "Orientation", "Readings", "DoCommand",
+	},
+	"pose_tracker": {"DoCommand"},
+	"power_sensor": {"Voltage", "Current", "Power", "Readings", "DoCommand"},
+	"sensor":       {"Readings", "DoCommand"},
+	"servo":        {"Position", "DoCommand"},
+	"switch":       {"DoCommand"},
+	// services
+	"vision":    {"CaptureAllFromCamera", "DoCommand"},
+	"slam":      {"Position", "PointCloudMap", "DoCommand"},
+	"motion":    {"DoCommand"},
+	"discovery": {"DoCommand"},
+	"shell":     {"DoCommand"},
+}
+
+// validateTriggerConfig validates the trigger configuration and returns an error for invalid configs.
+func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) error {
+	// 1. name: required non-empty string
+	nameRaw, ok := triggerConfig["name"]
+	if !ok {
+		return errors.New("trigger config missing required field \"name\"")
+	}
+	name, ok := nameRaw.(string)
+	if !ok || name == "" {
+		return errors.New("trigger \"name\" must be a non-empty string")
+	}
+
+	// 2. event: required map
+	eventRaw, ok := triggerConfig["event"]
+	if !ok {
+		return errors.New("trigger config missing required field \"event\"")
+	}
+	event, ok := eventRaw.(map[string]any)
+	if !ok {
+		return errors.New("trigger \"event\" must be an object")
+	}
+
+	// 3. event.type: must be one of the valid types
+	validEventTypes := map[string]bool{
+		"part_online":               true,
+		"part_offline":              true,
+		"part_data_ingested":        true,
+		"conditional_data_ingested": true,
+		"conditional_logs_ingested": true,
+	}
+	eventTypeRaw, ok := event["type"]
+	if !ok {
+		return errors.New("trigger event missing required field \"type\"")
+	}
+	eventType, ok := eventTypeRaw.(string)
+	if !ok || !validEventTypes[eventType] {
+		return fmt.Errorf(
+			"trigger event type must be one of: part_online, part_offline, "+
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+	}
+
+	// 4. event-type-specific validation
+	switch eventType {
+	case "part_data_ingested":
+		if err := validateDataIngested(event); err != nil {
+			return err
+		}
+	case "conditional_data_ingested":
+		if err := validateConditionalDataIngested(w, event, config); err != nil {
+			return err
+		}
+	case "conditional_logs_ingested":
+		if err := validateConditionalLogsIngested(event); err != nil {
+			return err
+		}
+	}
+
+	// 5. notifications: required non-empty array
+	notificationsRaw, ok := triggerConfig["notifications"]
+	if !ok {
+		return errors.New("trigger config missing required field \"notifications\"")
+	}
+	notifications, ok := notificationsRaw.([]any)
+	if !ok || len(notifications) == 0 {
+		return errors.New("trigger \"notifications\" must be a non-empty array")
+	}
+
+	// 6. validate each notification
+	for i, nRaw := range notifications {
+		n, ok := nRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("notification at index %d must be an object", i)
+		}
+		if err := validateNotification(n, i, eventType); err != nil {
+			return err
+		}
+	}
+
+	// 7. warnings
+	if disabled, ok := triggerConfig["disabled"].(bool); ok && disabled {
+		warningf(w, "trigger will be created in disabled state")
+	}
+
+	return nil
+}
+
+func validateDataIngested(event map[string]any) error {
+	diRaw, ok := event["data_ingested"]
+	if !ok {
+		return errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field")
+	}
+	di, ok := diRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"data_ingested\" must be an object")
+	}
+	dtRaw, ok := di["data_types"]
+	if !ok {
+		return errors.New("\"data_ingested\" requires \"data_types\" field")
+	}
+	dataTypes, ok := dtRaw.([]any)
+	if !ok || len(dataTypes) == 0 {
+		return errors.New("\"data_types\" must be a non-empty array")
+	}
+	validDataTypes := map[string]bool{"binary": true, "tabular": true, "file": true, "unspecified": true}
+	for _, dt := range dataTypes {
+		s, ok := dt.(string)
+		if !ok || !validDataTypes[s] {
+			return fmt.Errorf("invalid data type %q; must be one of: binary, tabular, file, unspecified", dt)
+		}
+	}
+	return nil
+}
+
+func validateConditionalDataIngested(w io.Writer, event, config map[string]any) error {
+	condRaw, ok := event["conditional"]
+	if !ok {
+		return errors.New("event type \"conditional_data_ingested\" requires \"conditional\" field")
+	}
+	cond, ok := condRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"conditional\" must be an object")
+	}
+	dcmRaw, ok := cond["data_capture_method"]
+	if !ok {
+		return errors.New("\"conditional\" requires \"data_capture_method\" field")
+	}
+	dcm, ok := dcmRaw.(string)
+	if !ok || dcm == "" {
+		return errors.New("\"data_capture_method\" must be a non-empty string")
+	}
+	parts := strings.Split(dcm, ":")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return fmt.Errorf("\"data_capture_method\" must have format subtype:name:method (e.g., sensor:my-sensor:Readings); got %q", dcm)
+	}
+	subtype := parts[0]
+	componentName := parts[1]
+	methodName := parts[2]
+
+	// cross-reference against components and services in the part config
+	if err := validateComponentExists(config, subtype, componentName); err != nil {
+		return err
+	}
+
+	// validate method name against known methods for this subtype
+	if methods, known := validDataCaptureMethods[subtype]; known {
+		valid := false
+		for _, m := range methods {
+			if m == methodName {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("method %q is not a valid data capture method for %q; valid methods: %s",
+				methodName, subtype, strings.Join(methods, ", "))
+		}
+	} else {
+		warningf(w, "unknown subtype %q; cannot validate method %q. "+
+			"If this is a custom component, ensure the method name is correct", subtype, methodName)
+	}
+
+	// validate condition.evals if present
+	if conditionRaw, ok := cond["condition"]; ok {
+		condition, ok := conditionRaw.(map[string]any)
+		if !ok {
+			return errors.New("\"condition\" must be an object")
+		}
+		if evalsRaw, ok := condition["evals"]; ok {
+			evals, ok := evalsRaw.([]any)
+			if !ok {
+				return errors.New("\"condition.evals\" must be an array")
+			}
+			if err := validateEvals(evals); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateComponentExists checks that a component/service with the given name exists in the config
+// and its API subtype matches the expected subtype.
+func validateComponentExists(config map[string]any, subtype, componentName string) error {
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			continue
+		}
+		for _, r := range resources {
+			name, _ := r["name"].(string)
+			if name != componentName {
+				continue
+			}
+			// found it — verify the API subtype matches
+			api, _ := r["api"].(string)
+			apiParts := strings.Split(api, ":")
+			if len(apiParts) == 3 && apiParts[2] != subtype {
+				return fmt.Errorf("component %q has subtype %q (api: %s), but data_capture_method specifies subtype %q",
+					componentName, apiParts[2], api, subtype)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no component or service named %q found in the part config; "+
+		"data_capture_method must reference an existing component", componentName)
+}
+
+func validateEvals(evals []any) error {
+	validOperators := map[string]bool{
+		"lt": true, "lte": true, "gt": true, "gte": true,
+		"eq": true, "neq": true, "regex": true,
+	}
+	for i, eRaw := range evals {
+		e, ok := eRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("eval at index %d must be an object", i)
+		}
+		opRaw, ok := e["operator"]
+		if !ok {
+			return fmt.Errorf("eval at index %d missing required field \"operator\"", i)
+		}
+		op, ok := opRaw.(string)
+		if !ok || !validOperators[op] {
+			return fmt.Errorf("eval at index %d has invalid operator %q; must be one of: lt, lte, gt, gte, eq, neq, regex", i, opRaw)
+		}
+		if _, ok := e["value"]; !ok {
+			return fmt.Errorf("eval at index %d missing required field \"value\"", i)
+		}
+	}
+	return nil
+}
+
+func validateConditionalLogsIngested(event map[string]any) error {
+	llRaw, ok := event["log_levels"]
+	if !ok {
+		return errors.New("event type \"conditional_logs_ingested\" requires \"log_levels\" field")
+	}
+	logLevels, ok := llRaw.([]any)
+	if !ok || len(logLevels) == 0 {
+		return errors.New("\"log_levels\" must be a non-empty array")
+	}
+	validLevels := map[string]bool{"info": true, "warn": true, "error": true}
+	for _, ll := range logLevels {
+		s, ok := ll.(string)
+		if !ok || !validLevels[s] {
+			return fmt.Errorf("invalid log level %q; must be one of: info, warn, error", ll)
+		}
+	}
+	return nil
+}
+
+func validateNotification(n map[string]any, index int, eventType string) error {
+	// type
+	ntRaw, ok := n["type"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"type\"", index)
+	}
+	nt, ok := ntRaw.(string)
+	if !ok || (nt != "webhook" && nt != "email") {
+		return fmt.Errorf("notification at index %d has invalid type %q; must be \"webhook\" or \"email\"", index, ntRaw)
+	}
+
+	// value
+	valRaw, ok := n["value"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"value\"", index)
+	}
+	val, ok := valRaw.(string)
+	if !ok || val == "" {
+		return fmt.Errorf("notification at index %d \"value\" must be a non-empty string", index)
+	}
+
+	if nt == "webhook" {
+		u, err := url.Parse(val)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("notification at index %d has invalid webhook URL %q (must have scheme and host)", index, val)
+		}
+	}
+	if nt == "email" {
+		if val != "all_machine_owners" && !strings.Contains(val, "@") {
+			return fmt.Errorf("notification at index %d has invalid email %q (must contain '@' or be \"all_machine_owners\")", index, val)
+		}
+	}
+
+	// seconds_between_notifications
+	if sbnRaw, ok := n["seconds_between_notifications"]; ok {
+		sbn, ok := sbnRaw.(float64)
+		if !ok {
+			return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be a number", index)
+		}
+		switch eventType {
+		case "part_online", "part_offline":
+			if sbn <= 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >0 for liveness triggers; got %v", index, sbn)
+			}
+		case "part_data_ingested", "conditional_data_ingested":
+			if sbn < 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn)
+			}
+		}
+	}
+
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string
