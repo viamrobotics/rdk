@@ -97,7 +97,10 @@ type Config struct {
 	SelectiveSyncSensor sensor.Sensor
 }
 
-func (c Config) schedulerEnabled() bool {
+// SchedulerEnabled returns true if the sync scheduler should be running.
+// It is false when sync is explicitly disabled, or when a selective sync sensor
+// is configured but could not be found.
+func (c Config) SchedulerEnabled() bool {
 	configDisabled := c.ScheduledSyncDisabled
 	selectiveSyncerInvalid := c.SelectiveSyncSensorEnabled && c.SelectiveSyncSensor == nil
 	return !configDisabled && !selectiveSyncerInvalid

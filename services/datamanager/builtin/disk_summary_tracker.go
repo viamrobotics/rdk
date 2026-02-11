@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,6 +19,11 @@ type diskSummaryTracker struct {
 	logger      logging.Logger
 	mu          sync.Mutex
 	worker      *goutils.StoppableWorkers
+
+	// Sync config fields used for stale data warnings.
+	schedulerEnabled bool
+	syncIntervalMins float64
+	lastStaleWarning time.Time
 }
 
 type diskSummary struct {
@@ -37,7 +43,13 @@ type syncPathsSummary struct {
 	TotalSizeBytes int64
 }
 
-const diskSummaryTrackerInterval = 1 * time.Minute
+const (
+	diskSummaryTrackerInterval = 1 * time.Minute
+	// minStaleThreshold is the minimum age of the oldest file before we consider data stale.
+	minStaleThreshold = 3 * time.Minute
+	// staleWarningInterval is the minimum time between consecutive stale data warnings.
+	staleWarningInterval = 5 * time.Minute
+)
 
 func newDiskSummaryTracker(logger logging.Logger) *diskSummaryTracker {
 	return &diskSummaryTracker{
@@ -45,10 +57,14 @@ func newDiskSummaryTracker(logger logging.Logger) *diskSummaryTracker {
 	}
 }
 
-func (poller *diskSummaryTracker) reconfigure(dirs []string) {
+func (poller *diskSummaryTracker) reconfigure(dirs []string, schedulerEnabled bool, syncIntervalMins float64) {
 	if poller.worker != nil {
 		poller.worker.Stop()
 	}
+
+	poller.schedulerEnabled = schedulerEnabled
+	poller.syncIntervalMins = syncIntervalMins
+	poller.lastStaleWarning = time.Time{}
 
 	poller.logger.Debug("datamanager disk state summary tracker running...")
 	// Calculate and set the initial summary.
@@ -117,7 +133,59 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 	diskSummary.SyncPaths.TotalSizeBytes = totalBytes
 	diskSummary.OldestCaptureFileTime = earliestTime
 
+	poller.checkAndLogStaleData(earliestTime, totalFiles, totalBytes)
 	poller.setSummary(diskSummary)
+}
+
+// checkAndLogStaleData logs a rate-limited warning if the oldest file in the capture directory
+// is significantly older than expected given the sync interval, which may indicate that data is
+// being generated faster than it can be uploaded.
+func (poller *diskSummaryTracker) checkAndLogStaleData(earliestTime *time.Time, totalFiles, totalBytes int64) {
+	if earliestTime == nil || !poller.schedulerEnabled {
+		return
+	}
+
+	staleThreshold := time.Duration(10 * poller.syncIntervalMins * float64(time.Minute))
+	if staleThreshold < minStaleThreshold {
+		staleThreshold = minStaleThreshold
+	}
+
+	age := time.Since(*earliestTime)
+	if age <= staleThreshold {
+		return
+	}
+
+	now := time.Now()
+	if !poller.lastStaleWarning.IsZero() && now.Sub(poller.lastStaleWarning) < staleWarningInterval {
+		return
+	}
+	poller.lastStaleWarning = now
+
+	poller.logger.Warnf(
+		"Capture data may not be syncing: oldest file is %s old, expected less than %s. "+
+			"There are %d files (%s) waiting to sync. "+
+			"Data may be generating faster than it can be uploaded, or uploads may be failing.",
+		age.Round(time.Second), staleThreshold.Round(time.Second),
+		totalFiles, formatBytes(totalBytes),
+	)
+}
+
+func formatBytes(b int64) string {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1f GB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("%.1f MB", float64(b)/float64(mb))
+	case b >= kb:
+		return fmt.Sprintf("%.1f KB", float64(b)/float64(kb))
+	default:
+		return fmt.Sprintf("%d B", b)
+	}
 }
 
 func (poller *diskSummaryTracker) getSummary() diskSummary {

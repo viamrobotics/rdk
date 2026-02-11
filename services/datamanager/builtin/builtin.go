@@ -204,7 +204,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
-	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths())
+	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SchedulerEnabled(), syncConfig.SyncIntervalMins)
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 

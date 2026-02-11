@@ -173,7 +173,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	// config changed... stop workers
 	s.config.logDiff(config, s.logger)
 
-	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
+	if s.config.SchedulerEnabled() && !s.config.Equal(Config{}) {
 		// only log if the pool was previously started
 		s.logger.Info("stopping sync worker pool")
 	}
@@ -193,7 +193,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 
 	// start workers
 	s.startWorkers(config)
-	if config.schedulerEnabled() {
+	if config.SchedulerEnabled() {
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * config.SyncIntervalMins
 		// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
