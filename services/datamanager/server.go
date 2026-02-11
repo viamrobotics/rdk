@@ -50,6 +50,32 @@ func (server *serviceServer) UploadBinaryDataToDatasets(
 	return &pb.UploadBinaryDataToDatasetsResponse{}, nil
 }
 
+func (server *serviceServer) ConfigureSelectiveCapture(
+	ctx context.Context,
+	req *pb.ConfigureSelectiveCaptureRequest,
+) (*pb.ConfigureSelectiveCaptureResponse, error) {
+	svc, err := server.coll.Resource(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert proto CaptureOverride to Go CaptureOverride
+	overrides := make([]CaptureOverride, 0, len(req.Overrides))
+	for _, protoOverride := range req.Overrides {
+		overrides = append(overrides, CaptureOverride{
+			ResourceName: protoOverride.ResourceName,
+			Method:       protoOverride.Method,
+			FrequencyHz:  protoOverride.FrequencyHz,
+			Tags:         protoOverride.Tags,
+		})
+	}
+
+	if err := svc.ConfigureSelectiveCapture(ctx, overrides); err != nil {
+		return nil, err
+	}
+	return &pb.ConfigureSelectiveCaptureResponse{}, nil
+}
+
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,

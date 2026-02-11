@@ -149,6 +149,25 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 	return b.sync.Sync(ctx, extra)
 }
 
+// ConfigureSelectiveCapture applies temporary capture overrides.
+// Overrides are cleared when the data manager reconfigures.
+// Returns an error if any collector is not found.
+func (b *builtIn) ConfigureSelectiveCapture(ctx context.Context, overrides []datamanager.CaptureOverride) error {
+	b.logger.Info("ConfigureSelectiveCapture START")
+	defer b.logger.Info("ConfigureSelectiveCapture END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	// Apply overrides directly to collectors and their configs
+	for _, override := range overrides {
+		if err := b.capture.ApplyOverride(override.ResourceName, override.Method, override.FrequencyHz, override.Tags); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // Reconfigure updates the data manager service when the config has changed.
 // At time of writing Reconfigure only returns an error in one of the following unrecoverable error cases:
 //  1. There is some static (aka compile time) error which we currently are only able to detected at runtime:

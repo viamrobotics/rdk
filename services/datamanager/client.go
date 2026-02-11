@@ -105,6 +105,25 @@ func (c *client) UploadImageToDatasets(
 	return nil
 }
 
+func (c *client) ConfigureSelectiveCapture(ctx context.Context, overrides []CaptureOverride) error {
+	// Convert Go CaptureOverride to proto CaptureOverride
+	protoOverrides := make([]*pb.CaptureOverride, 0, len(overrides))
+	for _, override := range overrides {
+		protoOverrides = append(protoOverrides, &pb.CaptureOverride{
+			ResourceName: override.ResourceName,
+			Method:       override.Method,
+			FrequencyHz:  override.FrequencyHz,
+			Tags:         override.Tags,
+		})
+	}
+
+	_, err := c.client.ConfigureSelectiveCapture(ctx, &pb.ConfigureSelectiveCaptureRequest{
+		Name:      c.name,
+		Overrides: protoOverrides,
+	})
+	return err
+}
+
 // ConvertImageToBytes converts an image.Image to a byte slice based on the specified MIME type.
 func ConvertImageToBytes(image image.Image, mimeType datasyncpb.MimeType) ([]byte, error) {
 	var buf bytes.Buffer

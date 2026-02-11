@@ -349,6 +349,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		BufferSize: bufferSize,
 		Logger:     c.logger,
 		Clock:      c.clk,
+		Tags:       collectorConfig.Tags,
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
@@ -432,6 +433,29 @@ func (c *Capture) FlushCollectors() {
 		}, wg.Done)
 	}
 	wg.Wait()
+}
+
+// ApplyOverride applies frequency and tag overrides to a specific collector.
+// Updates both the collector's runtime state and its stored config.
+// Returns an error if the collector is not found.
+func (c *Capture) ApplyOverride(resourceName, method string, frequencyHz float64, tags []string) error {
+	c.collectorsMu.Lock()
+	defer c.collectorsMu.Unlock()
+
+	for md, collAndConfig := range c.collectors {
+		if md.ResourceName == resourceName && md.MethodMetadata.MethodName == method {
+			// Update the collector's runtime state
+			collAndConfig.Collector.SetInterval(data.GetDurationFromHz(float32(frequencyHz)))
+			collAndConfig.Collector.SetTags(tags)
+			// Update the stored config so the override persists until reconfigure
+			collAndConfig.Config.CaptureFrequencyHz = float32(frequencyHz)
+			collAndConfig.Config.Tags = tags
+			c.logger.Infof("applied override to collector %s: frequency_hz=%f, tags=%v", md, frequencyHz, tags)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("collector not found for override: resource=%s, method=%s", resourceName, method)
 }
 
 func defaultIfZeroVal[T comparable](val, defaultVal T) T {

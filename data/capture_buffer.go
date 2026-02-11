@@ -13,6 +13,7 @@ type CaptureBufferedWriter interface {
 	WriteTabular(items *v1.SensorData) error
 	Flush() error
 	Path() string
+	UpdateTags(tags []string)
 }
 
 // CaptureBuffer is a persistent queue of SensorData backed by a series of *data.CaptureFile.
@@ -138,4 +139,11 @@ func (b *CaptureBuffer) Flush() error {
 // Path returns the path to the directory containing the backing data capture files.
 func (b *CaptureBuffer) Path() string {
 	return b.Directory
+}
+
+// UpdateTags updates the tags in the metadata.
+func (b *CaptureBuffer) UpdateTags(tags []string) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+	b.MetaData.Tags = tags
 }

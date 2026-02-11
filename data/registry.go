@@ -31,6 +31,7 @@ type CollectorParams struct {
 	MongoCollection *mongo.Collection
 	QueueSize       int
 	Target          CaptureBufferedWriter
+	Tags            []string
 }
 
 // Validate validates that p contains all required parameters.

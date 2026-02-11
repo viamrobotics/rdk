@@ -56,6 +56,17 @@ type Service interface {
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 	UploadImageToDatasets(ctx context.Context, image image.Image, datasetIDs, tags []string,
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
+	// ConfigureSelectiveCapture applies temporary capture overrides.
+	// Overrides are cleared when the data manager reconfigures.
+	ConfigureSelectiveCapture(ctx context.Context, overrides []CaptureOverride) error
+}
+
+// CaptureOverride specifies temporary overrides for a collector.
+type CaptureOverride struct {
+	ResourceName string
+	Method       string
+	FrequencyHz  float64
+	Tags         []string
 }
 
 // SubtypeName is the name of the type of service.

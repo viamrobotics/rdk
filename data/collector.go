@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -58,6 +59,8 @@ type Collector interface {
 	Close()
 	Collect()
 	Flush()
+	SetInterval(interval time.Duration)
+	SetTags(tags []string)
 }
 
 type collector struct {
@@ -82,6 +85,12 @@ type collector struct {
 	target           CaptureBufferedWriter
 	lastLoggedErrors map[string]int64
 	dataType         CaptureType
+
+	// Fields for dynamic interval and tag changes
+	intervalChanged chan time.Duration
+	tagsMu          sync.RWMutex
+	currentTags     []string
+	disabled        atomic.Bool
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
@@ -109,6 +118,29 @@ func (c *collector) Flush() {
 	if err := c.target.Flush(); err != nil {
 		c.logger.Errorw("failed to flush collector", "error", err)
 	}
+}
+
+// SetInterval dynamically changes the capture interval.
+// Setting interval to 0 disables capture.
+func (c *collector) SetInterval(interval time.Duration) {
+	c.interval = interval
+	c.disabled.Store(interval == 0)
+	// Use non-blocking send to avoid blocking if the channel already has a pending update
+	select {
+	case c.intervalChanged <- interval:
+	default:
+		// If channel is full, replace the pending value
+		<-c.intervalChanged
+		c.intervalChanged <- interval
+	}
+}
+
+// SetTags dynamically changes the tags applied to captured data.
+func (c *collector) SetTags(tags []string) {
+	c.tagsMu.Lock()
+	defer c.tagsMu.Unlock()
+	c.currentTags = tags
+	c.target.UpdateTags(tags)
 }
 
 // Collect starts the Collector, causing it to run c.capturer.Capture every c.interval, and write the results to
@@ -144,27 +176,62 @@ func (c *collector) capture(started chan struct{}) {
 }
 
 func (c *collector) sleepBasedCapture(started chan struct{}) {
-	next := c.clock.Now().Add(c.interval)
+	// If starting with interval 0, use a default 1 second interval for the timer
+	// The disabled flag will prevent actual capturing
+	effectiveInterval := c.interval
+	if effectiveInterval == 0 {
+		effectiveInterval = time.Second
+	}
+	next := c.clock.Now().Add(effectiveInterval)
 	until := c.clock.Until(next)
+	timer := c.clock.Timer(until)
+	defer timer.Stop()
 
 	close(started)
 	for {
 		if err := c.cancelCtx.Err(); err != nil {
 			return
 		}
-		c.clock.Sleep(until)
-		if err := c.cancelCtx.Err(); err != nil {
-			return
-		}
 
-		c.getAndPushNextReading()
-		next = next.Add(c.interval)
-		until = c.clock.Until(next)
+		select {
+		case <-c.cancelCtx.Done():
+			return
+		case <-timer.C:
+			// Only capture if not disabled
+			if !c.disabled.Load() {
+				c.getAndPushNextReading()
+			}
+			// Use effective interval (actual interval or 1 second if disabled)
+			effectiveInterval = c.interval
+			if effectiveInterval == 0 {
+				effectiveInterval = time.Second
+			}
+			next = next.Add(effectiveInterval)
+			until = c.clock.Until(next)
+			timer.Reset(until)
+		case newInterval := <-c.intervalChanged:
+			// Calculate effective interval for the timer
+			effectiveInterval = newInterval
+			if effectiveInterval == 0 {
+				effectiveInterval = time.Second
+			}
+			// Reset the timer with the effective interval
+			timer.Stop()
+			next = c.clock.Now().Add(effectiveInterval)
+			until = c.clock.Until(next)
+			timer.Reset(until)
+		}
 	}
 }
 
 func (c *collector) tickerBasedCapture(started chan struct{}) {
-	ticker := c.clock.Ticker(c.interval)
+	// If starting with interval 0, use a default 1 second interval for the ticker
+	// The disabled flag will prevent actual capturing
+	effectiveInterval := c.interval
+	if effectiveInterval == 0 {
+		effectiveInterval = time.Second
+	}
+	ticker := c.clock.Ticker(effectiveInterval)
 	defer ticker.Stop()
 
 	close(started)
@@ -177,7 +244,19 @@ func (c *collector) tickerBasedCapture(started chan struct{}) {
 		case <-c.cancelCtx.Done():
 			return
 		case <-ticker.C:
-			c.getAndPushNextReading()
+			// Only capture if not disabled
+			if !c.disabled.Load() {
+				c.getAndPushNextReading()
+			}
+		case newInterval := <-c.intervalChanged:
+			// Calculate effective interval for the ticker
+			effectiveInterval = newInterval
+			if effectiveInterval == 0 {
+				effectiveInterval = time.Second
+			}
+			// Stop the old ticker and create a new one with the effective interval
+			ticker.Stop()
+			ticker = c.clock.Ticker(effectiveInterval)
 		}
 	}
 }
@@ -250,7 +329,7 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 	} else {
 		c = params.Clock
 	}
-	return &collector{
+	col := &collector{
 		componentName:    params.ComponentName,
 		componentType:    params.ComponentType,
 		methodName:       params.MethodName,
@@ -267,7 +346,12 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 		target:           params.Target,
 		clock:            c,
 		lastLoggedErrors: make(map[string]int64, 0),
-	}, nil
+		intervalChanged:  make(chan time.Duration, 1),
+		currentTags:      params.Tags,
+	}
+	// Initialize disabled state based on initial interval
+	col.disabled.Store(params.Interval == 0)
+	return col, nil
 }
 
 func (c *collector) writeCaptureResults() {
