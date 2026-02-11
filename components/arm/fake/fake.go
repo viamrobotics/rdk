@@ -10,7 +10,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/components/arm"
-	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -33,11 +32,8 @@ type Config struct {
 // Known values that can be provided for the ArmModel field.
 var (
 	ur5eModel  = "ur5e"
-	ur20Model  = "ur20"
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
-	lite6Model = "lite6"
-	so101Model = "so101"
 )
 
 //go:embed kinematics/fake.json
@@ -46,20 +42,11 @@ var fakejson []byte
 //go:embed kinematics/ur5e.json
 var ur5eJSON []byte
 
-//go:embed kinematics/ur20.json
-var ur20JSON []byte
-
 //go:embed kinematics/xarm6.json
 var xarm6JSON []byte
 
 //go:embed kinematics/xarm7.json
 var xarm7JSON []byte
-
-//go:embed kinematics/lite6.json
-var lite6JSON []byte
-
-//go:embed kinematics/so101.json
-var so101JSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -285,25 +272,7 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 
 // Get3DModels returns the 3D models of the fake arm. Unknown arm models should return an empty map.
 func (a *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
 	models := make(map[string]*commonpb.Mesh)
-	armModelParts := models3d.ArmTo3DModelParts[a.armModel]
-	if armModelParts == nil {
-		return models, nil
-	}
-
-	for _, modelPart := range armModelParts {
-		modelPartMesh := models3d.ThreeDMeshFromName(a.armModel, modelPart)
-		if len(modelPartMesh.Mesh) > 0 {
-			// len > 0 indicates we actually have a 3D model for thus armModel and part Name
-			models[modelPart] = &modelPartMesh
-		} else {
-			a.logger.CWarnw(ctx, "No 3D model found for arm model and part", "armModel", a.armModel, "modelPart", modelPart)
-		}
-	}
-
 	return models, nil
 }
 
@@ -311,16 +280,10 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
 		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
-	case ur20Model:
-		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
 	case xArm6Model:
 		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
 	case xArm7Model:
 		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
-	case lite6Model:
-		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
-	case so101Model:
-		return referenceframe.UnmarshalModelJSON(so101JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
