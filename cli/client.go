@@ -1686,8 +1686,22 @@ var validDataCaptureMethods = map[string][]string{
 	"shell":     {"DoCommand"},
 }
 
+// warnUnknownKeys warns about any keys in m that are not in validKeys.
+func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys map[string]bool) {
+	for k := range m {
+		if !validKeys[k] {
+			warningf(w, "unknown field %q in %s", k, context)
+		}
+	}
+}
+
 // validateTriggerConfig validates the trigger configuration and returns an error for invalid configs.
 func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) error {
+	// warn about unknown top-level keys
+	warnUnknownKeys(w, "trigger config", triggerConfig, map[string]bool{
+		"name": true, "event": true, "notifications": true, "disabled": true,
+	})
+
 	// 1. name: required non-empty string
 	nameRaw, ok := triggerConfig["name"]
 	if !ok {
@@ -1727,6 +1741,18 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
 	}
 
+	// warn about unknown event keys
+	validEventKeys := map[string]bool{"type": true}
+	switch eventType {
+	case "part_data_ingested":
+		validEventKeys["data_ingested"] = true
+	case "conditional_data_ingested":
+		validEventKeys["conditional"] = true
+	case "conditional_logs_ingested":
+		validEventKeys["log_levels"] = true
+	}
+	warnUnknownKeys(w, "event", event, validEventKeys)
+
 	// 4. event-type-specific validation
 	switch eventType {
 	case "part_data_ingested":
@@ -1759,7 +1785,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 		if !ok {
 			return fmt.Errorf("notification at index %d must be an object", i)
 		}
-		if err := validateNotification(n, i, eventType); err != nil {
+		if err := validateNotification(w, n, i, eventType); err != nil {
 			return err
 		}
 	}
@@ -1937,7 +1963,11 @@ func validateConditionalLogsIngested(event map[string]any) error {
 	return nil
 }
 
-func validateNotification(n map[string]any, index int, eventType string) error {
+func validateNotification(w io.Writer, n map[string]any, index int, eventType string) error {
+	warnUnknownKeys(w, fmt.Sprintf("notification at index %d", index), n, map[string]bool{
+		"type": true, "value": true, "seconds_between_notifications": true,
+	})
+
 	// type
 	ntRaw, ok := n["type"]
 	if !ok {
