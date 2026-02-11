@@ -2789,22 +2789,23 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "add-job",
 							Usage: "add a scheduled job to a machine part",
 							Description: `Add a scheduled job that runs a method on a resource at a given interval.
-The --attributes flag accepts inline JSON or a path to a JSON file.
-
-Required JSON fields: name, schedule, resource, method
-Optional JSON fields: command, log_configuration
+The --attributes flag accepts a single JSON object (inline or a path to a JSON file) with the following fields:
+  name       (required)  unique name for this job
+  schedule   (required)  must be one of:
+                           "continuous"    run in a loop without stopping
+                           a Go duration   e.g. "5s", "1h30m", "500ms"
+                           a cron expr     e.g. "0 0 * * *" (5-field) or "*/5 * * * * *" (6-field with seconds)
+  resource   (required)  name of the component or service to run the method on
+  method     (required)  gRPC method name, e.g. "DoCommand", "GetReadings"
+  command    (optional)  JSON object passed as the argument to DoCommand
+  log_configuration (optional)  e.g. {"level":"debug"}. Level must be one of: debug, info, warn, error
 
 Example with inline JSON:
   viam machines part add-job --part=<part-id> \
     --attributes '{"name":"my-job","schedule":"1h","resource":"my-sensor","method":"GetReadings"}'
 
 Example with a JSON file:
-  viam machines part add-job --part=<part-id> --attributes ./job.json
-
-Schedule must be one of:
-  "continuous"              run in a loop without stopping
-  a Go duration             e.g. "5s", "1h30m", "500ms"
-  a cron expression         e.g. "0 0 * * *" (5-field) or "*/5 * * * * *" (6-field with seconds)`,
+  viam machines part add-job --part=<part-id> --attributes ./job.json`,
 							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
 							Flags: append(commonPartFlags, &cli.StringFlag{
 								Name:     generalFlagAttributes,
@@ -2816,8 +2817,9 @@ Schedule must be one of:
 						{
 							Name:  "update-job",
 							Usage: "update a scheduled job on a machine part",
-							Description: `Update an existing job's configuration. Only the fields provided in --attributes will be changed;
-all other fields remain unchanged. The job name cannot be changed.
+							Description: `Update an existing job's configuration by name. The --attributes flag accepts a single JSON
+object (inline or a path to a JSON file) with the fields to change. Only the fields provided will
+be updated; all other fields remain unchanged. The job name cannot be changed.
 
 Example changing the schedule:
   viam machines part update-job --part=<part-id> --name=my-job --attributes '{"schedule":"30m"}'
