@@ -1540,7 +1540,7 @@ func parseJSONOrFile(input string) (map[string]any, error) {
 }
 
 // validateJobConfig validates the fields of a job config map. When isUpdate is true,
-// only provided fields are validated (partial updates are allowed).
+// this is an update-job so not all fields are required.
 // partConfig is used to warn about unrecognized resource names.
 func validateJobConfig(w io.Writer, jobConfig, partConfig map[string]any, isUpdate bool) error {
 	// Validate schedule format if provided (or required for add).
@@ -1570,17 +1570,10 @@ func validateJobConfig(w io.Writer, jobConfig, partConfig map[string]any, isUpda
 		return errors.New("job config must include 'resource' field (string)")
 	}
 
-	// Validate method is a non-empty string. Warn if it doesn't look like a known
-	// gRPC method (e.g. "DoCommand", "GetReadings"). Methods are PascalCase.
+	// Validate method is a non-empty string
 	if method, ok := jobConfig["method"].(string); ok {
 		if method == "" {
 			return errors.New("'method' field must be a non-empty string")
-		}
-		if method[0] < 'A' || method[0] > 'Z' {
-			warningf(w,
-				"method %q does not look like a valid gRPC method name (expected PascalCase, e.g. 'DoCommand', 'GetReadings')",
-				method,
-			)
 		}
 	} else if !isUpdate {
 		return errors.New("job config must include 'method' field (string)")
