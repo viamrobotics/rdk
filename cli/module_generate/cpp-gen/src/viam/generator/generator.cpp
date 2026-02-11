@@ -199,19 +199,31 @@ int Generator::do_stubs() {
                 clang::PrintingPolicy printPolicy(method->getASTContext().getLangOpts());
                 printPolicy.FullyQualifiedName = 1;
 
-                os << "    "
-                   << clang::TypeName::getFullyQualifiedName(
-                          method->getReturnType(), method->getASTContext(), printPolicy)
-                   << " " << method->getName() << "(";
+                const std::string& retType = clang::TypeName::getFullyQualifiedName(
+                    method->getReturnType(), method->getASTContext(), printPolicy);
 
-                if (method->getNumParams() > 0) {
+                os << "    " << retType << (retType.size() < 70 ? " " : "\n    ")
+                   << method->getName() << "(";
+
+                const auto paramCount = method->getNumParams();
+
+                auto printParamBreak = [paramCount, this] {
+                    if (paramCount > 1) {
+                        os << "\n        ";
+                    }
+                };
+
+                if (paramCount > 0) {
                     auto param_begin = method->param_begin();
+
+                    printParamBreak();
                     printParm(**param_begin);
 
-                    if (method->getNumParams() > 1) {
+                    if (paramCount > 1) {
                         for (const clang::ParmVarDecl* parm :
                              llvm::makeArrayRef(++param_begin, method->param_end())) {
-                            os << ", ";
+                            os << ",";
+                            printParamBreak();
                             printParm(*parm);
                         }
                     }
