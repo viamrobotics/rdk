@@ -24,14 +24,13 @@ import (
 	"sync"
 	"time"
 
-	cron "github.com/robfig/cron/v3"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/fullstorydev/grpcurl"
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
+	cron "github.com/robfig/cron/v3"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -1525,6 +1524,7 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 // parseJSONOrFile tries to read input as a file, falls back to parsing as inline JSON
 func parseJSONOrFile(input string) (map[string]any, error) {
 	var data []byte
+	//nolint:gosec
 	if fileData, err := os.ReadFile(input); err == nil {
 		data = fileData
 	} else {
@@ -1540,7 +1540,7 @@ func parseJSONOrFile(input string) (map[string]any, error) {
 // validateJobConfig validates the fields of a job config map. When isUpdate is true,
 // only provided fields are validated (partial updates are allowed).
 // partConfig is used to warn about unrecognized resource names.
-func validateJobConfig(w io.Writer, jobConfig map[string]any, partConfig map[string]any, isUpdate bool) error {
+func validateJobConfig(w io.Writer, jobConfig, partConfig map[string]any, isUpdate bool) error {
 	// Validate schedule format if provided (or required for add).
 	// Valid values: "continuous", a Go duration (e.g. "5s", "1h30m"), or a cron expression (5-6 fields).
 	if schedule, ok := jobConfig["schedule"].(string); ok {

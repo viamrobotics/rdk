@@ -2757,8 +2757,25 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
 						},
 						{
-							Name:      "add-job",
-							Usage:     "add a scheduled job to a machine part",
+							Name:  "add-job",
+							Usage: "add a scheduled job to a machine part",
+							Description: `Add a scheduled job that runs a method on a resource at a given interval.
+The --attributes flag accepts inline JSON or a path to a JSON file.
+
+Required JSON fields: name, schedule, resource, method
+Optional JSON fields: command, log_configuration
+
+Example with inline JSON:
+  viam machines part add-job --part=<part-id> \
+    --attributes '{"name":"my-job","schedule":"1h","resource":"my-sensor","method":"GetReadings"}'
+
+Example with a JSON file:
+  viam machines part add-job --part=<part-id> --attributes ./job.json
+
+Schedule must be one of:
+  "continuous"              run in a loop without stopping
+  a Go duration             e.g. "5s", "1h30m", "500ms"
+  a cron expression         e.g. "0 0 * * *" (5-field) or "*/5 * * * * *" (6-field with seconds)`,
 							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
 							Flags: append(commonPartFlags, &cli.StringFlag{
 								Name:     generalFlagAttributes,
@@ -2770,6 +2787,15 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:  "update-job",
 							Usage: "update a scheduled job on a machine part",
+							Description: `Update an existing job's configuration. Only the fields provided in --attributes will be changed;
+all other fields remain unchanged. The job name cannot be changed.
+
+Example changing the schedule:
+  viam machines part update-job --part=<part-id> --name=my-job --attributes '{"schedule":"30m"}'
+
+Example changing multiple fields:
+  viam machines part update-job --part=<part-id> --name=my-job \
+    --attributes '{"schedule":"0 0 * * *","method":"DoCommand","command":{"action":"reset"}}'`,
 							UsageText: createUsageText(
 								"machines part update-job",
 								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
@@ -2782,14 +2808,18 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     generalFlagAttributes,
 									Required: true,
-									Usage:    "JSON job config or path to JSON file",
+									Usage:    "JSON job config or path to JSON file with fields to update",
 								},
 							}...),
 							Action: createCommandWithT(machinesPartUpdateJobAction),
 						},
 						{
-							Name:      "delete-job",
-							Usage:     "delete a scheduled job from a machine part",
+							Name:  "delete-job",
+							Usage: "delete a scheduled job from a machine part",
+							Description: `Delete an existing job by name.
+
+Example:
+  viam machines part delete-job --part=<part-id> --name=my-job`,
 							UsageText: createUsageText("machines part delete-job", []string{generalFlagPart, generalFlagName}, true, false),
 							Flags: append(commonPartFlags, &cli.StringFlag{
 								Name:     generalFlagName,
