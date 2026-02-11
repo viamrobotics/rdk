@@ -32,6 +32,8 @@ class Generator {
 
     static ResourceType to_resource_type(llvm::StringRef resourceType);
 
+    static void main_fn(llvm::raw_ostream& moduleFile);
+
     int run();
 
    private:

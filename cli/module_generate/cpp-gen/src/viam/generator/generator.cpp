@@ -254,9 +254,9 @@ int Generator::do_stubs() {
     return tool.run(clang::tooling::newFrontendActionFactory(&finder).get());
 }
 
-void Generator::main_fn() {
-    moduleFile_ << "int main(int argc, char** argv) try {\n"
-                << llvm::formatv(R"--(
+void Generator::main_fn(llvm::raw_ostream& moduleFile) {
+    moduleFile << "int main(int argc, char** argv) try {\n"
+               << llvm::formatv(R"--(
     // Every Viam C++ SDK program must have one and only one Instance object which is created before
     // any other SDK objects and stays alive until all of them are destroyed.
     viam::sdk::Instance inst;
@@ -265,11 +265,11 @@ void Generator::main_fn() {
     VIAM_SDK_LOG(info) << "Starting up {1} module";
 
     Model model("viam", "{0}", "{1}");)--",
-                                 resourceSubtypeSnake_,
-                                 fmt_str::modelSnake)
-                << "\n\n"
-                << llvm::formatv(
-                       R"--(
+                                fmt_str::resourceSubtypeSnake,
+                                fmt_str::modelSnake)
+               << "\n\n"
+               << llvm::formatv(
+                      R"--(
     std::shared_ptr<ModelRegistration> mr = std::make_shared<ModelRegistration>(
         API::get<{viam::sdk::0}>,
         model,
@@ -278,10 +278,10 @@ void Generator::main_fn() {
         },
         &{1}::validate);
 )--",
-                       resourceSubtypePascal_,
-                       fmt_str::modelPascal)
-                << "\n\n"
-                <<
+                      fmt_str::resourceSubtypePascal,
+                      fmt_str::modelPascal)
+               << "\n\n"
+               <<
         R"--(
     std::vector<std::shared_ptr<ModelRegistration>> mrs = {mr};
     auto my_mod = std::make_shared<ModuleService>(argc, argv, mrs);
