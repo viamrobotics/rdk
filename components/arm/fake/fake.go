@@ -34,6 +34,8 @@ var (
 	ur5eModel  = "ur5e"
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
+	ur20Model  = "ur20"
+	lite6Model = "lite6"
 )
 
 //go:embed kinematics/fake.json
@@ -47,6 +49,12 @@ var xarm6JSON []byte
 
 //go:embed kinematics/xarm7.json
 var xarm7JSON []byte
+
+//go:embed kinematics/ur20.json
+var ur20JSON []byte
+
+//go:embed kinematics/lite6.json
+var lite6JSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -284,6 +292,10 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return referenceframe.UnmarshalModelJSON(xarm6JSON, name)
 	case xArm7Model:
 		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
+	case ur20Model:
+		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
+	case lite6Model:
+		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:
