@@ -2,7 +2,9 @@
 
 #include "compilation_db.hpp"
 #include "compiler_info.hpp"
+#include "template_constants.hpp"
 #include <clang/AST/PrettyPrinter.h>
+#include <clang/AST/QualTypeNames.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/Frontend/FrontendActions.h>
@@ -32,12 +34,21 @@ Generator Generator::create(Generator::ModuleInfo moduleInfo,
     return Generator(
         GeneratorCompDB(*jsonDb, getCompilersDefaultIncludeDir(*jsonDb, true)),
         moduleInfo.resourceType,
-        moduleInfo.resourceSubtype.str(),
-        moduleInfo.modelName.str(),
+        moduleInfo.resourceSubtypeSnake.str(),
         (cppInfo.sourceDir +
-         resourceToSource(moduleInfo.resourceSubtype, moduleInfo.resourceType, SrcType::cpp))
+         resourceToSource(moduleInfo.resourceSubtypeSnake, moduleInfo.resourceType, SrcType::cpp))
             .str(),
         moduleFile);
+}
+
+Generator Generator::createFromCommandLine(const clang::tooling::CompilationDatabase& db,
+                                           llvm::StringRef sourceFile,
+                                           llvm::raw_ostream& outFile) {
+    return Generator(GeneratorCompDB(db, getCompilersDefaultIncludeDir(db, true)),
+                     to_resource_type((*++llvm::sys::path::rbegin(sourceFile)).drop_back()),
+                     llvm::sys::path::stem(sourceFile).str(),
+                     sourceFile.str(),
+                     outFile);
 }
 
 Generator::ResourceType Generator::to_resource_type(llvm::StringRef resourceType) {
@@ -49,24 +60,22 @@ Generator::ResourceType Generator::to_resource_type(llvm::StringRef resourceType
         return ResourceType::service;
     }
 
-    throw std::runtime_error("Invalid resource type");
+    throw std::runtime_error(("Invalid resource type" + resourceType).str());
 }
 
 Generator::Generator(GeneratorCompDB db,
                      ResourceType resourceType,
-                     std::string resourceSubtype,
-                     std::string modelName,
+                     std::string resourceSubtypeSnake,
                      std::string resourcePath,
                      llvm::raw_ostream& moduleFile)
     : db_(std::move(db)),
       resourceType_(resourceType),
-      resourceSubtype_(std::move(resourceSubtype)),
-      modelName_(std::move(modelName)),
-      className_(llvm::convertToCamelFromSnakeCase(resourceSubtype_, true)),
+      resourceSubtypeSnake_(std::move(resourceSubtypeSnake)),
+      resourceSubtypePascal_(llvm::convertToCamelFromSnakeCase(resourceSubtypeSnake_, true)),
       resourcePath_(std::move(resourcePath)),
       moduleFile_(moduleFile) {
-    if (llvm::StringRef(resourceSubtype_).startswith("generic_")) {
-        resourceSubtype_ = "generic";
+    if (llvm::StringRef(resourceSubtypeSnake_).startswith("generic_")) {
+        resourceSubtypeSnake_ = "generic";
     }
 }
 
@@ -83,7 +92,7 @@ public:
 
 )--";
 
-    moduleFile_ << llvm::formatv(fmt, modelName_, className_);
+    moduleFile_ << llvm::formatv(fmt, fmt_str::modelPascal, resourceSubtypePascal_);
 
     moduleFile_ << R"--(
     static std::vector<std::string> validate(const viam::sdk::ResourceConfig&)
@@ -91,7 +100,7 @@ public:
         throw std::runtime_error("\"validate\" not implemented");
     }
 
-    void reconfigure(const viam::sdk::Dependencies&, const ResourceConfig&) override
+    void reconfigure(const viam::sdk::Dependencies&, const viam::sdk::ResourceConfig&) override
     {
         throw std::runtime_error("\"reconfigure\" not implemented");
     }
@@ -159,8 +168,8 @@ void Generator::include_stmts() {
                           ? include_fmt<ResourceType::component>()
                           : include_fmt<ResourceType::service>();
 
-    moduleFile_ << llvm::formatv(fmt,
-                                 resourceToSource(resourceSubtype_, resourceType_, SrcType::hpp));
+    moduleFile_ << llvm::formatv(
+        fmt, resourceToSource(resourceSubtypeSnake_, resourceType_, SrcType::hpp));
 }
 
 int Generator::do_stubs() {
@@ -168,7 +177,7 @@ int Generator::do_stubs() {
 
     using namespace clang::ast_matchers;
 
-    std::string qualName = ("viam::sdk::" + className_);
+    std::string qualName = ("viam::sdk::" + resourceSubtypePascal_);
 
     DeclarationMatcher methodMatcher =
         cxxMethodDecl(isPure(), hasParent(cxxRecordDecl(hasName(qualName)))).bind("method");
@@ -179,16 +188,20 @@ int Generator::do_stubs() {
         llvm::raw_ostream& os;
 
         void printParm(const clang::ParmVarDecl& parm) {
-            os << parm.getType().getAsString({parm.getASTContext().getLangOpts()}) << " "
-               << parm.getName();
+            os << clang::TypeName::getFullyQualifiedName(
+                      parm.getType(), parm.getASTContext(), {parm.getASTContext().getLangOpts()})
+               << " " << parm.getName();
         }
 
         void run(const MatchFinder::MatchResult& result) override {
             if (const auto* method = result.Nodes.getNodeAs<clang::CXXMethodDecl>("method")) {
                 clang::PrintingPolicy printPolicy(method->getASTContext().getLangOpts());
+                printPolicy.FullyQualifiedName = 1;
 
-                os << "    " << method->getReturnType().getAsString(printPolicy) << " "
-                   << method->getName() << "(";
+                os << "    "
+                   << clang::TypeName::getFullyQualifiedName(
+                          method->getReturnType(), method->getASTContext(), printPolicy)
+                   << " " << method->getName() << "(";
 
                 if (method->getNumParams() > 0) {
                     auto param_begin = method->param_begin();
@@ -239,8 +252,8 @@ void Generator::main_fn() {
     VIAM_SDK_LOG(info) << "Starting up {1} module";
 
     Model model("viam", "{0}", "{1}");)--",
-                                 resourceSubtype_,
-                                 modelName_)
+                                 resourceSubtypeSnake_,
+                                 fmt_str::modelSnake)
                 << "\n\n"
                 << llvm::formatv(
                        R"--(
@@ -252,8 +265,8 @@ void Generator::main_fn() {
         },
         &{1}::validate);
 )--",
-                       className_,
-                       modelName_)
+                       resourceSubtypePascal_,
+                       fmt_str::modelPascal)
                 << "\n\n"
                 <<
         R"--(

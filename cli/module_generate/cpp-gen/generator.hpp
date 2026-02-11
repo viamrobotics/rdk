@@ -14,8 +14,7 @@ class Generator {
 
     struct ModuleInfo {
         ResourceType resourceType;
-        llvm::StringRef resourceSubtype;
-        llvm::StringRef modelName;
+        llvm::StringRef resourceSubtypeSnake;
     };
 
     struct CppTreeInfo {
@@ -26,6 +25,10 @@ class Generator {
     static Generator create(ModuleInfo moduleInfo,
                             CppTreeInfo cppInfo,
                             llvm::raw_ostream& moduleFile);
+
+    static Generator createFromCommandLine(const clang::tooling::CompilationDatabase& db,
+                                           llvm::StringRef sourceFile,
+                                           llvm::raw_ostream& outFile);
 
     static ResourceType to_resource_type(llvm::StringRef resourceType);
 
@@ -41,8 +44,7 @@ class Generator {
 
     Generator(GeneratorCompDB db,
               ResourceType resourceType,
-              std::string resourceSubtype,
-              std::string modelName,
+              std::string resourceSubtypeSnake,
               std::string resourcePath,
               llvm::raw_ostream& moduleFile);
 
@@ -55,10 +57,9 @@ class Generator {
     GeneratorCompDB db_;
 
     ResourceType resourceType_;
-    std::string resourceSubtype_;
-    std::string modelName_;
 
-    std::string className_;
+    std::string resourceSubtypeSnake_;
+    std::string resourceSubtypePascal_;
 
     std::string resourcePath_;
 
