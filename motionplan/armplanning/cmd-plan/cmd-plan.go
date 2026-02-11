@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime/pprof"
 	"slices"
 	"sort"
@@ -21,6 +23,7 @@ import (
 	viz "github.com/viam-labs/motion-tools/client/client"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/trace"
 
@@ -55,6 +58,7 @@ func realMain() error {
 	interactive := flag.Bool("i", false, "interactive")
 	host := flag.String("host", "", "host to execute on")
 	forceMotion := flag.Bool("force-move", false, "")
+	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 
 	flag.Parse()
 
@@ -253,6 +257,13 @@ func realMain() error {
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
+		}
+	}
+
+	if *waypointsFile != "" {
+		err := writeWaypointsToFile(ctx, plan, *waypointsFile)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -495,7 +506,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	}
 }
 
-func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force bool, logger logging.Logger) error {
+func getFullTrajectoryByComponent(plan motionplan.Plan) map[string][][]referenceframe.Input {
 	byComponent := map[string][][]referenceframe.Input{}
 
 	for _, s := range plan.Trajectory() {
@@ -505,6 +516,12 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 			}
 		}
 	}
+
+	return byComponent
+}
+
+func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force bool, logger logging.Logger) error {
+	byComponent := getFullTrajectoryByComponent(plan)
 
 	if len(byComponent) > 1 {
 		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent))
@@ -574,4 +591,37 @@ func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force 
 	}
 
 	return nil
+}
+
+func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName string) error {
+	byComponent := getFullTrajectoryByComponent(plan)
+	if len(byComponent) != 1 {
+		return fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent))
+	}
+
+	ff := &waypointsFileFormat{}
+	for _, v := range byComponent {
+		ff.Waypoints = v
+	}
+
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := json.Marshal(ff)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type waypointsFileFormat struct {
+	Waypoints [][]float64 `json:"waypoints_rad"`
 }
