@@ -1522,6 +1522,196 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+// parseJSONOrFile tries json.Unmarshal first; if that fails and s is a file path, reads and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
+	var result map[string]any
+	if err := json.Unmarshal([]byte(s), &result); err == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse as JSON and failed to read file %q: %w", s, err)
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
+	}
+	return result, nil
+}
+
+// deepMerge updates the keys provided rather than override the entire map
+// if it sees a null, it deletes the key
+func deepMerge(base, override map[string]any) map[string]any {
+	for k, v := range override {
+		if v == nil {
+			delete(base, k)
+			continue
+		}
+		baseMap, baseIsMap := base[k].(map[string]any)
+		overrideMap, overrideIsMap := v.(map[string]any)
+		if baseIsMap && overrideIsMap {
+			base[k] = deepMerge(baseMap, overrideMap)
+		} else {
+			base[k] = v
+		}
+	}
+	return base
+}
+
+type resourceEnableDisableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Component    []string
+}
+
+func resourceEnableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, false)
+}
+
+func resourceDisableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, true)
+}
+
+func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disable bool) error {
+	for _, name := range args.Component {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("--component value must not be empty")
+		}
+	}
+
+	// warn on duplicate components and create a list of unique ones
+	seen := make(map[string]bool, len(args.Component))
+	var uniqueComponents []string
+	for _, name := range args.Component {
+		if seen[name] {
+			warningf(c.App.Writer, "duplicate component %q ignored\n", name)
+			continue
+		}
+		seen[name] = true
+		uniqueComponents = append(uniqueComponents, name)
+	}
+	args.Component = uniqueComponents
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	components, err := resourcesFromPartConfig(config, "components")
+	if err != nil {
+		return err
+	}
+
+	for _, name := range args.Component {
+		found := false
+		for _, comp := range components {
+			if comp["name"] == name {
+				found = true
+				if disable {
+					comp["disabled"] = true
+				} else {
+					delete(comp, "disabled")
+				}
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("component %q not found in part config", name)
+		}
+	}
+
+	config["components"] = components
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	action := "enabled"
+	if disable {
+		action = "disabled"
+	}
+	printf(c.App.Writer, "successfully %s component(s): %s", action, strings.Join(args.Component, ", "))
+	return nil
+}
+
+type machinesPartUpdateResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
+	updates, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := updates["name"]; ok {
+		return errors.New("cannot update \"name\" field; name is used to identify the resource")
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			if resource["name"] == args.Name {
+				resourceFound = true
+				deepMerge(resource, updates)
+				break
+			}
+		}
+		config[resourceType] = resources
+	}
+
+	if !resourceFound {
+		return fmt.Errorf("resource %q not found in part config", args.Name)
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully updated resource %q", args.Name)
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string
