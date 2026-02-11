@@ -8,7 +8,6 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 
-	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -78,22 +77,6 @@ func (sa *simulatedArm) Get3DModels(
 	ctx context.Context, extra map[string]interface{},
 ) (map[string]*commonpb.Mesh, error) {
 	models := make(map[string]*commonpb.Mesh)
-	armModelParts := models3d.ArmTo3DModelParts[sa.modelName]
-	if armModelParts == nil {
-		return models, nil
-	}
-
-	for _, modelPart := range armModelParts {
-		modelPartMesh := models3d.ThreeDMeshFromName(sa.modelName, modelPart)
-		if len(modelPartMesh.Mesh) > 0 {
-			// len > 0 indicates we actually have a 3D model for thus armModel and part Name
-			models[modelPart] = &modelPartMesh
-		} else {
-			sa.logger.CWarnw(ctx, "No 3D model found for arm model and part",
-				"armModel", sa.modelName, "modelPart", modelPart)
-		}
-	}
-
 	return models, nil
 }
 
