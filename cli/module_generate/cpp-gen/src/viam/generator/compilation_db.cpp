@@ -1,4 +1,4 @@
-#include "compilation_db.hpp"
+#include <viam/generator/compilation_db.hpp>
 
 namespace viam::gen {
 

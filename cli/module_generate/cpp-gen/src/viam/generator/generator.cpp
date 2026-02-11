@@ -1,8 +1,9 @@
-#include "generator.hpp"
+#include <viam/generator/generator.hpp>
 
-#include "compilation_db.hpp"
-#include "compiler_info.hpp"
-#include "template_constants.hpp"
+#include <viam/generator/compilation_db.hpp>
+#include <viam/generator/compiler_info.hpp>
+#include <viam/generator/template_constants.hpp>
+
 #include <clang/AST/PrettyPrinter.h>
 #include <clang/AST/QualTypeNames.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>

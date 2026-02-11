@@ -1,6 +1,6 @@
 #pragma once
 
-#include "compilation_db.hpp"
+#include <viam/generator/compilation_db.hpp>
 
 #include <clang/Tooling/Tooling.h>
 #include <llvm/ADT/StringRef.h>

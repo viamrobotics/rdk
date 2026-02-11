@@ -1,4 +1,4 @@
-#include "compiler_info.hpp"
+#include <viam/generator/compiler_info.hpp>
 
 #include <llvm/Support/Program.h>
 

@@ -1,4 +1,4 @@
-#include "generator.hpp"
+#include <viam/generator/generator.hpp>
 
 #include <clang/Tooling/CommonOptionsParser.h>
 #include <llvm/Support/CommandLine.h>
