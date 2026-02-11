@@ -1,18 +1,12 @@
-# This Dockerfile is meant to be built on top of an existing image from the base-images directory.
-# Suggested usage, from the SDK root:
-#   docker build -t base/bullseye -f etc/docker/base-images/Dockerfile.debian.bullseye .
-#   docker build --build-arg BASE_TAG=base/bullseye --build-arg GIT_TAG=[...] etc/docker/Dockerfile.sdk-build .
-# You can substitute the bullseye image for whichever you want to use as a base.
-# Note that it is necessary to tag the base image with `-t` and then refer to it using the `BASE_TAG` arg.
+# This Dockerfile is meant to be used on top of an existing container which has clang-15 and llvm-15 installed
+# See Dockerfile.debian.bookworm in this repo; others are not tested.
 
 ARG BASE_TAG
 
 FROM ${BASE_TAG}
 COPY . /module-generator
 
-ARG SDK_GIT_TAG
-RUN echo "Checking if GIT_TAG is set" && test -n "${SDK_GIT_TAG}"
-RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ -b ${SDK_GIT_TAG}
+RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ --depth 1
 
 ENV DEBIAN_FRONTEND=noninteractive
 
