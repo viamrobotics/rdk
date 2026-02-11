@@ -621,6 +621,7 @@ func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName st
 	}
 	return nil
 }
+
 type waypointsFileFormat struct {
 	Waypoints [][]float64 `json:"waypoints_rad"`
 }
