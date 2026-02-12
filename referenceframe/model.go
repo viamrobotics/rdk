@@ -1,17 +1,14 @@
 package referenceframe
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"strings"
-	"sync"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 	"gonum.org/v1/gonum/num/dualquat"
@@ -24,7 +21,6 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
-	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
@@ -71,7 +67,6 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
 	case "urdf":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-		// Extract mesh data from geometries and populate mesh map for URDF
 		resp.MeshesByUrdfFilepath = extractMeshMapFromModelConfig(cfg)
 	default:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
@@ -79,33 +74,23 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 	return resp
 }
 
-// extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
-// Returns a map of URDF file paths to proto Mesh messages.
 func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Mesh {
 	meshMap := make(map[string]*commonpb.Mesh)
-
-	// Iterate through all links and extract mesh geometries
 	for _, link := range cfg.Links {
 		if link.Geometry == nil {
 			continue
 		}
-
-		// Check if this is a mesh geometry
 		if link.Geometry.Type == spatialmath.MeshType && len(link.Geometry.MeshData) > 0 {
-			// Use the original URDF mesh path if available
 			meshPath := link.Geometry.MeshFilePath
 			if meshPath == "" {
-				// Fallback if path wasn't preserved (shouldn't happen with URDF)
 				continue
 			}
-
 			meshMap[meshPath] = &commonpb.Mesh{
 				Mesh:        link.Geometry.MeshData,
 				ContentType: link.Geometry.MeshContentType,
 			}
 		}
 	}
-
 	return meshMap
 }
 
@@ -121,31 +106,171 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	}
 }
 
-// SimpleModel is a model that serially concatenates a list of Frames.
+// SimpleModel is a model that uses an internal FrameSystem to represent its kinematic tree.
+// It supports both serial chains and branching tree topologies (e.g. grippers with branching fingers).
+// A user-specified "primary output frame" determines what Transform() returns.
 type SimpleModel struct {
 	baseFrame
-	// OrdTransforms is the list of transforms ordered from end effector to base
-	ordTransforms []Frame
-	modelConfig   *ModelConfigJSON
-	poseCache     sync.Map
+	internalFS         *FrameSystem        // tree of frames
+	primaryOutputFrame string              // frame whose world-pose Transform() returns
+	inputSchema        *LinearInputsSchema // canonical flat-input ↔ per-frame mapping
+	modelConfig        *ModelConfigJSON
+
+	// transformChain is a pre-computed ordered slice of frames from the world
+	// frame (base) to the primary output frame (tip). This enables Transform()
+	// to iterate a slice instead of doing map lookups and linear scans per
+	// frame per call.
+	transformChain []Frame
 }
 
-// NewSimpleModel constructs a new model.
+// NewSimpleModel constructs a new empty model with no kinematics.
 func NewSimpleModel(name string) *SimpleModel {
+	fs := NewEmptyFrameSystem(name)
 	return &SimpleModel{
-		baseFrame: baseFrame{name: name},
+		baseFrame:          baseFrame{name: name},
+		internalFS:         fs,
+		primaryOutputFrame: fs.World().Name(),
+		inputSchema:        &LinearInputsSchema{},
 	}
+}
+
+// NewModel constructs a model from a FrameSystem and a primary output frame.
+// The primary output frame must exist in fs and determines what Transform() returns.
+func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
+	if fs.Frame(primaryOutputFrame) == nil {
+		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
+	}
+
+	m := &SimpleModel{
+		baseFrame:          baseFrame{name: name},
+		internalFS:         fs,
+		primaryOutputFrame: primaryOutputFrame,
+	}
+
+	zeroInputs := NewLinearInputs()
+	for _, name := range bfsFrameNames(fs) {
+		frame := fs.Frame(name)
+		if frame != nil {
+			zeroInputs.Put(name, make([]Input, len(frame.DoF())))
+		}
+	}
+	schema, err := zeroInputs.GetSchema(fs)
+	if err != nil {
+		return nil, err
+	}
+	m.inputSchema = schema
+	m.limits = schema.GetLimits()
+
+	// Pre-compute the transform chain: walk from primaryOutputFrame back to world,
+	// recording each frame and its input offset in the flat []Input vector.
+	m.transformChain = m.buildTransformChain()
+
+	return m, nil
+}
+
+// NewSerialModel is a convenience constructor that builds a Model from a serial chain of frames.
+// It combines NewSerialFrameSystem and NewModel into a single call.
+func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
+	fs, lastFrame, err := NewSerialFrameSystem(frames)
+	if err != nil {
+		return nil, err
+	}
+	return NewModel(name, fs, lastFrame)
+}
+
+// NewModelWithLimitOverrides constructs a new model identical to base but with the specified
+// joint limits overridden. Overrides are keyed by frame name. Each override replaces the
+// first DoF limit of the matching frame.
+func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
+	newFS, err := cloneFrameSystem(base.internalFS)
+	if err != nil {
+		return nil, err
+	}
+
+	for name, limit := range overrides {
+		frame := newFS.Frame(name)
+		if frame == nil || len(frame.DoF()) == 0 {
+			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
+		}
+		frame.DoF()[0] = limit
+	}
+
+	m, err := NewModel(base.name, newFS, base.primaryOutputFrame)
+	if err != nil {
+		return nil, err
+	}
+	m.modelConfig = base.modelConfig
+	return m, nil
+}
+
+// MoveableFrameNames returns the names of frames with non-zero DoF, in schema order.
+func (m *SimpleModel) MoveableFrameNames() []string {
+	if m.inputSchema == nil {
+		return nil
+	}
+	var names []string
+	for _, name := range m.inputSchema.FrameNamesInOrder() {
+		frame := m.internalFS.Frame(name)
+		if frame != nil && len(frame.DoF()) > 0 {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// NewSerialFrameSystem builds a FrameSystem from a serial chain of frames.
+// frame[0] parent=world, frame[i] parent=frame[i-1].
+// Duplicate frame names are automatically made unique.
+// Returns the FrameSystem and the name of the last frame (for use as primaryOutputFrame).
+func NewSerialFrameSystem(frames []Frame) (*FrameSystem, string, error) {
+	fs := NewEmptyFrameSystem("internal")
+	parentFrame := fs.World()
+	nameCounts := map[string]int{}
+
+	for _, f := range frames {
+		nameCounts[f.Name()]++
+		if nameCounts[f.Name()] > 1 {
+			f = NewNamedFrame(f, fmt.Sprintf("%s_%d", f.Name(), nameCounts[f.Name()]))
+		}
+		if err := fs.AddFrame(f, parentFrame); err != nil {
+			return nil, "", err
+		}
+		parentFrame = f
+	}
+
+	return fs, parentFrame.Name(), nil
+}
+
+// framesInOrder returns the Frame objects in schema order.
+func (m *SimpleModel) framesInOrder() []Frame {
+	if m.internalFS == nil || m.inputSchema == nil {
+		return nil
+	}
+	names := m.inputSchema.FrameNamesInOrder()
+	frames := make([]Frame, 0, len(names))
+	for _, name := range names {
+		f := m.internalFS.Frame(name)
+		if f != nil {
+			frames = append(frames, f)
+		}
+	}
+	return frames
+}
+
+// toLinearInputs converts flat []Input to a *LinearInputs via the model's schema.
+func (m *SimpleModel) toLinearInputs(inputs []Input) (*LinearInputs, error) {
+	if len(m.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+	}
+	return m.inputSchema.FloatsToInputs(inputs)
 }
 
 // GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
 func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
-
 	for i := 0; i < len(limits); i++ {
 		jRange := math.Abs(limits[i].Max - limits[i].Min)
-		// Note that rand is unseeded and so will produce the same sequence of floats every time
-		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
 		newPos := randSeed.Float64()*jRange + limits[i].Min
 		jointPos = append(jointPos, newPos)
 	}
@@ -160,23 +285,113 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 // Hash returns a hash value for this simple model.
 func (m *SimpleModel) Hash() int {
 	h := m.hash()
-	for _, f := range m.ordTransforms {
+	h += hashString(m.name)
+	for _, f := range m.framesInOrder() {
 		h += f.Hash()
 	}
+	h += hashString(m.primaryOutputFrame)
 	return h
 }
 
-// Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
+// buildTransformChain walks from primaryOutputFrame back to world through the
+// internalFS parent links. The result is a slice ordered from base to tip
+// (excluding world).
+func (m *SimpleModel) buildTransformChain() []Frame {
+	var chain []Frame
+	frameName := m.primaryOutputFrame
+	for {
+		parentName := m.internalFS.parents[frameName]
+		if parentName == "" {
+			// frameName is world or not in the FS; stop.
+			break
+		}
+		frame := m.internalFS.frames[frameName]
+		if frame == nil {
+			if frameName == World {
+				frame = m.internalFS.world
+			} else {
+				break
+			}
+		}
+		chain = append(chain, frame)
+		frameName = parentName
+	}
+
+	// Reverse: the walk above produces tip-to-base, we store base-to-tip.
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
+	}
+	return chain
+}
+
+// emptyInputs is a pre-allocated empty slice used for 0-DoF frame transforms.
+var emptyInputs = []Input{}
+
+// Transform returns the pose of the primary output frame given the flat input vector.
+// When inputs are out of bounds, Transform returns both the computed pose and an OOB error.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	return m.InputsToTransformOpt(inputs)
+	if len(m.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+	}
+
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
+	}
+
+	// Iterate base-to-tip (the storage order of transformChain).
+	posIdx := 0
+	for _, chainFrame := range m.transformChain {
+		dof := len(chainFrame.DoF())
+
+		switch frame := chainFrame.(type) {
+		case *staticFrame:
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
+			frameInputs := inputs[posIdx : posIdx+dof]
+			if err := frame.validInputs(frameInputs); err != nil {
+				return &composedTransformation, err
+			}
+			orientation := frame.InputToOrientation(frameInputs[0])
+			pose := &spatialmath.DualQuaternion{
+				Number: dualquat.Number{
+					Real: orientation.Quaternion(),
+				},
+			}
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.Number),
+			}
+		default:
+			var pose spatialmath.Pose
+			var err error
+			if dof == 0 {
+				pose, err = chainFrame.Transform(emptyInputs)
+			} else {
+				pose, err = chainFrame.Transform(inputs[posIdx : posIdx+dof])
+			}
+			if err != nil {
+				return &composedTransformation, err
+			}
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		}
+
+		posIdx += dof
+	}
+
+	return &composedTransformation, nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.framesInOrder() {
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -191,23 +406,16 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 	return interp, nil
 }
 
-// OrdTransforms gets the OrdTransforms.
-func (m *SimpleModel) OrdTransforms() []Frame {
-	return m.ordTransforms
-}
-
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.framesInOrder() {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
-
 		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
 	}
-
 	return inputs
 }
 
@@ -215,71 +423,43 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.framesInOrder() {
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
 	}
-
 	return jPos
 }
 
-// Geometries returns an object representing the 3D space associeted with the staticFrame.
+// Geometries returns the geometries for all frames in the model, placed in world coordinates.
 func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	frames, err := m.inputsToFrames(inputs, true)
-	if err != nil && frames == nil {
+	li, err := m.toLinearInputs(inputs)
+	if err != nil {
 		return nil, err
 	}
-	var errAll error
-	geometries := make([]spatialmath.Geometry, 0, len(frames))
-	for _, frame := range frames {
-		geometriesInFrame, err := frame.Geometries([]Input{})
-		if err != nil {
-			multierr.AppendInto(&errAll, err)
+
+	allGeomsMap, err := FrameSystemGeometriesLinearInputs(m.internalFS, li)
+	if err != nil && len(allGeomsMap) == 0 {
+		return nil, err
+	}
+
+	geometries := make([]spatialmath.Geometry, 0)
+	for _, frame := range m.framesInOrder() {
+		gif, ok := allGeomsMap[frame.Name()]
+		if !ok {
 			continue
 		}
-		for _, geom := range geometriesInFrame.Geometries() {
-			placedGeom := geom.Transform(frame.transform)
-			placedGeom.SetLabel(m.name + ":" + geom.Label())
-			geometries = append(geometries, placedGeom)
+		for _, geom := range gif.Geometries() {
+			geom.SetLabel(m.name + ":" + geom.Label())
+			geometries = append(geometries, geom)
 		}
 	}
-	return NewGeometriesInFrame(m.name, geometries), errAll
-}
-
-// CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so
-// it returns without redoing the calculation. Thread safe, but so far has tended to be slightly slower than just doing
-// the calculation. This may change with higher DOF models and longer runtimes.
-func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) {
-	key := floatsToString(inputs)
-	if val, ok := m.poseCache.Load(key); ok {
-		if pose, ok := val.(spatialmath.Pose); ok {
-			return pose, nil
-		}
-	}
-	poses, err := m.inputsToFrames(inputs, false)
-	if err != nil && poses == nil {
-		return nil, err
-	}
-	m.poseCache.Store(key, poses[len(poses)-1].transform)
-
-	return poses[len(poses)-1].transform, err
+	return NewGeometriesInFrame(m.name, geometries), err
 }
 
 // DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
 	return m.limits
-}
-
-// SetOrdTransforms sets the ordTransforms.
-func (m *SimpleModel) SetOrdTransforms(fs []Frame) {
-	m.ordTransforms = fs
-	m.limits = []Limit{}
-	for _, transform := range m.ordTransforms {
-		if len(transform.DoF()) > 0 {
-			m.limits = append(m.limits, transform.DoF()...)
-		}
-	}
 }
 
 // MarshalJSON serializes a Model.
@@ -289,12 +469,11 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 		Model  *ModelConfigJSON `json:"model"`
 		Limits []Limit          `json:"limits"`
 	}
-	ser := serialized{
+	return json.Marshal(serialized{
 		Name:   m.name,
 		Model:  m.modelConfig,
 		Limits: m.limits,
-	}
-	return json.Marshal(ser)
+	})
 }
 
 // UnmarshalJSON deserializes a Model.
@@ -323,162 +502,19 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
 		}
-		m.SetOrdTransforms(newModel.OrdTransforms())
+		m.internalFS = newModel.internalFS
+		m.primaryOutputFrame = newModel.primaryOutputFrame
+		m.inputSchema = newModel.inputSchema
+		m.transformChain = newModel.transformChain
+	} else {
+		fs := NewEmptyFrameSystem(frameName)
+		m.internalFS = fs
+		m.primaryOutputFrame = fs.World().Name()
+		m.inputSchema = &LinearInputsSchema{}
 	}
 	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model
-
 	return nil
-}
-
-// ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
-// effectively breaking the model into its kinematic pieces.
-func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error) {
-	poses, err := m.inputsToFrames(inputs, true)
-	if err != nil {
-		return nil, err
-	}
-	frameMap := map[string]Frame{}
-	for _, sFrame := range poses {
-		frameMap[sFrame.Name()] = sFrame
-	}
-	return frameMap, nil
-}
-
-// inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
-// between quaternions and OV are not needed.
-func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
-	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
-	}
-
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	composedTransformation := spatialmath.NewZeroPose()
-	posIdx := 0
-
-	// get quaternions from the base outwards.
-	for _, transform := range m.ordTransforms {
-		dof := len(transform.DoF()) + posIdx
-		input := inputs[posIdx:dof]
-		posIdx = dof
-
-		pose, err := transform.Transform(input)
-		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil || err != nil {
-			return nil, err
-		}
-
-		if collectAll {
-			var geometry spatialmath.Geometry
-			gf, err := transform.Geometries(input)
-			if err != nil {
-				return nil, err
-			}
-
-			geometries := gf.geometries
-			if len(geometries) == 0 {
-				geometry = nil
-			} else {
-				geometry = geometries[0]
-			}
-
-			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
-			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
-			if err != nil {
-				return nil, err
-			}
-
-			poses = append(poses, fixedFrame.(*staticFrame))
-		}
-
-		composedTransformation = spatialmath.Compose(composedTransformation, pose)
-	}
-
-	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
-	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
-	return poses, nil
-}
-
-// InputsToTransformOpt is like `inputsToFrames` but only returns the end effector pose. That allows
-// us to optimize away the recording of intermediate computations.
-func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, error) {
-	if len(m.DoF()) != len(inputs) {
-		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
-	}
-
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	// composedTransformation := spatialmath.NewZeroPose()
-	composedTransformation := spatialmath.DualQuaternion{
-		Number: dualquat.Number{
-			Real: quat.Number{Real: 1},
-			Dual: quat.Number{},
-		},
-	}
-	posIdx := 0
-
-	// get quaternions from the base outwards.
-	for _, transformI := range m.ordTransforms {
-		var pose spatialmath.Pose
-
-		switch transform := transformI.(type) {
-		case *staticFrame:
-			if len(transformI.DoF()) != 0 {
-				return nil, NewIncorrectDoFError(len(transformI.DoF()), 0)
-			}
-
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(transform.transform.(*spatialmath.DualQuaternion).Number),
-			}
-		case *rotationalFrame:
-			if len(transformI.DoF()) != 1 {
-				return nil, NewIncorrectDoFError(len(transformI.DoF()), 1)
-			}
-
-			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
-				return nil, err
-			}
-
-			orientation := transform.InputToOrientation(inputs[posIdx])
-			pose = &spatialmath.DualQuaternion{
-				Number: dualquat.Number{
-					Real: orientation.Quaternion(),
-				},
-			}
-
-			posIdx++
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
-			}
-		default:
-			dof := len(transformI.DoF()) + posIdx
-			input := inputs[posIdx:dof]
-			posIdx = dof
-
-			var err error
-			pose, err = transform.Transform(input)
-			if err != nil {
-				return nil, err
-			}
-
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
-			}
-		}
-	}
-
-	return &composedTransformation, nil
-}
-
-// floatsToString turns a float array into a serializable binary representation
-// This is very fast, about 100ns per call.
-func floatsToString(inputs []Input) string {
-	b := make([]byte, len(inputs)*8)
-	for i, input := range inputs {
-		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input))
-	}
-	return string(b)
 }
 
 // New2DMobileModelFrame builds the kinematic model associated with the kinematicWheeledBase
@@ -491,7 +527,6 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 			errors.Errorf("Must have 2DOF state (x, y) or 3DOF state (x, y, theta) to create 2DMobileModelFrame, have %d dof", len(limits))
 	}
 
-	// build the model - SLAM convention is that the XY plane is the ground plane
 	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, limits[0])
 	if err != nil {
 		return nil, err
@@ -505,15 +540,16 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		return nil, err
 	}
 
-	model := NewSimpleModel(name)
+	var frames []Frame
 	if len(limits) == 3 {
 		theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
 		if err != nil {
 			return nil, err
 		}
-		model.SetOrdTransforms([]Frame{x, y, theta, geometry})
+		frames = []Frame{x, y, theta, geometry}
 	} else {
-		model.SetOrdTransforms([]Frame{x, y, geometry})
+		frames = []Frame{x, y, geometry}
 	}
-	return model, nil
+
+	return NewSerialModel(name, frames)
 }
