@@ -14,11 +14,11 @@ var ErrNoModelInformation = errors.New("no model information")
 
 // ModelConfigJSON represents all supported fields in a kinematics JSON file.
 type ModelConfigJSON struct {
-	Name               string          `json:"name"`
-	KinParamType       string          `json:"kinematic_param_type,omitempty"`
-	Links              []LinkConfig    `json:"links,omitempty"`
-	Joints             []JointConfig   `json:"joints,omitempty"`
-	DHParams           []DHParamConfig `json:"dhParams,omitempty"`
+	Name         string          `json:"name"`
+	KinParamType string          `json:"kinematic_param_type,omitempty"`
+	Links        []LinkConfig    `json:"links,omitempty"`
+	Joints       []JointConfig   `json:"joints,omitempty"`
+	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 	OriginalFile *ModelFile
 }
 

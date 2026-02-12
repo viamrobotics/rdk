@@ -142,7 +142,7 @@ func TestHash(t *testing.T) {
 	m1, err := NewSerialModel("model_a", []Frame{j1})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Hash should be stable across calls
+	// Hash should be stable across calls and clones
 	h1 := m1.Hash()
 	m1clone, err := Clone(m1)
 	test.That(t, err, test.ShouldBeNil)
