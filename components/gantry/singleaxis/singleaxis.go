@@ -118,13 +118,13 @@ func newSingleAxis(
 		opMgr:  operation.NewSingleOperationManager(),
 	}
 
-	if err := sAx.Reconfigure(ctx, deps, conf); err != nil {
+	if err := sAx.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return sAx, nil
 }
 
-func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (g *singleAxis) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	if g.motor != nil {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err

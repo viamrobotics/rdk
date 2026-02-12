@@ -64,13 +64,13 @@ func NewMyGizmoSummer(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := g.Reconfigure(context.Background(), deps, conf); err != nil {
+	if err := g.reconfigure(context.Background(), deps, conf); err != nil {
 		return nil, err
 	}
 	return g, nil
 }
 
-func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (g *myActualGizmo) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	gizmoConfig, err := resource.NativeConfig[*Config](conf)

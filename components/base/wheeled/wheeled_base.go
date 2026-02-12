@@ -115,8 +115,8 @@ type wheeledBase struct {
 	name string
 }
 
-// Reconfigure reconfigures the base atomically and in place.
-func (wb *wheeledBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure reconfigures the base atomically and in place.
+func (wb *wheeledBase) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	wb.mu.Lock()
 	defer wb.mu.Unlock()
 
@@ -227,7 +227,7 @@ func createWheeledBase(
 		name:                 conf.Name,
 	}
 
-	if err := wb.Reconfigure(ctx, deps, conf); err != nil {
+	if err := wb.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 

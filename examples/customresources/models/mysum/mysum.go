@@ -46,7 +46,7 @@ func newMySum(ctx context.Context,
 	summer := &mySum{
 		Named: conf.ResourceName().AsNamed(),
 	}
-	if err := summer.Reconfigure(ctx, deps, conf); err != nil {
+	if err := summer.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return summer, nil
@@ -67,7 +67,7 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	return ret, nil
 }
 
-func (m *mySum) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (m *mySum) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// This takes the generic resource.Config passed down from the parent and converts it to the
 	// model-specific (aka "native") Config structure defined above making it easier to directly access attributes.
 	sumConfig, err := resource.NativeConfig[*Config](conf)

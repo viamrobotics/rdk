@@ -41,14 +41,14 @@ func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.C
 		geometries: []spatialmath.Geometry{},
 		logger:     logger,
 	}
-	if err := g.Reconfigure(ctx, deps, conf); err != nil {
+	if err := g.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return g, nil
 }
 
-// Reconfigure reconfigures the gripper atomically and in place.
-func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf resource.Config) error {
+// reconfigure reconfigures the gripper atomically and in place.
+func (g *Gripper) reconfigure(_ context.Context, _ resource.Dependencies, conf resource.Config) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 

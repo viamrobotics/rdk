@@ -81,14 +81,14 @@ func newFoo(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := f.Reconfigure(ctx, deps, conf); err != nil {
+	if err := f.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return f, nil
 }
 
-func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
+func (f *foo) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
 	fooConfig, err := resource.NativeConfig[*FooConfig](conf)

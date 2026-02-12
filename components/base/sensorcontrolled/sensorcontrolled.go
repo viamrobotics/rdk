@@ -113,14 +113,14 @@ func createSensorBase(
 		opMgr:         operation.NewSingleOperationManager(),
 	}
 
-	if err := sb.Reconfigure(ctx, deps, conf); err != nil {
+	if err := sb.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return sb, nil
 }
 
-func (sb *sensorBase) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (sb *sensorBase) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	sb.conf = newConf
 	if err != nil {
