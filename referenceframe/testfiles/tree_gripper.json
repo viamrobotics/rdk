@@ -1,0 +1,101 @@
+{
+    "name": "tree_gripper",
+    "primary_output_frame": "finger1_tip",
+    "links": [
+        {
+            "id": "palm",
+            "parent": "wrist_joint",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 50
+            },
+            "geometry": {
+                "x": 40,
+                "y": 40,
+                "z": 50,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 25
+                }
+            }
+        },
+        {
+            "id": "finger1_tip",
+            "parent": "finger1_joint",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 30
+            },
+            "geometry": {
+                "x": 10,
+                "y": 10,
+                "z": 30,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 15
+                }
+            }
+        },
+        {
+            "id": "finger2_tip",
+            "parent": "finger2_joint",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 30
+            },
+            "geometry": {
+                "x": 10,
+                "y": 10,
+                "z": 30,
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 15
+                }
+            }
+        }
+    ],
+    "joints": [
+        {
+            "id": "wrist_joint",
+            "type": "revolute",
+            "parent": "base",
+            "axis": {
+                "x": 0,
+                "y": 0,
+                "z": 1
+            },
+            "max": 180,
+            "min": -180
+        },
+        {
+            "id": "finger1_joint",
+            "type": "prismatic",
+            "parent": "palm",
+            "axis": {
+                "x": 1,
+                "y": 0,
+                "z": 0
+            },
+            "max": 20,
+            "min": 0
+        },
+        {
+            "id": "finger2_joint",
+            "type": "prismatic",
+            "parent": "palm",
+            "axis": {
+                "x": -1,
+                "y": 0,
+                "z": 0
+            },
+            "max": 20,
+            "min": 0
+        }
+    ]
+}
