@@ -52,6 +52,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
@@ -1790,6 +1791,8 @@ type robotsPartLogsArgs struct {
 	Part         string
 	Errors       bool
 	Tail         bool
+	Start        string
+	End          string
 	Count        int
 }
 
@@ -1804,6 +1807,18 @@ func RobotsPartLogsAction(c *cli.Context, args robotsPartLogsArgs) error {
 }
 
 func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogsArgs) error {
+	// Check if both start time and count are provided
+	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
+	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -1828,6 +1843,16 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		}
 		header = fmt.Sprintf("%s -> %s -> %s", orgName, locName, robot.Name)
 	}
+
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
+	}
+
 	if args.Tail {
 		return c.tailRobotPartLogs(
 			orgStr, locStr, robotStr, partStr,
@@ -1846,6 +1871,7 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		"",
 		header,
 		numLogs,
+		startTime, endTime,
 	)
 }
 
@@ -3131,7 +3157,7 @@ func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]a
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
-	numLogs int,
+	numLogs int, start, end *timestamppb.Timestamp,
 ) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
@@ -3147,6 +3173,8 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 			Id:         part.Id,
 			ErrorsOnly: errorsOnly,
 			PageToken:  &pageToken,
+			Start:      start,
+			End:        end,
 		})
 		if err != nil {
 			return nil, err
@@ -3212,8 +3240,9 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 
 func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
 	errorsOnly bool, indent, header string, numLogs int,
+	start, end *timestamppb.Timestamp,
 ) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs, start, end)
 	if err != nil {
 		return err
 	}
