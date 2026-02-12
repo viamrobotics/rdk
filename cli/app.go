@@ -2594,14 +2594,10 @@ Note: There is no progress meter while copying is in progress.
 								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
 							Description: `Update fields on an existing resource. The --attributes flag accepts inline JSON
 or a path to a JSON file. Each field you provide fully replaces the existing value for that
-field. Fields you don't include are left unchanged. The "name" field cannot be changed
+field. The "name" field cannot be changed
 (it is used to identify the resource).
 
 Examples:
-  # Replace the attributes object entirely
-  viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes '{"attributes": {"pin": "12", "board": "local"}}'
-
   # Change the model
   viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
     --name my-sensor --attributes '{"model": "acme:demo:my-sensor"}'
