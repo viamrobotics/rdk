@@ -778,7 +778,7 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 
 func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
 	optDeps := make(resource.Dependencies)
-
+	found := make([]resource.Name, 0)
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
 		matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
 		switch len(matchingResourceNames) {
@@ -823,6 +823,14 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		}
 
 		optDeps[resolvedOptionalDepName] = optionalDep
+		found = append(found, resolvedOptionalDepName)
+	}
+	if len(conf.ImplicitOptionalDependsOn) > 0 {
+		r.logger.Infow(
+			"Found optional dependencies for resource",
+			"resource", conf.ResourceName().String(),
+			"dependencies", resource.NamesToStrings(found),
+		)
 	}
 
 	return optDeps
