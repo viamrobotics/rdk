@@ -116,8 +116,6 @@ public:
 
     moduleFile_ << "};\n\n";
 
-    main_fn();
-
     return 0;
 }
 
@@ -264,8 +262,9 @@ void Generator::main_fn(llvm::raw_ostream& moduleFile) {
     // Write general log statements using the VIAM_SDK_LOG macro.
     VIAM_SDK_LOG(info) << "Starting up {1} module";
 
-    Model model("viam", "{0}", "{1}");)--",
-                                fmt_str::resourceSubtypeSnake,
+    Model model("{0}", "{1}", "{2}");)--",
+                                fmt_str::orgID,
+                                fmt_str::moduleName,
                                 fmt_str::modelSnake)
                << "\n\n"
                << llvm::formatv(
