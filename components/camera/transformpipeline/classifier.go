@@ -27,7 +27,7 @@ type classifierConfig struct {
 
 // classifierSource takes an image from the camera, and overlays labels from the classifier.
 type classifierSource struct {
-	src                camera.Camera
+	src                camera.VideoSource
 	classifierName     string
 	maxClassifications uint32
 	labelFilter        classification.Postprocessor
@@ -37,14 +37,14 @@ type classifierSource struct {
 
 func newClassificationsTransform(
 	ctx context.Context,
-	source camera.Camera, r robot.Robot, am utils.AttributeMap,
-) (camera.Camera, camera.ImageType, error) {
+	source camera.VideoSource, r robot.Robot, am utils.AttributeMap,
+) (camera.VideoSource, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*classifierConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
 
-	props, err := propsFromCamera(ctx, source)
+	props, err := propsFromVideoSource(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -72,7 +72,11 @@ func newClassificationsTransform(
 		confFilter,
 		r,
 	}
-	return newTransformCamera(classifier.Read, camera.ColorStream, &cameraModel), camera.ColorStream, nil
+	src, err := camera.NewVideoSourceFromReader(ctx, classifier, &cameraModel, camera.ColorStream)
+	if err != nil {
+		return nil, camera.UnspecifiedStream, err
+	}
+	return src, camera.ColorStream, err
 }
 
 // Read returns the image overlaid with at most max_classifications labels from the classification.
@@ -87,7 +91,7 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, errors.Wrap(err, "source_classifier can't find vision service")
 	}
 	// get image from source camera
-	img, err := camera.DecodeImageFromCamera(ctx, cs.src, nil, nil)
+	img, release, err := camera.ReadImage(ctx, cs.src)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
@@ -102,5 +106,9 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not overlay labels")
 	}
-	return res, func() {}, nil
+	return res, release, nil
+}
+
+func (cs *classifierSource) Close(ctx context.Context) error {
+	return nil
 }

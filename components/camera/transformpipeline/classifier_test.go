@@ -98,7 +98,9 @@ func TestClassifierSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer classifier.Close(ctx)
 
-	resImg, err := camera.DecodeImageFromCamera(ctx, classifier, nil, nil)
+	streamClassifier, ok := classifier.(camera.VideoSource)
+	test.That(t, ok, test.ShouldBeTrue)
+	resImg, _, err := camera.ReadImage(ctx, streamClassifier)
 	test.That(t, err, test.ShouldBeNil)
 	ovImg := rimage.ConvertImage(resImg)
 
