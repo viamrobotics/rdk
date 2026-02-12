@@ -2,22 +2,42 @@ package transformpipeline
 
 import (
 	"context"
+	"image"
 	"testing"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
+
+// staticSourceCamera wraps a fake.StaticSource to implement camera.Camera.
+type staticSourceCamera struct {
+	resource.Named
+	resource.AlwaysRebuild
+	fake.StaticSource
+	stream camera.ImageType
+}
+
+func (s *staticSourceCamera) Properties(ctx context.Context) (camera.Properties, error) {
+	return camera.Properties{ImageType: s.stream}, nil
+}
+
+func (s *staticSourceCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (s *staticSourceCamera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return nil, resource.ErrDoUnimplemented
+}
 
 func TestTransformPipelineColor(t *testing.T) {
 	transformConf := &transformConfig{
@@ -32,20 +52,16 @@ func TestTransformPipelineColor(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
-	test.That(t, err, test.ShouldBeNil)
-	vs, err := videoSourceFromCamera(context.Background(), src)
-	test.That(t, err, test.ShouldBeNil)
+	src := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.ColorStream}
 	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	color, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
+	color, err := newTransformPipeline(context.Background(), src, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := camera.ReadImage(context.Background(), color)
+	outImg, err := camera.DecodeImageFromCamera(context.Background(), color, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
@@ -54,7 +70,6 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 
 	test.That(t, color.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineDepth(t *testing.T) {
@@ -80,20 +95,16 @@ func TestTransformPipelineDepth(t *testing.T) {
 
 	dm, err := rimage.NewDepthMapFromFile(context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
-	test.That(t, err, test.ShouldBeNil)
+	src := &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: dm}, stream: camera.DepthStream}
 	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
 
-	vs, err := videoSourceFromCamera(context.Background(), src)
-	test.That(t, err, test.ShouldBeNil)
-	depth, err := newTransformPipeline(context.Background(), vs, nil, transformConf, r, logger)
+	depth, err := newTransformPipeline(context.Background(), src, nil, transformConf, r, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	outImg, _, err := camera.ReadImage(context.Background(), depth)
+	outImg, err := camera.DecodeImageFromCamera(context.Background(), depth, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 40)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 30)
@@ -106,7 +117,6 @@ func TestTransformPipelineDepth(t *testing.T) {
 	test.That(t, outPc, test.ShouldBeNil)
 
 	test.That(t, depth.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestNullPipeline(t *testing.T) {
@@ -119,8 +129,7 @@ func TestNullPipeline(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	_, err = newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "pipeline has no transforms")
@@ -132,8 +141,7 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 
 	intrinsics1 := &transform.PinholeCameraIntrinsics{Width: 128, Height: 72}
 	transform1 := &transformConfig{
@@ -152,7 +160,7 @@ func TestPipeIntoPipe(t *testing.T) {
 
 	pipe1, err := newTransformPipeline(context.Background(), source, nil, transform1, r, logger)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err := camera.ReadImage(context.Background(), pipe1)
+	outImg, err := camera.DecodeImageFromCamera(context.Background(), pipe1, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -163,7 +171,7 @@ func TestPipeIntoPipe(t *testing.T) {
 	// transform pipeline into pipeline
 	pipe2, err := newTransformPipeline(context.Background(), pipe1, nil, transform2, r, logger)
 	test.That(t, err, test.ShouldBeNil)
-	outImg, _, err = camera.ReadImage(context.Background(), pipe2)
+	outImg, err = camera.DecodeImageFromCamera(context.Background(), pipe2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
@@ -175,7 +183,6 @@ func TestPipeIntoPipe(t *testing.T) {
 	// Close everything
 	test.That(t, pipe2.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, pipe1.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestTransformPipelineValidatePass(t *testing.T) {
@@ -202,4 +209,20 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 	deps, _, err := transformConf.Validate(path)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
+}
+
+// Ensure staticSourceCamera implements camera.Camera at compile time.
+var _ camera.Camera = (*staticSourceCamera)(nil)
+
+// Ensure staticSourceCamera also implements PointCloudSource when the underlying StaticSource does.
+var _ camera.PointCloudSource = (*staticSourceCamera)(nil)
+
+// Verify NextPointCloud is delegated to the embedded StaticSource.
+func TestStaticSourceCameraNextPointCloud(t *testing.T) {
+	src := &staticSourceCamera{
+		StaticSource: fake.StaticSource{ColorImg: image.NewRGBA(image.Rect(0, 0, 10, 10))},
+	}
+	_, err := src.NextPointCloud(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 }

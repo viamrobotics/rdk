@@ -5,13 +5,11 @@ import (
 	"image"
 	"testing"
 
-	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/components/camera/fake"
-	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -30,9 +28,8 @@ func TestCrop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// test depth source
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: dm}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-	out, _, err := camera.ReadImage(context.Background(), source)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: dm}, stream: camera.UnspecifiedStream}
+	out, err := camera.DecodeImageFromCamera(context.Background(), source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
@@ -40,18 +37,16 @@ func TestCrop(t *testing.T) {
 	rs, stream, err := newCropTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
 	test.That(t, out, test.ShouldHaveSameTypeAs, &rimage.DepthMap{})
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
 	// test color source
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-	out, _, err = camera.ReadImage(context.Background(), source)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
+	out, err = camera.DecodeImageFromCamera(context.Background(), source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
@@ -60,7 +55,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 10)
@@ -72,7 +67,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
@@ -80,9 +75,8 @@ func TestCrop(t *testing.T) {
 
 	// relative crop
 	dummyImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: dummyImg}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-	out, _, err = camera.ReadImage(context.Background(), source)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: dummyImg}, stream: camera.UnspecifiedStream}
+	out, err = camera.DecodeImageFromCamera(context.Background(), source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 100)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 100)
@@ -90,7 +84,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 20)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 69)
@@ -107,7 +101,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 1)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 1)
@@ -124,7 +118,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 50)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 50)
@@ -142,7 +136,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 100)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 100)
@@ -154,7 +148,7 @@ func TestCrop(t *testing.T) {
 	rs, stream, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	_, _, err = camera.ReadImage(context.Background(), rs)
+	_, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cropped image to 0 pixels")
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
@@ -168,9 +162,6 @@ func TestCrop(t *testing.T) {
 	_, _, err = newCropTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "negative number")
-
-	// close the source
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestResizeColor(t *testing.T) {
@@ -181,9 +172,8 @@ func TestResizeColor(t *testing.T) {
 		"height_px": 20,
 		"width_px":  30,
 	}
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-	out, _, err := camera.ReadImage(context.Background(), source)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
+	out, err := camera.DecodeImageFromCamera(context.Background(), source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
@@ -191,12 +181,11 @@ func TestResizeColor(t *testing.T) {
 	rs, stream, err := newResizeTransform(context.Background(), source, camera.ColorStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 30)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 20)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestResizeDepth(t *testing.T) {
@@ -208,9 +197,8 @@ func TestResizeDepth(t *testing.T) {
 		"height_px": 40,
 		"width_px":  60,
 	}
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
-	out, _, err := camera.ReadImage(context.Background(), source)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: img}, stream: camera.UnspecifiedStream}
+	out, err := camera.DecodeImageFromCamera(context.Background(), source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 72)
@@ -218,20 +206,18 @@ func TestResizeDepth(t *testing.T) {
 	rs, stream, err := newResizeTransform(context.Background(), source, camera.DepthStream, am)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
-	out, _, err = camera.ReadImage(context.Background(), rs)
+	out, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, out.Bounds().Dx(), test.ShouldEqual, 60)
 	test.That(t, out.Bounds().Dy(), test.ShouldEqual, 40)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestRotateColorSource(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
@@ -239,7 +225,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImage, _, err := camera.ReadImage(context.Background(), rs)
+	rawImage, err := camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -256,7 +242,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImageDefault, _, err := camera.ReadImage(context.Background(), rsDefault)
+	rawImageDefault, err := camera.DecodeImageFromCamera(context.Background(), rsDefault, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -282,10 +268,8 @@ func TestRotateColorSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 90,
 	}
@@ -293,7 +277,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -314,10 +298,8 @@ func TestRotateColorSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": -90,
 	}
@@ -325,7 +307,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -346,10 +328,8 @@ func TestRotateColorSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 270,
 	}
@@ -357,7 +337,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -378,10 +358,8 @@ func TestRotateColorSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{ColorImg: img}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 0, // no-op
 	}
@@ -389,7 +367,7 @@ func TestRotateColorSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.ColorStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -409,7 +387,6 @@ func TestRotateColorSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func TestRotateDepthSource(t *testing.T) {
@@ -417,8 +394,7 @@ func TestRotateDepthSource(t *testing.T) {
 		context.Background(), artifact.MustPath("rimage/board1_gray_small.png"))
 	test.That(t, err, test.ShouldBeNil)
 
-	source, err := camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source := &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: pc}, stream: camera.UnspecifiedStream}
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
@@ -426,7 +402,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImage, _, err := camera.ReadImage(context.Background(), rs)
+	rawImage, err := camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -444,7 +420,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImageDefault, _, err := camera.ReadImage(context.Background(), rsDefault)
+	rawImageDefault, err := camera.DecodeImageFromCamera(context.Background(), rsDefault, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -468,10 +444,8 @@ func TestRotateDepthSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: pc}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 90,
 	}
@@ -479,7 +453,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -500,10 +474,8 @@ func TestRotateDepthSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: pc}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": -90,
 	}
@@ -511,7 +483,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -532,10 +504,8 @@ func TestRotateDepthSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: pc}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 270,
 	}
@@ -543,7 +513,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -564,10 +534,8 @@ func TestRotateDepthSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 
-	source, err = camera.NewVideoSourceFromReader(context.Background(), &fake.StaticSource{DepthImg: pc}, nil, camera.UnspecifiedStream)
-	test.That(t, err, test.ShouldBeNil)
+	source = &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: pc}, stream: camera.UnspecifiedStream}
 	am = utils.AttributeMap{
 		"angle_degs": 0, // no-op
 	}
@@ -575,7 +543,7 @@ func TestRotateDepthSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, stream, test.ShouldEqual, camera.DepthStream)
 
-	rawImage, _, err = camera.ReadImage(context.Background(), rs)
+	rawImage, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
 
@@ -595,33 +563,27 @@ func TestRotateDepthSource(t *testing.T) {
 	}
 
 	test.That(t, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkColorRotate(b *testing.B) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("rimage/board1.png"))
 	test.That(b, err, test.ShouldBeNil)
 
-	source := gostream.NewVideoSource(&fake.StaticSource{ColorImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.ColorStream)
-	test.That(b, err, test.ShouldBeNil)
+	src := &staticSourceCamera{StaticSource: fake.StaticSource{ColorImg: img}, stream: camera.ColorStream}
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	vs, err := videoSourceFromCamera(context.Background(), src)
-	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), vs, camera.ColorStream, am)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.ColorStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.ColorStream)
 
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		_, _, err = camera.ReadImage(context.Background(), rs)
+		_, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 		test.That(b, err, test.ShouldBeNil)
 	}
 	test.That(b, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(b, source.Close(context.Background()), test.ShouldBeNil)
 }
 
 func BenchmarkDepthRotate(b *testing.B) {
@@ -629,24 +591,19 @@ func BenchmarkDepthRotate(b *testing.B) {
 		context.Background(), artifact.MustPath("rimage/board1.dat.gz"))
 	test.That(b, err, test.ShouldBeNil)
 
-	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: img}, prop.Video{})
-	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
-	test.That(b, err, test.ShouldBeNil)
+	src := &staticSourceCamera{StaticSource: fake.StaticSource{DepthImg: img}, stream: camera.DepthStream}
 	am := utils.AttributeMap{
 		"angle_degs": 180,
 	}
-	vs, err := videoSourceFromCamera(context.Background(), src)
-	test.That(b, err, test.ShouldBeNil)
-	rs, stream, err := newRotateTransform(context.Background(), vs, camera.DepthStream, am)
+	rs, stream, err := newRotateTransform(context.Background(), src, camera.DepthStream, am)
 	test.That(b, err, test.ShouldBeNil)
 	test.That(b, stream, test.ShouldEqual, camera.DepthStream)
 
 	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
-		_, _, err = camera.ReadImage(context.Background(), rs)
+		_, err = camera.DecodeImageFromCamera(context.Background(), rs, nil, nil)
 		test.That(b, err, test.ShouldBeNil)
 	}
 	test.That(b, rs.Close(context.Background()), test.ShouldBeNil)
-	test.That(b, source.Close(context.Background()), test.ShouldBeNil)
 }
