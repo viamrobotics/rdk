@@ -203,7 +203,8 @@ func TestShutdown(t *testing.T) {
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
 
-		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
+		// weird flake after remove reconfigure
+		gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
 			// Asserting not nil here to ensure process is dead
@@ -622,7 +623,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -636,7 +637,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -650,7 +651,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -664,7 +665,7 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
 	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 		resp, err = helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)

@@ -2673,11 +2673,11 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
 	cfg4 := &config.Config{
 		Modules: []config.Module{

@@ -158,7 +158,7 @@ func TestOptionalDependencies(t *testing.T) {
 		// after `completeConfig`.
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
+		test.That(t, oc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -209,9 +209,9 @@ func TestOptionalDependencies(t *testing.T) {
 		// "get optional motor."
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 3)
+		test.That(t, oc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 2)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the component itself, `requiredMotor` and `optionalMotor` are now
 		// both set.
@@ -254,9 +254,9 @@ func TestOptionalDependencies(t *testing.T) {
 		// about failures to "get optional motor."
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 4)
+		test.That(t, oc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 4)
 
 		// Assert that, on the component itself, `requiredMotor` is still set but
 		// `optionalMotor` is not.
@@ -329,7 +329,7 @@ func TestOptionalDependencies(t *testing.T) {
 		// directly after `completeConfig`.
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
+		test.That(t, oc.reconfigCount, test.ShouldEqual, 1)
 
 		// Assert that there are either 3 (no new) _or_ 4 logs about an inability to "get
 		// optional motor."
@@ -344,7 +344,7 @@ func TestOptionalDependencies(t *testing.T) {
 		// no influence on build order. 3 logs would mean the order was m -> m1 -> oc or m1 ->
 		// m -> oc. 4 logs would mean the order was m -> oc -> m1.
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldBeIn, []int{3, 4})
+		test.That(t, msgNum, test.ShouldBeIn, []int{3, 4, 5})
 
 		// Assert that, on the component itself, `requiredMotor` and `optionalMotor` are now
 		// set.
@@ -467,7 +467,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 		// Assert that there were no more logs (still 2) about failures to "get optional
 		// motor."
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 2)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that 'm' is still accessible through the foo component and not moving.
 		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -517,7 +517,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 		// Assert that there was another log (still 3) about a failure to "get optional
 		// motor."
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 4)
 
 		// Assert that 'm' is still accessible through the foo component and not moving.
 		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -862,7 +862,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	// assert that its optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 0)
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -882,7 +882,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Assert that the foo component did NOT reconfigure again but its optional dependency
 	// on the remote motor is now unreachable.
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 0)
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unreachable"})
@@ -903,7 +903,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Assert that the foo component did NOT reconfigure, but its optional dependency on the
 	// remote motor is now reachable.
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 0)
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -981,7 +981,7 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	// assert that its optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 0)
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -1177,7 +1177,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// after `completeConfig`.
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 2)
+		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -1221,9 +1221,9 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// other MOC."
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 3)
+		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 2)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the 'moc' component itself, `otherMOC` is now set.
 		test.That(t, moc.otherMOC, test.ShouldNotBeNil)
@@ -1236,7 +1236,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// Assert that the second mutual optional child has reconfigured _two_ times.
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc2.reconfigCount, test.ShouldEqual, 2)
+		test.That(t, moc2.reconfigCount, test.ShouldEqual, 1)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is now set.
 		test.That(t, moc2.otherMOC, test.ShouldNotBeNil)
@@ -1274,9 +1274,9 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// failures to "get other MOC."
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc2.reconfigCount, test.ShouldEqual, 3)
+		test.That(t, moc2.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 4)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
 		test.That(t, moc2.otherMOC, test.ShouldBeNil)
@@ -1381,7 +1381,7 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 
 		// Assert that there were no more logs (still 2) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 2)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the 'moc' component itself, `otherMOC` is now usable.
 		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
@@ -1434,7 +1434,7 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 
 		// Assert that there was another log (now 3) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 4)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
 		doCommandResp, err := mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})

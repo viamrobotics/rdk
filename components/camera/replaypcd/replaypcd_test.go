@@ -775,7 +775,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 
 	// Reconfigure with a new batch size
 	cfg = &Config{Source: validSource, BatchSize: &batchSize4}
-	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+	replayCamera.(*pcdCamera).Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Call NextPointCloud a couple more times, ensuring that we start over from the beginning
 	// of the dataset after calling Reconfigure
@@ -789,7 +789,7 @@ func TestReplayPCDReconfigure(t *testing.T) {
 
 	// Reconfigure again, batch size 1
 	cfg = &Config{Source: validSource, BatchSize: &batchSize1}
-	replayCamera.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+	replayCamera.(*pcdCamera).Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < numPCDFiles; i++ {

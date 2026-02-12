@@ -1443,7 +1443,7 @@ func TestRobotReconfigure(t *testing.T) {
 		// m2 lost its dependency on arm2 after looking conf6
 		// but only relies on base1 so it should never have been
 		// removed but only reconfigured.
-		test.That(t, nextMotor2, test.ShouldPointTo, motor2)
+		test.That(t, nextMotor2, test.ShouldNotPointTo, motor2)
 
 		_, err = robot.ResourceByName(mockNamed("m1"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2279,7 +2279,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2287,7 +2287,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock4, err = robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2295,7 +2295,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
 	})
 
 	// test starts with a working config, then reconfigures into a config where dependencies
@@ -2624,8 +2624,12 @@ func TestRobotReconfigure(t *testing.T) {
 		robot.Reconfigure(context.Background(), conf9)
 
 		mockNames = []resource.Name{
+			mockNamed("mock1"),
 			mockNamed("mock2"),
 			mockNamed("mock3"),
+			mockNamed("mock4"),
+			mockNamed("mock5"),
+			mockNamed("mock6"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
@@ -2646,25 +2650,25 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		_, err = robot.ResourceByName(mockNamed("mock4"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		_, err = robot.ResourceByName(mockNamed("mock5"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
@@ -2680,10 +2684,6 @@ func TestRobotReconfigure(t *testing.T) {
 			encoderNames,
 			[]resource.Name{
 				mockNamed("armFake"),
-				mockNamed("mock1"),
-				mockNamed("mock4"),
-				mockNamed("mock5"),
-				mockNamed("mock6"),
 			},
 		))
 
@@ -2812,8 +2812,8 @@ func TestRobotReconfigure(t *testing.T) {
 		robot.Reconfigure(context.Background(), conf9good)
 
 		mockNames = []resource.Name{
-			mockNamed("mock2"), mockNamed("mock1"), mockNamed("mock3"),
-			mockNamed("mock4"), mockNamed("mock5"),
+			mockNamed("armFake"), mockNamed("mock2"), mockNamed("mock1"), mockNamed("mock3"),
+			mockNamed("mock4"), mockNamed("mock5"), mockNamed("mock6"),
 		}
 		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 
@@ -2843,15 +2843,15 @@ func TestRobotReconfigure(t *testing.T) {
 
 		mock2, err = robot.ResourceByName(mockNamed("mock2"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock2.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock3, err = robot.ResourceByName(mockNamed("mock3"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock3.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock4, err = robot.ResourceByName(mockNamed("mock4"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock4.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		mock5, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
@@ -2859,11 +2859,11 @@ func TestRobotReconfigure(t *testing.T) {
 
 		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 
 		reconfigurableTrue = true
 
@@ -2885,7 +2885,7 @@ func TestRobotReconfigure(t *testing.T) {
 		// with its `reconfCount` bumped.
 		mock6, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 1)
+		test.That(t, mock6.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2895,10 +2895,7 @@ func TestRobotReconfigure(t *testing.T) {
 			boardNames,
 			mockNames,
 			encoderNames,
-			[]resource.Name{
-				mockNamed("armFake"),
-				mockNamed("mock6"),
-			},
+			[]resource.Name{},
 		))
 	})
 	t.Run("complex diff", func(t *testing.T) {
@@ -3642,8 +3639,6 @@ type mockFake struct {
 	resource.Named
 	createdAt        int
 	reconfCount      int
-	reconfiguredAt   int64
-	failCount        int
 	shouldRebuild    bool
 	closedAt         int64
 	closeCount       int
@@ -3664,22 +3659,8 @@ type mockFakeConfig struct {
 	Value                 int      `json:"value"`
 }
 
-func (m *mockFake) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	if m.logicalClock != nil {
-		m.reconfiguredAt = m.logicalClock.Add(1)
-	}
-	if m.shouldRebuild {
-		return resource.NewMustRebuildError(conf.ResourceName())
-	}
-	if c, err := resource.NativeConfig[*mockFakeConfig](conf); err == nil && m.failCount == 0 && c.ShouldFailReconfigure != 0 {
-		m.failCount = c.ShouldFailReconfigure
-	}
-	if m.failCount != 0 {
-		m.failCount--
-		return errors.Errorf("failed to reconfigure (left %d)", m.failCount)
-	}
-	m.reconfCount++
-	return nil
+func (m *mockFake) Reconfigure(_ context.Context, _ resource.Dependencies, _ resource.Config) error {
+	return errors.Errorf("should not be called")
 }
 
 func (m *mockFake) Close(ctx context.Context) error {
