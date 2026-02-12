@@ -33,7 +33,7 @@ type operation struct {
 
 func (op operation) isMoving() bool {
 	// If we have `targetInputs` and we are not done and not stopped
-	return op.targetInputs != nil && !op.done && !op.stopped
+	return !op.done && !op.stopped
 }
 
 type simulatedArm struct {
@@ -147,6 +147,9 @@ func newArm(
 		cancel: cancel,
 
 		currInputs: make([]float64, len(model.DoF())),
+		operation: operation{
+			done: true,
+		},
 	}
 
 	if simulateTime {
