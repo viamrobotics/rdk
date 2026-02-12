@@ -294,6 +294,31 @@ void Generator::main_fn(llvm::raw_ostream& moduleFile) {
 )--";
 }
 
+void Generator::cmakelists(llvm::raw_ostream& outFile) {
+    outFile << llvm::formatv(R"--(
+cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
+
+project({0}
+    DESCRIPTION "Viam C++ {0} Module"
+    LANGUAGES CXX
+)
+
+# Everything needs threads, and prefer -pthread if available
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+find_package(viam-cpp-sdk CONFIG REQUIRED COMPONENTS viamsdk)
+
+add_executable(${0} {0}.cpp)
+
+target_link_libraries(${0}
+    viam-cpp-sdk::viamsdk
+)
+
+)--",
+                             fmt_str::moduleName);
+}
+
 std::string Generator::resourceToSource(llvm::StringRef resourceSubtype,
                                         Generator::ResourceType resourceType,
                                         Generator::SrcType srcType) {

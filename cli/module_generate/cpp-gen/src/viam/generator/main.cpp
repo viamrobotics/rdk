@@ -9,10 +9,32 @@ using namespace viam::gen;
 
 static llvm::cl::OptionCategory opts("module-gen options");
 
-static llvm::cl::extrahelp moreHelp("Viam C++ SDK module generator");
+static llvm::cl::opt<bool> justMain("main",
+                                    llvm::cl::desc("If true, output the stub main file and exit"),
+                                    llvm::cl::cat(opts));
+
+static llvm::cl::opt<bool> justCMake(
+    "cmake",
+    llvm::cl::desc("If true, output the template CMakeLists.txt and exit"),
+    llvm::cl::cat(opts));
 
 int main(int argc, const char** argv) try {
+    // CommonOptionsParser::create will set up a compilation DB, so first let's check for the
+    // quick exit options
+    llvm::cl::ParseCommandLineOptions(argc, argv);
+
+    if (justMain) {
+        Generator::main_fn(llvm::outs());
+        return 0;
+    }
+
+    if (justCMake) {
+        Generator::cmakelists(llvm::outs());
+        return 0;
+    }
+
     auto ExpectedParser = clang::tooling::CommonOptionsParser::create(argc, argv, opts);
+
     if (!ExpectedParser) {
         // Fail gracefully for unsupported options.
         llvm::errs() << ExpectedParser.takeError();

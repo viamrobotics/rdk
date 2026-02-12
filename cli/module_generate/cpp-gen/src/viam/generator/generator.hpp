@@ -34,6 +34,8 @@ class Generator {
 
     static void main_fn(llvm::raw_ostream& moduleFile);
 
+    static void cmakelists(llvm::raw_ostream& outFile);
+
     int run();
 
    private:
@@ -42,7 +44,6 @@ class Generator {
 
     void include_stmts();
     int do_stubs();
-    void main_fn();
 
     Generator(GeneratorCompDB db,
               ResourceType resourceType,
