@@ -1648,6 +1648,12 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 		return nil
 	}
 
+	for k, v := range updates {
+		if rutils.IsEmptyJSONValue(v) {
+			return fmt.Errorf("field %q has an empty value; config deletion must be done through app.viam.com", k)
+		}
+	}
+
 	if _, ok := updates["name"]; ok {
 		return errors.New("cannot update \"name\" field; name is used to identify the resource")
 	}
