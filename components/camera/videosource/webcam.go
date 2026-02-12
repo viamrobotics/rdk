@@ -151,7 +151,10 @@ func NewWebcam(
 		return nil, err
 	}
 
-	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.CameraParameters, nativeConf.DistortionParameters)
+	c.cameraModel = transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: nativeConf.CameraParameters,
+		Distortion:              nativeConf.DistortionParameters,
+	}
 
 	c.targetPath = nativeConf.Path
 	reader, driver, label, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)

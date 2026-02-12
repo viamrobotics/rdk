@@ -63,7 +63,10 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 	if newConf.Color == "" && newConf.PreloadedImage == "" {
 		imgType = camera.DepthStream
 	}
-	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
+	cameraModel := transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: newConf.CameraParameters,
+		Distortion:              newConf.DistortionParameters,
+	}
 	return &imageFileCamera{
 		Named:     name.AsNamed(),
 		src:       videoSrc,
