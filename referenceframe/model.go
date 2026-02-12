@@ -106,15 +106,6 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	}
 }
 
-// transformChainEntry holds pre-computed data for a single frame in the
-// primary-output-to-world transform chain. This avoids map lookups and
-// linear scans on every call to Transform().
-type transformChainEntry struct {
-	frame      Frame // the frame to transform
-	inputStart int   // start index into the flat []Input slice
-	inputEnd   int   // end index (inputStart + dof)
-}
-
 // SimpleModel is a model that uses an internal FrameSystem to represent its kinematic tree.
 // It supports both serial chains and branching tree topologies (e.g. grippers with branching fingers).
 // A user-specified "primary output frame" determines what Transform() returns.
@@ -125,13 +116,11 @@ type SimpleModel struct {
 	inputSchema        *LinearInputsSchema // canonical flat-input ↔ per-frame mapping
 	modelConfig        *ModelConfigJSON
 
-	// transformChain is a pre-computed ordered slice of frames from the primary
-	// output frame back to (but not including) the world frame, with their input
-	// offsets into the flat []Input vector. This enables Transform() to iterate
-	// a slice with direct positional indexing instead of doing map lookups and
-	// linear scans per frame per call.
-	// This is a 50% speedup over using the raw framesystem for this.
-	transformChain []transformChainEntry
+	// transformChain is a pre-computed ordered slice of frames from the world
+	// frame (base) to the primary output frame (tip). This enables Transform()
+	// to iterate a slice instead of doing map lookups and linear scans per
+	// frame per call.
+	transformChain []Frame
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
@@ -305,17 +294,10 @@ func (m *SimpleModel) Hash() int {
 }
 
 // buildTransformChain walks from primaryOutputFrame back to world through the
-// internalFS parent links, and for each frame looks up the corresponding input
-// offset in the inputSchema. The result is a slice ordered from leaf to world
-// (excluding world), matching the iteration order of composeTransforms.
-func (m *SimpleModel) buildTransformChain() []transformChainEntry {
-	// Build a name->meta lookup for O(1) offset resolution.
-	metaByName := make(map[string]linearInputMeta, len(m.inputSchema.metas))
-	for _, meta := range m.inputSchema.metas {
-		metaByName[meta.frameName] = meta
-	}
-
-	var chain []transformChainEntry
+// internalFS parent links. The result is a slice ordered from base to tip
+// (excluding world).
+func (m *SimpleModel) buildTransformChain() []Frame {
+	var chain []Frame
 	frameName := m.primaryOutputFrame
 	for {
 		parentName := m.internalFS.parents[frameName]
@@ -331,15 +313,13 @@ func (m *SimpleModel) buildTransformChain() []transformChainEntry {
 				break
 			}
 		}
-		meta, hasMeta := metaByName[frameName]
-		entry := transformChainEntry{frame: frame}
-		if hasMeta && meta.dof > 0 {
-			entry.inputStart = meta.offset
-			entry.inputEnd = meta.offset + meta.dof
-		}
-		// inputStart == inputEnd means 0-DoF (no inputs needed)
-		chain = append(chain, entry)
+		chain = append(chain, frame)
 		frameName = parentName
+	}
+
+	// Reverse: the walk above produces tip-to-base, we store base-to-tip.
+	for i, j := 0, len(chain)-1; i < j; i, j = i+1, j-1 {
+		chain[i], chain[j] = chain[j], chain[i]
 	}
 	return chain
 }
@@ -361,18 +341,18 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		},
 	}
 
-	// Iterate base-to-tip (reverse of transformChain which is stored tip-to-base)
-	// to match the floating point accumulation order of the original implementation.
-	for i := len(m.transformChain) - 1; i >= 0; i-- {
-		entry := &m.transformChain[i]
+	// Iterate base-to-tip (the storage order of transformChain).
+	posIdx := 0
+	for _, chainFrame := range m.transformChain {
+		dof := len(chainFrame.DoF())
 
-		switch frame := entry.frame.(type) {
+		switch frame := chainFrame.(type) {
 		case *staticFrame:
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
 			}
 		case *rotationalFrame:
-			frameInputs := inputs[entry.inputStart:entry.inputEnd]
+			frameInputs := inputs[posIdx : posIdx+dof]
 			if err := frame.validInputs(frameInputs); err != nil {
 				return &composedTransformation, err
 			}
@@ -388,10 +368,10 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		default:
 			var pose spatialmath.Pose
 			var err error
-			if entry.inputStart == entry.inputEnd {
-				pose, err = entry.frame.Transform(emptyInputs)
+			if dof == 0 {
+				pose, err = chainFrame.Transform(emptyInputs)
 			} else {
-				pose, err = entry.frame.Transform(inputs[entry.inputStart:entry.inputEnd])
+				pose, err = chainFrame.Transform(inputs[posIdx : posIdx+dof])
 			}
 			if err != nil {
 				return &composedTransformation, err
@@ -400,6 +380,8 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
 			}
 		}
+
+		posIdx += dof
 	}
 
 	return &composedTransformation, nil
