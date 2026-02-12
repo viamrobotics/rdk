@@ -702,8 +702,9 @@ func (manager *resourceManager) completeConfig(
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
 		// At the start of every reconfiguration level, check if
-		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
-		// higher than the `lastWeakAndOptionalDependentsRound` value.
+		// updateWeakAndOptionalDependents should be run by checking if any resources should be
+		// reconfigured and if the logical clock is higher than the `lastWeakAndOptionalDependentsRound`
+		// value.
 		//
 		// This will make sure that weak and optional dependents are updated before they are
 		// passed into constructors or reconfigure methods.
