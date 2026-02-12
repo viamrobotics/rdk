@@ -646,7 +646,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 		case <-ctx.Done():
 			return
 		case <-tkr.C:
-			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
+			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			online := state == connectivity.Ready
 			if !online {
@@ -758,9 +758,9 @@ func (s *Sync) sendToSync(ctx context.Context, path string) {
 	}
 }
 
-// readyToSyncDirectories is a method for getting the bool reading from the selective sync sensor
-// for determining whether the key is present and what its value is.
-func readyToSyncDirectories(ctx context.Context, config Config, logger logging.Logger) bool {
+// ReadyToSyncDirectories checks the selective sync sensor to determine if we should sync.
+// Returns true if no selective sync sensor is configured, or if the sensor indicates syncing should occur.
+func ReadyToSyncDirectories(ctx context.Context, config Config, logger logging.Logger) bool {
 	// If selective sync is disabled, sync. If it is enabled, check the condition below.
 	if !config.SelectiveSyncSensorEnabled {
 		return true
