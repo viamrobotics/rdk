@@ -109,8 +109,7 @@ func collisionSpecifications(
 }
 
 // CheckCollisions checks whether any geometries in one set collide with any geometries in another,
-// ignoring allowed collisions. It will return -infinity for minDistance if there is a collision, otherwise a lower-bound estimate
-// of the closest distance between non-colliding geometries.
+// ignoring allowed collisions. It will return a lower-bound estimate of the closest distance between non-colliding geometries.
 // If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
 func CheckCollisions(
 	gg, other []spatialmath.Geometry,
@@ -149,7 +148,7 @@ func CheckCollisions(
 				// an error, we need to check to opposite direction.
 				isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
 				if err != nil {
-					return nil, -1, err
+					return nil, distance, err
 				}
 			}
 

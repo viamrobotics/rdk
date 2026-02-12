@@ -488,10 +488,10 @@ func NewCollisionConstraintFS(
 		collisions, minDist, err := CheckCollisions(
 			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
 		if err != nil {
-			return -1, err
+			return minDist, err
 		}
 		if len(collisions) != 0 {
-			return -1, fmt.Errorf(
+			return minDist, fmt.Errorf(
 				"violation between %s and %s geometries",
 				collisions[0].name1,
 				collisions[0].name2,
