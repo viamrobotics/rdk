@@ -462,7 +462,11 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	}
 
 	geometries := make([]spatialmath.Geometry, 0)
-	for _, gif := range allGeomsMap {
+	for _, frame := range m.framesInOrder() {
+		gif, ok := allGeomsMap[frame.Name()]
+		if !ok {
+			continue
+		}
 		for _, geom := range gif.Geometries() {
 			geom.SetLabel(m.name + ":" + geom.Label())
 			geometries = append(geometries, geom)
