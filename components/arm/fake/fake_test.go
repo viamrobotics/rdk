@@ -59,7 +59,7 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, fakeArm.joints, test.ShouldResemble, make([]referenceframe.Input, len(model.DoF())))
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	test.That(t, fakeArm.Reconfigure(ctx, nil, conf1), test.ShouldBeNil)
+	test.That(t, fakeArm.reconfigure(ctx, nil, conf1), test.ShouldBeNil)
 	model, err = fakeArm.Kinematics(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	modelJoints := make([]referenceframe.Input, len(model.DoF()))
@@ -67,19 +67,19 @@ func TestReconfigure(t *testing.T) {
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 	test.That(t, fakeArm.armModel, test.ShouldResemble, xArm6Model)
 
-	err = fakeArm.Reconfigure(ctx, nil, conf2)
+	err = fakeArm.reconfigure(ctx, nil, conf2)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "fake arm built with zero degrees-of-freedom")
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	err = fakeArm.Reconfigure(ctx, nil, conf3)
+	err = fakeArm.reconfigure(ctx, nil, conf3)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
 	test.That(t, fakeArm.joints, test.ShouldResemble, modelJoints)
 	test.That(t, fakeArm.model, test.ShouldResemble, model)
 
-	err = fakeArm.Reconfigure(ctx, nil, conf4)
+	err = fakeArm.reconfigure(ctx, nil, conf4)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldResemble, errAttrCfgPopulation)
 }
@@ -137,7 +137,7 @@ func TestGet3DModels(t *testing.T) {
 			ArmModel: ur5eModel,
 		},
 	}
-	err = fakeArm.Reconfigure(ctx, nil, confWith3DModels)
+	err = fakeArm.reconfigure(ctx, nil, confWith3DModels)
 	test.That(t, err, test.ShouldBeNil)
 	models, err = fakeArm.Get3DModels(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)

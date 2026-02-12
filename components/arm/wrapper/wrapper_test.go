@@ -66,13 +66,13 @@ func TestReconfigure(t *testing.T) {
 
 	deps := resource.Dependencies{armName: actualArm}
 
-	test.That(t, wrapperArm.Reconfigure(context.Background(), deps, cfg1), test.ShouldBeNil)
+	test.That(t, wrapperArm.reconfigure(context.Background(), deps, cfg1), test.ShouldBeNil)
 
-	err = wrapperArm.Reconfigure(context.Background(), deps, cfg1Err)
+	err = wrapperArm.reconfigure(context.Background(), deps, cfg1Err)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "missing from dep")
 
-	err = wrapperArm.Reconfigure(context.Background(), deps, cfg2Err)
+	err = wrapperArm.reconfigure(context.Background(), deps, cfg2Err)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "only files")
 }
