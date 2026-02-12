@@ -71,3 +71,23 @@ static-release-win:
 		--arch ${UNAME_M} \
 		--resources-json win-resources.json \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
+
+release-macos: server
+	# Use "static" directory naming here despite the created darwin binary not being static.
+	# We want to keep MacOS binary creation as similar to Linux and Windows above as
+	# possible.
+
+	rm -rf etc/packaging/static/deploy/
+	mkdir -p etc/packaging/static/deploy/
+	cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64
+	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
+		cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-darwin-aarch64; \
+	fi
+	rm -rf etc/packaging/static/manifest/
+	mkdir -p etc/packaging/static/manifest/
+	go run etc/subsystem_manifest/main.go \
+		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64 \
+		--upload-path "packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-darwin-aarch64" \
+		--version ${BUILD_CHANNEL} \
+		--arch aarch64 \
+		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-darwin-aarch64.json
