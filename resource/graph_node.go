@@ -279,11 +279,14 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	}
 }
 
-// MarkForRemoval marks this node for removal at a later time.
+// MarkForRemoval marks this node for removal at a later time. Also increases the logical clock.
 func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.transitionTo(NodeStateRemoving)
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+	}
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
