@@ -354,31 +354,55 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 
-	ret := dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{},
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
 	}
 
-	for i := range m.transformChain {
+	// Iterate base-to-tip (reverse of transformChain which is stored tip-to-base)
+	// to match the floating point accumulation order of the original implementation.
+	for i := len(m.transformChain) - 1; i >= 0; i-- {
 		entry := &m.transformChain[i]
-		var pose spatialmath.Pose
-		var err error
 
-		if entry.inputStart == entry.inputEnd {
-			// 0-DoF frame
-			pose, err = entry.frame.Transform(emptyInputs)
-		} else {
+		switch frame := entry.frame.(type) {
+		case *staticFrame:
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
 			frameInputs := inputs[entry.inputStart:entry.inputEnd]
-			pose, err = entry.frame.Transform(frameInputs)
+			if err := frame.validInputs(frameInputs); err != nil {
+				return &composedTransformation, err
+			}
+			orientation := frame.InputToOrientation(frameInputs[0])
+			pose := &spatialmath.DualQuaternion{
+				Number: dualquat.Number{
+					Real: orientation.Quaternion(),
+				},
+			}
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.Number),
+			}
+		default:
+			var pose spatialmath.Pose
+			var err error
+			if entry.inputStart == entry.inputEnd {
+				pose, err = entry.frame.Transform(emptyInputs)
+			} else {
+				pose, err = entry.frame.Transform(inputs[entry.inputStart:entry.inputEnd])
+			}
+			if err != nil {
+				return &composedTransformation, err
+			}
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
 		}
-		if err != nil {
-			return &spatialmath.DualQuaternion{Number: ret}, err
-		}
-
-		ret = pose.(*spatialmath.DualQuaternion).Transformation(ret)
 	}
 
-	return &spatialmath.DualQuaternion{Number: ret}, nil
+	return &composedTransformation, nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
