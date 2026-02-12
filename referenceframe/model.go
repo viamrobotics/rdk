@@ -39,7 +39,8 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
-		modelconf, err := UnmarshalModelXML(data, name)
+		meshMap := resp.GetMeshesByUrdfFilepath()
+		modelconf, err := UnmarshalModelXML(data, name, meshMap)
 		if err != nil {
 			return nil, err
 		}
@@ -70,10 +71,42 @@ func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
 	case "urdf":
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+		// Extract mesh data from geometries and populate mesh map for URDF
+		resp.MeshesByUrdfFilepath = extractMeshMapFromModelConfig(cfg)
 	default:
 		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
 	}
 	return resp
+}
+
+// extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
+// Returns a map of URDF file paths to proto Mesh messages.
+func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Mesh {
+	meshMap := make(map[string]*commonpb.Mesh)
+
+	// Iterate through all links and extract mesh geometries
+	for _, link := range cfg.Links {
+		if link.Geometry == nil {
+			continue
+		}
+
+		// Check if this is a mesh geometry
+		if link.Geometry.Type == spatialmath.MeshType && len(link.Geometry.MeshData) > 0 {
+			// Use the original URDF mesh path if available
+			meshPath := link.Geometry.MeshFilePath
+			if meshPath == "" {
+				// Fallback if path wasn't preserved (shouldn't happen with URDF)
+				continue
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        link.Geometry.MeshData,
+				ContentType: link.Geometry.MeshContentType,
+			}
+		}
+	}
+
+	return meshMap
 }
 
 // KinematicModelFromFile returns a model frame from a file that defines the kinematics.
@@ -385,20 +418,6 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 	}
 	posIdx := 0
 
-	// We split up errors into two cases:
-	//
-	// - There are the right number of inputs, but some inputs are outside of the legal limit
-	//   (either physical, or prescribed by the caller)
-	// - Everything else.
-	//
-	// For general errors, we refuse to return a `Pose`. Because we can't assume it's calculated
-	// correctly. When limits are exceeded, we will return the resulting end effector pose in
-	// addition to an out of bounds error. The caller is expected to check if it's interested in OOB
-	// information.
-	//
-	// Dan: My take is that this method should _not_ return an error when an input is out of
-	// bounds. The caller ought to verify that when applicable.
-	var invalidInputsErr error
 	// get quaternions from the base outwards.
 	for _, transformI := range m.ordTransforms {
 		var pose spatialmath.Pose
@@ -418,7 +437,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 			}
 
 			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
-				multierr.AppendInto(&invalidInputsErr, err)
+				return nil, err
 			}
 
 			orientation := transform.InputToOrientation(inputs[posIdx])
@@ -440,11 +459,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 			var err error
 			pose, err = transform.Transform(input)
 			if err != nil {
-				if strings.Contains(err.Error(), OOBErrString) {
-					multierr.AppendInto(&invalidInputsErr, err)
-				} else {
-					return nil, err
-				}
+				return nil, err
 			}
 
 			composedTransformation = spatialmath.DualQuaternion{
@@ -453,7 +468,7 @@ func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, er
 		}
 	}
 
-	return &composedTransformation, invalidInputsErr
+	return &composedTransformation, nil
 }
 
 // floatsToString turns a float array into a serializable binary representation
@@ -501,23 +516,4 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		model.SetOrdTransforms([]Frame{x, y, geometry})
 	}
 	return model, nil
-}
-
-// ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after
-// transforming it by the given inputs even when if the inputs given would violate the Limits of the frame.
-// This is performed statelessly without changing any data.
-func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-	if inputs == nil {
-		return nil, errors.New("cannot compute position for nil joints")
-	}
-	if frame == nil {
-		return nil, errors.New("cannot compute position for nil frame")
-	}
-
-	pose, err := frame.Transform(inputs)
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
-		return nil, err
-	}
-
-	return pose, nil
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -60,9 +61,11 @@ const (
 	generalFlagPart              = "part"
 	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
+	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
+	generalFlagModelName         = "model-name"
 	generalFlagMethod            = "method"
 	generalFlagDestination       = "destination"
 	generalFlagVersion           = "version"
@@ -74,6 +77,9 @@ const (
 	generalFlagStart             = "start"
 	generalFlagEnd               = "end"
 	generalFlagNoProgress        = "no-progress"
+	generalFlagAPI               = "api"
+	generalFlagArgs              = "args"
+	generalFlagDryRun            = "dry-run"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -86,9 +92,7 @@ const (
 	moduleCreateLocalOnly     = "local-only"
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
-	moduleFlagModelName       = "model-name"
 	moduleFlagRegister        = "register"
-	moduleFlagDryRun          = "dry-run"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -110,7 +114,6 @@ const (
 	mlTrainingFlagVisibility       = "visibility"
 	mlTrainingFlagDescription      = "description"
 	mlTrainingFlagURL              = "url"
-	mlTrainingFlagArgs             = "args"
 	mlTrainingFlagContainerVersion = "container-version"
 	mlTrainingFlagIncludeURIs      = "include-uris"
 
@@ -162,6 +165,14 @@ const (
 	organizationFlagSupportEmail = "support-email"
 	organizationBillingAddress   = "address"
 	organizationFlagLogoPath     = "logo-path"
+
+	xacroFlagInputFile         = "input-file"
+	xacroFlagOutputFile        = "output-file"
+	xacroFlagDockerImg         = "docker-image"
+	xacroFlagPackageXML        = "package-xml"
+	xacroFlagCollapseFixedJnts = "collapse-fixed-joints"
+	xacroFlagInstallPackages   = "install-packages"
+	xacroFlagROSDistro         = "ros-distro"
 )
 
 var commonPartFlags = []cli.Flag{
@@ -314,6 +325,11 @@ func (ga *globalArgs) createLogger() logging.Logger {
 	return logger
 }
 
+func camelFormatName(name string) string {
+	camelFormattedName := matchAllCap.ReplaceAllString(name, "${1}-${2}")
+	return strings.ToLower(camelFormattedName)
+}
+
 func getValFromContext(name string, ctx *cli.Context) any {
 	// some fuzzy searching is required here, because flags are typically in kebab case, but
 	// params are typically in snake or camel case
@@ -325,10 +341,7 @@ func getValFromContext(name string, ctx *cli.Context) any {
 		return value
 	}
 
-	camelFormattedName := matchAllCap.ReplaceAllString(name, "${1}-${2}")
-	camelFormattedName = strings.ToLower(camelFormattedName)
-
-	return ctx.Value(camelFormattedName)
+	return ctx.Value(camelFormatName(name))
 }
 
 // (erodkin) We don't support pointers in structs here. The problem is that when getting a value
@@ -371,6 +384,26 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 						reflectVal.Type().Name())
 				}
 			} else {
+				// we're looking at an org flag, so supply default if none is passed
+				if slices.Contains(
+					[]string{generalFlagOrgID, generalFlagOrganization, generalFlagAliasOrg, generalFlagAliasOrgName},
+					camelFormatName(field.Name),
+				) {
+					if val, isStr := value.(string); isStr {
+						value = orgOrDefault(ctx, val)
+					}
+				}
+
+				// we're looking at a location flag, so supply default if none is passed
+				if slices.Contains(
+					[]string{generalFlagLocation, generalFlagLocationID, generalFlagAliasLocationName},
+					camelFormatName(field.Name),
+				) {
+					if val, isStr := value.(string); isStr {
+						value = locationOrDefault(ctx, val)
+					}
+				}
+
 				tValue.Field(i).Set(reflect.ValueOf(value))
 			}
 		}
@@ -477,6 +510,8 @@ var app = &cli.App{
 					Usage: "Set default organization argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
+							// nolint:enforceorgoptional
 							cli.StringFlag{
 								Name:     generalFlagOrgID, // some functions require an ID, so we should do the same for defaults
 								Required: true,
@@ -495,6 +530,8 @@ var app = &cli.App{
 					Usage: "Set default location argument",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
+							//nolint:nolintlint // obnoxiously the nolint syntax differs for custom rules
+							// nolint:enforcelocationoptional
 							cli.StringFlag{
 								Name:     generalFlagLocationID, // some functions require an ID, so we should do the same for defaults
 								Required: true,
@@ -646,9 +683,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations auth-service enable", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "organization ID tied to OAuth applications",
+									Name:  generalFlagOrgID,
+									Usage: "organization ID tied to OAuth applications",
 								},
 							},
 							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
@@ -659,9 +695,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations auth-service disable", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "organization ID tied to OAuth applications",
+									Name:  generalFlagOrgID,
+									Usage: "organization ID tied to OAuth applications",
 								},
 							},
 							Before: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceConfirmation),
@@ -681,9 +716,8 @@ Note: There is no progress meter while copying is in progress.
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Required: true,
-											Usage:    "organization ID tied to the OAuth application",
+											Name:  generalFlagOrgID,
+											Usage: "organization ID tied to the OAuth application",
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagClientID,
@@ -700,9 +734,8 @@ Note: There is no progress meter while copying is in progress.
 									UsageText: createUsageText("organizations auth-service oauth-app list", []string{generalFlagOrgID}, false, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Required: true,
-											Usage:    "the org to get applications for",
+											Name:  generalFlagOrgID,
+											Usage: "the org to get applications for",
 										},
 									},
 									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
@@ -715,9 +748,8 @@ Note: There is no progress meter while copying is in progress.
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Required: true,
-											Usage:    "organization ID that is tied to the OAuth application",
+											Name:  generalFlagOrgID,
+											Usage: "organization ID that is tied to the OAuth application",
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagClientID,
@@ -735,9 +767,8 @@ Note: There is no progress meter while copying is in progress.
 									),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Required: true,
-											Usage:    "organization ID that is tied to the OAuth application",
+											Name:  generalFlagOrgID,
+											Usage: "organization ID that is tied to the OAuth application",
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagClientID,
@@ -807,9 +838,8 @@ Note: There is no progress meter while copying is in progress.
 										true, false),
 									Flags: []cli.Flag{
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "organization ID that is tied to the OAuth application",
-											Required: true,
+											Name:  generalFlagOrgID,
+											Usage: "organization ID that is tied to the OAuth application",
 										},
 										&cli.StringFlag{
 											Name:  oauthAppFlagClientName,
@@ -888,9 +918,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations logo set", []string{generalFlagOrgID, organizationFlagLogoPath}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to set the logo for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to set the logo for",
 								},
 								&cli.StringFlag{
 									Name:     organizationFlagLogoPath,
@@ -906,9 +935,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations logo get", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to get the logo for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to get the logo for",
 								},
 							},
 							Action: createCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
@@ -929,9 +957,8 @@ Note: There is no progress meter while copying is in progress.
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to set the support email for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to set the support email for",
 								},
 								&cli.StringFlag{
 									Name:     organizationFlagSupportEmail,
@@ -947,9 +974,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations support-email get", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to get the support email for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to get the support email for",
 								},
 							},
 							Action: createCommandWithT[organizationsSupportEmailGetArgs](OrganizationsSupportEmailGetAction),
@@ -968,9 +994,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations billing-service get-config", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to get the billing config for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to get the billing config for",
 								},
 							},
 							Action: createCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
@@ -981,9 +1006,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("organizations billing-service disable", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to disable the billing service for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to disable the billing service for",
 								},
 							},
 							Action: createCommandWithT[organizationDisableBillingServiceArgs](OrganizationDisableBillingServiceAction),
@@ -996,9 +1020,8 @@ Note: There is no progress meter while copying is in progress.
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to update the billing service for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to update the billing service for",
 								},
 								&cli.StringFlag{
 									Name:     organizationBillingAddress,
@@ -1016,9 +1039,8 @@ Note: There is no progress meter while copying is in progress.
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "the org to enable the billing service for",
+									Name:  generalFlagOrgID,
+									Usage: "the org to enable the billing service for",
 								},
 								&cli.StringFlag{
 									Name:     organizationBillingAddress,
@@ -1392,9 +1414,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data delete tabular", []string{generalFlagOrgID, dataFlagDeleteTabularDataOlderThanDays}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org id",
-									Required: true,
+									Name:  generalFlagOrgID,
+									Usage: "org id",
 								},
 								&cli.IntFlag{
 									Name:     dataFlagDeleteTabularDataOlderThanDays,
@@ -1418,9 +1439,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data database configure", []string{generalFlagOrgID, dataFlagDatabasePassword}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org ID for the database user being configured",
-									Required: true,
+									Name:  generalFlagOrgID,
+									Usage: "org ID for the database user being configured",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagDatabasePassword,
@@ -1437,9 +1457,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data database hostname", []string{generalFlagOrgID}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Usage:    "org ID for the database user",
-									Required: true,
+									Name:  generalFlagOrgID,
+									Usage: "org ID for the database user",
 								},
 							},
 							Action: createCommandWithT[dataGetDatabaseConnectionArgs](DataGetDatabaseConnection),
@@ -1516,9 +1535,8 @@ Note: There is no progress meter while copying is in progress.
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "org ID of the data collection",
+									Name:  generalFlagOrgID,
+									Usage: "org ID of the data collection",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
@@ -1545,9 +1563,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data index delete", []string{generalFlagOrgID, dataFlagCollectionType, dataFlagIndexName}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "org ID of the data collection",
+									Name:  generalFlagOrgID,
+									Usage: "org ID of the data collection",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
@@ -1573,9 +1590,8 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data index list", []string{generalFlagOrgID, dataFlagCollectionType}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "org ID of the data collection",
+									Name:  generalFlagOrgID,
+									Usage: "org ID of the data collection",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
@@ -1601,9 +1617,8 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("dataset create", []string{generalFlagOrgID, datasetFlagName}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "org ID for which dataset will be created",
+							Name:  generalFlagOrgID,
+							Usage: "org ID for which dataset will be created",
 						},
 						&cli.StringFlag{
 							Name:     datasetFlagName,
@@ -1706,9 +1721,8 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("dataset merge", []string{generalFlagOrgID, datasetFlagName, datasetFlagDatasetIDs}, false, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID where the merged dataset will be created",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID where the merged dataset will be created",
 						},
 						&cli.StringFlag{
 							Name:     datasetFlagName,
@@ -1844,9 +1858,8 @@ Note: There is no progress meter while copying is in progress.
 						[]string{generalFlagOrgID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Usage:    "organization ID for which data pipelines will be listed",
-							Required: true,
+							Name:  generalFlagOrgID,
+							Usage: "organization ID for which data pipelines will be listed",
 						},
 					},
 					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
@@ -1875,9 +1888,8 @@ Note: There is no progress meter while copying is in progress.
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Usage:    "organization ID for which data pipeline will be created",
-							Required: true,
+							Name:  generalFlagOrgID,
+							Usage: "organization ID for which data pipeline will be created",
 						},
 						&cli.StringFlag{
 							Name:     generalFlagName,
@@ -2006,7 +2018,7 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "managed",
 							Usage: "submits training job on data in Viam cloud with a Viam-managed training script",
 							UsageText: createUsageText("train submit managed",
-								[]string{datasetFlagDatasetID, trainFlagModelOrgID, trainFlagModelName, trainFlagModelType, trainFlagModelLabels},
+								[]string{datasetFlagDatasetID, trainFlagModelOrgID, generalFlagModelName, trainFlagModelType, trainFlagModelLabels},
 								true, false,
 							),
 							Flags: []cli.Flag{
@@ -2021,7 +2033,7 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 								},
 								&cli.StringFlag{
-									Name:     trainFlagModelName,
+									Name:     generalFlagModelName,
 									Usage:    "name of ML model",
 									Required: true,
 								},
@@ -2066,7 +2078,7 @@ Note: There is no progress meter while copying is in progress.
 									UsageText: createUsageText("train submit custom from-registry",
 										[]string{
 											datasetFlagDatasetID, generalFlagOrgID,
-											trainFlagModelName, mlTrainingFlagName,
+											generalFlagModelName, mlTrainingFlagName,
 											generalFlagVersion, mlTrainingFlagContainerVersion,
 										},
 										true, false,
@@ -2078,12 +2090,11 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "org ID to train and save ML model in",
-											Required: true,
+											Name:  generalFlagOrgID,
+											Usage: "org ID to train and save ML model in",
 										},
 										&cli.StringFlag{
-											Name:     trainFlagModelName,
+											Name:     generalFlagModelName,
 											Usage:    "name of ML model",
 											Required: true,
 										},
@@ -2110,7 +2121,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -2122,7 +2133,7 @@ Note: There is no progress meter while copying is in progress.
 									UsageText: createUsageText("train submit custom with-upload",
 										[]string{
 											generalFlagOrgID, datasetFlagDatasetID,
-											trainFlagModelOrgID, trainFlagModelName, generalFlagPath,
+											trainFlagModelOrgID, generalFlagModelName, generalFlagPath,
 											mlTrainingFlagName, mlTrainingFlagContainerVersion,
 										},
 										true, false,
@@ -2134,7 +2145,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     trainFlagModelName,
+											Name:     generalFlagModelName,
 											Usage:    "name of ML model",
 											Required: true,
 										},
@@ -2152,9 +2163,8 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringFlag{
-											Name:     generalFlagOrgID,
-											Usage:    "org ID to save the custom training script in",
-											Required: true,
+											Name:  generalFlagOrgID,
+											Usage: "org ID to save the custom training script in",
 										},
 										&cli.StringFlag{
 											Name:     trainFlagModelOrgID,
@@ -2188,7 +2198,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 										&cli.StringSliceFlag{
-											Name:  mlTrainingFlagArgs,
+											Name:  generalFlagArgs,
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
@@ -2243,9 +2253,8 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("train list", []string{generalFlagOrgID}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Usage:    "org ID",
-							Required: true,
+							Name:  generalFlagOrgID,
+							Usage: "org ID",
 						},
 						&cli.StringFlag{
 							Name:  trainFlagJobStatus,
@@ -2275,9 +2284,8 @@ Note: There is no progress meter while copying is in progress.
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
-								Name:     generalFlagLocation,
-								Aliases:  []string{generalFlagLocationID, generalFlagAliasLocationName},
-								Required: true,
+								Name:    generalFlagLocation,
+								Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
 							},
 						},
 						&AliasStringFlag{
@@ -2403,7 +2411,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
 									Usage:       "the org-id to attach this api-key to.",
-									DefaultText: "the org attached to the machine if only one exists",
+									DefaultText: "default-org value if set, else the org attached to the machine if only one exists",
 								},
 							},
 							Action: createCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
@@ -2426,14 +2434,14 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "default-org value if set, else the first organization alphabetically",
 							},
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:        generalFlagLocation,
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-								DefaultText: "first location alphabetically",
+								DefaultText: "default-location value if set, else the first location alphabetically",
 							},
 						},
 					},
@@ -2456,14 +2464,14 @@ Note: There is no progress meter while copying is in progress.
 							cli.StringFlag{
 								Name:        generalFlagOrganization,
 								Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-								DefaultText: "first organization alphabetically",
+								DefaultText: "default-org value if set, else the first organization alphabetically",
 							},
 						},
 						&AliasStringFlag{
 							cli.StringFlag{
 								Name:        generalFlagLocation,
 								Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-								DefaultText: "first location alphabetically",
+								DefaultText: "default-location value if set, else the first location alphabetically",
 							},
 						},
 						&cli.StringFlag{
@@ -2506,6 +2514,78 @@ Note: There is no progress meter while copying is in progress.
 					HideHelpCommand: true,
 					Subcommands: []*cli.Command{
 						{
+							Name:      "create",
+							Usage:     "create a machine part",
+							UsageText: createUsageText("machines part create", []string{generalFlagPartName, generalFlagMachine}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagPartName,
+									Required: true,
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagMachine,
+										Aliases:  []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagOrganization,
+										Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagLocation,
+										Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+									},
+								},
+							},
+							Action: createCommandWithT(machinesPartCreateAction),
+						},
+						{
+							Name:      "delete",
+							Usage:     "delete a robot part",
+							UsageText: createUsageText("machines part delete", []string{generalFlagPart}, true, false),
+							Flags:     commonPartFlags,
+							Action:    createCommandWithT(machinesPartDeleteAction),
+						},
+						{
+							Name:  "add-resource",
+							Usage: "add a resource to a machine part",
+							UsageText: createUsageText(
+								"machines part add-resource", []string{generalFlagPart, generalFlagName, generalFlagModelName}, true, false,
+							),
+							// TODO (RSDK-13064): reconsider which flags are required when using huh for visual UI
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:     generalFlagModelName,
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:  generalFlagAPI,
+									Usage: "resource API triplet (e.g., acme:demo:my-gizmo). Use with custom resource subtypes",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagResourceSubtype,
+									Usage: "subtype of resource (e.g., arm). Use with standard resource subtypes",
+								},
+							}...),
+							Action: createCommandWithT(robotsPartAddResourceAction),
+						},
+						{
+							Name:      "remove-resource",
+							Usage:     "remove a resource from a machine part",
+							UsageText: createUsageText("machines part remove-resource", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: true}),
+							Action:    createCommandWithT(robotsPartRemoveResourceAction),
+						},
+						{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{generalFlagPart}, true, false),
@@ -2521,14 +2601,14 @@ Note: There is no progress meter while copying is in progress.
 									cli.StringFlag{
 										Name:        generalFlagOrganization,
 										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-										DefaultText: "first organization alphabetically",
+										DefaultText: "default-org value if set, else the first organization alphabetically",
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:        generalFlagLocation,
 										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-										DefaultText: "first location alphabetically",
+										DefaultText: "default-location value if set, else the first location alphabetically",
 									},
 								},
 								&AliasStringFlag{
@@ -2557,14 +2637,14 @@ Note: There is no progress meter while copying is in progress.
 									cli.StringFlag{
 										Name:        generalFlagOrganization,
 										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-										DefaultText: "first organization alphabetically",
+										DefaultText: "default-org value if set, else the first organization alphabetically",
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:        generalFlagLocation,
 										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-										DefaultText: "first location alphabetically",
+										DefaultText: "default-location value if set, else the first location alphabetically",
 									},
 								},
 								&AliasStringFlag{
@@ -2591,6 +2671,34 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
+							Name:            "fragments",
+							Usage:           "work with fragments on a part",
+							UsageText:       createUsageText("machines part fragments", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:      "add",
+									Usage:     "add a fragment to a part",
+									UsageText: createUsageText("machines part fragments add", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to add (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartAddFragmentAction),
+								},
+								{
+									Name:      "remove",
+									Usage:     "remove a fragment from a part",
+									UsageText: createUsageText("machines part fragments remove", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to remove (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartRemoveFragmentAction),
+								},
+							},
+						},
+						{
 							Name:      "restart",
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagPart}, true, false),
@@ -2606,14 +2714,14 @@ Note: There is no progress meter while copying is in progress.
 									cli.StringFlag{
 										Name:        generalFlagOrganization,
 										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-										DefaultText: "first organization alphabetically",
+										DefaultText: "default-org value if set, else the first organization alphabetically",
 									},
 								},
 								&AliasStringFlag{
 									cli.StringFlag{
 										Name:        generalFlagLocation,
 										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
-										DefaultText: "first location alphabetically",
+										DefaultText: "default-location value if set, else the first location alphabetically",
 									},
 								},
 								&AliasStringFlag{
@@ -2891,6 +2999,62 @@ Note: There is no progress meter while copying is in progress.
 			},
 		},
 		{
+			Name:            "xacro",
+			Usage:           "tools for working with xacro files",
+			UsageText:       createUsageText("xacro", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:      "convert",
+					Usage:     "convert a xacro file to URDF",
+					UsageText: createUsageText("xacro convert", []string{xacroFlagInputFile, xacroFlagOutputFile}, true, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     xacroFlagInputFile,
+							Required: true,
+							Usage:    "file to be expanded into urdf format",
+						},
+						&cli.StringFlag{
+							Name:     xacroFlagOutputFile,
+							Required: true,
+							Usage:    "name of urdf file",
+						},
+						&cli.StringSliceFlag{
+							Name:  generalFlagArgs,
+							Usage: "xacro arguments to pass through (e.g., --args name:=ur20). Required if the xacro file uses <xacro:arg> tags",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagROSDistro,
+							Usage: "ROS distribution to use (auto-detected from docker image if not specified)",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagDockerImg,
+							Usage: "docker image to use for xacro processing",
+							Value: "osrf/ros:humble-desktop",
+						},
+						&cli.StringFlag{
+							Name:  xacroFlagPackageXML,
+							Usage: "path to package.xml if not in current directory",
+						},
+						&cli.BoolFlag{
+							Name:  generalFlagDryRun,
+							Usage: "show the docker command without executing it",
+						},
+						&cli.BoolFlag{
+							Name:  xacroFlagCollapseFixedJnts,
+							Usage: "collapse fixed joint chains to ensure only one end-effector exists",
+						},
+						&cli.BoolFlag{
+							Name:  xacroFlagInstallPackages,
+							Usage: "install ros-<distro>-xacro (required for the default image). Disable only if your custom image already includes xacro",
+							Value: true,
+						},
+					},
+					Action: createCommandWithT[xacroConvertArgs](XacroConvertAction),
+				},
+			},
+		},
+		{
 			Name:            "module",
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
@@ -2987,7 +3151,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Hidden: true,
 						},
 						&cli.StringFlag{
-							Name: moduleFlagModelName,
+							Name: generalFlagModelName,
 							Usage: "name for the particular resource subtype implementation." +
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
@@ -2996,7 +3160,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "register module with Viam to associate with your organization",
 						},
 						&cli.BoolFlag{
-							Name:   moduleFlagDryRun,
+							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
 							Hidden: true,
 						},
@@ -3359,7 +3523,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagModelName,
+							Name:        generalFlagModelName,
 							Usage:       "If passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
@@ -3392,7 +3556,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource`,
+	viam module reload --model-name acme:module-name:mybase --name my-resource
+
+	# Trigger a reload build of a module located in a different directory than the current workdir
+	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
@@ -3401,7 +3568,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
@@ -3423,7 +3590,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: "/etc/viam.json",
 						},
 						&cli.StringFlag{
-							Name:        moduleFlagModelName,
+							Name:        generalFlagModelName,
 							Usage:       "If passed, creates a resource in the part config with the given model triple",
 							DefaultText: "Don't create a new resource",
 						},
@@ -3439,7 +3606,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "The path to the root of the git repo to build",
+							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 						},
 					},
@@ -3494,7 +3661,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagOrgID,
 							Usage:       "organization ID or namespace of the requested package",
-							DefaultText: "will try to read from meta.json",
+							DefaultText: "default-org value if set, else will try to read from meta.json",
 						},
 						&cli.StringFlag{
 							Name:        generalFlagName,
@@ -3527,9 +3694,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    "path to package for upload",
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID of the requested package",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID of the requested package",
 						},
 						&cli.StringFlag{
 							Name:     generalFlagName,
@@ -3580,9 +3746,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID that will host the scripts",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID that will host the scripts",
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagName,
@@ -3610,6 +3775,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
 						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    formatAcceptedValues("visibility of the training script", "public", "private"),
+							Required: false,
+						},
 					},
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},
@@ -3621,9 +3791,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagOrgID,
-							Required: true,
-							Usage:    "organization ID that hosts the scripts",
+							Name:  generalFlagOrgID,
+							Usage: "organization ID that hosts the scripts",
 						},
 						&cli.StringFlag{
 							Name:     mlTrainingFlagName,
@@ -3722,13 +3891,12 @@ NOTES:
 			Name:  "infer",
 			Usage: "run cloud hosted inference on an image",
 			UsageText: createUsageText("infer", []string{
-				generalFlagOrgID, inferenceFlagBinaryDataID, inferenceFlagModelOrgID, inferenceFlagModelName, inferenceFlagModelVersion,
+				generalFlagOrgID, inferenceFlagBinaryDataID, inferenceFlagModelOrgID, generalFlagModelName, inferenceFlagModelVersion,
 			}, true, false),
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:     generalFlagOrgID,
-					Usage:    "organization ID that is executing the inference job",
-					Required: true,
+					Name:  generalFlagOrgID,
+					Usage: "organization ID that is executing the inference job",
 				},
 				&cli.StringFlag{
 					Name:     inferenceFlagBinaryDataID,
@@ -3741,7 +3909,7 @@ NOTES:
 					Required: true,
 				},
 				&cli.StringFlag{
-					Name:     inferenceFlagModelName,
+					Name:     generalFlagModelName,
 					Usage:    "name of the model to use to run inference",
 					Required: true,
 				},

@@ -135,7 +135,7 @@ func New(
 		return nil, err
 	}
 	dialAddr := "unix://" + parentAddr.UnixAddr
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		dialAddr = parentAddr.TCPAddr
 	}
 	conn, err := grpc.Dial(robotContext, dialAddr, jobLogger)

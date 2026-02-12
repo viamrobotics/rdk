@@ -138,7 +138,6 @@ func TestConfig3(t *testing.T) {
 			"hi":     3.3,
 			"friend": 4.4,
 		},
-		RemoteName: "rem1",
 	})
 	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs[1], test.ShouldResemble, resource.AssociatedResourceConfig{
 		API: resource.APINamespaceRDK.WithServiceType("some_type"),
@@ -146,7 +145,6 @@ func TestConfig3(t *testing.T) {
 			"hi":     5.5,
 			"friend": 6.6,
 		},
-		RemoteName: "rem1",
 	})
 }
 

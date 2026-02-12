@@ -56,9 +56,14 @@ var (
 		LastestConnectionAttempt:   &networkInfo,
 		Errors:                     errorList,
 	}
+	apiKeyConfig = APIKey{
+		ID:  "api-key-id",
+		Key: "api-key-value",
+	}
 	cloudConfig = CloudConfig{
 		ID:     partID,
 		Secret: secret,
+		APIKey: &apiKeyConfig,
 	}
 )
 

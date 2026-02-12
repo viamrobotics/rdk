@@ -4,7 +4,6 @@ package fake
 import (
 	"context"
 	_ "embed"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -162,7 +161,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return referenceframe.ComputeOOBPosition(a.model, joints)
+	return a.model.Transform(joints)
 }
 
 // MoveToPosition sets the position.
@@ -171,10 +170,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 	defer a.mu.Unlock()
 
 	model := a.model
-	_, err := model.Transform(a.joints)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New("cannot move arm: " + err.Error())
-	} else if err != nil {
+	if _, err := model.Transform(a.joints); err != nil {
 		return err
 	}
 

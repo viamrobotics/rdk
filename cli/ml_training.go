@@ -28,7 +28,6 @@ const (
 	trainFlagJobID          = "job-id"
 	trainFlagJobStatus      = "job-status"
 	trainFlagModelOrgID     = "model-org-id"
-	trainFlagModelName      = "model-name"
 	trainFlagModelVersion   = "model-version"
 	trainFlagModelType      = "model-type"
 	trainFlagModelFramework = "model-framework"
@@ -60,6 +59,9 @@ type mlSubmitCustomTrainingJobArgs struct {
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to submit a custom ML training job")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -93,6 +95,9 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
 func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrainingJobWithUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to submit a custom training job with upload")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -103,7 +108,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	}
 
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
 		return err
 	}
@@ -379,6 +384,9 @@ type dataListTrainingJobsArgs struct {
 
 // DataListTrainingJobs is the corresponding action for 'data train list'.
 func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to list training jobs")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -439,10 +447,14 @@ type mlTrainingUploadArgs struct {
 	Type       string
 	Draft      bool
 	URL        string
+	Visibility string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
 func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to upload an ML training package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -450,7 +462,7 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path,
+		args.Version, args.Path, args.Visibility,
 	)
 	if err != nil {
 		return err
@@ -467,10 +479,10 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	metadata, err := createMetadata(draft, modelType, framework, url)
+	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
 	if err != nil {
 		return nil, err
 	}
@@ -502,6 +514,9 @@ type mlTrainingUpdateArgs struct {
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
 func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to update an ML training package")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -598,13 +613,14 @@ var modelFrameworks = []string{
 
 // MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
-	Draft     bool
-	ModelType string
-	Framework string
-	URL       string
+	Draft      bool
+	ModelType  string
+	Framework  string
+	URL        string
+	Visibility string
 }
 
-func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
@@ -613,10 +629,11 @@ func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, 
 	}
 
 	return &MLMetadata{
-		Draft:     draft,
-		ModelType: t,
-		Framework: f,
-		URL:       url,
+		Draft:      draft,
+		ModelType:  t,
+		Framework:  f,
+		URL:        url,
+		Visibility: visibility,
 	}, nil
 }
 
@@ -639,6 +656,7 @@ var (
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
 	urlKey            = "url"
+	visibilityKey     = "visibility"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -647,6 +665,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
 	metadataMap[urlKey] = metadata.URL
+	metadataMap[visibilityKey] = metadata.Visibility
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err

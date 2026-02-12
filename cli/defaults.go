@@ -20,6 +20,32 @@ func getDefaultOrg(cCtx *cli.Context) (string, error) {
 	return config.DefaultOrg, nil
 }
 
+// returns the provided org argument if non-empty else the default org value if set, else empty string
+func orgOrDefault(cCtx *cli.Context, orgStr string) string {
+	if orgStr != "" {
+		return orgStr
+	}
+	org, err := getDefaultOrg(cCtx)
+	if err != nil {
+		return ""
+	}
+
+	return org
+}
+
+func locationOrDefault(cCtx *cli.Context, locStr string) string {
+	if locStr != "" {
+		return locStr
+	}
+
+	loc, err := getDefaultLocation(cCtx)
+	if err != nil {
+		return ""
+	}
+
+	return loc
+}
+
 func getDefaultLocation(cCtx *cli.Context) (string, error) {
 	config, err := ConfigFromCache(cCtx)
 	if err != nil {

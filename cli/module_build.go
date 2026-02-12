@@ -24,7 +24,6 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
@@ -145,27 +144,31 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
-	processConfig := pexec.ProcessConfig{
-		Environment: environment,
-		Name:        "bash",
-		OneShot:     true,
-		Log:         true,
-		LogWriter:   cCtx.App.Writer,
+
+	// Build environment slice from map, inheriting current environment
+	env := os.Environ()
+	for k, v := range environment {
+		env = append(env, k+"="+v)
 	}
-	// Required logger for the ManagedProcess. Not used
-	logger := logging.NewLogger("x")
+
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = []string{"-c", manifest.Build.Setup}
-		proc := pexec.NewManagedProcess(processConfig, logger)
-		if err := proc.Start(cCtx.Context); err != nil {
+		//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+		cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Setup)
+		cmd.Env = env
+		cmd.Stdout = cCtx.App.Writer
+		cmd.Stderr = cCtx.App.Writer
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = []string{"-c", manifest.Build.Build}
-	proc := pexec.NewManagedProcess(processConfig, logger)
-	if err := proc.Start(cCtx.Context); err != nil {
+	//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+	cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Build)
+	cmd.Env = env
+	cmd.Stdout = cCtx.App.Writer
+	cmd.Stderr = cCtx.App.Writer
+	if err := cmd.Run(); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
@@ -781,17 +784,28 @@ func (c *viamClient) ensureModuleRegisteredInCloud(
 	return nil
 }
 
-func (c *viamClient) inferOrgIDFromManifest(manifest ModuleManifest) (string, error) {
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return "", err
-	}
-	org, err := getOrgByModuleIDPrefix(c, moduleID.prefix)
+func (c *viamClient) getOrgIDForPart(part *apppb.RobotPart) (string, error) {
+	robot, err := c.client.GetRobot(c.c.Context, &apppb.GetRobotRequest{
+		Id: part.GetRobot(),
+	})
 	if err != nil {
 		return "", err
 	}
 
-	return org.GetId(), nil
+	location, err := c.client.GetLocation(c.c.Context, &apppb.GetLocationRequest{
+		LocationId: robot.Robot.GetLocation(),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	orgID := location.Location.PrimaryOrgIdentity.GetId()
+
+	if orgID == "" {
+		return "", errors.New("no primary org id found for location")
+	}
+
+	return orgID, nil
 }
 
 func (c *viamClient) triggerCloudReloadBuild(
@@ -811,22 +825,23 @@ func (c *viamClient) triggerCloudReloadBuild(
 		return "", err
 	}
 
-	orgID, err := c.inferOrgIDFromManifest(manifest)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(partID)
 	if err != nil {
 		return "", err
 	}
-
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
 
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
+	}
+
+	// use the primary org id for the machine as the reload
+	// module org
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
+		return "", err
 	}
 
 	// App expects `BuildInfo` as the first request
@@ -898,10 +913,11 @@ func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRe
 
 // moduleCloudBuildInfo contains information needed to download a cloud build artifact.
 type moduleCloudBuildInfo struct {
-	ID          string
+	ModuleID    string
 	Version     string
 	Platform    string
 	ArchivePath string // Path to the temporary archive that should be deleted after download
+	OrgID       string
 }
 
 // moduleCloudReload triggers a cloud build and returns info needed to download the artifact.
@@ -915,6 +931,18 @@ func (c *viamClient) moduleCloudReload(
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
+		return nil, err
+	}
+
+	part, err := c.getRobotPart(partID)
+	if err != nil {
+		return nil, err
+	}
+	if part.Part == nil {
+		return nil, fmt.Errorf("part with id=%s not found", partID)
+	}
+	orgID, err := c.getOrgIDForPart(part.Part)
+	if err != nil {
 		return nil, err
 	}
 
@@ -935,11 +963,6 @@ func (c *viamClient) moduleCloudReload(
 	}
 	if err := pm.Complete("register"); err != nil {
 		return nil, err
-	}
-
-	id := ctx.String(generalFlagID)
-	if id == "" {
-		id = manifest.ModuleID
 	}
 
 	if err := pm.Start("archive"); err != nil {
@@ -1008,11 +1031,17 @@ func (c *viamClient) moduleCloudReload(
 
 	// Return build info so the caller can download the artifact with a spinner
 	return &moduleCloudBuildInfo{
-		ID:          id,
+		ModuleID:    manifest.ModuleID,
+		OrgID:       orgID,
 		Version:     getReloadVersion(reloadVersionPrefix, partID),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
+}
+
+// IsReloadVersion checks if the version is a reload version.
+func IsReloadVersion(version string) bool {
+	return strings.HasPrefix(version, reloadVersionPrefix)
 }
 
 // ReloadModuleLocalAction builds a module locally, configures it on a robot, and starts or restarts it.
@@ -1171,7 +1200,8 @@ func reloadModuleActionInner(
 				return err
 			}
 			downloadArgs := downloadModuleFlags{
-				ID:          buildInfo.ID,
+				ModuleID:    buildInfo.ModuleID,
+				OrgID:       buildInfo.OrgID,
 				Version:     buildInfo.Version,
 				Platform:    buildInfo.Platform,
 				Destination: ".",

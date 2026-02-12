@@ -51,7 +51,7 @@ func BuildViamServer(tb testing.TB) string {
 	tb.Helper()
 
 	buildOutputPath := tb.TempDir()
-	serverPath := filepath.Join(buildOutputPath, "viam-server")
+	serverPath := filepath.Join(buildOutputPath, "viam-server-static")
 
 	var builder *exec.Cmd
 
@@ -59,6 +59,7 @@ func BuildViamServer(tb testing.TB) string {
 		command := "server-static"
 		if runtime.GOOS == osDarwin {
 			command = "server"
+			serverPath = filepath.Join(buildOutputPath, "viam-server")
 		}
 		builder = exec.Command("make", command)
 		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
@@ -209,6 +210,22 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		}
 	}
 	return exePath
+}
+
+// VerifyDirectoryBuilds verifies that the Go code in the specified directory builds successfully.
+// Warnings are allowed; only build failures cause the test to fail.
+func VerifyDirectoryBuilds(tb testing.TB, dir string) {
+	tb.Helper()
+
+	resolvedDir := utils.ResolveFile(dir)
+	//nolint:gosec
+	builder := exec.Command("go", "build", "-o", os.DevNull, ".")
+	builder.Dir = resolvedDir
+	out, err := builder.CombinedOutput()
+	if err != nil {
+		// Build failed - show detailed compiler output
+		tb.Fatalf("failed to build directory %s:\nError: %v\n\nCompiler output:\n%s", dir, err, string(out))
+	}
 }
 
 // MockBuffer is a buffered writer that just appends data to an array to read

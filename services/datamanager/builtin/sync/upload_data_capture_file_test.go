@@ -813,7 +813,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			cf, err := data.ReadCaptureFile(f)
 			test.That(t, err, test.ShouldBeNil)
 			cc := cloudConn{partID: partID, client: tc.client}
-			bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger)
+			bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, bytesUploaded, test.ShouldEqual, stat.Size())
 			if tc.unaryReqs != nil {

@@ -175,7 +175,7 @@ func setupWithRunningPart(
 	// this will be the URL we use to make new clients. In a backwards way, this
 	// lets the robot be the one with external auth handling (if auth were being used)
 	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
-	ac.baseURL, _, err = parseBaseURL(ac.conf.BaseURL, false)
+	ac.baseURL, _, err = utils.ParseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Cleanup(func() {
@@ -599,7 +599,7 @@ func TestDataExportTabularAction(t *testing.T) {
 
 func TestBaseURLParsing(t *testing.T) {
 	// Test basic parsing
-	url, rpcOpts, err := parseBaseURL("https://app.viam.com:443", false)
+	url, rpcOpts, err := utils.ParseBaseURL("https://app.viam.com:443", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "443")
 	test.That(t, url.Scheme, test.ShouldEqual, "https")
@@ -607,13 +607,13 @@ func TestBaseURLParsing(t *testing.T) {
 	test.That(t, rpcOpts, test.ShouldBeNil)
 
 	// Test parsing without a port
-	url, _, err = parseBaseURL("https://app.viam.com", false)
+	url, _, err = utils.ParseBaseURL("https://app.viam.com", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "443")
 	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
 
 	// Test parsing locally
-	url, rpcOpts, err = parseBaseURL("http://127.0.0.1:8081", false)
+	url, rpcOpts, err = utils.ParseBaseURL("http://127.0.0.1:8081", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Scheme, test.ShouldEqual, "http")
 	test.That(t, url.Port(), test.ShouldEqual, "8081")
@@ -621,20 +621,20 @@ func TestBaseURLParsing(t *testing.T) {
 	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
 
 	// Test localhost:8080
-	url, _, err = parseBaseURL("http://localhost:8080", false)
+	url, _, err = utils.ParseBaseURL("http://localhost:8080", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Port(), test.ShouldEqual, "8080")
 	test.That(t, url.Hostname(), test.ShouldEqual, "localhost")
 	test.That(t, rpcOpts, test.ShouldHaveLength, 2)
 
 	// Test no scheme remote
-	url, _, err = parseBaseURL("app.viam.com", false)
+	url, _, err = utils.ParseBaseURL("app.viam.com", false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, url.Scheme, test.ShouldEqual, "https")
 	test.That(t, url.Hostname(), test.ShouldEqual, "app.viam.com")
 
 	// Test invalid url
-	_, _, err = parseBaseURL(":5", false)
+	_, _, err = utils.ParseBaseURL(":5", false)
 	test.That(t, fmt.Sprint(err), test.ShouldContainSubstring, "missing protocol scheme")
 }
 
@@ -1339,7 +1339,11 @@ func TestCreateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1351,6 +1355,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some-org-id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
@@ -1440,7 +1445,11 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 	})
 
 	t.Run("should error if pkce is not a valid enum value", func(t *testing.T) {
-		flags := map[string]any{oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: "not_one_of_the_allowed_values"}
+		flags := map[string]any{
+			oauthAppFlagClientAuthentication: unspecified,
+			oauthAppFlagPKCE:                 "not_one_of_the_allowed_values",
+			generalFlagOrgID:                 "some-org-id",
+		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
@@ -1452,6 +1461,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags := map[string]any{
 			oauthAppFlagClientAuthentication: unspecified, oauthAppFlagPKCE: unspecified,
 			oauthAppFlagURLValidation: "not_one_of_the_allowed_values",
+			generalFlagOrgID:          "some_org_id",
 		}
 		cCtx, ac, out, _ := setup(asc, nil, nil, flags, "token")
 		err := ac.updateOAuthAppAction(cCtx, parseStructFromCtx[updateOAuthAppArgs](cCtx))

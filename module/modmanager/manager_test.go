@@ -47,7 +47,7 @@ func setupSocketWithRobot(t *testing.T) string {
 
 	var socketAddress string
 	var err error
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		socketAddress = "127.0.0.1:" + strconv.Itoa(web.TCPParentPort)
 	} else {
 		socketAddress, err = modlib.CreateSocketAddress(t.TempDir(), "parent")
@@ -55,7 +55,7 @@ func setupSocketWithRobot(t *testing.T) string {
 	}
 
 	server := rtestutils.MakeRobotForModuleLogging(t, socketAddress)
-	if rutils.ViamTCPSockets() {
+	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		return server.InternalAddr().String()
 	}
 	return socketAddress
@@ -74,6 +74,9 @@ func setupModManager(
 		parentAddrs.TCPAddr = parentAddr
 	} else {
 		parentAddrs.UnixAddr = parentAddr
+	}
+	if options.HandleOrphanedResources == nil {
+		options.HandleOrphanedResources = func(_ context.Context, _ []resource.Name) {}
 	}
 	mgr, err := NewManager(ctx, parentAddrs, logger, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -119,7 +122,11 @@ func TestCrashedModuleCheckReadyShortCircuit(t *testing.T) {
 			parentAddr := setupSocketWithRobot(t)
 
 			viamHomeTemp := t.TempDir()
-			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false, ViamHomeDir: viamHomeTemp})
+			mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
+				UntrustedEnv:            false,
+				ViamHomeDir:             viamHomeTemp,
+				HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+			})
 
 			err = mgr.Add(context.Background(), config.Module{
 				Name:     "test",
@@ -612,8 +619,11 @@ func TestModuleReloading(t *testing.T) {
 		// HandleOrphanedResources function so orphaned resource logic does not
 		// panic.
 		var dummyHandleOrphanedResourcesCallCount atomic.Uint64
-		dummyHandleOrphanedResources := func(context.Context, []resource.Name) {
+		dummyHandleOrphanedResources := func(_ context.Context, orphanedResourceNames []resource.Name) {
 			dummyHandleOrphanedResourcesCallCount.Add(1)
+			for _, oRes := range orphanedResourceNames {
+				logger.Infow("handleOrphanedResources would re-add", "orphanedResName", oRes.String())
+			}
 		}
 		mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 			UntrustedEnv:            false,
@@ -628,7 +638,7 @@ func TestModuleReloading(t *testing.T) {
 		ok := mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		resp, err := h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -636,19 +646,21 @@ func TestModuleReloading(t *testing.T) {
 		// Run 'kill_module' command through helper resource to cause module to exit
 		// with error. Assert that after module is restarted, helper is modularly
 		// managed again and remains functional.
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
-		ok = mgr.IsModularResource(rNameMyHelper)
-		test.That(t, ok, test.ShouldBeTrue)
-		resp, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		// with a real handleOrphanedResources, resource manager would call into modmanager to re-add (tested in module_lifecycle_test)
+		h, err = mgr.AddResource(ctx, cfgMyHelper, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err = h.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -662,7 +674,12 @@ func TestModuleReloading(t *testing.T) {
 
 		// Assert that HandleOrphanedResources was not called (successful restart and re-addition of
 		// modular resources should not require removal of any orphans).
-		test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
+		test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 1)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessageSnippet("handleOrphanedResources would re-add").Len(),
+				test.ShouldEqual, 1)
+		})
 	})
 	t.Run("unsuccessful restart", func(t *testing.T) {
 		// limit to 1 OUE restart attempt for this test
@@ -1237,8 +1254,12 @@ func TestTwoModulesRestart(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	var dummyHandleOrphanedResourcesCallCount atomic.Uint64
-	dummyHandleOrphanedResources := func(context.Context, []resource.Name) {
+	dummyHandleOrphanedResources := func(_ context.Context, orphanedResourceNames []resource.Name) {
 		dummyHandleOrphanedResourcesCallCount.Add(1)
+
+		for _, oRes := range orphanedResourceNames {
+			logger.Infow("handleOrphanedResources would re-add", "orphanedResName", oRes.String())
+		}
 	}
 	mgr := setupModManager(t, ctx, parentAddr, logger, modmanageroptions.Options{
 		UntrustedEnv:            false,
@@ -1267,7 +1288,7 @@ func TestTwoModulesRestart(t *testing.T) {
 		ok := mgr.IsModularResource(resName)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		resp, err := res.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+		resp, err := res.DoCommand(ctx, map[string]any{"command": "echo"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldNotBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, "echo")
@@ -1275,14 +1296,14 @@ func TestTwoModulesRestart(t *testing.T) {
 		// Run 'kill_module' command through helper resource to cause module to exit
 		// with error. Assert that after module is restarted, helper is modularly
 		// managed again and remains functional.
-		_, err = res.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = res.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 	}
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessageSnippet("handleOrphanedResources would re-add").Len(),
 			test.ShouldEqual, 2)
 	})
 
@@ -1296,7 +1317,7 @@ func TestTwoModulesRestart(t *testing.T) {
 	// Assert that HandleOrphanedResources was not called for either module
 	// (successful restart and re-addition of modular resources should not
 	// require removal of any orphans).
-	test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 0)
+	test.That(t, dummyHandleOrphanedResourcesCallCount.Load(), test.ShouldEqual, 2)
 }
 
 var (
@@ -1340,7 +1361,10 @@ func TestRTPPassthrough(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{
+		UntrustedEnv:            false,
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	// add module executable
@@ -1547,7 +1571,10 @@ func TestAddStreamMaxTrackErr(t *testing.T) {
 	parentAddr := setupSocketWithRobot(t)
 
 	greenLog(t, "test AddModule")
-	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := NewManager(ctx, config.ParentSockAddrs{UnixAddr: parentAddr}, logger, modmanageroptions.Options{
+		UntrustedEnv:            false,
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, mgr.Close(ctx), test.ShouldBeNil)

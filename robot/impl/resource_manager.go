@@ -61,7 +61,7 @@ type moduleManager interface {
 	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
-	ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error
+	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
 	ClearFailedModules()
@@ -1267,10 +1267,10 @@ func (manager *resourceManager) updateResources(
 		manager.markRebuildResources(affectedResourceNames)
 	}
 
+	// Now that the modules have been added or reconfigured, any modular resources that are provided by the modified
+	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
-		if err := manager.moduleManager.ResolveImplicitDependenciesInConfig(ctx, conf); err != nil {
-			manager.logger.CErrorw(ctx, "error adding implicit dependencies", "error", err)
-		}
+		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
 	}
 
 	revision := conf.NewRevision()
@@ -1378,40 +1378,56 @@ func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
 ) ([]resource.Resource, map[resource.Name]struct{}, []resource.Name) {
-	var resourcesToMark, resourcesToRebuild []resource.Name
+	var closedModularResourceNames []resource.Name
 	for _, conf := range conf.Modules {
 		affectedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
-		resourcesToRebuild = append(resourcesToRebuild, affectedResourceNames...)
+		closedModularResourceNames = append(closedModularResourceNames, affectedResourceNames...)
 	}
 
+	var resourcesToMark []resource.Name
 	for _, conf := range conf.Remotes {
 		resourcesToMark = append(
 			resourcesToMark,
 			fromRemoteNameToRemoteNodeName(conf.Name),
 		)
 	}
+
+	resourcesToRemove := map[resource.Name]struct{}{}
 	for _, conf := range append(conf.Components, conf.Services...) {
 		resourcesToMark = append(resourcesToMark, conf.ResourceName())
+		resourcesToRemove[conf.ResourceName()] = struct{}{}
 	}
+
 	markedResourceNames := map[resource.Name]struct{}{}
 	addNames := func(names ...resource.Name) {
 		for _, name := range names {
 			markedResourceNames[name] = struct{}{}
 		}
 	}
-	// if the resource was directly removed, remove its dependents as well, since their parents will
-	// be removed.
+	// If the resource was directly removed, mark its dependents for removal as well, since their parents will
+	// be removed and will not come back until the config is updated again, which is different from the case
+	// below.
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames, true)
 
-	// for modular resources that are being removed because the underlying module was removed,
-	// we only want to mark the resources for removal, but not its dependents. They will be marked
-	// for update later in the process.
+	// For modular resources that are being removed because the underlying module was removed,
+	// we only want to mark the resources for removal, but not its dependents. Those dependent
+	// resources will be marked for rebuilding later in the process. This is because if the modular
+	// resource is served by a different module, this allows the chain of dependencies to be rebuilt.
 	resourcesToCloseBeforeComplete = append(
 		resourcesToCloseBeforeComplete,
-		manager.markResourcesRemoved(resourcesToRebuild, addNames, false)...)
+		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...)
+
+	// Only rebuild modular resources that are not marked for removal.
+	var resourcesToRebuild []resource.Name
+	for _, name := range closedModularResourceNames {
+		if _, ok := resourcesToRemove[name]; !ok {
+			resourcesToRebuild = append(resourcesToRebuild, name)
+		}
+	}
+
 	return resourcesToCloseBeforeComplete, markedResourceNames, resourcesToRebuild
 }
 

@@ -2023,7 +2023,7 @@ func TestOrphanedResources(t *testing.T) {
 		// helper 'h' after the first restart attempt
 		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -2046,7 +2046,7 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 				test.ShouldEqual, 1)
 		})
 
@@ -2061,14 +2061,14 @@ func TestOrphanedResources(t *testing.T) {
 		tmpPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessage("Some resources failed to re-add after crashed module restart and will be rebuilt").Len(),
+			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
@@ -2122,7 +2122,7 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	// helper 'h' after the first restart attempt
 	err = os.Rename(testPath, testPath+".disabled")
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -2149,7 +2149,7 @@ func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
 
@@ -2721,6 +2721,8 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
+	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
 	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
@@ -2729,7 +2731,12 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(), test.ShouldEqual, 1)
+		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(), test.ShouldEqual, 1)
+	})
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
@@ -3386,7 +3393,7 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	actualR := r.(*localRobot)
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
@@ -3881,7 +3888,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 					Revision: rev1,
 				}
 			}
-			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			lr := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			lr.(*localRobot).manager.addRemote(
 				context.Background(),
 				dRobot,
@@ -3971,7 +3978,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot1,
@@ -4172,7 +4179,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 				}
 			}
-			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			remote1.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote2Dummy,
@@ -4183,7 +4190,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			// setup local
 			remoteName1 := "remote1"
 			remote1Dummy := newDummyRobot(t, remote1)
-			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 			lRobot.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote1Dummy,
@@ -5023,7 +5030,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 // prevents that behavior and removes the remote correctly.
 func TestRemovingOfflineRemotes(t *testing.T) {
 	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), WithDisableCompleteConfigWorker())
 	localRobot := r.(*localRobot)
 
 	// Create a context that we can cancel to similuate the remote connection timeout

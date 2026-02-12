@@ -112,7 +112,7 @@ func TestDataCaptureEnabled(t *testing.T) {
 							return spatialmath.NewZeroPose(), nil
 						},
 					},
-					arm.Named("remote1:remoteArm"): injectedRemoteArm,
+					arm.Named("remoteArm"): injectedRemoteArm,
 				})
 				config, deps = setupConfig(t, r, remoteCollectorConfigPath)
 			case tc.initialCollectorDisableStatus:

@@ -125,7 +125,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	rr, ok := r2.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- struct{}{}
+	rr.triggerConfig <- "TestFrameSystemConfigWithRemote"
 
 	finalSet := []resource.Name{
 		base.Named("foo"),
@@ -232,7 +232,7 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, context.Background(), localConfig, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), localConfig, logger, WithDisableCompleteConfigWorker())
 
 	// make sure calling into remotes don't error
 	fsCfg, err := r.FrameSystemConfig(context.Background())
