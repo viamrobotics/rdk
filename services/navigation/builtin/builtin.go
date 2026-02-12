@@ -214,7 +214,7 @@ func NewBuiltIn(
 		Named:  conf.ResourceName().AsNamed(),
 		logger: logger,
 	}
-	if err := navSvc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := navSvc.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
@@ -249,7 +249,7 @@ type builtIn struct {
 	activeBackgroundWorkers   sync.WaitGroup
 }
 
-func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (svc *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	svc.actionMu.Lock()
 	defer svc.actionMu.Unlock()
 

@@ -280,7 +280,7 @@ func TestCreation(t *testing.T) {
 	deps = setupDependencies(t, depmap, false, false)
 
 	// first reconfiguration with six sensors and no function errors
-	err = ms.Reconfigure(ctx, deps, conf)
+	err = ms.(*merged).Reconfigure(ctx, deps, conf)
 	test.That(t, err, test.ShouldBeNil)
 
 	res := ms.Name()
@@ -346,7 +346,7 @@ func TestCreation(t *testing.T) {
 
 	// second reconfiguration with six sensors but an error in accuracy
 	deps = setupDependencies(t, depmap, true /* accuracy error */, false)
-	err = ms.Reconfigure(ctx, deps, conf)
+	err = ms.(*merged).Reconfigure(ctx, deps, conf)
 	test.That(t, err, test.ShouldBeNil)
 
 	accuracies, err = ms.Accuracy(ctx, nil)

@@ -40,10 +40,7 @@ func (s *ShellService) DoCommand(ctx context.Context,
 // Reconfigure calls the injected Reconfigure or the real variant.
 func (s *ShellService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	if s.ReconfigureFunc == nil {
-		if s.Service == nil {
-			return resource.NewMustRebuildError(conf.ResourceName())
-		}
-		return s.Service.Reconfigure(ctx, deps, conf)
+		return resource.NewMustRebuildError(conf.ResourceName())
 	}
 	return s.ReconfigureFunc(ctx, deps, conf)
 }

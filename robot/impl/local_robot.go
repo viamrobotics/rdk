@@ -58,6 +58,7 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -996,34 +997,38 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			// NOTE(cheukt): when adding internal services that reconfigure, also add them to
 			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
-			case web.InternalServiceName:
-				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+			case web.InternalServiceName, datamanager.InternalServiceName:
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					if err := internalRes.BuiltInReconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
-					break
-				}
-				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+						break
+					}
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
@@ -1069,7 +1074,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Return early if resource has neither weak nor optional dependencies.
+		// Return early if resource has neither weak nor optional dependencies (root of tree)
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
@@ -1090,9 +1095,37 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
 		if isModular {
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
+			err = r.manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
+			if err != nil && !errors.Is(modmanager.ErrResourceNotFoundInResourceModuleMap, err) {
+				r.manager.logger.Warnw("Unable to remove resource. Continuing with add", "resourceName", conf.ResourceName(), "err", err)
+			}
+			newRes, err := r.manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			if err != nil {
+				r.manager.logger.Warnw("Unable to add resource. Not swapping.", "resourceName", conf.ResourceName(), "err", err)
+			} else if newRes != nil {
+				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc)
+			}
 		} else {
-			err = res.Reconfigure(ctx, deps, conf)
+			if internalResource, ok := res.(resource.BuiltInResource); ok {
+				err = internalResource.BuiltInReconfigure(ctx, deps, conf)
+			} else {
+				// copied from robot/impl/resource_manager.go processResource
+				if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
+					r.manager.logger.CError(ctx, err)
+				}
+				newRes, err := r.newResource(ctx, resNode, conf)
+				if err != nil {
+					r.manager.logger.CDebugw(ctx,
+						"failed to build resource of new model",
+						"name", resName,
+						"old_model", resNode.ResourceModel(),
+						"new_model", conf.Model,
+					)
+				} else if newRes != nil {
+					// will NPE if newRes is nil
+					resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc)
+				}
+			}
 		}
 		if err != nil {
 			if resource.IsMustRebuildError(err) {
@@ -1665,6 +1698,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Fifth we attempt to complete the config (see function for details) and
 	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
+	// note: we may we create a new resource in completeConfig, then immediately rebuild it in updateWeakAndOptionalDependents if it
+	// contains weak or optional dependencies. This has another negative effect of bumping the logical clock n times more than really
+	// necessary, where n is the number of resources containing weak or optional dependencies, which will cause the next robot reconfigure
+	// to immediately trigger another uWAOD call.
 	r.updateWeakAndOptionalDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
