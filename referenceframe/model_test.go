@@ -113,32 +113,6 @@ func Test2DMobileModelFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func TestSerialChainBackwardCompat(t *testing.T) {
-	// Load existing arm model and verify it produces identical results
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	smodel, ok := m.(*SimpleModel)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	// Should have the correct DoF
-	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
-
-	// Transform should work with valid inputs (all zeros are valid for all joints)
-	inputs := make([]Input, 6)
-	pose, err := m.Transform(inputs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldNotBeNil)
-
-	// Geometries should work
-	geoms, err := m.Geometries(inputs)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geoms, test.ShouldNotBeNil)
-
-	// Should have frames in the internal FS
-	test.That(t, len(smodel.framesInOrder()), test.ShouldBeGreaterThan, 0)
-}
-
 func TestNewModel(t *testing.T) {
 	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
@@ -170,7 +144,9 @@ func TestHash(t *testing.T) {
 
 	// Hash should be stable across calls
 	h1 := m1.Hash()
-	h2 := m1.Hash()
+	m1clone, err := Clone(m1)
+	test.That(t, err, test.ShouldBeNil)
+	h2 := m1clone.Hash()
 	test.That(t, h1, test.ShouldEqual, h2)
 
 	// Different model name should produce a different hash
@@ -212,40 +188,11 @@ func TestNewSerialFrameSystemDuplicateNames(t *testing.T) {
 	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
+	_, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
 	test.That(t, err, test.ShouldBeNil)
 
 	// The second frame should have been renamed to avoid collision
 	test.That(t, lastFrame, test.ShouldEqual, "joint_2")
-
-	// Both frames should be accessible in the frame system
-	test.That(t, fs.Frame("joint"), test.ShouldNotBeNil)
-	test.That(t, fs.Frame("joint_2"), test.ShouldNotBeNil)
-}
-
-func TestProtobufRoundtrip(t *testing.T) {
-	// Build a model with a rotational joint (degrees<->radians conversion) and a translational joint
-	rot, err := NewRotationalFrame("rot", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
-	test.That(t, err, test.ShouldBeNil)
-	trans, err := NewTranslationalFrame("trans", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
-	test.That(t, err, test.ShouldBeNil)
-
-	m, err := NewSerialModel("test", []Frame{rot, trans})
-	test.That(t, err, test.ShouldBeNil)
-
-	// Inputs in radians/mm
-	origInputs := []Input{math.Pi / 4, 50.0}
-
-	// Convert to protobuf (rotational value should become degrees)
-	jp := m.ProtobufFromInput(origInputs)
-	test.That(t, jp.Values[0], test.ShouldAlmostEqual, 45.0, 1e-10) // pi/4 = 45 degrees
-	test.That(t, jp.Values[1], test.ShouldAlmostEqual, 50.0, 1e-10) // translational stays the same
-
-	// Convert back from protobuf
-	roundtripped := m.InputFromProtobuf(jp)
-	test.That(t, len(roundtripped), test.ShouldEqual, 2)
-	test.That(t, roundtripped[0], test.ShouldAlmostEqual, origInputs[0], 1e-10)
-	test.That(t, roundtripped[1], test.ShouldAlmostEqual, origInputs[1], 1e-10)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

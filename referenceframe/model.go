@@ -465,23 +465,29 @@ func (m *SimpleModel) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	type serialized struct {
-		Name   string           `json:"name"`
-		Model  *ModelConfigJSON `json:"model"`
-		Limits []Limit          `json:"limits"`
+		Name               string           `json:"name"`
+		Model              *ModelConfigJSON `json:"model,omitempty"`
+		Limits             []Limit          `json:"limits"`
+		InternalFS         *FrameSystem     `json:"internal_fs,omitempty"`
+		PrimaryOutputFrame string           `json:"primary_output_frame,omitempty"`
 	}
 	return json.Marshal(serialized{
-		Name:   m.name,
-		Model:  m.modelConfig,
-		Limits: m.limits,
+		Name:               m.name,
+		Model:              m.modelConfig,
+		Limits:             m.limits,
+		InternalFS:         m.internalFS,
+		PrimaryOutputFrame: m.primaryOutputFrame,
 	})
 }
 
 // UnmarshalJSON deserializes a Model.
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	type serialized struct {
-		Name   string           `json:"name"`
-		Model  *ModelConfigJSON `json:"model"`
-		Limits []Limit          `json:"limits"`
+		Name               string           `json:"name"`
+		Model              *ModelConfigJSON `json:"model,omitempty"`
+		Limits             []Limit          `json:"limits"`
+		InternalFS         *FrameSystem     `json:"internal_fs,omitempty"`
+		PrimaryOutputFrame string           `json:"primary_output_frame,omitempty"`
 	}
 	var ser serialized
 	if err := json.Unmarshal(data, &ser); err != nil {
@@ -489,7 +495,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	}
 
 	frameName := ser.Name
-	if frameName == "" {
+	if frameName == "" && ser.Model != nil {
 		frameName = ser.Model.Name
 	}
 
@@ -506,6 +512,16 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
+	} else if ser.InternalFS != nil {
+		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
+		if err != nil {
+			return err
+		}
+		m.internalFS = rebuilt.internalFS
+		m.primaryOutputFrame = rebuilt.primaryOutputFrame
+		m.inputSchema = rebuilt.inputSchema
+		m.transformChain = rebuilt.transformChain
+		m.limits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)
 		m.internalFS = fs
