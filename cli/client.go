@@ -1538,80 +1538,6 @@ func parseJSONOrFile(s string) (map[string]any, error) {
 	return result, nil
 }
 
-// identifierKeys are used to match list items by identity (each item has exactly one).
-var identifierKeys = []string{"type", "method", "name", "id"}
-
-// deepMerge updates only the fields you provide; everything else is left unchanged.
-// For lists, items are matched by their identifier field (type, method, name, or id) —
-// existing items are updated and new items are added. Null values are skipped.
-func deepMerge(base, override map[string]any) map[string]any {
-	for k, v := range override {
-		if v == nil {
-			continue
-		}
-		baseMap, baseIsMap := base[k].(map[string]any)
-		overrideMap, overrideIsMap := v.(map[string]any)
-		if baseIsMap && overrideIsMap {
-			base[k] = deepMerge(baseMap, overrideMap)
-			continue
-		}
-		baseSlice, baseIsSlice := base[k].([]any)
-		overrideSlice, overrideIsSlice := v.([]any)
-		if baseIsSlice && overrideIsSlice {
-			base[k] = mergeSlices(baseSlice, overrideSlice)
-			continue
-		}
-		base[k] = v
-	}
-	return base
-}
-
-// findIdentifier returns the identifier key and value for a map element,
-// using the first matching key from identifierKeys.
-func findIdentifier(m map[string]any) (string, any, bool) {
-	for _, key := range identifierKeys {
-		if val, ok := m[key]; ok {
-			return key, val, true
-		}
-	}
-	return "", nil, false
-}
-
-// mergeSlices merges two slices of objects by matching on identifier keys.
-// Matched elements are deep-merged and unmatched elements are appended.
-func mergeSlices(base, override []any) []any {
-	for _, overrideItem := range override {
-		overrideMap, ok := overrideItem.(map[string]any)
-		if !ok {
-			// non-object element (e.g. string array) — fall back to full replacement
-			return override
-		}
-
-		idKey, idVal, hasID := findIdentifier(overrideMap)
-		if !hasID {
-			base = append(base, overrideItem)
-			continue
-		}
-
-		matched := false
-		for i, baseItem := range base {
-			baseMap, ok := baseItem.(map[string]any)
-			if !ok {
-				continue
-			}
-			if baseMap[idKey] == idVal {
-				base[i] = deepMerge(baseMap, overrideMap)
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			base = append(base, overrideItem)
-		}
-	}
-	return base
-}
-
 type resourceEnableDisableArgs struct {
 	Part         string
 	Machine      string
@@ -1746,7 +1672,9 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 		for _, resource := range resources {
 			if resource["name"] == args.Name {
 				resourceFound = true
-				deepMerge(resource, updates)
+				for k, v := range updates {
+					resource[k] = v
+				}
 				break
 			}
 		}
