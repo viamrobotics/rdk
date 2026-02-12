@@ -16,18 +16,18 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, c := range conf.AnalogReaders {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for idx, c := range conf.DigitalInterrupts {
 		if err := c.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 // LinuxBoardConfig is a struct containing absolutely everything a genericlinux board might need

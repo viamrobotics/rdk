@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -21,12 +22,12 @@ import (
 // serviceServer implements the contract from shell.proto.
 type serviceServer struct {
 	pb.UnimplementedShellServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a framesystem gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

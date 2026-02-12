@@ -7,8 +7,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// SlowStartupLogger starts a goroutine that logs every few seconds as long as the context has not timed out or was not cancelled.
-func SlowStartupLogger(ctx context.Context, msg, fieldName, fieldVal string, logger logging.Logger) func() {
+// SlowLogger starts a goroutine that logs every few seconds as long as the context has not timed out or was not cancelled.
+func SlowLogger(ctx context.Context, msg, fieldName, fieldVal string, logger logging.Logger) func() {
 	slowTicker := time.NewTicker(2 * time.Second)
 	firstTick := true
 
@@ -18,8 +18,8 @@ func SlowStartupLogger(ctx context.Context, msg, fieldName, fieldVal string, log
 		for {
 			select {
 			case <-slowTicker.C:
-				elapsed := time.Since(startTime).Seconds()
-				logger.CWarnw(ctx, msg, fieldName, fieldVal, "time elapsed", elapsed)
+				elapsed := time.Since(startTime).Round(time.Second).String()
+				logger.CWarnw(ctx, msg, fieldName, fieldVal, "time_elapsed", elapsed)
 				if firstTick {
 					slowTicker.Reset(3 * time.Second)
 					firstTick = false

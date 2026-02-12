@@ -19,7 +19,7 @@ func TestObjectCreation(t *testing.T) {
 	test.That(t, obj, test.ShouldResemble, obj2)
 
 	// create from point cloud
-	pc := pointcloud.New()
+	pc := pointcloud.NewBasicEmpty()
 	err = pc.Set(pointcloud.NewVector(0, 0, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
 	err = pc.Set(pointcloud.NewVector(0, 1, 0), nil)
@@ -43,7 +43,7 @@ func TestObjectCreationWithLabel(t *testing.T) {
 	providedLabel := "notBlah"
 
 	// create point cloud
-	pc := pointcloud.New()
+	pc := pointcloud.NewBasicEmpty()
 	err := pc.Set(pointcloud.NewVector(0, 0, 200), nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -73,7 +73,7 @@ func TestObjectCreationWithLabel(t *testing.T) {
 }
 
 func TestObjectDistance(t *testing.T) {
-	pc := pointcloud.New()
+	pc := pointcloud.NewBasicEmpty()
 	err := pc.Set(pointcloud.NewVector(0, 0, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
 	obj, err := NewObject(pc)

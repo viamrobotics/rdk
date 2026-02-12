@@ -42,7 +42,7 @@ func TestClientWorkingService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	poseSucc := spatial.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatial.OrientationVector{Theta: math.Pi / 2, OX: 0, OY: 0, OZ: -1})
 	pcSucc := &vision.Object{}
-	pcSucc.PointCloud = pointcloud.New()
+	pcSucc.PointCloud = pointcloud.NewBasicEmpty()
 	pcdPath := artifact.MustPath("slam/mock_lidar/0.pcd")
 	pcd, err := os.ReadFile(pcdPath)
 	test.That(t, err, test.ShouldBeNil)
@@ -112,7 +112,7 @@ func TestClientWorkingService(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[slam.Service](slam.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc)
+	resourceAPI.RegisterRPCService(context.Background(), workingServer, workingSvc, logger)
 
 	go workingServer.Serve(listener)
 	defer workingServer.Stop()
@@ -279,7 +279,7 @@ func TestFailingClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	pcFail := &vision.Object{}
-	pcFail.PointCloud = pointcloud.New()
+	pcFail.PointCloud = pointcloud.NewBasicEmpty()
 	err = pcFail.PointCloud.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -307,7 +307,7 @@ func TestFailingClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[slam.Service](slam.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	resourceAPI.RegisterRPCService(context.Background(), failingServer, failingSvc)
+	resourceAPI.RegisterRPCService(context.Background(), failingServer, failingSvc, logger)
 
 	go failingServer.Serve(listener)
 	defer failingServer.Stop()

@@ -146,17 +146,24 @@ func (c *capsule) ToProtobuf() *commonpb.Geometry {
 	}
 }
 
-// CollidesWith checks if the given capsule collides with the given geometry and returns true if it does.
-func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, error) {
+// CollidesWith checks if the given capsule collides with the given geometry and returns true if it
+// does.
+func (c *capsule) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *box:
-		return capsuleVsBoxCollision(c, other, collisionBufferMM), nil
+		// Use fast collision check for box
+		col, d := capsuleVsBoxCollision(c, other, collisionBufferMM)
+		return col, d, nil
 	default:
+		// For other types, distance calculation is relatively cheap
 		dist, err := c.DistanceFrom(g)
 		if err != nil {
-			return true, err
+			return true, dist, err
 		}
-		return dist <= collisionBufferMM, nil
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
 	}
 }
 
@@ -229,6 +236,15 @@ func (c *capsule) ToPoints(resolution float64) []r3.Vector {
 	return transformPointsToPose(vecList, c.Pose())
 }
 
+// Hash returns a hash value for this capsule.
+func (c *capsule) Hash() int {
+	hash := HashPose(c.pose)
+	hash += (8 * (int(c.radius*100) + 3000)) * 9
+	hash += (9 * (int(c.length*100) + 4000)) * 10
+	hash += hashString(c.label) * 11
+	return hash
+}
+
 // rotationMatrix returns the cached matrix if it exists, and generates it if not.
 func (c *capsule) rotationMatrix() *RotationMatrix {
 	c.once.Do(func() { c.rotMatrix = c.pose.Orientation().RotationMatrix() })
@@ -271,7 +287,7 @@ func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 	for _, t := range other.triangles {
 		// Measure distance to each mesh triangle
 		// Make sure the triangle is transformed by the pose of the mesh to ensure that it is properly positioned
-		properlyPositionedTriangle := t.Transform(other.Pose())
+		properlyPositionedTriangle := t.Transform(other.pose).(*Triangle)
 		dist := capsuleVsTriangleDistance(c, properlyPositionedTriangle)
 		if dist < lowDist {
 			lowDist = dist
@@ -281,7 +297,7 @@ func capsuleVsMeshDistance(c *capsule, other *Mesh) float64 {
 }
 
 func capsuleVsTriangleDistance(c *capsule, other *Triangle) float64 {
-	capPt, triPt := closestPointsSegmentTriangle(c.segA, c.segB, other)
+	capPt, triPt := ClosestPointsSegmentTriangle(c.segA, c.segB, other)
 	return capPt.Sub(triPt).Norm() - c.radius
 }
 
@@ -302,12 +318,13 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 }
 
 // capsuleVsBoxCollision returns immediately as soon as any result is found indicating that the two objects are not in collision.
-func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) bool {
-	centerDist := b.pose.Point().Sub(c.center)
+func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) (bool, float64) {
+	centerDist := b.centerPt.Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
-	if centerDist.Norm()-((c.length/2)+b.boundingSphereR) > collisionBufferMM {
-		return false
+	dist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR)
+	if dist > collisionBufferMM {
+		return false, dist
 	}
 	rmA := c.rotationMatrix()
 	rmB := b.rotationMatrix()
@@ -318,28 +335,31 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) bool {
 	cutoff := collisionBufferMM + c.radius
 
 	for i := 0; i < 3; i++ {
-		if separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB) > cutoff {
-			return false
+		dist = separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB)
+		if dist > cutoff {
+			return false, dist
 		}
-		if separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB) > cutoff {
-			return false
+		dist = separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB)
+		if dist > cutoff {
+			return false, dist
 		}
 		for j := 0; j < 3; j++ {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB) > cutoff {
-					return false
+				dist = separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB)
+				if dist > cutoff {
+					return false, dist
 				}
 			}
 		}
 	}
-	return true
+	return true, -1
 }
 
 func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
-	centerDist := b.pose.Point().Sub(c.center)
+	centerDist := b.centerPt.Sub(c.center)
 
 	// check if there is a distance between bounding spheres to potentially exit early
 	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > defaultCollisionBufferMM {
@@ -351,12 +371,15 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
 	// This allows us to check separating axes on a reduced set of projections.
 
+	//nolint: revive
 	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
 		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB); separation > max {
+			//nolint: revive
 			max = separation
 		}
 		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB); separation > max {
+			//nolint: revive
 			max = separation
 		}
 		for j := 0; j < 3; j++ {
@@ -365,6 +388,7 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
 				if separation := separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB); separation > max {
+					//nolint: revive
 					max = separation
 				}
 			}

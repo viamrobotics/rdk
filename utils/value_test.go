@@ -72,3 +72,19 @@ func TestFilterSlice(t *testing.T) {
 func TestSanitizePath(t *testing.T) {
 	test.That(t, SanitizePath("../.123"), test.ShouldResemble, "..-.123")
 }
+
+func TestRIndex(t *testing.T) {
+	items := []int{1, 2, 3}
+	for i := range 3 {
+		test.That(t, RIndex(items, i, 0), test.ShouldEqual, items[i])
+		test.That(t, RIndex(items, -(i+1), 0), test.ShouldEqual, items[len(items)-(i+1)])
+	}
+	test.That(t, RIndex(items, 4, 0), test.ShouldEqual, 0)
+	test.That(t, RIndex(items, -4, 0), test.ShouldEqual, 0)
+}
+
+func TestHashString(t *testing.T) {
+	for _, size := range []int{7, 8} {
+		test.That(t, HashString("hello", size), test.ShouldHaveLength, size)
+	}
+}

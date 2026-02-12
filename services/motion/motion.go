@@ -14,8 +14,8 @@ import (
 	pb "go.viam.com/api/service/motion/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/motionplan"
-	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -29,12 +29,16 @@ func init() {
 		RPCServiceDesc:              &pb.MotionService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // PlanHistoryReq describes the request to PlanHistory().
 type PlanHistoryReq struct {
 	// ComponentName the returned plans should be associated with.
-	ComponentName resource.Name
+	ComponentName string
 	// When true, only the most recent plan will be returned which matches the ComponentName & ExecutionID if one was provided.
 	LastPlanOnly bool
 	// Optional, when not uuid.Nil it specifies the ExecutionID of the plans that should be returned.
@@ -46,7 +50,7 @@ type PlanHistoryReq struct {
 // MoveReq describes the request to the Move interface method.
 type MoveReq struct {
 	// ComponentName of the component to move
-	ComponentName resource.Name
+	ComponentName string
 	// Goal destination the component should be moved to
 	Destination *referenceframe.PoseInFrame
 	// The external environment to be considered for the duration of the move
@@ -59,14 +63,14 @@ type MoveReq struct {
 // MoveOnGlobeReq describes the request to the MoveOnGlobe interface method.
 type MoveOnGlobeReq struct {
 	// ComponentName of the component to move
-	ComponentName resource.Name
+	ComponentName string
 	// Goal destination the component should be moved to
 	Destination *geo.Point
 	// Heading the component should have a when it reaches the goal.
 	// Range [0-360] Left Hand Rule (N: 0, E: 90, S: 180, W: 270)
 	Heading float64
 	// Name of the momement sensor which can be used to derive Position & Heading
-	MovementSensorName resource.Name
+	MovementSensorName string
 	// Static obstacles that should be navigated around
 	Obstacles []*spatialmath.GeoGeometry
 	// Set of bounds which the robot must remain within while navigating
@@ -93,9 +97,9 @@ func (r MoveOnGlobeReq) String() string {
 
 // MoveOnMapReq describes a request to MoveOnMap.
 type MoveOnMapReq struct {
-	ComponentName resource.Name
+	ComponentName string
 	Destination   spatialmath.Pose
-	SlamName      resource.Name
+	SlamName      string
 	MotionCfg     *MotionConfiguration
 	Obstacles     []spatialmath.Geometry
 	Extra         map[string]interface{}
@@ -116,7 +120,7 @@ func (r MoveOnMapReq) String() string {
 // StopPlanReq describes the request to StopPlan().
 type StopPlanReq struct {
 	// ComponentName of the plan which should be stopped
-	ComponentName resource.Name
+	ComponentName string
 	Extra         map[string]interface{}
 }
 
@@ -132,7 +136,7 @@ type PlanWithMetadata struct {
 	// Unique ID of the plan
 	ID PlanID
 	// Name of the component the plan is planning for
-	ComponentName resource.Name
+	ComponentName string
 	// Unique ID of the execution
 	ExecutionID ExecutionID
 	// The motionplan itself
@@ -180,7 +184,7 @@ type ExecutionID = uuid.UUID
 // the status is associated with.
 type PlanStatusWithID struct {
 	PlanID        PlanID
-	ComponentName resource.Name
+	ComponentName string
 	ExecutionID   ExecutionID
 	Status        PlanStatus
 }
@@ -206,10 +210,10 @@ type PlanWithStatus struct {
 //
 // Move example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //
 //	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
+//	gripperName := "my_gripper"
 //
 //	// Define a destination Pose
 //	destination := referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromPoint(r3.Vector{X: 0.1, Y: 0.0, Z: 0.0}))
@@ -236,7 +240,7 @@ type PlanWithStatus struct {
 //	moved, err := motionService.Move(context.Background(), motion.MoveReq{
 //		ComponentName: gripperName,
 //		Destination: destination,
-//		WorldState: WorldState
+//		WorldState: worldState
 //	})
 //
 // For more information, see the [Move method docs].
@@ -301,32 +305,9 @@ type PlanWithStatus struct {
 //
 // For more information, see the [MoveOnGlobe method docs].
 //
-// GetPose example:
-//
-//	// Insert code to connect to your machine.
-//	// (see CONNECT tab of your machine's page in the Viam app)
-//
-//	// Assumes a gripper configured with name "my_gripper" on the machine
-//	gripperName := gripper.Named("my_gripper")
-//
-//	// Access the motion service
-//	motionService, err := motion.FromRobot(machine, "builtin")
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//
-//	myGripperPose, err := motionService.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
-//	if err != nil {
-//	  logger.Fatal(err)
-//	}
-//	logger.Info("Position of my_gripper from the motion service:", myGripperPose.Pose().Point())
-//	logger.Info("Orientation of my_gripper from the motion service:", myGripperPose.Pose().Orientation())
-//
-// For more information, see the [GetPose method docs].
-//
 // StopPlan example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //	myBaseResourceName := base.Named("myBase")
 //
 //	myMvmntSensorResourceName := movement_sensor.Named("my_movement_sensor")
@@ -342,7 +323,7 @@ type PlanWithStatus struct {
 //
 // ListPlanStatuses example:
 //
-//	motionService, err := motion.FromRobot(machine, "builtin")
+//	motionService, err := motion.FromProvider(machine, "builtin")
 //
 //	// Get the plan(s) of the base component's most recent execution i.e. `MoveOnGlobe()` or `MoveOnMap()` call.
 //	planStatuses, err := motionService.ListPlanStatuses(context.Background(), motion.ListPlanStatusesReq{})
@@ -365,10 +346,11 @@ type PlanWithStatus struct {
 // [Move method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#move
 // [MoveOnMap method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonmap
 // [MoveOnGlobe method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#moveonglobe
-// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 // [StopPlan method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#stopplan
 // [ListPlanStatuses method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#listplanstatuses
 // [PlanHistory method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getplan
+//
+// [GetPose method docs]: https://docs.viam.com/dev/reference/apis/services/motion/#getpose
 type Service interface {
 	resource.Resource
 
@@ -393,9 +375,10 @@ type Service interface {
 	// GetPose returns the location and orientation of a component within a frame system.
 	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
 	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	// deprecated, use framesystem.Servce.GetPose
 	GetPose(
 		ctx context.Context,
-		componentName resource.Name,
+		componentName string,
 		destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
 		extra map[string]interface{},
@@ -418,8 +401,8 @@ type Service interface {
 
 // ObstacleDetectorName pairs a vision service name with a camera name.
 type ObstacleDetectorName struct {
-	VisionServiceName resource.Name
-	CameraName        resource.Name
+	VisionServiceName string
+	CameraName        string
 }
 
 // MotionConfiguration specifies how to configure a call.
@@ -445,14 +428,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named motion service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named motion service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
 }
 
-// FromDependencies is a helper for getting the named motion service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named motion service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
+}
+
+// FromProvider is a helper for getting the named Motion service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // ToProto converts a PlanWithStatus to a *pb.PlanWithStatus.
@@ -479,7 +474,7 @@ func (pws PlanWithStatus) ToProto() *pb.PlanWithStatus {
 func (ps PlanStatusWithID) ToProto() *pb.PlanStatusWithID {
 	return &pb.PlanStatusWithID{
 		PlanId:        ps.PlanID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(ps.ComponentName),
+		ComponentName: ps.ComponentName,
 		ExecutionId:   ps.ExecutionID.String(),
 		Status:        ps.Status.ToProto(),
 	}
@@ -505,7 +500,7 @@ func (p PlanWithMetadata) ToProto() *pb.Plan {
 
 	return &pb.Plan{
 		Id:            p.ID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(p.ComponentName),
+		ComponentName: p.ComponentName,
 		ExecutionId:   p.ExecutionID.String(),
 		Steps:         steps,
 	}

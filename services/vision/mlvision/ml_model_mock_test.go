@@ -258,6 +258,40 @@ func mockEffNetModel(name, labelLoc string) mlmodel.Service {
 	return effNetMock
 }
 
+func mockSuperFakeModel(name string) mlmodel.Service {
+	mock := inject.NewMLModelService(name)
+	md := mlmodel.MLMetadata{}
+	inputs := make([]mlmodel.TensorInfo, 0, 1)
+	imageIn := mlmodel.TensorInfo{
+		DataType: "float32",
+		Shape:    []int{1, 500, 500, 3},
+	}
+	inputs = append(inputs, imageIn)
+	md.Inputs = inputs
+
+	mock.MetadataFunc = func(ctx context.Context) (mlmodel.MLMetadata, error) {
+		return md, nil
+	}
+
+	location := []float32{
+		150, 100, 250, 400,
+		0, 100, 400, 450,
+		100, 200, 450, 499,
+		100, 300, 499, 499,
+	}
+	scores := []float32{0.1, 0.2, 0.8, 0.9}
+	outputInfer := ml.Tensors{}
+	outputInfer["category"] = tensor.New(tensor.WithShape(1, 4), tensor.WithBacking([]float32{0, 1, 2, 3}))
+	outputInfer["location"] = tensor.New(tensor.WithShape(1, 4, 4), tensor.WithBacking(location))
+	outputInfer["score"] = tensor.New(tensor.WithShape(1, 4), tensor.WithBacking(scores))
+
+	mock.InferFunc = func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error) {
+		return outputInfer, nil
+	}
+
+	return mock
+}
+
 func mockYOLOv4Model(name, labelLoc string) mlmodel.Service {
 	// using the yolov4_tiny_416_person.tflite model as a template (only identifies people)
 	yolov4Mock := inject.NewMLModelService(name)

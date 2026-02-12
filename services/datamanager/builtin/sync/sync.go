@@ -9,9 +9,11 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	v1 "go.viam.com/api/app/datasync/v1"
@@ -21,6 +23,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
@@ -33,15 +36,56 @@ var CheckDeleteExcessFilesInterval = 30 * time.Second
 const (
 	// FailedDir is a subdirectory of the capture directory that holds any files that could not be synced.
 	FailedDir = "failed"
+	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
+	// and added to a dataset outside of the regularly scheduled sync.
+	DatasetDir = "datasetUpload"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
 	// with a transient error.
 	durationBetweenAcquireConnection = time.Second
-	// syncStatsLogInterval is the interval at which statistics about
-	// data sync are logged.
-	syncStatsLogInterval = time.Minute
 )
+
+// uploadStats tracks cumulative upload statistics.
+type uploadStats struct {
+	binary    dataTypeUploadStats
+	tabular   dataTypeUploadStats
+	arbitrary dataTypeUploadStats
+}
+
+// dataTypeUploadStats tracks cumulative upload statistics for a given data type.
+type dataTypeUploadStats struct {
+	completedUploadBytes  atomic.Uint64 // bytes successfully uploaded (after entire file completes)
+	uploadedFileCount     atomic.Uint64
+	uploadingBytes        atomic.Uint64 // bytes currently being uploaded (incremental during upload)
+	uploadFailedFileCount atomic.Uint64
+}
+
+// FTDCStats represents upload and deleted file metric values for a given moment. Returned by Sync.GetStats().
+type FTDCStats struct {
+	FilesDeletedToFreeSpace int64
+	Upload                  FTDCUploadStats
+}
+
+// FTDCUploadStats represents upload metric values for a given moment.
+type FTDCUploadStats struct {
+	// Upload metrics - arbitrary files.
+	ArbitraryUploadedFileCount     uint64
+	ArbitraryCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	ArbitraryUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	ArbitraryUploadFailedFileCount uint64
+
+	// Upload metrics - binary sensor data.
+	BinarySensorUploadedFileCount     uint64
+	BinarySensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	BinarySensorUploadingBytes        uint64 // bytes currently being uploaded (in progress)
+	BinarySensorUploadFailedFileCount uint64
+
+	// Upload metrics - tabular sensor data.
+	TabularSensorUploadedFileCount     uint64
+	TabularSensorCompletedUploadBytes  uint64 // bytes successfully uploaded (completed files)
+	TabularSensorUploadFailedFileCount uint64
+}
 
 // Sync manages uploading files (both written by data capture and by 3rd party applications)
 // to the cloud & deleting the upload files.
@@ -53,16 +97,16 @@ const (
 // - Close (once).
 type Sync struct {
 	// ScheduledTicker only exists for tests
-	ScheduledTicker         *clock.Ticker
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState
-	logger                  logging.Logger
-	workersWg               sync.WaitGroup
-	flushCollectors         func()
-	fileTracker             *fileTracker
-	filesToSync             chan string
-	clientConstructor       func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
-	clock                   clock.Clock
-	atomicUploadStats       *atomicUploadStats
+	ScheduledTicker   *clock.Ticker
+	logger            logging.Logger
+	workersWg         sync.WaitGroup
+	flushCollectors   func()
+	fileTracker       *fileTracker
+	filesToSync       chan string
+	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient
+	clock             clock.Clock
+	uploadStats       *uploadStats
+	deletedFileCount  atomic.Int64
 
 	configMu sync.Mutex
 	config   Config
@@ -76,7 +120,6 @@ type Sync struct {
 	cloudConnManager *goutils.StoppableWorkers
 	// FileDeletingWorkers is only public for tests
 	FileDeletingWorkers *goutils.StoppableWorkers
-	statsWorker         *statsWorker
 	// MaxSyncThreads only exists for tests
 	MaxSyncThreads int
 }
@@ -84,29 +127,25 @@ type Sync struct {
 // New creates a new Sync.
 func New(
 	clientConstructor func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient,
-	connToConnectivityState func(conn rpc.ClientConn) ConnectivityState,
 	flushCollectors func(),
 	clock clock.Clock,
 	logger logging.Logger,
 ) *Sync {
 	configCtx, configCancelFunc := context.WithCancel(context.Background())
-	var atomicUploadStats atomicUploadStats
-	statsWorker := newStatsWorker(logger)
+	var uploadStats uploadStats
 	s := Sync{
-		connToConnectivityState: connToConnectivityState,
-		clock:                   clock,
-		configCtx:               configCtx,
-		configCancelFunc:        configCancelFunc,
-		clientConstructor:       clientConstructor,
-		logger:                  logger,
-		fileTracker:             newFileTracker(),
-		filesToSync:             make(chan string),
-		flushCollectors:         flushCollectors,
-		Scheduler:               goutils.NewBackgroundStoppableWorkers(),
-		cloudConn:               cloudConn{ready: make(chan struct{})},
-		FileDeletingWorkers:     goutils.NewBackgroundStoppableWorkers(),
-		statsWorker:             statsWorker,
-		atomicUploadStats:       &atomicUploadStats,
+		clock:               clock,
+		configCtx:           configCtx,
+		configCancelFunc:    configCancelFunc,
+		clientConstructor:   clientConstructor,
+		logger:              logger,
+		fileTracker:         newFileTracker(),
+		filesToSync:         make(chan string),
+		flushCollectors:     flushCollectors,
+		Scheduler:           goutils.NewBackgroundStoppableWorkers(),
+		cloudConn:           cloudConn{ready: make(chan struct{})},
+		FileDeletingWorkers: goutils.NewBackgroundStoppableWorkers(),
+		uploadStats:         &uploadStats,
 	}
 	return &s
 }
@@ -132,7 +171,6 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		return
 	}
 	// config changed... stop workers
-	s.statsWorker.reconfigure(s.atomicUploadStats, syncStatsLogInterval)
 	s.config.logDiff(config, s.logger)
 
 	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
@@ -180,17 +218,46 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 				s.fileTracker,
 				config.CaptureDir,
 				config.DeleteEveryNthWhenDiskFull,
+				config.DiskUsageDeletionThreshold,
+				config.CaptureDirDeletionThreshold,
 				s.clock,
 				s.logger,
+				&s.deletedFileCount,
 			)
 		})
+	}
+}
+
+// GetStats returns cumulative file deletion and upload metrics.
+func (s *Sync) GetStats() FTDCStats {
+	return FTDCStats{
+		// File deletion metric.
+		FilesDeletedToFreeSpace: s.deletedFileCount.Load(),
+
+		Upload: FTDCUploadStats{
+			// Upload metrics - arbitrary files.
+			ArbitraryCompletedUploadBytes:  s.uploadStats.arbitrary.completedUploadBytes.Load(),
+			ArbitraryUploadedFileCount:     s.uploadStats.arbitrary.uploadedFileCount.Load(),
+			ArbitraryUploadingBytes:        s.uploadStats.arbitrary.uploadingBytes.Load(),
+			ArbitraryUploadFailedFileCount: s.uploadStats.arbitrary.uploadFailedFileCount.Load(),
+
+			// Upload metrics - binary sensor data.
+			BinarySensorCompletedUploadBytes:  s.uploadStats.binary.completedUploadBytes.Load(),
+			BinarySensorUploadedFileCount:     s.uploadStats.binary.uploadedFileCount.Load(),
+			BinarySensorUploadingBytes:        s.uploadStats.binary.uploadingBytes.Load(),
+			BinarySensorUploadFailedFileCount: s.uploadStats.binary.uploadFailedFileCount.Load(),
+
+			// Upload metrics - tabular sensor data.
+			TabularSensorCompletedUploadBytes:  s.uploadStats.tabular.completedUploadBytes.Load(),
+			TabularSensorUploadedFileCount:     s.uploadStats.tabular.uploadedFileCount.Load(),
+			TabularSensorUploadFailedFileCount: s.uploadStats.tabular.uploadFailedFileCount.Load(),
+		},
 	}
 }
 
 // Close releases all resources managed by data sync.
 func (s *Sync) Close() {
 	s.configCancelFunc()
-	s.statsWorker.close()
 	s.FileDeletingWorkers.Stop()
 	s.Scheduler.Stop()
 	s.workersWg.Wait()
@@ -224,11 +291,10 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready                        chan struct{}
-	partID                       string
-	client                       v1.DataSyncServiceClient
-	conn                         rpc.ClientConn
-	connectivityStateEnabledConn ConnectivityState
+	ready  chan struct{}
+	partID string
+	client v1.DataSyncServiceClient
+	conn   rgrpc.ConnectivityState
 }
 
 // BEGIN connection management
@@ -278,8 +344,19 @@ func (s *Sync) runCloudConnManager(
 		// we have a working cloudConn,
 		// set the values & connunicate that it is ready
 		s.cloudConn.partID = partID
-		s.cloudConn.conn = conn
-		s.cloudConn.connectivityStateEnabledConn = s.connToConnectivityState(conn)
+		checker, ok := conn.(rgrpc.ConnectivityState)
+		if !ok {
+			// should never happen, as rgrpc.AppConn (which is the underlying type of the connection)
+			// implements GetState explicitly.
+			s.logger.Errorf("cloud connection does not expose connectivity state, "+
+				"will retry in %s", durationBetweenAcquireConnection)
+			if goutils.SelectContextOrWait(ctx, durationBetweenAcquireConnection) {
+				continue
+			}
+			// exit loop if context is cancelled
+			return
+		}
+		s.cloudConn.conn = checker
 		s.cloudConn.client = s.clientConstructor(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
@@ -335,14 +412,14 @@ func (s *Sync) runWorker(config Config) {
 func (s *Sync) syncFile(config Config, filePath string) {
 	// don't sync in progress files
 	if filepath.Ext(filePath) == data.InProgressCaptureFileExt {
-		s.logger.Warnf("ignoreing request to sync in progress capture file: %s", filePath)
+		s.logger.Warnf("ignoring request to sync in progress capture file: %s", filePath)
 		return
 	}
 
 	// If the file is already being synced, do not kick off a new goroutine.
 	// The goroutine will again check and return early if sync is already in progress.
 	if !s.fileTracker.markInProgress(filePath) {
-		s.logger.Warnf("ignoreing request to sync file which sync is already working on %s", filePath)
+		s.logger.Warnf("ignoring request to sync file which sync is already working on %s", filePath)
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
@@ -360,7 +437,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	if data.IsDataCaptureFile(f) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
-		s.syncArbitraryFile(f, config.Tags, config.FileLastModifiedMillis, s.logger)
+		s.syncArbitraryFile(f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -377,16 +454,23 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		if err := moveFailedData(f.Name(), captureDir, cause, logger); err != nil {
 			s.logger.Error(err)
 		}
-		s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+		s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		return
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
+
+	// Include counter for binary sensor data because larger binary data files are uploaded via our streaming API, so updating
+	// a counter during the upload provides a more granular rate metric.
+	var uploadingBytesCounter *atomic.Uint64
+	if isBinary {
+		uploadingBytesCounter = &s.uploadStats.binary.uploadingBytes
+	}
 
 	// setup a retry struct that will try to upload the capture file
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
-		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger)
+		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -412,9 +496,9 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 			logger.Error(err)
 		}
 		if isBinary {
-			s.atomicUploadStats.binary.uploadFailedFileCount.Add(1)
+			s.uploadStats.binary.uploadFailedFileCount.Add(1)
 		} else {
-			s.atomicUploadStats.tabular.uploadFailedFileCount.Add(1)
+			s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		}
 		return
 	}
@@ -424,18 +508,20 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 		logger.Error(errors.Wrap(err, "error deleting data capture file").Error())
 	}
 	if isBinary {
-		s.atomicUploadStats.binary.uploadedFileCount.Add(1)
-		s.atomicUploadStats.binary.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.binary.uploadedFileCount.Add(1)
+		s.uploadStats.binary.completedUploadBytes.Add(bytesUploaded)
 	} else {
-		s.atomicUploadStats.tabular.uploadedFileCount.Add(1)
-		s.atomicUploadStats.tabular.uploadedBytes.Add(bytesUploaded)
+		s.uploadStats.tabular.uploadedFileCount.Add(1)
+		s.uploadStats.tabular.completedUploadBytes.Add(bytesUploaded)
 	}
 }
 
-func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMillis int, logger logging.Logger) {
+func (s *Sync) syncArbitraryFile(f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int, logger logging.Logger) {
 	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(ctx, f, s.cloudConn, tags, fileLastModifiedMillis, s.clock, logger)
+		bytesUploaded, err := uploadArbitraryFile(
+			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
+		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
@@ -459,7 +545,7 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 		if err := moveFailedData(f.Name(), path.Dir(f.Name()), err, logger); err != nil {
 			logger.Error(err.Error())
 		}
-		s.atomicUploadStats.arbitrary.uploadFailedFileCount.Add(1)
+		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
 		return
 	}
 
@@ -470,8 +556,45 @@ func (s *Sync) syncArbitraryFile(f *os.File, tags []string, fileLastModifiedMill
 	if err := os.Remove(f.Name()); err != nil {
 		logger.Error(errors.Wrap(err, fmt.Sprintf("error deleting file %s", f.Name())).Error())
 	}
-	s.atomicUploadStats.arbitrary.uploadedFileCount.Add(1)
-	s.atomicUploadStats.arbitrary.uploadedBytes.Add(bytesUploaded)
+	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
+	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
+}
+
+// UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
+func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string, mimeType v1.MimeType) error {
+	errChan := make(chan error, 1)
+	go func() {
+		defer close(errChan)
+		// Create a new directory CaptureDir/DatasetDir
+		newDir := filepath.Join(s.config.CaptureDir, DatasetDir)
+		if err := os.MkdirAll(newDir, 0o700); err != nil {
+			errChan <- errors.Wrapf(err, "failed to create file in dataset directory: error making new dataset directory: %s", newDir)
+			return
+		}
+		filename := uuid.NewString()
+		fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+		if fileExtensionFromMimeType != "" {
+			filename += fileExtensionFromMimeType
+		}
+		filename = filepath.Join(s.config.CaptureDir, DatasetDir, filepath.Clean(filename))
+		err := os.WriteFile(filename, binaryData, 0o600)
+		if err != nil {
+			s.logger.Errorw("error writing file", "err", err)
+			errChan <- err
+			return
+		}
+		f, err := os.Open(filename)
+		if err != nil {
+			s.logger.Errorw("error reading file", "err", err)
+			errChan <- err
+			return
+		}
+		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
+		// before deciding this file is ready for upload and is not still being written to.
+		s.syncArbitraryFile(f, tags, datasetIDs, 0, s.logger)
+	}()
+
+	return <-errChan
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
@@ -524,7 +647,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			return
 		case <-tkr.C:
 			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
-			state := s.cloudConn.connectivityStateEnabledConn.GetState()
+			state := s.cloudConn.conn.GetState()
 			online := state == connectivity.Ready
 			if !online {
 				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
@@ -568,8 +691,9 @@ func (s *Sync) walkDirsAndSendFilesToSync(ctx context.Context, config Config) er
 				return nil
 			}
 
-			// Do not sync the files in the corrupted data directory.
-			if info.IsDir() && info.Name() == FailedDir {
+			// Do not sync the files in the corrupted data directory or in the directory that holds files
+			// that are simultaneously uploaded and added to a dataset.
+			if info.IsDir() && (info.Name() == FailedDir || info.Name() == DatasetDir) {
 				return filepath.SkipDir
 			}
 

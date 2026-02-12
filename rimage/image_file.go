@@ -17,9 +17,9 @@ import (
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
 	"github.com/xfmoulet/qoi"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	ut "go.viam.com/rdk/utils"
 )
@@ -47,6 +47,9 @@ const RawDepthHeaderLength = 24
 func init() {
 	// Here we register the custom format above so that we can simply use image.Decode
 	// so long as the raw RGBA data has the appropriate header
+	// Make sure that format registration names e.g. "vnd.viam.rgba" are trailing substrings of
+	// its corresponding MIME type e.g. "image/vnd.viam.rgba" in mime.go. This is crucial to make sure
+	// that our mime type handling is 1:1 with the registered formats.
 	image.RegisterFormat("vnd.viam.rgba", string(RGBABitmapMagicNumber),
 		func(r io.Reader) (image.Image, error) {
 			rawBytes, err := io.ReadAll(r)

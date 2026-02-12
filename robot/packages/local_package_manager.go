@@ -2,13 +2,13 @@ package packages
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -49,14 +49,17 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(conf *config.Config, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(conf.PackagePath)
 	packagesDataDir := filepath.Join(packagesDir, "data")
+	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
+	if conf.PackagePath != "" {
+		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
+			return nil, err
+		}
 
-	if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-		return nil, err
+		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
+			return nil, err
+		}
 	}
 
-	if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-		return nil, err
-	}
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
@@ -84,6 +87,10 @@ func (m *localManager) Close(ctx context.Context) error {
 
 // fileCopyHelper is the downloadCallback for local tarball modules.
 func (m *localManager) fileCopyHelper(ctx context.Context, path, dstPath string) (string, string, error) {
+	path, err := rUtils.ExpandHomeDir(path)
+	if err != nil {
+		return "", "", err
+	}
 	src, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return "", "", err
@@ -163,20 +170,24 @@ func (m *localManager) Sync(ctx context.Context, packages []config.PackageConfig
 	for idx, mod := range changed {
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
+			m.logger.Errorf("Context canceled. Canceling local package manager sync. Time spent: %v", time.Since(start))
 			return multierr.Append(outErr, err)
 		}
 		m.logger.Debugf("Starting local package sync [%d/%d] %s", idx+1, len(changed), mod.Name)
 		pkg, err := mod.SyntheticPackage()
 		if err != nil {
+			m.logger.Warnf("Local tarball package error. Skipping module. Module: %v Err: %v",
+				mod.Name, err)
 			outErr = multierr.Append(outErr, err)
 			continue
 		}
 
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s from %s, %s", mod.Name, mod.ExePath, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s from %s",
-				mod.Name, mod.ExePath))
+			m.logger.Warnf("Failed installing tarball package. Skipping module. Module: %s Path: %s Err: %s",
+				mod.Name, mod.ExePath, err)
+			outErr = multierr.Append(outErr, fmt.Errorf("failed copying package %s from %s: %w",
+				mod.Name, mod.ExePath, err))
 			continue
 		}
 
@@ -243,25 +254,32 @@ func (m *localManager) SyncOne(ctx context.Context, mod config.Module) error {
 	if !mod.NeedsSyntheticPackage() {
 		return nil
 	}
+
 	pkg, err := mod.SyntheticPackage()
 	if err != nil {
 		return err
 	}
-	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
 
-	dirty, err := newerOrMissing(mod.ExePath, pkgDir)
+	pkgDir := pkg.LocalDataDirectory(m.packagesDir)
+	exePath, err := rUtils.ExpandHomeDir(mod.ExePath)
 	if err != nil {
 		return err
 	}
+
+	dirty, err := newerOrMissing(exePath, pkgDir)
+	if err != nil {
+		return err
+	}
+
 	if dirty {
 		m.logger.CDebugf(ctx, "%s is newer, recopying", mod.ExePath)
 		utils.UncheckedError(cleanup(m.packagesDir, pkg))
-		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, m.fileCopyHelper)
+		err = installPackage(ctx, m.logger, m.packagesDir, mod.ExePath, pkg, false, m.fileCopyHelper)
 		if err != nil {
-			m.logger.Errorf("Failed copying package %s:%s from %s, %s", pkg.Package, pkg.Version, mod.ExePath, err)
-			return errors.Wrapf(err, "failed downloading package %s:%s from %s", pkg.Package, pkg.Version, mod.ExePath)
+			return fmt.Errorf("failed installing package %s:%s installPath: %q err: %w", pkg.Package, pkg.Version, mod.ExePath, err)
 		}
 		m.managedModules[mod.Name] = &managedModule{module: mod}
 	}
+
 	return nil
 }

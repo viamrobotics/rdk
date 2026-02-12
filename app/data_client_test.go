@@ -9,6 +9,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
+	datapipelinesPb "go.viam.com/api/app/datapipelines/v1"
 	setPb "go.viam.com/api/app/dataset/v1"
 	syncPb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
@@ -148,6 +149,73 @@ var (
 				YMaxNormalized: 0.85,
 			},
 		},
+		Classifications: []*Classification{},
+	}
+
+	dataPipelineID = "data_pipeline_id"
+	dataPipeline   = DataPipeline{
+		ID:             dataPipelineID,
+		Name:           name,
+		OrganizationID: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+		UpdatedAt:      time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		DataSourceType: TabularDataSourceTypeStandard,
+	}
+
+	pbDataSourceType = pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD
+	pbDataPipeline   = &datapipelinesPb.DataPipeline{
+		Id:             dataPipelineID,
+		Name:           name,
+		OrganizationId: organizationID,
+		Schedule:       "0 0 * * *",
+		MqlBinary:      [][]byte{[]byte("mql_binary")},
+		Enabled:        true,
+		CreatedOn:      timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+		UpdatedAt:      timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+		DataSourceType: &pbDataSourceType,
+	}
+	pbDataPipelines    = []*datapipelinesPb.DataPipeline{pbDataPipeline}
+	dataPipelines      = []*DataPipeline{&dataPipeline}
+	pbDataPipelineRuns = []*datapipelinesPb.DataPipelineRun{
+		{
+			Id:            "run1",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_STARTED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+		},
+		{
+			Id:            "run2",
+			Status:        datapipelinesPb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED,
+			StartTime:     timestamppb.New(time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC)),
+			EndTime:       timestamppb.New(time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC)),
+			DataStartTime: timestamppb.New(time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC)),
+			DataEndTime:   timestamppb.New(time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC)),
+			ErrorMessage:  "error message",
+		},
+	}
+	dataPipelineRuns = []*DataPipelineRun{
+		{
+			ID:            "run1",
+			Status:        DataPipelineRunStatusStarted,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+		},
+		{
+			ID:            "run2",
+			Status:        DataPipelineRunStatusFailed,
+			StartTime:     time.Date(2023, 1, 1, 12, 0, 0, 0, time.UTC),
+			EndTime:       time.Date(2023, 1, 1, 12, 5, 0, 0, time.UTC),
+			DataStartTime: time.Date(2023, 1, 1, 11, 0, 0, 0, time.UTC),
+			DataEndTime:   time.Date(2023, 1, 1, 12, 30, 0, 0, time.UTC),
+			ErrorMessage:  "error message",
+		},
 	}
 )
 
@@ -215,6 +283,10 @@ func createDatasetGrpcClient() *inject.DatasetServiceClient {
 	return &inject.DatasetServiceClient{}
 }
 
+func createDataPipelineGrpcClient() *inject.DataPipelinesServiceClient {
+	return &inject.DataPipelinesServiceClient{}
+}
+
 func TestDataClient(t *testing.T) {
 	grpcClient := createDataGrpcClient()
 	client := DataClient{dataClient: grpcClient}
@@ -275,24 +347,24 @@ func TestDataClient(t *testing.T) {
 
 	t.Run("TabularDataByFilter", func(t *testing.T) {
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
 			TimeRequested: timestamppb.New(start),
 			TimeReceived:  timestamppb.New(end),
 		}
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		grpcClient.TabularDataByFilterFunc = func(ctx context.Context, in *pb.TabularDataByFilterRequest,
 			opts ...grpc.CallOption,
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 		) (*pb.TabularDataByFilterResponse, error) {
 			test.That(t, in.DataRequest, test.ShouldResemble, dataRequestToProto(dataRequest))
 			test.That(t, in.CountOnly, test.ShouldBeTrue)
 			test.That(t, in.IncludeInternalData, test.ShouldBeTrue)
-			//nolint:deprecated,staticcheck
+			//nolint:staticcheck
 			return &pb.TabularDataByFilterResponse{
-				//nolint:deprecated,staticcheck
+				//nolint:staticcheck
 				Data:     []*pb.TabularData{tabularDataPb},
 				Count:    pbCount,
 				Last:     last,
@@ -340,6 +412,7 @@ func TestDataClient(t *testing.T) {
 		limitBytes, _ := bson.Marshal(limitQuery)
 		mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
 		mqlBinary := [][]byte{matchBytes, limitBytes}
+		queryPrefixName := "prefix_name"
 
 		// convert rawData to BSON
 		var expectedRawDataPb [][]byte
@@ -355,6 +428,12 @@ func TestDataClient(t *testing.T) {
 		) (*pb.TabularDataByMQLResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			if in.DataSource != nil {
+				test.That(t, in.DataSource.Type, test.ShouldNotEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED)
+			}
+			if in.QueryPrefixName != nil {
+				test.That(t, *in.QueryPrefixName, test.ShouldEqual, queryPrefixName)
+			}
 			return &pb.TabularDataByMQLResponse{
 				RawData: expectedRawDataPb,
 			}, nil
@@ -362,10 +441,19 @@ func TestDataClient(t *testing.T) {
 		response, err := client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: false})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
-		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{UseRecentData: true})
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			TabularDataSourceType: TabularDataSourceTypeHotStorage,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, response, test.ShouldResemble, rawData)
+		response, err = client.TabularDataByMQL(context.Background(), organizationID, mqlQueries, &TabularDataByMQLOptions{
+			QueryPrefixName: queryPrefixName,
+		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, response, test.ShouldResemble, rawData)
 	})
@@ -392,7 +480,7 @@ func TestDataClient(t *testing.T) {
 			}, nil
 		}
 
-		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method)
+		resp, err := client.GetLatestTabularData(context.Background(), partID, componentName, componentType, method, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &latestTabularData)
 	})
@@ -421,7 +509,7 @@ func TestDataClient(t *testing.T) {
 			return mockStream, nil
 		}
 
-		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval)
+		responses, err := client.ExportTabularData(context.Background(), partID, componentName, componentType, method, captureInterval, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, responses[0], test.ShouldResemble, exportTabularDataResponseFromProto(exportTabularResponse))
 	})
@@ -453,18 +541,79 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("BinaryDataByIDs", func(t *testing.T) {
-		grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
-			opts ...grpc.CallOption,
-		) (*pb.BinaryDataByIDsResponse, error) {
-			test.That(t, in.IncludeBinary, test.ShouldBeTrue)
-			test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
-			expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
+		t.Run("default behavior (backward compatible)", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeTrue)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
 
-			return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+		})
+
+		t.Run("with IncludeBinary true", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeTrue)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				expectedBinaryDataList := []*pb.BinaryData{binaryDataToProto(binaryData)}
+
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs, &BinaryDataByIDsOptions{IncludeBinary: true})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+		})
+
+		t.Run("with IncludeBinary false", func(t *testing.T) {
+			grpcClient.BinaryDataByIDsFunc = func(ctx context.Context, in *pb.BinaryDataByIDsRequest,
+				opts ...grpc.CallOption,
+			) (*pb.BinaryDataByIDsResponse, error) {
+				test.That(t, in.IncludeBinary, test.ShouldBeFalse)
+				test.That(t, in.BinaryDataIds, test.ShouldResemble, binaryDataIDs)
+				// When IncludeBinary is false, return metadata without binary data
+				expectedBinaryDataList := []*pb.BinaryData{
+					{
+						Binary:   nil,
+						Metadata: binaryMetadataToProto(binaryData.Metadata),
+					},
+				}
+
+				return &pb.BinaryDataByIDsResponse{Data: expectedBinaryDataList, Count: uint64(len(expectedBinaryDataList))}, nil
+			}
+			respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs, &BinaryDataByIDsOptions{IncludeBinary: false})
+			test.That(t, err, test.ShouldBeNil)
+			// Expected result should have empty binary when IncludeBinary is false
+			expectedBinaryData := BinaryData{
+				Binary:   nil,
+				Metadata: binaryData.Metadata,
+			}
+			test.That(t, respBinaryData[0], test.ShouldResemble, &expectedBinaryData)
+		})
+	})
+
+	t.Run("CreateBinaryDataSignedURL", func(t *testing.T) {
+		expectedSignedURL := "https://example.com/signed-url?token=abc123"
+		expirationMinutes := uint32(60)
+		grpcClient.CreateBinaryDataSignedURLFunc = func(ctx context.Context, in *pb.CreateBinaryDataSignedURLRequest,
+			opts ...grpc.CallOption,
+		) (*pb.CreateBinaryDataSignedURLResponse, error) {
+			test.That(t, in.BinaryDataId, test.ShouldEqual, binaryDataID)
+			test.That(t, in.ExpirationMinutes, test.ShouldNotBeNil)
+			test.That(t, *in.ExpirationMinutes, test.ShouldEqual, expirationMinutes)
+			return &pb.CreateBinaryDataSignedURLResponse{
+				SignedUrl: expectedSignedURL,
+			}, nil
 		}
-		respBinaryData, err := client.BinaryDataByIDs(context.Background(), binaryDataIDs)
+		resp, err := client.CreateBinaryDataSignedURL(context.Background(), binaryDataID, expirationMinutes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, respBinaryData[0], test.ShouldResemble, &binaryData)
+		test.That(t, resp, test.ShouldEqual, expectedSignedURL)
 	})
 
 	t.Run("DeleteTabularData", func(t *testing.T) {
@@ -527,13 +676,17 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("AddTagsToBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.AddTagsToBinaryDataByFilterFunc = func(ctx context.Context, in *pb.AddTagsToBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.AddTagsToBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.AddTagsToBinaryDataByFilterResponse{}, nil
 		}
+
 		err := client.AddTagsToBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -554,15 +707,19 @@ func TestDataClient(t *testing.T) {
 	})
 
 	t.Run("RemoveTagsFromBinaryDataByFilter", func(t *testing.T) {
+		//nolint:staticcheck
 		grpcClient.RemoveTagsFromBinaryDataByFilterFunc = func(ctx context.Context, in *pb.RemoveTagsFromBinaryDataByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.RemoveTagsFromBinaryDataByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
 			test.That(t, in.Tags, test.ShouldResemble, tags)
+			//nolint:staticcheck
 			return &pb.RemoveTagsFromBinaryDataByFilterResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
+
 		resp, err := client.RemoveTagsFromBinaryDataByFilter(context.Background(), tags, &filter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, count)
@@ -613,10 +770,13 @@ func TestDataClient(t *testing.T) {
 			annotationsToProto(&annotations).Bboxes[0].Label,
 			annotationsToProto(&annotations).Bboxes[1].Label,
 		}
+		//nolint:staticcheck
 		grpcClient.BoundingBoxLabelsByFilterFunc = func(ctx context.Context, in *pb.BoundingBoxLabelsByFilterRequest,
 			opts ...grpc.CallOption,
+			//nolint:staticcheck
 		) (*pb.BoundingBoxLabelsByFilterResponse, error) {
 			test.That(t, in.Filter, test.ShouldResemble, pbFilter)
+			//nolint:staticcheck
 			return &pb.BoundingBoxLabelsByFilterResponse{
 				Labels: expectedBBoxLabelsPb,
 			}, nil
@@ -763,7 +923,7 @@ func TestDataSyncClient(t *testing.T) {
 	t.Run("TabularDataCaptureUpload", func(t *testing.T) {
 		uploadMetadata.Type = DataTypeTabularSensor
 		dataStruct, _ := utils.StructToStructPb(data)
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		tabularDataPb := &pb.TabularData{
 			Data:          dataStruct,
 			MetadataIndex: 0,
@@ -1033,5 +1193,145 @@ func TestDatasetClient(t *testing.T) {
 		resp, err := client.ListDatasetsByIDs(context.Background(), datasetIDs)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, &resp, test.ShouldResemble, &datasets)
+	})
+}
+
+func TestDataPipelineClient(t *testing.T) {
+	grpcClient := createDataPipelineGrpcClient()
+	client := DataClient{datapipelinesClient: grpcClient}
+
+	matchQuery := bson.M{"$match": bson.M{"organization_id": "e76d1b3b-0468-4efd-bb7f-fb1d2b352fcb"}}
+	matchBytes, _ := bson.Marshal(matchQuery)
+	limitQuery := bson.M{"$limit": 1}
+	limitBytes, _ := bson.Marshal(limitQuery)
+	mqlQueries := []map[string]interface{}{matchQuery, limitQuery}
+	mqlBinary := [][]byte{matchBytes, limitBytes}
+
+	t.Run("ListDataPipelines", func(t *testing.T) {
+		grpcClient.ListDataPipelinesFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelinesRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelinesResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			return &datapipelinesPb.ListDataPipelinesResponse{
+				DataPipelines: pbDataPipelines,
+			}, nil
+		}
+
+		resp, err := client.ListDataPipelines(context.Background(), organizationID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp, test.ShouldResemble, &dataPipelines)
+	})
+
+	t.Run("GetDataPipeline", func(t *testing.T) {
+		grpcClient.GetDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.GetDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.GetDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.GetDataPipelineResponse{
+				DataPipeline: pbDataPipeline,
+			}, nil
+		}
+		resp, err := client.GetDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &dataPipeline)
+	})
+
+	t.Run("CreateDataPipeline", func(t *testing.T) {
+		grpcClient.CreateDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.CreateDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.CreateDataPipelineResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			test.That(t, in.MqlBinary, test.ShouldResemble, mqlBinary)
+			test.That(t, in.Schedule, test.ShouldEqual, "0 9 * * *")
+			test.That(t, *in.EnableBackfill, test.ShouldBeTrue)
+			test.That(t, *in.DataSourceType, test.ShouldEqual, pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD)
+			return &datapipelinesPb.CreateDataPipelineResponse{
+				Id: "new-data-pipeline-id",
+			}, nil
+		}
+		options := &CreateDataPipelineOptions{
+			TabularDataSourceType: TabularDataSourceTypeStandard,
+		}
+		resp, err := client.CreateDataPipeline(context.Background(), organizationID, name, mqlQueries, "0 9 * * *", true, options)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, "new-data-pipeline-id")
+	})
+
+	t.Run("RenameDataPipeline", func(t *testing.T) {
+		grpcClient.RenameDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.RenameDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.RenameDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.Name, test.ShouldEqual, name)
+			return &datapipelinesPb.RenameDataPipelineResponse{}, nil
+		}
+		err := client.RenameDataPipeline(context.Background(), dataPipelineID, name)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("DeleteDataPipeline", func(t *testing.T) {
+		grpcClient.DeleteDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DeleteDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DeleteDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.DeleteDataPipelineResponse{}, nil
+		}
+		err := client.DeleteDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("EnableDataPipeline", func(t *testing.T) {
+		grpcClient.EnableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.EnableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.EnableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.EnableDataPipelineResponse{}, nil
+		}
+		err := client.EnableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("DisableDataPipeline", func(t *testing.T) {
+		grpcClient.DisableDataPipelineFunc = func(
+			ctx context.Context, in *datapipelinesPb.DisableDataPipelineRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.DisableDataPipelineResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			return &datapipelinesPb.DisableDataPipelineResponse{}, nil
+		}
+		err := client.DisableDataPipeline(context.Background(), dataPipelineID)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("ListDataPipelineRuns", func(t *testing.T) {
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next1",
+			}, nil
+		}
+
+		resp, err := client.ListDataPipelineRuns(context.Background(), dataPipelineID, uint32(limit))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
+
+		grpcClient.ListDataPipelineRunsFunc = func(
+			ctx context.Context, in *datapipelinesPb.ListDataPipelineRunsRequest, opts ...grpc.CallOption,
+		) (*datapipelinesPb.ListDataPipelineRunsResponse, error) {
+			test.That(t, in.Id, test.ShouldEqual, dataPipelineID)
+			test.That(t, in.PageSize, test.ShouldEqual, limit)
+			test.That(t, in.PageToken, test.ShouldEqual, "next1")
+			return &datapipelinesPb.ListDataPipelineRunsResponse{
+				Runs:          pbDataPipelineRuns,
+				NextPageToken: "next2",
+			}, nil
+		}
+		resp, err = resp.NextPage(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, &resp.Runs, test.ShouldResemble, &dataPipelineRuns)
 	})
 }

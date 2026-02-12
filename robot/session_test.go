@@ -24,26 +24,22 @@ import (
 
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/motor"
-	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
-var someBaseName1 = base.Named("base1")
-
 var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
@@ -67,6 +63,7 @@ func init() {
 // We should NOT add a strict deadline to this test - we had that before and it resulted
 // in flaky tests (see RSDK-2493).
 func TestSessions(t *testing.T) {
+	t.Parallel()
 	for _, windowSize := range []time.Duration{
 		config.DefaultSessionHeartbeatWindow,
 		time.Second * 5,
@@ -99,6 +96,7 @@ func TestSessions(t *testing.T) {
 			dummyEcho1 := dummyEcho{
 				Named:  echo1Name.AsNamed(),
 				stopCh: stopChs["echo1"].Chan,
+				res:    base.Named("base1"),
 			}
 			dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
 			resource.RegisterComponent(
@@ -189,7 +187,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor1, err := motor.FromRobot(roboClient, "motor1")
+			motor1, err := motor.FromProvider(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("get position of motor1 which will not be safety monitored")
@@ -205,7 +203,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor1, err = motor.FromRobot(roboClient, "motor1")
+			motor1, err = motor.FromProvider(roboClient, "motor1")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("set power of motor1 which will be safety monitored")
@@ -223,7 +221,7 @@ func TestSessions(t *testing.T) {
 			roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 			test.That(t, err, test.ShouldBeNil)
 
-			motor2, err := motor.FromRobot(roboClient, "motor2")
+			motor2, err := motor.FromProvider(roboClient, "motor2")
 			test.That(t, err, test.ShouldBeNil)
 
 			t.Log("set power of motor2 which will be safety monitored")
@@ -279,7 +277,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	echo1Name := resource.NewName(echoAPI, "echo1")
 	dummyRemMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["remMotor1"].Chan}
 	dummyRemMotor2 := dummyMotor{Named: motor2Name.AsNamed(), stopCh: stopChs["remMotor2"].Chan}
-	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan}
+	dummyRemEcho1 := dummyEcho{Named: echo1Name.AsNamed(), stopCh: stopChs["remEcho1"].Chan, res: base.Named("rem1base1")}
 	dummyRemBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["remBase1"].Chan}
 	dummyMotor1 := dummyMotor{Named: motor1Name.AsNamed(), stopCh: stopChs["motor1"].Chan}
 	dummyBase1 := dummyBase{Named: base1Name.AsNamed(), stopCh: stopChs["base1"].Chan}
@@ -383,11 +381,14 @@ func TestSessionsWithRemote(t *testing.T) {
 	err = remoteRobot.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
+	// Use a `prefix` in the main config to distinguish the identically-named remote
+	// resources.
 	roboConfig := fmt.Sprintf(`{
 		"remotes": [
 			{
 				"name": "rem1",
-				"address": %q
+				"address": %q,
+				"prefix": "rem1"
 			}
 		],
 		"components": [
@@ -418,7 +419,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err := client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err := motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err := motor.FromProvider(roboClient, "rem1motor1")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -444,7 +445,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err = motor.FromProvider(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// this should cause safety monitoring
@@ -465,7 +466,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1, err = motor.FromRobot(roboClient, "rem1:motor1")
+	motor1, err = motor.FromProvider(roboClient, "rem1motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Log("set power of rem1:motor1 which will be safety monitored")
@@ -492,7 +493,7 @@ func TestSessionsWithRemote(t *testing.T) {
 	roboClient, err = client.New(ctx, addr, logger.Sublogger("client"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor2, err := motor.FromRobot(roboClient, "rem1:motor2")
+	motor2, err := motor.FromProvider(roboClient, "rem1motor2")
 	if err != nil {
 		bufSize := 1 << 20
 		traces := make([]byte, bufSize)
@@ -508,13 +509,13 @@ func TestSessionsWithRemote(t *testing.T) {
 	t.Log("set power of rem1:motor2 which will be safety monitored")
 	test.That(t, motor2.SetPower(ctx, 50, nil), test.ShouldBeNil)
 
-	dummyName := resource.NewName(echoAPI, "echo1")
+	dummyName := resource.NewName(echoAPI, "rem1echo1")
 	echo1Client, err := roboClient.ResourceByName(dummyName)
 	test.That(t, err, test.ShouldBeNil)
 	echo1Conn := echo1Client.(*dummyClient)
 
 	t.Log("echo multiple of remEcho1 which will be safety monitored")
-	echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "echo1"})
+	echoMultiClient, err := echo1Conn.client.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "rem1echo1"})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = echoMultiClient.Recv() // EOF; okay
 	test.That(t, err, test.ShouldBeError, io.EOF)
@@ -592,9 +593,9 @@ func TestSessionsMixedClients(t *testing.T) {
 	roboClient2, err := client.New(ctx, addr, logger.Sublogger("client2"))
 	test.That(t, err, test.ShouldBeNil)
 
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
-	motor1Client2, err := motor.FromRobot(roboClient2, "motor1")
+	motor1Client2, err := motor.FromProvider(roboClient2, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, motor1Client1.SetPower(ctx, 50, nil), test.ShouldBeNil)
@@ -691,7 +692,7 @@ func TestSessionsMixedOwnersNoAuth(t *testing.T) {
 	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
 	//    `SetPower` operation. The robot's heartbeat thread will call `motor1.Stop`. While Client 2 sent a command
 	//    to the motor, it used Client 1's session and never sent heartbeats.
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// clients made directly with a connection will not send heartbeats.
@@ -798,7 +799,7 @@ func TestSessionsMixedOwnersImplicitAuth(t *testing.T) {
 	// 4) Client 1 will disconnect. This results in the client ceasing heartbeats for the
 	//    `SetPower` operation. As Client 2 never sent a successful command to the motor (even if it did, Client 2
 	//    won't sent heartbeats), the robot's heartbeat thread will call `motor1.Stop`.
-	motor1Client1, err := motor.FromRobot(roboClient1, "motor1")
+	motor1Client1, err := motor.FromProvider(roboClient1, "motor1")
 	test.That(t, err, test.ShouldBeNil)
 
 	// clients made directly with a connection will not send heartbeats.
@@ -977,12 +978,13 @@ type dummyEcho struct {
 	resource.Named
 	resource.AlwaysRebuild
 	resource.TriviallyCloseable
+	res    resource.Name
 	mu     sync.Mutex
 	stopCh chan struct{}
 }
 
 func (e *dummyEcho) EchoMultiple(ctx context.Context) error {
-	session.SafetyMonitorResourceName(ctx, someBaseName1)
+	session.SafetyMonitorResourceName(ctx, e.res)
 	return nil
 }
 
@@ -999,7 +1001,7 @@ func (e *dummyEcho) IsMoving(context.Context) (bool, error) {
 
 type echoServer struct {
 	echopb.UnimplementedTestEchoServiceServer
-	coll resource.APIResourceCollection[resource.Resource]
+	coll resource.APIResourceGetter[resource.Resource]
 }
 
 func (srv *echoServer) EchoMultiple(
@@ -1050,12 +1052,15 @@ type StopChan struct {
 	Name string
 }
 
+// TODO(RSDK-11894): Remove usages of this horribly obfuscated function and its associated
+// function, ensureStop.
 func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string, checkAgainst []string) {
 	return func(t *testing.T, name string, checkAgainst []string) {
 		t.Helper()
 		stopCases := make([]reflect.SelectCase, 0, len(checkAgainst))
 		for _, checkName := range checkAgainst {
 			test.That(t, stopChs, test.ShouldContainKey, checkName)
+			// Make sure the case we're testing for is the last element of the slice.
 			if stopChs[checkName].Name == name {
 				continue
 			}
@@ -1065,6 +1070,11 @@ func makeEnsureStop(stopChs map[string]*StopChan) func(t *testing.T, name string
 			})
 		}
 
+		// The last element of stopCases, which contains branches of a select
+		// statement, is the one we want to be selected for the test to pass. If
+		// name is the empty string it will be a default case to check that none of
+		// the channels are selected, and if name is non-empty it will be the
+		// channel with that name from stopChs.
 		if name == "" {
 			t.Log("checking nothing stops")
 			stopCases = append(stopCases, reflect.SelectCase{

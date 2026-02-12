@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -14,6 +15,9 @@ import (
 func TestFakeVision(t *testing.T) {
 	ctx := context.Background()
 	r := &inject.Robot{}
+	r.LoggerFunc = func() logging.Logger {
+		return nil
+	}
 	name := vision.Named("test_fake")
 	srv, err := registerFake(name, r)
 	test.That(t, err, test.ShouldBeNil)

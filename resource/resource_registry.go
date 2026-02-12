@@ -18,6 +18,12 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+var initLogger logging.Logger
+
+func init() {
+	initLogger = logging.NewLogger("rdk.registry_startup")
+}
+
 type (
 	// An APIModel is the tuple that identifies a model implementing an API.
 	APIModel struct {
@@ -64,7 +70,7 @@ type DependencyNotReadyError struct {
 }
 
 func (e *DependencyNotReadyError) Error() string {
-	return fmt.Sprintf("dependency %q is not ready yet; reason=%s", e.Name, e.Reason)
+	return fmt.Sprintf("dependency %v is not ready yet; reason=%s", e.Name, e.Reason)
 }
 
 // PrettyPrint returns a formatted string representing a `DependencyNotReadyError` error. This can be useful as a
@@ -77,10 +83,10 @@ func (e *DependencyNotReadyError) PrettyPrint() string {
 	for curError := e; curError != nil; indent = fmt.Sprintf("%v%v", indent, "  ") {
 		// Give the top-level error different language.
 		if curError == e {
-			ret.WriteString(fmt.Sprintf("Dependency %q is not ready yet\n", curError.Name))
+			ret.WriteString(fmt.Sprintf("Dependency %v is not ready yet\n", curError.Name))
 		} else {
 			ret.WriteString(indent)
-			ret.WriteString(fmt.Sprintf("- Because %q is not ready yet\n", curError.Name))
+			ret.WriteString(fmt.Sprintf("- Because %v is not ready yet\n", curError.Name))
 		}
 
 		// If the `Reason` is also of type `DependencyNotReadyError`, we keep going with the
@@ -95,7 +101,7 @@ func (e *DependencyNotReadyError) PrettyPrint() string {
 	}
 
 	ret.WriteString(indent)
-	ret.WriteString(fmt.Sprintf("- Because %q", leafError))
+	ret.WriteString(fmt.Sprintf("- Because %v", leafError))
 
 	return ret.String()
 }
@@ -135,7 +141,7 @@ func (r Registration[ResourceT, ConfigT]) ConfigReflectType() reflect.Type {
 
 // APIRegistration stores api-specific functions and clients.
 type APIRegistration[ResourceT Resource] struct {
-	RPCServiceServerConstructor func(apiColl APIResourceCollection[ResourceT]) interface{}
+	RPCServiceServerConstructor func(apiGetter APIResourceGetter[ResourceT], logger logging.Logger) any
 	RPCServiceHandler           rpc.RegisterServiceHandlerFromEndpointFunc
 	RPCServiceDesc              *grpc.ServiceDesc
 	ReflectRPCServiceDesc       *desc.ServiceDescriptor
@@ -147,14 +153,15 @@ type APIRegistration[ResourceT Resource] struct {
 
 	MakeEmptyCollection func() APIResourceCollection[Resource]
 
-	typedVersion interface{} // the registry guarantees the type safety here
+	typedVersion any // the registry guarantees the type safety here
 }
 
 // RegisterRPCService registers this api into the given RPC server.
 func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	ctx context.Context,
 	rpcServer rpc.Server,
-	apiColl APIResourceCollection[ResourceT],
+	apiGetter APIResourceGetter[ResourceT],
+	logger logging.Logger,
 ) error {
 	if rs.RPCServiceServerConstructor == nil {
 		return nil
@@ -162,7 +169,7 @@ func (rs APIRegistration[ResourceT]) RegisterRPCService(
 	return rpcServer.RegisterServiceServer(
 		ctx,
 		rs.RPCServiceDesc,
-		rs.RPCServiceServerConstructor(apiColl),
+		rs.RPCServiceServerConstructor(apiGetter, logger),
 		rs.RPCServiceHandler,
 	)
 }
@@ -260,7 +267,7 @@ func Register[ResourceT Resource, ConfigT ConfigValidator](
 	apiModel := APIModel{api, model}
 	_, old := registry[apiModel]
 	if old {
-		logging.Global().Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
+		initLogger.Errorw("An api, model pair is being double registered. Overwriting the old with the new.",
 			"api", api, "model", model)
 	}
 	if reg.Constructor == nil && reg.DeprecatedRobotConstructor == nil {
@@ -349,7 +356,7 @@ func RegisterAPI[ResourceT Resource](api API, creator APIRegistration[ResourceT]
 	defer registryMu.Unlock()
 	_, old := apiRegistry[api]
 	if old {
-		logging.Global().Errorw("An api name is being double registered. Overwriting the old with the new.",
+		initLogger.Errorw("An api name is being double registered. Overwriting the old with the new.",
 			"api", api)
 	}
 	if creator.RPCServiceServerConstructor != nil &&
@@ -417,6 +424,23 @@ func makeGenericAssociatedConfigRegistration[AssocT AssociatedConfig](
 	return reg
 }
 
+// specificSubtypeGetter is used wrap an [APIResourceGetter] with a more
+// specific subtype of [Resource]. It performs the necessary type check + cast
+// in [specificSubtypeGetter.Resource] and errors if the returned resource is
+// not of the expected type.
+type specificSubtypeGetter[ResourceT Resource] struct {
+	untyped APIResourceGetter[Resource]
+}
+
+func (g specificSubtypeGetter[ResourceT]) Resource(name string) (ResourceT, error) {
+	res, err := g.untyped.Resource(name)
+	if err != nil {
+		var zero ResourceT
+		return zero, err
+	}
+	return AsType[ResourceT](res)
+}
+
 // genericSubypeCollection wraps a typed collection so that it can be used generically. It ensures
 // types going in are typed to T.
 type genericSubypeCollection[ResourceT Resource] struct {
@@ -479,15 +503,22 @@ func makeGenericAPIRegistration[ResourceT Resource](
 
 	if typed.RPCServiceServerConstructor != nil {
 		reg.RPCServiceServerConstructor = func(
-			coll APIResourceCollection[Resource],
-		) interface{} {
-			// it will always be this type since we are the only ones who can make
-			// a generic resource api registration.
-			genericColl, err := utils.AssertType[genericSubypeCollection[ResourceT]](coll)
-			if err != nil {
-				return err
+			coll APIResourceGetter[Resource],
+			logger logging.Logger,
+		) any {
+			var typedResourceGetter APIResourceGetter[ResourceT]
+			switch t := coll.(type) {
+			case genericSubypeCollection[ResourceT]:
+				typedResourceGetter = t.typed
+			case APIResourceGetter[ResourceT]:
+				typedResourceGetter = t
+			case APIResourceGetter[Resource]:
+				typedResourceGetter = specificSubtypeGetter[ResourceT]{t}
+			default:
+				return utils.NewUnexpectedTypeError[APIResourceGetter[ResourceT]](t)
 			}
-			return typed.RPCServiceServerConstructor(genericColl.typed)
+
+			return typed.RPCServiceServerConstructor(typedResourceGetter, logger)
 		}
 	}
 	if typed.RPCClient != nil {

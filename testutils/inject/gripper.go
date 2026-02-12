@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/components/gripper"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -11,14 +12,16 @@ import (
 // Gripper is an injected gripper.
 type Gripper struct {
 	gripper.Gripper
-	name           resource.Name
-	DoFunc         func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	OpenFunc       func(ctx context.Context, extra map[string]interface{}) error
-	GrabFunc       func(ctx context.Context, extra map[string]interface{}) (bool, error)
-	StopFunc       func(ctx context.Context, extra map[string]interface{}) error
-	IsMovingFunc   func(context.Context) (bool, error)
-	CloseFunc      func(ctx context.Context) error
-	GeometriesFunc func(ctx context.Context) ([]spatialmath.Geometry, error)
+	name                   resource.Name
+	DoFunc                 func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	OpenFunc               func(ctx context.Context, extra map[string]interface{}) error
+	GrabFunc               func(ctx context.Context, extra map[string]interface{}) (bool, error)
+	StopFunc               func(ctx context.Context, extra map[string]interface{}) error
+	IsHoldingSomethingFunc func(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error)
+	IsMovingFunc           func(context.Context) (bool, error)
+	CloseFunc              func(ctx context.Context) error
+	GeometriesFunc         func(ctx context.Context) ([]spatialmath.Geometry, error)
+	KinematicsFunc         func(ctx context.Context) (referenceframe.Model, error)
 }
 
 // NewGripper returns a new injected gripper.
@@ -45,6 +48,14 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 		return g.Gripper.Grab(ctx, extra)
 	}
 	return g.GrabFunc(ctx, extra)
+}
+
+// IsHoldingSomething calls the injected IsHoldingSomething or the real version.
+func (g *Gripper) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error) {
+	if g.IsHoldingSomethingFunc == nil {
+		return g.Gripper.IsHoldingSomething(ctx, extra)
+	}
+	return g.IsHoldingSomethingFunc(ctx, extra)
 }
 
 // Stop calls the injected Stop or the real version.
@@ -88,4 +99,12 @@ func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) 
 		return g.Gripper.Geometries(ctx, extra)
 	}
 	return g.GeometriesFunc(ctx)
+}
+
+// Kinematics calls the injected Kinematics or the real version.
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if g.KinematicsFunc == nil {
+		return g.Gripper.Kinematics(ctx)
+	}
+	return g.KinematicsFunc(ctx)
 }

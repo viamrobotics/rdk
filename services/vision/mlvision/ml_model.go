@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/logging"
@@ -72,32 +72,32 @@ type MLModelConfig struct {
 }
 
 // Validate will add the ModelName as an implicit dependency to the robot.
-func (conf *MLModelConfig) Validate(path string) ([]string, error) {
+func (conf *MLModelConfig) Validate(path string) ([]string, []string, error) {
 	if conf.ModelName == "" {
-		return nil, errors.New("mlmodel_name cannot be empty")
+		return nil, nil, errors.New("mlmodel_name cannot be empty")
 	}
 	if conf.LabelPath != "" {
 		_, err := os.Stat(conf.LabelPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
+			return nil, nil, fmt.Errorf("failed to read file %s: %w", conf.LabelPath, err)
 		}
 	}
 	if len(conf.MeanValue) != 0 {
 		if len(conf.MeanValue) < 3 {
-			return nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_mean_value attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	if len(conf.StdDev) != 0 {
 		if len(conf.StdDev) < 3 {
-			return nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
+			return nil, nil, errors.New("input_image_std_dev attribute must have at least 3 values, one for each color channel")
 		}
 	}
 	for _, v := range conf.StdDev {
 		if v == 0.0 {
-			return nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
+			return nil, nil, errors.New("input_image_std_dev is not allowed to have 0 values, will cause division by 0")
 		}
 	}
-	return []string{conf.ModelName}, nil
+	return []string{conf.ModelName}, nil, nil
 }
 
 func registerMLModelVisionService(
@@ -110,7 +110,7 @@ func registerMLModelVisionService(
 	_, span := trace.StartSpan(ctx, "service::vision::registerMLModelVisionService")
 	defer span.End()
 
-	mlm, err := mlmodel.FromRobot(r, params.ModelName)
+	mlm, err := mlmodel.FromProvider(r, params.ModelName)
 	if err != nil {
 		return nil, err
 	}
@@ -214,14 +214,14 @@ func registerMLModelVisionService(
 	}
 
 	if params.DefaultCamera != "" {
-		_, err = camera.FromRobot(r, params.DefaultCamera)
+		_, err = camera.FromProvider(r, params.DefaultCamera)
 		if err != nil {
 			return nil, errors.Errorf("could not find camera %q", params.DefaultCamera)
 		}
 	}
 
 	// Don't return a close function, because you don't want to close the underlying ML service
-	return vision.NewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
+	return vision.DeprecatedNewService(name, r, nil, classifierFunc, detectorFunc, segmenter3DFunc, params.DefaultCamera)
 }
 
 func getLabelsFromFile(labelPath string) []string {

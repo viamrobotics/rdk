@@ -22,6 +22,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+const (
+	testArmName    = "arm1"
+	testArmName2   = "arm2"
+	failArmName    = "arm3"
+	missingArmName = "arm4"
+)
+
 func TestClient(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -37,7 +44,7 @@ func TestClient(t *testing.T) {
 	)
 
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
-	jointPos1 := []referenceframe.Input{{1.}, {2.}, {3.}}
+	jointPos1 := []referenceframe.Input{1., 2., 3.}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 	expectedMoveOptions := arm.MoveOptions{MaxVelRads: 1, MaxAccRads: 2}
 	injectArm := &inject.Arm{}
@@ -74,15 +81,15 @@ func TestClient(t *testing.T) {
 		extraOptions = extra
 		return errStopUnimplemented
 	}
-	injectArm.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 	injectArm.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
 	}
 
 	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 4, Y: 5, Z: 6})
-	jointPos2 := []referenceframe.Input{{4.}, {5.}, {6.}}
+	jointPos2 := []referenceframe.Input{4., 5., 6.}
 	injectArm2 := &inject.Arm{}
 	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return pos2, nil
@@ -101,8 +108,8 @@ func TestClient(t *testing.T) {
 	injectArm2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
-	injectArm2.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	injectArm2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errKinematicsUnimplemented
 	}
 
 	armSvc, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
@@ -114,7 +121,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, armSvc, logger), test.ShouldBeNil)
 
 	injectRobot := &inject.Robot{}
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {

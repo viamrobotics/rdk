@@ -27,7 +27,7 @@ type Arm struct {
 	StopFunc           func(ctx context.Context, extra map[string]interface{}) error
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
-	ModelFrameFunc     func() referenceframe.Model
+	KinematicsFunc     func(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputsFunc  func(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputsFunc     func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
 	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
@@ -123,16 +123,16 @@ func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[st
 	return a.DoFunc(ctx, cmd)
 }
 
-// ModelFrame calls the injected ModelFrame or the real version.
-func (a *Arm) ModelFrame() referenceframe.Model {
-	if a.ModelFrameFunc == nil {
+// Kinematics calls the injected Kinematics or the real version.
+func (a *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if a.KinematicsFunc == nil {
 		if a.Arm != nil {
-			return a.Arm.ModelFrame()
+			return a.Arm.Kinematics(ctx)
 		}
 		model := referenceframe.NewSimpleModel("")
-		return model
+		return model, nil
 	}
-	return a.ModelFrameFunc()
+	return a.KinematicsFunc(ctx)
 }
 
 // CurrentInputs calls the injected CurrentInputs or the real version.

@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        required: true
-        type: string
         default: latest
+        required: true
+        type: choice
+        options: [latest, stable, pr]
   workflow_call:
     inputs:
       release_type:
@@ -21,17 +22,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code
-      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
-      uses: actions/checkout@v3
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
+      uses: actions/checkout@v4
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
 
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+        cache-dependency-path: cli/test-requirements.txt
+
+    - run: |
+        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r cli/test-requirements.txt
+        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
+        rm meta.json meta2.json
 
     - name: build
       env:
@@ -55,10 +70,12 @@ jobs:
         GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
 
     - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v1.1.1
+      if: inputs.release_type != 'pr'
+      uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
     - name: upload
+      if: inputs.release_type != 'pr'
       uses: google-github-actions/upload-cloud-storage@v0.10.4
       with:
         headers: "cache-control: no-cache"

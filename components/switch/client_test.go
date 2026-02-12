@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	testSwitchName    = "switch1"
-	failSwitchName    = "switch2"
-	missingSwitchName = "missing"
+	testSwitchName     = "switch1"
+	failSwitchName     = "switch2"
+	missingSwitchName  = "missing"
+	mismatchSwitchName = "mismatch"
 )
 
 func TestClient(t *testing.T) {
@@ -43,10 +44,10 @@ func TestClient(t *testing.T) {
 		switchName = testSwitchName
 		return 0, nil
 	}
-	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		extraOptions = extra
 		switchName = testSwitchName
-		return 2, nil
+		return 2, []string{"position 1", "position 2"}, nil
 	}
 	injectSwitch.DoFunc = testutils.EchoFunc
 
@@ -59,23 +60,30 @@ func TestClient(t *testing.T) {
 		switchName = failSwitchName
 		return 0, errCantGetPosition
 	}
-	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		switchName = failSwitchName
-		return 0, errCantGetNumberOfPositions
+		return 0, nil, errCantGetNumberOfPositions
 	}
 	injectSwitch2.DoFunc = testutils.EchoFunc
+
+	injectSwitch3 := inject.NewSwitch(mismatchSwitchName)
+	injectSwitch3.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		switchName = mismatchSwitchName
+		return 1, []string{"A", "B"}, nil
+	}
 
 	switchSvc, err := resource.NewAPIResourceCollection(
 		toggleswitch.API,
 		map[resource.Name]toggleswitch.Switch{
-			toggleswitch.Named(testSwitchName): injectSwitch,
-			toggleswitch.Named(failSwitchName): injectSwitch2,
+			toggleswitch.Named(testSwitchName):     injectSwitch,
+			toggleswitch.Named(failSwitchName):     injectSwitch2,
+			toggleswitch.Named(mismatchSwitchName): injectSwitch3,
 		})
 	test.That(t, err, test.ShouldBeNil)
 	resourceAPI, ok, err := resource.LookupAPIRegistration[toggleswitch.Switch](toggleswitch.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, switchSvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -115,10 +123,11 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldEqual, 0)
 
 		extra = map[string]interface{}{"foo": "GetNumberOfPositions"}
-		count, err := client1.GetNumberOfPositions(context.Background(), extra)
+		count, labels, err := client1.GetNumberOfPositions(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		test.That(t, count, test.ShouldEqual, 2)
+		test.That(t, labels, test.ShouldResemble, []string{"position 1", "position 2"})
 
 		test.That(t, client1.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -140,11 +149,25 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetPosition.Error())
 
-		_, err = client2.GetNumberOfPositions(context.Background(), extra)
+		_, _, err = client2.GetNumberOfPositions(context.Background(), extra)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errCantGetNumberOfPositions.Error())
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
+		test.That(t, conn.Close(), test.ShouldBeNil)
+	})
+
+	t.Run("mismatch client", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		mismatchClient, err := resourceAPI.RPCClient(context.Background(), conn, "", toggleswitch.Named(mismatchSwitchName), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, _, err = mismatchClient.GetNumberOfPositions(context.Background(), nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errLabelCountMismatch.Error())
+
+		test.That(t, mismatchClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 }

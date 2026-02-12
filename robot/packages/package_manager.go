@@ -3,9 +3,7 @@ package packages
 
 import (
 	"context"
-
-	"github.com/docker/go-units"
-	"github.com/pkg/errors"
+	"errors"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -19,8 +17,6 @@ type (
 	// PackageVersion is an immutable package version for a given package id.
 	PackageVersion string
 )
-
-const maxPackageSize = int64(50 * units.GB)
 
 // ErrPackageMissing is an error when a package cannot be found.
 var ErrPackageMissing = errors.New("package missing")

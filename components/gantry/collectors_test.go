@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -22,7 +23,10 @@ const (
 )
 
 // floatList is a lit of floats in units of millimeters.
-var floatList = []float64{1000, 2000, 3000}
+var (
+	floatList    = []float64{1000, 2000, 3000}
+	doCommandMap = map[string]any{"readings": "random-test"}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -80,6 +84,16 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       gantry.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newGantry() },
+	})
+}
+
 func newGantry() gantry.Gantry {
 	g := &inject.Gantry{}
 	g.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
@@ -87,6 +101,9 @@ func newGantry() gantry.Gantry {
 	}
 	g.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return floatList, nil
+	}
+	g.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return g
 }

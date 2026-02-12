@@ -16,7 +16,7 @@ func TestCollectorMetadata(t *testing.T) {
 		md := newCollectorMetadata(datamanager.DataCaptureConfig{
 			Name:             arm,
 			Method:           "JointPositions",
-			AdditionalParams: map[string]string{"some": "input"},
+			AdditionalParams: map[string]interface{}{"some": "input"},
 		})
 		test.That(t, md, test.ShouldResemble, collectorMetadata{
 			ResourceName: "arm1",
@@ -32,7 +32,7 @@ func TestCollectorMetadata(t *testing.T) {
 		md := newCollectorMetadata(datamanager.DataCaptureConfig{
 			Name:             arm.Named("arm1"),
 			Method:           "JointPositions",
-			AdditionalParams: map[string]string{"some": "input"},
+			AdditionalParams: map[string]interface{}{"some": "input"},
 		})
 		exp := "[Resource Name: arm1, API: rdk:component:arm, Method Name: JointPositions, Method Params: map[some:input]]"
 		test.That(t, md.String(), test.ShouldResemble, exp)

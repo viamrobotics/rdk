@@ -8,10 +8,11 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // ErrGeometriesNil is the returned error if base geometries are nil.
@@ -22,12 +23,12 @@ var ErrGeometriesNil = func(baseName string) error {
 // serviceServer implements the BaseService from base.proto.
 type serviceServer struct {
 	pb.UnimplementedBaseServiceServer
-	coll resource.APIResourceCollection[Base]
+	coll resource.APIResourceGetter[Base]
 }
 
 // NewRPCServiceServer constructs a base gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Base]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Base], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -171,7 +172,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	if geometries == nil {
 		return nil, ErrGeometriesNil(req.GetName())
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }
 
 // DoCommand receives arbitrary commands.

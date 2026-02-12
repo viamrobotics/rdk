@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/utils"
 )
 
 func TestFakeCameraParams(t *testing.T) {
@@ -24,13 +23,13 @@ func TestFakeCameraParams(t *testing.T) {
 		Width:  321,
 		Height: 0,
 	}
-	_, err := cfg.Validate("path")
+	_, _, err := cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	cfg = &Config{
 		Width:  0,
 		Height: 321,
 	}
-	_, err = cfg.Validate("path")
+	_, _, err = cfg.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
@@ -44,27 +43,27 @@ func TestCameraValidationAndCreation(t *testing.T) {
 	}
 
 	// error with a ridiculously large pixel value
-	deps, err := cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err := cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a zero pixel value
 	attrCfg.Width = 0
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	// error with a negative pixel value
 	attrCfg.Width = -20
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
 	attrCfg.Width = 10
 	cfg.ConvertedAttributes = attrCfg
-	deps, err = cfg.Validate("", camera.API.SubtypeName)
+	deps, _, err = cfg.Validate("", camera.API.SubtypeName)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, deps, test.ShouldBeNil)
 
@@ -88,13 +87,13 @@ func TestRTPPassthrough(t *testing.T) {
 		}
 
 		// passes validations
-		_, err := cfg.Validate("", camera.API.SubtypeName)
+		_, _, err := cfg.Validate("", camera.API.SubtypeName)
 		test.That(t, err, test.ShouldBeNil)
 
 		cam, err := NewCamera(context.Background(), nil, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		img, err := camera.DecodeImageFromCamera(context.Background(), utils.MimeTypeRawRGBA, nil, cam)
+		img, err := camera.DecodeImageFromCamera(context.Background(), cam, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		// GetImage returns the world jpeg
 		test.That(t, img.Bounds(), test.ShouldResemble, image.Rectangle{Max: image.Point{X: 480, Y: 270}})

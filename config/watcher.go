@@ -14,6 +14,9 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// The debug LogLevel value for a module config.
+const moduleLogLevelDebug = "debug"
+
 // A Watcher is responsible for watching for changes
 // to a config from some source and delivering those changes
 // to some destination.
@@ -45,6 +48,20 @@ type cloudWatcher struct {
 }
 
 const checkForNewCertInterval = time.Hour
+
+// If the global log level is not already at debug, and the "debug" field is set in new
+// config, manually set the log level of each module to "debug" to force a restart of the
+// module with `--log-level=debug` (assuming the module does not have a log level set
+// already).
+func alignModuleLogLevels(config *Config) {
+	if globalLogger.actualGlobalLogger != nil && globalLogger.actualGlobalLogger.GetLevel() != logging.DEBUG && config.Debug {
+		for i, moduleCfg := range config.Modules {
+			if moduleCfg.LogLevel == "" {
+				config.Modules[i].LogLevel = moduleLogLevelDebug
+			}
+		}
+	}
+}
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
@@ -83,7 +100,10 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			if checkForNewCert {
 				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}
+
+			alignModuleLogLevels(newConfig)
 			UpdateCloudConfigDebug(newConfig.Debug)
+
 			select {
 			case <-cancelCtx.Done():
 				return
@@ -142,11 +162,20 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger,
 			case <-cancelCtx.Done():
 				return
 			case event := <-fsWatcher.Events:
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				// Monitor WRITE and REMOVE events.
+				// Editors that save in place WRITE over the monitored file.
+				// Editors that save atomically write to a temp file and swap. Events on original file are: RENAME->CHMOD->REMOVE
+				if event.Op&fsnotify.Write == fsnotify.Write || event.Op&fsnotify.Remove == fsnotify.Remove {
 					debounced(func() {
 						logger.Info("On-disk config file changed. Reloading the config file.")
 						//nolint:gosec
 						rd, err := os.ReadFile(configPath)
+
+						// Re-add to watcher. Will be a new inode if it was saved atomically.
+						// Adding the same path twice (WRITE case) is a no-op (no error).
+						// Old watches are auto removed from fsWatcher when file is deleted or renamed (REMOVE case).
+						defer utils.UncheckedErrorFunc(func() error { return fsWatcher.Add(configPath) })
+
 						if err != nil {
 							logger.Errorw("error reading config file after write", "error", err)
 							return
@@ -160,7 +189,10 @@ func newFSWatcher(ctx context.Context, configPath string, logger logging.Logger,
 							logger.Errorw("error reading config after write", "error", err)
 							return
 						}
+
+						alignModuleLogLevels(newConfig)
 						UpdateFileConfigDebug(newConfig.Debug)
+
 						select {
 						case <-cancelCtx.Done():
 							return

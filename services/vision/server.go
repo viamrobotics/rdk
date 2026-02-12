@@ -5,12 +5,13 @@ import (
 	"context"
 	"image"
 
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/trace"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -25,12 +26,12 @@ import (
 // serviceServer implements the Vision Service.
 type serviceServer struct {
 	pb.UnimplementedVisionServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a vision gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -192,16 +193,20 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	for _, seg := range segs {
 		var buf bytes.Buffer
 		if seg.PointCloud == nil {
-			seg.PointCloud = pointcloud.New()
+			seg.PointCloud = pointcloud.NewBasicEmpty()
 		}
 		err := pointcloud.ToPCD(seg, &buf, pointcloud.PCDBinary)
 		if err != nil {
 			return nil, err
 		}
+		geoms := []*commonpb.Geometry{}
+		if seg.Geometry != nil {
+			geoms = append(geoms, seg.Geometry.ToProtobuf())
+		}
 		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
-				Geometries:     []*commonpb.Geometry{seg.Geometry.ToProtobuf()},
+				Geometries:     geoms,
 				ReferenceFrame: frame,
 			},
 		}
@@ -288,10 +293,9 @@ func imageToProto(ctx context.Context, img image.Image, cameraName string) (*cam
 	if err != nil {
 		return nil, err
 	}
-	format := utils.MimeTypeToFormat[mimeType]
 	return &camerapb.Image{
 		Image:      imgBytes,
-		Format:     format,
+		MimeType:   mimeType,
 		SourceName: cameraName,
 	}, nil
 }

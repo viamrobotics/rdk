@@ -24,18 +24,13 @@ type pointcloudPlane struct {
 }
 
 // NewEmptyPlane initializes an empty plane object.
-func NewEmptyPlane() Plane {
-	return &pointcloudPlane{New(), [4]float64{}, r3.Vector{}}
+func NewEmptyPlane(cloud PointCloud) Plane {
+	return &pointcloudPlane{cloud, [4]float64{}, r3.Vector{}}
 }
 
 // NewPlane creates a new plane object from a point cloud.
 func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 	center := r3.Vector{}
-	if cloud == nil {
-		f := -equation[3] / (equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
-		center = r3.Vector{equation[0] * f, equation[1] * f, equation[2] * f}
-		return NewPlaneWithCenter(New(), equation, center)
-	}
 	cloud.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
 		center = center.Add(pt)
 		return true

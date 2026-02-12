@@ -27,7 +27,7 @@ do_piOS(){
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
 	# Install most things
-	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev ffmpeg libjpeg62-turbo-dev
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev
 
 	# Install Gostream dependencies
 	sudo apt-get install -y --no-install-recommends libopus-dev libx11-dev libxext-dev libopusfile-dev
@@ -138,7 +138,7 @@ mod_profiles(){
 check_gcloud_auth(){
 	APP_CREDENTIALS_DIR="$HOME/.config/gcloud"
 	mkdir -p $APP_CREDENTIALS_DIR
-	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"	
+	APP_CREDENTIALS_FILE="$APP_CREDENTIALS_DIR/application_default_credentials.json"
 	if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
 		echo "Missing gcloud application default credentials, this can cause goroutines to leak if not configured. Creating with empty config at $APP_CREDENTIALS_FILE"
 		echo '{"client_id":"XXXX","client_secret":"XXXX","refresh_token":"XXXX","type":"authorized_user"}' > $APP_CREDENTIALS_FILE
@@ -165,7 +165,6 @@ do_brew(){
 	brew "pkg-config"
 	brew "nlopt-static"
 	brew "x264", args: ["build-from-source"]
-	brew "jpeg-turbo"
 	brew "ffmpeg"
 	brew "licensefinder"
 	brew "opus"

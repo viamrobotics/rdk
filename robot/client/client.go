@@ -16,16 +16,20 @@ import (
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/grpcreflect"
+	"github.com/samber/lo"
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -50,6 +54,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/tunnel"
 	"go.viam.com/rdk/utils/contextutils"
+	nc "go.viam.com/rdk/web/networkcheck"
 )
 
 var (
@@ -63,11 +68,14 @@ var (
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
 
-	// DoNotWaitForRunning should be set only in tests to allow connecting to
-	// still-initializing machines. Note that robot clients in production (not in
-	// a testing environment) will already allow connecting to still-initializing
-	// machines.
-	DoNotWaitForRunning = atomic.Bool{}
+	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
+	// to measure the latency of the connection. The latency is only measured in case
+	// WithNetworkStats option is specified by the client.
+	latencyPingNum = 5
+
+	// latencyWarningThresholdMs is a measurment (in ms) that determines when a client gets a
+	// warning about their average latency.
+	latencyWarningThresholdMs = 1000.0
 )
 
 // RobotClient satisfies the robot.Robot interface through a gRPC based
@@ -116,6 +124,11 @@ type RobotClient struct {
 
 	pc         *webrtc.PeerConnection
 	sharedConn *grpc.SharedConn
+}
+
+// GetResource implements resource.Provider for a RobotClient by looking up a resource by name.
+func (rc *RobotClient) GetResource(name resource.Name) (resource.Resource, error) {
+	return rc.ResourceByName(name)
 }
 
 // RemoteTypeName is the type name used for a remote. This is for internal use.
@@ -255,6 +268,11 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	for _, opt := range opts {
 		opt.apply(&rOpts)
 	}
+
+	if rOpts.withNetworkStats {
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
+	}
+
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
 	heartbeatCtx, heartbeatCtxCancel := context.WithCancel(context.Background())
 
@@ -267,12 +285,18 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		logger:              logger,
 		dialOptions:         rOpts.dialOptions,
 		notifyParent:        nil,
+		conn:                grpc.ReconfigurableClientConn{Logger: logger},
 		resourceClients:     make(map[resource.Name]resource.Resource),
 		remoteNameMap:       make(map[resource.Name]resource.Name),
 		sessionsDisabled:    rOpts.disableSessions,
 		heartbeatCtx:        heartbeatCtx,
 		heartbeatCtxCancel:  heartbeatCtxCancel,
 	}
+
+	otelStatsHandler := otelgrpc.NewClientHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
 
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
@@ -293,6 +317,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		// sending version metadata
 		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
+		// sending traces across the network
+		rpc.WithDialStatsHandler(otelStatsHandler),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module
@@ -333,8 +359,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	//
 	// Allow this behavior to be turned off in some tests that specifically want
 	// to examine the behavior of a machine in an initializing state through the
-	// use of a global variable.
-	if testing.Testing() && !DoNotWaitForRunning.Load() {
+	// use of a per-client option.
+	if testing.Testing() && !rOpts.doNotWaitForRunning {
 		for {
 			if ctx.Err() != nil {
 				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())
@@ -355,6 +381,32 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 				break
 			}
 			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// if withNetworkStats is set, there are latencyPingNum gRPC requests sent to the server
+	// to measure the average latency of the connection, which is then logged to the user.
+	if rOpts.withNetworkStats {
+		totalTime := 0.0
+		for range latencyPingNum {
+			startTime := time.Now()
+			// GetOperations is used because app.viam.com's "Control" tab measures latency this way.
+			_, err := rc.client.GetOperations(ctx, &pb.GetOperationsRequest{})
+			if err != nil {
+				rc.Logger().CDebug(ctx, fmt.Sprintf("gRPC request failed with error: %e during latency checks", err))
+				continue
+			}
+			timeElapsed := time.Since(startTime).Milliseconds()
+			totalTime += float64(timeElapsed)
+		}
+		avgTime := totalTime / float64(latencyPingNum)
+		if avgTime < 1.0 {
+			rc.Logger().CInfo(ctx, "average connection latency is < 1ms")
+		} else {
+			rc.Logger().CInfo(ctx, fmt.Sprintf("average connection latency is %.2f ms", avgTime))
+			if avgTime > latencyWarningThresholdMs {
+				rc.Logger().CWarn(ctx, fmt.Sprintf("average latency is higher than %.0f ms", latencyWarningThresholdMs))
+			}
 		}
 	}
 
@@ -402,7 +454,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 			rc.RefreshEvery(backgroundCtx, refreshTime)
 		}, rc.activeBackgroundWorkers.Done)
 	}
-
 	return rc, nil
 }
 
@@ -487,6 +538,29 @@ func (rc *RobotClient) connectWithLock(ctx context.Context) error {
 			conn = grpcConn
 			err = nil
 		} else {
+			// A NotFound error from the WebRTC dial means that the client is able to reach
+			// the signaling server but the machine is not. If the machine is running viam-server but not connected to the signaling server,
+			// it is expected to only be available to clients on the same network. If the errors returned from grpc dials are timeouts or mDNS
+			// failing to find a candidate, it implies that the machine is not connected to the same network the client is.
+			// In that case, filtering out the errors from grpc dials should reduce noise and give clients a clearer idea of what to do next.
+			if statusErr := status.Convert(err); statusErr != nil &&
+				statusErr.Code() == codes.NotFound &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) {
+				return err
+			}
+			// A context.DeadlineExceeded from the WebRTC dial implies the client is unable to reach
+			// the signaling server, which likely means that the client is offline. In that case, if the errors returned from
+			// grpc dials are also timeouts or mDNS failing to find a candidate, we should remind clients to double-check their internet
+			// connection and that the machine is on. This should be more helpful than simply returning a chain of context.DeadlineExceeded
+			// and candidate not found errors.
+			const connTimeoutURL = "https://docs.viam.com/dev/tools/common-errors/#conn-time-out"
+			if errors.Is(err, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, context.DeadlineExceeded) &&
+				errors.Is(grpcErr, rpc.ErrMDNSNoCandidatesFound) {
+				return fmt.Errorf("failed to connect to machine within time limit. check network connection, whether the viam-server is running, " +
+					"and try again. see " + connTimeoutURL + " for troubleshooting steps")
+			}
 			err = multierr.Combine(err, grpcErr)
 		}
 	}
@@ -524,7 +598,7 @@ func (rc *RobotClient) updateResourceClients(ctx context.Context) error {
 	for resourceName, client := range rc.resourceClients {
 		// check if no longer an active resource
 		if !activeResources[resourceName] {
-			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName)
+			rc.logger.Infow("Removing resource from remote client", "resourceName", resourceName.String())
 			if err := client.Close(ctx); err != nil {
 				rc.Logger().CError(ctx, err)
 				continue
@@ -667,6 +741,12 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (resource.Resource, er
 		return nil, err
 	}
 
+	// if the request is for the public framesystem,
+	// return the robot client since it implements framesystem
+	if name == framesystem.PublicServiceName {
+		return rc, nil
+	}
+
 	rc.mu.RLock()
 
 	// see if a remote name matches the name if so then return the remote client
@@ -752,7 +832,13 @@ func (rc *RobotClient) resources(ctx context.Context) ([]resource.Name, []resour
 				// has a remote. This can be solved by either integrating reflection into
 				// robot.proto or by overriding the gRPC reflection service to return
 				// reflection results from its remotes.
-				rc.Logger().CDebugw(ctx, "failed to find symbol for resource API", "api", resAPI, "error", err)
+				rc.Logger().
+					CDebugw(
+						ctx,
+						"failed to find symbol for resource API",
+						"api", rprotoutils.ResourceNameFromProto(resAPI.Subtype).API.String(),
+						"error", err,
+					)
 				continue
 			}
 			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
@@ -826,13 +912,6 @@ func (rc *RobotClient) updateRemoteNameMap() {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// ProcessManager returns a useless process manager for the sake of
-// satisfying the robot.Robot interface. Maybe it should not be part
-// of the interface!
-func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
-	return pexec.NoopProcessManager
 }
 
 // OperationManager returns nil.
@@ -935,6 +1014,33 @@ func (rc *RobotClient) FrameSystemConfig(ctx context.Context) (*framesystem.Conf
 	return &framesystem.Config{Parts: result}, nil
 }
 
+// GetPose returns the pose of the specified component in the given destination frame.
+func (rc *RobotClient) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rc.client.GetPose(ctx, &pb.GetPoseRequest{
+		ComponentName:          componentName,
+		DestinationFrame:       destinationFrame,
+		SupplementalTransforms: transforms,
+		Extra:                  ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 //
 //	  import (
@@ -948,9 +1054,9 @@ func (rc *RobotClient) TransformPose(
 	ctx context.Context,
 	query *referenceframe.PoseInFrame,
 	destination string,
-	additionalTransforms []*referenceframe.LinkInFrame,
+	supplementalTransforms []*referenceframe.LinkInFrame,
 ) (*referenceframe.PoseInFrame, error) {
-	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(additionalTransforms)
+	transforms, err := referenceframe.LinkInFramesToTransformsProtobuf(supplementalTransforms)
 	if err != nil {
 		return nil, err
 	}
@@ -990,7 +1096,33 @@ func (rc *RobotClient) TransformPointCloud(ctx context.Context, srcpc pointcloud
 		return nil, err
 	}
 	transformPose := referenceframe.ProtobufToPoseInFrame(resp.Pose).Pose()
-	return pointcloud.ApplyOffset(ctx, srcpc, transformPose, rc.Logger())
+	output := srcpc.CreateNewRecentered(transformPose)
+	err = pointcloud.ApplyOffset(srcpc, transformPose, output)
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
+}
+
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (rc *RobotClient) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	input := make(referenceframe.FrameSystemInputs)
+	for _, name := range rc.ResourceNames() {
+		res, err := rc.ResourceByName(name)
+		if err != nil {
+			return nil, err
+		}
+		inputEnabled, ok := res.(framesystem.InputEnabled)
+		if ok {
+			pos, err := inputEnabled.CurrentInputs(ctx)
+			if err != nil {
+				return nil, err
+			}
+			input[name.ShortName()] = pos
+		}
+	}
+	return input, nil
 }
 
 // StopAll cancels all current and outstanding operations for the machine and stops all actuators and movement.
@@ -1164,6 +1296,19 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 		mStatus.State = robot.StateRunning
 	}
 
+	if resp.GetJobStatuses() != nil {
+		tspbToTime := func(tspb *timestamppb.Timestamp, _ int) time.Time {
+			return tspb.AsTime()
+		}
+		mStatus.JobStatuses = make(map[string]robot.JobStatus, len(resp.GetJobStatuses()))
+		for _, js := range resp.GetJobStatuses() {
+			mStatus.JobStatuses[js.GetJobName()] = robot.JobStatus{
+				RecentSuccessfulRuns: lo.Map(js.GetRecentSuccessfulRuns(), tspbToTime),
+				RecentFailedRuns:     lo.Map(js.GetRecentFailedRuns(), tspbToTime),
+			}
+		}
+	}
+
 	return mStatus, nil
 }
 
@@ -1181,6 +1326,14 @@ func (rc *RobotClient) Version(ctx context.Context) (robot.VersionResponse, erro
 	mVersion.APIVersion = resp.ApiVersion
 
 	return mVersion, nil
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceSpans) error {
+	req := &pb.SendTracesRequest{ResourceSpans: spans}
+	_, err := rc.client.SendTraces(ctx, req)
+	return err
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
@@ -1305,6 +1458,49 @@ func (rc *RobotClient) getClientConn() rpc.ClientConn {
 	return rc.sharedConn
 }
 
+type viamClientInfoKeyType int
+
+const viamClientInfoKeyID = viamClientInfoKeyType(iota)
+
+// GetViamClientInfo returns the client info (("", false) if not set or non-string) for
+// the request. The client info will look like
+// "[type-of-sdk];[sdk-version];[api-version]".
+func GetViamClientInfo(ctx context.Context) (string, bool) {
+	valI := ctx.Value(viamClientInfoKeyID)
+	if val, ok := valI.(string); ok {
+		return val, true
+	}
+
+	return "", false
+}
+
+const viamClientInfoMetadataKey = "viam_client"
+
+// ViamClientInfoUnaryServerInterceptor examines the incoming metadata for the
+// "viam_client" key and, if found, attaches its associated value to the context so that
+// the value may accessed by the `handler` (and any function/method it calls) if needed.
+// The value associated with this key should be the one set by all SDKs by client
+// interceptors like the ones below, and will be in the form
+// "[type-of-sdk];[sdk-version];[api-version]".
+func ViamClientInfoUnaryServerInterceptor(
+	ctx context.Context,
+	req interface{},
+	info *googlegrpc.UnaryServerInfo,
+	handler googlegrpc.UnaryHandler,
+) (interface{}, error) {
+	meta, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+
+	values := meta.Get(viamClientInfoMetadataKey)
+	if len(values) == 1 {
+		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
+	}
+
+	return handler(ctx, req)
+}
+
 func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -1314,13 +1510,9 @@ func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 		invoker googlegrpc.UnaryInvoker,
 		opts ...googlegrpc.CallOption,
 	) error {
-		md, err := robot.Version()
-		if err != nil {
-			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
-			return invoker(ctx, method, req, reply, cc, opts...)
-		}
+		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -1334,13 +1526,9 @@ func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 		streamer googlegrpc.Streamer,
 		opts ...googlegrpc.CallOption,
 	) (cs googlegrpc.ClientStream, err error) {
-		md, err := robot.Version()
-		if err != nil {
-			ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", "go;unknown;unknown")
-			return streamer(ctx, desc, cc, method, opts...)
-		}
+		md := robot.Version
 		stringMd := fmt.Sprintf("go;%s;%s", md.Version, md.APIVersion)
-		ctx = metadata.AppendToOutgoingContext(ctx, "viam_client", stringMd)
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, stringMd)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }

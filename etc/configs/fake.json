@@ -12,9 +12,14 @@
                 "arm-model": "fake"
             }
         },
+          {
+            "name": "audio_in1",
+            "type": "audio_in",
+            "model": "fake"
+        },
         {
-            "name": "audio_input1",
-            "type": "audio_input",
+            "name": "audio_out1",
+            "type": "audio_out",
             "model": "fake"
         },
         {
@@ -113,26 +118,6 @@
             "model": "fake"
         }
     ],
-    "processes": [
-        {
-            "id": "1",
-            "name": "echo",
-            "args": [
-                "hello",
-                "world"
-            ],
-            "one_shot": true
-        },
-        {
-            "id": "2",
-            "name": "bash",
-            "args": [
-                "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
-            ],
-            "log": true
-        }
-    ],
     "services": [
         {
             "name": "test_navigation",
@@ -206,7 +191,7 @@
                                     }
                                 },
                                 "label": "myCamera_transientObstacle_capsule"
-                            }    
+                            }
                         ]
                     },
                     {
@@ -240,7 +225,7 @@
                 ]
             }
         },
-          
+
         {
             "name": "slam1",
             "type": "slam",

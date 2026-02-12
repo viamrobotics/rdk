@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	buildpb "go.viam.com/api/app/build/v1"
 	datapb "go.viam.com/api/app/data/v1"
+	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
@@ -312,7 +313,11 @@ func OrganizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKey
 }
 
 func (c *viamClient) organizationsAPIKeyCreateAction(cCtx *cli.Context, args organizationsAPIKeyCreateArgs) error {
+	var err error
 	orgID := args.OrgID
+	if orgID == "" {
+		return errors.New("must specify an org ID to create an API key for")
+	}
 	keyName := args.Name
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
@@ -479,6 +484,11 @@ func (c *viamClient) ensureLoggedInInner() error {
 		return nil
 	}
 
+	globalArgs, err := getGlobalArgs(c.c)
+	if err != nil {
+		return err
+	}
+
 	if c.conf.Auth == nil {
 		return errors.New("not logged in: run the following command to login:\n\tviam login")
 	}
@@ -493,10 +503,7 @@ func (c *viamClient) ensureLoggedInInner() error {
 		// expired.
 		newToken, err := c.authFlow.refreshToken(c.c.Context, authToken)
 		if err != nil {
-			debugFlag := false
-			if globalArgs, err := getGlobalArgs(c.c); err == nil {
-				debugFlag = globalArgs.Debug
-			}
+			debugFlag := globalArgs.Debug
 			debugf(c.c.App.Writer, debugFlag, "Token refresh error: %v", err)
 			utils.UncheckedError(c.logout()) // clear cache if failed to refresh
 			return errors.New("error while refreshing token, logging out. Please log in again")
@@ -528,9 +535,27 @@ func (c *viamClient) ensureLoggedInInner() error {
 	c.dataClient = datapb.NewDataServiceClient(conn)
 	c.packageClient = packagepb.NewPackageServiceClient(conn)
 	c.datasetClient = datasetpb.NewDatasetServiceClient(conn)
+	c.datapipelinesClient = datapipelinespb.NewDataPipelinesServiceClient(conn)
 	c.mlTrainingClient = mltrainingpb.NewMLTrainingServiceClient(conn)
 	c.mlInferenceClient = mlinferencepb.NewMLInferenceServiceClient(conn)
 	c.buildClient = buildpb.NewBuildServiceClient(conn)
+
+	// if there's no default org and we're in a profile, there should only be the one org
+	// so we can automatically set that as the default
+	if c.conf.DefaultOrg == "" {
+		whichProfile, _ := whichProfile(globalArgs)
+		if !globalArgs.DisableProfiles && whichProfile != nil {
+			orgs, err := c.listOrganizations()
+			if err != nil && !globalArgs.Quiet {
+				warningf(c.c.App.ErrWriter, "no default org set for profile and unable to infer one")
+				// this should always be true for now, but might change if/when user level API keys exist
+			} else if len(orgs) == 1 {
+				if err = c.writeDefaultOrg(c.c, c.conf, orgs[0].Id); err != nil && !globalArgs.Quiet {
+					warningf(c.c.App.ErrWriter, "unable to set default org for profile %s", *whichProfile)
+				}
+			}
+		}
+	}
 
 	return nil
 }
@@ -609,8 +634,12 @@ func (c *viamClient) prepareDialInner(
 	if err != nil {
 		return nil, "", nil, err
 	}
-	if _, ok := c.conf.Auth.(*token); ok {
+	if t, ok := c.conf.Auth.(*token); ok {
 		rpcOpts = append(rpcOpts, rpc.WithExternalAuth(c.baseURL.Host, partFqdn))
+		if t.TokenType == tokenTypeUserOAuthToken {
+			// TODO(RSDK-12818): mDNS connections cannot handle fusion-auth tokens
+			rpcOpts = append(rpcOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{Disable: true}))
+		}
 	}
 
 	if debug {
@@ -678,8 +707,8 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 		oidcDiscoveryEndpoint: fmt.Sprintf("%s%s", authDomain, defaultOpenIDDiscoveryPath),
 
 		disableBrowserOpen: disableBrowserOpen,
-		httpClient:         &http.Client{Timeout: time.Second * 30},
-		logger:             logging.Global(),
+		httpClient:         &http.Client{Timeout: time.Minute * 5},
+		logger:             logging.NewLogger("cli"),
 		console:            console,
 	}
 }

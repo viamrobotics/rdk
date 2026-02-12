@@ -10,7 +10,7 @@ import (
 )
 
 func TestPointCloudBasic(t *testing.T) {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	p0 := NewVector(0, 0, 0)
 	d0 := NewValueData(5)
@@ -83,7 +83,7 @@ func TestPointCloudBasic(t *testing.T) {
 func TestPointCloudCentroid(t *testing.T) {
 	var point r3.Vector
 	var data Data
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	test.That(t, pc.Size(), test.ShouldResemble, 0)
 	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{0, 0, 0})
@@ -113,8 +113,37 @@ func TestPointCloudCentroid(t *testing.T) {
 	test.That(t, CloudCentroid(pc), test.ShouldResemble, r3.Vector{20, 200, 2000})
 }
 
+func TestPointCloudPoints(t *testing.T) {
+	var data Data
+	pc := NewBasicPointCloud(3)
+	test.That(t, pc.Set(r3.Vector{1, 2, 3}, data), test.ShouldBeNil)
+	test.That(t, pc.Set(r3.Vector{4, 5, 6}, data), test.ShouldBeNil)
+	test.That(t, pc.Set(r3.Vector{7, 8, 9}, data), test.ShouldBeNil)
+	points := CloudToPoints(pc)
+	test.That(t, len(points), test.ShouldEqual, 3)
+	// The points can come in an unexpected order. So, just check that the 3 points we expect are
+	// in there somewhere.
+	has1 := false
+	has2 := false
+	has3 := false
+	for _, point := range points {
+		if point.ApproxEqual(r3.Vector{1, 2, 3}) {
+			has1 = true
+		}
+		if point.ApproxEqual(r3.Vector{4, 5, 6}) {
+			has2 = true
+		}
+		if point.ApproxEqual(r3.Vector{7, 8, 9}) {
+			has3 = true
+		}
+	}
+	test.That(t, has1, test.ShouldBeTrue)
+	test.That(t, has2, test.ShouldBeTrue)
+	test.That(t, has3, test.ShouldBeTrue)
+}
+
 func TestPointCloudMatrix(t *testing.T) {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 
 	// Empty Cloud
 	m, h := CloudMatrix(pc)
@@ -129,7 +158,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, m, test.ShouldResemble, mat.NewDense(1, 3, []float64{1, 2, 3}))
 
 	// Points with Value (Multiple Points)
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d := NewValueData(4)
 	test.That(t, pc.Set(p, d), test.ShouldBeNil)
@@ -145,7 +174,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, m, test.ShouldBeIn, refMatrix, refMatrix2) // This is not a great test format, but it works.
 
 	// Test with Color
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
 	test.That(t, pc.Set(p, d), test.ShouldBeNil)
@@ -158,7 +187,7 @@ func TestPointCloudMatrix(t *testing.T) {
 	test.That(t, mc, test.ShouldResemble, mat.NewDense(1, 6, []float64{1, 2, 3, 123, 45, 67}))
 
 	// Test with Color and Value
-	pc = New()
+	pc = NewBasicPointCloud(0)
 	p = NewVector(1, 2, 3)
 	d = NewColoredData(color.NRGBA{123, 45, 67, 255})
 	d.SetValue(5)

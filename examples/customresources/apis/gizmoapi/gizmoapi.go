@@ -12,7 +12,6 @@ import (
 	pb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot"
 )
 
 // API is the full API definition.
@@ -23,9 +22,10 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromRobot is a helper for getting the named Gizmo from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gizmo, error) {
-	return robot.ResourceFromRobot[Gizmo](r, Named(name))
+// FromProvider is a helper for getting the named Gizmo
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Gizmo, error) {
+	return resource.FromProvider[Gizmo](provider, Named(name))
 }
 
 func init() {
@@ -59,11 +59,11 @@ type Gizmo interface {
 // serviceServer implements the Gizmo RPC service from gripper.proto.
 type serviceServer struct {
 	pb.UnimplementedGizmoServiceServer
-	coll resource.APIResourceCollection[Gizmo]
+	coll resource.APIResourceGetter[Gizmo]
 }
 
 // NewRPCServiceServer returns a new RPC server for the gizmo API.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Gizmo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Gizmo], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

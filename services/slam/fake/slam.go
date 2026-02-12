@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -121,10 +121,13 @@ func (slamSvc *SLAM) Limits(ctx context.Context, useEditedMap bool) ([]reference
 	if err != nil {
 		return nil, err
 	}
-	dims, err := pointcloud.GetPCDMetaData(bytes.NewReader(data))
+
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(data), "")
 	if err != nil {
 		return nil, err
 	}
+
+	dims := pc.MetaData()
 
 	return []referenceframe.Limit{
 		{Min: dims.MinX, Max: dims.MaxX},

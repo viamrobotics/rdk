@@ -11,23 +11,21 @@ import (
 	"github.com/google/uuid"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/movementsensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
 var (
@@ -43,7 +41,7 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
@@ -52,7 +50,13 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[motion.Service](motion.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, svc, logger), test.ShouldBeNil)
+
+	injectRobot := &inject.Robot{
+		GetPoseFunc: injectMS.GetPose,
+	}
+	err = rpcServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, server.New(injectRobot))
+	test.That(t, err, test.ShouldBeNil)
 
 	go func() {
 		test.That(t, rpcServer.Serve(listener1), test.ShouldBeNil)
@@ -64,10 +68,10 @@ func TestClient(t *testing.T) {
 
 	zeroPoseInFrame := referenceframe.NewPoseInFrame(referenceframe.World, spatialmath.NewZeroPose())
 	globeDest := geo.NewPoint(0.0, 0.0)
-	gripperName := gripper.Named("fake")
-	baseName := base.Named("test-base")
-	gpsName := movementsensor.Named("test-gps")
-	slamName := slam.Named("test-slam")
+	gripperName := "fake"
+	baseName := "test-base"
+	gpsName := "test-gps"
+	slamName := "test-slam"
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -99,7 +103,7 @@ func TestClient(t *testing.T) {
 		}
 		injectMS.GetPoseFunc = func(
 			ctx context.Context,
-			componentName resource.Name,
+			componentName string,
 			destinationFrame string,
 			supplementalTransforms []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
@@ -108,7 +112,7 @@ func TestClient(t *testing.T) {
 				receivedTransforms[tf.Name()] = tf
 			}
 			return referenceframe.NewPoseInFrame(
-				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})), nil
+				destinationFrame+componentName, spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})), nil
 		}
 
 		// Move
@@ -126,7 +130,7 @@ func TestClient(t *testing.T) {
 		for _, tf := range transforms {
 			tfMap[tf.Name()] = tf
 		}
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", transforms, map[string]interface{}{})
+		poseResult, err := client.GetPose(context.Background(), "arm1", "foo", transforms, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.Parent(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -165,7 +169,7 @@ func TestClient(t *testing.T) {
 		passedErr = errors.New("fake GetPose error")
 		injectMS.GetPoseFunc = func(
 			ctx context.Context,
-			componentName resource.Name,
+			componentName string,
 			destinationFrame string,
 			supplementalTransform []*referenceframe.LinkInFrame,
 			extra map[string]interface{},
@@ -179,7 +183,7 @@ func TestClient(t *testing.T) {
 		test.That(t, resp, test.ShouldEqual, false)
 
 		// GetPose
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", nil, map[string]interface{}{})
+		_, err = client2.GetPose(context.Background(), "arm1", "foo", nil, map[string]interface{}{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -361,7 +365,7 @@ func TestClient(t *testing.T) {
 				return errExpected
 			}
 
-			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			req := motion.StopPlanReq{ComponentName: "mybase"}
 			err := client.StopPlan(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
@@ -375,7 +379,7 @@ func TestClient(t *testing.T) {
 				return nil
 			}
 
-			req := motion.StopPlanReq{ComponentName: base.Named("mybase")}
+			req := motion.StopPlanReq{ComponentName: "mybase"}
 			err := client.StopPlan(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -414,7 +418,7 @@ func TestClient(t *testing.T) {
 			status := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: nil}
 
 			expectedResp := []motion.PlanStatusWithID{
-				{PlanID: planID, ComponentName: base.Named("mybase"), ExecutionID: executionID, Status: status},
+				{PlanID: planID, ComponentName: "mybase", ExecutionID: executionID, Status: status},
 			}
 
 			injectMS.ListPlanStatusesFunc = func(
@@ -446,8 +450,8 @@ func TestClient(t *testing.T) {
 			statusB := motion.PlanStatus{State: motion.PlanStateInProgress, Timestamp: time.Now().UTC(), Reason: &reason}
 
 			expectedResp := []motion.PlanStatusWithID{
-				{PlanID: planIDA, ComponentName: base.Named("mybase"), ExecutionID: executionIDA, Status: statusA},
-				{PlanID: planIDB, ComponentName: base.Named("mybase"), ExecutionID: executionIDB, Status: statusB},
+				{PlanID: planIDA, ComponentName: "mybase", ExecutionID: executionIDA, Status: statusA},
+				{PlanID: planIDB, ComponentName: "mybase", ExecutionID: executionIDB, Status: statusB},
 			}
 
 			injectMS.ListPlanStatusesFunc = func(
@@ -480,7 +484,7 @@ func TestClient(t *testing.T) {
 				return nil, errExpected
 			}
 
-			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			req := motion.PlanHistoryReq{ComponentName: "mybase"}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, errExpected.Error())
@@ -498,7 +502,7 @@ func TestClient(t *testing.T) {
 
 			plan := motion.PlanWithMetadata{
 				ID:            id,
-				ComponentName: base.Named("mybase"),
+				ComponentName: "mybase",
 				ExecutionID:   executionID,
 				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
@@ -511,7 +515,7 @@ func TestClient(t *testing.T) {
 				return expectedResp, nil
 			}
 
-			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			req := motion.PlanHistoryReq{ComponentName: "mybase"}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			planHistoriesEqual(t, resp, expectedResp)
@@ -532,7 +536,7 @@ func TestClient(t *testing.T) {
 
 			planA := motion.PlanWithMetadata{
 				ID:            idA,
-				ComponentName: base.Named("mybase"),
+				ComponentName: "mybase",
 				ExecutionID:   executionID,
 				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
@@ -546,7 +550,7 @@ func TestClient(t *testing.T) {
 			timeBA := time.Now().UTC()
 			planB := motion.PlanWithMetadata{
 				ID:            idB,
-				ComponentName: base.Named("mybase"),
+				ComponentName: "mybase",
 				ExecutionID:   executionID,
 				Plan:          motionplan.NewSimplePlan(steps, nil),
 			}
@@ -564,7 +568,7 @@ func TestClient(t *testing.T) {
 				return expectedResp, nil
 			}
 
-			req := motion.PlanHistoryReq{ComponentName: base.Named("mybase")}
+			req := motion.PlanHistoryReq{ComponentName: "mybase"}
 			resp, err := client.PlanHistory(ctx, req)
 			test.That(t, err, test.ShouldBeNil)
 			planHistoriesEqual(t, resp, expectedResp)

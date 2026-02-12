@@ -28,10 +28,12 @@ type Config struct {
 	AssociatedAttributes      map[Name]AssociatedConfig
 	ConvertedAttributes       ConfigValidator
 	ImplicitDependsOn         []string
+	ImplicitOptionalDependsOn []string
 
-	alreadyValidated   bool
-	cachedImplicitDeps []string
-	cachedErr          error
+	alreadyValidated           bool
+	cachedImplicitDeps         []string
+	cachedOptionalImplicitDeps []string
+	cachedErr                  error
 }
 
 // A LogConfig describes the LogConfig config object.
@@ -47,7 +49,7 @@ type typeSpecificConfigData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
-	LogConfiguration          *LogConfig                 `json:"log_configuration"`
+	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
@@ -59,7 +61,7 @@ type configData struct {
 	Model                     Model                      `json:"model"`
 	Frame                     *referenceframe.LinkConfig `json:"frame,omitempty"`
 	DependsOn                 []string                   `json:"depends_on,omitempty"`
-	LogConfiguration          *LogConfig                 `json:"log_configuration"`
+	LogConfiguration          *LogConfig                 `json:"log_configuration,omitempty"`
 	AssociatedResourceConfigs []AssociatedResourceConfig `json:"service_configs,omitempty"`
 	Attributes                utils.AttributeMap         `json:"attributes,omitempty"`
 }
@@ -150,7 +152,6 @@ type AssociatedResourceConfig struct {
 	API                 API
 	Attributes          utils.AttributeMap
 	ConvertedAttributes interface{}
-	RemoteName          string
 }
 
 // NOTE: This data must be maintained with what is in AssociatedResourceConfig.
@@ -201,6 +202,7 @@ func (conf Config) Equals(other Config) bool {
 	// impact the original versions.
 	conf.alreadyValidated = false
 	conf.ImplicitDependsOn = nil
+	conf.ImplicitOptionalDependsOn = nil
 	conf.cachedImplicitDeps = nil
 	conf.cachedErr = nil
 	conf.ConvertedAttributes = nil
@@ -209,6 +211,7 @@ func (conf Config) Equals(other Config) bool {
 
 	other.alreadyValidated = false
 	other.ImplicitDependsOn = nil
+	other.ImplicitOptionalDependsOn = nil
 	other.cachedImplicitDeps = nil
 	other.cachedErr = nil
 	other.ConvertedAttributes = nil
@@ -253,14 +256,15 @@ func (conf *Config) ResourceName() Name {
 	return NewName(conf.API, conf.Name)
 }
 
-// Validate ensures all parts of the config are valid and returns dependencies.
-func (conf *Config) Validate(path, defaultAPIType string) ([]string, error) {
+// Validate ensures all parts of the config are valid and returns required and optional
+// dependencies.
+func (conf *Config) Validate(path, defaultAPIType string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return conf.cachedImplicitDeps, conf.cachedErr
+		return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr
 	}
-	conf.cachedImplicitDeps, conf.cachedErr = conf.validate(path, defaultAPIType)
+	conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr = conf.validate(path, defaultAPIType)
 	conf.alreadyValidated = true
-	return conf.cachedImplicitDeps, conf.cachedErr
+	return conf.cachedImplicitDeps, conf.cachedOptionalImplicitDeps, conf.cachedErr
 }
 
 // AdjustPartialNames assumes this config comes from a place where the resource
@@ -293,45 +297,46 @@ func (conf *Config) AdjustPartialNames(defaultAPIType string) {
 	}
 }
 
-func (conf *Config) validate(path, defaultAPIType string) ([]string, error) {
-	var deps []string
+func (conf *Config) validate(path, defaultAPIType string) ([]string, []string, error) {
+	var requiredDeps []string
+	var optionalDeps []string
 
 	conf.AdjustPartialNames(defaultAPIType)
 
 	if conf.Name == "" {
-		return nil, NewConfigValidationFieldRequiredError(path, "name")
+		return nil, nil, NewConfigValidationFieldRequiredError(path, "name")
 	}
 
 	if err := utils.ValidateResourceName(conf.Name); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := ContainsReservedCharacter(conf.Name); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := conf.Model.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// this effectively checks reserved characters and the rest for namespace and type
 	if err := conf.API.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if conf.ConvertedAttributes != nil {
-		validatedDeps, err := conf.ConvertedAttributes.Validate(path)
+		var err error
+		requiredDeps, optionalDeps, err = conf.ConvertedAttributes.Validate(path)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		deps = append(deps, validatedDeps...)
 	}
-	return deps, nil
+	return requiredDeps, optionalDeps, nil
 }
 
-// A ConfigValidator validates a configuration and also
-// returns dependencies that were implicitly discovered.
+// A ConfigValidator validates a configuration and also returns both required and optional
+// dependencies that were implicitly discovered.
 type ConfigValidator interface {
-	Validate(path string) ([]string, error)
+	Validate(path string) (requiredDependencies, optionalDependencies []string, err error)
 }
 
 // TransformAttributeMap uses an attribute map to transform attributes to the prescribed format.

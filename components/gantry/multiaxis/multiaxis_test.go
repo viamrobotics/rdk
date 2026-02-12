@@ -37,8 +37,8 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakesingleaxis.CloseFunc = func(ctx context.Context) error {
 		return nil
 	}
-	fakesingleaxis.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	fakesingleaxis.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
 	}
 	return fakesingleaxis
 }
@@ -48,13 +48,22 @@ func createFakeDeps() resource.Dependencies {
 	fakeGantry1.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
+	fakeGantry1.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
+	}
 	fakeGantry2 := inject.NewGantry("2")
 	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
+	fakeGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
+	}
 	fakeGantry3 := inject.NewGantry("3")
 	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
+	}
+	fakeGantry3.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel(""), nil
 	}
 	fakeMotor := &fm.Motor{
 		Named: motor.Named("fm1").AsNamed(),
@@ -81,11 +90,11 @@ var twoAxes = []gantry.Gantry{
 
 func TestValidate(t *testing.T) {
 	fakecfg := &Config{SubAxes: []string{}}
-	_, err := fakecfg.Validate("path")
+	_, _, err := fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "need at least one axis")
 
 	fakecfg = &Config{SubAxes: []string{"singleaxis"}}
-	_, err = fakecfg.Validate("path")
+	_, _, err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -166,7 +175,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthsMm: []float64{1, 2, 3},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
+	inputs = []referenceframe.Input{1, 2, 3}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -175,7 +184,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthsMm: []float64{1, 2},
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
+	inputs = []referenceframe.Input{1, 2}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -289,7 +298,7 @@ func TestCurrentInputs(t *testing.T) {
 	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}, {Value: 9}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{1, 5, 9})
 
 	fakemultiaxis = &multiAxis{
 		subAxes: twoAxes,
@@ -297,26 +306,30 @@ func TestCurrentInputs(t *testing.T) {
 	}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{1, 5})
 }
 
-func TestModelFrame(t *testing.T) {
+func TestKinematics(t *testing.T) {
 	fakemultiaxis := &multiAxis{
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   twoAxes,
 		lengthsMm: []float64{1, 1},
+		model:     referenceframe.NewSimpleModel(""),
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	model := fakemultiaxis.ModelFrame()
+	model, err := fakemultiaxis.Kinematics(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{
 		Named:     gantry.Named("foo").AsNamed(),
 		subAxes:   threeAxes,
 		lengthsMm: []float64{1, 1, 1},
+		model:     referenceframe.NewSimpleModel(""),
 		opMgr:     operation.NewSingleOperationManager(),
 	}
-	model = fakemultiaxis.ModelFrame()
+	model, err = fakemultiaxis.Kinematics(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model, test.ShouldNotBeNil)
 }
 
@@ -340,6 +353,9 @@ func createComplexDeps() resource.Dependencies {
 	mAx1.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
 	}
+	mAx1.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel("mAx1"), nil
+	}
 
 	position2 := []float64{9, 8, 7}
 	mAx2 := inject.NewGantry("2")
@@ -359,6 +375,9 @@ func createComplexDeps() resource.Dependencies {
 	}
 	mAx2.StopFunc = func(ctx context.Context, extra map[string]interface{}) error {
 		return nil
+	}
+	mAx2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return referenceframe.NewSimpleModel("mAx2"), nil
 	}
 
 	fakeMotor := &fm.Motor{

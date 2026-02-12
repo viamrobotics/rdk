@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/utils"
 )
@@ -24,6 +25,12 @@ const (
 	// which is evaluated if the file deletion threshold has been reached. If `captureFileIndex % N == 0`
 	// return true then the file will be deleted to free up space.
 	defaultDeleteEveryNth = 5
+	// defaultDiskUsageThreshold and defaultCaptureDirThreshold are the thresholds at which file deletion might occur.
+	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirThreshold (%) of the disk usage,
+	// then file deletion will occur. If disk usage is at or above the disk usage threshold, but the capture directory is
+	// below the capture directory threshold, then file deletion will not occur but a warning will be logged periodically.
+	defaultDiskUsageThreshold  = 0.9
+	defaultCaptureDirThreshold = 0.5
 	// defaultSyncIntervalMins is the sync interval that will be set if the config's sync_interval_mins is zero (including when it is unset).
 	defaultSyncIntervalMins = 0.1
 	// syncIntervalMinsEpsilon is the value below which SyncIntervalMins is considered zero.
@@ -42,10 +49,13 @@ type Config struct {
 	CaptureDir string   `json:"capture_dir"`
 	Tags       []string `json:"tags"`
 	// Capture
-	CaptureDisabled             bool                 `json:"capture_disabled"`
-	DeleteEveryNthWhenDiskFull  int                  `json:"delete_every_nth_when_disk_full"`
-	MaximumCaptureFileSizeBytes int64                `json:"maximum_capture_file_size_bytes"`
-	MongoCaptureConfig          *capture.MongoConfig `json:"mongo_capture_config"`
+	CaptureDisabled    bool                 `json:"capture_disabled"`
+	MongoCaptureConfig *capture.MongoConfig `json:"mongo_capture_config"`
+	// File Deletion Parameters
+	DeleteEveryNthWhenDiskFull  int     `json:"delete_every_nth_when_disk_full"`
+	MaximumCaptureFileSizeBytes int64   `json:"maximum_capture_file_size_bytes"`
+	DiskUsageDeletionThreshold  float64 `json:"disk_usage_deletion_threshold"`
+	CaptureDirDeletionThreshold float64 `json:"capture_dir_deletion_threshold"`
 	// Sync
 	AdditionalSyncPaths    []string `json:"additional_sync_paths"`
 	FileLastModifiedMillis int      `json:"file_last_modified_millis"`
@@ -56,27 +66,33 @@ type Config struct {
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
-func (c *Config) Validate(path string) ([]string, error) {
+func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.SyncIntervalMins < 0 {
-		return nil, errors.New("sync_interval_mins can't be negative")
+		return nil, nil, errors.New("sync_interval_mins can't be negative")
 	}
 	if c.MaximumNumSyncThreads < 0 {
-		return nil, errors.New("maximum_num_sync_threads can't be negative")
+		return nil, nil, errors.New("maximum_num_sync_threads can't be negative")
 	}
 	if c.FileLastModifiedMillis < 0 {
-		return nil, errors.New("file_last_modified_millis can't be negative")
+		return nil, nil, errors.New("file_last_modified_millis can't be negative")
 	}
 	if c.MaximumCaptureFileSizeBytes < 0 {
-		return nil, errors.New("maximum_capture_file_size_bytes can't be negative")
+		return nil, nil, errors.New("maximum_capture_file_size_bytes can't be negative")
 	}
 	if c.DeleteEveryNthWhenDiskFull < 0 {
-		return nil, errors.New("delete_every_nth_when_disk_full can't be negative")
+		return nil, nil, errors.New("delete_every_nth_when_disk_full can't be negative")
 	}
-	return []string{cloud.InternalServiceName.String()}, nil
+	if c.DiskUsageDeletionThreshold < 0 {
+		return nil, nil, errors.New("disk_usage_deletion_threshold can't be negative")
+	}
+	if c.CaptureDirDeletionThreshold < 0 {
+		return nil, nil, errors.New("capture_dir_deletion_threshold can't be negative")
+	}
+	return []string{cloud.InternalServiceName.String()}, nil, nil
 }
 
 func (c *Config) getCaptureDir(logger logging.Logger) string {
-	captureDir := viamCaptureDotDir
+	captureDir := shared.ViamCaptureDotDir
 	if c.CaptureDir != "" {
 		captureDir = c.CaptureDir
 		if strings.HasPrefix(captureDir, "~") {
@@ -118,6 +134,18 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 	c.DeleteEveryNthWhenDiskFull = deleteEveryNthValue
 
+	diskUsageThreshold := defaultDiskUsageThreshold
+	if c.DiskUsageDeletionThreshold != 0 {
+		diskUsageThreshold = c.DiskUsageDeletionThreshold
+	}
+	c.DiskUsageDeletionThreshold = diskUsageThreshold
+
+	captureDirThreshold := defaultCaptureDirThreshold
+	if c.CaptureDirDeletionThreshold != 0 {
+		captureDirThreshold = c.CaptureDirDeletionThreshold
+	}
+	c.CaptureDirDeletionThreshold = captureDirThreshold
+
 	fileLastModifiedMillis := c.FileLastModifiedMillis
 	if fileLastModifiedMillis <= 0 {
 		fileLastModifiedMillis = defaultFileLastModifiedMillis
@@ -132,17 +160,19 @@ func (c *Config) syncConfig(syncSensor sensor.Sensor, syncSensorEnabled bool, lo
 	}
 
 	return datasync.Config{
-		AdditionalSyncPaths:        c.AdditionalSyncPaths,
-		Tags:                       c.Tags,
-		CaptureDir:                 c.getCaptureDir(logger),
-		CaptureDisabled:            c.CaptureDisabled,
-		DeleteEveryNthWhenDiskFull: c.DeleteEveryNthWhenDiskFull,
-		FileLastModifiedMillis:     c.FileLastModifiedMillis,
-		MaximumNumSyncThreads:      c.MaximumNumSyncThreads,
-		ScheduledSyncDisabled:      c.ScheduledSyncDisabled,
-		SelectiveSyncerName:        c.SelectiveSyncerName,
-		SyncIntervalMins:           syncIntervalMins,
-		SelectiveSyncSensor:        syncSensor,
-		SelectiveSyncSensorEnabled: syncSensorEnabled,
+		AdditionalSyncPaths:         c.AdditionalSyncPaths,
+		Tags:                        c.Tags,
+		CaptureDir:                  c.getCaptureDir(logger),
+		CaptureDisabled:             c.CaptureDisabled,
+		DeleteEveryNthWhenDiskFull:  c.DeleteEveryNthWhenDiskFull,
+		DiskUsageDeletionThreshold:  c.DiskUsageDeletionThreshold,
+		CaptureDirDeletionThreshold: c.CaptureDirDeletionThreshold,
+		FileLastModifiedMillis:      c.FileLastModifiedMillis,
+		MaximumNumSyncThreads:       c.MaximumNumSyncThreads,
+		ScheduledSyncDisabled:       c.ScheduledSyncDisabled,
+		SelectiveSyncerName:         c.SelectiveSyncerName,
+		SyncIntervalMins:            syncIntervalMins,
+		SelectiveSyncSensor:         syncSensor,
+		SelectiveSyncSensorEnabled:  syncSensorEnabled,
 	}
 }

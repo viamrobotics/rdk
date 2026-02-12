@@ -104,7 +104,7 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName(apiA, "A")},
 				},
 			},
-			"circular dependency - \"A\" already depends on \"B\"",
+			"circular dependency - A already depends on B",
 		},
 		{
 			[]fakeComponent{
@@ -117,11 +117,12 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName(apiA, "B")},
 				},
 			},
-			"\"B\" cannot depend on itself",
+			"B cannot depend on itself",
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
-			g := NewGraph()
+			logger := logging.NewTestLogger(t)
+			g := NewGraph(logger)
 			test.That(t, g, test.ShouldNotBeNil)
 			for i, component := range c.conf {
 				test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -139,7 +140,8 @@ func TestResourceGraphConstruct(t *testing.T) {
 }
 
 func TestResourceGraphGetParentsAndChildren(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -240,7 +242,8 @@ func TestResourceGraphSubGraph(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -251,7 +254,7 @@ func TestResourceGraphSubGraph(t *testing.T) {
 	sg, err := g.SubGraphFrom(NewName(apiA, "W"))
 	test.That(t, sg, test.ShouldBeNil)
 	test.That(t, err.Error(), test.ShouldResemble,
-		"cannot create sub-graph from non existing node \"W\" ")
+		"cannot create sub-graph from non existing node W ")
 	sg, err = g.SubGraphFrom(NewName(apiA, "C"))
 	test.That(t, sg, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -293,7 +296,8 @@ func TestResourceGraphDepTree(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -303,7 +307,7 @@ func TestResourceGraphDepTree(t *testing.T) {
 	}
 	err := g.AddChild(NewName(apiA, "A"),
 		NewName(apiA, "F"))
-	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"F\" already depends on \"A\"")
+	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - F already depends on A")
 	test.That(t, g.AddChild(NewName(apiA, "D"),
 		NewName(apiA, "F")), test.ShouldBeNil)
 }
@@ -339,7 +343,8 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -424,7 +429,8 @@ func TestResourceGraphReverseTopologicalSortInLevels(t *testing.T) {
 			},
 		},
 	}
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range cfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -473,7 +479,8 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "E")},
 		},
 	}
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -487,7 +494,7 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 		NewName(apiA, "B"),
 		NewName(apiA, "A"),
 	})
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	for _, component := range cfgB {
 		test.That(t, gB.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -583,7 +590,8 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "11")},
 		},
 	}
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -625,7 +633,7 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 		NewName(apiA, "2"),
 		NewName(apiA, "13"),
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	for _, comp := range removalList {
 		gC, err := gA.SubGraphFrom(comp)
 		test.That(t, err, test.ShouldBeNil)
@@ -653,39 +661,6 @@ func newResourceNameSet(resourceNames ...Name) map[Name]*GraphNode {
 		set[val] = &GraphNode{}
 	}
 	return set
-}
-
-func TestResourceGraphFindNodeByName(t *testing.T) {
-	cfgA := []fakeComponent{
-		{
-			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "A"),
-			DependsOn: []Name{},
-		},
-		{
-			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "B"),
-			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "A")},
-		},
-		{
-			Name:      NewName(APINamespaceRDK.WithComponentType("aapi"), "C"),
-			DependsOn: []Name{NewName(APINamespaceRDK.WithComponentType("aapi"), "B")},
-		},
-	}
-	gA := NewGraph()
-	test.That(t, gA, test.ShouldNotBeNil)
-	for _, component := range cfgA {
-		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
-		for _, dep := range component.DependsOn {
-			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
-		}
-	}
-	names := gA.findNodesByShortName("A")
-	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("B")
-	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("C")
-	test.That(t, names, test.ShouldHaveLength, 1)
-	names = gA.findNodesByShortName("D")
-	test.That(t, names, test.ShouldHaveLength, 0)
 }
 
 var cfgA = []fakeComponent{
@@ -727,7 +702,8 @@ var cfgA = []fakeComponent{
 }
 
 func TestResourceGraphReplaceNodesParents(t *testing.T) {
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -783,7 +759,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			DependsOn: []Name{NewName(apiA, "D")},
 		},
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	for _, component := range cfgB {
 		test.That(t, gB.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -791,7 +767,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			test.That(t, gB.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	for n := range gB.nodes {
+	for n := range gB.nodes.Keys() {
 		test.That(t, gA.ReplaceNodesParents(n, gB), test.ShouldBeNil)
 	}
 	out = gA.TopologicalSort()
@@ -819,7 +795,7 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 			DependsOn: []Name{},
 		},
 	}
-	gC := NewGraph()
+	gC := NewGraph(logger)
 	test.That(t, gC, test.ShouldNotBeNil)
 	for _, component := range cfgC {
 		test.That(t, gC.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -831,7 +807,8 @@ func TestResourceGraphReplaceNodesParents(t *testing.T) {
 }
 
 func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
-	gA := NewGraph()
+	logger := logging.NewTestLogger(t)
+	gA := NewGraph(logger)
 	test.That(t, gA, test.ShouldNotBeNil)
 	for _, component := range cfgA {
 		test.That(t, gA.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -839,7 +816,7 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 			test.That(t, gA.AddChild(component.Name, dep), test.ShouldBeNil)
 		}
 	}
-	gB := NewGraph()
+	gB := NewGraph(logger)
 	test.That(t, gB, test.ShouldNotBeNil)
 	test.That(t, gB.CopyNodeAndChildren(NewName(apiA, "F"), gA), test.ShouldBeNil)
 	out := gB.TopologicalSort()
@@ -865,7 +842,7 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 		NewName(apiA, "D"),
 	}...))
 
-	for n := range gA.nodes {
+	for n := range gA.nodes.Keys() {
 		test.That(t, gB.CopyNodeAndChildren(n, gA), test.ShouldBeNil)
 	}
 	out = gB.TopologicalSort()
@@ -889,7 +866,8 @@ func TestResourceGraphCopyNodeAndChildren(t *testing.T) {
 }
 
 func TestResourceGraphRandomRemoval(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
 		test.That(t, g.AddNode(component.Name, &GraphNode{}), test.ShouldBeNil)
@@ -919,7 +897,8 @@ func TestResourceGraphRandomRemoval(t *testing.T) {
 }
 
 func TestResourceGraphMarkForRemoval(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	test.That(t, g, test.ShouldNotBeNil)
 	for _, component := range commonCfg {
@@ -972,7 +951,8 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 }
 
 func TestResourceGraphClock(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 0)
 
@@ -1008,7 +988,8 @@ func TestResourceGraphClock(t *testing.T) {
 }
 
 func TestResourceGraphLastReconfigured(t *testing.T) {
-	g := NewGraph()
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
 
 	name1 := NewName(apiA, "a")
 	node1 := &GraphNode{}
@@ -1039,7 +1020,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 
 func TestResourceGraphResolveDependencies(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	g := NewGraph()
+	g := NewGraph(logger)
 	test.That(t, g.ResolveDependencies(logger), test.ShouldBeNil)
 
 	name1 := NewName(APINamespaceRDK.WithComponentType("aapi"), "a")
@@ -1068,6 +1049,7 @@ func TestResourceGraphResolveDependencies(t *testing.T) {
 	test.That(t, g.AddNode(name4, node4), test.ShouldBeNil)
 
 	err = g.ResolveDependencies(logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "conflicting names")
 	test.That(t, err.Error(), test.ShouldContainSubstring, name1.String())
 	test.That(t, err.Error(), test.ShouldContainSubstring, name3.String())
@@ -1130,4 +1112,120 @@ type someResource struct {
 	Named
 	TriviallyReconfigurable
 	TriviallyCloseable
+}
+
+func TestFindBySimpleNameAndAPI(t *testing.T) {
+	// Tests the success and failure paths of FindBySimpleNameAndAPI, which is invoked by
+	// all gRPC server-wrappers to route gRPC requests to the correct resource and handles
+	// duplicately-named resources.
+
+	logger := logging.NewTestLogger(t)
+	g := NewGraph(logger)
+
+	localName := Name{API: apiA, Remote: "", Name: "foo"}
+	remote1Name := Name{API: apiA, Remote: "remote1", Name: "foo"}
+	remote2Name := Name{API: apiA, Remote: "remote2", Name: "foo"}
+	localNode := NewUnconfiguredGraphNode(Config{}, nil)
+	remote1Node := NewUnconfiguredGraphNode(Config{}, nil)
+	remote2Node := NewUnconfiguredGraphNode(Config{}, nil)
+
+	fooNotFoundError := &NodeNotFoundError{Name: "foo", API: apiA}
+	fooPrefixedNotFoundError := &NodeNotFoundError{Name: "prefix.foo", API: apiA}
+	remote1AndRemote2MatchingError := &MultipleMatchingRemoteNodesError{
+		Name:    "foo",
+		API:     apiA,
+		Remotes: []string{remote1Name.Remote, remote2Name.Remote},
+	}
+	remote1AndRemote2PrefixedMatchingError := &MultipleMatchingRemoteNodesError{
+		Name:    "prefix.foo",
+		API:     apiA,
+		Remotes: []string{remote1Name.Remote, remote2Name.Remote},
+	}
+
+	// Assert that find on an empty graph returns the correct NodeNotFoundError.
+	foundNode, err := g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooNotFoundError)
+
+	// Assert that find with just a local "foo" finds localNode.
+	g.AddNode(localName, localNode)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with a local "foo" _and_ a remote "foo" still finds localNode.
+	g.AddNode(remote1Name, remote1Node)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with a local "foo" and _two_ remote "foo"s still finds localNode.
+	g.AddNode(remote2Name, remote2Node)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, localNode)
+
+	// Assert that find with _two_ remote "foo"s returns the correct MultipleMatchingRemoteNodesError.
+	localNode.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2MatchingError)
+
+	// Assert that setting a prefix on remote1Node allows find to get remote2Node.
+	g.UpdateNodePrefix(remote1Name, "prefix.")
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, remote2Node)
+
+	// Assert that setting the same prefix on remote2Node makes find return the expected
+	// MultipleMatchingRemoteNodesError when looking for "prefix.foo".
+	g.UpdateNodePrefix(remote2Name, "prefix.")
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, shouldMatchMultipleNodesErr, remote1AndRemote2PrefixedMatchingError)
+
+	// Assert that removing remote1Node allows find to get remote2Node with "prefix.foo".
+	remote1Node.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, foundNode, test.ShouldEqual, remote2Node)
+
+	// Assert that after all nodes are removed, find returns the correct NodeNotFoundError
+	// for both "prefix.foo" and "foo".
+	remote2Node.MarkForRemoval()
+	test.That(t, len(g.RemoveMarked()), test.ShouldEqual, 1)
+	foundNode, err = g.FindBySimpleNameAndAPI("foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooNotFoundError)
+	foundNode, err = g.FindBySimpleNameAndAPI("prefix.foo", apiA)
+	test.That(t, foundNode, test.ShouldBeNil)
+	test.That(t, err, test.ShouldResemble, fooPrefixedNotFoundError)
+}
+
+func shouldMatchMultipleNodesErr(actual interface{}, expected ...interface{}) string {
+	if len(expected) != 1 {
+		panic("takes exactly one argument")
+	}
+	expectedErr := expected[0].(*MultipleMatchingRemoteNodesError)
+	if actual == nil {
+		return "expected non-nil error"
+	}
+	actualErr := actual.(*MultipleMatchingRemoteNodesError)
+	if msg := test.ShouldResemble(actualErr.API, expectedErr.API); msg != "" {
+		return msg
+	}
+	if msg := test.ShouldResemble(actualErr.Name, expectedErr.Name); msg != "" {
+		return msg
+	}
+	if msg := test.ShouldHaveLength(actualErr.Remotes, len(expectedErr.Remotes)); msg != "" {
+		return msg
+	}
+	for _, n := range expectedErr.Remotes {
+		if msg := test.ShouldContain(actualErr.Remotes, n); msg != "" {
+			return msg
+		}
+	}
+	return ""
 }

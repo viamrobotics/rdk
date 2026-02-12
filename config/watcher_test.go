@@ -24,6 +24,7 @@ import (
 )
 
 func TestNewWatcherNoop(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{}, logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -40,6 +41,7 @@ func TestNewWatcherNoop(t *testing.T) {
 }
 
 func TestNewWatcherFile(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 
 	temp, err := os.CreateTemp(t.TempDir(), "*.json")
@@ -179,6 +181,7 @@ func TestNewWatcherFile(t *testing.T) {
 }
 
 func TestNewWatcherCloud(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 
 	certsToReturn := config.Cloud{
@@ -272,8 +275,8 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	storeConfigInServer(confToReturn)
 
-	appConn, err := grpc.NewAppConn(context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.Secret, confToReturn.Cloud.ID,
-		logger)
+	appConn, err := grpc.NewAppConn(
+		context.Background(), confToReturn.Cloud.AppAddress, confToReturn.Cloud.ID, confToReturn.Cloud.GetCloudCredsDialOpt(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer appConn.Close()
 	watcher, err := config.NewWatcher(context.Background(), &config.Config{Cloud: newCloudConf()}, logger, appConn)

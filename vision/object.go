@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,7 +38,7 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 	if label != "" { // will override geometry proto label with given label (unless empty)
 		geometry.Label = label
 	}
-	geom, err := spatialmath.NewGeometryFromProto(geometry)
+	geom, err := referenceframe.NewGeometryFromProto(geometry)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +47,7 @@ func NewObjectWithLabel(cloud pc.PointCloud, label string, geometry *commonpb.Ge
 
 // NewEmptyObject creates a new empty point cloud with metadata.
 func NewEmptyObject() *Object {
-	cloud := pc.New()
+	cloud := pc.NewBasicEmpty()
 	return &Object{PointCloud: cloud}
 }
 

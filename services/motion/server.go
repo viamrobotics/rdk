@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -15,12 +16,12 @@ import (
 // serviceServer implements the MotionService from motion.proto.
 type serviceServer struct {
 	pb.UnimplementedMotionServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a motion gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -73,22 +74,26 @@ func (server *serviceServer) MoveOnGlobe(ctx context.Context, req *pb.MoveOnGlob
 	return &pb.MoveOnGlobeResponse{ExecutionId: id.String()}, nil
 }
 
+// This is preserving backwards compatibility for older updated clients.
+//
+//nolint:staticcheck
 func (server *serviceServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
 	svc, err := server.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	if req.ComponentName == nil {
+	if req.ComponentName == "" {
 		return nil, errors.New("must provide component name")
 	}
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
 	if err != nil {
 		return nil, err
 	}
-	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame, transforms, req.Extra.AsMap())
+	pose, err := svc.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
+
 	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
 }
 
@@ -98,7 +103,7 @@ func (server *serviceServer) StopPlan(ctx context.Context, req *pb.StopPlanReque
 		return nil, err
 	}
 
-	componentName := protoutils.ResourceNameFromProto(req.GetComponentName())
+	componentName := req.GetComponentName()
 	r := StopPlanReq{ComponentName: componentName, Extra: req.Extra.AsMap()}
 	err = svc.StopPlan(ctx, r)
 	if err != nil {

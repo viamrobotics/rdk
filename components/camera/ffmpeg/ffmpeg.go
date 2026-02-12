@@ -40,15 +40,15 @@ type FilterConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.CameraParameters != nil {
 		if cfg.CameraParameters.Height < 0 || cfg.CameraParameters.Width < 0 {
-			return nil, fmt.Errorf(
+			return nil, nil, fmt.Errorf(
 				"got illegal negative dimensions for width_px and height_px (%d, %d) fields set in intrinsic_parameters for ffmpeg camera",
 				cfg.CameraParameters.Width, cfg.CameraParameters.Height)
 		}
 	}
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("ffmpeg")
@@ -67,7 +67,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+			return camera.FromVideoSource(conf.ResourceName(), src), nil
 		},
 	})
 }
@@ -208,7 +208,8 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 		ctx,
 		ffCam,
 		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
-		camera.ColorStream)
+		camera.ColorStream,
+	)
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

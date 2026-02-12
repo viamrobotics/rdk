@@ -21,9 +21,12 @@ type Registry struct {
 }
 
 func newRegistry() *Registry {
-	return &Registry{
+	ret := &Registry{
 		loggers: make(map[string]Logger),
 	}
+	applyMotionRegistryOptions(ret)
+
+	return ret
 }
 
 func (lr *Registry) registerLogger(name string, logger Logger) {
@@ -52,29 +55,28 @@ func (lr *Registry) updateLoggerLevel(name string, level Level) error {
 
 // Update updates the logger registry with the passed in `logConfig`. Invalid patterns
 // are warn-logged through the warnLogger.
-func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) error {
+func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) {
 	lr.mu.Lock()
 	lr.logConfig = logConfig
 	lr.mu.Unlock()
 
 	appliedConfigs := make(map[string]Level)
 	for _, lpc := range logConfig {
-		if !validatePattern(lpc.Pattern) {
-			warnLogger.Warnw("failed to validate a pattern", "pattern", lpc.Pattern)
+		r, err := regexp.Compile(BuildRegexFromPattern(lpc.Pattern))
+		if err != nil {
+			warnLogger.Warnw("Log regex did not compile",
+				"input", lpc.Pattern, "built", BuildRegexFromPattern(lpc.Pattern), "err", err)
 			continue
 		}
 
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		level, err := LevelFromString(lpc.Level)
 		if err != nil {
-			return err
+			warnLogger.Warnw("Log level did not parse", "pattern", lpc.Pattern, "level", lpc.Level)
+			continue
 		}
 
 		for _, name := range lr.getRegisteredLoggerNames() {
 			if r.MatchString(name) {
-				level, err := LevelFromString(lpc.Level)
-				if err != nil {
-					return err
-				}
 				appliedConfigs[name] = level
 			}
 		}
@@ -91,11 +93,9 @@ func (lr *Registry) Update(logConfig []LoggerPatternConfig, warnLogger Logger) e
 		}
 		err := lr.updateLoggerLevel(name, level)
 		if err != nil {
-			return err
+			warnLogger.Warnw("Logger disappeared after seeing its name", "name", name, "level", level)
 		}
 	}
-
-	return nil
 }
 
 func (lr *Registry) getRegisteredLoggerNames() []string {
@@ -143,7 +143,7 @@ func (lr *Registry) getOrRegister(name string, logger Logger) Logger {
 
 	lr.loggers[name] = logger
 	for _, lpc := range lr.logConfig {
-		r, err := regexp.Compile(buildRegexFromPattern(lpc.Pattern))
+		r, err := regexp.Compile(BuildRegexFromPattern(lpc.Pattern))
 		if err != nil {
 			// Can ignore error here; invalid pattern will already have been
 			// warn-logged as part of config reading.

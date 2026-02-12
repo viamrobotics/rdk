@@ -3,17 +3,16 @@ package wrapper
 
 import (
 	"context"
-	"errors"
-	"strings"
 	"sync"
+
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -26,16 +25,16 @@ type Config struct {
 var model = resource.DefaultModelFamily.WithModel("wrapper_arm")
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.ArmName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "arm-name")
 	}
-	if _, err := modelFromPath(cfg.ModelFilePath, ""); err != nil {
-		return nil, err
+	if _, err := referenceframe.KinematicModelFromFile(cfg.ModelFilePath, ""); err != nil {
+		return nil, nil, err
 	}
 	deps = append(deps, cfg.ArmName)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -77,12 +76,12 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	if err != nil {
 		return err
 	}
-	model, err := modelFromPath(newConf.ModelFilePath, conf.Name)
+	model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, conf.Name)
 	if err != nil {
 		return err
 	}
 
-	newArm, err := arm.FromDependencies(deps, newConf.ArmName)
+	newArm, err := arm.FromProvider(deps, newConf.ArmName)
 	if err != nil {
 		return err
 	}
@@ -95,13 +94,6 @@ func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (wrapper *Arm) ModelFrame() referenceframe.Model {
-	wrapper.mu.RLock()
-	defer wrapper.mu.RUnlock()
-	return wrapper.model
-}
-
 // EndPosition returns the set position.
 func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 	wrapper.mu.RLock()
@@ -111,14 +103,14 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.ComputeOOBPosition(wrapper.model, joints)
+	return wrapper.model.Transform(joints)
 }
 
 // MoveToPosition sets the position.
 func (wrapper *Arm) MoveToPosition(ctx context.Context, pos spatialmath.Pose, extra map[string]interface{}) error {
 	ctx, done := wrapper.opMgr.New(ctx)
 	defer done()
-	return motion.MoveArm(ctx, wrapper.logger, wrapper, pos)
+	return armplanning.MoveArm(ctx, wrapper.logger, wrapper, pos)
 }
 
 // MoveToJointPositions sets the joints.
@@ -182,6 +174,13 @@ func (wrapper *Arm) IsMoving(ctx context.Context) (bool, error) {
 	return wrapper.opMgr.OpRunning(), nil
 }
 
+// Kinematics returns the kinematic wrapper supplied to the wrapper arm.
+func (wrapper *Arm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	wrapper.mu.RLock()
+	defer wrapper.mu.RUnlock()
+	return wrapper.model, nil
+}
+
 // CurrentInputs returns the current inputs of the arm.
 func (wrapper *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	return wrapper.actual.JointPositions(ctx, nil)
@@ -206,14 +205,13 @@ func (wrapper *Arm) Geometries(ctx context.Context, extra map[string]interface{}
 	return gif.Geometries(), nil
 }
 
-// modelFromPath returns a Model from a given path.
-func modelFromPath(modelPath, name string) (referenceframe.Model, error) {
-	switch {
-	case strings.HasSuffix(modelPath, ".urdf"):
-		return urdf.ParseModelXMLFile(modelPath, name)
-	case strings.HasSuffix(modelPath, ".json"):
-		return referenceframe.ParseModelJSONFile(modelPath, name)
-	default:
-		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+// Get3DModels returns the 3D models of the arm.
+func (wrapper *Arm) Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error) {
+	models, err := wrapper.actual.Get3DModels(ctx, extra)
+	if err != nil {
+		return nil, err
 	}
+	return models, nil
 }
+
+// modelFromPath returns a Model from a given path.

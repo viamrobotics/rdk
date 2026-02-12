@@ -46,16 +46,16 @@ type ButtonConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if conf.Board == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if len(conf.Axes) == 0 && len(conf.Buttons) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("buttons and axes cannot be both empty"))
 	}
 	deps = append(deps, conf.Board)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func (conf *Config) validateValues() error {
@@ -111,7 +111,7 @@ func NewGPIOController(
 		return nil, err
 	}
 
-	brd, err := board.FromDependencies(deps, newConf.Board)
+	brd, err := board.FromProvider(deps, newConf.Board)
 	if err != nil {
 		return nil, err
 	}

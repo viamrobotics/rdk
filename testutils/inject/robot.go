@@ -26,27 +26,35 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.LocalRobot
-	Mu                       sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
-	GetModelsFromModulesFunc func(ctx context.Context) ([]resource.ModuleModel, error)
-	RemoteByNameFunc         func(name string) (robot.Robot, bool)
-	ResourceByNameFunc       func(name resource.Name) (resource.Resource, error)
-	RemoteNamesFunc          func() []string
-	ResourceNamesFunc        func() []resource.Name
-	ResourceRPCAPIsFunc      func() []resource.RPCAPI
-	ProcessManagerFunc       func() pexec.ProcessManager
-	ConfigFunc               func() *config.Config
-	LoggerFunc               func() logging.Logger
-	CloseFunc                func(ctx context.Context) error
-	StopAllFunc              func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
-	FrameSystemConfigFunc    func(ctx context.Context) (*framesystem.Config, error)
-	TransformPoseFunc        func(
+	Mu                         sync.RWMutex // Ugly, has to be manually locked if a test means to swap funcs on an in-use robot.
+	GetModelsFromModulesFunc   func(ctx context.Context) ([]resource.ModuleModel, error)
+	RemoteByNameFunc           func(name string) (robot.Robot, bool)
+	ResourceByNameFunc         func(name resource.Name) (resource.Resource, error)
+	RemoteNamesFunc            func() []string
+	ResourceNamesFunc          func() []resource.Name
+	ResourceRPCAPIsFunc        func() []resource.RPCAPI
+	FindBySimpleNameAndAPIFunc func(string, resource.API) (resource.Resource, error)
+	ProcessManagerFunc         func() pexec.ProcessManager
+	ConfigFunc                 func() *config.Config
+	LoggerFunc                 func() logging.Logger
+	CloseFunc                  func(ctx context.Context) error
+	StopAllFunc                func(ctx context.Context, extra map[resource.Name]map[string]interface{}) error
+	FrameSystemConfigFunc      func(ctx context.Context) (*framesystem.Config, error)
+	GetPoseFunc                func(
+		ctx context.Context,
+		componentName, destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+		extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error)
+	TransformPoseFunc func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
 		additionalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 	TransformPointCloudFunc func(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
-	ModuleAddressFunc       func() (string, error)
+	CurrentInputsFunc       func(ctx context.Context) (referenceframe.FrameSystemInputs, error)
+	ModuleAddressesFunc     func() (config.ParentSockAddrs, error)
 	CloudMetadataFunc       func(ctx context.Context) (cloud.Metadata, error)
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
@@ -59,28 +67,46 @@ type Robot struct {
 
 // MockResourcesFromMap mocks ResourceNames and ResourceByName based on a resource map.
 func (r *Robot) MockResourcesFromMap(rs map[resource.Name]resource.Resource) {
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceNamesFunc = func() []resource.Name {
-			result := []resource.Name{}
-			for name := range rs {
-				result = append(result, name)
-			}
-			return result
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
+	r.ResourceNamesFunc = func() []resource.Name {
+		result := []resource.Name{}
+		for name := range rs {
+			result = append(result, name)
 		}
-	}()
-	func() {
-		r.Mu.Lock()
-		defer r.Mu.Unlock()
-		r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
-			result, ok := rs[name]
-			if ok {
-				return result, nil
-			}
-			return nil, errors.New("not found")
+		return result
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
+		result, ok := rs[name]
+		if ok {
+			return result, nil
 		}
-	}()
+		return nil, errors.New("not found")
+	}
+	r.FindBySimpleNameAndAPIFunc = func(name string, api resource.API) (resource.Resource, error) {
+		var remoteNames []string
+		var remoteResults []resource.Resource
+		for resName, res := range rs {
+			if resName.Name == name && resName.API == api {
+				if resName.Remote == "" {
+					return res, nil
+				}
+				remoteResults = append(remoteResults, res)
+				remoteNames = append(remoteNames, resName.Remote)
+			}
+		}
+		switch len(remoteResults) {
+		case 1:
+			return remoteResults[0], nil
+		case 0:
+			return nil, &resource.MultipleMatchingRemoteNodesError{
+				Name:    name,
+				API:     api,
+				Remotes: remoteNames,
+			}
+		}
+		return nil, resource.NewNotFoundError(resource.NewName(api, name))
+	}
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -101,6 +127,11 @@ func (r *Robot) ResourceByName(name resource.Name) (resource.Resource, error) {
 		return r.LocalRobot.ResourceByName(name)
 	}
 	return r.ResourceByNameFunc(name)
+}
+
+// GetResource calls the injected ResourceByName or the real version of GetResource.
+func (r *Robot) GetResource(name resource.Name) (resource.Resource, error) {
+	return r.ResourceByName(name)
 }
 
 // RemoteNames calls the injected RemoteNames or the real version.
@@ -133,14 +164,14 @@ func (r *Robot) ResourceRPCAPIs() []resource.RPCAPI {
 	return r.ResourceRPCAPIsFunc()
 }
 
-// ProcessManager calls the injected ProcessManager or the real version.
-func (r *Robot) ProcessManager() pexec.ProcessManager {
+// FindBySimpleNameAndAPI returns a list of all known resource RPC APIs.
+func (r *Robot) FindBySimpleNameAndAPI(name string, api resource.API) (resource.Resource, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ProcessManagerFunc == nil {
-		return r.LocalRobot.ProcessManager()
+	if r.FindBySimpleNameAndAPIFunc == nil {
+		return r.LocalRobot.FindBySimpleNameAndAPI(name, api)
 	}
-	return r.ProcessManagerFunc()
+	return r.FindBySimpleNameAndAPIFunc(name, api)
 }
 
 // OperationManager calls the injected OperationManager or the real version.
@@ -240,6 +271,21 @@ func (r *Robot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, err
 	return r.FrameSystemConfigFunc(ctx)
 }
 
+// GetPose calls the injected GetPose or the real version.
+func (r *Robot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.GetPoseFunc == nil {
+		return r.LocalRobot.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	}
+	return r.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+}
+
 // TransformPose calls the injected TransformPose or the real version.
 func (r *Robot) TransformPose(
 	ctx context.Context,
@@ -266,14 +312,25 @@ func (r *Robot) TransformPointCloud(ctx context.Context, srcpc pointcloud.PointC
 	return r.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
 }
 
-// ModuleAddress calls the injected ModuleAddress or the real one.
-func (r *Robot) ModuleAddress() (string, error) {
+// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
+// and a map of statuses indicating which of the machine's components may be actuated through input values.
+func (r *Robot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()
-	if r.ModuleAddressFunc == nil {
-		return r.LocalRobot.ModuleAddress()
+	if r.CurrentInputsFunc == nil {
+		return r.LocalRobot.CurrentInputs(ctx)
 	}
-	return r.ModuleAddressFunc()
+	return r.CurrentInputs(ctx)
+}
+
+// ModuleAddresses calls the injected ModuleAddresses or the real one.
+func (r *Robot) ModuleAddresses() (config.ParentSockAddrs, error) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.ModuleAddressesFunc == nil {
+		return r.LocalRobot.ModuleAddresses()
+	}
+	return r.ModuleAddressesFunc()
 }
 
 // CloudMetadata calls the injected CloudMetadata or the real one.

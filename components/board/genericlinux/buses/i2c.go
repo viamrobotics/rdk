@@ -6,18 +6,17 @@ package buses
 
 import (
 	"context"
+	fmtnolint "fmt"
 	"sync"
 
 	"periph.io/x/conn/v3/i2c"
 	"periph.io/x/conn/v3/i2c/i2creg"
 	"periph.io/x/host/v3"
-
-	"go.viam.com/rdk/logging"
 )
 
 func init() {
 	if _, err := host.Init(); err != nil {
-		logging.Global().Debugw("error initializing host", "error", err)
+		fmtnolint.Println("Error initializing host:", err)
 	}
 }
 

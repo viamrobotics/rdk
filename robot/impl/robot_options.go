@@ -87,8 +87,8 @@ func WithShutdownCallback(shutdownFunc func()) Option {
 	})
 }
 
-// withDisableCompleteConfigWorker returns an Option which disables the complete config worker.
-func withDisableCompleteConfigWorker() Option {
+// WithDisableCompleteConfigWorker returns an Option which disables the complete config worker.
+func WithDisableCompleteConfigWorker() Option {
 	return newFuncOption(func(o *options) {
 		o.disableCompleteConfigWorker = true
 	})

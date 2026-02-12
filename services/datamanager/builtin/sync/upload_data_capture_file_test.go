@@ -42,7 +42,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 		captureResults   data.CaptureResult
 		client           MockDataSyncServiceClient
 		expectedUploads  []upload
-		additionalParams map[string]string
+		additionalParams map[string]interface{}
 		unaryReqs        chan *v1.DataCaptureUploadRequest
 		steamingReqs     []chan *v1.StreamingDataCaptureUploadRequest
 	}
@@ -212,7 +212,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "sensor-1",
 			method:           "Readings",
 			tags:             []string{},
-			additionalParams: map[string]string{},
+			additionalParams: map[string]interface{}{},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -253,7 +253,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "powersensor-1",
 			method:           "Power",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"some": "additional", "param": "things"},
+			additionalParams: map[string]interface{}{"some": "additional", "param": "things"},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -295,7 +295,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "camera-1",
 			method:           "ReadImage",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -338,7 +338,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			method: "ReadImage",
 			tags:   []string{"tag1", "tag2"},
 			// note additional params specify jpeg but collector returns png,
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -393,7 +393,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "camera-1",
 			method:           "ReadImage",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -435,7 +435,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "camera-1",
 			method:           "ReadImage",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -488,7 +488,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "camera-1",
 			method:           "ReadImage",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"mime_type": utils.MimeTypeJPEG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypeJPEG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -541,7 +541,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			name:             "camera-1",
 			method:           "ReadImage",
 			tags:             []string{"tag1", "tag2"},
-			additionalParams: map[string]string{"mime_type": utils.MimeTypePNG},
+			additionalParams: map[string]interface{}{"mime_type": utils.MimeTypePNG},
 			expectedUploads: []upload{
 				{
 					md: &v1.UploadMetadata{
@@ -779,7 +779,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 	tempDir := t.TempDir()
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+			methodParams, err := rprotoutils.ConvertMapToProtoAny(tc.additionalParams)
 			test.That(t, err, test.ShouldBeNil)
 			md, ct := data.BuildCaptureMetadata(tc.api, tc.name, tc.method, tc.additionalParams, methodParams, tc.tags)
 			test.That(t, err, test.ShouldBeNil)
@@ -803,7 +803,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			cf, err := data.ReadCaptureFile(f)
 			test.That(t, err, test.ShouldBeNil)
 			cc := cloudConn{partID: partID, client: tc.client}
-			bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger)
+			bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger, nil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, bytesUploaded, test.ShouldEqual, stat.Size())
 			if tc.unaryReqs != nil {

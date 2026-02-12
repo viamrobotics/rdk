@@ -7,38 +7,35 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
-	v1 "go.viam.com/api/app/data/v1"
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 )
 
 const (
-	inferenceFlagFileOrgID      = "file-org-id"
-	inferenceFlagFileID         = "file-id"
-	inferenceFlagFileLocationID = "file-location-id"
-	inferenceFlagModelOrgID     = "model-org-id"
-	inferenceFlagModelName      = "model-name"
-	inferenceFlagModelVersion   = "model-version"
+	inferenceFlagBinaryDataID = "binary-data-id"
+	inferenceFlagModelOrgID   = "model-org-id"
+	inferenceFlagModelVersion = "model-version"
 )
 
 type mlInferenceInferArgs struct {
-	OrgID          string
-	FileOrgID      string
-	FileID         string
-	FileLocationID string
-	ModelOrgID     string
-	ModelName      string
-	ModelVersion   string
+	OrgID        string
+	BinaryDataID string
+	ModelOrgID   string
+	ModelName    string
+	ModelVersion string
 }
 
 // MLInferenceInferAction is the corresponding action for 'inference infer'.
 func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID to run an ML inference")
+	}
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
 	}
 
 	_, err = client.mlRunInference(
-		args.OrgID, args.FileOrgID, args.FileID, args.FileLocationID,
+		args.OrgID, args.BinaryDataID,
 		args.ModelOrgID, args.ModelName, args.ModelVersion)
 	if err != nil {
 		return err
@@ -47,7 +44,7 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 }
 
 // mlRunInference runs inference on an image with the specified parameters.
-func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, modelOrgID,
+func (c *viamClient) mlRunInference(orgID, binaryDataID, modelOrgID,
 	modelName, modelVersion string,
 ) (*mlinferencepb.GetInferenceResponse, error) {
 	if err := c.ensureLoggedIn(); err != nil {
@@ -55,12 +52,8 @@ func (c *viamClient) mlRunInference(orgID, fileOrgID, fileID, fileLocation, mode
 	}
 
 	req := &mlinferencepb.GetInferenceRequest{
-		OrganizationId: orgID,
-		BinaryId: &v1.BinaryID{
-			FileId:         fileID,
-			OrganizationId: fileOrgID,
-			LocationId:     fileLocation,
-		},
+		OrganizationId:      orgID,
+		BinaryDataId:        binaryDataID,
 		RegistryItemId:      fmt.Sprintf("%s:%s", modelOrgID, modelName),
 		RegistryItemVersion: modelVersion,
 	}

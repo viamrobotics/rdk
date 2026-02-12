@@ -7,6 +7,10 @@ import (
 	camerapb "go.viam.com/api/component/camera/v1"
 )
 
+// Make sure that all mime types are registered in rimage/image_file.go with the appropriate
+// format registration name i.e. "vnd.viam.rgba" are trailing substrings of its corresponding
+// MIME type e.g. "image/vnd.viam.rgba" in mime.go. This is crucial to make sure
+// that our mime type handling is 1:1 with the registered formats.
 const (
 	// MimeTypeSuffixLazy is used to indicate a lazy loading of data.
 	MimeTypeSuffixLazy = "lazy"
@@ -41,6 +45,9 @@ const (
 
 	// MimeTypeH264 used to indicate H264 frames.
 	MimeTypeH264 = "video/h264"
+
+	// MimeTypeVideoMp4 is used to indicate .mp4 video files.
+	MimeTypeVideoMP4 = "video/mp4"
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.
@@ -61,7 +68,8 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 	return mimeType, false
 }
 
-// MimeTypeToFormat maps Mymetype to Format.
+// MimeTypeToFormat maps Mimetype to Format.
+// Deprecated: This will be removed when the Format field is removed from the proto.
 var MimeTypeToFormat = map[string]camerapb.Format{
 	MimeTypeJPEG:     camerapb.Format_FORMAT_JPEG,
 	MimeTypePNG:      camerapb.Format_FORMAT_PNG,
@@ -70,11 +78,18 @@ var MimeTypeToFormat = map[string]camerapb.Format{
 	"":               camerapb.Format_FORMAT_UNSPECIFIED,
 }
 
-// FormatToMimeType maps Format to Mymetype.
+// FormatToMimeType maps Format to Mimetype.
+// Deprecated: This will be removed when the Format field is removed from the proto.
 var FormatToMimeType = map[camerapb.Format]string{
 	camerapb.Format_FORMAT_JPEG:        MimeTypeJPEG,
 	camerapb.Format_FORMAT_PNG:         MimeTypePNG,
 	camerapb.Format_FORMAT_RAW_DEPTH:   MimeTypeRawDepth,
 	camerapb.Format_FORMAT_RAW_RGBA:    MimeTypeRawRGBA,
 	camerapb.Format_FORMAT_UNSPECIFIED: "",
+}
+
+// FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts
+// it to a utils mime type.
+func FormatStringToMimeType(format string) string {
+	return fmt.Sprintf("image/%s", format)
 }

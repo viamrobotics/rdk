@@ -17,7 +17,7 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap := make(map[r3.Vector]int)
 	clouds := make([]pc.PointCloud, 0)
 	for i := 0; i < 3; i++ {
-		clouds = append(clouds, pc.New())
+		clouds = append(clouds, pc.NewBasicEmpty())
 	}
 
 	// create 1st cloud

@@ -49,7 +49,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmaninterface"
+	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -59,7 +59,6 @@ import (
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/session"
@@ -214,33 +213,33 @@ func TestManagerForRemoteRobot(t *testing.T) {
 		),
 	)
 
-	_, err := manager.ResourceByName(arm.Named("arm1"))
+	_, _, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("arm_what"))
+	_, _, err = manager.ResourceByName(arm.Named("arm_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(base.Named("base1"))
+	_, _, err = manager.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(base.Named("base1_what"))
+	_, _, err = manager.ResourceByName(base.Named("base1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(board.Named("board1"))
+	_, _, err = manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(board.Named("board1_what"))
+	_, _, err = manager.ResourceByName(board.Named("board1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(camera.Named("camera1"))
+	_, _, err = manager.ResourceByName(camera.Named("camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(camera.Named("camera1_what"))
+	_, _, err = manager.ResourceByName(camera.Named("camera1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(gripper.Named("gripper1"))
+	_, _, err = manager.ResourceByName(gripper.Named("gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(gripper.Named("gripper1_what"))
+	_, _, err = manager.ResourceByName(gripper.Named("gripper1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(motor.Named("motor1"))
+	_, _, err = manager.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(motor.Named("motor1_what"))
+	_, _, err = manager.ResourceByName(motor.Named("motor1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = manager.ResourceByName(servo.Named("servo1"))
+	_, _, err = manager.ResourceByName(servo.Named("servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(servo.Named("servo_what"))
+	_, _, err = manager.ResourceByName(servo.Named("servo_what"))
 	test.That(t, err, test.ShouldBeError)
 }
 
@@ -253,31 +252,31 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 		context.Background(),
 		newDummyRobot(t, setupInjectRobot(logger)),
 		nil,
-		config.Remote{Name: "remote1"},
+		config.Remote{Name: "remote1", Prefix: "rem1"},
 	)
 	manager.addRemote(
 		context.Background(),
 		newDummyRobot(t, setupInjectRobot(logger)),
 		nil,
-		config.Remote{Name: "remote2"},
+		config.Remote{Name: "remote2", Prefix: "rem2"},
 	)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
-	armNames = append(armNames, rdktestutils.AddRemotes(armNames, "remote1", "remote2")...)
+	armNames = append(armNames, rdktestutils.AddRemotesWithPrefixes(armNames, "remote1", "rem1", "remote2", "rem2")...)
 	baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
-	baseNames = append(baseNames, rdktestutils.AddRemotes(baseNames, "remote1", "remote2")...)
+	baseNames = append(baseNames, rdktestutils.AddRemotesWithPrefixes(baseNames, "remote1", "rem1", "remote2", "rem2")...)
 	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
-	boardNames = append(boardNames, rdktestutils.AddRemotes(boardNames, "remote1", "remote2")...)
+	boardNames = append(boardNames, rdktestutils.AddRemotesWithPrefixes(boardNames, "remote1", "rem1", "remote2", "rem2")...)
 	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
-	cameraNames = append(cameraNames, rdktestutils.AddRemotes(cameraNames, "remote1", "remote2")...)
+	cameraNames = append(cameraNames, rdktestutils.AddRemotesWithPrefixes(cameraNames, "remote1", "rem1", "remote2", "rem2")...)
 	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
-	gripperNames = append(gripperNames, rdktestutils.AddRemotes(gripperNames, "remote1", "remote2")...)
+	gripperNames = append(gripperNames, rdktestutils.AddRemotesWithPrefixes(gripperNames, "remote1", "rem1", "remote2", "rem2")...)
 	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
-	inputNames = append(inputNames, rdktestutils.AddRemotes(inputNames, "remote1", "remote2")...)
+	inputNames = append(inputNames, rdktestutils.AddRemotesWithPrefixes(inputNames, "remote1", "rem1", "remote2", "rem2")...)
 	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
-	motorNames = append(motorNames, rdktestutils.AddRemotes(motorNames, "remote1", "remote2")...)
+	motorNames = append(motorNames, rdktestutils.AddRemotesWithPrefixes(motorNames, "remote1", "rem1", "remote2", "rem2")...)
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
-	servoNames = append(servoNames, rdktestutils.AddRemotes(servoNames, "remote1", "remote2")...)
+	servoNames = append(servoNames, rdktestutils.AddRemotesWithPrefixes(servoNames, "remote1", "rem1", "remote2", "rem2")...)
 
 	rdktestutils.VerifySameElements(t, manager.RemoteNames(), []string{"remote1", "remote2"})
 	rdktestutils.VerifySameResourceNames(
@@ -294,67 +293,67 @@ func TestManagerMergeNamesWithRemotes(t *testing.T) {
 			servoNames,
 		),
 	)
-	_, err := manager.ResourceByName(arm.Named("arm1"))
+	_, _, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	_, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("remote2:arm1"))
+	_, _, err = manager.ResourceByName(arm.Named("remote2:arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("what:arm1"))
+	_, _, err = manager.ResourceByName(arm.Named("what:arm1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(base.Named("base1"))
+	_, _, err = manager.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(base.Named("remote1:base1"))
+	_, _, err = manager.ResourceByName(base.Named("remote1:base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(base.Named("remote2:base1"))
+	_, _, err = manager.ResourceByName(base.Named("remote2:base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(base.Named("what:base1"))
+	_, _, err = manager.ResourceByName(base.Named("what:base1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(board.Named("board1"))
+	_, _, err = manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(board.Named("remote1:board1"))
+	_, _, err = manager.ResourceByName(board.Named("remote1:board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(board.Named("remote2:board1"))
+	_, _, err = manager.ResourceByName(board.Named("remote2:board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(board.Named("what:board1"))
+	_, _, err = manager.ResourceByName(board.Named("what:board1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(camera.Named("camera1"))
+	_, _, err = manager.ResourceByName(camera.Named("camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(camera.Named("remote1:camera1"))
+	_, _, err = manager.ResourceByName(camera.Named("remote1:camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(camera.Named("remote2:camera1"))
+	_, _, err = manager.ResourceByName(camera.Named("remote2:camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(camera.Named("what:camera1"))
+	_, _, err = manager.ResourceByName(camera.Named("what:camera1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(gripper.Named("gripper1"))
+	_, _, err = manager.ResourceByName(gripper.Named("gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(gripper.Named("remote1:gripper1"))
+	_, _, err = manager.ResourceByName(gripper.Named("remote1:gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(gripper.Named("remote2:gripper1"))
+	_, _, err = manager.ResourceByName(gripper.Named("remote2:gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(gripper.Named("what:gripper1"))
+	_, _, err = manager.ResourceByName(gripper.Named("what:gripper1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(motor.Named("motor1"))
+	_, _, err = manager.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(motor.Named("remote1:motor1"))
+	_, _, err = manager.ResourceByName(motor.Named("remote1:motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(motor.Named("remote2:motor1"))
+	_, _, err = manager.ResourceByName(motor.Named("remote2:motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(motor.Named("what:motor1"))
+	_, _, err = manager.ResourceByName(motor.Named("what:motor1"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = manager.ResourceByName(servo.Named("servo1"))
+	_, _, err = manager.ResourceByName(servo.Named("servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(servo.Named("remote1:servo1"))
+	_, _, err = manager.ResourceByName(servo.Named("remote1:servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(servo.Named("remote2:servo1"))
+	_, _, err = manager.ResourceByName(servo.Named("remote2:servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(servo.Named("what:servo1"))
+	_, _, err = manager.ResourceByName(servo.Named("what:servo1"))
 	test.That(t, err, test.ShouldBeError)
 }
 
@@ -412,10 +411,59 @@ func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 		config.Remote{Name: "remote2"},
 	)
 
-	_, err := manager.ResourceByName(arm.Named("arm1"))
+	resName, _, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+	resName, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+	resName, _, err = manager.ResourceByName(arm.Named("remote2:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+}
+
+func TestManagerWithSameNameInRemoteWithPrefix(t *testing.T) {
+	// The test tests that the resource manager handles prefixes correctly.
+	//
+	// Prefixes are set on the graph node, so querying manager.ResourceByName
+	// with the prefix is not expected to work for internal usage.
+	//
+	// Callers have to specify the remote the resource came from in order to
+	// find the resource.
+	//
+	// The returned resource name should contain the prefix but not the remote name.
+	logger := logging.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	manager := managerForDummyRobot(t, injectRobot)
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(t, setupInjectRobot(logger)),
+		nil,
+		config.Remote{Name: "remote1", Prefix: "r1-"},
+	)
+	manager.addRemote(
+		context.Background(),
+		newDummyRobot(t, setupInjectRobot(logger)),
+		nil,
+		config.Remote{Name: "remote2", Prefix: "r2-"},
+	)
+
+	resName, _, err := manager.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("arm1"))
+
+	_, _, err = manager.ResourceByName(arm.Named("remote1:r1-arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("remote1:r1-arm1")))
+	resName, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("r1-arm1"))
+
+	_, _, err = manager.ResourceByName(arm.Named("remote2:r2-arm1"))
+	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(arm.Named("remote2:r2-arm1")))
+	resName, _, err = manager.ResourceByName(arm.Named("remote2:arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resName, test.ShouldResemble, arm.Named("r2-arm1"))
 }
 
 func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
@@ -430,9 +478,9 @@ func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 		config.Remote{Name: "remote1"},
 	)
 
-	_, err := manager.ResourceByName(arm.Named("arm1"))
+	_, _, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.ResourceByName(arm.Named("remote1:arm1"))
+	_, _, err = manager.ResourceByName(arm.Named("remote1:arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -444,7 +492,7 @@ func TestManagerAdd(t *testing.T) {
 	cfg := &resource.Config{API: arm.API, Name: "arm1"}
 	rName := cfg.ResourceName()
 	manager.resources.AddNode(rName, resource.NewConfiguredGraphNode(*cfg, injectArm, cfg.Model))
-	arm1, err := manager.ResourceByName(rName)
+	_, arm1, err := manager.ResourceByName(rName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
@@ -455,19 +503,12 @@ func TestManagerAdd(t *testing.T) {
 	}
 	rName = cfg.ResourceName()
 	manager.resources.AddNode(rName, resource.NewConfiguredGraphNode(*cfg, injectBoard, cfg.Model))
-	board1, err := manager.ResourceByName(board.Named("board1"))
+	_, board1, err := manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldEqual, injectBoard)
-	resource1, err := manager.ResourceByName(rName)
+	_, resource1, err := manager.ResourceByName(rName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
-
-	injectMotionService := &inject.MotionService{}
-	objectMResName := motion.Named("motion1")
-	manager.resources.AddNode(objectMResName, resource.NewConfiguredGraphNode(resource.Config{}, injectMotionService, unknownModel))
-	motionService, err := manager.ResourceByName(objectMResName)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, motionService, test.ShouldEqual, injectMotionService)
 
 	injectVisionService := &inject.VisionService{}
 	injectVisionService.GetObjectPointCloudsFunc = func(
@@ -479,7 +520,7 @@ func TestManagerAdd(t *testing.T) {
 	}
 	objectSegResName := vision.Named(resource.DefaultServiceName)
 	manager.resources.AddNode(objectSegResName, resource.NewConfiguredGraphNode(resource.Config{}, injectVisionService, unknownModel))
-	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
+	_, objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objectSegmentationService, test.ShouldEqual, injectVisionService)
 }
@@ -692,7 +733,7 @@ func TestManagerNewComponent(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board3")
 }
 
-func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resourceManager {
+func managerForTest(t *testing.T, l logging.Logger) *resourceManager {
 	t.Helper()
 	injectRobot := setupInjectRobot(l)
 	manager := managerForDummyRobot(t, injectRobot)
@@ -709,10 +750,6 @@ func managerForTest(ctx context.Context, t *testing.T, l logging.Logger) *resour
 		nil,
 		config.Remote{Name: "remote2"},
 	)
-	_, err := manager.processManager.AddProcess(ctx, &fakeProcess{id: "1"}, false)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = manager.processManager.AddProcess(ctx, &fakeProcess{id: "2"}, false)
-	test.That(t, err, test.ShouldBeNil)
 	return manager
 }
 
@@ -720,24 +757,24 @@ func TestManagerMarkRemoved(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	manager := managerForTest(ctx, t, logger)
+	manager := managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
 	checkEmpty := func(
-		procMan pexec.ProcessManager,
 		resourcesToCloseBeforeComplete []resource.Resource,
 		names map[resource.Name]struct{},
+		toRebuild []resource.Name,
 	) {
 		t.Helper()
 		test.That(t, names, test.ShouldBeEmpty)
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
-		test.That(t, procMan.ProcessIDs(), test.ShouldBeEmpty)
+		test.That(t, toRebuild, test.ShouldBeEmpty)
 	}
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild := manager.markRemoved(ctx, &config.Config{})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -783,26 +820,26 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo",
 			},
 		},
-	}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
-	processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	resourcesToCloseBeforeComplete, markedResourceNames, toRebuild = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "what1",
 			},
 		},
-	}, logger)
-	checkEmpty(processesToRemove, resourcesToCloseBeforeComplete, markedResourceNames)
+	})
+	checkEmpty(resourcesToCloseBeforeComplete, markedResourceNames, toRebuild)
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Components: []resource.Config{
 			{
 				Name: "arm2",
@@ -848,7 +885,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames := []resource.Name{arm.Named("arm2")}
 	baseNames := []resource.Name{base.Named("base2")}
@@ -874,16 +911,15 @@ func TestManagerMarkRemoved(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -933,7 +969,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("remote2:arm1"), arm.Named("remote2:arm2")}
 	baseNames = []resource.Name{
@@ -988,16 +1024,15 @@ func TestManagerMarkRemoved(t *testing.T) {
 			[]resource.Name{fromRemoteNameToRemoteNodeName("remote2")},
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"2"})
 
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 
 	ctx, cancel = context.WithCancel(context.Background())
-	manager = managerForTest(ctx, t, logger)
+	manager = managerForTest(t, logger)
 	test.That(t, manager, test.ShouldNotBeNil)
 
-	processesToRemove, _, markedResourceNames = manager.markRemoved(ctx, &config.Config{
+	_, markedResourceNames, _ = manager.markRemoved(ctx, &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",
@@ -1133,7 +1168,7 @@ func TestManagerMarkRemoved(t *testing.T) {
 				Name: "echo", // does not matter
 			},
 		},
-	}, logger)
+	})
 
 	armNames = []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, rdktestutils.AddRemotes(armNames, "remote1", "remote2")...)
@@ -1171,7 +1206,6 @@ func TestManagerMarkRemoved(t *testing.T) {
 			},
 		)...),
 	)
-	rdktestutils.VerifySameElements(t, processesToRemove.ProcessIDs(), []string{"1", "2"})
 	test.That(t, manager.Close(ctx), test.ShouldBeNil)
 	cancel()
 }
@@ -1262,25 +1296,6 @@ func TestConfigUntrustedEnv(t *testing.T) {
 	manager := newResourceManager(resourceManagerOptions{
 		untrustedEnv: true,
 	}, logger)
-	test.That(t, manager.processManager, test.ShouldEqual, pexec.NoopProcessManager)
-
-	t.Run("disable processes", func(t *testing.T) {
-		err := manager.updateResources(ctx, &config.Diff{
-			Added: &config.Config{
-				Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
-			},
-			Modified: &config.ModifiedConfigDiff{
-				Processes: []pexec.ProcessConfig{{ID: "id2", Name: "echo"}},
-			},
-		})
-		test.That(t, errors.Is(err, errProcessesDisabled), test.ShouldBeTrue)
-
-		processesToClose, _, _ := manager.markRemoved(ctx, &config.Config{
-			Processes: []pexec.ProcessConfig{{ID: "id1", Name: "echo"}},
-		}, logger)
-		test.That(t, processesToClose.ProcessIDs(), test.ShouldBeEmpty)
-	})
-
 	t.Run("disable shell service", func(t *testing.T) {
 		err := manager.updateResources(ctx, &config.Diff{
 			Added: &config.Config{
@@ -1298,40 +1313,15 @@ func TestConfigUntrustedEnv(t *testing.T) {
 		})
 		test.That(t, errors.Is(err, errShellServiceDisabled), test.ShouldBeTrue)
 
-		_, resourcesToCloseBeforeComplete, markedResourceNames := manager.markRemoved(ctx, &config.Config{
+		resourcesToCloseBeforeComplete, markedResourceNames, _ := manager.markRemoved(ctx, &config.Config{
 			Services: []resource.Config{{
 				Name: "shell-service",
 				API:  shell.API,
 			}},
-		}, logger)
+		})
 		test.That(t, resourcesToCloseBeforeComplete, test.ShouldBeEmpty)
 		test.That(t, markedResourceNames, test.ShouldBeEmpty)
 	})
-}
-
-type fakeProcess struct {
-	id string
-}
-
-func (fp *fakeProcess) ID() string {
-	return fp.id
-}
-
-func (fp *fakeProcess) Start(ctx context.Context) error {
-	return nil
-}
-
-func (fp *fakeProcess) Stop() error {
-	return nil
-}
-func (fp *fakeProcess) KillGroup() {}
-
-func (fp *fakeProcess) Status() error {
-	return nil
-}
-
-func (fp *fakeProcess) UnixPid() (int, error) {
-	return 0, errors.New("unimplemented")
 }
 
 func TestManagerResourceRPCAPIs(t *testing.T) {
@@ -1633,7 +1623,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
 
 		// Grab motor of remote1 to check that it won't work after switching remotes
-		motor1, err := motor.FromRobot(mainRobot, "motor")
+		motor1, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, err := motor1.IsPowered(ctx, nil)
@@ -1651,7 +1641,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Grab motor of remote2 to check that it won't work after switching remotes
-		motor2, err := motor.FromRobot(mainRobot, "motor")
+		motor2, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, _ = motor2.IsPowered(ctx, nil)
@@ -1671,7 +1661,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Check that we were able to grab the motor from remote1 through the main robot and successfully call IsPowered()
-		motor1, err = motor.FromRobot(mainRobot, "motor")
+		motor1, err = motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, err = motor1.IsPowered(ctx, nil)
@@ -1707,7 +1697,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		mainRobot := setupLocalRobot(t, ctx, mainRobotCfg, logger.Sublogger("main"))
 
 		// Grab arm of remote1 to check that it won't work after switching remotes
-		arm1, err := arm.FromRobot(mainRobot, "arm")
+		arm1, err := arm.FromProvider(mainRobot, "arm")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, err := arm1.IsMoving(ctx)
@@ -1724,7 +1714,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Grab motor of remote2 to check that it won't work after switching remotes
-		motor1, err := motor.FromRobot(mainRobot, "motor")
+		motor1, err := motor.FromProvider(mainRobot, "motor")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, speed, _ := motor1.IsPowered(ctx, nil)
@@ -1744,7 +1734,7 @@ func TestRemoteConnClosedOnReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// Check that we were able to grab the arm from remote1 through the main robot and successfully call IsMoving()
-		arm1, err = arm.FromRobot(mainRobot, "arm")
+		arm1, err = arm.FromProvider(mainRobot, "arm")
 		test.That(t, err, test.ShouldBeNil)
 
 		moving, err = arm1.IsMoving(ctx)
@@ -1841,9 +1831,14 @@ type dummyRobot struct {
 	mu         sync.Mutex
 	robot      robot.Robot
 	manager    *resourceManager
-	modmanager modmaninterface.ModuleManager
+	modmanager *modmanager.Manager
 
 	offline bool
+}
+
+// GetResource implements resource.Provider for a dummyRobot by looking up a resource by name.
+func (rr *dummyRobot) GetResource(name resource.Name) (resource.Resource, error) {
+	return rr.ResourceByName(name)
 }
 
 // newDummyRobot returns a new dummy robot wrapping a given robot.Robot
@@ -1921,11 +1916,21 @@ func (rr *dummyRobot) ResourceByName(name resource.Name) (resource.Resource, err
 	if rr.offline {
 		return nil, errors.New("offline")
 	}
-	return rr.manager.ResourceByName(name)
+	_, res, err := rr.manager.ResourceByName(name)
+	return res, err
 }
 
 // FrameSystemConfig returns a remote robot's FrameSystem Config.
 func (rr *dummyRobot) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	panic("change to return nil")
+}
+
+func (rr *dummyRobot) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
 	panic("change to return nil")
 }
 
@@ -1943,6 +1948,10 @@ func (rr *dummyRobot) TransformPointCloud(ctx context.Context, srcpc pointcloud.
 	panic("change to return nil")
 }
 
+func (rr *dummyRobot) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	panic("change to return nil")
+}
+
 func (rr *dummyRobot) ProcessManager() pexec.ProcessManager {
 	panic("change to return nil")
 }
@@ -1951,7 +1960,7 @@ func (rr *dummyRobot) OperationManager() *operation.Manager {
 	panic("change to return nil")
 }
 
-func (rr *dummyRobot) ModuleManager() modmaninterface.ModuleManager {
+func (rr *dummyRobot) ModuleManager() *modmanager.Manager {
 	return rr.modmanager
 }
 
@@ -2042,7 +2051,17 @@ func managerForDummyRobot(t *testing.T, robot robot.Robot) *resourceManager {
 
 	// start a dummy module manager so calls to moduleManager.Provides() do not
 	// panic.
-	manager.startModuleManager(context.Background(), "", nil, false, "", "", robot.Logger(), t.TempDir(), grpc.NewModPeerConnTracker())
+	manager.startModuleManager(
+		context.Background(),
+		config.ParentSockAddrs{},
+		func(_ context.Context, _ []resource.Name) {},
+		false,
+		"",
+		"",
+		robot.Logger(),
+		t.TempDir(),
+		grpc.NewModPeerConnTracker(),
+	)
 
 	for _, name := range robot.ResourceNames() {
 		res, err := robot.ResourceByName(name)
@@ -2171,11 +2190,8 @@ func TestOfflineRemoteResources(t *testing.T) {
 	defer mainClient.Close(ctx)
 	resourceNames := mainClient.ResourceNames()
 
-	// When the `mainClient` requests `ResourceNames`, the motor will be annotated to include its
-	// remote.
-	motorResourceNameFromMain := motorResourceName.PrependRemote("remote")
 	// Search the list of "main" resources for the remote motor. Sanity check that we find it.
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Grab the RobotClient resource graph node from the main robot that is connected to the
 	// remote. We'll use this to know when the main robot observes the remote has gone offline.
@@ -2202,7 +2218,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 	resourceNames = mainClient.ResourceNames()
 
 	// Scan again for the remote motor. Assert it still exists.
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Restart the remote web server. We closed the old listener, so just pass in the web address as
 	// part of the web options.
@@ -2226,7 +2242,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 	// Again, manually refresh the list of resources to clear the cache. Assert the remote motor
 	// still exists.
 	mainToRemoteClient.Refresh(logging.EnableDebugModeWithKey(ctx, "refresh"))
-	test.That(t, resourceNames, test.ShouldContain, motorResourceNameFromMain)
+	test.That(t, resourceNames, test.ShouldContain, motorResourceName)
 
 	// Reconfigure away the motor on the remote robot.
 	remoteCfg.Components = []resource.Config{}
@@ -2238,7 +2254,7 @@ func TestOfflineRemoteResources(t *testing.T) {
 		tb.Helper()
 		mainToRemoteClient.Refresh(ctx)
 		resourceNames := mainToRemoteClient.ResourceNames()
-		test.That(t, resourceNames, test.ShouldNotContain, motorResourceNameFromMain)
+		test.That(t, resourceNames, test.ShouldNotContain, motorResourceName)
 	})
 
 	// Manually update remote resource names. Knowing the robot client servicing the information has

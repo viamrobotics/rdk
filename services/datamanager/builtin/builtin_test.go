@@ -36,6 +36,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -61,41 +62,67 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 28)
+	test.That(t, len(collectors), test.ShouldEqual, 54)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
 	rdkComponent := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "component"}
 	rdkService := resource.APIType{Namespace: resource.APINamespace("rdk"), Name: "service"}
 	test.That(t, mds, test.ShouldResemble, []data.MethodMetadata{
+		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "GetAudio"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Gpios"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "button"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetImages"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "NextPointCloud"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "ReadImage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "TicksCount"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Lengths"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "IsPowered"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "AngularVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "CompassHeading"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearAcceleration"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Orientation"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "pose_tracker"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Current"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Power"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Readings"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Voltage"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "Readings"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "Position"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "switch"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "base_remote_control"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "discovery"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "navigation"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "shell"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "PointCloudMap"},
 		{API: resource.API{Type: rdkService, SubtypeName: "slam"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "CaptureAllFromCamera"},
+		{API: resource.API{Type: rdkService, SubtypeName: "vision"}, MethodName: "DoCommand"},
 	})
 }
 
@@ -105,7 +132,7 @@ func TestNew(t *testing.T) {
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
 		mockDeps := mockDeps(nil, nil)
-		_, err := New(ctx, mockDeps, resource.Config{}, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		_, err := New(ctx, mockDeps, resource.Config{}, datasync.NoOpCloudClientConstructor, logger)
 
 		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
 			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
@@ -118,13 +145,12 @@ func TestNew(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			b, err := New(
 				ctx,
 				mockDeps,
 				resource.Config{ConvertedAttributes: c},
 				datasync.NoOpCloudClientConstructor,
-				connToConnectivityStateError,
 				logger,
 			)
 			test.That(t, err, test.ShouldBeNil)
@@ -134,7 +160,7 @@ func TestNew(t *testing.T) {
 
 		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
 			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
-			_, err = New(ctx, nil, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+			_, err = New(ctx, nil, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
 		})
 	})
@@ -144,7 +170,7 @@ func TestNew(t *testing.T) {
 		_, err := New(
 			ctx,
 			resource.Dependencies{},
-			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+			resource.Config{ConvertedAttributes: &Config{}}, datasync.NoOpCloudClientConstructor, logger)
 		errExp := errors.New("Resource missing from dependencies. " +
 			"Resource: rdk-internal:service:cloud_connection/builtin")
 		test.That(t, err, test.ShouldBeError, errExp)
@@ -156,7 +182,7 @@ func TestNew(t *testing.T) {
 		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
 		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
 		deps := mockDeps(nil, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
-		_, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		_, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
 	})
 
@@ -174,7 +200,7 @@ func TestNew(t *testing.T) {
 		})
 
 		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		b, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+		b, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldNotBeNil)
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
@@ -200,7 +226,7 @@ func TestReconfigure(t *testing.T) {
 		t.Run("returns successfully if config uses the default capture dir", func(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
-			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, viamCaptureDotDir)
+			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
 			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -262,16 +288,9 @@ func TestFileDeletion(t *testing.T) {
 	tempDir := t.TempDir()
 	ctx := context.Background()
 
-	fsThresholdToTriggerDeletion := datasync.FSThresholdToTriggerDeletion
-	captureDirToFSUsageRatio := datasync.CaptureDirToFSUsageRatio
 	t.Cleanup(func() {
 		clk = prevClock
-		datasync.FSThresholdToTriggerDeletion = fsThresholdToTriggerDeletion
-		datasync.CaptureDirToFSUsageRatio = captureDirToFSUsageRatio
 	})
-
-	datasync.FSThresholdToTriggerDeletion = math.SmallestNonzeroFloat64
-	datasync.CaptureDirToFSUsageRatio = math.SmallestNonzeroFloat64
 
 	r := setupRobot(nil, map[resource.Name]resource.Resource{
 		arm.Named("arm1"): &inject.Arm{
@@ -285,10 +304,10 @@ func TestFileDeletion(t *testing.T) {
 				ctx context.Context,
 				extra map[string]interface{},
 			) ([]referenceframe.Input, error) {
-				return referenceframe.FloatsToInputs([]float64{1.0, 2.0, 3.0, 4.0}), nil
+				return []referenceframe.Input{1.0, 2.0, 3.0, 4.0}, nil
 			},
-			ModelFrameFunc: func() referenceframe.Model {
-				return nil
+			KinematicsFunc: func(ctx context.Context) (referenceframe.Model, error) {
+				return nil, errors.New("KinematicsFunc unimplemented")
 			},
 		},
 		gantry.Named("gantry1"): &inject.Gantry{
@@ -315,7 +334,9 @@ func TestFileDeletion(t *testing.T) {
 	// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 	// and we can confidently read the capture file without it's contents being modified by the collector
 	c.MaximumCaptureFileSizeBytes = 1
-	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, connToConnectivityStateError, logger)
+	c.DiskUsageDeletionThreshold = math.SmallestNonzeroFloat64
+	c.CaptureDirDeletionThreshold = math.SmallestNonzeroFloat64
+	bSvc, err := New(ctx, deps, config, datasync.NoOpCloudClientConstructor, logger)
 	test.That(t, err, test.ShouldBeNil)
 	b := bSvc.(*builtIn)
 	defer b.Close(context.Background())
@@ -359,19 +380,19 @@ func TestSync(t *testing.T) {
 		name                 string
 		dataType             v1.DataType
 		failTransiently      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
 			name:                 "manual sync should return success and enqueue captured tabular data to be synced if got ready cloud connection",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
 			name:                 "manual sync should return success and enqueue captured binary data to be synced if got ready cloud connection",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -379,7 +400,7 @@ func TestSync(t *testing.T) {
 				"data to be synced if transient errors are encountered",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -387,7 +408,7 @@ func TestSync(t *testing.T) {
 				"synced if transient errors are encountered",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 			cloudConnectionErr:   nil,
 		},
 		{
@@ -404,14 +425,14 @@ func TestSync(t *testing.T) {
 			name: "manual sync should return an success and leave captured tabular data on " +
 				"disk if cloud connection was created but is currently not ready",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 			cloudConnectionErr:   nil,
 		},
 		{
 			name: "manual sync should return an success and leave captured binary data on " +
 				"disk if cloud connection was created but is currently not ready",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 			cloudConnectionErr:   nil,
 		},
 	}
@@ -449,22 +470,30 @@ func TestSync(t *testing.T) {
 			if tc.dataType == v1.DataType_DATA_TYPE_BINARY_SENSOR {
 				r = setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
 					camera.Named("c1"): &inject.Camera{
-						ImageFunc: func(
+						ImagesFunc: func(
 							ctx context.Context,
-							mimeType string,
+							filterSourceNames []string,
 							extra map[string]interface{},
-						) ([]byte, camera.ImageMetadata, error) {
-							outBytes, err := rimage.EncodeImage(ctx, imgPng, mimeType)
+						) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+							outBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 							if err != nil {
-								return nil, camera.ImageMetadata{}, err
+								return nil, resource.ResponseMetadata{}, err
 							}
-							return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+							namedImg, err := camera.NamedImageFromBytes(outBytes, "", utils.MimeTypeJPEG, data.Annotations{})
+							if err != nil {
+								return nil, resource.ResponseMetadata{}, err
+							}
+							return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 						},
 					},
 				})
 				config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			}
 
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
 			// Set up service config with only capture enabled.
 			c := config.ConvertedAttributes.(*Config)
 			c.CaptureDisabled = false
@@ -472,7 +501,7 @@ func TestSync(t *testing.T) {
 			c.SyncIntervalMins = syncIntervalMins
 			c.CaptureDir = tmpDir
 
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			time.Sleep(captureInterval * 20)
@@ -546,7 +575,7 @@ func TestSync(t *testing.T) {
 			c.ScheduledSyncDisabled = true
 			c.SyncIntervalMins = syncIntervalMins
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 
@@ -686,13 +715,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		config := resource.Config{
@@ -707,7 +736,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 							Name:               cameraName,
 							Method:             "NextPointCloud",
 							CaptureFrequencyHz: 3.0,
-							AdditionalParams:   map[string]string{"some additional": "params"},
+							AdditionalParams:   map[string]interface{}{"some additional": "params"},
 						},
 					},
 				},
@@ -731,13 +760,13 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               armName,
 				Method:             "JointPositions",
 				CaptureFrequencyHz: 1.0,
-				AdditionalParams:   map[string]string{"some": "params"},
+				AdditionalParams:   map[string]interface{}{"some": "params"},
 			},
 			{
 				Name:               armName,
 				Method:             "CurrentInputs",
 				CaptureFrequencyHz: 2.0,
-				AdditionalParams:   map[string]string{"some_other": "params"},
+				AdditionalParams:   map[string]interface{}{"some_other": "params"},
 			},
 		}
 		cameraCaptureMethods := []datamanager.DataCaptureConfig{
@@ -745,7 +774,7 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 				Name:               cameraName,
 				Method:             "NextPointCloud",
 				CaptureFrequencyHz: 3.0,
-				AdditionalParams:   map[string]string{"some additional": "params"},
+				AdditionalParams:   map[string]interface{}{"some additional": "params"},
 			},
 		}
 		config := resource.Config{
@@ -787,7 +816,6 @@ func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Se
 		mockDeps,
 		resource.Config{ConvertedAttributes: &Config{}},
 		datasync.NoOpCloudClientConstructor,
-		connToConnectivityStateError,
 		logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
@@ -850,7 +878,7 @@ func resourceConfigAndDeps(t *testing.T, cfg *config.Config, r *inject.Robot) (r
 	test.That(t, config, test.ShouldNotBeNil)
 	builtinConfig, ok := config.ConvertedAttributes.(*Config)
 	test.That(t, ok, test.ShouldBeTrue)
-	ds, err := builtinConfig.Validate("")
+	ds, _, err := builtinConfig.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	for _, d := range ds {
 		resName, err := resource.NewFromString(d)

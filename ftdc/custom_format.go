@@ -16,8 +16,12 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-// epsilon is a small value for determining whether a float is 0.0.
-const epsilon = 1e-9
+const (
+	// epsilon is a small value for determining whether a float is 0.0.
+	epsilon = 1e-9
+	// nsInADay is the number of nanoseconds in a day.
+	nsInADay = 8.64e13
+)
 
 type schema struct {
 	// A `Datum`s data is a map[string]any. Even if two datum's have maps with the same keys, we do
@@ -59,7 +63,6 @@ func writeSchema(schema *schema, output io.Writer) error {
 func writeDatum(time int64, prev, curr []float32, output io.Writer) error {
 	numPts := len(curr)
 	if len(prev) != 0 && numPts != len(prev) {
-		//nolint:stylecheck
 		return fmt.Errorf("Bad input sizes. Prev: %v Curr: %v", len(prev), len(curr))
 	}
 
@@ -230,7 +233,6 @@ func flattenMap(mValue reflect.Value) ([]string, []float32, error) {
 			}
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(value.Kind()):
-			//nolint:stylecheck
 			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", value.Kind())
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
@@ -294,7 +296,6 @@ func flattenStruct(value reflect.Value) ([]string, []float32, error) {
 
 			numbers = append(numbers, subNumbers...)
 		case isNumeric(rField.Kind()):
-			//nolint:stylecheck
 			return nil, nil, fmt.Errorf("A numeric type was forgotten to be included. Kind: %v", rField.Kind())
 		default:
 			// Getting the keys for a structure will ignore these types. Such as the antagonistic
@@ -360,19 +361,27 @@ func (flatDatum *FlatDatum) asDatum() datum {
 	return ret
 }
 
-// Parse reads the entire contents from `rawReader` and returns a list of `Datum`. If an error
-// occurs, the []Datum parsed up until the place of the error will be returned, in addition to a
-// non-nil error.
-func Parse(rawReader io.Reader) ([]FlatDatum, error) {
+// Parse reads the entire contents from `rawReader` and returns a list of `Datum` and the
+// last timestamp that was read. If an error occurs, the []Datum parsed up until the place
+// of the error will be returned, in addition to the last-read timestamp and a non-nil
+// error. The last-read timestamp is useful for determining the timestamp of the file
+// boundary.
+func Parse(rawReader io.Reader) ([]FlatDatum, int64, error) {
 	logger := logging.NewLogger("")
 	logger.SetLevel(logging.ERROR)
 
 	return ParseWithLogger(rawReader, logger)
 }
 
-// ParseWithLogger parses with a logger for output.
-func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, error) {
-	ret := make([]FlatDatum, 0)
+// ParseWithLogger parses with a logger for output. It returns a slice of flat datums and
+// the last timestamp that was read. The latter is useful for determining the timestamp of
+// the file boundary.
+func ParseWithLogger(rawReader io.Reader, logger logging.Logger) (
+	ret []FlatDatum,
+	lastTimestampRead int64,
+	retErr error,
+) {
+	ret = make([]FlatDatum, 0)
 
 	// prevValues are the previous values used for producing the diff bits. This is overwritten when
 	// a new metrics reading is made. and nilled out when the schema changes.
@@ -390,7 +399,10 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 				break
 			}
 
-			return ret, err
+			if schema == nil {
+				retErr = errors.New("could not read first byte")
+				return
+			}
 		}
 
 		// If the first bit of the first byte is `1`, the next block of data is a schema
@@ -416,14 +428,19 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 			prevValues = nil
 			continue
 		} else if schema == nil {
-			return nil, errors.New("first byte of FTDC data must be the magic 0x1 representing a new schema")
+			retErr = errors.New("first byte of FTDC data must be the magic 0x1 representing a new schema")
+			return
 		}
 
 		// This FTDC document is a metric document. Read the "diff bits" that describe which metrics
 		// have changed since the prior metric document. Note, the reader is positioned on the
 		// "packed byte" where the first bit is not a diff bit. `readDiffBits` must account for
 		// that.
-		diffedFieldsIndexes := readDiffBits(reader, schema)
+		diffedFieldsIndexes, err := readDiffBits(reader, schema)
+		if err != nil {
+			logger.Debugw("Error reading diff bits. Returning.", "error", err.Error())
+			return
+		}
 		logger.Debugw("Diff bits",
 			"changedFieldIndexes", diffedFieldsIndexes,
 			"changedFieldNames", schema.FieldNamesForIndexes(diffedFieldsIndexes))
@@ -432,16 +449,26 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		var dataTime int64
 		if err = binary.Read(reader, binary.BigEndian, &dataTime); err != nil {
 			logger.Debugw("Error reading time", "error", err)
-			return ret, err
+			retErr = err
+			return
 		}
 		logger.Debugw("Read time", "time", dataTime, "seconds", dataTime/1e9)
+
+		// If the time is lower than the previously recorded timestamp, or significantly
+		// further ahead than the previous recorded timestamp (> a day ahead), we are in a bad
+		// state and need to return.
+		if lastTimestampRead != 0 && (dataTime < lastTimestampRead || dataTime > (lastTimestampRead+nsInADay)) {
+			return
+		}
+		lastTimestampRead = dataTime
 
 		// Read the payload. There will be one float32 value for each diff bit set to `1`, i.e:
 		// `len(diffedFields)`.
 		data, err := readData(reader, schema, diffedFieldsIndexes, prevValues)
 		if err != nil {
 			logger.Debugw("Error reading data", "error", err)
-			return ret, err
+			retErr = err
+			return
 		}
 		logger.Debugw("Read data", "data", data)
 
@@ -458,7 +485,7 @@ func ParseWithLogger(rawReader io.Reader, logger logging.Logger) ([]FlatDatum, e
 		logger.Debugw("Hydrated data", "data", ret[len(ret)-1].Readings)
 	}
 
-	return ret, nil
+	return
 }
 
 func flatDatumsToDatums(inp []FlatDatum) []datum {
@@ -527,7 +554,7 @@ func readSchema(reader *bufio.Reader) (*schema, *bufio.Reader) {
 // metrics that have changed. Note that the first byte of the input reader is "packed" with the
 // schema bit. Thus the first byte can represent 7 metrics and the remaining bytes can each
 // represent 8 metrics.
-func readDiffBits(reader *bufio.Reader, schema *schema) []int {
+func readDiffBits(reader *bufio.Reader, schema *schema) ([]int, error) {
 	// 1 diff bit per metric + 1 bit for the packed "schema bit".
 	numBits := len(schema.fieldOrder) + 1
 
@@ -539,7 +566,7 @@ func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 	diffBytes := make([]byte, numBytes)
 	_, err := io.ReadFull(reader, diffBytes)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	var ret []int
@@ -561,7 +588,7 @@ func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 		}
 	}
 
-	return ret
+	return ret, nil
 }
 
 // readData returns the "hydrated" metrics for a data reading. For example, if there are ten metrics
@@ -569,7 +596,6 @@ func readDiffBits(reader *bufio.Reader, schema *schema) []int {
 // is the post-hydration list and consequently matches the `schema.fieldOrder` size.
 func readData(reader *bufio.Reader, schema *schema, diffedFields []int, prevValues []float32) ([]float32, error) {
 	if prevValues != nil && len(prevValues) != len(schema.fieldOrder) {
-		//nolint
 		return nil, fmt.Errorf("Parser error. Mismatched `prevValues` and schema size. PrevValues: %d Schema: %d",
 			len(prevValues), len(schema.fieldOrder))
 	}

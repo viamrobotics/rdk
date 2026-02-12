@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/button/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -14,12 +15,12 @@ import (
 // serviceServer implements the ButtonService from button.proto.
 type serviceServer struct {
 	pb.UnimplementedButtonServiceServer
-	coll resource.APIResourceCollection[Button]
+	coll resource.APIResourceGetter[Button]
 }
 
 // NewRPCServiceServer constructs an gripper gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Button]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Button], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

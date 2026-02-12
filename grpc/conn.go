@@ -21,6 +21,9 @@ type ReconfigurableClientConn struct {
 
 	onTrackCBByTrackNameMu sync.Mutex
 	onTrackCBByTrackName   map[string]OnTrackCB
+
+	// Logger must be initialized by callers constructing a `ReconfigurableClientConn`.
+	Logger logging.Logger
 }
 
 // ErrNotConnected returns so that backoff error logging can compare consecutive errors and reliably conclude they are the same.
@@ -77,7 +80,7 @@ func (c *ReconfigurableClientConn) ReplaceConn(conn rpc.ClientConn) {
 			onTrackCB, ok := c.onTrackCBByTrackName[trackRemote.StreamID()]
 			c.onTrackCBByTrackNameMu.Unlock()
 			if !ok {
-				logging.Global().Errorf("Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v",
+				c.Logger.Errorf("Callback not found for StreamID (trackName): %s, keys(resOnTrackCBs): %#v",
 					trackRemote.StreamID(), maps.Keys(c.onTrackCBByTrackName))
 				return
 			}

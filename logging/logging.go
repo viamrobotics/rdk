@@ -2,7 +2,6 @@
 package logging
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -13,25 +12,12 @@ import (
 )
 
 var (
-	globalMu     sync.RWMutex
 	globalLogger = NewDebugLogger("global")
 
 	// GlobalLogLevel should be used whenever a zap logger is created that wants to obey the debug
 	// flag from the CLI or robot config.
 	GlobalLogLevel = zap.NewAtomicLevelAt(zap.InfoLevel)
 )
-
-// ReplaceGlobal replaces the global loggers.
-func ReplaceGlobal(logger Logger) {
-	globalMu.Lock()
-	globalLogger = logger
-	globalMu.Unlock()
-}
-
-// Global returns the global logger.
-func Global() Logger {
-	return globalLogger
-}
 
 // NewZapLoggerConfig returns a new default logger config.
 func NewZapLoggerConfig() zap.Config {

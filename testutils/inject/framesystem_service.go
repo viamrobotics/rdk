@@ -14,7 +14,13 @@ import (
 // If you use an injected frame system, do not also create the system's default frame system as well.
 type FrameSystemService struct {
 	framesystem.Service
-	name              resource.Name
+	name        resource.Name
+	GetPoseFunc func(
+		ctx context.Context,
+		componentName, destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+		extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error)
 	TransformPoseFunc func(
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
@@ -30,7 +36,7 @@ type FrameSystemService struct {
 	FrameSystemFunc   func(
 		ctx context.Context,
 		additionalTransforms []*referenceframe.LinkInFrame,
-	) (referenceframe.FrameSystem, error)
+	) (*referenceframe.FrameSystem, error)
 	DoCommandFunc func(
 		ctx context.Context,
 		cmd map[string]interface{},
@@ -41,7 +47,7 @@ type FrameSystemService struct {
 // NewFrameSystemService returns a new injected framesystem service.
 func NewFrameSystemService(name string) *FrameSystemService {
 	resourceName := resource.NewName(
-		resource.APINamespaceRDKInternal.WithServiceType("framesystem"),
+		framesystem.API,
 		name,
 	)
 	return &FrameSystemService{name: resourceName}
@@ -50,6 +56,19 @@ func NewFrameSystemService(name string) *FrameSystemService {
 // Name returns the name of the resource.
 func (fs *FrameSystemService) Name() resource.Name {
 	return fs.name
+}
+
+// GetPose calls the injected GetPose or the real variant.
+func (fs *FrameSystemService) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	if fs.GetPoseFunc == nil {
+		return fs.Service.GetPose(ctx, componentName, destinationFrame, supplementalTransforms, extra)
+	}
+	return fs.GetPoseFunc(ctx, componentName, destinationFrame, supplementalTransforms, extra)
 }
 
 // TransformPose calls the injected method or the real variant.
@@ -75,27 +94,6 @@ func (fs *FrameSystemService) TransformPointCloud(
 		return fs.Service.TransformPointCloud(ctx, srcpc, srcName, dstName)
 	}
 	return fs.TransformPointCloudFunc(ctx, srcpc, srcName, dstName)
-}
-
-// CurrentInputs calls the injected method or the real variant.
-func (fs *FrameSystemService) CurrentInputs(
-	ctx context.Context,
-) (referenceframe.FrameSystemInputs, map[string]framesystem.InputEnabled, error) {
-	if fs.CurrentInputsFunc == nil {
-		return fs.Service.CurrentInputs(ctx)
-	}
-	return fs.CurrentInputsFunc(ctx)
-}
-
-// FrameSystem calls the injected method of the real variant.
-func (fs *FrameSystemService) FrameSystem(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
-	if fs.FrameSystemFunc == nil {
-		return fs.Service.FrameSystem(ctx, additionalTransforms)
-	}
-	return fs.FrameSystemFunc(ctx, additionalTransforms)
 }
 
 // DoCommand calls the injected DoCommand or the real variant.

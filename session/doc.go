@@ -66,17 +66,8 @@ The interceptor should be split up into two parts, the session heatbeater/manage
 
 # Client Session Heartbeater/Manager
 
-The manager should implement a session metadata method that returns the current session ID for all methods except:
-
-	/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo
-	/proto.rpc.webrtc.v1.SignalingService/Call
-	/proto.rpc.webrtc.v1.SignalingService/CallUpdate
-	/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig
-	/proto.rpc.v1.AuthService/Authenticate
-	/viam.robot.v1.RobotService/ResourceNames
-	/viam.robot.v1.RobotService/ResourceRPCSubtypes
-	/viam.robot.v1.RobotService/StartSession
-	/viam.robot.v1.RobotService/SendSessionHeartbeat
+The manager should implement a session metadata method that returns the current session ID for all methods with the
+safety_heartbeat_monitored flag set.
 
 If the current session ID does not exist, the method should StartSession and start a background heartbeater that
 runs at an interval of StartSession's response heartbeat_window at a factor of 5. The heartbeater itself should
@@ -121,17 +112,7 @@ was associated with having their safety monitored methods called.
 
 # Server Session Interceptor
 
-The interceptor should exempt the following methods:
-
-	/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo
-	/proto.rpc.webrtc.v1.SignalingService/Call
-	/proto.rpc.webrtc.v1.SignalingService/CallUpdate
-	/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig
-	/proto.rpc.v1.AuthService/Authenticate
-	/viam.robot.v1.RobotService/ResourceNames
-	/viam.robot.v1.RobotService/ResourceRPCSubtypes
-	/viam.robot.v1.RobotService/StartSession
-	/viam.robot.v1.RobotService/SendSessionHeartbeat
+The interceptor should exempt all methods without the safety_heartbeat_monitored flag set.
 
 Before handling the method request, the interceptor must do two things:
 

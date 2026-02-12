@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -47,6 +48,9 @@ const (
 )
 
 func TestConcurrentReconfiguration(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

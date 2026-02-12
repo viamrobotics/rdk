@@ -20,11 +20,11 @@ type FakeConvertedAttributes struct {
 
 // Validate validates that the single fake attribute Thing exists properly
 // in the struct, meant to implement the validator interface in component.go.
-func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, error) {
+func (convAttr *FakeConvertedAttributes) Validate(path string) ([]string, []string, error) {
 	if convAttr.Thing == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "Thing")
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 var (
@@ -39,7 +39,7 @@ var (
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConf resource.Config
-		deps, err := emptyConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err := emptyConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
@@ -51,7 +51,7 @@ func TestComponentValidate(t *testing.T) {
 
 			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -61,7 +61,7 @@ func TestComponentValidate(t *testing.T) {
 			invalidNameString,
 		)
 		validConf.Name = "foo.arm"
-		deps, err = validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -71,7 +71,7 @@ func TestComponentValidate(t *testing.T) {
 			invalidNameString,
 		)
 		validConf.Name = "9"
-		deps, err = validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -87,11 +87,11 @@ func TestComponentValidate(t *testing.T) {
 			API:   arm.API,
 			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		validConf.Name = "A"
-		deps, err = validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err = validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -104,7 +104,7 @@ func TestComponentValidate(t *testing.T) {
 				Model:               fakeModel,
 				ConvertedAttributes: &FakeConvertedAttributes{Thing: ""},
 			}
-			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "Thing")
@@ -119,7 +119,7 @@ func TestComponentValidate(t *testing.T) {
 					Thing: "i am a thing!",
 				},
 			}
-			deps, err := invalidConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := invalidConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -131,7 +131,7 @@ func TestComponentValidate(t *testing.T) {
 			API:   resource.APINamespace("").WithComponentType("foo"),
 			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConf.API, test.ShouldResemble, resource.APINamespaceRDK.WithComponentType("foo"))
@@ -143,7 +143,7 @@ func TestComponentValidate(t *testing.T) {
 			API:   resource.APINamespace("acme").WithComponentType("foo"),
 			Model: fakeModel,
 		}
-		deps, err := validConf.Validate("path", resource.APITypeComponentName)
+		deps, _, err := validConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConf.API, test.ShouldResemble, resource.APINamespace("acme").WithComponentType("foo"))
@@ -154,7 +154,7 @@ func TestComponentValidate(t *testing.T) {
 			Name:  "fo:o",
 			Model: fakeModel,
 		}
-		_, err := invalidConf.Validate("path", resource.APITypeComponentName)
+		_, _, err := invalidConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -170,7 +170,7 @@ func TestComponentValidate(t *testing.T) {
 			API:   resource.APINamespace("ac:me").WithComponentType("foo"),
 			Model: fakeModel,
 		}
-		_, err := invalidConf.Validate("path", resource.APITypeComponentName)
+		_, _, err := invalidConf.Validate("path", resource.APITypeComponentName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
@@ -182,7 +182,7 @@ func TestComponentValidate(t *testing.T) {
 				API:   base.API,
 				Model: resource.Model{Name: "fake"},
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
@@ -195,7 +195,7 @@ func TestComponentValidate(t *testing.T) {
 				API:   base.API,
 				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
@@ -208,7 +208,7 @@ func TestComponentValidate(t *testing.T) {
 				API:   base.API,
 				Model: extModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.NewModelFamily("acme", "test"))
@@ -223,7 +223,7 @@ func TestComponentValidate(t *testing.T) {
 				API:   resource.APINamespace("").WithType("").WithSubtype("base"),
 				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, base.API)
@@ -235,7 +235,7 @@ func TestComponentValidate(t *testing.T) {
 				Model: fakeModel,
 				API:   base.API,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, base.API)
@@ -247,7 +247,7 @@ func TestComponentValidate(t *testing.T) {
 				API:   resource.APINamespace("acme").WithType("").WithSubtype("gizmo"),
 				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, extAPI)
@@ -259,7 +259,7 @@ func TestComponentValidate(t *testing.T) {
 				Model: fakeModel,
 				API:   extAPI,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeComponentName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeComponentName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.API, test.ShouldResemble, extAPI)
@@ -375,7 +375,7 @@ func TestComponentResourceName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.APITypeComponentName)
+			_, _, err := tc.Conf.Validate("", resource.APITypeComponentName)
 			if tc.ExpectedError == "" {
 				test.That(t, err, test.ShouldBeNil)
 				rName := tc.Conf.ResourceName()
@@ -392,7 +392,7 @@ func TestComponentResourceName(t *testing.T) {
 func TestServiceValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
 		var emptyConf resource.Config
-		deps, err := emptyConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := emptyConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, `subtype field`)
@@ -403,11 +403,11 @@ func TestServiceValidate(t *testing.T) {
 			Name: "frame1",
 			API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		validConf.Name = "A"
-		deps, err = validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err = validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -416,7 +416,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "frame 1",
 			API:  resource.APINamespaceRDK.WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
@@ -452,7 +452,7 @@ func TestServiceValidate(t *testing.T) {
 				API:                 resource.APINamespaceRDK.WithServiceType("frame_system"),
 				ConvertedAttributes: &FakeConvertedAttributes{Thing: ""},
 			}
-			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
+			deps, _, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, `Field: "Thing"`)
@@ -466,7 +466,7 @@ func TestServiceValidate(t *testing.T) {
 					Thing: "i am a thing!",
 				},
 			}
-			deps, err := invalidConf.Validate("path", resource.APITypeServiceName)
+			deps, _, err := invalidConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 		})
@@ -477,7 +477,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "foo",
 			API:  resource.APINamespace("").WithServiceType("frame_system"),
 		}
-		deps, err := validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -487,7 +487,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "",
 			API:  resource.APINamespace("").WithServiceType("frame_system"),
 		}
-		deps, err := testConfig.Validate("path", resource.APITypeServiceName)
+		deps, _, err := testConfig.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, testConfig.Name, test.ShouldEqual, resource.DefaultServiceName)
@@ -498,7 +498,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "foo",
 			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-		deps, err := validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -508,7 +508,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "fo:o",
 			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-		_, err := invalidConf.Validate("path", resource.APITypeServiceName)
+		_, _, err := invalidConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -523,7 +523,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "foo",
 			API:  resource.APINamespace("ac:me").WithServiceType("thingy"),
 		}
-		_, err := invalidConf.Validate("path", resource.APITypeServiceName)
+		_, _, err := invalidConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "reserved character : used")
 	})
@@ -533,7 +533,7 @@ func TestServiceValidate(t *testing.T) {
 			Name: "foo",
 			API:  acmeAPINamespace.WithServiceType("thingy"),
 		}
-		deps, err := validConf.Validate("path", resource.APITypeServiceName)
+		deps, _, err := validConf.Validate("path", resource.APITypeServiceName)
 		test.That(t, deps, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, validConf.Model.String(), test.ShouldEqual, "rdk:builtin:builtin")
@@ -546,7 +546,7 @@ func TestServiceValidate(t *testing.T) {
 				API:   resource.APINamespaceRDK.WithComponentType("bar"),
 				Model: resource.Model{Name: "fake"},
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
@@ -559,7 +559,7 @@ func TestServiceValidate(t *testing.T) {
 				API:   resource.APINamespaceRDK.WithComponentType("bar"),
 				Model: fakeModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.DefaultModelFamily)
@@ -572,7 +572,7 @@ func TestServiceValidate(t *testing.T) {
 				API:   resource.APINamespaceRDK.WithComponentType("bar"),
 				Model: extModel,
 			}
-			deps, err := shortConf.Validate("path", resource.APITypeServiceName)
+			deps, _, err := shortConf.Validate("path", resource.APITypeServiceName)
 			test.That(t, deps, test.ShouldBeNil)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, shortConf.Model.Family, test.ShouldResemble, resource.NewModelFamily("acme", "test"))
@@ -609,7 +609,7 @@ func TestServiceResourceName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			_, err := tc.Conf.Validate("", resource.APITypeServiceName)
+			_, _, err := tc.Conf.Validate("", resource.APITypeServiceName)
 			test.That(t, err, test.ShouldBeNil)
 			rName := tc.Conf.ResourceName()
 			test.That(t, rName.API, test.ShouldResemble, tc.ExpectedAPI)

@@ -9,11 +9,6 @@
             }
         },
         {
-            "name": "mic1",
-            "type": "audio_input",
-            "model": "fake"
-        },
-        {
             "name": "cameraOver",
             "type": "camera",
             "model": "image_file",
@@ -45,7 +40,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "model-path": "../../components/arm/fake/fake_model.json"
+                "model-path": "../../components/arm/fake/kinematics/fake.json"
             },
             "frame": {
                 "parent": "world",

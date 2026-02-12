@@ -38,23 +38,23 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	for idx, conf := range conf.AnalogReaders {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "analogs", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	for idx, conf := range conf.DigitalInterrupts {
 		if err := conf.Validate(fmt.Sprintf("%s.%s.%d", path, "digital_interrupts", idx)); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	if conf.FailNew {
-		return nil, errors.New("whoops")
+		return nil, nil, errors.New("whoops")
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("fake")
@@ -207,7 +207,7 @@ func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
 // SetPowerMode sets the board to the given power mode. If provided,
 // the board will exit the given power mode after the specified
 // duration.
-func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error {
+func (b *Board) SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error {
 	return grpc.UnimplementedError
 }
 

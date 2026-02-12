@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 
@@ -12,10 +13,18 @@ import (
 	"go.viam.com/rdk/components/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+)
+
+const (
+	testGripperName    = "gripper1"
+	testGripperName2   = "gripper2"
+	failGripperName    = "gripper3"
+	missingGripperName = "gripper4"
 )
 
 func TestClient(t *testing.T) {
@@ -27,7 +36,10 @@ func TestClient(t *testing.T) {
 
 	var gripperOpen string
 	var extraOptions map[string]interface{}
-	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
+	expectedGeometries := []spatialmath.Geometry{
+		spatialmath.NewPoint(r3.Vector{X: 1, Y: 2, Z: 3}, "pt1"),
+		spatialmath.NewPoint(r3.Vector{X: 4, Y: 5, Z: 6}, "pt2"),
+	}
 
 	grabbed1 := true
 	injectGripper := &inject.Gripper{}
@@ -46,6 +58,9 @@ func TestClient(t *testing.T) {
 	}
 	injectGripper.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 		return expectedGeometries, nil
+	}
+	injectGripper.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, errors.New("kinematics unimplmented")
 	}
 
 	injectGripper2 := &inject.Gripper{}
@@ -70,7 +85,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[gripper.Gripper](gripper.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gripperSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gripperSvc, logger), test.ShouldBeNil)
 
 	injectGripper.DoFunc = testutils.EchoFunc
 
@@ -93,7 +108,6 @@ func TestClient(t *testing.T) {
 		gripper1Client, err := gripper.NewClientFromConn(context.Background(), conn, "", gripper.Named(testGripperName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		// DoCommand
 		resp, err := gripper1Client.DoCommand(context.Background(), testutils.TestCommand)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp["command"], test.ShouldEqual, testutils.TestCommand["command"])
@@ -119,6 +133,15 @@ func TestClient(t *testing.T) {
 		geometries, err := gripper1Client.Geometries(context.Background(), extra)
 		test.That(t, err, test.ShouldBeNil)
 		for i, geometry := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
+		}
+
+		m, err := gripper1Client.Kinematics(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, m, test.ShouldNotBeNil)
+		gsInFrame, err := m.Geometries(make([]referenceframe.Input, len(m.DoF())))
+		test.That(t, err, test.ShouldBeNil)
+		for i, geometry := range gsInFrame.Geometries() {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 

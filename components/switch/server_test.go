@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	toggleswitch "go.viam.com/rdk/components/switch"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -18,27 +19,30 @@ var (
 	errCantSetPosition          = errors.New("can't set position")
 	errCantGetPosition          = errors.New("can't get position")
 	errCantGetNumberOfPositions = errors.New("can't get number of positions")
+	errLabelCountMismatch       = errors.New("the number of labels does not match the number of positions")
 	errSwitchNotFound           = errors.New("not found")
 )
 
 const testSwitchName2 = "switch3"
 
-func newServer() (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, error) {
+func newServer(logger logging.Logger) (pb.SwitchServiceServer, *inject.Switch, *inject.Switch, *inject.Switch, error) {
 	injectSwitch := &inject.Switch{}
 	injectSwitch2 := &inject.Switch{}
+	injectSwitch3 := &inject.Switch{}
 	switches := map[resource.Name]toggleswitch.Switch{
-		toggleswitch.Named(testSwitchName):  injectSwitch,
-		toggleswitch.Named(testSwitchName2): injectSwitch2,
+		toggleswitch.Named(testSwitchName):     injectSwitch,
+		toggleswitch.Named(testSwitchName2):    injectSwitch2,
+		toggleswitch.Named(mismatchSwitchName): injectSwitch3,
 	}
 	switchSvc, err := resource.NewAPIResourceCollection(toggleswitch.API, switches)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return toggleswitch.NewRPCServiceServer(switchSvc).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, nil
+	return toggleswitch.NewRPCServiceServer(switchSvc, logger).(pb.SwitchServiceServer), injectSwitch, injectSwitch2, injectSwitch3, nil
 }
 
 func TestServer(t *testing.T) {
-	switchServer, injectSwitch, injectSwitch2, err := newServer()
+	switchServer, injectSwitch, injectSwitch2, injectSwitch3, err := newServer(logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	var switchName string
@@ -53,9 +57,9 @@ func TestServer(t *testing.T) {
 		extraOptions = extra
 		return 0, nil
 	}
-	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
+	injectSwitch.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
 		extraOptions = extra
-		return 2, nil
+		return 2, []string{"position 1", "position 2"}, nil
 	}
 
 	injectSwitch2.SetPositionFunc = func(ctx context.Context, position uint32, extra map[string]interface{}) error {
@@ -65,8 +69,12 @@ func TestServer(t *testing.T) {
 	injectSwitch2.GetPositionFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
 		return 0, errCantGetPosition
 	}
-	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, error) {
-		return 0, errCantGetNumberOfPositions
+	injectSwitch2.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		return 0, nil, errCantGetNumberOfPositions
+	}
+
+	injectSwitch3.GetNumberOfPositionsFunc = func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error) {
+		return 1, []string{"A", "B"}, nil
 	}
 
 	tests := []struct {
@@ -79,6 +87,7 @@ func TestServer(t *testing.T) {
 		wantSwitch string
 		wantPos    uint32
 		wantNum    uint32
+		wantLabels []string
 		wantExtras map[string]interface{}
 	}{
 		{
@@ -135,6 +144,7 @@ func TestServer(t *testing.T) {
 			switchName: testSwitchName,
 			extras:     map[string]interface{}{"foo": "GetNumberOfPositions"},
 			wantNum:    2,
+			wantLabels: []string{"position 1", "position 2"},
 			wantExtras: map[string]interface{}{"foo": "GetNumberOfPositions"},
 		},
 		{
@@ -142,6 +152,12 @@ func TestServer(t *testing.T) {
 			operation:  "num",
 			switchName: testSwitchName2,
 			wantErr:    errCantGetNumberOfPositions,
+		},
+		{
+			name:       "get number of positions - mismatch",
+			operation:  "num",
+			switchName: mismatchSwitchName,
+			wantErr:    errLabelCountMismatch,
 		},
 	}
 
@@ -181,6 +197,7 @@ func TestServer(t *testing.T) {
 					test.That(t, resp.(*pb.GetPositionResponse).Position, test.ShouldEqual, tt.wantPos)
 				case "num":
 					test.That(t, resp.(*pb.GetNumberOfPositionsResponse).NumberOfPositions, test.ShouldEqual, tt.wantNum)
+					test.That(t, resp.(*pb.GetNumberOfPositionsResponse).Labels, test.ShouldResemble, tt.wantLabels)
 				}
 			}
 			if tt.wantSwitch != "" {

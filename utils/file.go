@@ -1,12 +1,14 @@
 package utils
 
 import (
+	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
 
@@ -43,7 +45,45 @@ func RemoveFileNoError(path string) {
 func SafeJoinDir(parent, subdir string) (string, error) {
 	res := filepath.Join(parent, subdir)
 	if !strings.HasPrefix(filepath.Clean(res), filepath.Clean(parent)+string(os.PathSeparator)) {
-		return res, errors.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
+		return res, fmt.Errorf("unsafe path join: '%s' with '%s'", parent, subdir)
 	}
 	return res, nil
+}
+
+// ExpandHomeDir expands "~/x/y" to use homedir.
+func ExpandHomeDir(path string) (string, error) {
+	// note: do not simplify this logic unless you are testing cross platform.
+	// Windows supports both kinds of slash, we don't want to only test for "\\" on win.
+	if path == "~" ||
+		strings.HasPrefix(path, "~/") ||
+		(runtime.GOOS == "windows" && strings.HasPrefix(path, "~\\")) {
+		usr, err := user.Current()
+		if err != nil {
+			return "", fmt.Errorf("expanding home dir: %w", err)
+		}
+		return filepath.Join(usr.HomeDir, path[min(2, len(path)):]), nil
+	}
+	return path, nil
+}
+
+// FileTimes contains the creation and modification times for a file.
+type FileTimes struct {
+	// CreateTime is the file creation time. Platform-specific:
+	// - macOS: birthtime (actual creation time)
+	// - Linux: change time (when metadata was last changed)
+	// - Windows: creation time
+	CreateTime time.Time
+	// ModifyTime is the file modification time (when content was last modified).
+	ModifyTime time.Time
+}
+
+// GetFileTimes returns the creation and modification times for the given file.
+// Implementation is platform-specific and found in file_times.go (Unix/macOS)
+// and file_times_windows.go (Windows).
+func GetFileTimes(path string) (FileTimes, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return FileTimes{}, err
+	}
+	return getFileTimes(info)
 }

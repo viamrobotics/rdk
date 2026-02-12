@@ -38,17 +38,22 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
+func NewRobotClient(
+	tb testing.TB, logger logging.Logger, addr string, dur time.Duration, opts ...client.RobotClientOption,
+) *client.RobotClient {
 	tb.Helper()
 	// start robot client
 	ctx := context.Background()
+	defaultOpts := []client.RobotClientOption{
+		client.WithRefreshEvery(dur),
+		client.WithCheckConnectedEvery(5 * dur),
+		client.WithReconnectEvery(dur),
+	}
 	robotClient, err := client.New(
 		ctx,
 		addr,
 		logger,
-		client.WithRefreshEvery(dur),
-		client.WithCheckConnectedEvery(5*dur),
-		client.WithReconnectEvery(dur),
+		append(defaultOpts, opts...)...,
 	)
 	test.That(tb, err, test.ShouldBeNil)
 	tb.Cleanup(func() {
@@ -95,21 +100,65 @@ func MakeTempConfig(t *testing.T, cfg *config.Config, logger logging.Logger) (st
 	return file.Name(), file.Close()
 }
 
+// ServerProcessCfg is an opaque type used to configure the viam server
+// started by [ServerAsSeparateProcess]. Use the opts arg to that function to
+// customize the server process's behavior.
+type ServerProcessCfg struct {
+	processConfig pexec.ProcessConfig
+	viamHome      string
+}
+
+// ServerProcessOption can be used to modify the behavior of ServerAsSeparateProcess.
+type ServerProcessOption func(*ServerProcessCfg)
+
+// WithoutRestart disables the automatic restart of the pexec library for the server process.
+func WithoutRestart() ServerProcessOption {
+	return func(cfg *ServerProcessCfg) {
+		cfg.processConfig.OnUnexpectedExit = func(context.Context, int) bool { return false }
+	}
+}
+
+// WithViamHome sets the path that will be used as the viam home directory. A
+// temporary directory that is automatically removed at the end of the test is
+// used by default.
+func WithViamHome(path string) ServerProcessOption {
+	return func(pc *ServerProcessCfg) {
+		pc.viamHome = path
+	}
+}
+
 // ServerAsSeparateProcess builds the viam server and returns an unstarted ManagedProcess for
 // the built binary.
-func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger) pexec.ManagedProcess {
-	serverPath := rtestutils.BuildTempModule(t, "web/cmd/server/")
+func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Logger, opts ...ServerProcessOption) pexec.ManagedProcess {
+	serverPath := rtestutils.BuildViamServer(t)
 
-	// use a temporary home directory so that it doesn't collide with
-	// the user's/other tests' viam home directory
-	testTempHome := t.TempDir()
-	server := pexec.NewManagedProcess(pexec.ProcessConfig{
-		Name:        serverPath,
-		Args:        []string{"-config", cfgFileName},
-		CWD:         utils.ResolveFile("./"),
-		Environment: map[string]string{"HOME": testTempHome},
-		Log:         true,
-	}, logger)
+	cfg := ServerProcessCfg{}
+	for _, o := range opts {
+		o(&cfg)
+	}
+
+	testTempHome := cfg.viamHome
+	if testTempHome == "" {
+		// use a temporary home directory so that it doesn't collide with
+		// the user's/other tests' viam home directory
+		testTempHome = t.TempDir()
+	}
+	args := []string{"-config", cfgFileName}
+
+	cfg.processConfig = pexec.ProcessConfig{
+		Name: serverPath,
+		Args: args,
+		CWD:  utils.ResolveFile("./"),
+		Environment: map[string]string{
+			"HOME":        testTempHome, // *NIX
+			"USERPROFILE": testTempHome, // Windows
+		},
+		Log: true,
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	server := pexec.NewManagedProcess(cfg.processConfig, logger)
 	return server
 }
 

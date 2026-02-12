@@ -458,6 +458,19 @@ var (
 			Model: modelString,
 		},
 	}
+	app = App{
+		Name:       "app-name",
+		Type:       "single-machine",
+		Entrypoint: "./dist/index.html",
+	}
+	apps   = []*App{&app}
+	pbApps = []*pb.App{
+		{
+			Name:       app.Name,
+			Type:       app.Type,
+			Entrypoint: app.Entrypoint,
+		},
+	}
 	firstRun   = "first_run"
 	uploadedAt = time.Now().UTC().Round(time.Millisecond)
 	uploads    = Uploads{
@@ -472,6 +485,7 @@ var (
 		Version:    version,
 		Files:      []*Uploads{&uploads},
 		Models:     models,
+		Apps:       apps,
 		Entrypoint: entryPoint,
 		FirstRun:   &firstRun,
 	}
@@ -479,6 +493,7 @@ var (
 		Version:    versionHistory.Version,
 		Files:      []*pb.Uploads{&pbUploads},
 		Models:     pbModels,
+		Apps:       pbApps,
 		Entrypoint: versionHistory.Entrypoint,
 		FirstRun:   versionHistory.FirstRun,
 	}
@@ -496,6 +511,7 @@ var (
 		TotalOrganizationUsage: totalOrganizationUsage,
 		OrganizationID:         organizationID,
 		Entrypoint:             entryPoint,
+		Apps:                   apps,
 		PublicNamespace:        namespace,
 		FirstRun:               &firstRun,
 	}
@@ -507,6 +523,7 @@ var (
 		Url:                    module.URL,
 		Description:            module.Description,
 		Models:                 pbModels,
+		Apps:                   pbApps,
 		TotalRobotUsage:        int64(module.TotalRobotUsage),
 		TotalOrganizationUsage: int64(module.TotalOrganizationUsage),
 		OrganizationId:         module.OrganizationID,
@@ -585,6 +602,29 @@ func mlTrainingMetadataToProto(md MLTrainingMetadata) *pb.MLTrainingMetadata {
 	}
 }
 
+func mlModelVersionToProto(version *MLModelVersion) *pb.MLModelVersion {
+	var createdOn *timestamppb.Timestamp
+	if version.CreatedOn != nil {
+		createdOn = timestamppb.New(*version.CreatedOn)
+	}
+	return &pb.MLModelVersion{
+		Version:   version.Version,
+		CreatedOn: createdOn,
+	}
+}
+
+func mlModelMetadataToProto(md MLModelMetadata) *pb.MLModelMetadata {
+	var versions []*pb.MLModelVersion
+	for _, version := range md.Versions {
+		versions = append(versions, mlModelVersionToProto(version))
+	}
+	return &pb.MLModelMetadata{
+		ModelType:        modelTypeToProto(md.ModelType),
+		ModelFramework:   modelFrameworkToProto(md.ModelFramework),
+		DetailedVersions: versions,
+	}
+}
+
 func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 	switch metadata := item.Metadata.(type) {
 	case *registryItemModuleMetadata:
@@ -606,6 +646,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
 	case *registryItemMLModelMetadata:
+		protoMetadata := mlModelMetadataToProto(*metadata.MlModelMetadata)
 		return &pb.RegistryItem{
 			ItemId:                         item.ItemID,
 			OrganizationId:                 item.OrganizationID,
@@ -619,7 +660,7 @@ func registryItemToProto(item *RegistryItem) (*pb.RegistryItem, error) {
 			TotalExternalRobotUsage:        int64(item.TotalExternalRobotUsage),
 			TotalOrganizationUsage:         int64(item.TotalOrganizationUsage),
 			TotalExternalOrganizationUsage: int64(item.TotalExternalOrganizationUsage),
-			Metadata:                       &pb.RegistryItem_ModuleMetadata{ModuleMetadata: &pb.ModuleMetadata{}},
+			Metadata:                       &pb.RegistryItem_MlModelMetadata{MlModelMetadata: protoMetadata},
 			CreatedAt:                      timestamppb.New(*item.CreatedAt),
 			UpdatedAt:                      timestamppb.New(*item.UpdatedAt),
 		}, nil
@@ -1603,7 +1644,7 @@ func TestAppClient(t *testing.T) {
 				Fragment: &pbFragment,
 			}, nil
 		}
-		resp, err := client.GetFragment(context.Background(), fragmentID)
+		resp, err := client.GetFragment(context.Background(), fragmentID, "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &fragment)
 	})
@@ -1904,6 +1945,7 @@ func TestAppClient(t *testing.T) {
 			test.That(t, in.Url, test.ShouldResemble, siteURL)
 			test.That(t, in.Description, test.ShouldResemble, description)
 			test.That(t, in.Models, test.ShouldResemble, pbModels)
+			test.That(t, in.Apps, test.ShouldResemble, pbApps)
 			test.That(t, in.Entrypoint, test.ShouldResemble, entryPoint)
 			test.That(t, in.FirstRun, test.ShouldResemble, &firstRun)
 			return &pb.UpdateModuleResponse{
@@ -1911,7 +1953,7 @@ func TestAppClient(t *testing.T) {
 			}, nil
 		}
 		resp, err := client.UpdateModule(
-			context.Background(), moduleID, visibility, siteURL, description, models, entryPoint, &UpdateModuleOptions{&firstRun},
+			context.Background(), moduleID, visibility, siteURL, description, models, apps, entryPoint, &UpdateModuleOptions{&firstRun},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, siteURL)

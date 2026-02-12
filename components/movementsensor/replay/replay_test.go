@@ -762,7 +762,7 @@ func TestReplayMovementSensorConfigValidation(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			deps, err := tt.cfg.Validate("")
+			deps, _, err := tt.cfg.Validate("")
 			if tt.expectedErr != nil {
 				test.That(t, err, test.ShouldBeError, tt.expectedErr)
 			} else {

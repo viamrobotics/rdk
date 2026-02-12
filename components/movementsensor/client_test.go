@@ -126,7 +126,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[movementsensor.MovementSensor](movementsensor.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gpsSvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, gpsSvc, logger), test.ShouldBeNil)
 
 	injectMovementSensor.DoFunc = testutils.EchoFunc
 

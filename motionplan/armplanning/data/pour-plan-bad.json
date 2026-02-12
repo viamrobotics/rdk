@@ -1,0 +1,578 @@
+{
+  "frame_system": {
+    "name": "temp",
+    "world": {
+      "frame_type": "static",
+      "frame": {
+        "id": "world",
+        "translation": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
+        "orientation": {
+          "type": "quaternion",
+          "value": {
+            "W": 1,
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        }
+      }
+    },
+    "frames": {
+      "arm-right": {
+        "frame_type": "model",
+        "frame": {
+          "name": "arm-right",
+          "model": {
+            "name": "xArm6",
+            "links": [
+              {
+                "id": "base",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "parent": "world"
+              },
+              {
+                "id": "base_top",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 267
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 50,
+                  "l": 320,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 160
+                  },
+                  "orientation": {
+                    "type": ""
+                  },
+                  "Label": ""
+                },
+                "parent": "waist"
+              },
+              {
+                "id": "upper_arm",
+                "translation": {
+                  "X": 53.5,
+                  "Y": 0,
+                  "Z": 284.5
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 70,
+                  "l": 370,
+                  "translation": {
+                    "X": 0,
+                    "Y": 40,
+                    "Z": 135
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "x": 0,
+                      "y": -0.333,
+                      "z": 0.666
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "shoulder"
+              },
+              {
+                "id": "upper_forearm",
+                "translation": {
+                  "X": 77.5,
+                  "Y": 0,
+                  "Z": -172.5
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 80,
+                  "y": 180,
+                  "z": 250,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 49.49,
+                    "Y": 20,
+                    "Z": -49.49
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": 0.707106,
+                      "y": 0,
+                      "z": -0.707106
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "elbow"
+              },
+              {
+                "id": "lower_forearm",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": -170
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 45,
+                  "l": 285,
+                  "translation": {
+                    "X": 0,
+                    "Y": -27.5,
+                    "Z": -104.8
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": -90,
+                      "x": 0,
+                      "y": 0.2537568,
+                      "z": 0.9672615
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "forearm_rot"
+              },
+              {
+                "id": "wrist_link",
+                "translation": {
+                  "X": 76,
+                  "Y": 0,
+                  "Z": -97
+                },
+                "orientation": {
+                  "type": ""
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 150,
+                  "y": 100,
+                  "z": 125,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 35,
+                    "Y": 0,
+                    "Z": -32.5
+                  },
+                  "orientation": {
+                    "type": ""
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist"
+              },
+              {
+                "id": "gripper_mount",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "ov_degrees",
+                  "value": {
+                    "th": 0,
+                    "x": 0,
+                    "y": 0,
+                    "z": -1
+                  }
+                },
+                "parent": "gripper_rot"
+              }
+            ],
+            "joints": [
+              {
+                "id": "waist",
+                "type": "revolute",
+                "parent": "base",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 359,
+                "min": -359
+              },
+              {
+                "id": "shoulder",
+                "type": "revolute",
+                "parent": "base_top",
+                "axis": {
+                  "X": 0,
+                  "Y": 1,
+                  "Z": 0
+                },
+                "max": 120,
+                "min": -118
+              },
+              {
+                "id": "elbow",
+                "type": "revolute",
+                "parent": "upper_arm",
+                "axis": {
+                  "X": 0,
+                  "Y": 1,
+                  "Z": 0
+                },
+                "max": 10,
+                "min": -225
+              },
+              {
+                "id": "forearm_rot",
+                "type": "revolute",
+                "parent": "upper_forearm",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": -1
+                },
+                "max": 359,
+                "min": -359
+              },
+              {
+                "id": "wrist",
+                "type": "revolute",
+                "parent": "lower_forearm",
+                "axis": {
+                  "X": 0,
+                  "Y": 1,
+                  "Z": 0
+                },
+                "max": 179,
+                "min": -97
+              },
+              {
+                "id": "gripper_rot",
+                "type": "revolute",
+                "parent": "wrist_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": -1
+                },
+                "max": 359,
+                "min": -359
+              }
+            ],
+            "OriginalFile": {
+              "Bytes": "ewogICAgIm5hbWUiOiAieEFybTYiLAogICAgImxpbmtzIjogWwogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImJhc2UiLAogICAgICAgICAgICAicGFyZW50IjogIndvcmxkIiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImJhc2VfdG9wIiwKICAgICAgICAgICAgInBhcmVudCI6ICJ3YWlzdCIsCiAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogMjY3CiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJyIjogNTAsCiAgICAgICAgICAgICAgICAibCI6IDMyMCwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgICAgICJ6IjogMTYwCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogInVwcGVyX2FybSIsCiAgICAgICAgICAgICJwYXJlbnQiOiAic2hvdWxkZXIiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IDUzLjUsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDI4NC41CiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJyIjogNzAsCiAgICAgICAgICAgICAgICAibCI6IDM3MCwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiA0MCwKICAgICAgICAgICAgICAgICAgICAieiI6IDEzNQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiIgOiB7CiAgICAgICAgICAgICAgICAgICAgInR5cGUiIDogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgICAgICJ2YWx1ZSIgOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJ4IiA6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ5IiA6IC0wLjMzMywKICAgICAgICAgICAgICAgICAgICAgICAgInoiIDogIDAuNjY2CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJ1cHBlcl9mb3JlYXJtIiwKICAgICAgICAgICAgInBhcmVudCI6ICJlbGJvdyIsCiAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ4IjogNzcuNSwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogLTE3Mi41CiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJ4IjogODAsCiAgICAgICAgICAgICAgICAieSI6IDE4MCwKICAgICAgICAgICAgICAgICJ6IjogMjUwLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogNDkuNDksCiAgICAgICAgICAgICAgICAgICAgInkiOiAyMCwKICAgICAgICAgICAgICAgICAgICAieiI6IC00OS40OQogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJvdl9kZWdyZWVzIiwKICAgICAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJ4IjogMC43MDcxMDYsCiAgICAgICAgICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgInoiOiAtMC43MDcxMDYsCiAgICAgICAgICAgICAgICAgICAgICAgICJ0aCI6IDAKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImxvd2VyX2ZvcmVhcm0iLAogICAgICAgICAgICAicGFyZW50IjogImZvcmVhcm1fcm90IiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgInoiOiAtMTcwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJyIjogNDUsCiAgICAgICAgICAgICAgICAibCI6IDI4NSwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiAtMjcuNSwKICAgICAgICAgICAgICAgICAgICAieiI6IC0xMDQuOAogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAidHlwZSI6ICJvdl9kZWdyZWVzIiwKICAgICAgICAgICAgICAgICAgICAidmFsdWUiOiB7CiAgICAgICAgICAgICAgICAgICAgICAgICJ0aCI6IC05MCwKICAgICAgICAgICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgICAgICAgICAieSI6IDAuMjUzNzU2OCwKICAgICAgICAgICAgICAgICAgICAgICAgInoiOiAwLjk2NzI2MTUKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0X2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogIndyaXN0IiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiA3NiwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogLTk3CiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJnZW9tZXRyeSI6IHsKICAgICAgICAgICAgICAgICJ4IjogMTUwLAogICAgICAgICAgICAgICAgInkiOiAxMDAsCiAgICAgICAgICAgICAgICAieiI6IDEyNSwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDM1LAogICAgICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICAgICAieiI6IC0zMi41CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImdyaXBwZXJfbW91bnQiLAogICAgICAgICAgICAicGFyZW50IjogImdyaXBwZXJfcm90IiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgInZhbHVlIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgInoiOiAtMSwKICAgICAgICAgICAgICAgICAgICAidGgiOiAwCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICBdLAogICAgImpvaW50cyI6IFsKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJ3YWlzdCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJiYXNlIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM1OSwKICAgICAgICAgICAgIm1pbiI6IC0zNTkKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogInNob3VsZGVyIiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogImJhc2VfdG9wIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDEsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDEyMCwKICAgICAgICAgICAgIm1pbiI6IC0xMTgKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImVsYm93IiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogInVwcGVyX2FybSIsCiAgICAgICAgICAgICJheGlzIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAxLAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJtYXgiOiAxMCwKICAgICAgICAgICAgIm1pbiI6IC0yMjUKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImZvcmVhcm1fcm90IiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogInVwcGVyX2ZvcmVhcm0iLAogICAgICAgICAgICAiYXhpcyI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogLTEKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM1OSwKICAgICAgICAgICAgIm1pbiI6IC0zNTkKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0IiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogImxvd2VyX2ZvcmVhcm0iLAogICAgICAgICAgICAiYXhpcyI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMSwKICAgICAgICAgICAgICAgICJ6IjogMAogICAgICAgICAgICB9LAogICAgICAgICAgICAibWF4IjogMTc5LAogICAgICAgICAgICAibWluIjogLTk3CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJncmlwcGVyX3JvdCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJ3cmlzdF9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IC0xCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJtYXgiOiAzNTksCiAgICAgICAgICAgICJtaW4iOiAtMzU5CiAgICAgICAgfQogICAgXQp9Cg==",
+              "Extension": "json"
+            }
+          },
+          "limits": [
+            {
+              "Min": -6.265732014659642,
+              "Max": 6.265732014659642
+            },
+            {
+              "Min": -2.0594885173533086,
+              "Max": 2.0943951023931953
+            },
+            {
+              "Min": -3.9269908169872414,
+              "Max": 0.17453292519943295
+            },
+            {
+              "Min": -6.265732014659642,
+              "Max": 6.265732014659642
+            },
+            {
+              "Min": -1.6929693744344996,
+              "Max": 3.12413936106985
+            },
+            {
+              "Min": -6.265732014659642,
+              "Max": 6.265732014659642
+            }
+          ]
+        }
+      },
+      "arm-right_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "arm-right_origin",
+          "translation": {
+            "X": -4.999999999999915,
+            "Y": 822,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.9659258262890683,
+              "X": 0,
+              "Y": 0,
+              "Z": 0.25881904510252074
+            }
+          }
+        }
+      },
+      "bottle-top": {
+        "frame_type": "static",
+        "frame": {
+          "id": "bottle-top",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "bottle-top_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "bottle-top_origin",
+          "translation": {
+            "X": 250,
+            "Y": -7,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 0.7071067811865476,
+              "X": 0,
+              "Y": 0.7071067811865475,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "gripper-right": {
+        "frame_type": "model",
+        "frame": {
+          "name": "gripper-right",
+          "model": {
+            "name": "gripper-right",
+            "links": [
+              {
+                "id": "case-gripper",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 50,
+                  "y": 100,
+                  "z": 100,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -50
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": "case-gripper"
+                },
+                "parent": "world"
+              },
+              {
+                "id": "claws",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 40,
+                  "y": 170,
+                  "z": 105,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": -2.5
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": "claws"
+                },
+                "parent": "case-gripper"
+              }
+            ],
+            "OriginalFile": {
+              "Bytes": "eyJPcmlnaW5hbEZpbGUiOnt9LCJsaW5rcyI6W3siZ2VvbWV0cnkiOnsiTGFiZWwiOiJjYXNlLWdyaXBwZXIiLCJsIjowLCJvcmllbnRhdGlvbiI6eyJ0eXBlIjoicXVhdGVybmlvbiIsInZhbHVlIjp7IlciOjEsIlgiOjAsIlkiOjAsIloiOjB9fSwiciI6MCwidHJhbnNsYXRpb24iOnsiWCI6MCwiWSI6MCwiWiI6LTUwfSwidHlwZSI6ImJveCIsIngiOjUwLCJ5IjoxMDAsInoiOjEwMH0sImlkIjoiY2FzZS1ncmlwcGVyIiwib3JpZW50YXRpb24iOnsidHlwZSI6InF1YXRlcm5pb24iLCJ2YWx1ZSI6eyJXIjoxLCJYIjowLCJZIjowLCJaIjowfX0sInBhcmVudCI6IndvcmxkIiwidHJhbnNsYXRpb24iOnsiWCI6MCwiWSI6MCwiWiI6MH19LHsiZ2VvbWV0cnkiOnsiTGFiZWwiOiJjbGF3cyIsImwiOjAsIm9yaWVudGF0aW9uIjp7InR5cGUiOiJxdWF0ZXJuaW9uIiwidmFsdWUiOnsiVyI6MSwiWCI6MCwiWSI6MCwiWiI6MH19LCJyIjowLCJ0cmFuc2xhdGlvbiI6eyJYIjowLCJZIjowLCJaIjotMi41fSwidHlwZSI6ImJveCIsIngiOjQwLCJ5IjoxNzAsInoiOjEwNX0sImlkIjoiY2xhd3MiLCJvcmllbnRhdGlvbiI6eyJ0eXBlIjoicXVhdGVybmlvbiIsInZhbHVlIjp7IlciOjEsIlgiOjAsIlkiOjAsIloiOjB9fSwicGFyZW50IjoiY2FzZS1ncmlwcGVyIiwidHJhbnNsYXRpb24iOnsiWCI6MCwiWSI6MCwiWiI6MH19XSwibmFtZSI6ImdyaXBwZXItcmlnaHQifQ==",
+              "Extension": "json"
+            }
+          },
+          "limits": []
+        }
+      },
+      "gripper-right_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "gripper-right_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 150
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      }
+    },
+    "parents": {
+      "arm-right": "arm-right_origin",
+      "arm-right_origin": "world",
+      "bottle-top": "bottle-top_origin",
+      "bottle-top_origin": "gripper-right",
+      "gripper-right": "gripper-right_origin",
+      "gripper-right_origin": "arm-right"
+    }
+  },
+  "goals": [
+    {
+      "poses": {
+        "bottle-top": {
+          "referenceFrame": "world",
+          "pose": {
+            "x": 191.34150956937822,
+            "y": 297.87632068364366,
+            "z": 378.8558869239748,
+            "oX": 0.7903583614648033,
+            "oY": -0.5897621260254964,
+            "oZ": 0.16587433547284486,
+            "theta": 101.88576145909819
+          }
+        }
+      },
+      "configuration": null
+    }
+  ],
+  "start_state": {
+    "poses": null,
+    "configuration": {
+      "arm-right": [
+        -1.6240087333831559,
+        -0.8528109341576869,
+        -0.25519111593624666,
+        4.6751795965057035,
+        1.0307898450283413,
+        -2.4957003183714814
+      ]
+    }
+  },
+  "world_state": null,
+  "bounding_regions": null,
+  "constraints": null,
+  "planner_options": {
+    "goal_metric_type": "squared_norm",
+    "arc_length_tolerance": 0,
+    "max_ik_solutions": 100,
+    "min_ik_score": 0.01,
+    "resolution": 2,
+    "timeout": 300,
+    "smooth_iter": 100,
+    "num_threads": 10,
+    "goal_threshold": 0.1,
+    "plan_iter": 1500,
+    "frame_step": 0.01,
+    "input_ident_dist": 0.0001,
+    "iter_before_rand": 50,
+    "position_seeds": 0,
+    "return_partial_plan": false,
+    "configuration_distance_metric": "fs_config_l2",
+    "collision_buffer_mm": 1e-8,
+    "rseed": 0,
+    "path_step_size": 10,
+    "meshes_as_octrees": false,
+    "time_multiple_after_finding_first_solution": 6
+  }
+}

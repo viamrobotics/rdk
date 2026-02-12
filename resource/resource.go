@@ -56,7 +56,7 @@ var (
 // DoCommand example:
 //
 //	// This example shows using DoCommand with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	command := map[string]interface{}{"cmd": "test", "data1": 500}
 //	result, err := myArm.DoCommand(context.Background(), command)
@@ -64,7 +64,7 @@ var (
 // Close example:
 //
 //	// This example shows using Close with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	err = myArm.Close(context.Background())
 type Resource interface {
@@ -88,7 +88,10 @@ type Resource interface {
 // Dependencies are a set of resources that a resource requires for reconfiguration.
 type Dependencies map[Name]Resource
 
-// FromDependencies returns a named component from a collection of dependencies.
+// Deprecated: FromDependencies returns a named component from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) {
 	var zero T
 	res, err := resources.Lookup(name)
@@ -100,6 +103,25 @@ func FromDependencies[T Resource](resources Dependencies, name Name) (T, error) 
 		return zero, DependencyTypeError[T](name, res)
 	}
 	return typedRes, nil
+}
+
+// FromProvider returns a named resource from given Provider (collection of dependencies or a robot).
+func FromProvider[T Resource](provider Provider, name Name) (T, error) {
+	var zero T
+	res, err := provider.GetResource(name)
+	if err != nil {
+		return zero, err
+	}
+	typedRes, ok := res.(T)
+	if !ok {
+		return zero, DependencyTypeError[T](name, res)
+	}
+	return typedRes, nil
+}
+
+// GetResource implements Provider for Dependencies by looking up a resource by name.
+func (d Dependencies) GetResource(name Name) (Resource, error) {
+	return d.Lookup(name)
 }
 
 // Lookup searches for a given dependency by name.
@@ -172,7 +194,7 @@ type Sensor interface {
 // IsMoving example:
 //
 //	// This example shows using IsMoving with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Stop all motion of the arm. It is assumed that the arm stops immediately.
 //	myArm.Stop(context.Background(), nil)
@@ -184,7 +206,7 @@ type Sensor interface {
 // Stop example:
 //
 //	// This example shows using Stop with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Stop all motion of the arm. It is assumed that the arm stops immediately.
 //	err = myArm.Stop(context.Background(), nil)
@@ -201,7 +223,7 @@ type Actuator interface {
 // Geometries example:
 //
 //	// This example shows using Geometries with an arm component.
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	geometries, err := myArm.Geometries(context.Background(), nil)
 //
@@ -243,8 +265,8 @@ func (t TriviallyCloseable) Close(ctx context.Context) error {
 type TriviallyValidateConfig struct{}
 
 // Validate always succeeds and produces no dependencies.
-func (t TriviallyValidateConfig) Validate(path string) ([]string, error) {
-	return nil, nil
+func (t TriviallyValidateConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, nil
 }
 
 var noNativeConfigType = reflect.TypeOf(NoNativeConfig{})

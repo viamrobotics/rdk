@@ -84,4 +84,3 @@ func modelFrameworkFromProto(framework mltrainingpb.ModelFramework) ModelFramewo
 	}
 	return ModelFrameworkUnspecified
 }
-

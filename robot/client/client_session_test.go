@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -46,7 +48,7 @@ var echoAPI = resource.APINamespaceRDK.WithComponentType("echo")
 
 func init() {
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} {
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
 			return &echoServer{coll: apiResColl}
 		},
 		RPCServiceHandler: echopb.RegisterEchoResourceServiceHandlerFromEndpoint,
@@ -77,22 +79,19 @@ func init() {
 	)
 }
 
+// Test different combinations of options.
 func TestClientSessionOptions(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	for _, webrtcDisabled := range []bool{false, true} {
 		for _, sessionsDisabled := range []bool{false, true} {
 			for _, withRemoteName := range []bool{false, true} {
-				webrtcDisabledCopy := webrtcDisabled
-				withRemoteNameCopy := withRemoteName
-				sessionsDisabledCopy := sessionsDisabled
-
 				t.Run(
 					fmt.Sprintf(
 						"webrtc disabled=%t,with remote name=%t,sessions disabled=%t",
-						webrtcDisabledCopy,
-						withRemoteNameCopy,
-						sessionsDisabledCopy,
+						webrtcDisabled,
+						withRemoteName,
+						sessionsDisabled,
 					),
 					func(t *testing.T) {
 						t.Parallel()
@@ -102,10 +101,6 @@ func TestClientSessionOptions(t *testing.T) {
 						sessMgr := &sessionManager{}
 						arbName := resource.NewName(echoAPI, "woo")
 						injectRobot := &inject.Robot{
-							ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-							ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
-								return &dummyEcho{Named: arbName.AsNamed()}, nil
-							},
 							ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 							MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
 								return robot.MachineStatus{State: robot.StateRunning}, nil
@@ -113,6 +108,17 @@ func TestClientSessionOptions(t *testing.T) {
 							LoggerFunc: func() logging.Logger { return logger },
 							SessMgr:    sessMgr,
 						}
+						// Inject a base. Its actuating methods- SetPower, MoveStraight, etc. will start sessions.
+						injectBase := inject.Base{
+							MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+								return nil
+							},
+						}
+						rs := map[resource.Name]resource.Resource{
+							base.Named("base1"): &injectBase,
+							arbName:             &dummyEcho{Named: arbName.AsNamed()},
+						}
+						injectRobot.MockResourcesFromMap(rs)
 
 						svc := web.New(injectRobot, logger)
 
@@ -121,13 +127,13 @@ func TestClientSessionOptions(t *testing.T) {
 						test.That(t, err, test.ShouldBeNil)
 
 						var opts []client.RobotClientOption
-						if sessionsDisabledCopy {
+						if sessionsDisabled {
 							opts = append(opts, client.WithDisableSessions())
 						}
-						if withRemoteNameCopy {
+						if withRemoteName {
 							opts = append(opts, client.WithRemoteName("rem1"))
 						}
-						if webrtcDisabledCopy {
+						if webrtcDisabled {
 							opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 								Disable: true,
 							})))
@@ -141,10 +147,10 @@ func TestClientSessionOptions(t *testing.T) {
 						injectRobot.Mu.Unlock()
 
 						var capMu sync.Mutex
-						var startCalled int
-						var findCalled int
-						var capOwnerID string
-						var capID uuid.UUID
+						var startCalledCnt int
+						var heartbeatCnt int
+						var capturedOwnerID string
+						var capturedID uuid.UUID
 						var associateCount int
 						var storedID uuid.UUID
 						var storedResourceName resource.Name
@@ -156,24 +162,26 @@ func TestClientSessionOptions(t *testing.T) {
 							storedResourceName = resourceName
 							capMu.Unlock()
 						})
+						// associate session with context
 						nextCtx := session.ToContext(ctx, sess1)
 
 						sessMgr.mu.Lock()
 						sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 							capMu.Lock()
-							startCalled++
-							capOwnerID = ownerID
+							startCalledCnt++
+							capturedOwnerID = ownerID
 							capMu.Unlock()
 							return sess1, nil
 						}
+						// FindByID is called by SendSessionHeartbeat; use as a proxy for counting heartbeats
 						sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 							if id != sess1.ID() {
 								return nil, errors.New("session id mismatch")
 							}
 							capMu.Lock()
-							findCalled++
-							capID = id
-							capOwnerID = ownerID
+							heartbeatCnt++
+							capturedID = id
+							capturedOwnerID = ownerID
 							capMu.Unlock()
 							sess1.Heartbeat(ctx) // gotta keep session alive
 							return sess1, nil
@@ -182,27 +190,35 @@ func TestClientSessionOptions(t *testing.T) {
 
 						roboClient, err := client.New(ctx, addr, logger, opts...)
 						test.That(t, err, test.ShouldBeNil)
+						rcr, err := roboClient.ResourceByName(base.Named("base1"))
+						test.That(t, err, test.ShouldBeNil)
+						baseClient := rcr.(base.Base)
+
+						// MoveStraight starts a session
+						err = baseClient.MoveStraight(ctx, 1, 1, nil)
+						test.That(t, err, test.ShouldBeNil)
+						// associate someTargetName1 with nextCtx
 						resp, err := roboClient.MachineStatus(nextCtx)
 						test.That(t, err, test.ShouldBeNil)
 						test.That(t, resp, test.ShouldNotBeNil)
 
-						if sessionsDisabledCopy {
+						if sessionsDisabled {
 							// wait for any kind of heartbeat
 							time.Sleep(2 * time.Second)
 
 							capMu.Lock()
-							test.That(t, startCalled, test.ShouldEqual, 0)
-							test.That(t, findCalled, test.ShouldEqual, 0)
+							test.That(t, startCalledCnt, test.ShouldEqual, 0)
+							test.That(t, heartbeatCnt, test.ShouldEqual, 0)
 							capMu.Unlock()
 						} else {
 							capMu.Lock()
-							test.That(t, startCalled, test.ShouldEqual, 1)
-							test.That(t, findCalled, test.ShouldEqual, 0)
+							test.That(t, startCalledCnt, test.ShouldEqual, 1)
+							test.That(t, heartbeatCnt, test.ShouldEqual, 0)
 
-							if webrtcDisabledCopy {
-								test.That(t, capOwnerID, test.ShouldEqual, "")
+							if webrtcDisabled {
+								test.That(t, capturedOwnerID, test.ShouldEqual, "")
 							} else {
-								test.That(t, capOwnerID, test.ShouldNotEqual, "")
+								test.That(t, capturedOwnerID, test.ShouldNotEqual, "")
 							}
 							capMu.Unlock()
 
@@ -212,13 +228,13 @@ func TestClientSessionOptions(t *testing.T) {
 
 								capMu.Lock()
 								defer capMu.Unlock()
-								test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
-								test.That(tb, capID, test.ShouldEqual, sess1.ID())
+								test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
+								test.That(tb, capturedID, test.ShouldEqual, sess1.ID())
 
-								if webrtcDisabledCopy {
-									test.That(tb, capOwnerID, test.ShouldEqual, "")
+								if webrtcDisabled {
+									test.That(tb, capturedOwnerID, test.ShouldEqual, "")
 								} else {
-									test.That(tb, capOwnerID, test.ShouldNotEqual, "")
+									test.That(tb, capturedOwnerID, test.ShouldNotEqual, "")
 								}
 							})
 							// testing against time but fairly generous range
@@ -226,7 +242,7 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 
 						capMu.Lock()
-						if withRemoteNameCopy {
+						if withRemoteName {
 							test.That(t, associateCount, test.ShouldEqual, 1)
 							test.That(t, storedID, test.ShouldEqual, sess1.ID())
 							test.That(t, storedResourceName, test.ShouldResemble, someTargetName1.PrependRemote("rem1"))
@@ -235,30 +251,31 @@ func TestClientSessionOptions(t *testing.T) {
 						}
 						capMu.Unlock()
 
-						echoRes, err := roboClient.ResourceByName(arbName)
-						test.That(t, err, test.ShouldBeNil)
-						echoClient := echoRes.(*dummyClient).client
+						if withRemoteName {
+							echoRes, err := roboClient.ResourceByName(arbName)
+							test.That(t, err, test.ShouldBeNil)
+							echoClient := echoRes.(*dummyClient).client
 
-						echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
-							Name:    arbName.Name,
-							Message: "doesnotmatter",
-						})
-						test.That(t, err, test.ShouldBeNil)
-						_, err = echoMultiClient.Recv() // EOF; okay
-						test.That(t, err, test.ShouldBeError, io.EOF)
+							echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
+								Name:    arbName.Name,
+								Message: "doesnotmatter",
+							})
+							test.That(t, err, test.ShouldBeNil)
+							_, err = echoMultiClient.Recv() // EOF; okay
+							test.That(t, err, test.ShouldBeError, io.EOF)
 
-						err = roboClient.Close(context.Background())
-						test.That(t, err, test.ShouldBeNil)
+							err = roboClient.Close(context.Background())
+							test.That(t, err, test.ShouldBeNil)
 
-						capMu.Lock()
-						if withRemoteNameCopy {
+							capMu.Lock()
 							test.That(t, associateCount, test.ShouldEqual, 2)
 							test.That(t, storedID, test.ShouldEqual, sess1.ID())
 							test.That(t, storedResourceName, test.ShouldResemble, someTargetName2.PrependRemote("rem1"))
+							capMu.Unlock()
 						} else {
-							test.That(t, associateCount, test.ShouldEqual, 0)
+							err = roboClient.Close(context.Background())
+							test.That(t, err, test.ShouldBeNil)
 						}
-						capMu.Unlock()
 
 						test.That(t, svc.Close(ctx), test.ShouldBeNil)
 					})
@@ -267,16 +284,15 @@ func TestClientSessionOptions(t *testing.T) {
 	}
 }
 
+// Test that once a session has expired, the next call will start a new session.
 func TestClientSessionExpiration(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	for _, webrtcDisabled := range []bool{false, true} {
-		webrtcDisabledCopy := webrtcDisabled
-
 		t.Run(
 			fmt.Sprintf(
 				"webrtc disabled=%t",
-				webrtcDisabledCopy,
+				webrtcDisabled,
 			),
 			func(t *testing.T) {
 				t.Parallel()
@@ -284,21 +300,22 @@ func TestClientSessionExpiration(t *testing.T) {
 				logger := logging.NewTestLogger(t)
 
 				sessMgr := &sessionManager{}
-				arbName := resource.NewName(echoAPI, "woo")
 
-				var dummyEcho1 dummyEcho
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc: func() []resource.Name { return []resource.Name{arbName} },
-					ResourceByNameFunc: func(name resource.Name) (resource.Resource, error) {
-						return &dummyEcho1, nil
-					},
-					MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
+					MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
 						return robot.MachineStatus{State: robot.StateRunning}, nil
 					},
 					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 					LoggerFunc:          func() logging.Logger { return logger },
 					SessMgr:             sessMgr,
 				}
+
+				// Inject a base. Its actuating methods- SetPower, MoveStraight, etc. will start sessions.
+				injectBase := &inject.Base{}
+				rs := map[resource.Name]resource.Resource{
+					base.Named("base1"): injectBase,
+				}
+				injectRobot.MockResourcesFromMap(rs)
 
 				svc := web.New(injectRobot, logger)
 
@@ -307,28 +324,36 @@ func TestClientSessionExpiration(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				var opts []client.RobotClientOption
-				if webrtcDisabledCopy {
+				if webrtcDisabled {
 					opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 						Disable: true,
 					})))
 				}
 
-				injectRobot.Mu.Lock()
 				var capSessID uuid.UUID
-				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+				injectRobot.Mu.Lock()
+				// Repurpose to capture Session ID
+				injectBase.MoveStraightFunc = func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
 					sess, ok := session.FromContext(ctx)
-					if !ok {
-						panic("expected session")
-					}
+					test.That(t, ok, test.ShouldBeTrue)
 					capSessID = sess.ID()
-					return robot.MachineStatus{State: robot.StateRunning}, nil
+					return nil
+				}
+				injectBase.SetPowerFunc = func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+					sess, ok := session.FromContext(ctx)
+					test.That(t, ok, test.ShouldBeTrue)
+					capSessID = sess.ID()
+					return nil
 				}
 				injectRobot.Mu.Unlock()
 
 				var capMu sync.Mutex
-				var startCalled int
-				var findCalled int
+				// count session.Start() calls
+				var startCalledCnt int
+				// use FindByID as a proxy for counting heartbeats
+				var heartbeatCnt int
 
+				// 3 sessions: sessMgr.StartFunc returns the next one each time it's called.
 				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				sess2 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				sess3 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
@@ -339,13 +364,15 @@ func TestClientSessionExpiration(t *testing.T) {
 				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
-					if startCalled != 0 && findCalled < 5 {
+					if startCalledCnt != 0 && heartbeatCnt < 5 {
 						logger.Debug("premature start session")
 						return nil, errors.New("premature restart")
 					}
-					startCalled++
-					findCalled = 0
-					sess := sessions[startCalled-1]
+
+					// shift to next session
+					startCalledCnt++
+					sess := sessions[startCalledCnt-1]
+					heartbeatCnt = 0
 					capMu.Unlock()
 
 					// like a restart
@@ -355,18 +382,19 @@ func TestClientSessionExpiration(t *testing.T) {
 				}
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					capMu.Lock()
-					findCalled++
-					if startCalled == 1 && findCalled >= 5 { // expired until restart
+					heartbeatCnt++
+					// Simulate expired after 5 heartbeats
+					if startCalledCnt == 1 && heartbeatCnt >= 5 { // expired until restart
 						capMu.Unlock()
 						logger.Debug("enough heartbeats once; expire the session")
 						return nil, session.ErrNoSession
 					}
-					if startCalled == 2 && findCalled >= 5 { // expired until restart
+					if startCalledCnt == 2 && heartbeatCnt >= 5 { // expired until restart
 						capMu.Unlock()
 						logger.Debug("enough heartbeats twice; expire the session")
 						return nil, session.ErrNoSession
 					}
-					sess := sessions[startCalled-1]
+					sess := sessions[startCalledCnt-1]
 					if id != sess.ID() {
 						return nil, errors.New("session id mismatch")
 					}
@@ -378,85 +406,87 @@ func TestClientSessionExpiration(t *testing.T) {
 
 				roboClient, err := client.New(ctx, addr, logger, opts...)
 				test.That(t, err, test.ShouldBeNil)
-				resp, err := roboClient.MachineStatus(nextCtx)
+				rcr, err := roboClient.ResourceByName(base.Named("base1"))
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+				baseClient := rcr.(base.Base)
+
+				// MoveStraight starts a session and captures SessionID
+				err = baseClient.MoveStraight(ctx, 1, 1, nil)
+				test.That(t, err, test.ShouldBeNil)
 
 				injectRobot.Mu.Lock()
 				test.That(t, capSessID, test.ShouldEqual, sess1.ID())
 				injectRobot.Mu.Unlock()
 
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
-				test.That(t, findCalled, test.ShouldEqual, 0)
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
+				test.That(t, heartbeatCnt, test.ShouldEqual, 0)
 				capMu.Unlock()
 
 				startAt := time.Now()
 				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
 					tb.Helper()
-
 					capMu.Lock()
 					defer capMu.Unlock()
-					test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
 				})
 				// testing against time but fairly generous range
 				test.That(t, time.Since(startAt), test.ShouldBeBetween, 4*time.Second, 7*time.Second)
 
+				// Together with FindByIDFunc, simulate expire after 5 heartbeats
 				sessMgr.mu.Lock()
 				sessMgr.expired = true
 				sessMgr.mu.Unlock()
 
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
 				capMu.Unlock()
 
-				logger.Debug("now call status which should work with a restarted session")
-				resp, err = roboClient.MachineStatus(nextCtx)
+				logger.Debug("now call MoveStraight which should work with a restarted session")
+
+				// Start new session, capture SessionID
+				err = baseClient.MoveStraight(nextCtx, 1, 1, nil)
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+
+				capMu.Lock()
+				test.That(t, startCalledCnt, test.ShouldEqual, 2)
+				capMu.Unlock()
 
 				injectRobot.Mu.Lock()
 				test.That(t, capSessID, test.ShouldEqual, sess2.ID())
 				injectRobot.Mu.Unlock()
-
-				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 2)
-				capMu.Unlock()
 
 				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
 					tb.Helper()
 
 					capMu.Lock()
 					defer capMu.Unlock()
-					test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
 				})
 				sessMgr.mu.Lock()
 				sessMgr.expired = true
 				sessMgr.mu.Unlock()
 
-				echoRes, err := roboClient.ResourceByName(arbName)
-				test.That(t, err, test.ShouldBeNil)
-				echoClient := echoRes.(*dummyClient).client
-
+				// session not yet started
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 2)
+				test.That(t, startCalledCnt, test.ShouldEqual, 2)
 				capMu.Unlock()
 
-				echoMultiClient, err := echoClient.EchoResourceMultiple(nextCtx, &echopb.EchoResourceMultipleRequest{
-					Name:    arbName.Name,
-					Message: "doesnotmatter",
-				})
-				test.That(t, err, test.ShouldBeNil)
-				_, err = echoMultiClient.Recv() // EOF; okay
-				test.That(t, err, test.ShouldBeError, io.EOF)
+				injectRobot.Mu.Lock()
+				capSessID = uuid.Nil
+				injectRobot.Mu.Unlock()
 
-				dummyEcho1.mu.Lock()
-				test.That(t, dummyEcho1.capSessID, test.ShouldEqual, sess3.ID())
-				dummyEcho1.mu.Unlock()
+				// start a new session
+				err = baseClient.SetPower(nextCtx, r3.Vector{}, r3.Vector{}, nil)
+				test.That(t, err, test.ShouldBeNil)
 
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 3)
+				test.That(t, startCalledCnt, test.ShouldEqual, 3)
 				capMu.Unlock()
+
+				injectRobot.Mu.Lock()
+				test.That(t, capSessID, test.ShouldEqual, sess3.ID())
+				injectRobot.Mu.Unlock()
 
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
@@ -466,16 +496,15 @@ func TestClientSessionExpiration(t *testing.T) {
 	}
 }
 
+// Test a single client session stopping, e.g. due to a disconnect, and resuming on the next call that requires a session.
 func TestClientSessionResume(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	for _, webrtcDisabled := range []bool{false, true} {
-		webrtcDisabledCopy := webrtcDisabled
-
 		t.Run(
 			fmt.Sprintf(
 				"webrtc disabled=%t",
-				webrtcDisabledCopy,
+				webrtcDisabled,
 			),
 			func(t *testing.T) {
 				t.Parallel()
@@ -484,14 +513,36 @@ func TestClientSessionResume(t *testing.T) {
 
 				sessMgr := &sessionManager{}
 				injectRobot := &inject.Robot{
-					ResourceNamesFunc:   func() []resource.Name { return []resource.Name{} },
-					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
 					MachineStatusFunc: func(_ context.Context) (robot.MachineStatus, error) {
 						return robot.MachineStatus{State: robot.StateRunning}, nil
 					},
-					LoggerFunc: func() logging.Logger { return logger },
-					SessMgr:    sessMgr,
+					ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+					LoggerFunc:          func() logging.Logger { return logger },
+					SessMgr:             sessMgr,
 				}
+
+				var capSessID uuid.UUID
+
+				// Inject a base. Its actuating methods- MoveStraight, SetPower, etc. will start sessions.
+				// Repurpose MoveStraight and SetPower to capture session IDs
+				injectBase := inject.Base{
+					MoveStraightFunc: func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error {
+						sess, ok := session.FromContext(ctx)
+						test.That(t, ok, test.ShouldBeTrue)
+						capSessID = sess.ID()
+						return nil
+					},
+					SetPowerFunc: func(ctx context.Context, linear, angular r3.Vector, extra map[string]interface{}) error {
+						sess, ok := session.FromContext(ctx)
+						test.That(t, ok, test.ShouldBeTrue)
+						capSessID = sess.ID()
+						return nil
+					},
+				}
+				rs := map[resource.Name]resource.Resource{
+					base.Named("base1"): &injectBase,
+				}
+				injectRobot.MockResourcesFromMap(rs)
 
 				svc := web.New(injectRobot, logger)
 
@@ -500,16 +551,20 @@ func TestClientSessionResume(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				var opts []client.RobotClientOption
-				if webrtcDisabledCopy {
+				if webrtcDisabled {
 					opts = append(opts, client.WithDialOptions(rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 						Disable: true,
 					})))
 				}
 
 				var capMu sync.Mutex
-				var startCalled int
-				var findCalled int
+				// count session.Start() calls
+				var startCalledCnt int
+				// use FindByID as a proxy for counting heartbeats
+				var heartbeatCnt int
 
+				// Create new unstarted session.
+				// Track Start and FindByID calls. FindByID is called by SendSessionHeartbeat; used here to count heartbeats.
 				sess1 := session.New(context.Background(), "ownerID", 5*time.Second, nil)
 				nextCtx := session.ToContext(ctx, sess1)
 
@@ -517,8 +572,8 @@ func TestClientSessionResume(t *testing.T) {
 				sessMgr.StartFunc = func(ctx context.Context, ownerID string) (*session.Session, error) {
 					logger.Debug("start session requested")
 					capMu.Lock()
-					startCalled++
-					findCalled = 0
+					startCalledCnt++
+					heartbeatCnt = 0
 					capMu.Unlock()
 					return sess1, nil
 				}
@@ -527,45 +582,41 @@ func TestClientSessionResume(t *testing.T) {
 						return nil, errors.New("session id mismatch")
 					}
 					capMu.Lock()
-					findCalled++
+					heartbeatCnt++
 					capMu.Unlock()
 					sess1.Heartbeat(ctx) // gotta keep session alive
 					return sess1, nil
 				}
 				sessMgr.mu.Unlock()
 
-				injectRobot.Mu.Lock()
-				var capSessID uuid.UUID
-				injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
-					sess, ok := session.FromContext(nextCtx)
-					test.That(t, ok, test.ShouldBeTrue)
-					if !ok {
-						panic("expected session")
-					}
-					capSessID = sess.ID()
-					return robot.MachineStatus{State: robot.StateRunning}, nil
-				}
-				injectRobot.Mu.Unlock()
-
 				roboClient, err := client.New(ctx, addr, logger, opts...)
 				test.That(t, err, test.ShouldBeNil)
-				resp, err := roboClient.MachineStatus(nextCtx)
+				rcr, err := roboClient.ResourceByName(base.Named("base1"))
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+				baseClient := rcr.(base.Base)
 
+				// MoveStraight starts a session and captures SessionID
+				err = baseClient.MoveStraight(nextCtx, 1, 1, nil)
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, capSessID, test.ShouldEqual, sess1.ID())
+
+				// count # of heartbeats
 				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
 					tb.Helper()
 					capMu.Lock()
 					defer capMu.Unlock()
-					test.That(tb, findCalled, test.ShouldBeGreaterThanOrEqualTo, 5)
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, 5)
 				})
 
 				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
 				capMu.Unlock()
 
 				errFindCalled := make(chan struct{})
 				sessMgr.mu.Lock()
+				// close channel on next heartbeat
+				findByIDFuncBackup := sessMgr.FindByIDFunc
 				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
 					close(errFindCalled)
 					return nil, status.New(codes.Unavailable, "disconnected or something").Err()
@@ -575,30 +626,35 @@ func TestClientSessionResume(t *testing.T) {
 				<-errFindCalled
 				time.Sleep(time.Second)
 
+				heartbeatsBeforeResume := heartbeatCnt
 				sessMgr.mu.Lock()
-				sessMgr.FindByIDFunc = func(ctx context.Context, id uuid.UUID, ownerID string) (*session.Session, error) {
-					if id != sess1.ID() {
-						return nil, errors.New("session id mismatch")
-					}
-					capMu.Lock()
-					findCalled++
-					capMu.Unlock()
-					sess1.Heartbeat(ctx) // gotta keep session alive
-					return sess1, nil
-				}
+				sessMgr.FindByIDFunc = findByIDFuncBackup
 				sessMgr.mu.Unlock()
 
-				resp, err = roboClient.MachineStatus(nextCtx)
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, resp, test.ShouldNotBeNil)
+				injectRobot.Mu.Lock()
+				capSessID = uuid.Nil
+				injectRobot.Mu.Unlock()
 
-				capMu.Lock()
-				test.That(t, startCalled, test.ShouldEqual, 1)
-				capMu.Unlock()
+				// Resume session and capture session ID (should be unchanged)
+				err = baseClient.SetPower(nextCtx, r3.Vector{}, r3.Vector{}, nil)
+				test.That(t, err, test.ShouldBeNil)
 
 				injectRobot.Mu.Lock()
 				test.That(t, capSessID, test.ShouldEqual, sess1.ID())
 				injectRobot.Mu.Unlock()
+
+				capMu.Lock()
+				// resume doesn't call Start again
+				test.That(t, startCalledCnt, test.ShouldEqual, 1)
+				capMu.Unlock()
+
+				// confirm Session is working again
+				testutils.WaitForAssertionWithSleep(t, time.Second, 10, func(tb testing.TB) {
+					tb.Helper()
+					capMu.Lock()
+					defer capMu.Unlock()
+					test.That(tb, heartbeatCnt, test.ShouldBeGreaterThanOrEqualTo, heartbeatsBeforeResume+1)
+				})
 
 				err = roboClient.Close(context.Background())
 				test.That(t, err, test.ShouldBeNil)
@@ -746,7 +802,7 @@ type dummyEcho struct {
 
 type echoServer struct {
 	echopb.UnimplementedEchoResourceServiceServer
-	coll resource.APIResourceCollection[resource.Resource]
+	coll resource.APIResourceGetter[resource.Resource]
 }
 
 func (srv *echoServer) EchoResourceMultiple(

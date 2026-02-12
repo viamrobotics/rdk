@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils/contextutils"
 )
 
@@ -76,27 +77,27 @@ type cacheEntry struct {
 }
 
 // Validate checks that the config attributes are valid for a replay camera.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Source == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "source")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "source")
 	}
 
 	if cfg.RobotID == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "robot_id")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "robot_id")
 	}
 
 	if cfg.LocationID == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "location_id")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "location_id")
 	}
 
 	if cfg.OrganizationID == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "organization_id")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "organization_id")
 	}
 	if cfg.APIKey == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
 	if cfg.APIKeyID == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "api_key_id")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "api_key_id")
 	}
 
 	var err error
@@ -104,7 +105,7 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Interval.Start != "" {
 		startTime, err = time.Parse(timeFormat, cfg.Interval.Start)
 		if err != nil {
-			return nil, errors.New("invalid time format for start time (UTC), use RFC3339")
+			return nil, nil, errors.New("invalid time format for start time (UTC), use RFC3339")
 		}
 	}
 
@@ -112,19 +113,19 @@ func (cfg *Config) Validate(path string) ([]string, error) {
 	if cfg.Interval.End != "" {
 		endTime, err = time.Parse(timeFormat, cfg.Interval.End)
 		if err != nil {
-			return nil, errors.New("invalid time format for end time (UTC), use RFC3339")
+			return nil, nil, errors.New("invalid time format for end time (UTC), use RFC3339")
 		}
 	}
 
 	if cfg.Interval.Start != "" && cfg.Interval.End != "" && startTime.After(endTime) {
-		return nil, errors.New("invalid config, end time (UTC) must be after start time (UTC)")
+		return nil, nil, errors.New("invalid config, end time (UTC) must be after start time (UTC)")
 	}
 
 	if cfg.BatchSize != nil && (*cfg.BatchSize > uint64(maxCacheSize) || *cfg.BatchSize == 0) {
-		return nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
+		return nil, nil, errors.Errorf("batch_size must be between 1 and %d", maxCacheSize)
 	}
 
-	return []string{cloud.InternalServiceName.String()}, nil
+	return []string{cloud.InternalServiceName.String()}, nil, nil
 }
 
 // pcdCamera is a camera model that plays back pre-captured point cloud data.
@@ -166,7 +167,7 @@ func newPCDCamera(
 }
 
 // NextPointCloud returns the next point cloud retrieved from cloud storage based on the applied filter.
-func (replay *pcdCamera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (replay *pcdCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	// First acquire the lock, so that it's safe to populate the cache and/or retrieve and
 	// remove the next data point from the cache. Note that if multiple threads call
 	// NextPointCloud concurrently, they may get data out-of-order, since there's no guarantee
@@ -275,7 +276,7 @@ func (replay *pcdCamera) getDataFromHTTP(ctx context.Context, dataURL string) (p
 		return nil, err
 	}
 
-	pc, err := pointcloud.ReadPCD(res.Body)
+	pc, err := pointcloud.ReadPCD(res.Body, "")
 	if err != nil {
 		return nil, multierr.Combine(err, res.Body.Close())
 	}
@@ -328,7 +329,11 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 }
 
 // Images is a part of the camera interface but is not implemented for replay.
-func (replay *pcdCamera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (replay *pcdCamera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	return nil, resource.ResponseMetadata{}, errors.New("Images is unimplemented")
 }
 
@@ -348,6 +353,10 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 
 func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
 	return nil, camera.ImageMetadata{}, errors.New("Image is unimplemented")
+}
+
+func (replay *pcdCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return make([]spatialmath.Geometry, 0), nil
 }
 
 // Close stops replay camera, closes the channels and its connections to the cloud.
@@ -377,7 +386,7 @@ func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependen
 	replay.APIKey = replayCamConfig.APIKey
 	replay.APIKeyID = replayCamConfig.APIKeyID
 
-	cloudConnSvc, err := resource.FromDependencies[cloud.ConnectionService](deps, cloud.InternalServiceName)
+	cloudConnSvc, err := resource.FromProvider[cloud.ConnectionService](deps, cloud.InternalServiceName)
 	if err != nil {
 		return err
 	}
@@ -465,7 +474,7 @@ func decodeResponseData(respData []*datapb.BinaryData) (pointcloud.PointCloud, e
 		return nil, errors.New("no response data; this should never happen")
 	}
 
-	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()))
+	pc, err := pointcloud.ReadPCD(bytes.NewBuffer(respData[0].GetBinary()), "")
 	if err != nil {
 		return nil, err
 	}

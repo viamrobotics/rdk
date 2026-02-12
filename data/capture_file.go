@@ -2,7 +2,6 @@ package data
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -28,6 +27,7 @@ const (
 	// which are no longer being written to.
 	CompletedCaptureFileExt = ".capture"
 	readImage               = "ReadImage"
+	getAudio                = "GetAudio"
 	// GetImages is used for getting simultaneous images from different imagers.
 	GetImages            = "GetImages"
 	nextPointCloud       = "NextPointCloud"
@@ -67,7 +67,7 @@ func ReadCaptureFile(f *os.File) (*CaptureFile, error) {
 	md := &v1.DataCaptureMetadata{}
 	initOffset, err := pbutil.ReadDelimited(f, md)
 	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("failed to read DataCaptureMetadata from %s", f.Name())) //nolint:govet
+		return nil, errors.Wrapf(err, "failed to read DataCaptureMetadata from %s", f.Name())
 	}
 
 	ret := CaptureFile{
@@ -213,7 +213,7 @@ func BuildCaptureMetadata(
 	api resource.API,
 	name string,
 	method string,
-	additionalParams map[string]string,
+	additionalParams map[string]interface{},
 	methodParams map[string]*anypb.Any,
 	tags []string,
 ) (*v1.DataCaptureMetadata, CaptureType) {
@@ -278,5 +278,15 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 // CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions
 // for reserved characters.
 func CaptureFilePathWithReplacedReservedChars(filepath string) string {
+	// Handle Windows drive letters by preserving them and replacing other colons.
+	if isWindowsAbsolutePath(filepath) {
+		return filepath[:2] + strings.ReplaceAll(filepath[2:], filePathReservedChars, "_")
+	}
 	return strings.ReplaceAll(filepath, filePathReservedChars, "_")
+}
+
+// isWindowsAbsolutePath returns true if the path is a Windows absolute path. Ex: C:\path\to\file.txt.
+func isWindowsAbsolutePath(path string) bool {
+	driveLetter := path[0] | 32 // convert to lowercase.
+	return len(path) >= 2 && path[1] == ':' && driveLetter >= 'a' && driveLetter <= 'z'
 }

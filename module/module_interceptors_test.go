@@ -32,9 +32,10 @@ import (
 func TestOpID(t *testing.T) {
 	ctx := context.Background()
 
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM -- subprocess build warnings cause failure")
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
+
 	logger, logObserver := logging.NewObservedTestLogger(t)
 
 	var port int
@@ -155,6 +156,9 @@ func TestOpID(t *testing.T) {
 }
 
 func TestModuleClientTimeoutInterceptor(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

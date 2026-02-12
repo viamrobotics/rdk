@@ -7,7 +7,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -45,10 +44,9 @@ func TestClusteringVoxelConfig(t *testing.T) {
 }
 
 func TestVoxelSegmentMeans(t *testing.T) {
-	logger := logging.NewTestLogger(t)
 	cam := &inject.Camera{}
-	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
-		return pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
+	cam.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pc.PointCloud, error) {
+		return pc.NewFromFile(artifact.MustPath("pointcloud/test.las"), "")
 	}
 
 	// Do voxel segmentation

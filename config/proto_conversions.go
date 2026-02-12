@@ -34,7 +34,7 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	}
 
 	if proto.Network != nil {
-		network, err := NetworkConfigFromProto(proto.Network)
+		network, err := NetworkConfigFromProto(proto.Network, logger)
 		if err != nil {
 			return nil, errors.Wrap(err, "error converting network config from proto")
 		}
@@ -42,71 +42,44 @@ func FromProto(proto *pb.RobotConfig, logger logging.Logger) (*Config, error) {
 	}
 
 	if proto.Auth != nil {
-		auth, err := AuthConfigFromProto(proto.Auth)
+		auth, err := AuthConfigFromProto(proto.Auth, logger)
 		if err != nil {
 			return nil, errors.Wrap(err, "error converting auth config from proto")
 		}
 		cfg.Auth = *auth
 	}
-	disablePartialStart := false
-	if proto.DisablePartialStart != nil {
-		disablePartialStart = *proto.DisablePartialStart
-	}
-
-	cfg.Modules, err = toRDKSlice(proto.Modules, ModuleConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting modules config from proto")
-	}
-
-	cfg.Components, err = toRDKSlice(proto.Components, ComponentConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting components config from proto")
-	}
-
-	cfg.Remotes, err = toRDKSlice(proto.Remotes, RemoteConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting remotes config from proto")
-	}
-
-	cfg.Processes, err = toRDKSlice(proto.Processes, ProcessConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting processes config from proto")
-	}
-
-	cfg.Services, err = toRDKSlice(proto.Services, ServiceConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting services config from proto")
-	}
-
-	cfg.Packages, err = toRDKSlice(proto.Packages, PackageConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting packages config from proto")
-	}
-
-	if proto.Debug != nil {
-		cfg.Debug = *proto.Debug
-	}
-
-	cfg.EnableWebProfile = proto.EnableWebProfile
-
-	cfg.LogConfig, err = toRDKSlice(proto.Log, LogConfigFromProto, disablePartialStart, logger)
-	if err != nil {
-		return nil, errors.Wrap(err, "error converting log config from proto")
-	}
-
-	cfg.Revision = proto.Revision
-
-	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	if proto.Maintenance != nil {
-		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance)
+		maintenanceConfig, err := MaintenanceConfigFromProto(proto.Maintenance, logger)
 		if err != nil {
 			return nil, errors.Wrap(err, "error converting maintenance config from proto")
 		}
 		cfg.MaintenanceConfig = maintenanceConfig
 	}
 
+	tracingCfg, err := TracingConfigFromProto(proto.Tracing, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "error converting tracing config from proto")
+	}
+	cfg.Tracing = tracingCfg
+
+	cfg.Modules = toRDKSlice(proto.Modules, ModuleConfigFromProto, logger)
+	cfg.Components = toRDKSlice(proto.Components, ComponentConfigFromProto, logger)
+	cfg.Remotes = toRDKSlice(proto.Remotes, RemoteConfigFromProto, logger)
+	cfg.Processes = toRDKSlice(proto.Processes, ProcessConfigFromProto, logger)
+	cfg.Services = toRDKSlice(proto.Services, ServiceConfigFromProto, logger)
+	cfg.Packages = toRDKSlice(proto.Packages, PackageConfigFromProto, logger)
+	cfg.Jobs = toRDKSlice(proto.Jobs, JobsConfigFromProto, logger)
+	cfg.EnableWebProfile = proto.EnableWebProfile
+	cfg.LogConfig = toRDKSlice(proto.Log, LogConfigFromProto, logger)
+	cfg.Revision = proto.Revision
 	cfg.DisableLogDeduplication = proto.DisableLogDeduplication
+
+	if proto.Debug != nil {
+		cfg.Debug = *proto.Debug
+	}
+
+	logAnyFragmentOverwriteErrors(logger, proto.OverwriteFragmentStatus)
 
 	return &cfg, nil
 }
@@ -155,7 +128,7 @@ func ComponentConfigToProto(conf *resource.Config) (*pb.ComponentConfig, error) 
 }
 
 // ComponentConfigFromProto creates Component from the proto equivalent.
-func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, error) {
+func ComponentConfigFromProto(protoConf *pb.ComponentConfig, logger logging.Logger) (*resource.Config, error) {
 	serviceConfigs, err := mapSliceWithErrors(protoConf.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
@@ -187,7 +160,7 @@ func ComponentConfigFromProto(protoConf *pb.ComponentConfig) (*resource.Config, 
 		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
-			logging.Global().Warnw(
+			logger.Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
 		logConfig = &resource.LogConfig{Level: level}
@@ -250,7 +223,7 @@ func ServiceConfigToProto(conf *resource.Config) (*pb.ServiceConfig, error) {
 }
 
 // ServiceConfigFromProto creates Service from the proto equivalent shared with Components.
-func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, error) {
+func ServiceConfigFromProto(protoConf *pb.ServiceConfig, logger logging.Logger) (*resource.Config, error) {
 	// for consistency, nil out empty map (otherwise go>proto>go conversion doesn't match)
 	attrs := protoConf.GetAttributes().AsMap()
 	if len(attrs) == 0 {
@@ -278,7 +251,7 @@ func ServiceConfigFromProto(protoConf *pb.ServiceConfig) (*resource.Config, erro
 		if err != nil {
 			// Don't fail configuration due to a malformed log level.
 			level = logging.INFO
-			logging.Global().Warnw(
+			logger.Warnw(
 				"Invalid log level.", "name", protoConf.GetName(), "log_level", protoConf.GetLogConfiguration().Level, "error", err)
 		}
 		logConfig = &resource.LogConfig{Level: level}
@@ -313,13 +286,14 @@ func ModuleConfigToProto(module *Module) (*pb.ModuleConfig, error) {
 		Env:             module.Environment,
 		Status:          status,
 		FirstRunTimeout: durationpb.New(module.FirstRunTimeout.Unwrap()),
+		TcpMode:         module.TCPMode,
 	}
 
 	return &proto, nil
 }
 
 // ModuleConfigFromProto creates Module from the proto equivalent.
-func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
+func ModuleConfigFromProto(proto *pb.ModuleConfig, _ logging.Logger) (*Module, error) {
 	var status *AppValidationStatus
 	if proto.GetStatus() != nil {
 		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
@@ -334,6 +308,7 @@ func ModuleConfigFromProto(proto *pb.ModuleConfig) (*Module, error) {
 		Environment:     proto.GetEnv(),
 		Status:          status,
 		FirstRunTimeout: utils.Duration(proto.GetFirstRunTimeout().AsDuration()),
+		TCPMode:         proto.GetTcpMode(),
 	}
 	return &module, nil
 }
@@ -355,7 +330,7 @@ func ProcessConfigToProto(process *pexec.ProcessConfig) (*pb.ProcessConfig, erro
 }
 
 // ProcessConfigFromProto creates ProcessConfig from the proto equivalent.
-func ProcessConfigFromProto(proto *pb.ProcessConfig) (*pexec.ProcessConfig, error) {
+func ProcessConfigFromProto(proto *pb.ProcessConfig, _ logging.Logger) (*pexec.ProcessConfig, error) {
 	return &pexec.ProcessConfig{
 		ID:          proto.Id,
 		Name:        proto.Name,
@@ -550,7 +525,7 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 	}
 
 	if proto.GetGeometry() != nil {
-		geom, err := spatial.NewGeometryFromProto(proto.GetGeometry())
+		geom, err := referenceframe.NewGeometryFromProto(proto.GetGeometry())
 		if err != nil {
 			return nil, err
 		}
@@ -565,8 +540,6 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 
 // RemoteConfigToProto converts Remote to the proto equivalent.
 func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
-	remote.adjustPartialNames()
-
 	serviceConfigs, err := mapSliceWithErrors(remote.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
@@ -587,6 +560,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 		ServiceConfigs:          serviceConfigs,
 		Secret:                  remote.Secret,
 		Auth:                    remoteAuth,
+		Prefix:                  remote.Prefix,
 	}
 
 	if remote.Frame != nil {
@@ -601,7 +575,7 @@ func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
 }
 
 // RemoteConfigFromProto creates Remote from the proto equivalent.
-func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
+func RemoteConfigFromProto(proto *pb.RemoteConfig, _ logging.Logger) (*Remote, error) {
 	associatedResourceConfigs, err := mapSliceWithErrors(proto.ServiceConfigs, AssociatedResourceConfigFromProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")
@@ -616,6 +590,7 @@ func RemoteConfigFromProto(proto *pb.RemoteConfig) (*Remote, error) {
 		ReconnectInterval:         proto.ReconnectInterval.AsDuration(),
 		AssociatedResourceConfigs: associatedResourceConfigs,
 		Secret:                    proto.GetSecret(),
+		Prefix:                    proto.GetPrefix(),
 	}
 
 	if proto.GetAuth() != nil {
@@ -643,6 +618,7 @@ func NetworkConfigToProto(network *NetworkConfig) (*pb.NetworkConfig, error) {
 		BindAddress:            network.BindAddress,
 		TlsCertFile:            network.TLSCertFile,
 		TlsKeyFile:             network.TLSKeyFile,
+		NoTls:                  network.NoTLS,
 		Sessions:               sessionsConfigToProto(network.Sessions),
 		TrafficTunnelEndpoints: trafficTunnelEndpointsToProto(network.TrafficTunnelEndpoints),
 	}
@@ -669,13 +645,14 @@ func MaintenanceConfigToProto(maintenanceConfig *MaintenanceConfig) (*pb.Mainten
 }
 
 // NetworkConfigFromProto creates NetworkConfig from the proto equivalent.
-func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
+func NetworkConfigFromProto(proto *pb.NetworkConfig, _ logging.Logger) (*NetworkConfig, error) {
 	network := NetworkConfig{
 		NetworkConfigData: NetworkConfigData{
 			FQDN:                   proto.GetFqdn(),
 			BindAddress:            proto.GetBindAddress(),
 			TLSCertFile:            proto.GetTlsCertFile(),
 			TLSKeyFile:             proto.GetTlsKeyFile(),
+			NoTLS:                  proto.GetNoTls(),
 			Sessions:               sessionsConfigFromProto(proto.GetSessions()),
 			TrafficTunnelEndpoints: trafficTunnelEndpointsFromProto(proto.TrafficTunnelEndpoints),
 		},
@@ -685,7 +662,7 @@ func NetworkConfigFromProto(proto *pb.NetworkConfig) (*NetworkConfig, error) {
 }
 
 // MaintenanceConfigFromProto creates a MaintenanceConfig from the proto equivalent.
-func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig, error) {
+func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig, _ logging.Logger) (*MaintenanceConfig, error) {
 	maintenanceConfig := MaintenanceConfig{
 		MaintenanceAllowedKey: proto.GetMaintenanceAllowedKey(),
 	}
@@ -693,6 +670,33 @@ func MaintenanceConfigFromProto(proto *pb.MaintenanceConfig) (*MaintenanceConfig
 		maintenanceConfig.SensorName = protoRdkUtils.ResourceNameFromProto(proto.GetSensorName()).String()
 	}
 	return &maintenanceConfig, nil
+}
+
+// TracingConfigFromProto creates a [TracingConfig] from the proto equivalent.
+func TracingConfigFromProto(proto *pb.TracingConfig, _ logging.Logger) (TracingConfig, error) {
+	tcfg := TracingConfig{}
+	if proto == nil {
+		return tcfg, nil
+	}
+	tcfg.Enabled = proto.Enabled
+	tcfg.Disk = proto.Disk
+	tcfg.Console = proto.Console
+	tcfg.OTLPEndpoint = proto.OtlpEndpoint
+	return tcfg, nil
+}
+
+// TracingConfigToProto converts a [TracingConfig] to the proto equivalent.
+func TracingConfigToProto(cfg *TracingConfig) (*pb.TracingConfig, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+	protoConfig := &pb.TracingConfig{
+		Enabled:      cfg.Enabled,
+		Disk:         cfg.Disk,
+		Console:      cfg.Console,
+		OtlpEndpoint: cfg.OTLPEndpoint,
+	}
+	return protoConfig, nil
 }
 
 // AuthConfigToProto converts AuthConfig to the proto equivalent.
@@ -722,7 +726,7 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 }
 
 // AuthConfigFromProto creates AuthConfig from the proto equivalent.
-func AuthConfigFromProto(proto *pb.AuthConfig) (*AuthConfig, error) {
+func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, error) {
 	handlers, err := mapSliceWithErrors(proto.Handlers, authHandlerConfigFromProto)
 	if err != nil {
 		return nil, err
@@ -959,23 +963,19 @@ func mapSliceWithErrors[T, U any](a []T, f func(T) (U, error)) ([]U, error) {
 
 func toRDKSlice[PT, RT any](
 	protoList []*PT,
-	toRDK func(*PT) (*RT, error),
-	disablePartialStart bool,
+	toRDK func(*PT, logging.Logger) (*RT, error),
 	logger logging.Logger,
-) ([]RT, error) {
+) []RT {
 	out := make([]RT, 0, len(protoList))
 	for _, proto := range protoList {
-		rdk, err := toRDK(proto)
+		rdk, err := toRDK(proto, logger)
 		if err != nil {
 			logger.Errorw("error converting from proto to config", "type", reflect.TypeOf(proto).String(), "error", err)
-			if disablePartialStart {
-				return nil, err
-			}
 		} else {
 			out = append(out, *rdk)
 		}
 	}
-	return out, nil
+	return out
 }
 
 // PackageConfigToProto converts a rdk package config to the proto version.
@@ -995,7 +995,7 @@ func PackageConfigToProto(cfg *PackageConfig) (*pb.PackageConfig, error) {
 }
 
 // PackageConfigFromProto converts a proto package config to the rdk version.
-func PackageConfigFromProto(proto *pb.PackageConfig) (*PackageConfig, error) {
+func PackageConfigFromProto(proto *pb.PackageConfig, _ logging.Logger) (*PackageConfig, error) {
 	var status *AppValidationStatus
 	if proto.GetStatus() != nil {
 		status = &AppValidationStatus{Error: proto.GetStatus().GetError()}
@@ -1040,9 +1040,57 @@ func LogConfigToProto(logConfig *logging.LoggerPatternConfig) (*pb.LogPatternCon
 }
 
 // LogConfigFromProto converts a proto LoggerPatternConfig to the rdk version.
-func LogConfigFromProto(proto *pb.LogPatternConfig) (*logging.LoggerPatternConfig, error) {
+func LogConfigFromProto(proto *pb.LogPatternConfig, _ logging.Logger) (*logging.LoggerPatternConfig, error) {
 	return &logging.LoggerPatternConfig{
 		Pattern: proto.Pattern,
 		Level:   proto.Level,
 	}, nil
+}
+
+// JobsConfigToProto converts a JobConfig to its proto equivalent.
+func JobsConfigToProto(jc *JobConfig) (*pb.JobConfig, error) {
+	protoConfig := &pb.JobConfig{
+		Name:     jc.Name,
+		Schedule: jc.Schedule,
+		Resource: jc.Resource,
+		Method:   jc.Method,
+	}
+
+	if jc.Command != nil {
+		command, err := protoutils.StructToStructPb(jc.Command)
+		if err != nil {
+			return nil, err
+		}
+		protoConfig.Command = command
+	}
+	if jc.LogConfiguration != nil {
+		protoConfig.LogConfiguration = &pb.LogConfiguration{Level: strings.ToLower(jc.LogConfiguration.Level.String())}
+	}
+	return protoConfig, nil
+}
+
+// JobsConfigFromProto converts a proto JobConfig to its rdk equivalent.
+func JobsConfigFromProto(proto *pb.JobConfig, _ logging.Logger) (*JobConfig, error) {
+	jobConfig := &JobConfig{
+		JobConfigData{
+			Name:     proto.Name,
+			Schedule: proto.Schedule,
+			Resource: proto.Resource,
+			Method:   proto.Method,
+		},
+	}
+
+	if proto.Command != nil {
+		jobConfig.Command = proto.Command.AsMap()
+	}
+	if proto.LogConfiguration != nil {
+		if proto.GetLogConfiguration() != nil {
+			level, err := logging.LevelFromString(proto.GetLogConfiguration().Level)
+			if err != nil {
+				level = logging.INFO
+			}
+			jobConfig.LogConfiguration = &resource.LogConfig{Level: level}
+		}
+	}
+	return jobConfig, nil
 }

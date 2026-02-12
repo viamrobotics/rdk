@@ -22,7 +22,9 @@ type Diff struct {
 	Removed             *Config
 	ResourcesEqual      bool
 	NetworkEqual        bool
+	TracingEqual        bool
 	LogEqual            bool
+	JobsEqual           bool
 	PrettyDiff          string
 	UnmodifiedResources []resource.Config
 }
@@ -35,6 +37,7 @@ type ModifiedConfigDiff struct {
 	Services   []resource.Config
 	Packages   []PackageConfig
 	Modules    []Module
+	Jobs       []JobConfig
 }
 
 // NewRevision returns the revision from the new config if available.
@@ -87,13 +90,23 @@ func DiffConfigs(left, right Config, revealSensitiveConfigDiffs bool) (_ *Diff, 
 
 	diff.ResourcesEqual = !different
 
+	jobsDifferent := diffJobCfg(left.Jobs, right.Jobs, &diff)
+	diff.JobsEqual = !jobsDifferent
+
 	networkDifferent := diffNetworkingCfg(&left, &right)
 	diff.NetworkEqual = !networkDifferent
 
-	logDifferent := diffLogCfg(&left, &right, servicesDifferent, componentsDifferent)
+	logDifferent := diffLogCfg(&left, &right)
 	diff.LogEqual = !logDifferent
 
+	tracingDifferent := diffTracing(&left, &right)
+	diff.TracingEqual = !tracingDifferent
+
 	return &diff, nil
+}
+
+func diffTracing(left, right *Config) bool {
+	return left.Tracing != right.Tracing
 }
 
 func prettyDiff(left, right Config) (string, error) {
@@ -131,6 +144,9 @@ func prettyDiff(left, right Config) (string, error) {
 				if conf.Cloud.LocationSecrets[i].Secret != "" {
 					conf.Cloud.LocationSecrets[i].Secret = mask
 				}
+			}
+			if conf.Cloud.APIKey.Key != "" {
+				conf.Cloud.APIKey.Key = mask
 			}
 			// Not really a secret but annoying to diff
 			if conf.Cloud.TLSCertificate != "" {
@@ -247,7 +263,7 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
-			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !componentDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -376,7 +392,7 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
-			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !serviceDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -518,15 +534,50 @@ func diffModule(left, right Module, diff *Diff) bool {
 	return true
 }
 
-// diffLogCfg returns true if any part of the log config is different or if any
-// services or components have been updated.
-func diffLogCfg(left, right *Config, servicesDifferent, componentsDifferent bool) bool {
-	if !reflect.DeepEqual(left.LogConfig, right.LogConfig) {
-		return true
+// diffLogCfg returns true if any part of the log config is different.
+func diffLogCfg(left, right *Config) bool {
+	return !reflect.DeepEqual(left.LogConfig, right.LogConfig)
+}
+
+//nolint:dupl
+func diffJobCfg(leftJobs, rightJobs []JobConfig, diff *Diff) bool {
+	leftIndex := make(map[string]int)
+	leftJ := make(map[string]JobConfig)
+	for idx, l := range leftJobs {
+		leftJ[l.Name] = l
+		leftIndex[l.Name] = idx
 	}
-	// If there was any change in services or components; attempt to update logger levels.
-	if servicesDifferent || componentsDifferent {
-		return true
+
+	var removed []int
+
+	var different bool
+	for _, r := range rightJobs {
+		l, ok := leftJ[r.Name]
+		delete(leftJ, r.Name)
+		if ok {
+			different = diffJob(l, r, diff) || different
+			continue
+		}
+		diff.Added.Jobs = append(diff.Added.Jobs, r)
+		different = true
 	}
-	return false
+
+	for k := range leftJ {
+		removed = append(removed, leftIndex[k])
+		different = true
+	}
+	sort.Ints(removed)
+	for _, idx := range removed {
+		diff.Removed.Jobs = append(diff.Removed.Jobs, leftJobs[idx])
+	}
+
+	return different
+}
+
+func diffJob(left, right JobConfig, diff *Diff) bool {
+	if left.Equals(right) {
+		return false
+	}
+	diff.Modified.Jobs = append(diff.Modified.Jobs, right)
+	return true
 }

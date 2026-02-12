@@ -65,22 +65,22 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.BoardName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	if cfg.TicksPerRotation == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "ticks_per_rotation")
 	}
 	if cfg.Pins.Direction == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "dir")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "dir")
 	}
 	if cfg.Pins.Step == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "step")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "step")
 	}
 	deps = append(deps, cfg.BoardName)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -118,7 +118,7 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	b, err := board.FromDependencies(deps, mc.BoardName)
+	b, err := board.FromProvider(deps, mc.BoardName)
 	if err != nil {
 		return nil, err
 	}

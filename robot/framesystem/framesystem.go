@@ -8,7 +8,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -30,15 +30,30 @@ var API = resource.APINamespaceRDKInternal.WithServiceType(SubtypeName)
 // InternalServiceName is used to refer to/depend on this service internally.
 var InternalServiceName = resource.NewName(API, "builtin")
 
+// PublicServiceName is used by modules to refer to the robot's frame system.
+var PublicServiceName = resource.NewName(API, "$framesystem")
+
 // InputEnabled is a standard interface for all things that interact with the frame system
 // This allows us to figure out where they currently are, and then move them.
 // Input units are always in meters or radians.
 type InputEnabled interface {
+	Kinematics(ctx context.Context) (referenceframe.Model, error)
 	CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	GoToInputs(context.Context, ...[]referenceframe.Input) error
 }
 
-// A Service that returns the frame system for a robot.
+// Service is an interface that wraps a RobotFrameSystem in a Resource.
+type Service interface {
+	resource.Resource
+	RobotFrameSystem
+}
+
+// RobotFrameSystem defines the API to interact with the FrameSystemService
+//
+// GetPose example:
+//
+//	 // Assume that a gripper is correctly configured with a frame on your machine
+//	myGripperPose, err := machine.GetPose(context.Background(), gripperName, referenceframe.World, nil, nil)
 //
 // TransformPose example:
 //
@@ -64,8 +79,19 @@ type InputEnabled interface {
 //	myCurrentInputs, err := fsService.CurrentInputs(context.Background())
 //
 //	frameSystem, err := fsService.FrameSystem(context.Background(), nil)
-type Service interface {
-	resource.Resource
+type RobotFrameSystem interface {
+	// FrameSystemConfig returns the individual parts that make up a robot's frame system
+	FrameSystemConfig(ctx context.Context) (*Config, error)
+
+	// GetPose returns the pose a component within a frame system.
+	// It returns a `PoseInFrame` describing the pose of the specified component relative to the specified destination frame.
+	// The `supplemental_transforms` argument can be used to augment the machine's existing frame system with additional frames.
+	GetPose(
+		ctx context.Context,
+		componentName, destinationFrame string,
+		supplementalTransforms []*referenceframe.LinkInFrame,
+		extra map[string]interface{},
+	) (*referenceframe.PoseInFrame, error)
 
 	// TransformPose returns a transformed pose in the destination reference frame.
 	// This method converts a given source pose from one reference frame to a specified destination frame.
@@ -73,7 +99,7 @@ type Service interface {
 		ctx context.Context,
 		pose *referenceframe.PoseInFrame,
 		dst string,
-		additionalTransforms []*referenceframe.LinkInFrame,
+		supplementalTransforms []*referenceframe.LinkInFrame,
 	) (*referenceframe.PoseInFrame, error)
 
 	// TransformPointCloud returns a new point cloud with points adjusted from one reference frame to a specified destination frame.
@@ -81,15 +107,18 @@ type Service interface {
 
 	// CurrentInputs returns a map of the current inputs for each component of a machine's frame system
 	// and a map of statuses indicating which of the machine's components may be actuated through input values.
-	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error)
 
-	// FrameSystem returns the frame system of the machine and incorporates any specified additional transformations.
-	FrameSystem(ctx context.Context, additionalTransforms []*referenceframe.LinkInFrame) (referenceframe.FrameSystem, error)
+	CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error)
 }
 
 // FromDependencies is a helper for getting the framesystem from a collection of dependencies.
 func FromDependencies(deps resource.Dependencies) (Service, error) {
-	return resource.FromDependencies[Service](deps, InternalServiceName)
+	return resource.FromProvider[Service](deps, PublicServiceName)
+}
+
+// FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider) (Service, error) {
+	return resource.FromProvider[Service](provider, PublicServiceName)
 }
 
 // New returns a new frame system service for the given robot.
@@ -117,8 +146,7 @@ func (svc *frameSystemService) Name() resource.Name {
 // Config is a slice of *config.FrameSystemPart.
 type Config struct {
 	resource.TriviallyValidateConfig
-	Parts                []*referenceframe.FrameSystemPart
-	AdditionalTransforms []*referenceframe.LinkInFrame
+	Parts []*referenceframe.FrameSystemPart
 }
 
 // String prints out a table of each frame in the system, with columns of name, parent, translation and orientation.
@@ -177,26 +205,56 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
 		short := name.ShortName()
-		// is this only for InputEnabled components or everything?
 		if _, present := components[short]; present {
 			return DuplicateResourceShortNameError(short)
 		}
 		components[short] = r
 	}
 	svc.components = components
+	svc.logger.Info("Reconfigured. Known components:", components)
 
 	fsCfg, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
 	}
 
-	sortedParts, err := referenceframe.TopologicallySortParts(fsCfg.Parts)
-	if err != nil {
-		return err
+	sortedParts, unlinkedParts := referenceframe.TopologicallySortParts(fsCfg.Parts)
+	if len(unlinkedParts) > 0 {
+		strs := make([]string, len(unlinkedParts))
+		for idx, part := range unlinkedParts {
+			strs[idx] = part.FrameConfig.Name()
+		}
+		svc.logger.Warnw("Some frames are not linked to the world frame", "unlinkedParts", strs)
 	}
+
 	svc.parts = sortedParts
 	svc.logger.Debugf("reconfigured robot frame system: %v", (&Config{Parts: sortedParts}).String())
 	return nil
+}
+
+func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) (*Config, error) {
+	return &Config{Parts: svc.parts}, nil
+}
+
+// GetPose returns the pose of the specified component in the given destination frame.
+func (svc *frameSystemService) GetPose(
+	ctx context.Context,
+	componentName, destinationFrame string,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+	extra map[string]interface{},
+) (*referenceframe.PoseInFrame, error) {
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
+	}
+	if componentName == "" {
+		return nil, errors.New("must provide component name")
+	}
+	return svc.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(componentName, spatialmath.NewZeroPose()),
+		destinationFrame,
+		supplementalTransforms,
+	)
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -209,97 +267,24 @@ func (svc *frameSystemService) TransformPose(
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
 
-	fs, err := svc.FrameSystem(ctx, additionalTransforms)
+	fs, err := referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}
-	input := referenceframe.NewZeroInputs(fs)
 
 	svc.partsMu.RLock()
 	defer svc.partsMu.RUnlock()
 
-	// build maps of relevant components and inputs from initial inputs
-	for name, inputs := range input {
-		// skip frame if it does not have input
-		if len(inputs) == 0 {
-			continue
-		}
-
-		// add component to map
-		component, ok := svc.components[name]
-		if !ok {
-			return nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
-		}
-
-		// add input to map
-		pos, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		input[name] = pos
-	}
-
-	tf, err := fs.Transform(input, pose, dst)
+	input, err := svc.CurrentInputs(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pose, _ = tf.(*referenceframe.PoseInFrame)
-	return pose, nil
-}
 
-// CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
-// InputEnabled resources that those inputs came from.
-func (svc *frameSystemService) CurrentInputs(
-	ctx context.Context,
-) (referenceframe.FrameSystemInputs, map[string]InputEnabled, error) {
-	fs, err := svc.FrameSystem(ctx, []*referenceframe.LinkInFrame{})
+	tf, err := fs.Transform(input.ToLinearInputs(), pose, dst)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	input := referenceframe.NewZeroInputs(fs)
-
-	// build maps of relevant components and inputs from initial inputs
-	resources := map[string]InputEnabled{}
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
-			continue
-		}
-
-		// add component to map
-		component, ok := svc.components[name]
-		if !ok {
-			return nil, nil, DependencyNotFoundError(name)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, nil, NotInputEnabledError(component)
-		}
-		resources[name] = inputEnabled
-
-		// add input to map
-		pos, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-		input[name] = pos
-	}
-
-	return input, resources, nil
-}
-
-// FrameSystem returns the frame system of the robot.
-func (svc *frameSystemService) FrameSystem(
-	ctx context.Context,
-	additionalTransforms []*referenceframe.LinkInFrame,
-) (referenceframe.FrameSystem, error) {
-	_, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
-	defer span.End()
-	return referenceframe.NewFrameSystem(LocalFrameSystemName, svc.parts, additionalTransforms)
+	return tf.(*referenceframe.PoseInFrame), nil
 }
 
 // TransformPointCloud applies the same pose offset to each point in a single pointcloud and returns the transformed point cloud.
@@ -321,19 +306,77 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 		return nil, err
 	}
 	// returned the transformed pointcloud where the transform was applied to each point
-	return pointcloud.ApplyOffset(ctx, srcpc, theTransform.Pose(), svc.logger)
+	pc := srcpc.CreateNewRecentered(theTransform.Pose())
+	err = pointcloud.ApplyOffset(srcpc, theTransform.Pose(), pc)
+	if err != nil {
+		return nil, err
+	}
+	return pc, nil
+}
+
+// CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
+// InputEnabled resources that those inputs came from.
+func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
+	fs, err := NewFromService(ctx, svc, nil)
+	if err != nil {
+		return nil, err
+	}
+	input := referenceframe.NewZeroInputs(fs)
+
+	// build maps of relevant components and inputs from initial inputs
+	for name, original := range input {
+		// skip frames with no input
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		component, ok := svc.components[name]
+		if !ok {
+			return nil, DependencyNotFoundError(name)
+		}
+		inputEnabled, ok := component.(InputEnabled)
+		if !ok {
+			return nil, NotInputEnabledError(component)
+		}
+
+		// add input to map
+		pos, err := inputEnabled.CurrentInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		input[name] = pos
+	}
+
+	return input, nil
+}
+
+// NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
+// Supplemental transforms can be provided to augment the FrameSystemConfig.
+func NewFromService(
+	ctx context.Context,
+	service Service,
+	supplementalTransforms []*referenceframe.LinkInFrame,
+) (*referenceframe.FrameSystem, error) {
+	fsCfg, err := service.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewFrameSystem(service.Name().ShortName(), fsCfg.Parts, supplementalTransforms)
 }
 
 // PrefixRemoteParts applies prefixes to a list of FrameSystemParts appropriate to the remote they originate from.
-func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remoteName, remoteParent string) {
+func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remotePrefix, remoteParent string) {
 	for _, part := range parts {
 		if part.FrameConfig.Parent() == referenceframe.World { // rename World of remote parts
 			part.FrameConfig.SetParent(remoteParent)
 		}
 		// rename each non-world part with prefix
-		part.FrameConfig.SetName(remoteName + ":" + part.FrameConfig.Name())
+		if remotePrefix != "" {
+			part.FrameConfig.SetName(remotePrefix + part.FrameConfig.Name())
+		}
 		if part.FrameConfig.Parent() != remoteParent {
-			part.FrameConfig.SetParent(remoteName + ":" + part.FrameConfig.Parent())
+			part.FrameConfig.SetParent(remotePrefix + part.FrameConfig.Parent())
 		}
 	}
 }

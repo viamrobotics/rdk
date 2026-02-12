@@ -1,30 +1,32 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+
+	appClient "go.viam.com/rdk/app"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
+	robotClient "go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
-var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
-
-func getCLICachePath() string {
-	return filepath.Join(viamDotDir, "cached_cli_config.json")
-}
-
 func getCLIProfilesPath() string {
-	return filepath.Join(viamDotDir, "cli_profiles.json")
+	return filepath.Join(rutils.ViamDotDir, "cli_profiles.json")
 }
 
 func getCLIProfilePath(profileName string) string {
-	return filepath.Join(viamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
+	return filepath.Join(rutils.ViamDotDir, fmt.Sprintf("%s_cached_cli_config.json", profileName))
 }
 
 func configFromCacheInner(configPath string) (_ *Config, err error) {
@@ -86,11 +88,16 @@ func ConfigFromCache(c *cli.Context) (*Config, error) {
 		warningf(c.App.ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
 	}
 
-	return configFromCacheInner(getCLICachePath())
+	return configFromCacheInner(rutils.GetCLICachePath())
 }
 
 func removeConfigFromCache() error {
-	return os.Remove(getCLICachePath())
+	return os.Remove(rutils.GetCLICachePath())
+}
+
+func (conf *Config) updateLastUpdateCheck() error {
+	conf.LastUpdateCheck = time.Now().Format(time.RFC3339)
+	return storeConfigToCache(conf)
 }
 
 func storeConfigToCache(cfg *Config) error {
@@ -99,9 +106,9 @@ func storeConfigToCache(cfg *Config) error {
 	if cfg.profile != "" {
 		path = getCLIProfilePath(cfg.profile)
 	} else {
-		path = getCLICachePath()
+		path = rutils.GetCLICachePath()
 	}
-	if err := os.MkdirAll(viamDotDir, 0o700); err != nil {
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
 	}
 	md, err := json.MarshalIndent(cfg, "", "  ")
@@ -113,8 +120,8 @@ func storeConfigToCache(cfg *Config) error {
 	return os.WriteFile(path, md, 0o640)
 }
 
-// TODO(RSDK-9727) - `LastUpdateCheck` and `LatestVersion` are no longer used anywhere.
-// Confirm that it's safe to remove these and then get rid of them.
+// TODO(RSDK-9727) - `LatestVersion` is no longer used anywhere. Confirm that it's safe to
+// remove and then get rid of it.
 
 // Config is the schema for saved CLI credentials.
 type Config struct {
@@ -123,6 +130,8 @@ type Config struct {
 	LastUpdateCheck string     `json:"last_update_check"`
 	LatestVersion   string     `json:"latest_version"`
 	profile         string
+	DefaultOrg      string `json:"default_org"`
+	DefaultLocation string `json:"default_location"`
 }
 
 func (conf *Config) tryUnmarshallWithToken(configBytes []byte) error {
@@ -149,9 +158,48 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 
 // DialOptions constructs an rpc.DialOption slice from config.
 func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
-	_, opts, err := parseBaseURL(conf.BaseURL, true)
+	_, opts, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
 	}
 	return append(opts, conf.Auth.dialOpts()), nil
+}
+
+// ConnectToMachine connects to a Viam machine using the cached CLI token.
+func ConnectToMachine(ctx context.Context, hostname string, logger logging.Logger) (robot.Robot, error) {
+	if hostname == "" {
+		return nil, errors.New("hostname is required")
+	}
+
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return robotClient.New(
+		ctx,
+		hostname,
+		logger,
+		robotClient.WithDialOptions(dopts...),
+	)
+}
+
+// ConnectToApp connects to the Viam app using the cached CLI token.
+func ConnectToApp(ctx context.Context, logger logging.Logger) (*appClient.ViamClient, error) {
+	c, err := ConfigFromCache(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return nil, err
+	}
+
+	return appClient.CreateViamClientWithOptions(ctx, appClient.WithDialOptions(dopts...), logger)
 }

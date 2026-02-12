@@ -3,7 +3,9 @@ package referenceframe
 import (
 	"encoding/json"
 	"math"
+	"math/rand"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -104,9 +106,9 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, part.FrameConfig.pose)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
 	test.That(t,
-		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms),
+		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms()),
 		test.ShouldEqual,
-		len(part.ModelFrame.(*SimpleModel).OrdTransforms),
+		len(part.ModelFrame.(*SimpleModel).OrdTransforms()),
 	)
 }
 
@@ -228,7 +230,7 @@ func TestConvertTransformProtobufToFrameSystemPart(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, part.FrameConfig.name, test.ShouldEqual, transform.Name())
 		test.That(t, part.FrameConfig.parent, test.ShouldEqual, transform.Parent())
-		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), 1e-8), test.ShouldBeTrue)
+		test.That(t, spatial.R3VectorAlmostEqual(part.FrameConfig.pose.Point(), testPose.Point(), defaultFloatPrecision), test.ShouldBeTrue)
 		test.That(t, spatial.OrientationAlmostEqual(part.FrameConfig.pose.Orientation(), testPose.Orientation()), test.ShouldBeTrue)
 	})
 }
@@ -399,4 +401,143 @@ func TestReplaceFrame(t *testing.T) {
 	f, err = fs.Parent(newLeafNode)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, f, test.ShouldResemble, fs.World())
+}
+
+func TestSerialization(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+	dims := r3.Vector{1, 1, 1}
+
+	// add a static frame with a box
+	name0 := "frame0"
+	pose0 := spatial.NewPoseFromPoint(r3.Vector{-4, -4, -4})
+	box0, err := spatial.NewBox(pose0, dims, name0)
+	test.That(t, err, test.ShouldBeNil)
+	frame0, err := NewStaticFrameWithGeometry(name0, pose0, box0)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame0, fs.World())
+
+	// add a static frame with a box as a child of the first
+	name1 := "frame1"
+	pose1 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box1, err := spatial.NewBox(pose1, dims, name1)
+	test.That(t, err, test.ShouldBeNil)
+	frame1, err := NewStaticFrameWithGeometry(name1, pose1, box1)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(frame1, frame0)
+
+	// add an arm model to the fs
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := UnmarshalModelJSON(jsonData, "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(model, fs.World())
+
+	// add a static frame as a child of the model
+	name2 := "block"
+	pose2 := spatial.NewPoseFromPoint(r3.Vector{2, 2, 2})
+	box2, err := spatial.NewBox(pose2, dims, name2)
+	test.That(t, err, test.ShouldBeNil)
+	blockFrame, err := NewStaticFrameWithGeometry(name2, pose2, box2)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(blockFrame, model)
+
+	// Revolute joint around X axis
+	joint, err := NewRotationalFrame("rot", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{Min: -math.Pi * 2, Max: math.Pi * 2})
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(joint, fs.World())
+
+	// Translational frame
+	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	// test creating a new translational frame with a geometry
+	prismatic, err := NewTranslationalFrameWithGeometry("pr", r3.Vector{X: 0, Y: 1, Z: 0}, Limit{Min: -30, Max: 30}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(prismatic, fs.World())
+
+	jsonData, err = json.Marshal(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	var fs2 FrameSystem
+	test.That(t, json.Unmarshal(jsonData, &fs2), test.ShouldBeNil)
+
+	equality, err := frameSystemsAlmostEqual(fs, &fs2, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, equality, test.ShouldBeTrue)
+}
+
+func TestTopologicalSortParts(t *testing.T) {
+	// Consider a frame system that ought to look like the following:
+	//
+	// World <- Table <- Arm <- Gripper
+	//            \- Bottle
+	//
+	// If the `arm` does not exist, we should still be able to sort the parts such that the table
+	// and bottle positions can be calculated. But the `gripper` is not.
+	//
+	// This is expressed by the two return values in `TopologicallySortParts`.
+	makeFrameSystemPart := func(name, parent string) *FrameSystemPart {
+		return &FrameSystemPart{
+			FrameConfig: &LinkInFrame{
+				PoseInFrame: &PoseInFrame{
+					name:   name,
+					parent: parent,
+				},
+			},
+		}
+	}
+
+	world := makeFrameSystemPart("world", "")
+	table := makeFrameSystemPart("table", "world")
+	arm := makeFrameSystemPart("arm", "table")
+	gripper := makeFrameSystemPart("gripper", "arm")
+	bottle := makeFrameSystemPart("bottle", "table")
+
+	allInValidOrder := []*FrameSystemPart{world, table, bottle, arm, gripper}
+	scrambled := make([]*FrameSystemPart, len(allInValidOrder))
+	copy(scrambled, allInValidOrder)
+	rand.Shuffle(len(scrambled), func(left, right int) {
+		scrambled[left], scrambled[right] = scrambled[right], scrambled[left]
+	})
+
+	ordered, unlinked := TopologicallySortParts(scrambled)
+	// The world frame is omitted from the `TopologicallySortParts` output. Subtract one to acconut for that
+	test.That(t, ordered, test.ShouldHaveLength, len(allInValidOrder)-1)
+	test.That(t, unlinked, test.ShouldHaveLength, 0)
+
+	// We can't assert on exactly the order of the `ordered` slice. `bottle` can be (in theory) be
+	// anywhere after `table`. Though in our implementation it'll either come after immediately
+	// before or after `arm`.
+	//
+	// We will instead order on the POSET using the index values of each part name.
+	findPartByName := func(searchName string) func(*FrameSystemPart) bool {
+		return func(searchPart *FrameSystemPart) bool {
+			return searchName == searchPart.FrameConfig.Name()
+		}
+	}
+
+	tableIdx := slices.IndexFunc(ordered, findPartByName("table"))
+	armIdx := slices.IndexFunc(ordered, findPartByName("arm"))
+	gripperIdx := slices.IndexFunc(ordered, findPartByName("gripper"))
+	bottleIdx := slices.IndexFunc(ordered, findPartByName("bottle"))
+
+	test.That(t, tableIdx, test.ShouldBeLessThan, armIdx)
+	test.That(t, tableIdx, test.ShouldBeLessThan, bottleIdx)
+	test.That(t, armIdx, test.ShouldBeLessThan, gripperIdx)
+
+	// Disconnect the `arm`. TopologicallySortParts should return the world, table and bottle, but
+	// not the arm nor gripper.
+	scrambledArmIdx := slices.IndexFunc(scrambled, findPartByName("arm"))
+	//nolint
+	scrambledNoArm := append(scrambled[:scrambledArmIdx], scrambled[scrambledArmIdx+1:]...)
+	ordered, unlinked = TopologicallySortParts(scrambledNoArm)
+
+	// Because there's no arm, there's only one valid ordering. Again noting the world frame is
+	// omitted.
+	test.That(t, ordered, test.ShouldHaveLength, 2)
+	test.That(t, ordered[0].FrameConfig.Name(), test.ShouldEqual, "table")
+	test.That(t, ordered[1].FrameConfig.Name(), test.ShouldEqual, "bottle")
+
+	test.That(t, unlinked, test.ShouldHaveLength, 1)
+	test.That(t, unlinked[0].FrameConfig.Name(), test.ShouldEqual, "gripper")
 }

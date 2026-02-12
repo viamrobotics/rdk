@@ -27,28 +27,18 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/generic"
-	_ "go.viam.com/rdk/components/register"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web/server"
 )
 
-// numResources is the # of resources in /etc/configs/fake.json + the 2
-// expected builtin resources.
-const numResources = 20
-
 func TestEntrypoint(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -93,12 +83,21 @@ func TestEntrypoint(t *testing.T) {
 		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
+		// numResources is the # of resources in /etc/configs/fake.json + the 1
+		// expected builtin resources.
+		numResources := 21
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo,
+			// including builtin motion, fake arm, and builtin navigation.
+			numResources = 18
+		}
+
 		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
 	})
 	t.Run("dump resource registrations", func(t *testing.T) {
 		tempDir := t.TempDir()
 		outputFile := filepath.Join(tempDir, "resources.json")
-		serverPath := testutils.BuildTempModule(t, "web/cmd/server/")
+		serverPath := testutils.BuildViamServer(t)
 		command := exec.Command(serverPath, "--dump-resources", outputFile)
 		err := command.Run()
 		test.That(t, err, test.ShouldBeNil)
@@ -112,21 +111,48 @@ func TestEntrypoint(t *testing.T) {
 		registrations := []registration{}
 		err = json.Unmarshal(outputBytes, &registrations)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(registrations), test.ShouldBeGreaterThan, 0) // to protect against misreading resource registrations
-		test.That(t, registrations, test.ShouldHaveLength, len(resource.RegisteredResources()))
+
+		numReg := 55
+		if runtime.GOOS == "windows" {
+			// windows build excludes builtin models that use cgo
+			numReg = 47
+		}
+		test.That(t, registrations, test.ShouldHaveLength, numReg)
+
+		observedReg := make(map[string]bool)
 		for _, reg := range registrations {
 			test.That(t, reg.API, test.ShouldNotBeEmpty)
 			test.That(t, reg.Model, test.ShouldNotBeEmpty)
 			test.That(t, reg.Schema, test.ShouldNotBeNil)
+
+			regStr := strings.Join([]string{reg.API, reg.Model}, "/")
+			observedReg[regStr] = true
+		}
+
+		// Check specifically for registrations we care about
+		expectedReg := []string{
+			"rdk:component:arm/rdk:builtin:wrapper_arm",
+			"rdk:service:data_manager/rdk:builtin:builtin",
+			"rdk:service:shell/rdk:builtin:builtin",
+			"rdk:service:vision/rdk:builtin:mlmodel",
+		}
+
+		// windows build excludes builtin models that use cgo, so add more if not
+		// on windows
+		if runtime.GOOS != "windows" {
+			expectedReg = append(
+				expectedReg,
+				"rdk:component:camera/rdk:builtin:webcam",
+				"rdk:service:motion/rdk:builtin:builtin",
+			)
+		}
+		for _, reg := range expectedReg {
+			test.That(t, observedReg[reg], test.ShouldBeTrue)
 		}
 	})
 }
 
 func TestShutdown(t *testing.T) {
-	if runtime.GOARCH == "arm" {
-		t.Skip("skipping on 32-bit ARM, subprocess build warnings cause failure")
-	}
-
 	t.Run("shutdown functionality", func(t *testing.T) {
 		testLogger := logging.NewTestLogger(t)
 		// Pass in a separate logger to the managed server process that only outputs WARN+
@@ -150,14 +176,19 @@ func TestShutdown(t *testing.T) {
 			cfgFilename, err = robottestutils.MakeTempConfig(t, cfg, testLogger)
 			test.That(t, err, test.ShouldBeNil)
 
-			server = robottestutils.ServerAsSeparateProcess(t, cfgFilename, serverLogger)
+			// Start the server w/ ManagedProcess auto-restart disabled, otherwise
+			// we'll be racing the process restart to check that the stop command
+			// actually worked.
+			server = robottestutils.ServerAsSeparateProcess(
+				t,
+				cfgFilename,
+				serverLogger,
+				robottestutils.WithoutRestart(),
+			)
 			err = server.Start(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
 			if success = robottestutils.WaitForServing(serverLogObserver, port); success {
-				defer func() {
-					test.That(t, server.Stop(), test.ShouldBeNil)
-				}()
 				break
 			}
 			testLogger.Infow("Port in use. Restarting on new port.", "port", port, "err", err)
@@ -166,7 +197,7 @@ func TestShutdown(t *testing.T) {
 		}
 		test.That(t, success, test.ShouldBeTrue)
 
-		addr := "localhost:" + strconv.Itoa(port)
+		addr := "127.0.0.1:" + strconv.Itoa(port)
 		rc := robottestutils.NewRobotClient(t, testLogger, addr, time.Second)
 
 		testLogger.Info("Issuing shutdown.")
@@ -202,10 +233,11 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23654"
+	machineAddress := "127.0.0.1:23654"
 
 	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
 	// expected file tree of the local package manager. Place a single file `foo` in a
@@ -217,6 +249,9 @@ func TestMachineState(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fakeModuleDataFile, err := os.Create(filepath.Join(fakeModuleDataPath, "foo"))
 	test.That(t, err, test.ShouldBeNil)
+
+	fakeDataFileName := fakeModuleDataFile.Name()
+	test.That(t, fakeModuleDataFile.Close(), test.ShouldBeNil)
 
 	// Register a slow-constructing generic resource and defer its deregistration.
 	type slow struct {
@@ -251,10 +286,6 @@ func TestMachineState(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		// Create a temporary config file with a single
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
-
 		cfg := &config.Config{
 			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
 			// package manager will automatically add that suffix.
@@ -272,23 +303,14 @@ func TestMachineState(t *testing.T) {
 				},
 			},
 		}
-
-		cfgBytes, err := json.Marshal(&cfg)
+		tempConfigFileName, err := robottestutils.MakeTempConfig(t, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Set `DoNotWaitForRunning` to true to allow connecting to a still-initializing
-	// machine.
-	client.DoNotWaitForRunning.Store(true)
-	defer func() {
-		client.DoNotWaitForRunning.Store(false)
-	}()
-
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second, client.WithDoNotWaitForRunning())
 
 	// Assert that, from client's perspective, robot is in an initializing state until
 	// `slowpoke` completes construction.
@@ -299,7 +321,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` package file exists during initialization, machine assumes
 	// package files may still be in use.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Allow `slowpoke` to complete construction.
@@ -314,7 +336,7 @@ func TestMachineState(t *testing.T) {
 
 	// Assert that the `foo` file was removed, as the non-initializing `Reconfigure`
 	// determined it was unnecessary (no associated package/module.)
-	_, err = os.Stat(fakeModuleDataFile.Name())
+	_, err = os.Stat(fakeDataFileName)
 	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
 
 	// Cancel context and wait for server goroutine to stop running.
@@ -323,21 +345,19 @@ func TestMachineState(t *testing.T) {
 }
 
 func TestMachineStateNoResources(t *testing.T) {
+	t.Parallel()
 	// Regression test for RSDK-10166. Ensure that starting a robot with no resources will
 	// still allow moving from initializing -> running state.
 
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	machineAddress := "localhost:23654"
+	machineAddress := "127.0.0.1:23655"
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-
-		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
-		test.That(t, err, test.ShouldBeNil)
 		cfg := &config.Config{
 			Network: config.NetworkConfig{
 				NetworkConfigData: config.NetworkConfigData{
@@ -345,11 +365,10 @@ func TestMachineStateNoResources(t *testing.T) {
 				},
 			},
 		}
-		cfgBytes, err := json.Marshal(&cfg)
+		tempConfigFileName, err := robottestutils.MakeTempConfig(t, cfg, logger)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -369,15 +388,16 @@ func TestMachineStateNoResources(t *testing.T) {
 }
 
 func TestTunnelE2E(t *testing.T) {
+	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23656) <-> machine(localhost:23655) <-> dest-listener(localhost:23654)
+	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23654
-	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23655")
-	sourceListenerAddr := net.JoinHostPort("localhost", "23656")
+	destPort := 23656
+	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
+	machineAddr := net.JoinHostPort("127.0.0.1", "23657")
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", "23658")
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -389,6 +409,16 @@ func TestTunnelE2E(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
+	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
+	timeoutDestPort := 65534
+	timeoutDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(timeoutDestPort))
+	timeoutDestListener, err := net.Listen("tcp", timeoutDestListenerAddr)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
 	}()
 
 	wg.Add(1)
@@ -423,6 +453,10 @@ func TestTunnelE2E(t *testing.T) {
 		// Create a temporary config file.
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+
+		tempConfigFileName := tempConfigFile.Name()
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 		cfg := &config.Config{
 			Network: config.NetworkConfig{
 				NetworkConfigData: config.NetworkConfigData{
@@ -431,8 +465,9 @@ func TestTunnelE2E(t *testing.T) {
 							Port: destPort, // allow tunneling to destination port
 						},
 						{
-							Port:              65535,           // allow tunneling to 65535
-							ConnectionTimeout: time.Nanosecond, // specify an impossibly small timeout
+							Port: timeoutDestPort, // allow tunneling to 65534
+							// specify a negative timeout since somehow 1 ns succeeds on windows sometimes
+							ConnectionTimeout: -time.Nanosecond,
 						},
 					},
 					BindAddress: machineAddr,
@@ -441,9 +476,9 @@ func TestTunnelE2E(t *testing.T) {
 		}
 		cfgBytes, err := json.Marshal(&cfg)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, os.WriteFile(tempConfigFile.Name(), cfgBytes, 0o755), test.ShouldBeNil)
+		test.That(t, os.WriteFile(tempConfigFileName, cfgBytes, 0o755), test.ShouldBeNil)
 
-		args := []string{"viam-server", "-config", tempConfigFile.Name()}
+		args := []string{"viam-server", "-config", tempConfigFileName}
 		test.That(t, server.RunServer(runServerCtx, args, logger), test.ShouldBeNil)
 	}()
 
@@ -468,7 +503,7 @@ func TestTunnelE2E(t *testing.T) {
 
 		// Assert that opening a tunnel to a port with a low `connection_timeout` results in a
 		// timeout.
-		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, 65535)
+		err = rc.Tunnel(ctx, googleConn /* will be eventually closed by `Tunnel` */, timeoutDestPort)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "DeadlineExceeded")
 	}
@@ -512,5 +547,131 @@ func TestTunnelE2E(t *testing.T) {
 	// echoed back. This should stop the `RunServer` goroutine.
 	runServerCtxCancel()
 
+	wg.Wait()
+}
+
+func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
+	// Primarily a regression test for RSDK-10723.
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start a machine with a testmodule and a 'helper' component that should start with
+	// info-level logging.
+	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
+
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	machineAddress := "127.0.0.1:23659"
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "testModule",
+				ExePath: testModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper",
+				API:   generic.API,
+				Model: helperModel,
+			},
+		},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress: machineAddress,
+			},
+		},
+	}
+	cfgFileName, err := robottestutils.MakeTempConfig(t, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Call `RunServer` in a goroutine as it is blocking. Point it to the temporary config
+	// file created above.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		args := []string{"viam-server", "-config", cfgFileName}
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Create an SDK client to the server that was started on 127.0.0.1:23659.
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+	t.Log(rc.ResourceNames())
+	helper, err := rc.ResourceByName(generic.Named("helper"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Log a DEBUG line through helper. While we cannot actually examine the log output, we
+	// can examine the response from the component to see its set log level. That level
+	// should start as "Info."
+	resp, err := helper.DoCommand(ctx,
+		map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+
+	// Write an identical config to the temporary config file but add { "debug": true }.
+	cfg.Debug = true
+	cfgBytes, err := json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Debug."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+	})
+
+	// Change "debug" to be false in the temporary config file.
+	cfg.Debug = false
+	cfgBytes, err = json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Info."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	// Specify a "log" pattern of { "testModule": "debug" } in the temporary config file.
+	cfg.LogConfig = []logging.LoggerPatternConfig{{Pattern: "testModule", Level: "debug"}}
+	cfgBytes, err = json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Debug."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+	})
+
+	// Remove the "log" pattern in the temporary config file.
+	cfg.LogConfig = nil
+	cfgBytes, err = json.Marshal(&cfg)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
+
+	// Wait for the helper to reconfigure and report a log level of "Info."
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err = helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	// Cancel context and wait for server goroutine to stop running.
+	cancel()
 	wg.Wait()
 }

@@ -16,7 +16,8 @@ func NewNotFoundError(name Name) error {
 // IsNotFoundError returns if the given error is any kind of not found error.
 func IsNotFoundError(err error) bool {
 	var errArt *notFoundError
-	return errors.As(err, &errArt)
+	var errNodeNotFound *NodeNotFoundError
+	return errors.As(err, &errArt) || errors.As(err, &errNodeNotFound)
 }
 
 type notFoundError struct {
@@ -24,7 +25,7 @@ type notFoundError struct {
 }
 
 func (e *notFoundError) Error() string {
-	return fmt.Sprintf("resource %q not found", e.name)
+	return fmt.Sprintf("resource %v not found", e.name)
 }
 
 // NewNotAvailableError is used when a resource is not available because of some error.
@@ -44,7 +45,7 @@ type notAvailableError struct {
 }
 
 func (e *notAvailableError) Error() string {
-	return fmt.Sprintf("resource %q not available; reason=%q", e.name, e.reason)
+	return fmt.Sprintf("resource %v not available; reason=%v", e.name, e.reason)
 }
 
 // NewMustRebuildError is returned when a resource cannot be reconfigured in place and
@@ -65,7 +66,7 @@ type mustRebuildError struct {
 }
 
 func (e *mustRebuildError) Error() string {
-	return fmt.Sprintf("cannot reconfigure %q; must rebuild", e.name)
+	return fmt.Sprintf("cannot reconfigure %v; must rebuild", e.name)
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
@@ -77,7 +78,7 @@ func DependencyNotFoundError(name Name) error {
 // DependencyTypeError is used when a resource doesn't implement the expected interface.
 func DependencyTypeError[T Resource](name Name, actual interface{}) error {
 	// This error represents a coding error. Include a stack trace for diagnostics.
-	return errors.Errorf("dependency %q should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual)
+	return errors.Errorf("dependency %v should be an implementation of %s but it was a %T", name, utils.TypeStr[T](), actual)
 }
 
 // TypeError is used when a resource is an unexpected type.

@@ -66,7 +66,9 @@
                 "sync_disabled": false,
                 "sync_interval_mins": 0,
                 "capture_dir": "/tmp/capture",
-                "capture_disabled": false
+                "capture_disabled": false,
+                "disk_usage_threshold_percent": 0.00000000000000001,
+                "capture_dir_threshold_percent": 0.00000000000000001
             }
         }
     ]

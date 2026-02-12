@@ -5,7 +5,7 @@
             "type": "arm",
             "model": "fake",
             "attributes": {
-                "model-path": "./../../../components/arm/fake/fake_model.json"
+                "model-path": "./../../../components/arm/fake/kinematics/fake.json"
             },
             "frame": {
                 "parent": "gantry1",
@@ -23,6 +23,9 @@
             "name": "gantry1",
             "type": "gantry",
             "model": "fake",
+            "attributes": {
+                "model-path": "./../../../components/gantry/fake/test_gantry_model.json"
+            },
             "frame": {
                 "parent": "world",
                 "translation": {

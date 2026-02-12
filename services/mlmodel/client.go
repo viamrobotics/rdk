@@ -33,7 +33,7 @@ func NewClientFromConn(
 	grpcClient := pb.NewMLModelServiceClient(conn)
 	c := &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		conn:   conn,
 		client: grpcClient,
 		logger: logger,

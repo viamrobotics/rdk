@@ -202,7 +202,8 @@ func (h *gripperPlaneTestHelper) Process(
 	// color the segmentation
 	segments, err := segmentPointCloudObjects(heightLimit, 10.0, 5)
 	test.That(t, err, test.ShouldBeNil)
-	coloredSegments, err := pc.MergePointCloudsWithColor(segments)
+	coloredSegments := pc.NewBasicEmpty()
+	err = pc.MergePointCloudsWithColor(segments, coloredSegments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 

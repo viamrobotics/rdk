@@ -27,25 +27,26 @@ func TypeStr[T any]() string {
 	return vT.String()
 }
 
-// NewWeakDependenciesUpdateTimeoutError is used when a resource times out during weak dependencies update.
-func NewWeakDependenciesUpdateTimeoutError(name string) error {
-	timeout := GetResourceConfigurationTimeout(logging.Global())
+// NewWeakOrOptionalDependenciesUpdateTimeoutError is used when a resource times out
+// during weak/optional dependencies update.
+func NewWeakOrOptionalDependenciesUpdateTimeoutError(name string, logger logging.Logger) error {
+	timeout := GetResourceConfigurationTimeout(logger)
 	id := fmt.Sprintf("resource %s", name)
-	timeoutMsg := "weak dependencies update"
+	timeoutMsg := "weak/optional dependencies update"
 	return timeoutErrorHelper(id, timeout, timeoutMsg)
 }
 
 // NewBuildTimeoutError is used when a resource times out during construction or reconfiguration.
-func NewBuildTimeoutError(name string) error {
-	timeout := GetResourceConfigurationTimeout(logging.Global())
+func NewBuildTimeoutError(name string, logger logging.Logger) error {
+	timeout := GetResourceConfigurationTimeout(logger)
 	id := fmt.Sprintf("resource %s", name)
 	timeoutMsg := "reconfigure"
 	return timeoutErrorHelper(id, timeout, timeoutMsg)
 }
 
 // NewModuleStartUpTimeoutError is used when a module times out during startup.
-func NewModuleStartUpTimeoutError(name string) error {
-	timeout := GetModuleStartupTimeout(logging.Global())
+func NewModuleStartUpTimeoutError(name string, logger logging.Logger) error {
+	timeout := GetModuleStartupTimeout(logger)
 	id := fmt.Sprintf("module %s", name)
 	timeoutMsg := "startup"
 	return timeoutErrorHelper(id, timeout, timeoutMsg)

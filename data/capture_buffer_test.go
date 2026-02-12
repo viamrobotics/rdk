@@ -137,7 +137,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		type testCase struct {
 			name             string
 			resourceName     resource.Name
-			additionalParams map[string]string
+			additionalParams map[string]interface{}
 			tags             []string
 			methodName       string
 			readings         []*structpb.Struct
@@ -165,7 +165,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:             "sensor.Readings",
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("sensor"), "my-sensor"),
-				additionalParams: map[string]string{"some": "params"},
+				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				readings: []*structpb.Struct{
 					{
@@ -206,7 +206,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:             "arm.JointPositions",
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("arm"), "my-arm"),
-				additionalParams: map[string]string{"some": "params"},
+				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				readings: []*structpb.Struct{
 					armJointPositionsReading1,
@@ -220,7 +220,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				tmpDir := t.TempDir()
-				methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+				methodParams, err := rprotoutils.ConvertMapToProtoAny(tc.additionalParams)
 				test.That(t, err, test.ShouldBeNil)
 
 				readImageCaptureMetadata, _ := BuildCaptureMetadata(
@@ -358,9 +358,9 @@ func TestCaptureBufferReader(t *testing.T) {
 			tmpDir := t.TempDir()
 			name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
 			method := readImage
-			additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG}
+			additionalParams := map[string]interface{}{"mime_type": rutils.MimeTypeJPEG}
 			tags := []string{"my", "tags"}
-			methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+			methodParams, err := rprotoutils.ConvertMapToProtoAny(additionalParams)
 			test.That(t, err, test.ShouldBeNil)
 
 			readImageCaptureMetadata, _ := BuildCaptureMetadata(
@@ -413,7 +413,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		type testCase struct {
 			name              string
 			resourceName      resource.Name
-			additionalParams  map[string]string
+			additionalParams  map[string]interface{}
 			tags              []string
 			methodName        string
 			expectedExtension string
@@ -422,14 +422,14 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:             readImage,
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams: map[string]string{"some": "params"},
+				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       readImage,
 			},
 			{
 				name:              readImage + " with jpeg mime type in additional params",
 				resourceName:      resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams:  map[string]string{"mime_type": rutils.MimeTypeJPEG},
+				additionalParams:  map[string]interface{}{"mime_type": rutils.MimeTypeJPEG},
 				tags:              []string{"", "tags"},
 				expectedExtension: ".jpeg",
 				methodName:        readImage,
@@ -437,7 +437,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:              readImage + " with png mime type in additional params",
 				resourceName:      resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams:  map[string]string{"mime_type": rutils.MimeTypePNG},
+				additionalParams:  map[string]interface{}{"mime_type": rutils.MimeTypePNG},
 				tags:              []string{"", "tags"},
 				expectedExtension: ".png",
 				methodName:        readImage,
@@ -445,7 +445,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:              readImage + " with pcd mime type in additional params",
 				resourceName:      resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams:  map[string]string{"mime_type": rutils.MimeTypePCD},
+				additionalParams:  map[string]interface{}{"mime_type": rutils.MimeTypePCD},
 				tags:              []string{"", "tags"},
 				expectedExtension: ".pcd",
 				methodName:        readImage,
@@ -453,7 +453,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:              nextPointCloud,
 				resourceName:      resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams:  map[string]string{"some": "params"},
+				additionalParams:  map[string]interface{}{"some": "params"},
 				tags:              []string{"my", "tags"},
 				methodName:        nextPointCloud,
 				expectedExtension: ".pcd",
@@ -461,14 +461,14 @@ func TestCaptureBufferReader(t *testing.T) {
 			{
 				name:             GetImages,
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam"),
-				additionalParams: map[string]string{"some": "params"},
+				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       GetImages,
 			},
 			{
 				name:             pointCloudMap,
 				resourceName:     resource.NewName(resource.APINamespaceRDK.WithServiceType("slam"), "my-slam"),
-				additionalParams: map[string]string{"some": "params"},
+				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				// NOTE: The fact that this doesn't get a .pcd extension is inconsistent with
 				// how camera.NextPointCloud is handled
@@ -479,7 +479,7 @@ func TestCaptureBufferReader(t *testing.T) {
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				tmpDir := t.TempDir()
-				methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(tc.additionalParams)
+				methodParams, err := rprotoutils.ConvertMapToProtoAny(tc.additionalParams)
 				test.That(t, err, test.ShouldBeNil)
 
 				readImageCaptureMetadata, _ := BuildCaptureMetadata(
@@ -627,9 +627,9 @@ func TestCaptureBufferReader(t *testing.T) {
 		tmpDir := t.TempDir()
 		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("camera"), "my-cam")
 		method := readImage
-		additionalParams := map[string]string{"mime_type": rutils.MimeTypeJPEG}
+		additionalParams := map[string]interface{}{"mime_type": rutils.MimeTypeJPEG}
 		tags := []string{"my", "tags"}
-		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+		methodParams, err := rprotoutils.ConvertMapToProtoAny(additionalParams)
 		test.That(t, err, test.ShouldBeNil)
 
 		readImageCaptureMetadata, _ := BuildCaptureMetadata(
@@ -693,8 +693,8 @@ func TestCaptureBufferReader(t *testing.T) {
 
 	t.Run("returns an error if tabular data is written", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		additionalParams := map[string]string{"some": "params"}
-		methodParams, err := rprotoutils.ConvertStringMapToAnyPBMap(additionalParams)
+		additionalParams := map[string]interface{}{"some": "params"}
+		methodParams, err := rprotoutils.ConvertMapToProtoAny(additionalParams)
 		test.That(t, err, test.ShouldBeNil)
 
 		name := resource.NewName(resource.APINamespaceRDK.WithComponentType("sensor"), "my-sensor")

@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/camera"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -89,7 +90,7 @@ func NewRadiusClustering(params utils.AttributeMap) (Segmenter, error) {
 // RadiusClustering applies the radius clustering algorithm directly on a given point cloud.
 func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src camera.Camera) ([]*vision.Object, error) {
 	// get next point cloud
-	cloud, err := src.NextPointCloud(ctx)
+	cloud, err := src.NextPointCloud(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -105,10 +106,12 @@ func (rcc *RadiusClusteringConfig) RadiusClustering(ctx context.Context, src cam
 		if err != nil {
 			return nil, err
 		}
-		nonPlane, err = filter(nonPlane)
+		out := nonPlane.CreateNewRecentered(spatialmath.NewZeroPose())
+		err = filter(nonPlane, out)
 		if err != nil {
 			return nil, err
 		}
+		nonPlane = out
 	}
 	// do the segmentation
 	segments, err := segmentPointCloudObjects(nonPlane, rcc.ClusteringRadiusMm, rcc.MinPtsInSegment)

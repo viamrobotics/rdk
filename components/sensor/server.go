@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/sensor/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -20,11 +21,11 @@ var ErrReadingsNil = func(sensorType, sensorName string) error {
 // serviceServer implements the SensorService from sensor.proto.
 type serviceServer struct {
 	pb.UnimplementedSensorServiceServer
-	coll resource.APIResourceCollection[Sensor]
+	coll resource.APIResourceGetter[Sensor]
 }
 
 // NewRPCServiceServer constructs an sensor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Sensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Sensor], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

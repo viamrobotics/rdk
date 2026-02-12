@@ -69,7 +69,7 @@ func (opts *BackoffTuningOptions) getErrorThrottledHandler(logger logging.Logger
 		}
 
 		sleep := opts.GetSleepTimeFromErrorCount(errorCount)
-		logger.Errorw("error getting media", "streamName", streamName, "error", err, "count", errorCount, "sleep", sleep)
+		logger.Warnw("error getting media", "streamName", streamName, "error", err, "count", errorCount, "sleep", sleep)
 
 		utils.SelectContextOrWait(ctx, sleep)
 	}

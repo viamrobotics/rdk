@@ -18,8 +18,14 @@ if [[ "$1" == "race" ]]; then
 	LOGFILE="--jsonfile json.log"
 fi
 
+FORMAT='standard-verbose'
+if test -n "$GITHUB_RUN_ID"; then
+	FORMAT='github-actions'
+    FORMAT='standard-quiet'
+fi
+
 # We run analyzetests on every run, pass or fail. We only run analyzecoverage when all tests passed.
-PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format standard-verbose $LOGFILE -- -tags=no_skip $RACE $COVER $TEST_TARGET
+PION_LOG_WARN=webrtc,datachannel,sctp gotestsum --format $FORMAT $LOGFILE -- -tags=no_skip -timeout 40m $RACE $COVER $TEST_TARGET
 SUCCESS=$?
 
 if [[ $RACE != "" ]]; then

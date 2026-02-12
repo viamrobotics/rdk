@@ -15,49 +15,46 @@ import (
 	"go.viam.com/test"
 	vprotoutils "go.viam.com/utils/protoutils"
 
-	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/gripper"
-	"go.viam.com/rdk/components/movementsensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
-	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 )
 
-func newServer(resources map[resource.Name]motion.Service) (pb.MotionServiceServer, error) {
+func newServer(resources map[resource.Name]motion.Service, logger logging.Logger) (pb.MotionServiceServer, error) {
 	coll, err := resource.NewAPIResourceCollection(motion.API, resources)
 	if err != nil {
 		return nil, err
 	}
-	return motion.NewRPCServiceServer(coll).(pb.MotionServiceServer), nil
+	return motion.NewRPCServiceServer(coll, logger).(pb.MotionServiceServer), nil
 }
 
 func TestServerMove(t *testing.T) {
+	logger := logging.NewTestLogger(t)
 	grabRequest := &pb.MoveRequest{
 		Name:          testMotionServiceName.ShortName(),
-		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
+		ComponentName: "fake",
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 
 	resources := map[resource.Name]motion.Service{}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.Move(context.Background(), grabRequest)
-	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/motion1\" not found"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/motion1 not found"))
 
 	// error
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err = newServer(resources)
+	server, err = newServer(resources, logger)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
 	injectMS.MoveFunc = func(ctx context.Context, req motion.MoveReq) (bool, error) {
@@ -76,19 +73,19 @@ func TestServerMove(t *testing.T) {
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 
 	// Multiple Servies names Valid
-	injectMS = &inject.MotionService{}
+	injectMS = injectmotion.NewMotionService("test")
 	resources = map[resource.Name]motion.Service{
 		testMotionServiceName:  injectMS,
 		testMotionServiceName2: injectMS,
 	}
-	server, _ = newServer(resources)
+	server, _ = newServer(resources, logger)
 	injectMS.MoveFunc = successfulMoveFunc
 	resp, err = server.Move(context.Background(), grabRequest)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 	grabRequest2 := &pb.MoveRequest{
 		Name:          testMotionServiceName2.ShortName(),
-		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
+		ComponentName: "fake",
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 	resp, err = server.Move(context.Background(), grabRequest2)
@@ -97,17 +94,17 @@ func TestServerMove(t *testing.T) {
 }
 
 func TestServerMoveOnGlobe(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 	t.Run("returns error without calling MoveOnGlobe if req.Name doesn't map to a resource", func(t *testing.T) {
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
-			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+			ComponentName:      "test-base",
 			Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
-			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+			MovementSensorName: "test-gps",
 		}
 		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
@@ -117,15 +114,15 @@ func TestServerMoveOnGlobe(t *testing.T) {
 
 		moveOnGlobeResponse, err := server.MoveOnGlobe(context.Background(), moveOnGlobeRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, moveOnGlobeResponse, test.ShouldBeNil)
 	})
 
 	t.Run("returns error if destination is nil without calling MoveOnGlobe", func(t *testing.T) {
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 			Name:               testMotionServiceName.ShortName(),
-			ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
-			MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+			ComponentName:      "test-base",
+			MovementSensorName: "test-gps",
 		}
 		injectMS.MoveOnGlobeFunc = func(ctx context.Context, req motion.MoveOnGlobeReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
@@ -141,9 +138,9 @@ func TestServerMoveOnGlobe(t *testing.T) {
 
 	validMoveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 		Name:               testMotionServiceName.ShortName(),
-		ComponentName:      protoutils.ResourceNameToProto(base.Named("test-base")),
+		ComponentName:      "test-base",
 		Destination:        &commonpb.GeoPoint{Latitude: 0.0, Longitude: 0.0},
-		MovementSensorName: protoutils.ResourceNameToProto(movementsensor.Named("test-gps")),
+		MovementSensorName: "test-gps",
 	}
 
 	t.Run("returns error when MoveOnGlobe returns an error", func(t *testing.T) {
@@ -182,8 +179,8 @@ func TestServerMoveOnGlobe(t *testing.T) {
 	})
 
 	t.Run("returns success when MoveOnGlobe returns success", func(t *testing.T) {
-		expectedComponentName := base.Named("test-base")
-		expectedMovSensorName := movementsensor.Named("test-gps")
+		expectedComponentName := "test-base"
+		expectedMovSensorName := "test-gps"
 		reqHeading := 3.
 
 		boxDims := r3.Vector{X: 5, Y: 50, Z: 10}
@@ -208,11 +205,11 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		geoGeometry3 := spatialmath.NewGeoGeometry(geo.NewPoint(1, 2), []spatialmath.Geometry{geometries3})
 
 		obs := []*commonpb.GeoGeometry{
-			spatialmath.GeoGeometryToProtobuf(geoGeometry1),
-			spatialmath.GeoGeometryToProtobuf(geoGeometry2),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry1),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry2),
 		}
 		boundingRegionGeoms := []*commonpb.GeoGeometry{
-			spatialmath.GeoGeometryToProtobuf(geoGeometry3),
+			referenceframe.GeoGeometryToProtobuf(geoGeometry3),
 		}
 		angularDegsPerSec := 1.
 		linearMPerSec := 2.
@@ -221,21 +218,21 @@ func TestServerMoveOnGlobe(t *testing.T) {
 		positionPollingFrequencyHz := 5.
 		obstacleDetectorsPB := []*pb.ObstacleDetector{
 			{
-				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 1")),
-				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 1")),
+				VisionService: "vision service 1",
+				Camera:        "camera 1",
 			},
 			{
-				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 2")),
-				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 2")),
+				VisionService: "vision service 2",
+				Camera:        "camera 2",
 			},
 		}
 
 		moveOnGlobeRequest := &pb.MoveOnGlobeRequest{
 			Name:               testMotionServiceName.ShortName(),
 			Heading:            &reqHeading,
-			ComponentName:      protoutils.ResourceNameToProto(expectedComponentName),
+			ComponentName:      expectedComponentName,
 			Destination:        &commonpb.GeoPoint{Latitude: 1.0, Longitude: 2.0},
-			MovementSensorName: protoutils.ResourceNameToProto(expectedMovSensorName),
+			MovementSensorName: expectedMovSensorName,
 			Obstacles:          obs,
 			MotionConfiguration: &pb.MotionConfiguration{
 				AngularDegsPerSec:          &angularDegsPerSec,
@@ -264,10 +261,10 @@ func TestServerMoveOnGlobe(t *testing.T) {
 			test.That(t, *req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
 			test.That(t, *req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
 			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2").Name)
 			test.That(t, len(req.BoundingRegions), test.ShouldEqual, 1)
 			test.That(t, req.BoundingRegions[0], test.ShouldResemble, geoGeometry3)
 			return firstExecutionID, nil
@@ -279,18 +276,18 @@ func TestServerMoveOnGlobe(t *testing.T) {
 }
 
 func TestServerMoveOnMap(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("returns error without calling MoveOnMap if req.Name doesn't map to a resource", func(t *testing.T) {
 		moveOnMapRequest := &pb.MoveOnMapRequest{
-			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			ComponentName:   "test-base",
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			SlamServiceName: "test-slam",
 		}
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
@@ -300,16 +297,16 @@ func TestServerMoveOnMap(t *testing.T) {
 
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, moveOnMapResponse, test.ShouldBeNil)
 	})
 
 	t.Run("returns error if destination is nil without calling MoveOnMap", func(t *testing.T) {
 		moveOnMapRequest := &pb.MoveOnMapRequest{
 			Name:            testMotionServiceName.ShortName(),
-			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			ComponentName:   "test-base",
 			Destination:     nil,
-			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			SlamServiceName: "test-slam",
 		}
 		injectMS.MoveOnMapFunc = func(ctx context.Context, req motion.MoveOnMapReq) (motion.ExecutionID, error) {
 			t.Log("should not be called")
@@ -324,9 +321,9 @@ func TestServerMoveOnMap(t *testing.T) {
 
 	validMoveOnMapRequest := &pb.MoveOnMapRequest{
 		Name:            testMotionServiceName.ShortName(),
-		ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+		ComponentName:   "test-base",
 		Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-		SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+		SlamServiceName: "test-slam",
 	}
 
 	t.Run("returns error when MoveOnMap returns an error", func(t *testing.T) {
@@ -342,8 +339,8 @@ func TestServerMoveOnMap(t *testing.T) {
 	})
 
 	t.Run("returns success when MoveOnMap returns success", func(t *testing.T) {
-		expectedComponentName := base.Named("test-base")
-		expectedSlamName := slam.Named("test-slam")
+		expectedComponentName := "test-base"
+		expectedSlamName := "test-slam"
 		expectedDestination := spatialmath.PoseToProtobuf(spatialmath.NewZeroPose())
 
 		angularDegsPerSec := 1.
@@ -353,21 +350,21 @@ func TestServerMoveOnMap(t *testing.T) {
 		positionPollingFrequencyHz := 5.
 		obstacleDetectorsPB := []*pb.ObstacleDetector{
 			{
-				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 1")),
-				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 1")),
+				VisionService: "vision service 1",
+				Camera:        "camera 1",
 			},
 			{
-				VisionService: protoutils.ResourceNameToProto(vision.Named("vision service 2")),
-				Camera:        protoutils.ResourceNameToProto(camera.Named("camera 2")),
+				VisionService: "vision service 2",
+				Camera:        "camera 2",
 			},
 		}
 
 		moveOnMapRequest := &pb.MoveOnMapRequest{
 			Name: testMotionServiceName.ShortName(),
 
-			ComponentName:   protoutils.ResourceNameToProto(expectedComponentName),
+			ComponentName:   expectedComponentName,
 			Destination:     expectedDestination,
-			SlamServiceName: protoutils.ResourceNameToProto(expectedSlamName),
+			SlamServiceName: expectedSlamName,
 
 			MotionConfiguration: &pb.MotionConfiguration{
 				AngularDegsPerSec:          &angularDegsPerSec,
@@ -394,10 +391,10 @@ func TestServerMoveOnMap(t *testing.T) {
 			test.That(t, *req.MotionCfg.ObstaclePollingFreqHz, test.ShouldAlmostEqual, obstaclePollingFrequencyHz)
 			test.That(t, *req.MotionCfg.PositionPollingFreqHz, test.ShouldAlmostEqual, positionPollingFrequencyHz)
 			test.That(t, len(req.MotionCfg.ObstacleDetectors), test.ShouldAlmostEqual, 2)
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2"))
-			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2"))
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldResemble, vision.Named("vision service 1").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[0].CameraName, test.ShouldResemble, camera.Named("camera 1").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].VisionServiceName, test.ShouldResemble, vision.Named("vision service 2").Name)
+			test.That(t, req.MotionCfg.ObstacleDetectors[1].CameraName, test.ShouldResemble, camera.Named("camera 2").Name)
 			return firstExecutionID, nil
 		}
 		moveOnMapResponse, err := server.MoveOnMap(context.Background(), moveOnMapRequest)
@@ -408,10 +405,10 @@ func TestServerMoveOnMap(t *testing.T) {
 	t.Run("non-nil obstacles passes", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
 			Name:            testMotionServiceName.ShortName(),
-			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			ComponentName:   "test-base",
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
-			Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+			SlamServiceName: "test-slam",
+			Obstacles:       referenceframe.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
 		}
 
 		firstExecutionID := uuid.New()
@@ -430,9 +427,9 @@ func TestServerMoveOnMap(t *testing.T) {
 	t.Run("fails with inconvertible geometry", func(t *testing.T) {
 		moveOnMapReq := &pb.MoveOnMapRequest{
 			Name:            testMotionServiceName.ShortName(),
-			ComponentName:   protoutils.ResourceNameToProto(base.Named("test-base")),
+			ComponentName:   "test-base",
 			Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-			SlamServiceName: protoutils.ResourceNameToProto(slam.Named("test-slam")),
+			SlamServiceName: "test-slam",
 			Obstacles:       []*commonpb.Geometry{{GeometryType: nil}},
 		}
 
@@ -450,23 +447,23 @@ func TestServerMoveOnMap(t *testing.T) {
 }
 
 func TestServerStopPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedComponentName := base.Named("test-base")
+	expectedComponentName := "test-base"
 
 	validStopPlanRequest := &pb.StopPlanRequest{
-		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+		ComponentName: expectedComponentName,
 		Name:          testMotionServiceName.ShortName(),
 	}
 
 	t.Run("returns error without calling StopPlan if req.Name doesn't map to a resource", func(t *testing.T) {
 		stopPlanRequest := &pb.StopPlanRequest{
-			ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+			ComponentName: expectedComponentName,
 		}
 
 		injectMS.StopPlanFunc = func(
@@ -480,7 +477,7 @@ func TestServerStopPlan(t *testing.T) {
 
 		stopPlanResponse, err := server.StopPlan(context.Background(), stopPlanRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, stopPlanResponse, test.ShouldBeNil)
 	})
 
@@ -515,11 +512,11 @@ func TestServerStopPlan(t *testing.T) {
 }
 
 func TestServerListPlanStatuses(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	validListPlanStatusesRequest := &pb.ListPlanStatusesRequest{
@@ -539,7 +536,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 
 		listPlanStatusesResponse, err := server.ListPlanStatuses(context.Background(), listPlanStatusesRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, listPlanStatusesResponse, test.ShouldBeNil)
 	})
 
@@ -565,7 +562,7 @@ func TestServerListPlanStatuses(t *testing.T) {
 		planID3 := uuid.New()
 		planID4 := uuid.New()
 
-		expectedComponentName := base.Named("test-base")
+		expectedComponentName := "test-base"
 		failedReason := "some reason for failure"
 
 		status1 := motion.PlanStatus{State: motion.PlanStateFailed, Timestamp: time.Now(), Reason: &failedReason}
@@ -621,19 +618,19 @@ func TestServerListPlanStatuses(t *testing.T) {
 }
 
 func TestServerGetPlan(t *testing.T) {
-	injectMS := &inject.MotionService{}
+	injectMS := injectmotion.NewMotionService("test")
 	resources := map[resource.Name]motion.Service{
 		testMotionServiceName: injectMS,
 	}
-	server, err := newServer(resources)
+	server, err := newServer(resources, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
-	expectedComponentName := base.Named("test-base")
+	expectedComponentName := "test-base"
 	uuidID := uuid.New()
 	id := uuidID.String()
 
 	validGetPlanRequest := &pb.GetPlanRequest{
-		ComponentName: protoutils.ResourceNameToProto(expectedComponentName),
+		ComponentName: expectedComponentName,
 		Name:          testMotionServiceName.ShortName(),
 		LastPlanOnly:  false,
 		ExecutionId:   &id,
@@ -650,7 +647,7 @@ func TestServerGetPlan(t *testing.T) {
 
 		getPlanResponse, err := server.GetPlan(context.Background(), getPlanRequest)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:motion/\" not found"))
+		test.That(t, err, test.ShouldBeError, errors.New("resource rdk:service:motion/ not found"))
 		test.That(t, getPlanResponse, test.ShouldBeNil)
 	})
 
@@ -671,8 +668,8 @@ func TestServerGetPlan(t *testing.T) {
 		planID1 := uuid.New()
 		planID2 := uuid.New()
 
-		base1 := base.Named("base1")
-		steps := []referenceframe.FrameSystemPoses{{base1.ShortName(): referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
+		base1 := "base1"
+		steps := []referenceframe.FrameSystemPoses{{base1: referenceframe.NewZeroPoseInFrame(referenceframe.World)}}
 
 		plan1 := motion.PlanWithMetadata{
 			ID:            planID1,
@@ -751,11 +748,11 @@ func TestServerGetPlan(t *testing.T) {
 
 func TestServerDoCommand(t *testing.T) {
 	resourceMap := map[resource.Name]motion.Service{
-		testMotionServiceName: &inject.MotionService{
+		testMotionServiceName: &injectmotion.MotionService{
 			DoCommandFunc: testutils.EchoFunc,
 		},
 	}
-	server, err := newServer(resourceMap)
+	server, err := newServer(resourceMap, logging.NewTestLogger(t))
 	test.That(t, err, test.ShouldBeNil)
 
 	cmd, err := vprotoutils.StructToStructPb(testutils.TestCommand)

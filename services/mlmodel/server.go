@@ -5,6 +5,7 @@ import (
 
 	pb "go.viam.com/api/service/mlmodel/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 )
@@ -12,12 +13,12 @@ import (
 // serviceServer implements the MLModelService from mlmodel.proto.
 type serviceServer struct {
 	pb.UnimplementedMLModelServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a ML Model gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

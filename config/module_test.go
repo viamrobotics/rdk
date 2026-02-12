@@ -27,22 +27,31 @@ func testChdir(t *testing.T, dir string) {
 func TestInternalMeta(t *testing.T) {
 	tmp := t.TempDir()
 	testChdir(t, tmp)
-	testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
 	packagesDir := filepath.Join(tmp, "packages")
+
 	t.Run("local-tarball", func(t *testing.T) {
 		mod := Module{
 			Type:    ModuleTypeLocal,
 			ExePath: filepath.Join(tmp, "whatever.tar.gz"),
 		}
-		exePath, err := mod.EvaluateExePath(packagesDir)
-		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := mod.exeDir(packagesDir)
-		test.That(t, err, test.ShouldBeNil)
-		// "entry" is from meta.json.
-		test.That(t, exePath, test.ShouldEqual, filepath.Join(exeDir, "entry"))
+		t.Run("meta.json missing", func(t *testing.T) {
+			_, err := mod.EvaluateExePath(packagesDir)
+			test.That(t, err, test.ShouldEqual, errLocalTarballEntrypoint)
+		})
+
+		t.Run("meta.json present", func(t *testing.T) {
+			exeDir, err := mod.ExeDir(packagesDir)
+			test.That(t, err, test.ShouldBeNil)
+			manifest := JSONManifest{Entrypoint: "entry"}
+			testWriteJSON(t, filepath.Join(exeDir, "meta.json"), manifest)
+			exePath, err := mod.EvaluateExePath(packagesDir)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, exePath, test.ShouldResemble, filepath.Join(exeDir, manifest.Entrypoint))
+		})
 	})
 
 	t.Run("non-tarball", func(t *testing.T) {
+		testWriteJSON(t, "meta.json", JSONManifest{Entrypoint: "entry"})
 		mod := Module{
 			Type:    ModuleTypeLocal,
 			ExePath: filepath.Join(tmp, "whatever"),
@@ -82,7 +91,7 @@ func TestSyntheticModule(t *testing.T) {
 	})
 
 	t.Run("syntheticPackageExeDir", func(t *testing.T) {
-		dir, err := modNeedsSynthetic.exeDir(tmp)
+		dir, err := modNeedsSynthetic.ExeDir(tmp)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dir, test.ShouldEqual, filepath.Join(tmp, "data/module/synthetic--"))
 	})
@@ -94,11 +103,8 @@ func TestSyntheticModule(t *testing.T) {
 		testWriteJSON(t, filepath.Join(tmp, "meta.json"), &meta)
 
 		// local tarball case
-		syntheticPath, err := modNeedsSynthetic.EvaluateExePath(tmp)
-		test.That(t, err, test.ShouldBeNil)
-		exeDir, err := modNeedsSynthetic.exeDir(tmp)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, syntheticPath, test.ShouldEqual, filepath.Join(exeDir, meta.Entrypoint))
+		_, err := modNeedsSynthetic.EvaluateExePath(tmp)
+		test.That(t, err, test.ShouldEqual, errLocalTarballEntrypoint)
 
 		// vanilla case
 		notTarPath, err := modNotTar.EvaluateExePath(tmp)
@@ -289,7 +295,6 @@ func TestGetJSONManifest(t *testing.T) {
 
 		exePath := filepath.Join(tmp, "module.tgz")
 		exeDir := filepath.Dir(exePath)
-		exeMetaJSONFilepath := filepath.Join(exeDir, "meta.json")
 		unpackedModDir := filepath.Join(tmp, "unpacked-mod-dir")
 		unpackedModMetaJSONFilepath := filepath.Join(unpackedModDir, "meta.json")
 		env := map[string]string{}
@@ -307,26 +312,6 @@ func TestGetJSONManifest(t *testing.T) {
 		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, unpackedModDir)
 		test.That(t, err.Error(), test.ShouldContainSubstring, exeDir)
-
-		// meta.json found in executable directory; parsing fails
-		exeMetaJSONFile, err := os.Create(exeMetaJSONFilepath)
-		test.That(t, err, test.ShouldBeNil)
-		defer exeMetaJSONFile.Close()
-
-		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
-		test.That(t, meta, test.ShouldBeNil)
-		test.That(t, moduleWorkingDirectory, test.ShouldBeEmpty)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "local tarball")
-		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeFalse)
-
-		// meta.json found in executable directory; parsing succeeds
-		testWriteJSON(t, exeMetaJSONFilepath, validJSONManifest)
-
-		meta, moduleWorkingDirectory, err = modLocalTar.getJSONManifest(unpackedModDir, env)
-		test.That(t, *meta, test.ShouldResemble, validJSONManifest)
-		test.That(t, moduleWorkingDirectory, test.ShouldEqual, exeDir)
-		test.That(t, err, test.ShouldBeNil)
 
 		// meta.json found in unpacked modular directory; parsing fails
 		unpackedModMetaJSONFile, err := os.Create(unpackedModMetaJSONFilepath)
@@ -425,6 +410,8 @@ func TestMergeEnvVars(t *testing.T) {
 // testWriteJSON is a t.Helper that serializes `value` to `path` as json.
 func testWriteJSON(t *testing.T, path string, value any) {
 	t.Helper()
+	err := os.MkdirAll(filepath.Dir(path), 0o700)
+	test.That(t, err, test.ShouldBeNil)
 	file, err := os.Create(path)
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()

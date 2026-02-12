@@ -7,7 +7,7 @@ module:
 	go build -o gizmomodule/gizmomodule ./gizmomodule
 
 run-module:
-	go run ../../../../web/cmd/server/main.go -config module.json
+	go run ../../../../web/cmd/server -config module.json
 
 run-client:
 	cd client && make

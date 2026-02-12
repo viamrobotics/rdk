@@ -6,6 +6,7 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	commonpb "go.viam.com/api/common/v1"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"go.viam.com/rdk/spatialmath"
 )
@@ -28,7 +29,8 @@ func NewEmptyWorldState() *WorldState {
 	}
 }
 
-// NewWorldState is a constructor for a WorldState object.
+// NewWorldState instantiates a WorldState with geometries which are meant to represent obstacles
+// and transforms which are meant to represent additional links that augment a FrameSystem.
 func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*WorldState, error) {
 	ws := &WorldState{
 		obstacleNames: make(map[string]bool),
@@ -104,6 +106,30 @@ func (ws *WorldState) ToProtobuf() (*commonpb.WorldState, error) {
 	}, nil
 }
 
+// MarshalJSON serializes an instance of WorldState to JSON through its protobuf representation.
+func (ws *WorldState) MarshalJSON() ([]byte, error) {
+	wsProto, err := ws.ToProtobuf()
+	if err != nil {
+		return nil, err
+	}
+	return protojson.Marshal(wsProto)
+}
+
+// UnmarshalJSON takes JSON bytes of a world state protobuf message and parses it
+// into an instance of WorldState.
+func (ws *WorldState) UnmarshalJSON(data []byte) error {
+	var wsProto commonpb.WorldState
+	if err := protojson.Unmarshal(data, &wsProto); err != nil {
+		return err
+	}
+	newWs, err := WorldStateFromProtobuf(&wsProto)
+	if err != nil {
+		return err
+	}
+	*ws = *newWs
+	return nil
+}
+
 // String returns a string representation of the geometries in the WorldState.
 func (ws *WorldState) String() string {
 	if ws == nil {
@@ -137,6 +163,14 @@ func (ws *WorldState) ObstacleNames() map[string]bool {
 	return copiedMap
 }
 
+// Obstacles returns the obstacles that have been added to the WorldState.
+func (ws *WorldState) Obstacles() []*GeometriesInFrame {
+	if ws == nil {
+		return []*GeometriesInFrame{}
+	}
+	return ws.obstacles
+}
+
 // Transforms returns the transforms that have been added to the WorldState.
 func (ws *WorldState) Transforms() []*LinkInFrame {
 	if ws == nil {
@@ -147,14 +181,14 @@ func (ws *WorldState) Transforms() []*LinkInFrame {
 
 // ObstaclesInWorldFrame takes a frame system and a set of inputs for that frame system and converts all the obstacles
 // in the WorldState such that they are in the frame system's World reference frame.
-func (ws *WorldState) ObstaclesInWorldFrame(fs FrameSystem, inputs FrameSystemInputs) (*GeometriesInFrame, error) {
+func (ws *WorldState) ObstaclesInWorldFrame(fs *FrameSystem, inputs FrameSystemInputs) (*GeometriesInFrame, error) {
 	if ws == nil {
 		return NewGeometriesInFrame(World, []spatialmath.Geometry{}), nil
 	}
 
 	allGeometries := make([]spatialmath.Geometry, 0, len(ws.obstacles))
 	for _, gf := range ws.obstacles {
-		tf, err := fs.Transform(inputs, gf, World)
+		tf, err := fs.Transform(inputs.ToLinearInputs(), gf, World)
 		if err != nil {
 			return nil, err
 		}

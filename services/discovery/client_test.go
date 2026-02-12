@@ -54,7 +54,7 @@ func TestClient(t *testing.T) {
 	resourceAPI, ok, err := resource.LookupAPIRegistration[discovery.Service](discovery.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, discoverySvc), test.ShouldBeNil)
+	test.That(t, resourceAPI.RegisterRPCService(context.Background(), rpcServer, discoverySvc, logger), test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -108,7 +108,7 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	t.Run("client tests for failing discovery due to nil response", func(t *testing.T) {
+	t.Run("client tests for nil response", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		failingDiscoveryClient, err := discovery.NewClientFromConn(context.Background(), conn, "", discovery.Named(failDiscoveryName), logger)
@@ -117,9 +117,9 @@ func TestClient(t *testing.T) {
 		failingDiscovery.DiscoverResourcesFunc = func(ctx context.Context, extra map[string]any) ([]resource.Config, error) {
 			return nil, nil
 		}
-		_, err = failingDiscoveryClient.DiscoverResources(context.Background(), nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, discovery.ErrNilResponse.Error())
+		resp, err := failingDiscoveryClient.DiscoverResources(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldBeEmpty)
 
 		test.That(t, failingDiscoveryClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

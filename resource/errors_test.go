@@ -11,13 +11,13 @@ func TestDependencyTypeError(t *testing.T) {
 	test.That(t,
 		DependencyTypeError[someRes1](name, someRes2{}).Error(),
 		test.ShouldContainSubstring,
-		`dependency "foo:bar:baz/bark" should be an implementation of resource.someRes1 but it was a resource.someRes2`,
+		`dependency foo:bar:baz/bark should be an implementation of resource.someRes1 but it was a resource.someRes2`,
 	)
 
 	test.That(t,
 		DependencyTypeError[someIfc](name, someRes2{}).Error(),
 		test.ShouldContainSubstring,
-		`dependency "foo:bar:baz/bark" should be an implementation of resource.someIfc but it was a resource.someRes2`,
+		`dependency foo:bar:baz/bark should be an implementation of resource.someIfc but it was a resource.someRes2`,
 	)
 }
 

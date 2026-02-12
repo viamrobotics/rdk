@@ -2,12 +2,16 @@ package testutils
 
 import (
 	"context"
+	"crypto/md5" //nolint:gosec
+	"encoding/hex"
 	"errors"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,13 +22,121 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const osDarwin = "darwin"
+
+type mutexMap struct {
+	sync.Mutex
+	mutexes map[string]*sync.Mutex
+}
+
+// safely retrieve or create the mutex for the given key.
+func (mm *mutexMap) get(key string) *sync.Mutex {
+	mm.Lock()
+	defer mm.Unlock()
+	mut, ok := mm.mutexes[key]
+	if !ok {
+		mut = &sync.Mutex{}
+		mm.mutexes[key] = mut
+	}
+	return mut
+}
+
+// map of path => mutex. prevents overlapping builds, opening the door to
+// test parallelism. todo: test whether this is actually necessary.
+var buildMutex = mutexMap{mutexes: make(map[string]*sync.Mutex)}
+
+// BuildViamServer will attempt to build the viam-server (server-static if on linux). If successful, this function will
+// return the path to the executable.
+func BuildViamServer(tb testing.TB) string {
+	tb.Helper()
+
+	buildOutputPath := tb.TempDir()
+	serverPath := filepath.Join(buildOutputPath, "viam-server-static")
+
+	var builder *exec.Cmd
+
+	if runtime.GOOS != "windows" {
+		command := "server-static"
+		if runtime.GOOS == osDarwin {
+			command = "server"
+			serverPath = filepath.Join(buildOutputPath, "viam-server")
+		}
+		builder = exec.Command("make", command)
+		builder.Env = append(os.Environ(), "TESTBUILD_OUTPUT_PATH="+buildOutputPath)
+	} else {
+		// we don't have access to make on Windows, so copy the build command from the Makefile.
+		serverPath += ".exe"
+		//nolint:gosec
+		builder = exec.Command(
+			"go", "build", "-tags", "no_cgo,osusergo,netgo",
+			"-ldflags=-extldflags=-static -s -w",
+			"-o", serverPath,
+			"./web/cmd/server",
+		)
+	}
+	// set Dir to root of repo
+	builder.Dir = utils.ResolveFile(".")
+	out, err := builder.CombinedOutput()
+	if len(out) > 0 {
+		tb.Logf("Build Output: %s", out)
+	}
+	if err != nil {
+		tb.Error(err)
+	}
+	if tb.Failed() {
+		tb.Fatal("failed to build viam-server executable")
+	}
+	return serverPath
+}
+
+// length `n` truncated md5sum of `input` string.
+func shortHash(input string, n int) (string, error) {
+	hash := md5.New() //nolint:gosec
+	_, err := hash.Write([]byte(input))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash.Sum(nil))[:n], nil
+}
+
+// takes a path (presumably in a stable shared location), returns a symlink to it
+// in a t.TempDir.
+func symlinkTempDir(tb testing.TB, realPath string) string {
+	// We have this because some tests save things in the module folder,
+	// others rely on this folder being unique for each invocation.
+	tb.Helper()
+	linkPath := filepath.Join(tb.TempDir(), filepath.Base(realPath))
+	test.That(tb, os.Symlink(realPath, linkPath), test.ShouldBeNil)
+	return linkPath
+}
+
 // BuildTempModule will attempt to build the module in the provided directory and put the
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
 func BuildTempModule(tb testing.TB, modDir string) string {
 	tb.Helper()
 
-	exePath := filepath.Join(tb.TempDir(), filepath.Base(modDir))
+	// todo: cross-test-process locking instead of per-package
+	mut := buildMutex.get(modDir)
+	mut.Lock()
+	defer mut.Unlock()
+
+	// todo: hash the entire file tree under modDir, and do this above buildMutex
+	dirHash, err := shortHash(modDir, 8)
+	test.That(tb, err, test.ShouldBeNil)
+	// todo: clean this up at the beginning and end of each test run
+	// exePath is a stable temporary location for this temp module; it will be
+	// reused by all tests running in this process.
+	exePath := filepath.Join(os.TempDir(), "rdk-build", strconv.Itoa(os.Getpid()),
+		dirHash, filepath.Base(modDir))
+	if runtime.GOOS == "windows" {
+		exePath += ".exe"
+	}
+	if _, err := os.Stat(exePath); err == nil {
+		// it exists, reusing
+		return symlinkTempDir(tb, exePath)
+	}
+
 	//nolint:gosec
 	builder := exec.Command("go", "build", "-o", exePath, ".")
 	builder.Dir = utils.ResolveFile(modDir)
@@ -33,7 +145,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	// https://viam.atlassian.net/browse/RSDK-7145
 	// https://viam.atlassian.net/browse/RSDK-7144
 	// Don't fail build if platform has known compile warnings (due to C deps)
-	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == "darwin"
+	isPlatformWithKnownCompileWarnings := runtime.GOARCH == "arm" || runtime.GOOS == osDarwin
 	hasCompilerWarnings := len(out) != 0
 	if hasCompilerWarnings && !isPlatformWithKnownCompileWarnings {
 		tb.Errorf(`output from "go build .": %s`, out)
@@ -44,7 +156,7 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	if tb.Failed() {
 		tb.Fatalf("failed to build temporary module for testing")
 	}
-	return exePath
+	return symlinkTempDir(tb, exePath)
 }
 
 // BuildTempModuleWithFirstRun will attempt to build the module in the provided directory and put the
@@ -98,6 +210,22 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 		}
 	}
 	return exePath
+}
+
+// VerifyDirectoryBuilds verifies that the Go code in the specified directory builds successfully.
+// Warnings are allowed; only build failures cause the test to fail.
+func VerifyDirectoryBuilds(tb testing.TB, dir string) {
+	tb.Helper()
+
+	resolvedDir := utils.ResolveFile(dir)
+	//nolint:gosec
+	builder := exec.Command("go", "build", "-o", os.DevNull, ".")
+	builder.Dir = resolvedDir
+	out, err := builder.CombinedOutput()
+	if err != nil {
+		// Build failed - show detailed compiler output
+		tb.Fatalf("failed to build directory %s:\nError: %v\n\nCompiler output:\n%s", dir, err, string(out))
+	}
 }
 
 // MockBuffer is a buffered writer that just appends data to an array to read

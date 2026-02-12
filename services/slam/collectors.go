@@ -16,6 +16,7 @@ type method int64
 const (
 	position method = iota
 	pointCloudMap
+	doCommand
 )
 
 func (m method) String() string {
@@ -24,6 +25,9 @@ func (m method) String() string {
 	}
 	if m == pointCloudMap {
 		return "PointCloudMap"
+	}
+	if m == doCommand {
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -39,7 +43,7 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		var res data.CaptureResult
 		pose, err := slam.Position(ctx)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, &pb.GetPositionResponse{Pose: spatialmath.PoseToProtobuf(pose)})
@@ -59,12 +63,12 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		// edited maps do not need to be captured because they should not be modified
 		f, err := slam.PointCloudMap(ctx, false)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		pcd, err := HelperConcatenateChunksToFull(f)
 		if err != nil {
-			return res, data.FailedToReadErr(params.ComponentName, pointCloudMap.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, pointCloudMap.String(), err)
 		}
 
 		ts := data.Timestamps{
@@ -76,6 +80,18 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 			MimeType: data.MimeTypeApplicationPcd,
 		}}), nil
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	slam, err := assertSLAM(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(slam, params)
 	return data.NewCollector(cFunc, params)
 }
 

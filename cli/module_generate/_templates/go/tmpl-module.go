@@ -35,12 +35,18 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid and important fields exist.
-// Returns implicit dependencies based on the config.
-// The path is the JSON path in your robot's config (not the `Config` struct) to the
-// resource being validated; e.g. "components.0".
-func (cfg *Config) Validate(path string) ([]string, error) {
+// Returns three values:
+//   1. Required dependencies: other resources that must exist for this resource to work.
+//   2. Optional dependencies: other resources that may exist but are not required.
+//   3. An error if any Config fields are missing or invalid.
+//
+// The `path` parameter indicates
+// where this resource appears in the machine's JSON configuration
+// (for example, "components.0"). You can use it in error messages 
+// to indicate which resource has a problem.
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	// Add config validation code here
-	 return nil, nil
+	return nil, nil, nil
 }
 
 type {{.ModuleCamel}}{{.ModelPascal}} struct {

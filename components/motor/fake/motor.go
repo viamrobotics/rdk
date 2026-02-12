@@ -21,7 +21,8 @@ import (
 )
 
 var (
-	model         = resource.DefaultModelFamily.WithModel("fake")
+	// Model is the fake motor's model.
+	Model         = resource.DefaultModelFamily.WithModel("fake")
 	fakeBoardConf = resource.Config{
 		Name: "fakeboard",
 		API:  board.API,
@@ -55,22 +56,22 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if cfg.BoardName != "" {
 		deps = append(deps, cfg.BoardName)
 	}
 	if cfg.Encoder != "" {
 		if cfg.TicksPerRotation <= 0 {
-			return nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("need nonzero TicksPerRotation for encoded motor"))
 		}
 		deps = append(deps, cfg.Encoder)
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
-	resource.RegisterComponent(motor.API, model, resource.Registration[motor.Motor, *Config]{
+	resource.RegisterComponent(motor.API, Model, resource.Registration[motor.Motor, *Config]{
 		Constructor: NewMotor,
 	})
 }
@@ -120,7 +121,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	var b board.Board
 	if newConf.BoardName != "" {
 		m.Board = newConf.BoardName
-		b, err = board.FromDependencies(deps, m.Board)
+		b, err = board.FromProvider(deps, m.Board)
 		if err != nil {
 			return err
 		}
@@ -155,7 +156,7 @@ func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, con
 	if newConf.Encoder != "" {
 		m.TicksPerRotation = newConf.TicksPerRotation
 
-		e, err := encoder.FromDependencies(deps, newConf.Encoder)
+		e, err := encoder.FromProvider(deps, newConf.Encoder)
 		if err != nil {
 			return err
 		}
@@ -269,7 +270,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration, float6
 }
 
 // checkSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
-func checkSpeed(rpm, max float64) (string, error) {
+func checkSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed == 0:
 		return "motor speed requested is 0 rev_per_min", motor.NewZeroRPMError()

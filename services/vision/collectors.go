@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"go.viam.com/rdk/data"
@@ -18,13 +19,16 @@ type method int64
 
 const (
 	captureAllFromCamera method = iota
+	doCommand
 )
 
 func (m method) String() string {
-	if m == captureAllFromCamera {
+	switch m {
+	case captureAllFromCamera:
 		return "CaptureAllFromCamera"
+	case doCommand:
+		return "DoCommand"
 	}
-
 	return "Unknown"
 }
 
@@ -59,10 +63,10 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a service. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, captureAllFromCamera.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, captureAllFromCamera.String(), err)
 		}
 
 		if visCapture.Image == nil {
@@ -100,7 +104,7 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			Payload:  protoImage.Image,
-			MimeType: data.CameraFormatToMimeType(protoImage.Format),
+			MimeType: data.MimeTypeStringToMimeType(protoImage.MimeType),
 			Annotations: data.Annotations{
 				BoundingBoxes:   filteredBoundingBoxes,
 				Classifications: filteredClassifications,
@@ -108,6 +112,18 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}}), nil
 	})
 
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	vision, err := assertVision(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(vision, params)
 	return data.NewCollector(cFunc, params)
 }
 
@@ -138,28 +154,40 @@ func additionalParamExtraction(methodParams map[string]*anypb.Any) (methodParams
 
 	var cameraName string
 
-	cameraNameWrapper := new(wrapperspb.StringValue)
+	// For backwards compatibility - allow string (old behavior) and Value (new behavior) types
+	cameraNameWrapper := &wrapperspb.StringValue{}
 	if err := cameraParam.UnmarshalTo(cameraNameWrapper); err != nil {
-		return methodParamsDecoded{}, err
+		// If that fails, try to unmarshal as Value
+		val := &structpb.Value{}
+		if err := cameraParam.UnmarshalTo(val); err != nil {
+			return methodParamsDecoded{}, err
+		}
+		cameraName = val.GetStringValue()
+	} else {
+		cameraName = cameraNameWrapper.Value
 	}
-	cameraName = cameraNameWrapper.Value
 
 	minConfidenceParam := methodParams["min_confidence_score"]
 
-	// Default min_confidence_score is 0.5
-	minConfidenceScore := 0.5
+	// Default min_confidence_score is 0.0
+	minConfidenceScore := 0.0
 
 	if minConfidenceParam != nil {
 		minConfidenceScoreWrapper := new(wrapperspb.DoubleValue)
-		if err := minConfidenceParam.UnmarshalTo(minConfidenceScoreWrapper); err != nil {
-			return methodParamsDecoded{}, err
+		if err := minConfidenceParam.UnmarshalTo(minConfidenceScoreWrapper); err == nil {
+			minConfidenceScore = minConfidenceScoreWrapper.Value
+		} else {
+			// If that fails, try to unmarshal as Value
+			val := &structpb.Value{}
+			if err := minConfidenceParam.UnmarshalTo(val); err != nil {
+				return methodParamsDecoded{}, err
+			}
+			minConfidenceScore = val.GetNumberValue()
 		}
+	}
 
-		minConfidenceScore = minConfidenceScoreWrapper.Value
-
-		if minConfidenceScore < 0 || minConfidenceScore > 1 {
-			return methodParamsDecoded{}, errors.New("min_confidence_score must be between 0 and 1 inclusive")
-		}
+	if minConfidenceScore < 0 || minConfidenceScore > 1 {
+		return methodParamsDecoded{}, errors.New("min_confidence_score must be between 0 and 1 inclusive")
 	}
 
 	return methodParamsDecoded{

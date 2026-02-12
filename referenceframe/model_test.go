@@ -13,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "xArm6")
 	simpleM, ok := m.(*SimpleModel)
@@ -21,9 +21,9 @@ func TestModelLoading(t *testing.T) {
 
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs(FloatsToInputs([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}))
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
@@ -31,44 +31,15 @@ func TestModelLoading(t *testing.T) {
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.validInputs(FloatsToInputs(randpos)), test.ShouldBeNil)
+	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
 
-	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
-func TestTransform(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-	simpleM, ok := m.(*SimpleModel)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	joints := []Frame{}
-	for _, tform := range simpleM.OrdTransforms {
-		if len(tform.DoF()) > 0 {
-			joints = append(joints, tform)
-		}
-	}
-	test.That(t, len(joints), test.ShouldEqual, 6)
-	pose, err := joints[0].Transform([]Input{{0}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov := pose.Orientation().OrientationVectorRadians()
-	firstJovExpect := &spatial.OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov, test.ShouldResemble, firstJovExpect)
-
-	pose, err = joints[0].Transform([]Input{{1.5708}})
-	test.That(t, err, test.ShouldBeNil)
-	firstJov = pose.Orientation().OrientationVectorRadians()
-	firstJovExpect = &spatial.OrientationVector{Theta: 1.5708, OX: 0, OY: 0, OZ: 1}
-	test.That(t, firstJov.Theta, test.ShouldAlmostEqual, firstJovExpect.Theta)
-	test.That(t, firstJov.OX, test.ShouldAlmostEqual, firstJovExpect.OX)
-	test.That(t, firstJov.OY, test.ShouldAlmostEqual, firstJovExpect.OY)
-	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
-}
-
 func TestIncorrectInputs(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/example_kinematics/xarm6_kinematics_test.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	dof := len(m.DoF())
 
@@ -94,25 +65,26 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{baseFrame: &baseFrame{name: "test"}, OrdTransforms: []Frame{frame1, frame2, frame3}}
+	m := &SimpleModel{baseFrame: baseFrame{name: "test"}}
+	m.SetOrdTransforms([]Frame{frame1, frame2, frame3})
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
 	geometries, err := m.Geometries(inputs)
 	test.That(t, err, test.ShouldBeNil)
 	link1 := geometries.GeometryByName("test:link1").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 	link2 := geometries.GeometryByName("test:link2").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{0, 0, 20}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// transform the model 90 degrees at the joint
-	inputs[0] = Input{math.Pi / 2}
+	inputs[0] = math.Pi / 2
 	geometries, _ = m.Geometries(inputs)
 	test.That(t, geometries, test.ShouldNotBeNil)
 	link1 = geometries.GeometryByName("test:link1").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link1, r3.Vector{0, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 	link2 = geometries.GeometryByName("test:link2").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(link2, r3.Vector{10, 0, 10}, defaultFloatPrecision), test.ShouldBeTrue)
 }
 
 func Test2DMobileModelFrame(t *testing.T) {
@@ -124,19 +96,70 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// expected output
 	expPose := spatial.NewPose(r3.Vector{3, 5, 0}, &spatial.OrientationVector{OZ: 1, Theta: math.Pi / 2})
 	// get expected transform back
-	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5, math.Pi / 2}))
+	pose, err := frame.Transform([]Input{3, 5, math.Pi / 2})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 0, 10}))
+	_, err = frame.Transform([]Input{3, 5, 0, 10})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in too few inputs, should get errr back
-	_, err = frame.Transform(FloatsToInputs([]float64{3}))
+	_, err = frame.Transform([]Input{3})
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
-	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
+	_, err = frame.Transform([]Input{3, 100})
 	test.That(t, err, test.ShouldNotBeNil)
 	// gets the correct limits back
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestExtractMeshMapFromModelConfig(t *testing.T) {
+	// Use dummy bytes for testing - no need to load actual files
+	stlBytes := []byte("fake stl data")
+	plyBytes := []byte("fake ply data")
+
+	t.Run("extracts meshes from model config", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			Links: []LinkConfig{
+				{
+					ID: "link1",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        stlBytes,
+						MeshContentType: "stl",
+						MeshFilePath:    "meshes/link1.stl",
+					},
+				},
+				{
+					ID: "link2",
+					Geometry: &spatial.GeometryConfig{
+						Type:            spatial.MeshType,
+						MeshData:        plyBytes,
+						MeshContentType: "ply",
+						MeshFilePath:    "models/link2.ply",
+					},
+				},
+				{
+					ID: "link3",
+					Geometry: &spatial.GeometryConfig{
+						Type: spatial.BoxType,
+						X:    1, Y: 2, Z: 3,
+					},
+				},
+			},
+		}
+
+		meshMap := extractMeshMapFromModelConfig(cfg)
+		test.That(t, len(meshMap), test.ShouldEqual, 2)
+
+		// Verify STL mesh
+		stlMesh := meshMap["meshes/link1.stl"]
+		test.That(t, stlMesh.ContentType, test.ShouldEqual, "stl")
+		test.That(t, stlMesh.Mesh, test.ShouldResemble, stlBytes)
+
+		// Verify PLY mesh
+		plyMesh := meshMap["models/link2.ply"]
+		test.That(t, plyMesh.ContentType, test.ShouldEqual, "ply")
+		test.That(t, plyMesh.Mesh, test.ShouldResemble, plyBytes)
+	})
 }

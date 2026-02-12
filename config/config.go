@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -40,6 +41,8 @@ type Config struct {
 	Debug             bool
 	LogConfig         []logging.LoggerPatternConfig
 	MaintenanceConfig *MaintenanceConfig
+	Jobs              []JobConfig
+	Tracing           TracingConfig
 
 	ConfigFilePath string
 
@@ -57,10 +60,6 @@ type Config struct {
 	// If false, it's for creating a robot via the RDK library. This is helpful for
 	// error messages that can indicate flags/config fields to use.
 	FromCommand bool
-
-	// DisablePartialStart ensures that a robot will only start when all the components,
-	// services, and remotes pass config validation. This value is false by default
-	DisablePartialStart bool
 
 	// PackagePath sets the directory used to store packages locally. Defaults to ~/.viam/packages
 	PackagePath string
@@ -87,6 +86,32 @@ type Config struct {
 	toCache []byte
 }
 
+// A TracingConfig describes the tracing configuration for a robot
+type TracingConfig struct {
+	// Enabled globally enables or disables tracing.
+	Enabled bool `json:"enabled"`
+
+	// Disk enables saving trace data to disk in the VIAM_HOME directory. Data
+	// recorded this way can later be retrieved with the viam cli.
+	Disk bool `json:"disk,omitempty"`
+
+	// Console enables printing traces to the console as they occur.
+	Console bool `json:"console,omitempty"`
+
+	// OTLPEndpoint specifies an endpoint that trace spans should be sent to
+	// using OTLP over gRPC. Environment variables can be used to specify auth
+	// headers or other options. See
+	// https://pkg.go.dev/go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+	// for more information.
+	OTLPEndpoint string `json:"otlpendpoint,omitempty"`
+}
+
+// IsEnabled returns true if Enabled is true and at least one export location
+// is enabled and false otherwise.
+func (cfg TracingConfig) IsEnabled() bool {
+	return cfg.Enabled && (cfg.Disk || cfg.Console || cfg.OTLPEndpoint != "")
+}
+
 // MaintenanceConfig specifies a sensor that the machine will check to determine if the machine should reconfigure.
 // This Config is not validated during config processing but it will be validated during reconfiguration.
 type MaintenanceConfig struct {
@@ -94,7 +119,7 @@ type MaintenanceConfig struct {
 	MaintenanceAllowedKey string `json:"maintenance_allowed_key"`
 }
 
-// NOTE: This data must be maintained with what is in Config.
+// NOTE: This data must be maintained with what is in [Config].
 type configData struct {
 	Cloud                   *Cloud                        `json:"cloud,omitempty"`
 	Modules                 []Module                      `json:"modules,omitempty"`
@@ -106,13 +131,14 @@ type configData struct {
 	Network                 NetworkConfig                 `json:"network"`
 	Auth                    AuthConfig                    `json:"auth"`
 	Debug                   bool                          `json:"debug,omitempty"`
-	DisablePartialStart     bool                          `json:"disable_partial_start"`
 	EnableWebProfile        bool                          `json:"enable_web_profile"`
 	LogConfig               []logging.LoggerPatternConfig `json:"log,omitempty"`
 	Revision                string                        `json:"revision,omitempty"`
 	MaintenanceConfig       *MaintenanceConfig            `json:"maintenance,omitempty"`
 	PackagePath             string                        `json:"package_path,omitempty"`
 	DisableLogDeduplication bool                          `json:"disable_log_deduplication"`
+	Jobs                    []JobConfig                   `json:"jobs,omitempty"`
+	Tracing                 TracingConfig                 `json:"tracing,omitempty"`
 }
 
 // AppValidationStatus refers to the.
@@ -120,23 +146,13 @@ type AppValidationStatus struct {
 	Error string `json:"error"`
 }
 
-func (c *Config) validateUniqueResource(logger logging.Logger, seenResources map[string]bool, name string) error {
-	if _, exists := seenResources[name]; exists {
-		errString := errors.Errorf("duplicate resource %s in robot config", name)
-		if c.DisablePartialStart {
-			return errString
-		}
-		logger.Error(errString)
-	}
-	seenResources[name] = true
-	return nil
-}
-
-// Ensure ensures all parts of the config are valid, which may include updating it. Only returns an error
-// if c.DisablePartialStart is true (default: false).
+// Ensure calls respective Validate methods on many subconfigs of the larger config. These
+// Validate methods both cause side-effects and return validation errors. Those
+// side-effects fill in default values, and, in the case of component and service configs,
+// can fill in implicit dependencies. Some validation errors are "fatal" (such as
+// malformed cloud, network, or auth subbconfigs), and some will only result in a logged
+// error.
 func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
-	seenResources := make(map[string]bool)
-
 	if c.Cloud != nil {
 		// Adds default for RefreshInterval if not set.
 		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
@@ -144,7 +160,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		}
 	}
 
-	//  Adds default BindAddress and HeartbeatWindow if not set.
+	// Adds default BindAddress and HeartbeatWindow if not set.
 	if err := c.Network.Validate("network"); err != nil {
 		return err
 	}
@@ -154,101 +170,86 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
-	for idx := 0; idx < len(c.Modules); idx++ {
+	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
+	// uniqueness within each category. Managers of each resource handle duplicates
+	// differently, and behavior is undefined.
+	seenJobs := make(map[string]struct{})
+	for idx := range len(c.Jobs) {
+		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
+			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
+		}
+		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
+			logger.Errorf("Duplicate job %s in robot config; behavior undefined", c.Jobs[idx].Name)
+		}
+		seenJobs[c.Jobs[idx].Name] = struct{}{}
+	}
+	seenModules := make(map[string]struct{})
+	for idx := range len(c.Modules) {
 		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err)
+			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
 		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Modules[idx].Name); err != nil {
-			return err
+		if _, exists := seenModules[c.Modules[idx].Name]; exists {
+			logger.Errorf("Duplicate module %s in robot config; behavior undefined", c.Modules[idx].Name)
 		}
+		seenModules[c.Modules[idx].Name] = struct{}{}
 	}
-
-	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err)
+	seenRemotes := make(map[string]struct{})
+	for idx := range len(c.Remotes) {
+		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
+			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
 		}
-		// we need to figure out how to make it so that the remote is tied to the API
-		resourceRemoteName := resource.NewName(resource.APINamespaceRDK.WithType("remote").WithSubtype(""), c.Remotes[idx].Name)
-		if err := c.validateUniqueResource(logger, seenResources, resourceRemoteName.String()); err != nil {
-			return err
+		if _, exists := seenRemotes[c.Remotes[idx].Name]; exists {
+			logger.Errorf("Duplicate remote %s in robot config; behavior undefined", c.Remotes[idx].Name)
 		}
+		seenRemotes[c.Remotes[idx].Name] = struct{}{}
 	}
-
-	for idx := 0; idx < len(c.Components); idx++ {
-		component := &c.Components[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
-		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
-		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
-		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
-		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := component.Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
-		if err != nil {
-			fullErr := errors.Wrapf(err, "error validating component %s: %s", component.Name, err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			resLogger := logger.Sublogger(component.ResourceName().String())
-			resLogger.Errorw("component config error; starting robot without component", "name", component.Name, "error", err)
-		} else {
-			component.ImplicitDependsOn = dependsOn
-		}
-		if err := c.validateUniqueResource(logger, seenResources, component.ResourceName().String()); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Processes); idx++ {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			logger.Errorw("process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err)
-		}
-
-		if err := c.validateUniqueResource(logger, seenResources, c.Processes[idx].ID); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Services); idx++ {
-		service := &c.Services[idx]
-		// dependsOn will only be populated if attributes have been converted, which does not happen in this function.
-		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
-		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
-		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
-		// dependencies are gathered during robot reconfiguration itself.
-		dependsOn, err := service.Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
-		if err != nil {
-			if c.DisablePartialStart {
-				return err
-			}
-			resLogger := logger.Sublogger(service.ResourceName().String())
-			resLogger.Errorw("service config error; starting robot without service", "name", service.Name, "error", err)
-		} else {
-			service.ImplicitDependsOn = dependsOn
-		}
-
-		if err := c.validateUniqueResource(logger, seenResources, service.ResourceName().String()); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Packages); idx++ {
+	seenPackages := make(map[string]struct{})
+	for idx := range len(c.Packages) {
 		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
-			fullErr := errors.Errorf("error validating package config %s", err)
-			if c.DisablePartialStart {
-				return fullErr
-			}
-			logger.Errorw("package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err)
+			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
 		}
-		if err := c.validateUniqueResource(logger, seenResources, c.Packages[idx].Package); err != nil {
-			return err
+		if _, exists := seenPackages[c.Packages[idx].Name]; exists {
+			logger.Errorf("Duplicate package %s in robot config; behavior undefined", c.Packages[idx].Name)
+		}
+		seenPackages[c.Packages[idx].Name] = struct{}{}
+	}
+	seenProcesses := make(map[string]struct{})
+	for idx := range len(c.Processes) {
+		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
+			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
+		}
+		if _, exists := seenProcesses[c.Processes[idx].Name]; exists {
+			logger.Errorf("Duplicate process %s in robot config; behavior undefined", c.Processes[idx].Name)
+		}
+		seenProcesses[c.Processes[idx].Name] = struct{}{}
+	}
+
+	// Validate components and services as above but also populate implicit dependencies. Do
+	// not log any errors about duplicates. Duplicate components and services are caught by
+	// the resource manager.
+	for idx := range len(c.Components) {
+		// requiredDeps and optionalDeps will only be populated if attributes have been converted, which does not happen in this function.
+		// Attributes can be converted from an untyped, JSON-like object to a typed Go struct based on whether a converter/the typed struct
+		// was registered during resource model registration. If no converter but a typed struct was registered, the RDK provides a
+		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
+		// dependencies are gathered during robot reconfiguration itself.
+		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
+		if err != nil {
+			resLogger := logger.Sublogger(c.Components[idx].ResourceName().String())
+			resLogger.Errorw("Component config error; starting robot without component", "name", c.Components[idx].Name, "error", err.Error())
+		} else {
+			c.Components[idx].ImplicitDependsOn = requiredDeps
+			c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
+		}
+	}
+	for idx := range len(c.Services) {
+		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
+		if err != nil {
+			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
+			resLogger.Errorw("Service config error; starting robot without service", "name", c.Services[idx].Name, "error", err.Error())
+		} else {
+			c.Services[idx].ImplicitDependsOn = requiredDeps
+			c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
 	}
 
@@ -301,9 +302,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	for idx := range conf.Services {
 		conf.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
 	}
-	for idx := range conf.Remotes {
-		conf.Remotes[idx].adjustPartialNames()
-	}
 
 	c.Cloud = conf.Cloud
 	c.Modules = conf.Modules
@@ -315,13 +313,14 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	c.Network = conf.Network
 	c.Auth = conf.Auth
 	c.Debug = conf.Debug
-	c.DisablePartialStart = conf.DisablePartialStart
 	c.EnableWebProfile = conf.EnableWebProfile
 	c.LogConfig = conf.LogConfig
 	c.Revision = conf.Revision
 	c.MaintenanceConfig = conf.MaintenanceConfig
 	c.PackagePath = conf.PackagePath
 	c.DisableLogDeduplication = conf.DisableLogDeduplication
+	c.Jobs = conf.Jobs
+	c.Tracing = conf.Tracing
 
 	return nil
 }
@@ -333,9 +332,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 	for idx := range c.Services {
 		c.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
-	}
-	for idx := range c.Remotes {
-		c.Remotes[idx].adjustPartialNames()
 	}
 
 	return json.Marshal(configData{
@@ -349,13 +345,14 @@ func (c Config) MarshalJSON() ([]byte, error) {
 		Network:                 c.Network,
 		Auth:                    c.Auth,
 		Debug:                   c.Debug,
-		DisablePartialStart:     c.DisablePartialStart,
 		EnableWebProfile:        c.EnableWebProfile,
 		LogConfig:               c.LogConfig,
 		Revision:                c.Revision,
 		MaintenanceConfig:       c.MaintenanceConfig,
 		PackagePath:             c.PackagePath,
 		DisableLogDeduplication: c.DisableLogDeduplication,
+		Jobs:                    c.Jobs,
+		Tracing:                 c.Tracing,
 	})
 }
 
@@ -393,6 +390,7 @@ type Remote struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string
+	Prefix string
 
 	alreadyValidated bool
 	cachedErr        error
@@ -412,6 +410,7 @@ type remoteData struct {
 
 	// Secret is a helper for a robot location secret.
 	Secret string `json:"secret"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
 // Equals checks if the two configs are deeply equal to each other.
@@ -439,6 +438,7 @@ func (conf *Remote) UnmarshalJSON(data []byte) error {
 		Insecure:                  temp.Insecure,
 		AssociatedResourceConfigs: temp.AssociatedResourceConfigs,
 		Secret:                    temp.Secret,
+		Prefix:                    temp.Prefix,
 	}
 	if temp.ConnectionCheckInterval != "" {
 		dur, err := time.ParseDuration(temp.ConnectionCheckInterval)
@@ -462,12 +462,16 @@ func (conf Remote) MarshalJSON() ([]byte, error) {
 	temp := remoteData{
 		Name:                      conf.Name,
 		Address:                   conf.Address,
+		Prefix:                    conf.Prefix,
 		Frame:                     conf.Frame,
 		Auth:                      conf.Auth,
 		ManagedBy:                 conf.ManagedBy,
 		Insecure:                  conf.Insecure,
 		AssociatedResourceConfigs: conf.AssociatedResourceConfigs,
 		Secret:                    conf.Secret,
+	}
+	if conf.Prefix != "" {
+		temp.Prefix = conf.Prefix
 	}
 	if conf.ConnectionCheckInterval != 0 {
 		temp.ConnectionCheckInterval = conf.ConnectionCheckInterval.String()
@@ -496,27 +500,16 @@ type RemoteAuth struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Remote) Validate(path string) ([]string, error) {
+func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	if conf.alreadyValidated {
-		return nil, conf.cachedErr
+		return nil, nil, conf.cachedErr
 	}
 	conf.cachedErr = conf.validate(path)
 	conf.alreadyValidated = true
-	return nil, conf.cachedErr
-}
-
-// adjustPartialNames assumes this config comes from a place where the associated
-// config type names are partially stored (JSON/Proto/Database) and will
-// fix them up to the builtin values they are intended for.
-func (conf *Remote) adjustPartialNames() {
-	for idx := range conf.AssociatedResourceConfigs {
-		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
-	}
+	return nil, nil, conf.cachedErr
 }
 
 func (conf *Remote) validate(path string) error {
-	conf.adjustPartialNames()
-
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
@@ -545,13 +538,12 @@ func (conf *Remote) validate(path string) error {
 
 // A Cloud describes how to configure a robot controlled by the
 // cloud.
-// The cloud source could be anything that supports http.
-// URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
 	ID                string
 	Secret            string
 	LocationSecret    string // Deprecated: Use LocationSecrets
 	LocationSecrets   []LocationSecret
+	APIKey            APIKey
 	LocationID        string
 	PrimaryOrgID      string
 	MachineID         string
@@ -560,8 +552,6 @@ type Cloud struct {
 	LocalFQDN         string
 	SignalingAddress  string
 	SignalingInsecure bool
-	Path              string
-	LogPath           string
 	AppAddress        string
 	RefreshInterval   time.Duration
 
@@ -572,13 +562,17 @@ type Cloud struct {
 
 // Note: keep this in sync with Cloud.
 type cloudData struct {
-	// these three fields are only set within the config passed to the robot as an argumenet.
+	// For a working cloud managed robot, these three fields have to be set
+	// within the config passed to the robot through the --config argument.
+	// Cloud configs are not expected to return these fields, and these fields
+	// will be ignored if they are returned.
 	ID         string `json:"id"`
 	Secret     string `json:"secret,omitempty"`
 	AppAddress string `json:"app_address,omitempty"`
 
 	LocationSecret    string           `json:"location_secret"`
 	LocationSecrets   []LocationSecret `json:"location_secrets"`
+	APIKey            APIKey           `json:"api_key"`
 	LocationID        string           `json:"location_id"`
 	PrimaryOrgID      string           `json:"primary_org_id"`
 	MachineID         string           `json:"machine_id"`
@@ -587,13 +581,38 @@ type cloudData struct {
 	LocalFQDN         string           `json:"local_fqdn"`
 	SignalingAddress  string           `json:"signaling_address"`
 	SignalingInsecure bool             `json:"signaling_insecure,omitempty"`
-	Path              string           `json:"path,omitempty"`
-	LogPath           string           `json:"log_path,omitempty"`
 	RefreshInterval   string           `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
 	TLSPrivateKey  string `json:"tls_private_key"`
+}
+
+// APIKey is the cloud app authentication credential
+type APIKey struct {
+	ID  string `json:"id"`
+	Key string `json:"key"`
+}
+
+// IsFullySet returns true if an APIKey has both the ID and Key fields set.
+func (a APIKey) IsFullySet() bool {
+	return a.ID != "" && a.Key != ""
+}
+
+// IsPartiallySet returns true if only one of the ID or Key fields are set.
+func (a APIKey) IsPartiallySet() bool {
+	return (a.ID == "" && a.Key != "") || (a.ID != "" && a.Key == "")
+}
+
+// GetCloudCredsDialOpt returns a dial option with the cloud credentials for this cloud config.
+// API keys are always preferred over robot secrets. If neither are set, nil is returned.
+func (config *Cloud) GetCloudCredsDialOpt() rpc.DialOption {
+	if config.APIKey.IsFullySet() {
+		return rpc.WithEntityCredentials(config.APIKey.ID, rpc.Credentials{rutils.CredentialsTypeAPIKey, config.APIKey.Key})
+	} else if config.Secret != "" {
+		return rpc.WithEntityCredentials(config.ID, rpc.Credentials{rutils.CredentialsTypeRobotSecret, config.Secret})
+	}
+	return nil
 }
 
 // UnmarshalJSON unmarshals JSON data into this config.
@@ -607,6 +626,7 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		Secret:            temp.Secret,
 		LocationSecret:    temp.LocationSecret,
 		LocationSecrets:   temp.LocationSecrets,
+		APIKey:            temp.APIKey,
 		LocationID:        temp.LocationID,
 		PrimaryOrgID:      temp.PrimaryOrgID,
 		MachineID:         temp.MachineID,
@@ -615,8 +635,6 @@ func (config *Cloud) UnmarshalJSON(data []byte) error {
 		LocalFQDN:         temp.LocalFQDN,
 		SignalingAddress:  temp.SignalingAddress,
 		SignalingInsecure: temp.SignalingInsecure,
-		Path:              temp.Path,
-		LogPath:           temp.LogPath,
 		AppAddress:        temp.AppAddress,
 		TLSCertificate:    temp.TLSCertificate,
 		TLSPrivateKey:     temp.TLSPrivateKey,
@@ -638,6 +656,7 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		Secret:            config.Secret,
 		LocationSecret:    config.LocationSecret,
 		LocationSecrets:   config.LocationSecrets,
+		APIKey:            config.APIKey,
 		LocationID:        config.LocationID,
 		PrimaryOrgID:      config.PrimaryOrgID,
 		MachineID:         config.MachineID,
@@ -646,8 +665,6 @@ func (config Cloud) MarshalJSON() ([]byte, error) {
 		LocalFQDN:         config.LocalFQDN,
 		SignalingAddress:  config.SignalingAddress,
 		SignalingInsecure: config.SignalingInsecure,
-		Path:              config.Path,
-		LogPath:           config.LogPath,
 		AppAddress:        config.AppAddress,
 		TLSCertificate:    config.TLSCertificate,
 		TLSPrivateKey:     config.TLSPrivateKey,
@@ -670,8 +687,10 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		if config.LocalFQDN == "" {
 			return resource.NewConfigValidationFieldRequiredError(path, "local_fqdn")
 		}
-	} else if config.Secret == "" {
-		return resource.NewConfigValidationFieldRequiredError(path, "secret")
+	} else if config.APIKey.IsPartiallySet() {
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
+	} else if config.Secret == "" && !config.APIKey.IsFullySet() {
+		return resource.NewConfigValidationFieldRequiredError(path, "api_key")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
@@ -729,6 +748,9 @@ type NetworkConfigData struct {
 	// TLSConfig is used to enable secure communications on the hosted HTTP server.
 	// This is mutually exclusive with TLSCertFile and TLSKeyFile.
 	TLSConfig *tls.Config `json:"-"`
+
+	// NoTLS disables the use of TLS on the hosted HTTP server.
+	NoTLS bool `json:"no_tls,omitempty"`
 
 	// Sessions configures session management.
 	Sessions SessionsConfig `json:"sessions"`
@@ -1054,6 +1076,7 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
 	var selfCreds *rpc.Credentials
+	var selfAuthEntity string
 	if in.Cloud != nil {
 		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
 		// We do this empty string check just to cope with unexpected input, such as cached configs
@@ -1065,7 +1088,13 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+		if in.Cloud.APIKey.IsFullySet() {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Key}
+			selfAuthEntity = in.Cloud.APIKey.ID
+		} else {
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+			selfAuthEntity = in.Cloud.ID
+		}
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
@@ -1080,7 +1109,7 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			remoteCopy.Auth.Managed = true
 			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
 			remoteCopy.Auth.SignalingCreds = selfCreds
 		}
 		out.Remotes[idx] = remoteCopy
@@ -1239,10 +1268,7 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		}
 	}
 
-	if err := registry.Update(combinedLogCfg, logger); err != nil {
-		logger.Warnw("Error processing log patterns",
-			"error", err)
-	}
+	registry.Update(combinedLogCfg, logger)
 
 	// Check incoming disable log deduplication value for any diff. Note that config value
 	// is a "disable" while registry is an "enable". This is by design to make configuration
@@ -1256,4 +1282,98 @@ func UpdateLoggerRegistryFromConfig(registry *logging.Registry, cfg *Config, log
 		registry.DeduplicateLogs.Store(!cfg.DisableLogDeduplication)
 		logger.Infof("Noisy log deduplication is now %s", state)
 	}
+
+	// If a user-specified log pattern regex-matches the name of a module, update that
+	// module's log level to be "debug." This will cause a restart of the module with
+	// `--log-level=debug`. Only do this if the global log level is not already debug.
+	//
+	// NOTE(benji): This is hacky and simply a best-effort to honor user-specified log
+	// patterns. We already emit a warning log in web/server/entrypoint.go#configWatcher
+	// that points users to the 'log_level' and 'log_configuration' fields instead of 'log'
+	// when trying to change levels of modular logs.
+	var nonDebugGlobalLogger bool
+	func() {
+		globalLogger.mu.Lock()
+		defer globalLogger.mu.Unlock()
+		nonDebugGlobalLogger = globalLogger.actualGlobalLogger != nil && globalLogger.actualGlobalLogger.GetLevel() != logging.DEBUG
+	}()
+	if nonDebugGlobalLogger {
+		for _, lpc := range cfg.LogConfig {
+			// Only examine log patterns that have an associated level of "debug."
+			if lpc.Level == moduleLogLevelDebug {
+				for i, module := range cfg.Modules {
+					// Only set a log level of "debug" if the pattern regex-matches the name of the
+					// module, and the module does not already have a log level set
+					r, err := regexp.Compile(logging.BuildRegexFromPattern(lpc.Pattern))
+					if err != nil {
+						// No need to log a warning here. The call to `registry.Update` above will
+						// have logged one already.
+						continue
+					}
+
+					if r.MatchString(module.Name) && module.LogLevel == "" {
+						cfg.Modules[i].LogLevel = moduleLogLevelDebug
+					}
+				}
+			}
+		}
+	}
+}
+
+// JobConfig describes regular job settings for the robot from the client.
+type JobConfig struct {
+	JobConfigData
+}
+
+// JobConfigData is the job config data that gets marshaled/unmarshaled.
+type JobConfigData struct {
+	Name             string              `json:"name"`
+	Schedule         string              `json:"schedule"`
+	Resource         string              `json:"resource"`
+	Method           string              `json:"method"`
+	Command          map[string]any      `json:"command,omitempty"`
+	LogConfiguration *resource.LogConfig `json:"log_configuration,omitempty"`
+}
+
+// MarshalJSON marshals out this config.
+func (jc JobConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(jc.JobConfigData)
+}
+
+// UnmarshalJSON unmarshals JSON data into this config.
+func (jc *JobConfig) UnmarshalJSON(data []byte) error {
+	var temp JobConfigData
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	*jc = JobConfig{
+		temp,
+	}
+	return nil
+}
+
+// Validate checks that every required field is present.
+func (jc *JobConfig) Validate(path string) error {
+	if jc.Name == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "name")
+	}
+	if jc.Method == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "method")
+	}
+	if jc.Resource == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "resource")
+	}
+	if jc.Schedule == "" {
+		return resource.NewConfigValidationFieldRequiredError(path, "schedule")
+	}
+	// At this point, the schedule could still be invalid (not a golang duration string or a
+	// cron expression). Such errors will be caught later, when the job manager will try to
+	// schedule the job and parse this field. The error will be displayed to the user.
+	return nil
+}
+
+// Equals checks if the two configs are deeply equal to each other.
+func (jc JobConfig) Equals(other JobConfig) bool {
+	return reflect.DeepEqual(jc, other)
 }

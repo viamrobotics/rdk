@@ -1,4 +1,9 @@
-BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+# TESTBUILD_OUTPUT_PATH should only be defined during testing
+ifdef TESTBUILD_OUTPUT_PATH
+	BIN_OUTPUT_PATH = $(TESTBUILD_OUTPUT_PATH)
+else
+	BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+endif
 
 TOOL_BIN = bin/gotools/$(shell uname -s)-$(shell uname -m)
 
@@ -9,7 +14,12 @@ PATH_WITH_TOOLS="`pwd`/$(TOOL_BIN):`pwd`/node_modules/.bin:${PATH}"
 GIT_REVISION = $(shell git rev-parse HEAD | tr -d '\n')
 TAG_VERSION?=$(shell ./etc/dev-version.sh | sed 's/^v//')
 DATE_COMPILED?=$(shell date +'%Y-%m-%d')
-COMMON_LDFLAGS = -s -w -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+COMMON_LDFLAGS = -X 'go.viam.com/rdk/config.Version=${TAG_VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}' -X 'go.viam.com/rdk/config.DateCompiled=${DATE_COMPILED}'
+ifdef BUILD_DEBUG
+	GCFLAGS = -gcflags "-N -l"
+else
+	COMMON_LDFLAGS += -s -w
+endif
 LDFLAGS = -ldflags "-extld=$(shell pwd)/etc/ld_wrapper.sh $(COMMON_LDFLAGS)"
 
 default: build lint server
@@ -22,14 +32,15 @@ build: build-go
 build-go:
 	go build ./...
 
-.PHONY: rm-cli
-rm-cli:
-	rm -f ./bin/$(GOOS)-$(GOARCH)/viam-cli
+GO_FILES=$(shell find . -name "*.go")
 
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
-bin/$(GOOS)-$(GOARCH)/viam-cli: rm-cli
-	go build $(LDFLAGS) -tags osusergo,netgo -o $@ ./cli/viam
+bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
+	# no_cgo necessary here because of motionplan -> nlopt dependency.
+	# can be removed if you can run CGO_ENABLED=0 go build ./cli/viam on your local machine.
+	# CGO_ENABLED=0 is necessary after bedf954b to prevent go from sneakily doing a cgo build
+	CGO_ENABLED=0 go build $(GCFLAGS) $(LDFLAGS) -tags osusergo,netgo,no_cgo -o $@ ./cli/viam
 
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
@@ -43,24 +54,28 @@ cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 
 tool-install:
 	GOBIN=`pwd`/$(TOOL_BIN) go install \
-		github.com/edaniels/golinters/cmd/combined \
-		github.com/golangci/golangci-lint/cmd/golangci-lint \
 		github.com/AlekSi/gocov-xml \
 		github.com/axw/gocov/gocov \
 		gotest.tools/gotestsum \
 		github.com/rhysd/actionlint/cmd/actionlint \
 		golang.org/x/tools/cmd/stringer
 
-lint: lint-go
+lint: lint-go actionlint
+
+actionlint:
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
-lint-go: tool-install
+# Yes this regex could be more specific but making it more specific in a way
+# that works the same across GNU and BSD grep isn't currently worth the effort.
+GOVERSION = $(shell grep '^go .\..' go.mod | head -n1 | cut -d' ' -f2)
+lint-go:
 	go mod tidy
-	export pkgs="`go list -f '{{.Dir}}' ./... | grep -v /proto/`" && echo "$$pkgs" | xargs go vet -vettool=$(TOOL_BIN)/combined
-	GOGC=50 $(TOOL_BIN)/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run --config=./etc/.golangci.yaml || true
+	GOTOOLCHAIN=go$(GOVERSION) GOGC=50 go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run -v --fix --config=./etc/.golangci.yaml
+	./etc/lint_register_apis.sh
 
 cover-only: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh cover
@@ -73,30 +88,46 @@ test-go: tool-install
 test-go-no-race: tool-install
 	PATH=$(PATH_WITH_TOOLS) ./etc/test.sh
 
-server:
-	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+$(BIN_OUTPUT_PATH)/viam-server: $(GO_FILES) Makefile go.mod go.sum
+	go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
-server-static:
-	rm -f $(BIN_OUTPUT_PATH)/viam-server
-	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/viam-server web/cmd/server/main.go
+.PHONY: server
+server: $(BIN_OUTPUT_PATH)/viam-server
 
-full-static:
-	mkdir -p bin/static
-	go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-$(shell go env GOARCH) ./web/cmd/server
+$(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
+	VIAM_STATIC_BUILD=1 GOFLAGS=$(GOFLAGS) go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
 
-windows:
-	mkdir -p bin/windows
-	GOOS=windows go build -tags no_cgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/windows/viam-server-$(shell go env GOARCH).exe ./web/cmd/server
-	cd bin/windows && zip viam.zip viam-server-$(shell go env GOARCH).exe
+.PHONY: server-static
+server-static: $(BIN_OUTPUT_PATH)/viam-server-static
 
-server-static-compressed: server-static
-	upx --best --lzma $(BIN_OUTPUT_PATH)/viam-server
+bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
+	mkdir -p $(dir $@)
+	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+
+.PHONY: full-static
+full-static: bin/static/viam-server-$(GOARCH)
+
+# should be kept in sync with the windows build in the BuildViamServer helper in testutils/file_utils.go
+bin/windows/viam-server-amd64.exe: $(GO_FILES) Makefile go.mod go.sum
+	mkdir -p $(dir $@)
+	GOOS=windows GOARCH=amd64 go build -tags no_cgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
+
+.PHONY: windows
+windows: bin/windows/viam-server-amd64.exe
+	cd bin/windows && zip viam.zip viam-server-amd64.exe
+
+$(BIN_OUTPUT_PATH)/viam-server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static
+	cp $< $@
+	upx --best --lzma $@
+
+.PHONY: server-static-compressed
+server-static-compressed: $(BIN_OUTPUT_PATH)/viam-server-static-compressed
 
 clean-all:
 	git clean -fxd
 
 license-check:
+	license_finder version
 	license_finder
 
 FFMPEG_ROOT ?= etc/FFmpeg

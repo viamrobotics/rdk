@@ -6,6 +6,7 @@ import (
 	"go.viam.com/rdk/components/gantry"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Gantry is an injected gantry.
@@ -20,7 +21,8 @@ type Gantry struct {
 	HomeFunc           func(ctx context.Context, extra map[string]interface{}) (bool, error)
 	IsMovingFunc       func(context.Context) (bool, error)
 	CloseFunc          func(ctx context.Context) error
-	ModelFrameFunc     func() referenceframe.Model
+	KinematicsFunc     func(ctx context.Context) (referenceframe.Model, error)
+	GeometriesFunc     func(ctx context.Context) ([]spatialmath.Geometry, error)
 }
 
 // NewGantry returns a new injected gantry.
@@ -81,12 +83,20 @@ func (g *Gantry) IsMoving(ctx context.Context) (bool, error) {
 	return g.IsMovingFunc(ctx)
 }
 
-// ModelFrame returns a Gantry ModelFrame.
-func (g *Gantry) ModelFrame() referenceframe.Model {
-	if g.ModelFrameFunc == nil {
-		return g.Gantry.ModelFrame()
+// Kinematics returns the kinematic model associated with the gantry.
+func (g *Gantry) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	if g.KinematicsFunc == nil {
+		return g.Gantry.Kinematics(ctx)
 	}
-	return g.ModelFrameFunc()
+	return g.KinematicsFunc(ctx)
+}
+
+// Geometries returns the geometries of the gantry.
+func (g *Gantry) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if g.GeometriesFunc == nil {
+		return g.Gantry.Geometries(ctx, extra)
+	}
+	return g.GeometriesFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

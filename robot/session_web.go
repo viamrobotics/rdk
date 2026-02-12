@@ -2,6 +2,7 @@ package robot
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -13,6 +14,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -24,15 +27,39 @@ func (m *SessionManager) safetyMonitoredTypeAndMethod(method string) (*resource.
 	if err != nil {
 		return nil, nil, false
 	}
-	opts := methodDesc.AsMethodDescriptorProto().Options
-	if !proto.HasExtension(opts, commonpb.E_SafetyHeartbeatMonitored) {
-		return nil, nil, false
+	var safetyHeartbeatMonitored bool
+	if methodDesc != nil {
+		unwrapped := methodDesc.UnwrapMethod()
+		safetyHeartbeatMonitored = isSafetyHeartbeatMonitored(&unwrapped)
 	}
-	safetyMonitored := proto.GetExtension(opts, commonpb.E_SafetyHeartbeatMonitored).(bool)
-	if !safetyMonitored {
-		return nil, nil, false
+	return subType, methodDesc, safetyHeartbeatMonitored
+}
+
+// isSafetyHeartbeatMonitored looks for an RPC method's safety_heartbeat_monitored option and returns its value, or false if unspecified.
+func isSafetyHeartbeatMonitored(descriptor *protoreflect.MethodDescriptor) bool {
+	if descriptor == nil {
+		return false
 	}
-	return subType, methodDesc, true
+	opts := (*descriptor).Options()
+	if proto.HasExtension(opts, commonpb.E_SafetyHeartbeatMonitored) {
+		return proto.GetExtension(opts, commonpb.E_SafetyHeartbeatMonitored).(bool)
+	}
+	return false
+}
+
+// IsSafetyHeartbeatMonitored looks for an RPC method's safety_heartbeat_monitored option and returns its value, or false if unspecified.
+func IsSafetyHeartbeatMonitored(method string) bool {
+	// reformat "/viam.component.base.v1.BaseService/MoveStraight" -> "viam.component.base.v1.BaseService.MoveStraight"
+	method = strings.TrimPrefix(method, "/")
+	method = strings.ReplaceAll(method, "/", ".")
+	// err is NotFound if not present. We just need to return false in this case.
+	descriptor, err := protoregistry.GlobalFiles.FindDescriptorByName(protoreflect.FullName(method))
+	if err == nil {
+		if md, ok := descriptor.(protoreflect.MethodDescriptor); ok {
+			return isSafetyHeartbeatMonitored(&md)
+		}
+	}
+	return false
 }
 
 func (m *SessionManager) safetyMonitoredResourceFromUnary(req interface{}, method string) resource.Name {
@@ -110,19 +137,6 @@ func (m *SessionManager) safetyMonitoredResourceFromStream(
 	return resName, newStream, nil
 }
 
-var exemptFromSession = map[string]bool{
-	"/grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo": true,
-	"/proto.rpc.webrtc.v1.SignalingService/Call":                     true,
-	"/proto.rpc.webrtc.v1.SignalingService/CallUpdate":               true,
-	"/proto.rpc.webrtc.v1.SignalingService/OptionalWebRTCConfig":     true,
-	"/proto.rpc.v1.AuthService/Authenticate":                         true,
-	"/proto.rpc.v1.ExternalAuthService/AuthenticateTo":               true,
-	"/viam.robot.v1.RobotService/ResourceNames":                      true,
-	"/viam.robot.v1.RobotService/ResourceRPCSubtypes":                true,
-	"/viam.robot.v1.RobotService/StartSession":                       true,
-	"/viam.robot.v1.RobotService/SendSessionHeartbeat":               true,
-}
-
 // ServerInterceptors returns gRPC interceptors to work with sessions.
 func (m *SessionManager) ServerInterceptors() session.ServerInterceptors {
 	return session.ServerInterceptors{
@@ -139,7 +153,7 @@ func (m *SessionManager) UnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (interface{}, error) {
-	if exemptFromSession[info.FullMethod] {
+	if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
 		return handler(ctx, req)
 	}
 	safetyMonitoredResourceName := m.safetyMonitoredResourceFromUnary(req, info.FullMethod)
@@ -158,7 +172,7 @@ func (m *SessionManager) StreamServerInterceptor(
 	info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
 ) error {
-	if exemptFromSession[info.FullMethod] {
+	if _, _, isMonitored := m.safetyMonitoredTypeAndMethod(info.FullMethod); !isMonitored {
 		return handler(srv, ss)
 	}
 	safetyMonitoredResource, wrappedStream, err := m.safetyMonitoredResourceFromStream(ss, info.FullMethod)

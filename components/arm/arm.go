@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 // Package arm defines the arm that a robot uses to manipulate objects.
 // For more information, see the [arm component docs].
 //
@@ -10,6 +8,7 @@ import (
 	"context"
 	"fmt"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
 	"go.viam.com/rdk/data"
@@ -37,6 +36,10 @@ func init() {
 		API:        API,
 		MethodName: jointPositions.String(),
 	}, newJointPositionsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "arm".
@@ -55,7 +58,7 @@ func Named(name string) resource.Name {
 //
 // EndPosition example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //	// Get the end position of the arm as a Pose.
 //	pos, err := myArm.EndPosition(context.Background(), nil)
 //
@@ -63,7 +66,7 @@ func Named(name string) resource.Name {
 //
 // MoveToPosition example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //	// Create a Pose for the arm.
 //	examplePose := spatialmath.NewPose(
 //	        r3.Vector{X: 5, Y: 5, Z: 5},
@@ -77,7 +80,7 @@ func Named(name string) resource.Name {
 //
 // MoveToJointPositions example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Declare an array of values with your desired rotational value (in radians) for each joint on the arm.
 //	inputs := referenceframe.FloatsToInputs([]float64{0, math.Pi/2, math.Pi})
@@ -89,7 +92,7 @@ func Named(name string) resource.Name {
 //
 // MoveThroughJointPositions example:
 //
-//	myArm, err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Declare a 2D array of values with your desired rotational value (in radians) for each joint on the arm.
 //	inputs := [][]referenceframe.Input{
@@ -104,7 +107,7 @@ func Named(name string) resource.Name {
 //
 // JointPositions example:
 //
-//	myArm , err := arm.FromRobot(machine, "my_arm")
+//	myArm, err := arm.FromProvider(machine, "my_arm")
 //
 //	// Get the current position of each joint on the arm as JointPositions.
 //	pos, err := myArm.JointPositions(context.Background(), nil)
@@ -119,7 +122,6 @@ func Named(name string) resource.Name {
 // [JointPositions method docs]: https://docs.viam.com/dev/reference/apis/components/arm/#getjointpositions
 type Arm interface {
 	resource.Resource
-	referenceframe.ModelFramer
 	resource.Shaped
 	resource.Actuator
 	framesystem.InputEnabled
@@ -141,17 +143,30 @@ type Arm interface {
 
 	// JointPositions returns the current joint positions of the arm.
 	JointPositions(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error)
+
+	// Get3DModels returns the 3D models of the arm.
+	Get3DModels(ctx context.Context, extra map[string]interface{}) (map[string]*commonpb.Mesh, error)
 }
 
-// FromDependencies is a helper for getting the named arm from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named arm from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Arm, error) {
 	return resource.FromDependencies[Arm](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named Arm from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named Arm from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Arm, error) {
 	return robot.ResourceFromRobot[Arm](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named arm from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Arm, error) {
+	return resource.FromProvider[Arm](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
@@ -166,24 +181,31 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 	if err != nil {
 		return err
 	}
-	model := a.ModelFrame()
+	model, err := a.Kinematics(ctx)
+	if err != nil {
+		return err
+	}
 	limits := model.DoF()
 	for i, val := range desiredInputs {
+		//nolint: revive
 		max := limits[i].Max
+		//nolint: revive
 		min := limits[i].Min
 		currPosition := currentJointPos[i]
 		// to make sure that val is a valid input it must either bring the joint closer inbounds or keep the joint inbounds.
-		if currPosition.Value > limits[i].Max {
-			max = currPosition.Value
-		} else if currPosition.Value < limits[i].Min {
-			min = currPosition.Value
+		if currPosition > limits[i].Max {
+			//nolint: revive
+			max = currPosition
+		} else if currPosition < limits[i].Min {
+			//nolint: revive
+			min = currPosition
 		}
-		if val.Value > max || val.Value < min {
+		if val > max || val < min {
 			return fmt.Errorf("joint %v needs to be within range [%v, %v] and cannot be moved to %v",
 				i,
 				utils.RadToDeg(min),
 				utils.RadToDeg(max),
-				utils.RadToDeg(val.Value),
+				utils.RadToDeg(val),
 			)
 		}
 	}

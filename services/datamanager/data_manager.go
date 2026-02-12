@@ -7,9 +7,11 @@ package datamanager
 import (
 	"context"
 	"encoding/json"
+	"image"
 	"reflect"
 	"slices"
 
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	servicepb "go.viam.com/api/service/datamanager/v1"
 
 	"go.viam.com/rdk/resource"
@@ -38,6 +40,7 @@ func init() {
 //
 // Sync example:
 //
+//	data, err := datamanager.FromProvider(machine, "my_data_manager")
 //	// Sync data stored on the machine to the cloud.
 //	err := data.Sync(context.Background(), nil)
 //
@@ -49,6 +52,10 @@ type Service interface {
 	resource.Resource
 	// Sync will sync data stored on the machine to the cloud.
 	Sync(ctx context.Context, extra map[string]interface{}) error
+	UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte, datasetIDs, tags []string,
+		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
+	UploadImageToDatasets(ctx context.Context, image image.Image, datasetIDs, tags []string,
+		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 }
 
 // SubtypeName is the name of the type of service.
@@ -62,14 +69,26 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
+// Deprecated: FromDependencies is a helper for getting the named data manager service from a collection of dependencies.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Service, error) {
 	return resource.FromDependencies[Service](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named data manager service from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named data manager service from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Service, error) {
 	return robot.ResourceFromRobot[Service](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Data Manager service
+// from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Service, error) {
+	return resource.FromProvider[Service](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all data manager services from the given Robot.
@@ -141,15 +160,15 @@ func (ac *AssociatedConfig) Link(conf *resource.Config) {
 
 // DataCaptureConfig is used to initialize a collector for a component or remote.
 type DataCaptureConfig struct {
-	Name               resource.Name     `json:"name"`
-	Method             string            `json:"method"`
-	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
-	CaptureQueueSize   int               `json:"capture_queue_size"`
-	CaptureBufferSize  int               `json:"capture_buffer_size"`
-	AdditionalParams   map[string]string `json:"additional_params"`
-	Disabled           bool              `json:"disabled"`
-	Tags               []string          `json:"tags,omitempty"`
-	CaptureDirectory   string            `json:"capture_directory"`
+	Name               resource.Name          `json:"name"`
+	Method             string                 `json:"method"`
+	CaptureFrequencyHz float32                `json:"capture_frequency_hz"`
+	CaptureQueueSize   int                    `json:"capture_queue_size"`
+	CaptureBufferSize  int                    `json:"capture_buffer_size"`
+	AdditionalParams   map[string]interface{} `json:"additional_params"`
+	Disabled           bool                   `json:"disabled"`
+	Tags               []string               `json:"tags,omitempty"`
+	CaptureDirectory   string                 `json:"capture_directory"`
 }
 
 // Equals checks if one capture config is equal to another.

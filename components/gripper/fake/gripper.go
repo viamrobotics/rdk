@@ -3,6 +3,7 @@ package fake
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"go.viam.com/rdk/components/gripper"
@@ -28,14 +29,13 @@ type Gripper struct {
 	resource.Named
 	resource.TriviallyCloseable
 	geometries []spatialmath.Geometry
+	model      referenceframe.Model
 	mu         sync.Mutex
 	logger     logging.Logger
 }
 
 // NewGripper instantiates a new gripper of the fake model type.
-func NewGripper(
-	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
-) (gripper.Gripper, error) {
+func NewGripper(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (gripper.Gripper, error) {
 	g := &Gripper{
 		Named:      conf.ResourceName().AsNamed(),
 		geometries: []spatialmath.Geometry{},
@@ -59,11 +59,38 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 		}
 		g.geometries = []spatialmath.Geometry{geometry}
 	}
+	model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
+	if err != nil {
+		return err
+	}
+	g.model = model
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model.
-func (g *Gripper) ModelFrame() referenceframe.Model {
+// Kinematics returns the kinematic model associated with the gripper.
+func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.model, nil
+}
+
+// CurrentInputs is unimplemented for grippers.
+func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.model != nil && len(g.model.DoF()) != 0 {
+		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
+	}
+	return []referenceframe.Input{}, nil
+}
+
+// GoToInputs is unimplemented for grippers.
+func (g *Gripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.model != nil && len(g.model.DoF()) != 0 {
+		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
+	}
 	return nil
 }
 
@@ -80,6 +107,12 @@ func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool,
 // Stop doesn't do anything for a fake gripper.
 func (g *Gripper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	return nil
+}
+
+// IsHoldingSomething always returns a status in which the gripper is not holding something and
+// no additional information is supplied.
+func (g *Gripper) IsHoldingSomething(ctx context.Context, extra map[string]interface{}) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
 }
 
 // IsMoving is always false for a fake gripper.

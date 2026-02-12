@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -17,19 +18,22 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 )
 
 var (
-	helperModel    = resource.NewModel("rdk", "test", "helper")
-	otherModel     = resource.NewModel("rdk", "test", "other")
-	testMotorModel = resource.NewModel("rdk", "test", "motor")
-	testSlowModel  = resource.NewModel("rdk", "test", "slow")
-	myMod          *module.Module
+	helperModel              = resource.NewModel("rdk", "test", "helper")
+	otherModel               = resource.NewModel("rdk", "test", "other")
+	testMotorModel           = resource.NewModel("rdk", "test", "motor")
+	testSlowModel            = resource.NewModel("rdk", "test", "slow")
+	testFSDependentModel     = resource.NewModel("rdk", "test", "fsdep")
+	testSensorDependentModel = resource.NewModel("rdk", "test", "sensordep")
+	myMod                    *module.Module
 )
 
 func main() {
-	utils.ContextualMain(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
+	utils.ContextualMainWithSIGPIPE(mainWithArgs, module.NewLoggerFromArgs("TestModule"))
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
@@ -82,28 +86,70 @@ func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) err
 		return err
 	}
 
+	resource.RegisterComponent(
+		generic.API,
+		testFSDependentModel,
+		resource.Registration[resource.Resource, *fsDepConfig]{Constructor: newFSDependent})
+	err = myMod.AddModelFromRegistry(ctx, generic.API, testFSDependentModel)
+	if err != nil {
+		return err
+	}
+
+	resource.RegisterComponent(
+		sensor.API,
+		testSensorDependentModel,
+		resource.Registration[resource.Resource, *sensorDepConfig]{Constructor: newSensorDependent})
+	err = myMod.AddModelFromRegistry(ctx, sensor.API, testSensorDependentModel)
+	if err != nil {
+		return err
+	}
+
 	err = myMod.Start(ctx)
 	defer myMod.Close(ctx)
 	if err != nil {
 		return err
 	}
 	<-ctx.Done()
+
+	// If this is set, sleep to catch module slow shutdown logs.
+	sleepTime := os.Getenv("VIAM_TESTMODULE_SLOW_CLOSE")
+
+	if sleepTime != "" {
+		sleepDuration, err := time.ParseDuration(sleepTime)
+		if err != nil {
+			return err
+		}
+		time.Sleep(sleepDuration)
+	}
+
 	return nil
 }
+
+var attemptedConstruction bool
 
 func newHelper(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (resource.Resource, error) {
+	// VIAM_TESTMODULE_FAIL_ON_FIRST will always fail the first attempt at construction
+	if os.Getenv("VIAM_TESTMODULE_FAIL_ON_FIRST") != "" {
+		if !attemptedConstruction {
+			attemptedConstruction = true
+			logger.Warn("VIAM_TESTMODULE_FAIL_ON_FIRST causing intentional failure")
+			return nil, errors.New("gotta fail fast")
+		}
+		logger.Info("VIAM_TESTMODULE_FAIL_ON_FIRST not failing this time")
+	}
 	var dependsOnSensor sensor.Sensor
 	var err error
 	if len(conf.DependsOn) > 0 {
-		dependsOnSensor, err = sensor.FromDependencies(deps, conf.DependsOn[0])
+		dependsOnSensor, err = sensor.FromProvider(deps, conf.DependsOn[0])
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(deps) > 0 && dependsOnSensor == nil {
+	// deps contains at least $framesystem
+	if len(deps) > 1 && dependsOnSensor == nil {
 		return nil, fmt.Errorf("sensor not found in deps: %v", deps)
 	}
 
@@ -191,12 +237,17 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 			h.logger.CErrorw(ctx, msg, "foo", "bar")
 		}
 
-		return map[string]any{}, nil
+		// Beyond just logging at the specified level, also report the current log level back
+		// in the DoCommand response.
+		return map[string]any{"level": h.logger.GetLevel().String()}, nil
 	case "get_num_reconfigurations":
 		return map[string]any{"num_reconfigurations": h.numReconfigurations}, nil
 	case "do_readings_on_dep":
 		_, err := h.dependsOnSensor.Readings(ctx, nil)
 		return nil, err
+	case "get_trace_id":
+		traceID := trace.FromContext(ctx).SpanContext().TraceID().String()
+		return map[string]any{"trace_id": traceID}, nil
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}
@@ -351,7 +402,6 @@ func newSlow(
 
 type slow struct {
 	resource.Named
-	resource.TriviallyCloseable
 	configDuration time.Duration
 }
 
@@ -359,4 +409,121 @@ type slow struct {
 func (s *slow) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	time.Sleep(s.configDuration)
 	return nil
+}
+
+// Close does nothing but is slow.
+func (s *slow) Close(ctx context.Context) error {
+	time.Sleep(s.configDuration)
+	return nil
+}
+
+func newFSDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	fs, err := framesystem.FromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
+	return &fsDependent{
+		Named: conf.ResourceName().AsNamed(),
+		fs:    fs,
+	}, nil
+}
+
+type fsDepConfig struct{}
+
+// Validate INCORRECTLY returns $framesystem, framesystem, and
+// framesystem.PublicServiceName.String() as implicit dependencies (both required and
+// optional). Validate methods do NOT need to do this, as the framesystem is always
+// available in constructors and Reconfigure methods through framesystem.FromDependencies.
+// The incorrect Validate method here is only used for testing that these specific string
+// values are ignored in dependency calculation (resource can construct and reconfigure).
+func (fsc *fsDepConfig) Validate(_ string) ([]string, []string, error) {
+	return []string{"$framesystem", "framesystem"}, []string{framesystem.PublicServiceName.String()}, nil
+}
+
+type fsDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+	fs framesystem.Service
+}
+
+// Reconfigure ensures that the framesystem is available in the dependencies passed to
+// reconfigure (not just the constructor).
+func (fd *fsDependent) Reconfigure(
+	ctx context.Context,
+	deps resource.Dependencies,
+	conf resource.Config,
+) error {
+	fs, err := framesystem.FromProvider(deps)
+	if err != nil {
+		return err
+	}
+	fsCfg, err := fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return err
+	}
+	if fsCfg == nil {
+		return errors.New("received an empty framesystem config in Reconfigure")
+	}
+	return nil
+}
+
+// DoCommand always returns a stringified version of the frame system config as "fsCfg".
+func (fd *fsDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	fsCfg, err := fd.fs.FrameSystemConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"fsCfg": fsCfg.String()}, nil
+}
+
+func newSensorDependent(
+	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	config, err := resource.NativeConfig[*sensorDepConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+	s, err := sensor.FromProvider(deps, config.Sensor)
+	if err != nil {
+		return nil, err
+	}
+	return &sensorDependent{
+		Named:  conf.ResourceName().AsNamed(),
+		sensor: s,
+	}, nil
+}
+
+var sensorValidateCalls = 0
+
+type sensorDepConfig struct {
+	Sensor string `json:"sensor"`
+}
+
+// Validate will ensure that sensor
+func (sc *sensorDepConfig) Validate(_ string) ([]string, []string, error) {
+	sensorValidateCalls++
+	if sc.Sensor == "" {
+		return nil, nil, errors.New("empty sensor")
+	}
+	return []string{sc.Sensor}, []string{}, nil
+}
+
+type sensorDependent struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+	sensor resource.Sensor
+}
+
+// Readings always returns Readings from the sensor held inside the struct.
+func (sd *sensorDependent) Readings(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return sd.sensor.Readings(ctx, map[string]interface{}{})
+}
+
+// DoCommand returns the number of times validate has been called on this module.
+func (sd *sensorDependent) DoCommand(ctx context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return map[string]interface{}{"validate_calls": sensorValidateCalls}, nil
 }

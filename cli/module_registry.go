@@ -12,7 +12,6 @@ import (
 	"math"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -42,16 +41,6 @@ var (
 	rdkAPITypes           = []string{resource.APITypeServiceName, resource.APITypeComponentName}
 )
 
-// moduleVisibility determines whether modules are public or private.
-type moduleVisibility string
-
-// Permissions enumeration.
-const (
-	moduleVisibilityPrivate        moduleVisibility = "private"
-	moduleVisibilityPublic         moduleVisibility = "public"
-	moduleVisibilityPublicUnlisted moduleVisibility = "public_unlisted"
-)
-
 type unknownRdkAPITypeError struct {
 	APIType string
 }
@@ -74,11 +63,25 @@ type moduleID struct {
 	name   string
 }
 
+// MachinePickerCustomizations holds custom branding text for the machine picker UI.
+type MachinePickerCustomizations struct {
+	Heading    string `json:"heading,omitempty"`
+	Subheading string `json:"subheading,omitempty"`
+}
+
+// AppCustomizations holds customizations for different app UI components.
+type AppCustomizations struct {
+	MachinePicker *MachinePickerCustomizations `json:"machinePicker,omitempty"`
+}
+
 // AppComponent represents metadata used to distinguish and describe an app.
 type AppComponent struct {
-	Name       string `json:"name"`
-	Type       string `json:"type"`
-	Entrypoint string `json:"entrypoint"`
+	Name           string             `json:"name"`
+	Type           string             `json:"type"`
+	Entrypoint     string             `json:"entrypoint"`
+	FragmentIDs    []string           `json:"fragmentIds,omitempty"`
+	LogoPath       string             `json:"logoPath,omitempty"`
+	Customizations *AppCustomizations `json:"customizations,omitempty"`
 }
 
 // manifestBuildInfo is the "build" section of meta.json.
@@ -97,15 +100,15 @@ var defaultBuildInfo = manifestBuildInfo{
 	Arch:  []string{"linux/amd64", "linux/arm64"},
 }
 
-// moduleManifest is used to create & parse manifest.json.
+// ModuleManifest is used to create & parse manifest.json.
 // Detailed user-facing docs for this are in module.schema.json.
-type moduleManifest struct {
+type ModuleManifest struct {
 	Schema       string            `json:"$schema"`
 	ModuleID     string            `json:"module_id"`
-	Visibility   moduleVisibility  `json:"visibility"`
+	Visibility   string            `json:"visibility"`
 	URL          string            `json:"url"`
 	Description  string            `json:"description"`
-	Models       []ModuleComponent `json:"models"`
+	Models       []ModuleComponent `json:"models,omitempty"`
 	Apps         []AppComponent    `json:"applications"`
 	MarkdownLink *string           `json:"markdown_link,omitempty"`
 	// JsonManifest provides fields shared with RDK proper.
@@ -195,14 +198,10 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 	}
 
 	if shouldWriteNewEmptyManifest {
-		emptyManifest := moduleManifest{
+		emptyManifest := ModuleManifest{
 			Schema:     "https://dl.viam.dev/module.schema.json",
 			ModuleID:   returnedModuleID.String(),
 			Visibility: moduleVisibilityPrivate,
-			// This is done so that the json has an empty example
-			Models: []ModuleComponent{
-				{},
-			},
 		}
 		if err := writeManifest(defaultManifestFilename, emptyManifest); err != nil {
 			return err
@@ -356,7 +355,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	if !forceUploadArg {
 		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
 			return fmt.Errorf(
-				"error validating module: %w. For more details, please visit: https://docs.viam.com/cli/#module ",
+				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
 				err)
 		}
 	}
@@ -372,7 +371,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 }
 
 // call validateModelAPI on all models in manifest and warn if violations.
-func validateModels(errWriter io.Writer, manifest *moduleManifest) {
+func validateModels(errWriter io.Writer, manifest *ModuleManifest) {
 	for _, model := range manifest.Models {
 		if err := validateModelAPI(model.API); err != nil {
 			warningf(errWriter, "error validating API string %s: %s", model.API, err)
@@ -413,6 +412,21 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 		return err
 	}
 
+	// Get the directory containing the meta.json file
+	manifestDir := filepath.Dir(args.Module)
+
+	// For each model, check if a corresponding markdown file exists
+	for i := range newModels {
+		markdownFilename := modelTripleToMarkdownFilename(newModels[i].Model)
+		markdownPath := filepath.Join(manifestDir, markdownFilename)
+
+		// Check if the markdown file exists
+		if _, err := os.Stat(markdownPath); err == nil {
+			// File exists, set the markdown link
+			newModels[i].MarkdownLink = &markdownFilename
+		}
+	}
+
 	if sameModels(newModels, manifest.Models) {
 		return nil
 	}
@@ -436,7 +450,7 @@ func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, err
 	return c.client.GetModule(c.c.Context, &req)
 }
 
-func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *viamClient) updateModule(moduleID moduleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
@@ -451,13 +465,18 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest moduleManifest) (*
 	}
 
 	var markdownDocs *string
-	// If a markdown link is provided, read the content
+	// Try to read markdown content from the specified link or default README
+	markdownPath := defaultReadmeFilename
 	if manifest.MarkdownLink != nil {
-		if content, err := getMarkdownContent(*manifest.MarkdownLink); err == nil {
-			markdownDocs = &content
-		} else {
-			warningf(os.Stderr, "Failed to read markdown content from %s: %v", *manifest.MarkdownLink, err)
-		}
+		markdownPath = *manifest.MarkdownLink
+	}
+
+	if content, err := getMarkdownContent(markdownPath); err == nil {
+		markdownDocs = &content
+	} else {
+		warningf(os.Stderr, "Failed to read markdown content from %s: %v", markdownPath, err)
+		warningf(os.Stderr, "Please document your module with a README.md. You can configure meta.json to read "+
+			"documentation from a file path with the 'markdown_link' field.")
 	}
 	req := apppb.UpdateModuleRequest{
 		ModuleId:            moduleID.String(),
@@ -509,7 +528,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, nil, file, c.c.App.Writer); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -523,6 +542,11 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 	if err != nil {
 		return err
 	}
+
+	if versionHasOnlyApps(getModuleResp.Module, version) {
+		return nil // no need to validate the module file for a module with only apps associated with
+	}
+
 	entrypoint, err := getEntrypointForVersion(getModuleResp.Module, version)
 	if err != nil {
 		return err
@@ -564,8 +588,12 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		}
 		path := header.Name
 
-		// if path == entrypoint, we have found the right file
-		if filepath.Clean(path) == filepath.Clean(entrypoint) {
+		// If path equals entrypoint, we have found the right file. On Windows, allow for an
+		// optional ".exe" at the end, because Windows can automatically resolve the entrypoint
+		// "foo" to the executable "foo.exe" when needed.
+		if filepath.Clean(path) == filepath.Clean(entrypoint) ||
+			(strings.HasPrefix(strings.ToLower(platform), "windows") &&
+				filepath.Clean(path) == filepath.Clean(entrypoint)+".exe") {
 			info := header.FileInfo()
 			if info.IsDir() {
 				return errors.Errorf(
@@ -630,7 +658,7 @@ func getExecutableArch(reader *tar.Reader) string {
 	return ParseFileType(string(output))
 }
 
-func visibilityToProto(visibility moduleVisibility) (apppb.Visibility, error) {
+func visibilityToProto(visibility string) (apppb.Visibility, error) {
 	switch visibility {
 	case moduleVisibilityPrivate:
 		return apppb.Visibility_VISIBILITY_PRIVATE, nil
@@ -666,9 +694,27 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
 	app := &apppb.App{
-		Name:       appComponent.Name,
-		Type:       appComponent.Type,
-		Entrypoint: appComponent.Entrypoint,
+		Name:        appComponent.Name,
+		Type:        appComponent.Type,
+		Entrypoint:  appComponent.Entrypoint,
+		FragmentIds: appComponent.FragmentIDs,
+	}
+
+	if appComponent.LogoPath != "" {
+		app.LogoPath = &appComponent.LogoPath
+	}
+
+	if appComponent.Customizations != nil && appComponent.Customizations.MachinePicker != nil {
+		machinePicker := &apppb.MachinePickerCustomizations{}
+		if appComponent.Customizations.MachinePicker.Heading != "" {
+			machinePicker.Heading = &appComponent.Customizations.MachinePicker.Heading
+		}
+		if appComponent.Customizations.MachinePicker.Subheading != "" {
+			machinePicker.Subheading = &appComponent.Customizations.MachinePicker.Subheading
+		}
+		app.Customizations = &apppb.AppCustomizations{
+			MachinePicker: machinePicker,
+		}
 	}
 
 	return app
@@ -762,24 +808,24 @@ func isValidOrgID(str string) bool {
 	return err == nil
 }
 
-func loadManifest(manifestPath string) (moduleManifest, error) {
+func loadManifest(manifestPath string) (ModuleManifest, error) {
 	//nolint:gosec
 	manifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return moduleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
+			return ModuleManifest{}, errors.Wrapf(err, "cannot find %s", manifestPath)
 		}
-		return moduleManifest{}, err
+		return ModuleManifest{}, err
 	}
-	var manifest moduleManifest
+	var manifest ModuleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
-		return moduleManifest{}, err
+		return ModuleManifest{}, err
 	}
 	return manifest, nil
 }
 
 // loadManifestOrNil doesn't throw error on missing.
-func loadManifestOrNil(path string) (*moduleManifest, error) {
+func loadManifestOrNil(path string) (*ModuleManifest, error) {
 	manifest, err := loadManifest(path)
 	if err == nil {
 		return &manifest, nil
@@ -791,7 +837,7 @@ func loadManifestOrNil(path string) (*moduleManifest, error) {
 	return nil, err
 }
 
-func writeManifest(manifestPath string, manifest moduleManifest) error {
+func writeManifest(manifestPath string, manifest ModuleManifest) error {
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
@@ -806,6 +852,16 @@ func writeManifest(manifestPath string, manifest moduleManifest) error {
 	}
 
 	return nil
+}
+
+// versionHasOnlyApps returns true if the provided version has apps associated with it.
+func versionHasOnlyApps(mod *apppb.Module, version string) bool {
+	for _, ver := range mod.Versions {
+		if ver.Version == version {
+			return len(ver.Apps) > 0 && len(ver.Models) == 0
+		}
+	}
+	return len(mod.Apps) > 0 && len(mod.Models) == 0
 }
 
 // getEntrypointForVersion returns the entrypoint associated with the provided version, or the last updated entrypoint if it doesnt exit.
@@ -874,7 +930,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 		ExePath: path,
 	}
 
-	mgr, err := modmanager.NewManager(context.Background(), parentAddr, logger, modmanageroptions.Options{UntrustedEnv: false})
+	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{
+		UntrustedEnv:            false,
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -920,12 +980,26 @@ func sameModels(a, b []ModuleComponent) bool {
 	return true
 }
 
-func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_UploadModuleFileClient,
-	pkgStream packagespb.PackageService_CreatePackageClient, file *os.File, stdout io.Writer,
+// modelTripleToMarkdownFilename converts a model triple (namespace:module_name:model_name)
+// to the corresponding markdown filename (namespace_module_name_model_name.md).
+func modelTripleToMarkdownFilename(modelTriple string) string {
+	// Replace colons with underscores
+	filename := strings.ReplaceAll(modelTriple, ":", "_")
+	return filename + ".md"
+}
+
+type sender[RequestT any] interface {
+	Send(*RequestT) error
+	CloseSend() error
+}
+
+func sendUploadRequests[RequestT any, StreamT sender[RequestT]](
+	ctx context.Context,
+	stream StreamT,
+	file *os.File,
+	stdout io.Writer,
+	getRequest func(file *os.File) (*RequestT, int, error),
 ) error {
-	if moduleStream != nil && pkgStream != nil {
-		return errors.New("can use either module or package client, not both")
-	}
 	stat, err := file.Stat()
 	if err != nil {
 		return err
@@ -935,26 +1009,14 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	// Close the line with the progress reading
 	defer printf(stdout, "")
 
-	if moduleStream != nil {
-		defer vutils.UncheckedErrorFunc(moduleStream.CloseSend)
-	}
-	if pkgStream != nil {
-		defer vutils.UncheckedErrorFunc(pkgStream.CloseSend)
-	}
+	defer vutils.UncheckedErrorFunc(stream.CloseSend)
 	// Loop until there is no more content to be read from file or the context expires.
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		// Get the next UploadRequest from the file.
-		var moduleUploadReq *apppb.UploadModuleFileRequest
-		if moduleStream != nil {
-			moduleUploadReq, err = getNextModuleUploadRequest(file)
-		}
-		var pkgUploadReq *packagespb.CreatePackageRequest
-		if pkgStream != nil {
-			pkgUploadReq, err = getNextPackageUploadRequest(file)
-		}
+		uploadReq, bytesCount, err := getRequest(file)
 
 		// EOF means we've completed successfully.
 		if errors.Is(err, io.EOF) {
@@ -965,18 +1027,11 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 			return errors.Wrap(err, "could not read file")
 		}
 
-		if moduleUploadReq != nil {
-			if err = moduleStream.Send(moduleUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(moduleUploadReq.GetFile())
+		if err = stream.Send(uploadReq); err != nil {
+			return err
 		}
-		if pkgUploadReq != nil {
-			if err = pkgStream.Send(pkgUploadReq); err != nil {
-				return err
-			}
-			uploadedBytes += len(pkgUploadReq.GetContents())
-		}
+
+		uploadedBytes += bytesCount
 
 		// Simple progress reading until we have a proper tui library
 		uploadPercent := int(math.Ceil(100 * float64(uploadedBytes) / float64(fileSize)))
@@ -984,98 +1039,110 @@ func sendUploadRequests(ctx context.Context, moduleStream apppb.AppService_Uploa
 	}
 }
 
-func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, error) {
-	// get the next chunk of bytes from the file
-	byteArr := make([]byte, moduleUploadChunkSize)
-	numBytesRead, err := file.Read(byteArr)
+func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, int, error) {
+	byteArr, err := getBytesFromFile(file)
 	if err != nil {
-		return nil, err
-	}
-	if numBytesRead < moduleUploadChunkSize {
-		byteArr = byteArr[:numBytesRead]
+		return nil, 0, err
 	}
 	return &apppb.UploadModuleFileRequest{
 		ModuleFile: &apppb.UploadModuleFileRequest_File{
 			File: byteArr,
 		},
-	}, nil
+	}, len(byteArr), nil
 }
 
 type downloadModuleFlags struct {
 	Destination string
-	ID          string
+	ModuleID    string
+	OrgID       string
 	Version     string
 	Platform    string
 }
 
-// DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
-	moduleID := flags.ID
+func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
+	moduleID := flags.ModuleID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
-			return errors.Wrap(err, "trying to get package ID from meta.json")
+			return "", errors.Wrap(err, "trying to get package ID from meta.json")
 		}
 		moduleID = manifest.ModuleID
 	}
-	client, err := newViamClient(c)
-	if err != nil {
-		return err
-	}
+
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
-	res, err := client.client.GetModule(c.Context, req)
+	res, err := c.client.GetModule(ctx.Context, req)
 	if err != nil {
-		return err
-	}
-	if len(res.Module.Versions) == 0 {
-		return errors.New("module has 0 uploaded versions, nothing to download")
+		return "", err
 	}
 	requestedVersion := flags.Version
-	var ver *apppb.VersionHistory
-	if requestedVersion == "latest" {
-		ver = res.Module.Versions[len(res.Module.Versions)-1]
-	} else {
-		for _, iVer := range res.Module.Versions {
-			if iVer.Version == requestedVersion {
-				ver = iVer
-				break
+	platform := flags.Platform
+
+	// if not reload version, validate module versions
+	var fullVersion string
+	var packageID string
+	if !IsReloadVersion(requestedVersion) {
+		if len(res.Module.Versions) == 0 {
+			return "", errors.New("module has 0 uploaded versions, nothing to download")
+		}
+
+		var ver *apppb.VersionHistory
+		if requestedVersion == "latest" {
+			ver = res.Module.Versions[len(res.Module.Versions)-1]
+		} else {
+			for _, iVer := range res.Module.Versions {
+				if iVer.Version == requestedVersion {
+					ver = iVer
+					break
+				}
+			}
+			if ver == nil {
+				return "", fmt.Errorf("version %s not found in versions for module", requestedVersion)
 			}
 		}
-		if ver == nil {
-			return fmt.Errorf("version %s not found in versions for module", requestedVersion)
+		if len(ver.Files) == 0 {
+			return "", fmt.Errorf("version %s has 0 files uploaded", ver.Version)
 		}
-	}
-	infof(c.App.ErrWriter, "found version %s", ver.Version)
-	if len(ver.Files) == 0 {
-		return fmt.Errorf("version %s has 0 files uploaded", ver.Version)
-	}
-	platform := flags.Platform
-	if platform == "" {
-		platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-		infof(c.App.ErrWriter, "using default platform %s", platform)
-	}
-	if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
-		return fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+
+		if platform == "" {
+			platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+			infof(ctx.App.ErrWriter, "using default platform %s", platform)
+		}
+		if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
+			return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
+		}
+		fullVersion = fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
+		packageID = strings.ReplaceAll(moduleID, ":", "/")
+	} else {
+		fullVersion = fmt.Sprintf("%s-%s", requestedVersion, strings.ReplaceAll(platform, "/", "-"))
+		packageID = fmt.Sprintf("%s/%s", flags.OrgID, res.Module.Name)
 	}
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
 	// note: this is working around a GetPackage quirk where platform messes with version
-	fullVersion := fmt.Sprintf("%s-%s", ver.Version, strings.ReplaceAll(platform, "/", "-"))
-	pkg, err := client.packageClient.GetPackage(c.Context, &packagespb.GetPackageRequest{
-		Id:         strings.ReplaceAll(moduleID, ":", "/"),
+	pkg, err := c.packageClient.GetPackage(ctx.Context, &packagespb.GetPackageRequest{
+		Id:         packageID,
 		Version:    fullVersion,
 		IncludeUrl: &include,
 		Type:       &packageType,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	infof(c.App.ErrWriter, "saving to %s", path.Join(flags.Destination, fullVersion, destName+".tar.gz"))
-	return downloadPackageFromURL(c.Context, client.authFlow.httpClient,
+	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
 		flags.Destination, destName,
-		fullVersion, pkg.Package.Url, client.conf.Auth,
+		fullVersion, pkg.Package.Url, c.conf.Auth,
 	)
+}
+
+// DownloadModuleAction downloads a module.
+func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+	_, err = client.downloadModuleAction(c, flags)
+	return err
 }
 
 // getMarkdownContent reads and returns the content from a markdown file path.

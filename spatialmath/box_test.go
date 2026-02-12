@@ -8,8 +8,8 @@ import (
 	"go.viam.com/test"
 )
 
-func makeTestBox(o Orientation, pt, dims r3.Vector, label string) Geometry {
-	box, _ := NewBox(NewPose(pt, o), dims, label)
+func makeTestBox(o Orientation, pt, dims r3.Vector) Geometry {
+	box, _ := NewBox(NewPose(pt, o), dims, "")
 	return box
 }
 
@@ -19,7 +19,8 @@ func TestNewBox(t *testing.T) {
 	// test box created from NewBox method
 	geometry, err := NewBox(offset, r3.Vector{1, 1, 1}, "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geometry, test.ShouldResemble, &box{pose: offset, halfSize: [3]float64{0.5, 0.5, 0.5}, boundingSphereR: math.Sqrt(0.75)})
+	test.That(t, geometry, test.ShouldResemble,
+		&box{center: offset, centerPt: offset.Point(), halfSize: [3]float64{0.5, 0.5, 0.5}, boundingSphereR: math.Sqrt(0.75)})
 	_, err = NewBox(offset, r3.Vector{-1, 0, 0}, "")
 	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&box{}).Error())
 
@@ -31,16 +32,16 @@ func TestNewBox(t *testing.T) {
 }
 
 func TestBoxAlmostEqual(t *testing.T) {
-	original := makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{1, 1, 1}, "")
-	good := makeTestBox(NewZeroOrientation(), r3.Vector{1e-16, 1e-16, 1e-16}, r3.Vector{1 + 1e-16, 1 + 1e-16, 1 + 1e-16}, "")
-	bad := makeTestBox(NewZeroOrientation(), r3.Vector{1e-2, 1e-2, 1e-2}, r3.Vector{1 + 1e-2, 1 + 1e-2, 1 + 1e-2}, "")
+	original := makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{1, 1, 1})
+	good := makeTestBox(NewZeroOrientation(), r3.Vector{1e-16, 1e-16, 1e-16}, r3.Vector{1 + 1e-16, 1 + 1e-16, 1 + 1e-16})
+	bad := makeTestBox(NewZeroOrientation(), r3.Vector{1e-2, 1e-2, 1e-2}, r3.Vector{1 + 1e-2, 1 + 1e-2, 1 + 1e-2})
 	test.That(t, original.(*box).almostEqual(good), test.ShouldBeTrue)
 	test.That(t, original.(*box).almostEqual(bad), test.ShouldBeFalse)
 }
 
 func TestBoxVertices(t *testing.T) {
 	offset := r3.Vector{2, 2, 2}
-	boxGeom := makeTestBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2}, "")
+	boxGeom := makeTestBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2})
 	box, ok := boxGeom.(*box)
 	test.That(t, ok, test.ShouldBeTrue)
 	vertices := box.vertices()

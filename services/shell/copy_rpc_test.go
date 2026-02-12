@@ -7,10 +7,12 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/service/shell/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -146,6 +148,56 @@ func TestShellRPCFileReadCopier(t *testing.T) {
 			},
 		})
 	})
+}
+
+// TestShellLocalFileCopierTempFile tests that a failed shell.LocalFileCopier copy leaves neither
+// the destination file nor the temporary .download file.
+func TestShellLocalFileCopierTempFile(t *testing.T) {
+	tfs := shelltestutils.SetupTestFileSystem(t, "a")
+	file, err := os.Open(tfs.SingleFileNested)
+	test.That(t, err, test.ShouldBeNil)
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	factory, err := NewLocalFileCopyFactory(tmpDir, false, false)
+	test.That(t, err, test.ShouldBeNil)
+	copier, err := factory.MakeFileCopier(ctx, CopyFilesSourceTypeSingleFile)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Test incomplete download (neither dest file nor temp file should exist)
+	streamingData := &streamingRPCFileCopy{
+		info: fileInfoData{
+			name:  filepath.Join(tmpDir, t.Name()),
+			size:  100,
+			isDir: false,
+		},
+		dataCh: make(chan []byte),
+	}
+	err = streamingData.Close()
+	test.That(t, err, test.ShouldBeNil)
+
+	err = copier.Copy(ctx, File{
+		RelativeName: t.Name(),
+		Data:         streamingData,
+	})
+	test.That(t, err.Error(), test.ShouldEqual, "file already closed")
+
+	_, err = os.Stat(filepath.Join(tmpDir, t.Name()))
+	test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+	_, err = os.Stat(filepath.Join(tmpDir, t.Name()+".download"))
+	test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
+
+	// Test complete download (only dest file exists)
+	err = copier.Copy(ctx, File{
+		RelativeName: t.Name(),
+		Data:         file,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = os.Stat(filepath.Join(tmpDir, t.Name()))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(filepath.Join(tmpDir, t.Name()+".download"))
+	test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 }
 
 func TestShellRPCFileCopier(t *testing.T) {

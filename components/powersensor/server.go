@@ -7,17 +7,18 @@ import (
 	pb "go.viam.com/api/component/powersensor/v1"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
 type serviceServer struct {
 	pb.UnimplementedPowerSensorServiceServer
-	coll resource.APIResourceCollection[PowerSensor]
+	coll resource.APIResourceGetter[PowerSensor]
 }
 
 // NewRPCServiceServer constructs a PowerSesnsor gRPC service serviceServer.
-func NewRPCServiceServer(coll resource.APIResourceCollection[PowerSensor]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[PowerSensor], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

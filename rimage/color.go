@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/floats"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
 )
 
@@ -387,12 +386,18 @@ func (c Color) distanceDebug(b Color, debug bool) float64 {
 	res := math.Sqrt(sum)
 
 	if debug {
-		logging.Global().Debugf("%v -- %v", c, b)
-		logging.Global().Debugf("\twh: %5.1f ws: %5.1f wv: %5.1f", wh, ws, wv)
-		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
-		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
-		logging.Global().Debugf("\t    %5.3f     %5.3f     %5.3f", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
-		logging.Global().Debugf("\t res: %f ac: %f dd: %f section: %d", res, ac, dd, section)
+		//nolint
+		fmt.Printf("%v -- %v\n", c, b)
+		//nolint
+		fmt.Printf("\twh: %5.1f ws: %5.1f wv: %5.1f\n", wh, ws, wv)
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", math.Abs(hd), math.Abs(s1-s2), math.Abs(v1-v2))
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(hd), utils.Square(s1-s2), utils.Square(v1-v2))
+		//nolint
+		fmt.Printf("\t	   %5.3f	 %5.3f	   %5.3f\n", utils.Square(wh*hd), utils.Square(ws*(s1-s2)), utils.Square(wv*(v1-v2)))
+		//nolint
+		fmt.Printf("\t res: %f ac: %f dd: %f section: %d\n", res, ac, dd, section)
 	}
 	return res
 }
@@ -426,6 +431,7 @@ func _ratioOffFrom135Finish(a float64) float64 {
 }
 
 func rgbToHsv(r, g, b uint8) (uint16, uint8, uint8) {
+	//nolint: revive
 	min := utils.MinUint8(utils.MinUint8(r, g), b)
 	v := utils.MaxUint8(utils.MaxUint8(r, g), b)
 	C := float64(v - min)

@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -43,14 +42,6 @@ func TestFromReaderValidate(t *testing.T) {
 	_, err = config.FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`), logger, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
-
-	_, err = config.FromReader(context.Background(),
-		"somepath", strings.NewReader(`{"disable_partial_start":true,"components": [{}]}`), logger, nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	var fre resource.FieldRequiredError
-	test.That(t, errors.As(err, &fre), test.ShouldBeTrue)
-	test.That(t, fre.Path, test.ShouldEqual, "components.0")
-	test.That(t, fre.Field, test.ShouldEqual, "name")
 
 	conf, err = config.FromReader(context.Background(),
 		"somepath",
@@ -96,6 +87,7 @@ func TestFromReaderEmptyModuleEnvironment(t *testing.T) {
 					rutils.PrimaryOrgIDEnvVar:  "",
 					rutils.LocationIDEnvVar:    "",
 					rutils.MachineIDEnvVar:     "",
+					rutils.MachineFQDNEnvVar:   "",
 				},
 			},
 		},

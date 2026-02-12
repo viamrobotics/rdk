@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -86,12 +86,12 @@ func TestResourceAPI(t *testing.T) {
 			"missing namespace",
 			"",
 			resource.APITypeComponentName,
-			arm.SubtypeName,
+			motor.SubtypeName,
 			resource.API{
 				Type: resource.APIType{
 					Name: resource.APITypeComponentName,
 				},
-				SubtypeName: arm.SubtypeName,
+				SubtypeName: motor.SubtypeName,
 			},
 			"namespace field for resource missing or invalid",
 		},
@@ -99,12 +99,12 @@ func TestResourceAPI(t *testing.T) {
 			"missing type",
 			resource.APINamespaceRDK,
 			"",
-			arm.SubtypeName,
+			motor.SubtypeName,
 			resource.API{
 				Type: resource.APIType{
 					Namespace: resource.APINamespaceRDK,
 				},
-				SubtypeName: arm.SubtypeName,
+				SubtypeName: motor.SubtypeName,
 			},
 			"type field for resource missing or invalid",
 		},
@@ -139,13 +139,13 @@ func TestResourceAPI(t *testing.T) {
 			"all fields included",
 			resource.APINamespaceRDK,
 			resource.APITypeComponentName,
-			arm.SubtypeName,
+			motor.SubtypeName,
 			resource.API{
 				Type: resource.APIType{
 					Namespace: resource.APINamespaceRDK,
 					Name:      resource.APITypeComponentName,
 				},
-				SubtypeName: arm.SubtypeName,
+				SubtypeName: motor.SubtypeName,
 			},
 			"",
 		},
@@ -177,12 +177,12 @@ func TestResourceNameNew(t *testing.T) {
 			"missing name",
 			resource.APINamespaceRDK,
 			resource.APITypeComponentName,
-			arm.SubtypeName,
+			motor.SubtypeName,
 			"",
 			resource.Name{
 				API: resource.API{
 					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
 				Name: "",
 			},
@@ -191,14 +191,14 @@ func TestResourceNameNew(t *testing.T) {
 			"all fields included",
 			resource.APINamespaceRDK,
 			resource.APITypeComponentName,
-			arm.SubtypeName,
-			"arm1",
+			motor.SubtypeName,
+			"motor1",
 			resource.Name{
 				API: resource.API{
 					Type:        resource.APIType{Namespace: resource.APINamespaceRDK, Name: resource.APITypeComponentName},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 		},
 	} {
@@ -218,44 +218,44 @@ func TestResourceNameNewFromString(t *testing.T) {
 	}{
 		{
 			"malformed name",
-			"rdk/components/arm/arm1",
+			"rdk/components/motor/motor1",
 			resource.Name{},
-			"string \"rdk/components/arm/arm1\" is not a fully qualified resource name",
+			"string \"rdk/components/motor/motor1\" is not a fully qualified resource name",
 		},
 		{
 			"too many colons",
-			"rdk::component::arm/arm1",
+			"rdk::component::motor/motor1",
 			resource.Name{},
-			"string \"rdk::component::arm/arm1\" is not a fully qualified resource name",
+			"string \"rdk::component::motor/motor1\" is not a fully qualified resource name",
 		},
 		{
 			"too few colons",
-			"rdk.component.arm/arm1",
+			"rdk.component.motor/motor1",
 			resource.Name{},
-			"string \"rdk.component.arm/arm1\" is not a fully qualified resource name",
+			"string \"rdk.component.motor/motor1\" is not a fully qualified resource name",
 		},
 		{
 			"simple name",
-			"arm1",
+			"motor1",
 			resource.Name{},
-			"string \"arm1\" is not a fully qualified resource name",
+			"string \"motor1\" is not a fully qualified resource name",
 		},
 		{
 			"short name",
-			"robot1:robot2:robot3:arm1",
+			"robot1:robot2:robot3:motor1",
 			resource.Name{},
-			"string \"robot1:robot2:robot3:arm1\" is not a fully qualified resource name",
+			"string \"robot1:robot2:robot3:motor1\" is not a fully qualified resource name",
 		},
 		{
 			"missing name",
-			"rdk:component:arm/",
+			"rdk:component:motor/",
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
 				Name: "",
 			},
@@ -263,16 +263,16 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"all fields included",
-			arm.Named("arm1").String(),
+			motor.Named("motor1").String(),
 			resource.Name{
 				API: resource.API{
 					Type: resource.APIType{
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 			"",
 		},
@@ -352,11 +352,11 @@ func TestResourceNameStrings(t *testing.T) {
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
-			arm.Named("arm1").String(),
+			motor.Named("motor1").String(),
 		},
 		{
 			"missing subtype",
@@ -367,9 +367,9 @@ func TestResourceNameStrings(t *testing.T) {
 						Name:      resource.APITypeComponentName,
 					},
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
-			"rdk:component:/arm1",
+			"rdk:component:/motor1",
 		},
 		{
 			"missing name",
@@ -379,10 +379,10 @@ func TestResourceNameStrings(t *testing.T) {
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
 			},
-			"rdk:component:arm/",
+			"rdk:component:motor/",
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
@@ -404,9 +404,9 @@ func TestResourceNameValidate(t *testing.T) {
 					Type: resource.APIType{
 						Name: resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 			"namespace field for resource missing or invalid",
 		},
@@ -417,9 +417,9 @@ func TestResourceNameValidate(t *testing.T) {
 					Type: resource.APIType{
 						Namespace: resource.APINamespaceRDK,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 			"type field for resource missing or invalid",
 		},
@@ -432,7 +432,7 @@ func TestResourceNameValidate(t *testing.T) {
 						Name:      resource.APITypeComponentName,
 					},
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 			"subtype field for resource missing or invalid",
 		},
@@ -444,7 +444,7 @@ func TestResourceNameValidate(t *testing.T) {
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
 			},
 			"name field for resource is empty",
@@ -457,9 +457,9 @@ func TestResourceNameValidate(t *testing.T) {
 						Namespace: resource.APINamespaceRDK,
 						Name:      resource.APITypeComponentName,
 					},
-					SubtypeName: arm.SubtypeName,
+					SubtypeName: motor.SubtypeName,
 				},
-				Name: "arm1",
+				Name: "motor1",
 			},
 			"",
 		},
@@ -542,8 +542,8 @@ func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
 	}{
 		{
 			"valid",
-			"rdk:component:arm",
-			arm.API,
+			"rdk:component:motor",
+			motor.API,
 			"",
 		},
 		{
@@ -667,45 +667,45 @@ func TestNewPossibleRDKServiceAPIFromString(t *testing.T) {
 func TestDependenciesLookup(t *testing.T) {
 	deps := resource.Dependencies{}
 
-	armName := arm.Named("foo")
-	_, err := deps.Lookup(armName)
-	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(armName))
-	remoteArmName := arm.Named("robot1:foo")
-	_, err = deps.Lookup(remoteArmName)
-	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
+	motorName := motor.Named("foo")
+	_, err := deps.Lookup(motorName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(motorName))
+	remoteMotorName := motor.Named("robot1:foo")
+	_, err = deps.Lookup(remoteMotorName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteMotorName))
 
 	logger := logging.NewTestLogger(t)
-	someArm, err := fake.NewArm(context.Background(), nil, resource.Config{ConvertedAttributes: &fake.Config{}}, logger)
+	someMotor, err := fake.NewMotor(context.Background(), nil, resource.Config{ConvertedAttributes: &fake.Config{}}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	deps[armName] = someArm
+	deps[motorName] = someMotor
 
-	t.Log("adding an arm by just its name should allow it to be looked up by that same name")
-	res, err := deps.Lookup(armName)
+	t.Log("adding an motor by just its name should allow it to be looked up by that same name")
+	res, err := deps.Lookup(motorName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldEqual, someArm)
+	test.That(t, res, test.ShouldEqual, someMotor)
 
 	t.Log("but not the remote name since its too specific")
-	_, err = deps.Lookup(remoteArmName)
-	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteArmName))
+	_, err = deps.Lookup(remoteMotorName)
+	test.That(t, err, test.ShouldBeError, resource.DependencyNotFoundError(remoteMotorName))
 
 	deps = resource.Dependencies{}
-	deps[remoteArmName] = someArm
+	deps[remoteMotorName] = someMotor
 
-	t.Log("adding an arm by its remote name should allow it to be looked up by the same remote name")
-	res, err = deps.Lookup(remoteArmName)
+	t.Log("adding an motor by its remote name should allow it to be looked up by the same remote name")
+	res, err = deps.Lookup(remoteMotorName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldEqual, someArm)
+	test.That(t, res, test.ShouldEqual, someMotor)
 
-	t.Log("as well as just the arm name since it is not specific")
-	res, err = deps.Lookup(armName)
+	t.Log("as well as just the motor name since it is not specific")
+	res, err = deps.Lookup(motorName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, res, test.ShouldEqual, someArm)
+	test.That(t, res, test.ShouldEqual, someMotor)
 
-	remoteArmName2 := arm.Named("robot2:foo")
-	deps[remoteArmName2] = someArm
+	remoteMotorName2 := motor.Named("robot2:foo")
+	deps[remoteMotorName2] = someMotor
 	t.Log("but not if there are two remote names with the same naked name")
-	_, err = deps.Lookup(armName)
-	test.That(t, err, test.ShouldBeError, utils.NewRemoteResourceClashError(armName.Name))
+	_, err = deps.Lookup(motorName)
+	test.That(t, err, test.ShouldBeError, utils.NewRemoteResourceClashError(motorName.Name))
 
 	sensorName := movementsensor.Named("foo")
 	_, err = deps.Lookup(sensorName)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"math"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -37,12 +36,13 @@ import (
 	_ "go.viam.com/rdk/services/vision/colordetector"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	injectmotion "go.viam.com/rdk/testutils/inject/motion"
 	viz "go.viam.com/rdk/vision"
 )
 
 type startWaypointState struct {
 	ns             navigation.Service
-	injectMS       *inject.MotionService
+	injectMS       *injectmotion.MotionService
 	base           base.Base
 	movementSensor *inject.MovementSensor
 	closeFunc      func()
@@ -61,7 +61,7 @@ func setupNavigationServiceFromConfig(t *testing.T, configFilename string) (navi
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
-	svc, err := navigation.FromRobot(myRobot, "test_navigation")
+	svc, err := navigation.FromProvider(myRobot, "test_navigation")
 	test.That(t, err, test.ShouldBeNil)
 	return svc, func() {
 		myRobot.Close(context.Background())
@@ -184,7 +184,7 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.description, func(t *testing.T) {
-			deps, err := tt.cfg.Validate(path)
+			deps, _, err := tt.cfg.Validate(path)
 			if tt.expectedErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -230,7 +230,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -252,7 +252,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      inject.NewBase("new_base"),
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("new_motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("new_motion"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
@@ -285,7 +285,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -294,8 +294,8 @@ func TestNew(t *testing.T) {
 		svcStruct := svc.(*builtIn)
 
 		test.That(t, len(svcStruct.motionCfg.ObstacleDetectors), test.ShouldEqual, 1)
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 
 		test.That(t, svcStruct.motionCfg.AngularDegsPerSec, test.ShouldEqual, cfg.DegPerSec)
 		test.That(t, svcStruct.motionCfg.LinearMPerSec, test.ShouldEqual, cfg.MetersPerSec)
@@ -319,7 +319,7 @@ func TestNew(t *testing.T) {
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
 			resource.NewName(camera.API, "camera"):  inject.NewCamera("camera"),
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
@@ -327,8 +327,8 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 		test.That(t, svcStruct.replanCostFactor, test.ShouldEqual, cfg.ReplanCostFactor)
 	})
 
@@ -361,7 +361,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):      &inject.Base{},
-			resource.NewName(motion.API, "builtin"): inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 		}
 
 		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
@@ -381,7 +381,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -403,7 +403,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
@@ -425,7 +425,7 @@ func TestNew(t *testing.T) {
 		}
 		deps := resource.Dependencies{
 			resource.NewName(base.API, "base"):                      &inject.Base{},
-			resource.NewName(motion.API, "builtin"):                 inject.NewMotionService("motion"),
+			resource.NewName(motion.API, "builtin"):                 injectmotion.NewMotionService("motion"),
 			resource.NewName(vision.API, "vision"):                  inject.NewVisionService("vision"),
 			resource.NewName(camera.API, "camera"):                  inject.NewCamera("camera"),
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
@@ -435,8 +435,8 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName.Name, test.ShouldEqual, "vision")
-		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName.Name, test.ShouldEqual, "camera")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].VisionServiceName, test.ShouldEqual, "vision")
+		test.That(t, svcStruct.motionCfg.ObstacleDetectors[0].CameraName, test.ShouldEqual, "camera")
 	})
 
 	closeNavSvc()
@@ -580,14 +580,12 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 	}
 	testCases := []testCase{
 		{
-			configPath: "../data/incorrect_obstacles_nav_cfg.json",
-			expectedError: `resource "rdk:service:navigation/test_navigation" not available;` +
-				` reason="resource build error: unsupported Geometry type : obstacle unable to be converted from geometry config"`,
+			configPath:    "../data/incorrect_obstacles_nav_cfg.json",
+			expectedError: "obstacle unable to be converted from geometry config",
 		},
 		{
-			configPath: "../data/incorrect_bounding_regions_nav_cfg.json",
-			expectedError: `resource "rdk:service:navigation/test_navigation" not available;` +
-				` reason="resource build error: unsupported Geometry type : bounding regions unable to be converted from geometry config"`,
+			configPath:    "../data/incorrect_bounding_regions_nav_cfg.json",
+			expectedError: "bounding regions unable to be converted from geometry config",
 		},
 	}
 	ctx := context.Background()
@@ -598,9 +596,9 @@ func TestNavSetUpFromFaultyConfig(t *testing.T) {
 		test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 		myRobot, err := robotimpl.New(ctx, cfg, nil, logger)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = navigation.FromRobot(myRobot, "test_navigation")
+		_, err = navigation.FromProvider(myRobot, "test_navigation")
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, strings.Contains(err.Error(), tc.expectedError), test.ShouldBeTrue)
+		test.That(t, err.Error(), test.ShouldContainSubstring, tc.expectedError)
 	}
 }
 
@@ -633,7 +631,7 @@ func setupStartWaypoint(ctx context.Context, t *testing.T, logger logging.Logger
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -684,7 +682,7 @@ func setupStartWaypointExplore(ctx context.Context, t *testing.T, logger logging
 			},
 		},
 	}
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	deps := resource.Dependencies{
 		injectMS.Name():             injectMS,
 		fakeBase.Name():             fakeBase,
@@ -958,8 +956,8 @@ func TestStartWaypoint(t *testing.T) {
 			AngularDegsPerSec:     1,
 			ObstacleDetectors: []motion.ObstacleDetectorName{
 				{
-					VisionServiceName: vision.Named("vision"),
-					CameraName:        camera.Named("camera"),
+					VisionServiceName: "vision",
+					CameraName:        "camera",
 				},
 			},
 		}
@@ -983,9 +981,9 @@ func TestStartWaypoint(t *testing.T) {
 				if len(s.sprs) == 2 {
 					// MoveOnGlobe was called twice, once for each waypoint
 					test.That(t, len(s.mogrs), test.ShouldEqual, 2)
-					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.mogrs[0].ComponentName, test.ShouldResemble, s.base.Name().Name)
 					test.That(t, math.IsNaN(s.mogrs[0].Heading), test.ShouldBeTrue)
-					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
+					test.That(t, s.mogrs[0].MovementSensorName, test.ShouldResemble, s.movementSensor.Name().Name)
 
 					test.That(t, s.mogrs[0].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
@@ -995,9 +993,9 @@ func TestStartWaypoint(t *testing.T) {
 					// waypoint 1
 					test.That(t, s.mogrs[0].Destination, test.ShouldResemble, pt1)
 
-					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.mogrs[1].ComponentName, test.ShouldResemble, s.base.Name().Name)
 					test.That(t, math.IsNaN(s.mogrs[1].Heading), test.ShouldBeTrue)
-					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name())
+					test.That(t, s.mogrs[1].MovementSensorName, test.ShouldResemble, s.movementSensor.Name().Name)
 					test.That(t, s.mogrs[1].Extra, test.ShouldResemble, map[string]interface{}{
 						"motion_profile": "position_only",
 					})
@@ -1007,11 +1005,11 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[1].Destination, test.ShouldResemble, pt2)
 
 					// PlanStop called twice, once for each waypoint
-					test.That(t, s.sprs[0].ComponentName, test.ShouldResemble, s.base.Name())
-					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name())
+					test.That(t, s.sprs[0].ComponentName, test.ShouldResemble, s.base.Name().Name)
+					test.That(t, s.sprs[1].ComponentName, test.ShouldResemble, s.base.Name().Name)
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().Name})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1258,7 +1256,7 @@ func TestStartWaypoint(t *testing.T) {
 					test.That(t, s.mogrs[4].Destination, test.ShouldResemble, pt1)
 
 					// Motion reports that the last execution succeeded
-					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+					ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().Name})
 					test.That(t, err, test.ShouldBeNil)
 					test.That(t, len(ph), test.ShouldEqual, 1)
 					test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[2])
@@ -1391,7 +1389,7 @@ func TestStartWaypoint(t *testing.T) {
 			test.That(t, wpAfter, test.ShouldResemble, wpBefore)
 
 			// check the last state of the execution
-			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+			ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().Name})
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(ph), test.ShouldEqual, 1)
 			test.That(t, len(ph[0].StatusHistory), test.ShouldEqual, 2)
@@ -1523,7 +1521,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().Name})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[1])
@@ -1652,7 +1650,7 @@ func TestStartWaypoint(t *testing.T) {
 				// Motion reports that the last execution succeeded
 				s.RUnlock()
 
-				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name()})
+				ph, err := s.injectMS.PlanHistory(ctx, motion.PlanHistoryReq{ComponentName: s.base.Name().Name})
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, len(ph), test.ShouldEqual, 1)
 				test.That(t, ph[0].Plan.ExecutionID, test.ShouldResemble, executionIDs[0])
@@ -1693,14 +1691,14 @@ func TestValidateGeometry(t *testing.T) {
 
 	t.Run("fail case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{X: 10, Y: 10, Z: 10})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, errors.Is(err, errObstacleGeomWithTranslation), test.ShouldBeTrue)
 	})
 
 	t.Run("success case", func(t *testing.T) {
 		cfg = createBox(r3.Vector{})
-		_, err := cfg.Validate("")
+		_, _, err := cfg.Validate("")
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -1722,7 +1720,7 @@ func TestGetObstacles(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMS := inject.NewMotionService("test_motion")
+	injectMS := injectmotion.NewMotionService("test_motion")
 	injectedVis := inject.NewVisionService("test_vision")
 	injectMovementSensor := inject.NewMovementSensor("test_movement")
 	injectedCam := inject.NewCamera("test_camera")
@@ -1830,7 +1828,7 @@ func TestGetObstacles(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldBeNil)
 
-		detection, err := viz.NewObjectWithLabel(pointcloud.New(), "test-box", boxGeom.ToProtobuf())
+		detection, err := viz.NewObjectWithLabel(pointcloud.NewBasicEmpty(), "test-box", boxGeom.ToProtobuf())
 		test.That(t, err, test.ShouldBeNil)
 		return []*viz.Object{detection}, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"hash"
 	"hash/crc32"
@@ -16,7 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/hashicorp/go-getter"
+	errw "github.com/pkg/errors"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
@@ -34,6 +36,9 @@ const (
 var (
 	_ Manager       = (*cloudManager)(nil)
 	_ ManagerSyncer = (*cloudManager)(nil)
+
+	// the test suite can set this to non-zero to test resume behavior
+	maxBytesForTesting int64
 )
 
 type cloudManager struct {
@@ -129,7 +134,15 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 
 	// Updated managed map with existingPackages
 	for _, p := range existingPackages {
-		p := p
+		statusFile, err := readStatusFile(p, m.packagesDir)
+		if err != nil {
+			m.logger.Errorf("Failed reading status file for synced package %s: %v", p.Name, err)
+			return multierr.Append(outErr, err)
+		}
+		if statusFile.Status == syncStatusFailed {
+			m.logger.Errorf("Package %s was fully downloaded but failed to unzip, please try a different version", p.Name)
+			return multierr.Append(outErr, fmt.Errorf("package %s was fully downloaded but failed to unzip, please try a different version", p.Name))
+		}
 		newManagedPackages[PackageName(p.Name)] = &p
 	}
 
@@ -142,6 +155,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		p := p
 		pkgStart := time.Now()
 		if err := ctx.Err(); err != nil {
+			m.logger.Errorf("Context canceled. Canceling cloud package manager sync. Time spent: %v", time.Since(start))
 			return multierr.Append(outErr, err)
 		}
 
@@ -154,6 +168,7 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 		if err != nil {
 			m.logger.Warnw("failed to get package type", "package", p.Name, "error", err)
 		}
+
 		resp, err := m.client.GetPackage(ctx, &pb.GetPackageRequest{
 			Id:         p.Package,
 			Version:    p.Version,
@@ -161,15 +176,15 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			IncludeUrl: &includeURL,
 		})
 		if err != nil {
-			m.logger.Errorf("Failed fetching package details for package %s:%s, %s", p.Package, p.Version, err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed loading package url for %s:%s", p.Package, p.Version))
+			m.logger.Errorf("Failed fetching package details for package %s:%s. Err: %v", p.Package, p.Version, err)
+			outErr = multierr.Append(outErr, fmt.Errorf("failed loading package url for %s:%s %w", p.Package, p.Version, err))
 			continue
 		}
 
 		m.logger.Debugf("Downloading from %s", sanitizeURLForLogs(resp.Package.Url))
 
 		// download package from a http endpoint
-		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p,
+		err = installPackage(ctx, m.logger, m.packagesDir, resp.Package.Url, p, true,
 			func(ctx context.Context, url, dstPath string) (string, string, error) {
 				statusFile := packageSyncFile{
 					PackageID:       p.Package,
@@ -184,18 +199,21 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 					return "", "", err
 				}
 
-				return m.downloadFileFromGCSURL(ctx, url, dstPath, m.cloudConfig.ID, m.cloudConfig.Secret)
+				return m.downloadFileWithChecksum(ctx, url, dstPath)
 			},
 		)
 		if err != nil {
 			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
-			outErr = multierr.Append(outErr, errors.Wrapf(err, "failed downloading package %s:%s from %s",
-				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url)))
+			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading package %s:%s from %s %w",
+				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
 		}
 
 		if p.Type == config.PackageTypeMlModel {
-			outErr = multierr.Append(outErr, m.mLModelSymlinkCreation(p))
+			if symlinkErr := m.mLModelSymlinkCreation(p); symlinkErr != nil {
+				m.logger.Errorf("Error creating ml model symlink. Err: %v", symlinkErr)
+				outErr = multierr.Append(outErr, symlinkErr)
+			}
 		}
 
 		// add to managed packages
@@ -269,8 +287,10 @@ func (m *cloudManager) mLModelSymlinkCreation(p config.PackageConfig) error {
 		return err
 	}
 
-	if err := linkFile(p.LocalDataDirectory(m.packagesDir), symlinkPath); err != nil {
-		return errors.Wrapf(err, "failed linking ml_model package %s:%s, %s", p.Package, p.Version, err)
+	localDataDir := p.LocalDataDirectory(m.packagesDir)
+	if err := linkFile(localDataDir, symlinkPath); err != nil {
+		return fmt.Errorf("failed linking ml_model package %s:%s. localDataDir: %q symlinkPath: %q Err: %w",
+			p.Package, p.Version, localDataDir, symlinkPath, err)
 	}
 	return nil
 }
@@ -318,16 +338,80 @@ func sanitizeURLForLogs(u string) string {
 	return parsed.String()
 }
 
-func (m *cloudManager) downloadFileFromGCSURL(
+// LogProgressWriter is a writer that logs progress.
+type logProgressWriter struct {
+	totalBytes   int64
+	name         string
+	startTime    time.Time
+	lastLogTime  time.Time
+	logFrequency time.Duration
+	logger       logging.Logger
+}
+
+func newLogProgressWriter(logger logging.Logger, jobName string, totalBytes int64) *logProgressWriter {
+	return &logProgressWriter{
+		totalBytes:   totalBytes,
+		startTime:    time.Now(),
+		lastLogTime:  time.Now(),
+		name:         jobName,
+		logFrequency: time.Second * 5,
+		logger:       logger,
+	}
+}
+
+// log progress at Info level, update lastLogTime, return logged message.
+func (wc *logProgressWriter) Update(curSize int64) string {
+	currentTime := time.Now()
+	if currentTime.Equal(wc.startTime) {
+		return ""
+	}
+
+	var msg string
+	if curSize < wc.totalBytes || wc.totalBytes == 0 {
+		// unknown pct if totalBytes is 0. Log what's available.
+		var pctStr string
+		if wc.totalBytes == 0 {
+			pctStr = "?%"
+		} else {
+			pctStr = fmt.Sprintf("%.0f%%", float64(curSize)/float64(wc.totalBytes)*100)
+		}
+		// todo: more useful to compute data rate from last tick, rather than from start
+		msg = fmt.Sprintf("%s: downloaded %.2f / %.2f MB (%s) [%.0f KB/s]",
+			wc.name,
+			float64(curSize)/1e6,
+			float64(wc.totalBytes)/1e6,
+			pctStr,
+			float64(curSize)/currentTime.Sub(wc.startTime).Seconds()/1024)
+		wc.logger.Info(msg)
+		wc.lastLogTime = currentTime
+	} else {
+		msg = fmt.Sprintf("%s: downloaded %.2f MB (100%%) in %v",
+			wc.name,
+			float64(curSize)/1e6,
+			currentTime.Sub(wc.startTime))
+		wc.logger.Info(msg)
+	}
+	return msg
+}
+
+// downloader with header-based checksum logic and partials support.
+func (m *cloudManager) downloadFileWithChecksum(
 	ctx context.Context,
-	url string,
+	rawURL string,
 	downloadPath string,
-	partID string,
-	partSecret string,
 ) (string, string, error) {
-	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	getReq.Header.Add("part_id", partID)
-	getReq.Header.Add("secret", partSecret)
+	getReq, err := http.NewRequestWithContext(ctx, http.MethodHead, rawURL, nil)
+
+	headers := make(http.Header)
+	if m.cloudConfig.APIKey.IsFullySet() {
+		headers.Add("key_id", m.cloudConfig.APIKey.ID)
+		headers.Add("key", m.cloudConfig.APIKey.Key)
+	} else {
+		headers.Add("part_id", m.cloudConfig.ID)
+		headers.Add("secret", m.cloudConfig.Secret)
+	}
+	getReq.Header = headers
+
 	if err != nil {
 		return "", "", err
 	}
@@ -345,38 +429,56 @@ func (m *cloudManager) downloadFileFromGCSURL(
 
 	contentType := resp.Header.Get("Content-Type")
 	checksum := getGoogleHash(resp.Header, "crc32c")
-
-	//nolint:gosec // safe
-	out, err := os.Create(downloadPath)
+	expectedChecksumBytes, err := base64.StdEncoding.DecodeString(checksum)
 	if err != nil {
-		return checksum, contentType, err
+		return "", "", fmt.Errorf("failed to decode expected checksum: %q %w", checksum, err)
 	}
-	defer utils.UncheckedErrorFunc(out.Close)
+
+	if stat, err := os.Stat(downloadPath); err == nil {
+		m.logger.Infow("download to existing", "dest", downloadPath, "size", stat.Size())
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	g := getter.HttpGetter{
+		MaxBytes: maxBytesForTesting,
+		Header:   headers,
+		Client:   &m.httpClient,
+	}
+	g.SetClient(&getter.Client{Ctx: ctx})
+	progressCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go utils.PanicCapturingGo(func() {
+		fileSizeProgress(progressCtx, m.logger, downloadPath, resp.ContentLength)
+	})
+	if err := g.GetFile(downloadPath, parsedURL); err != nil {
+		return "", "", errw.Wrap(err, "downloading file")
+	}
 
 	hash := crc32Hash()
-	w := io.MultiWriter(out, hash)
-
-	_, err = io.CopyN(w, resp.Body, maxPackageSize)
-	if err != nil && !errors.Is(err, io.EOF) {
-		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, err
-	}
-
-	checksumBytes, err := base64.StdEncoding.DecodeString(checksum)
+	destFile, err := os.Open(downloadPath) //nolint:gosec
 	if err != nil {
-		return "", "", errors.Wrapf(err, "failed to decode expected checksum: %s", checksum)
+		return "", "", err
+	}
+	defer utils.UncheckedErrorFunc(destFile.Close)
+	_, err = io.Copy(hash, destFile)
+	if err != nil {
+		return "", "", err
 	}
 
-	trimmedChecksumBytes := trimLeadingZeroes(checksumBytes)
+	trimmedChecksumBytes := trimLeadingZeroes(expectedChecksumBytes)
 	trimmedOutHashBytes := trimLeadingZeroes(hash.Sum(nil))
 
 	if !bytes.Equal(trimmedOutHashBytes, trimmedChecksumBytes) {
 		utils.UncheckedError(os.Remove(downloadPath))
-		return checksum, contentType, errors.Errorf(
+		return checksum, contentType, fmt.Errorf(
 			"download did not match expected hash:\n"+
 				"  pre-trimmed: %x vs. %x\n"+
 				"  trimmed:     %x vs. %x",
-			checksumBytes, hash.Sum(nil),
+			expectedChecksumBytes, hash.Sum(nil),
 			trimmedChecksumBytes, trimmedOutHashBytes,
 		)
 	}
@@ -419,7 +521,7 @@ func crc32Hash() hash.Hash32 {
 
 func safeLink(parent, link string) (string, error) {
 	if filepath.IsAbs(link) {
-		return link, errors.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
+		return link, fmt.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
 	}
 
 	_, err := rutils.SafeJoinDir(parent, link)

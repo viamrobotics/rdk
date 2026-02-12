@@ -18,19 +18,18 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.uber.org/zap"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/arm/fake"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/board"
 	"go.viam.com/rdk/components/camera"
@@ -54,7 +53,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
-	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 	weboptions "go.viam.com/rdk/robot/web/options"
@@ -62,9 +60,9 @@ import (
 	"go.viam.com/rdk/services/datamanager/builtin"
 	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/services/motion"
-	motionBuiltin "go.viam.com/rdk/services/motion/builtin"
 	"go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -75,6 +73,13 @@ import (
 
 var fakeModel = resource.DefaultModelFamily.WithModel("fake")
 
+func nodeNotFoundError(name string, api resource.API) error {
+	return &resource.NodeNotFoundError{
+		API:  api,
+		Name: name,
+	}
+}
+
 func TestConfig1(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger, nil)
@@ -82,14 +87,16 @@ func TestConfig1(t *testing.T) {
 
 	r := setupLocalRobot(t, context.Background(), cfg, logger)
 
-	c1, err := camera.FromRobot(r, "c1")
+	c1, err := camera.FromProvider(r, "c1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c1.Name(), test.ShouldResemble, camera.Named("c1"))
 
-	pic, err := camera.DecodeImageFromCamera(context.Background(), rutils.MimeTypeJPEG, nil, c1)
+	namedImages, _, err := c1.Images(context.Background(), nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	bounds := pic.Bounds()
+	img, err := namedImages[0].Image(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	bounds := img.Bounds()
 
 	test.That(t, bounds.Max.X, test.ShouldBeGreaterThanOrEqualTo, 32)
 }
@@ -156,18 +163,101 @@ func TestConfigRemote(t *testing.T) {
 					Orientation: o1Cfg,
 				},
 			},
+		},
+	}
+
+	ctx2 := context.Background()
+	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
+
+	expected := []resource.Name{
+		arm.Named("foo:pieceArm"),
+		base.Named("foo"),
+		base.Named("myParentIsRemote"),
+		camera.Named("foo:cameraOver"),
+		movementsensor.Named("foo:movement_sensor1"),
+		movementsensor.Named("foo:movement_sensor2"),
+		gripper.Named("foo:pieceGripper"),
+	}
+
+	resources2 := r2.ResourceNames()
+
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
+
+	expectedRemotes := []string{"foo"}
+	remotes2 := r2.RemoteNames()
+
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
+
+	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+	pos, err := arm2.(arm.Arm).EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldNotBeNil)
+
+	cfg2 := r2.Config()
+	// Components should only include local components.
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
+
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 7)
+}
+
+func TestConfigRemoteWithConflicts(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+
+	r := setupLocalRobot(t, ctx, cfg, logger.Sublogger("main_robot"))
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	o1 := &spatialmath.R4AA{
+		Theta: math.Pi / 2.,
+		RX:    0,
+		RY:    0,
+		RZ:    1,
+	}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig := &config.Config{
+		Components: []resource.Config{
 			{
-				Name:    "bar",
-				Address: addr,
+				Name:  "foo",
+				API:   base.API,
+				Model: fakeModel,
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
 			},
 			{
-				Name:    "squee",
+				Name:  "myParentIsRemote",
+				API:   base.API,
+				Model: fakeModel,
+				Frame: &referenceframe.LinkConfig{
+					Parent: "foo:cameraOver",
+				},
+			},
+		},
+		Services: []resource.Config{},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
 				Address: addr,
 				Frame: &referenceframe.LinkConfig{
-					Parent:      referenceframe.World,
+					Parent:      "foo",
 					Translation: r3.Vector{100, 200, 300},
 					Orientation: o1Cfg,
 				},
+			},
+			{
+				Name:    "bar",
+				Address: addr,
 			},
 		},
 	}
@@ -176,48 +266,134 @@ func TestConfigRemote(t *testing.T) {
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
-		arm.Named("squee:pieceArm"),
-		arm.Named("foo:pieceArm"),
-		arm.Named("bar:pieceArm"),
 		base.Named("foo"),
 		base.Named("myParentIsRemote"),
-		camera.Named("squee:cameraOver"),
-		camera.Named("foo:cameraOver"),
-		camera.Named("bar:cameraOver"),
-		audioinput.Named("squee:mic1"),
-		audioinput.Named("foo:mic1"),
-		audioinput.Named("bar:mic1"),
-		movementsensor.Named("squee:movement_sensor1"),
-		movementsensor.Named("foo:movement_sensor1"),
-		movementsensor.Named("bar:movement_sensor1"),
-		movementsensor.Named("squee:movement_sensor2"),
-		movementsensor.Named("foo:movement_sensor2"),
-		movementsensor.Named("bar:movement_sensor2"),
-		gripper.Named("squee:pieceGripper"),
-		gripper.Named("foo:pieceGripper"),
-		gripper.Named("bar:pieceGripper"),
-		motion.Named("squee:builtin"),
-		motion.Named("foo:builtin"),
-		motion.Named("bar:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
 
 	rtestutils.VerifySameResourceNames(t, resources2, expected)
 
-	expectedRemotes := []string{"squee", "foo", "bar"}
+	expectedRemotes := []string{"foo", "bar"}
 	remotes2 := r2.RemoteNames()
 
 	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
 
 	arm1Name := arm.Named("bar:pieceArm")
+	_, err = r2.ResourceByName(arm1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = r2.ResourceByName(arm.Named("foo:pieceArm"))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	cfg2 := r2.Config()
+	// Components should only include local components.
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
+
+	fsConfig, err := r2.FrameSystemConfig(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 7)
+}
+
+func TestConfigRemoteWithPrefixes(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	ctx := context.Background()
+
+	r := setupLocalRobot(t, ctx, cfg, logger.Sublogger("main_robot"))
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	o1 := &spatialmath.R4AA{
+		Theta: math.Pi / 2.,
+		RX:    0,
+		RY:    0,
+		RZ:    1,
+	}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "foo",
+				API:   base.API,
+				Model: fakeModel,
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+			{
+				Name:  "myParentIsRemote",
+				API:   base.API,
+				Model: fakeModel,
+				Frame: &referenceframe.LinkConfig{
+					Parent: "foo:cameraOver",
+				},
+			},
+		},
+		Services: []resource.Config{},
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+				Prefix:  "foo",
+				Frame: &referenceframe.LinkConfig{
+					Parent:      "foo",
+					Translation: r3.Vector{100, 200, 300},
+					Orientation: o1Cfg,
+				},
+			},
+			{
+				Name:    "bar",
+				Address: addr,
+				Prefix:  "bar",
+			},
+		},
+	}
+
+	ctx2 := context.Background()
+	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger.Sublogger("remote_robot"))
+
+	expected := []resource.Name{
+		arm.Named("foo:foopieceArm"),
+		arm.Named("bar:barpieceArm"),
+		base.Named("foo"),
+		base.Named("myParentIsRemote"),
+		camera.Named("foo:foocameraOver"),
+		camera.Named("bar:barcameraOver"),
+		movementsensor.Named("foo:foomovement_sensor1"),
+		movementsensor.Named("bar:barmovement_sensor1"),
+		movementsensor.Named("foo:foomovement_sensor2"),
+		movementsensor.Named("bar:barmovement_sensor2"),
+		gripper.Named("foo:foopieceGripper"),
+		gripper.Named("bar:barpieceGripper"),
+	}
+
+	resources2 := r2.ResourceNames()
+
+	rtestutils.VerifySameResourceNames(t, resources2, expected)
+
+	expectedRemotes := []string{"foo", "bar"}
+	remotes2 := r2.RemoteNames()
+
+	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
+
+	arm1Name := arm.Named("barpieceArm")
 	arm1, err := r2.ResourceByName(arm1Name)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1.Name(), test.ShouldResemble, arm1Name)
+
+	// The Name returned by calling Name on the arm gRPC client connected to the remote will
+	// _not_ have a prefixed simple name. Only the resource name returned to an SDK will
+	// have the "bar" prefix.
+	test.That(t, arm1.Name().Name, test.ShouldEqual, "pieceArm")
+
 	pos1, err := arm1.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
-	arm2, err := r2.ResourceByName(arm.Named("foo:pieceArm"))
+	arm2, err := r2.ResourceByName(arm.Named("foopieceArm"))
 	test.That(t, err, test.ShouldBeNil)
 	pos2, err := arm2.(arm.Arm).EndPosition(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -229,7 +405,40 @@ func TestConfigRemote(t *testing.T) {
 
 	fsConfig, err := r2.FrameSystemConfig(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 12)
+	test.That(t, fsConfig.Parts, test.ShouldHaveLength, 7)
+
+	// Assert that a client connected to r2 gets the appropriate resource names from
+	// ResourceNames. No `Remote` fields are set, and all prefixes are correctly applied.
+	options, _, r2Addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = r2.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	r2Client, err := client.New(ctx, r2Addr, logger.Sublogger("client"))
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r2Client.Close(ctx), test.ShouldBeNil)
+	}()
+
+	expectedResourceNamesFromClient := []resource.Name{
+		arm.Named("foopieceArm"),
+		arm.Named("barpieceArm"),
+		base.Named("foo"),
+		base.Named("myParentIsRemote"),
+		camera.Named("foocameraOver"),
+		camera.Named("barcameraOver"),
+		movementsensor.Named("foomovement_sensor1"),
+		movementsensor.Named("barmovement_sensor1"),
+		movementsensor.Named("foomovement_sensor2"),
+		movementsensor.Named("barmovement_sensor2"),
+		gripper.Named("foopieceGripper"),
+		gripper.Named("barpieceGripper"),
+	}
+
+	rtestutils.VerifySameResourceNames(
+		t,
+		r2Client.ResourceNames(),
+		expectedResourceNamesFromClient,
+	)
 }
 
 func TestConfigRemoteWithAuth(t *testing.T) {
@@ -292,6 +501,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Remotes: []config.Remote{
 					{
 						Name:    "foo",
+						Prefix:  "foo",
 						Address: addr,
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
@@ -299,6 +509,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					},
 					{
 						Name:    "bar",
+						Prefix:  "bar",
 						Address: addr,
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
@@ -352,29 +563,21 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				ctx2 := context.Background()
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				r2 = setupLocalRobot(t, ctx2, remoteConfig, logger)
-
-				_, err = r2.ResourceByName(motion.Named(resource.DefaultServiceName))
-				test.That(t, err, test.ShouldBeNil)
 			}
 
 			test.That(t, r2, test.ShouldNotBeNil)
 
 			expected := []resource.Name{
-				motion.Named(resource.DefaultServiceName),
-				arm.Named("bar:pieceArm"),
-				arm.Named("foo:pieceArm"),
-				audioinput.Named("bar:mic1"),
-				audioinput.Named("foo:mic1"),
-				camera.Named("bar:cameraOver"),
-				camera.Named("foo:cameraOver"),
-				movementsensor.Named("bar:movement_sensor1"),
-				movementsensor.Named("foo:movement_sensor1"),
-				movementsensor.Named("bar:movement_sensor2"),
-				movementsensor.Named("foo:movement_sensor2"),
-				gripper.Named("bar:pieceGripper"),
-				gripper.Named("foo:pieceGripper"),
-				motion.Named("foo:builtin"),
-				motion.Named("bar:builtin"),
+				arm.Named("bar:barpieceArm"),
+				arm.Named("foo:foopieceArm"),
+				camera.Named("bar:barcameraOver"),
+				camera.Named("foo:foocameraOver"),
+				movementsensor.Named("bar:barmovement_sensor1"),
+				movementsensor.Named("foo:foomovement_sensor1"),
+				movementsensor.Named("bar:barmovement_sensor2"),
+				movementsensor.Named("foo:foomovement_sensor2"),
+				gripper.Named("bar:barpieceGripper"),
+				gripper.Named("foo:foopieceGripper"),
 			}
 
 			resources2 := r2.ResourceNames()
@@ -501,14 +704,11 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
 
 	expected := []resource.Name{
-		motion.Named(resource.DefaultServiceName),
 		arm.Named("foo:pieceArm"),
-		audioinput.Named("foo:mic1"),
 		camera.Named("foo:cameraOver"),
 		movementsensor.Named("foo:movement_sensor1"),
 		movementsensor.Named("foo:movement_sensor2"),
 		gripper.Named("foo:pieceGripper"),
-		motion.Named("foo:builtin"),
 	}
 
 	resources2 := r2.ResourceNames()
@@ -522,7 +722,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 
 	statuses, err := r2.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 13)
+	test.That(t, len(statuses.Resources), test.ShouldEqual, 10)
 	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
@@ -726,18 +926,16 @@ func TestMetadataUpdate(t *testing.T) {
 	resources := r.ResourceNames()
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, len(resources), test.ShouldEqual, 7)
+	test.That(t, len(resources), test.ShouldEqual, 5)
 	test.That(t, err, test.ShouldBeNil)
 
 	// 5 declared resources + default motion
 	resourceNames := []resource.Name{
 		arm.Named("pieceArm"),
-		audioinput.Named("mic1"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
 		movementsensor.Named("movement_sensor1"),
 		movementsensor.Named("movement_sensor2"),
-		motion.Named(resource.DefaultServiceName),
 	}
 
 	resources = r.ResourceNames()
@@ -763,7 +961,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 			{
@@ -771,7 +969,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 			{
@@ -779,7 +977,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 				API:   arm.API,
 				Model: fakeModel,
 				ConvertedAttributes: &fake.Config{
-					ModelFilePath: "../../components/arm/fake/fake_model.json",
+					ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 				},
 			},
 		},
@@ -796,7 +994,7 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	r0Arm, ok := r0arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
-	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{{math.Pi}}, nil)
+	err = r0Arm.MoveToJointPositions(context.Background(), []referenceframe.Input{math.Pi}, nil)
 	test.That(t, err, test.ShouldBeNil)
 	p0Arm1, err := r0Arm.JointPositions(context.Background(), nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -827,20 +1025,16 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 		t,
 		r.ResourceNames(),
 		[]resource.Name{
-			motion.Named(resource.DefaultServiceName),
-			arm.Named("remote:foo:arm1"), arm.Named("remote:foo:arm2"),
+			arm.Named("remote:arm1"),
+			arm.Named("remote:arm2"),
 			arm.Named("remote:pieceArm"),
-			arm.Named("remote:foo:pieceArm"),
-			audioinput.Named("remote:mic1"),
 			camera.Named("remote:cameraOver"),
 			movementsensor.Named("remote:movement_sensor1"),
 			movementsensor.Named("remote:movement_sensor2"),
 			gripper.Named("remote:pieceGripper"),
-			motion.Named("remote:builtin"),
-			motion.Named("remote:foo:builtin"),
 		},
 	)
-	arm1, err := r.ResourceByName(arm.Named("remote:foo:arm1"))
+	arm1, err := r.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	rrArm1, ok := arm1.(arm.Arm)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -856,20 +1050,16 @@ func TestGetRemoteResourceAndGrandFather(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos, test.ShouldResemble, p0Arm1)
 
-	_, err = r.ResourceByName(arm.Named("remote:foo:pieceArm"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = r.ResourceByName(arm.Named("remote:pieceArm"))
-	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(arm.Named("pieceArm"))
-	test.That(t, err, test.ShouldBeError, "more than one remote resources with name \"pieceArm\" exists")
+	test.That(t, err, test.ShouldBeNil)
 }
 
 type someConfig struct {
 	Thing string
 }
 
-func (someConfig) Validate(path string) ([]string, error) {
-	return nil, errors.New("fail")
+func (someConfig) Validate(path string) ([]string, []string, error) {
+	return nil, nil, errors.New("fail")
 }
 
 func TestValidationErrorOnReconfigure(t *testing.T) {
@@ -915,7 +1105,7 @@ func TestValidationErrorOnReconfigure(t *testing.T) {
 	s, err := r.ResourceByName(navigation.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:navigation/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:navigation/fake1 not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -985,7 +1175,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err := base.FromRobot(r, "test")
+	noBase, err := base.FromProvider(r, "test")
 	test.That(
 		t,
 		err,
@@ -997,7 +1187,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 	s, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:data_manager/fake1 not available")
 	// Test Remote Error
 	rem, ok := r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1005,7 +1195,7 @@ func TestConfigStartsInvalidReconfiguresValid(t *testing.T) {
 
 	r.Reconfigure(ctx, goodConfig)
 	// Test Component Valid
-	noBase, err = base.FromRobot(r, "test")
+	noBase, err = base.FromProvider(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
 	// Test Service Valid
@@ -1026,7 +1216,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 		API:   arm.API,
 		Model: fakeModel,
 		ConvertedAttributes: &fake.Config{
-			ModelFilePath: "../../components/arm/fake/fake_model.json",
+			ModelFilePath: "../../components/arm/fake/kinematics/fake.json",
 		},
 	}
 	cfg := config.Config{
@@ -1091,7 +1281,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	}
 	test.That(t, badConfig.Ensure(false, logger), test.ShouldBeNil)
 	// Test Component Valid
-	noBase, err := base.FromRobot(r, "test")
+	noBase, err := base.FromProvider(r, "test")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, noBase, test.ShouldNotBeNil)
 	// Test Service Valid
@@ -1106,7 +1296,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	r.Reconfigure(ctx, badConfig)
 	// Test Component Error
 	name := base.Named("test")
-	noBase, err = base.FromRobot(r, "test")
+	noBase, err = base.FromProvider(r, "test")
 	test.That(
 		t,
 		err,
@@ -1118,7 +1308,7 @@ func TestConfigStartsValidReconfiguresInvalid(t *testing.T) {
 	s, err = r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:service:data_manager/fake1\" not available")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:service:data_manager/fake1 not available")
 	// Test Remote Error
 	rem, ok = r.RemoteByName("remote")
 	test.That(t, rem, test.ShouldBeNil)
@@ -1172,13 +1362,14 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 		test.ShouldBeError,
 		resource.NewNotAvailableError(
 			base.Named("fake0"),
-			errors.New(`resource build error: unknown resource type: API "rdk:component:base" with model "rdk:builtin:random" not registered`),
+			errors.New(`resource build error: unknown resource type: API rdk:component:base with model rdk:builtin:random not registered; `+
+				`There may be no module in config that provides this model`),
 		),
 	)
 	test.That(t, noBase, test.ShouldBeNil)
 
 	noSvc, err := r.ResourceByName(datamanager.Named("fake1"))
-	test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(datamanager.Named("fake1")))
+	test.That(t, err, test.ShouldBeError, nodeNotFoundError("fake1", datamanager.API))
 	test.That(t, noSvc, test.ShouldBeNil)
 
 	r.Reconfigure(ctx, goodConfig)
@@ -1190,23 +1381,6 @@ func TestResourceStartsOnReconfigure(t *testing.T) {
 	yesSvc, err := r.ResourceByName(datamanager.Named("fake1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, yesSvc, test.ShouldNotBeNil)
-}
-
-func TestConfigProcess(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
-	r := setupLocalRobot(t, context.Background(), &config.Config{
-		Processes: []pexec.ProcessConfig{
-			{
-				ID:      "1",
-				Name:    "bash",
-				Args:    []string{"-c", "echo heythere"},
-				Log:     true,
-				OneShot: true,
-			},
-		},
-	}, logger)
-	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-	test.That(t, logs.FilterField(zap.String("output", "heythere\n")).Len(), test.ShouldEqual, 1)
 }
 
 func TestConfigPackages(t *testing.T) {
@@ -1309,7 +1483,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that Config method returns the default motion service.
 	actualCfg := r.Config()
 	defaultSvcs := removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 0)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldEqual,
 			motion.API.SubtypeName)
@@ -1368,15 +1542,6 @@ func TestConfigMethod(t *testing.T) {
 				ConvertedAttributes: &fakemotor.Config{},
 			},
 		},
-		Processes: []pexec.ProcessConfig{
-			{
-				ID:      "1",
-				Name:    "bash",
-				Args:    []string{"-c", "echo heythere"},
-				Log:     true,
-				OneShot: true,
-			},
-		},
 		Services: []resource.Config{
 			{
 				Name:                "fake1",
@@ -1398,10 +1563,9 @@ func TestConfigMethod(t *testing.T) {
 				Version: "v1",
 			},
 		},
-		Network:             config.NetworkConfig{},
-		Auth:                config.AuthConfig{},
-		Debug:               true,
-		DisablePartialStart: true,
+		Network: config.NetworkConfig{},
+		Auth:    config.AuthConfig{},
+		Debug:   true,
 	}
 
 	// Create copy of expectedCfg since Reconfigure modifies cfg.
@@ -1414,7 +1578,7 @@ func TestConfigMethod(t *testing.T) {
 	// Assert that default motion and sensor services are still present, but data
 	// manager default service has been replaced by the "fake1" data manager service.
 	defaultSvcs = removeDefaultServices(actualCfg)
-	test.That(t, len(defaultSvcs), test.ShouldEqual, 1)
+	test.That(t, len(defaultSvcs), test.ShouldEqual, 0)
 	for _, svc := range defaultSvcs {
 		test.That(t, svc.API.SubtypeName, test.ShouldResemble, motion.API.SubtypeName)
 	}
@@ -1448,56 +1612,12 @@ func TestConfigMethod(t *testing.T) {
 	test.That(t, actualCfg.Remotes[0].Equals(expectedCfg.Remotes[0]), test.ShouldBeTrue)
 	actualCfg.Remotes = nil
 	expectedCfg.Remotes = nil
-	test.That(t, len(actualCfg.Processes), test.ShouldEqual, 1)
-	test.That(t, actualCfg.Processes[0].Equals(expectedCfg.Processes[0]), test.ShouldBeTrue)
-	actualCfg.Processes = nil
-	expectedCfg.Processes = nil
 	test.That(t, len(actualCfg.Modules), test.ShouldEqual, 1)
 	test.That(t, actualCfg.Modules[0].Equals(expectedCfg.Modules[0]), test.ShouldBeTrue)
 	actualCfg.Modules = nil
 	expectedCfg.Modules = nil
 
 	test.That(t, actualCfg, test.ShouldResemble, &expectedCfg)
-}
-
-func TestCheckMaxInstanceValid(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	cfg := &config.Config{
-		Services: []resource.Config{
-			{
-				Name:                "fake1",
-				Model:               resource.DefaultServiceModel,
-				API:                 motion.API,
-				DependsOn:           []string{framesystem.InternalServiceName.String()},
-				ConvertedAttributes: &motionBuiltin.Config{},
-			},
-			{
-				Name:                "fake2",
-				Model:               resource.DefaultServiceModel,
-				API:                 motion.API,
-				DependsOn:           []string{framesystem.InternalServiceName.String()},
-				ConvertedAttributes: &motionBuiltin.Config{},
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:                "fake2",
-				Model:               fake.Model,
-				API:                 arm.API,
-				ConvertedAttributes: &fake.Config{},
-			},
-		},
-	}
-	r := setupLocalRobot(t, context.Background(), cfg, logger)
-	res, err := r.ResourceByName(motion.Named("fake1"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(motion.Named("fake2"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-	res, err = r.ResourceByName(arm.Named("fake2"))
-	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
 }
 
 // The max allowed datamanager services is 1 so only one of the datamanager services
@@ -1682,19 +1802,19 @@ func TestDependentResources(t *testing.T) {
 
 	res, err := r.ResourceByName(base.Named("b"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(base.Named("b")))
+		nodeNotFoundError("b", base.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(motor.Named("m")))
+		nodeNotFoundError("m", motor.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(motor.Named("m1")))
+		nodeNotFoundError("m1", motor.API))
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(slam.Named("s")))
+		nodeNotFoundError("s", slam.API))
 	test.That(t, res, test.ShouldBeNil)
 
 	// Assert that adding base 'b' back re-adds 'm' and 'm1' and slam service 's'.
@@ -1708,6 +1828,47 @@ func TestDependentResources(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = r.ResourceByName(slam.Named("s"))
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestSlowShutdownTicker(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "5s")
+	slowModel := resource.NewModel("rdk", "test", "slow")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: slowModel,
+				API:   generic.API,
+				Attributes: rutils.AttributeMap{
+					"config_duration": "5s",
+				},
+			},
+		},
+	}
+
+	r, err := New(ctx, cfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r.Close(ctx)
+
+	// Assert that if a module is taking a while to close, we will see slow logger messages.
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Waiting for resource to close").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(tb, logs.FilterMessage("Waiting for module to complete shutdown").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
 }
 
 func TestOrphanedResources(t *testing.T) {
@@ -1788,11 +1949,21 @@ func TestOrphanedResources(t *testing.T) {
 
 		res, err := r.ResourceByName(gizmoapi.Named("g"))
 		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(gizmoapi.Named("g")))
+			resource.NewNotAvailableError(
+				gizmoapi.Named("g"),
+				errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered; `+
+					`There may be no module in config that provides this model`),
+			),
+		)
 		test.That(t, res, test.ShouldBeNil)
 		res, err = r.ResourceByName(summationapi.Named("s"))
 		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(summationapi.Named("s")))
+			resource.NewNotAvailableError(
+				summationapi.Named("s"),
+				errors.New(`resource build error: unknown resource type: API acme:service:summation with model acme:demo:mysum not registered; `+
+					`There may be no module in config that provides this model`),
+			),
+		)
 		test.That(t, res, test.ShouldBeNil)
 
 		// Remove module entirely.
@@ -1849,43 +2020,39 @@ func TestOrphanedResources(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that removing testmodule binary and killing testmodule orphans
-		// helper 'h' a couple seconds after third restart attempt.
+		// helper 'h' after the first restart attempt
 		err = os.Rename(testPath, testPath+".disabled")
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
-		time.Sleep(2 * time.Second)
 
-		_, err = r.ResourceByName(generic.Named("h"))
+		// Check that h is still present but commands fail
+		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(generic.Named("h")))
 
-		// Assert that restoring testmodule, removing testmodule from config and
-		// adding it back re-adds 'h'.
+		// Assert that restoring the testmodule binary makes h start working again
+		// after the auto-restart code succeeds.
 		err = os.Rename(testPath+".disabled", testPath)
 		test.That(t, err, test.ShouldBeNil)
-		cfg2 := &config.Config{
-			Components: []resource.Config{
-				{
-					Name:  "h",
-					Model: helperModel,
-					API:   generic.API,
-				},
-			},
-		}
-		r.Reconfigure(ctx, cfg2)
-		r.Reconfigure(ctx, cfg)
+		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+			tb.Helper()
+			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
+				test.ShouldEqual, 1)
+		})
 
 		h, err = r.ResourceByName(generic.Named("h"))
+		test.That(t, err, test.ShouldBeNil)
+		_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that replacing testmodule binary with disguised simplemodule
@@ -1894,22 +2061,21 @@ func TestOrphanedResources(t *testing.T) {
 		tmpPath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 		err = os.Rename(tmpPath, testPath)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+		_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
-		// Wait for 3 restart attempts in logs.
+		// Wait for restart attempt in logs.
 		testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterFieldKey("restart attempt").Len(),
-				test.ShouldEqual, 3)
+			test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
 		time.Sleep(2 * time.Second)
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError,
-			resource.NewNotFoundError(generic.Named("h")))
+		test.That(t, err.Error(), test.ShouldContainSubstring, `resource rdk:component:generic/h not available`)
 
 		// Also assert that testmodule's resources were deregistered.
 		_, ok := resource.LookupRegistration(generic.API, helperModel)
@@ -1918,6 +2084,105 @@ func TestOrphanedResources(t *testing.T) {
 		_, ok = resource.LookupRegistration(motor.API, testMotorModel)
 		test.That(t, ok, test.ShouldBeFalse)
 	})
+}
+
+func TestCrashedModuleModelReregisteredAfterRecovery(t *testing.T) {
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg)
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that removing testmodule binary and killing testmodule orphans
+	// helper 'h' after the first restart attempt
+	err = os.Rename(testPath, testPath+".disabled")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+
+	// Wait for restart attempt in logs.
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Error while restarting crashed module").Len(),
+			test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	// Also assert that testmodule's resources were deregistered.
+	_, ok := resource.LookupRegistration(generic.API, helperModel)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	// Check that h is still present but commands fail
+	h, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Assert that restoring the testmodule binary makes h start working again
+	// after the auto-restart code succeeds.
+	err = os.Rename(testPath+".disabled", testPath)
+	test.That(t, err, test.ShouldBeNil)
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
+			test.ShouldEqual, 1)
+	})
+
+	h, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Also assert that testmodule's resources were reregistered and
+	// test that a new resource in the config gets built successfully.
+	_, ok = resource.LookupRegistration(generic.API, helperModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	cfg2 := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h2",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r.Reconfigure(ctx, cfg2)
+	h, err = r.ResourceByName(generic.Named("h2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
 }
 
 var (
@@ -2053,11 +2318,18 @@ func TestDependentAndOrphanedResources(t *testing.T) {
 
 	res, err := r.ResourceByName(gizmoapi.Named("g"))
 	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(gizmoapi.Named("g")))
+		resource.NewNotAvailableError(
+			gizmoapi.Named("g"),
+			errors.New(`resource build error: unknown resource type: API acme:component:gizmo with model acme:demo:mygizmo not registered; `+
+				`There may be no module in config that provides this model`),
+		),
+	)
 	test.That(t, res, test.ShouldBeNil)
 	res, err = r.ResourceByName(resource.NewName(doodadAPI, "d"))
-	test.That(t, err, test.ShouldBeError,
-		resource.NewNotFoundError(resource.NewName(doodadAPI, "d")))
+	test.That(
+		t, err.Error(), test.ShouldContainSubstring,
+		`resource rdk:component:doodad/d not available; reason=resource build error: dependency g is not ready yet`,
+	)
 	test.That(t, res, test.ShouldBeNil)
 	_, err = r.ResourceByName(motor.Named("m"))
 	test.That(t, err, test.ShouldBeNil)
@@ -2261,7 +2533,13 @@ func TestCrashedModuleReconfigure(t *testing.T) {
 
 		_, err = r.ResourceByName(generic.Named("h"))
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err, test.ShouldBeError, resource.NewNotFoundError(generic.Named("h")))
+		test.That(t, err, test.ShouldBeError,
+			resource.NewNotAvailableError(
+				generic.Named("h"),
+				errors.New(`resource build error: unknown resource type: API rdk:component:generic with model rdk:test:helper not registered; `+
+					`May be in failing module: [mod]; There may be no module in config that provides this model`),
+			),
+		)
 	})
 
 	// Reconfigure module back to testmodule. Assert that 'h' is eventually
@@ -2443,6 +2721,8 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
+	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+
 	// Assert that helper and other are only constructed after module
 	// crash/successful restart and not `Reconfigure`d.
 	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
@@ -2451,7 +2731,12 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessageSnippet("Module resources successfully re-added after module restart").Len(), test.ShouldEqual, 1)
+		test.That(tb, logs.FilterMessageSnippet("Module resources to be re-added after module restart").Len(), test.ShouldEqual, 1)
+	})
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 100, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 8)
 	})
 
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
@@ -2525,9 +2810,8 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
 	// robot4 has an encoder "e", all robots in the chain can retrieve it by
-	// simple name "e" or short name "[remote-prefix]:e". Also ensure that a
-	// motor "m1" on robot1 can depend on "robot2:robot3:robot4:e" and a motor
-	// "m2" on robot2 can depend on "e".
+	// simple name "e". Also ensure that a motor "m1" on robot1 and a motor "m2"
+	// on robot2 can depend on "e".
 
 	startWeb := func(r robot.LocalRobot) string {
 		var boundAddress string
@@ -2613,7 +2897,7 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 				API:                 motor.API,
 				ConvertedAttributes: &fakemotor.Config{},
 				// ensure DependsOn works with short name (explicit remotes)
-				DependsOn: []string{"robot2:robot3:robot4:e"},
+				DependsOn: []string{"e"},
 			},
 		},
 	}
@@ -2628,22 +2912,312 @@ func TestResourceByNameAcrossRemotes(t *testing.T) {
 
 	_, err = robot3.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robot3.ResourceByName(encoder.Named("robot4:e"))
-	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot2.ResourceByName(encoder.Named("e"))
-	test.That(t, err, test.ShouldBeNil)
-	_, err = robot2.ResourceByName(encoder.Named("robot3:robot4:e"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robot2.ResourceByName(motor.Named("m2"))
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robot1.ResourceByName(encoder.Named("e"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = robot1.ResourceByName(encoder.Named("robot2:robot3:robot4:e"))
-	test.That(t, err, test.ShouldBeNil)
 	_, err = robot1.ResourceByName(motor.Named("m1"))
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestModuleDependencyToRemotes(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
+	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
+	// can depend on "s4".
+
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	cfg4 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "s4",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s3",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
+			},
+		},
+	}
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s2",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
+			},
+		},
+	}
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
+
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s1",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "s4"},
+			},
+		},
+	}
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
+
+	// Ensure "s1", "s2", and "s3" can all be retrieved from their
+	// respective robots and can use their dependency.
+	s3, err := sensor.FromProvider(robot3, "s3")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s3.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s2, err := sensor.FromProvider(robot2, "s2")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s2.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s1, err := sensor.FromProvider(robot1, "s1")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s1.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+}
+
+func TestModuleDependencyToRemotesWithPrefix(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Setup a robot1 -> robot2 -> robot3 -> robot4 remote chain. Ensure that if
+	// robot4 has an sensor "s4", ensure that a modular sensor "s1" on robot1,
+	// a modular sensor "s2" on robot2, and a modular sensor "s3" on robot3
+	// can depend on "s4", even with prefixes.
+
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	sensorModel := resource.NewModel("rdk", "test", "sensordep")
+
+	cfg4 := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "s4",
+				Model: fakeModel,
+				API:   sensor.API,
+			},
+		},
+	}
+	robot4 := setupLocalRobot(t, ctx, cfg4, logger.Sublogger("robot4"))
+	addr4 := startWeb(robot4)
+	test.That(t, addr4, test.ShouldNotBeBlank)
+	cfg3 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot4",
+				Address: addr4,
+				Prefix:  "r4-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s3",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r4-s4"},
+			},
+		},
+	}
+	robot3 := setupLocalRobot(t, ctx, cfg3, logger.Sublogger("robot3"))
+	addr3 := startWeb(robot3)
+	test.That(t, addr3, test.ShouldNotBeBlank)
+
+	cfg2 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot3",
+				Address: addr3,
+				Prefix:  "r3-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s2",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r3-r4-s4"},
+			},
+		},
+	}
+	robot2 := setupLocalRobot(t, ctx, cfg2, logger.Sublogger("robot2"))
+	addr2 := startWeb(robot2)
+	test.That(t, addr2, test.ShouldNotBeBlank)
+
+	cfg1 := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "robot2",
+				Address: addr2,
+				Prefix:  "r2-",
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "s1",
+				Model:      sensorModel,
+				API:        sensor.API,
+				Attributes: rutils.AttributeMap{"sensor": "r2-r3-r4-s4"},
+			},
+		},
+	}
+	robot1 := setupLocalRobot(t, ctx, cfg1, logger.Sublogger("robot1"))
+
+	// Ensure "s1", "s2", and "s3" can all be retrieved from their
+	// respective robots and can use their dependency.
+	s3, err := sensor.FromProvider(robot3, "s3")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := s3.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s2, err := sensor.FromProvider(robot2, "s2")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s2.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
+
+	s1, err := sensor.FromProvider(robot1, "s1")
+	test.That(t, err, test.ShouldBeNil)
+	resp, err = s1.Readings(ctx, map[string]any{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1.0, "b": 2.0, "c": 3.0})
 }
 
 func TestCloudMetadata(t *testing.T) {
@@ -2819,7 +3393,7 @@ func TestSendTriggerConfig(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	// Set up local robot normally so that the triggerConfig channel is set up normally
-	r := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	actualR := r.(*localRobot)
 
 	// This pattern fails the test faster on deadlocks instead of having to wait for the full
@@ -2875,6 +3449,9 @@ func TestRestartModule(t *testing.T) {
 		test.That(t, r.(*localRobot).localModuleVersions[mod.Name].String(), test.ShouldResemble, "0.0.1")
 		// make sure it really ran again
 		assertContents(t, outputPath, "STARTED\n")
+
+		err = r.Close(ctx)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("isRunning=true", func(t *testing.T) {
@@ -2922,11 +3499,11 @@ func newMockConfig(name string, val int, fail bool, sleep string) resource.Confi
 
 var errMockValidation = errors.New("whoops")
 
-func (cfg *mockConfig) Validate(path string) ([]string, error) {
+func (cfg *mockConfig) Validate(path string) ([]string, []string, error) {
 	if cfg.Fail {
-		return nil, errMockValidation
+		return nil, nil, errMockValidation
 	}
-	return []string{}, nil
+	return []string{}, nil, nil
 }
 
 func newMock(
@@ -2967,7 +3544,7 @@ func (m *mockResource) Reconfigure(
 
 // getExpectedDefaultStatuses returns a slice of default [resource.Status] with a given
 // revision and cloud metadata.
-func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.Status {
+func getExpectedDefaultStatuses(_ string, md cloud.Metadata) []resource.Status {
 	return []resource.Status{
 		{
 			NodeStatus: resource.NodeStatus{
@@ -3006,17 +3583,6 @@ func getExpectedDefaultStatuses(revision string, md cloud.Metadata) []resource.S
 					Name: "builtin",
 				},
 				State: resource.NodeStateReady,
-			},
-			CloudMetadata: md,
-		},
-		{
-			NodeStatus: resource.NodeStatus{
-				Name: resource.Name{
-					API:  resource.APINamespaceRDK.WithServiceType("motion"),
-					Name: "builtin",
-				},
-				State:    resource.NodeStateReady,
-				Revision: revision,
 			},
 			CloudMetadata: md,
 		},
@@ -3322,7 +3888,7 @@ func TestMachineStatusWithRemotes(t *testing.T) {
 					Revision: rev1,
 				}
 			}
-			lr := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			lr := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			lr.(*localRobot).manager.addRemote(
 				context.Background(),
 				dRobot,
@@ -3412,7 +3978,7 @@ func TestMachineStatusWithTwoRemotes(t *testing.T) {
 		}, nil
 	}
 	dRobot1 := newDummyRobot(t, injectRemoteRobot1)
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 	lr.(*localRobot).manager.addRemote(
 		context.Background(),
 		dRobot1,
@@ -3518,11 +4084,18 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 		name          string
 		remoteOffline bool
 		remoteCloudMd bool
+		remotePrefix  string
 	}{
 		{
 			name:          "remote1 is online and has cloud metadata",
 			remoteOffline: false,
 			remoteCloudMd: true,
+		},
+		{
+			name:          "remote1 has a prefix is online and has cloud metadata",
+			remoteOffline: false,
+			remoteCloudMd: true,
+			remotePrefix:  "rem1_",
 		},
 		{
 			name:          "remote1 is offline and has cloud metadata",
@@ -3606,7 +4179,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 				}
 			}
-			remote1 := setupLocalRobot(t, ctx, cfg, logger, withDisableCompleteConfigWorker())
+			remote1 := setupLocalRobot(t, ctx, cfg, logger, WithDisableCompleteConfigWorker())
 			remote1.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote2Dummy,
@@ -3617,12 +4190,12 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 			// setup local
 			remoteName1 := "remote1"
 			remote1Dummy := newDummyRobot(t, remote1)
-			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, withDisableCompleteConfigWorker())
+			lRobot := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 			lRobot.(*localRobot).manager.addRemote(
 				context.Background(),
 				remote1Dummy,
 				nil,
-				config.Remote{Name: remoteName1},
+				config.Remote{Name: remoteName1, Prefix: tc.remotePrefix},
 			)
 
 			remote1Dummy.SetOffline(tc.remoteOffline)
@@ -3656,14 +4229,7 @@ func TestMachineStatusWithRemoteChain(t *testing.T) {
 					},
 					{
 						NodeStatus: resource.NodeStatus{
-							Name:  motion.Named("builtin").PrependRemote(remoteName1),
-							State: resource.NodeStateReady,
-						},
-						CloudMetadata: expectedMd,
-					},
-					{
-						NodeStatus: resource.NodeStatus{
-							Name:  resName1.PrependRemote(remoteName2).PrependRemote(remoteName1),
+							Name:  resName1.PrependRemote(remoteName2).WithPrefix(tc.remotePrefix),
 							State: resource.NodeStateReady,
 						},
 						CloudMetadata: expectedRemote2Md,
@@ -3809,7 +4375,10 @@ func TestModuleLogging(t *testing.T) {
 	// fields themselves. Even if the RDK is configured at INFO level, assert
 	// that modular resources can log at their own, configured levels.
 
-	ctx := context.Background()
+	ctx, span := trace.StartSpan(context.Background(), "TestModuleLogging")
+	defer span.End()
+	traceID := span.SpanContext().TraceID().String()
+	test.That(t, traceID, test.ShouldNotBeEmpty)
 	logger, observer, registry := logging.NewObservedTestLoggerWithRegistry(t, "rdk")
 	logger.SetLevel(logging.INFO)
 	helperModel := resource.NewModel("rdk", "test", "helper")
@@ -3846,6 +4415,13 @@ func TestModuleLogging(t *testing.T) {
 		tb.Helper()
 		test.That(t, observer.FilterMessageSnippet("debug log line").Len(), test.ShouldEqual, 1)
 	})
+	resp, err := startsAtDebugRes.DoCommand(ctx, map[string]interface{}{"command": "get_trace_id"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["trace_id"], test.ShouldEqual, traceID)
+	// verify that a new trace ID is returned when the context is not the same as the one used to start the span
+	resp, err = startsAtDebugRes.DoCommand(context.Background(), map[string]interface{}{"command": "get_trace_id"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp["trace_id"], test.ShouldNotEqual, traceID)
 }
 
 func TestLogPropagation(t *testing.T) {
@@ -4252,7 +4828,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// removing maintenance config unblocks reconfig and allows sensor to be added
 		r.Reconfigure(ctx, cfgUnblock)
@@ -4294,14 +4870,14 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 
 		// Attempt to reconfig again using remote:sensor name
 		// Reconfig should still be blocked
 		r.Reconfigure(ctx, cfgBlockedWithRemoteSpecified)
 		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 	})
 
 	t.Run("conflicting remote and main sensor names default to main", func(t *testing.T) {
@@ -4325,10 +4901,6 @@ func TestMaintenanceConfig(t *testing.T) {
 			},
 			Components: sensor1,
 		}
-		cfgRemoteUnblocked := &config.Config{
-			MaintenanceConfig: &config.MaintenanceConfig{SensorName: "rdk:component:sensor/remote:sensor", MaintenanceAllowedKey: "ThatsMyWallet"},
-			Components:        sensor2,
-		}
 
 		// Setup robot pointing maintenanceConfig with conflicting sensors
 		r := setupLocalRobot(t, context.Background(), cfg, logger)
@@ -4337,13 +4909,7 @@ func TestMaintenanceConfig(t *testing.T) {
 		r.Reconfigure(ctx, cfgBlocked)
 		sensorBlocked, err := r.ResourceByName(sensor.Named("sensor2"))
 		test.That(t, sensorBlocked, test.ShouldBeNil)
-		test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:sensor/sensor2\" not found")
-
-		// robot should reconfigure since remote will return an error
-		r.Reconfigure(ctx, cfgRemoteUnblocked)
-		sensorBlocked, err = r.ResourceByName(sensor.Named("sensor2"))
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, sensorBlocked, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, nodeNotFoundError("sensor2", sensor.API))
 	})
 	t.Run("multiple remotes with conflicting names errors out", func(t *testing.T) {
 		ctx := context.Background()
@@ -4464,7 +5030,7 @@ func TestRemovingOfflineRemote(t *testing.T) {
 // prevents that behavior and removes the remote correctly.
 func TestRemovingOfflineRemotes(t *testing.T) {
 	// Close the robot to stop the background workers from processing any messages to triggerConfig
-	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), withDisableCompleteConfigWorker())
+	r := setupLocalRobot(t, context.Background(), &config.Config{}, logging.NewTestLogger(t), WithDisableCompleteConfigWorker())
 	localRobot := r.(*localRobot)
 
 	// Create a context that we can cancel to similuate the remote connection timeout
@@ -4644,4 +5210,269 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := r.ListTunnels(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, trafficTunnelEndpoints)
+}
+
+func TestInternalPanicFromModuleDoesNotCrash(t *testing.T) {
+	// Primarily a regression test for one of the issues described in RSDK-11230.
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	panickingSensorModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		panickingSensorModel,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return &inject.Sensor{
+				ReadingsFunc: func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error) {
+					panic("oh no")
+				},
+			}, nil
+		}})
+
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "s",
+				Model: panickingSensorModel,
+				API:   sensor.API,
+			},
+			{
+				Name:      "h",
+				Model:     helperModel,
+				API:       generic.API,
+				DependsOn: []string{"s"},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	helper, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = helper.DoCommand(ctx, map[string]interface{}{"command": "do_readings_on_dep"})
+	s, isGRPCErr := status.FromError(err)
+	test.That(t, isGRPCErr, test.ShouldBeTrue)
+	test.That(t, s.Code(), test.ShouldEqual, codes.Internal)
+	test.That(t, s.Message(), test.ShouldContainSubstring, "oh no")
+
+	test.That(t, logs.FilterMessageSnippet("panicked while calling unary server method for module request").Len(),
+		test.ShouldEqual, 1)
+}
+
+func TestWeakDependenciesWithPrefix(t *testing.T) {
+	// This test tests that weak dependencies are properly populated in the dependencies map with the remote prefix
+	// attached to any remote resources.
+	//
+	// In this case, the shell resource will be constructed with the remote resource as a
+	// weak dependency since it will be available at the time of construction. The shell
+	// resource will then also be _reconfigured_ with the weak dependency (a noop).
+	// This redundant reconfigure is not great, but is part of the design of our system.
+	t.Parallel()
+	logger, logs := logging.NewObservedTestLogger(t)
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+
+	successLog := "found remote-sensor"
+	dummyShell := inject.NewShellService("sensor")
+	dummyShell.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+		if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
+			return err
+		}
+		logger.Info(successLog)
+		return nil
+	}
+	resource.RegisterService(
+		shell.API,
+		model,
+		resource.Registration[shell.Service, resource.NoNativeConfig]{
+			Constructor: func(
+				ctx context.Context,
+				deps resource.Dependencies,
+				conf resource.Config,
+				logger logging.Logger,
+			) (shell.Service, error) {
+				if _, err := sensor.FromProvider(deps, "remote-sensor"); err != nil {
+					return nil, err
+				}
+				logger.Info(successLog)
+				return dummyShell, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{resource.APITypeComponentName}},
+		},
+	)
+
+	defer func() {
+		resource.Deregister(shell.API, model)
+	}()
+
+	ctx := context.Background()
+	startWeb := func(r robot.LocalRobot) string {
+		var boundAddress string
+		for range 10 {
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+
+			options := weboptions.New()
+			boundAddress = fmt.Sprintf("localhost:%v", port)
+			options.Network.BindAddress = boundAddress
+			if err := r.StartWeb(ctx, options); err != nil {
+				r.StopWeb()
+				if strings.Contains(err.Error(), "address already in use") {
+					logger.Infow("port in use; restarting on new port", "port", port, "err", err)
+					continue
+				}
+				t.Fatalf("StartWeb error: %v", err)
+			}
+			break
+		}
+		return boundAddress
+	}
+
+	remCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Model: fakeModel,
+				Name:  "sensor",
+				API:   sensor.API,
+			},
+		},
+	}
+	remoteRobot := setupLocalRobot(t, ctx, remCfg, logger.Sublogger("remoteRobot"))
+	addr := startWeb(remoteRobot)
+	test.That(t, addr, test.ShouldNotBeBlank)
+
+	cfg := &config.Config{
+		Remotes: []config.Remote{
+			{
+				Name:    "remote",
+				Address: addr,
+				Prefix:  "remote-",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Model: model,
+				Name:  "shell",
+				API:   shell.API,
+			},
+		},
+	}
+	setupLocalRobot(t, ctx, cfg, logger.Sublogger("robot"))
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessage(successLog).Len(),
+			test.ShouldEqual, 2)
+	})
+}
+
+func TestReconfigureTracing(t *testing.T) {
+	testReconfigureTracing := func(t *testing.T, cloudID string) {
+		var cloudConfig *config.Cloud
+		expectedTraceSubdir := localConfigPartID
+		if cloudID != "" {
+			cloudConfig = &config.Cloud{ID: cloudID}
+			expectedTraceSubdir = cloudID
+		}
+
+		// First test: configure robot without any tracing enabled, make sure no
+		// files are created and no clients are stored on localRobot.
+		emptyCfg := &config.Config{
+			Cloud: cloudConfig,
+		}
+		logger, _ := logging.NewObservedTestLogger(t)
+
+		// localRobot.Close shuts down the global trace objects. Reset them here to
+		// make sure tracing will work after the first test.
+		trace.SetProvider(t.Context())
+
+		r := setupLocalRobot(t, context.Background(), emptyCfg, logger).(*localRobot)
+		viamHome := r.homeDir
+
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+		tracePath := filepath.Join(viamHome, "trace")
+		_, err := os.Stat(tracePath)
+		test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+		// Second test: enable tracing. Check that clients are stored on localRobot
+		// and the disk exporter exports spans to the expected location.
+		cfgWithTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled: true,
+				Disk:    true,
+				Console: true,
+			},
+		}
+		r.reconfigureTracing(t.Context(), cfgWithTracing)
+		// Expect 1 instead of 2 because we don't add the development exporter.
+		test.That(t, *r.traceClients.Load(), test.ShouldHaveLength, 1)
+		spanName := "test file exporter " + t.Name()
+		_, span := trace.StartSpan(t.Context(), spanName)
+		span.End()
+
+		// The file exporter is the easiest to verify: make sure it has been created
+		// and contains the span we just made.
+		testutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+			tracesFilePath := filepath.Join(tracePath, expectedTraceSubdir, "traces")
+			_, err := os.Stat(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			tracesFile, err := os.Open(tracesFilePath)
+			test.That(t, err, test.ShouldBeNil)
+			if err != nil {
+				return
+			}
+			defer tracesFile.Close()
+			reader := protoutils.NewDelimitedProtoReader[v1.ResourceSpans](tracesFile)
+			defer reader.Close()
+			for resourceSpan := range reader.All() {
+				for _, scopeSpan := range resourceSpan.ScopeSpans {
+					for _, span := range scopeSpan.Spans {
+						if span.Name == spanName {
+							return
+						}
+					}
+				}
+			}
+			t.Error("Trace export file did not contain expected span")
+		})
+
+		// Third test: leave all exporters enabled but disable tracing with
+		// `Enabled: false`. Check that the clients are all removed from
+		// localrobot.
+		cfgWithDisabledTracing := &config.Config{
+			Cloud: cloudConfig,
+			Tracing: config.TracingConfig{
+				Enabled:      false,
+				Disk:         true,
+				Console:      true,
+				OTLPEndpoint: "localhost:4317",
+			},
+		}
+		r.reconfigureTracing(t.Context(), cfgWithDisabledTracing)
+		test.That(t, r.traceClients.Load(), test.ShouldBeNil)
+	}
+
+	t.Run("with local config", func(t *testing.T) {
+		testReconfigureTracing(t, "")
+	})
+
+	t.Run("with cloud config", func(t *testing.T) {
+		testReconfigureTracing(t, "fake-cloud-id")
+	})
 }

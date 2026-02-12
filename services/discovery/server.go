@@ -3,12 +3,13 @@ package discovery
 import (
 	"context"
 
-	"go.opencensus.io/trace"
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/discovery/v1"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -16,12 +17,12 @@ import (
 // serviceServer implements the DiscoveryService from the discovery proto.
 type serviceServer struct {
 	pb.UnimplementedDiscoveryServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a the discovery gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -40,9 +41,6 @@ func (server *serviceServer) DiscoverResources(ctx context.Context, req *pb.Disc
 	configs, err := svc.DiscoverResources(ctx, req.GetExtra().AsMap())
 	if err != nil {
 		return nil, err
-	}
-	if configs == nil {
-		return nil, ErrNilResponse
 	}
 
 	protoConfigs := []*apppb.ComponentConfig{}

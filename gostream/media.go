@@ -7,12 +7,11 @@ import (
 	"sync/atomic"
 
 	"github.com/pion/mediadevices/pkg/driver"
-	"github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 )
 
 type (
@@ -152,13 +151,18 @@ func PropertiesFromMediaSource[T, U any](src MediaSource[T]) ([]prop.Media, erro
 	return d.Properties(), nil
 }
 
+// labelSeparator is used to separate labels for a driver that
+// is found from multiple locations on a host.
+// from https://github.com/pion/mediadevices/blob/v0.6.4/pkg/driver/camera/camera.go#L16
+const labelSeparator = ";"
+
 // LabelsFromMediaSource returns the labels from the underlying driver in the MediaSource.
 func LabelsFromMediaSource[T, U any](src MediaSource[T]) ([]string, error) {
 	d, err := DriverFromMediaSource[T, U](src)
 	if err != nil {
 		return nil, err
 	}
-	return strings.Split(d.Info().Label, camera.LabelSeparator), nil
+	return strings.Split(d.Info().Label, labelSeparator), nil
 }
 
 // DriverFromMediaSource returns the underlying driver from the MediaSource.
@@ -200,7 +204,7 @@ func newMediaSource[T, U any](d driver.Driver, r MediaReader[T], p U) MediaSourc
 
 func (pc *producerConsumer[T, U]) start() {
 	var startLocalCtx context.Context
-	var span *trace.Span
+	var span trace.Span
 
 	func() {
 		pc.cancelCtxMu.RLock()
@@ -273,7 +277,7 @@ func (pc *producerConsumer[T, U]) start() {
 			pc.cancelCtxMu.RUnlock()
 
 			func() {
-				var doReadSpan *trace.Span
+				var doReadSpan trace.Span
 				startLocalCtx, doReadSpan = trace.StartSpan(startLocalCtx, "gostream::producerConsumer (anonymous function to read)")
 
 				defer func() {
@@ -341,7 +345,7 @@ func (pc *producerConsumer[T, U]) Stop() {
 
 // assumes stateMu lock is held.
 func (pc *producerConsumer[T, U]) stop() {
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		pc.cancelCtxMu.RLock()
 		defer pc.cancelCtxMu.RUnlock()
@@ -373,7 +377,7 @@ func (pc *producerConsumer[T, U]) stop() {
 }
 
 func (pc *producerConsumer[T, U]) stopOne() {
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		pc.cancelCtxMu.RLock()
 		defer pc.cancelCtxMu.RUnlock()
@@ -542,7 +546,7 @@ func (ms *mediaStream[T, U]) Close(ctx context.Context) error {
 		}()
 	}
 
-	var span *trace.Span
+	var span trace.Span
 	func() {
 		ms.prodCon.cancelCtxMu.Lock()
 		defer ms.prodCon.cancelCtxMu.Unlock()

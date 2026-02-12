@@ -27,26 +27,28 @@ type pwmChipData struct {
 }
 
 // GetGPIOBoardMappings attempts to find a compatible GPIOBoardMapping for the given board.
-func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation) (map[string]GPIOBoardMapping, error) {
+func GetGPIOBoardMappings(modelName string, boardInfoMappings map[string]BoardInformation, logger logging.Logger) (
+	map[string]GPIOBoardMapping, error,
+) {
 	pinDefs, err := getCompatiblePinDefs(modelName, boardInfoMappings)
 	if err != nil {
 		return nil, err
 	}
 
-	return GetGPIOBoardMappingFromPinDefs(pinDefs)
+	return GetGPIOBoardMappingFromPinDefs(pinDefs, logger)
 }
 
 // GetGPIOBoardMappingFromPinDefs attempts to find a compatible board-pin mapping using the pin definitions.
-func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition) (map[string]GPIOBoardMapping, error) {
-	pwmChipsInfo, err := getPwmChipDefs(pinDefs)
+func GetGPIOBoardMappingFromPinDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]GPIOBoardMapping, error) {
+	pwmChipsInfo, err := getPwmChipDefs(pinDefs, logger)
 	if err != nil {
 		// Try continuing on without hardware PWM support. Many boards do not have it enabled by
 		// default, and perhaps this robot doesn't even use it.
-		logging.Global().Debugw("unable to find PWM chips, continuing without them", "error", err)
+		logger.Debugw("unable to find PWM chips, continuing without them", "error", err)
 		pwmChipsInfo = map[string]pwmChipData{}
 	}
 
-	return getBoardMapping(pinDefs, pwmChipsInfo)
+	return getBoardMapping(pinDefs, pwmChipsInfo, logger)
 }
 
 // getCompatiblePinDefs returns a list of pin definitions, from the first BoardInformation struct
@@ -84,7 +86,7 @@ func readIntFile(filePath string) (int, error) {
 	return int(resultInt64), err
 }
 
-func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
+func getPwmChipDefs(pinDefs []PinDefinition, logger logging.Logger) (map[string]pwmChipData, error) {
 	// First, collect the names of all relevant PWM chips with duplicates removed. Go doesn't have
 	// native set objects, so we use a map whose values are ignored.
 	pwmChipNames := make(map[string]struct{}, len(pinDefs))
@@ -113,7 +115,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 			// look at symlinks to find the correct chip
 			symlink, err := os.Readlink(filepath.Join(sysfsDir, file.Name()))
 			if err != nil {
-				logging.Global().Errorw(
+				logger.Errorw(
 					"file is not symlink", "file", file.Name(), "err:", err)
 				continue
 			}
@@ -138,7 +140,7 @@ func getPwmChipDefs(pinDefs []PinDefinition) (map[string]pwmChipData, error) {
 	return pwmChipsInfo, nil
 }
 
-func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipData,
+func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipData, logger logging.Logger,
 ) (map[string]GPIOBoardMapping, error) {
 	data := make(map[string]GPIOBoardMapping, len(pinDefs))
 
@@ -157,7 +159,7 @@ func getBoardMapping(pinDefs []PinDefinition, pwmChipsInfo map[string]pwmChipDat
 				// This pin isn't supposed to have hardware PWM support; all is well.
 				pwmChipInfo = dummyPwmInfo
 			} else {
-				logging.Global().Errorw(
+				logger.Errorw(
 					"cannot find expected hardware PWM chip, continuing without it", "pin", pinDef.Name)
 				pwmChipInfo = dummyPwmInfo
 			}

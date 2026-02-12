@@ -188,7 +188,9 @@ func (dm *DepthMap) WriteToBuf(out io.Writer) error {
 
 // MinMax returns the minimum and maximum depth values within the depth map.
 func (dm *DepthMap) MinMax() (Depth, Depth) {
+	//nolint: revive
 	min := MaxDepth
+	//nolint: revive
 	max := Depth(0)
 
 	for x := 0; x < dm.Width(); x++ {
@@ -198,9 +200,11 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 				continue
 			}
 			if z < min {
+				//nolint: revive
 				min = z
 			}
 			if z > max {
+				//nolint: revive
 				max = z
 			}
 		}
@@ -212,12 +216,15 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 // ToPrettyPicture converts the depth map into a colorful image to make it easier to see the depth gradients.
 // The colorful picture will have no useful depth information, though.
 func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
+	//nolint: revive
 	min, max := dm.MinMax()
 
 	if hardMin > 0 && min < hardMin {
+		//nolint: revive
 		min = hardMin
 	}
 	if hardMax > 0 && max > hardMax {
+		//nolint: revive
 		max = hardMax
 	}
 

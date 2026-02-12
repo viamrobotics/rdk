@@ -6,12 +6,17 @@
 package pointcloud
 
 import (
+	"bytes"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 const numThreadsPointCloud = 8
@@ -25,6 +30,12 @@ type MetaData struct {
 	MinY, MaxY             float64
 	MinZ, MaxZ             float64
 	totalX, totalY, totalZ float64
+}
+
+// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
+type PointAndData struct {
+	P r3.Vector
+	D Data
 }
 
 // PointCloud is a general purpose container of points. It does not
@@ -50,6 +61,12 @@ type PointCloud interface {
 	// numBatches lets you divide up he work. 0 means don't divide
 	// myBatch is used iff numBatches > 0 and is which batch you want
 	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
+
+	// FinalizeAfterReading is called after a pc is done being read
+	// often this is a noop
+	FinalizeAfterReading() (PointCloud, error)
+
+	CreateNewRecentered(offset spatialmath.Pose) PointCloud
 }
 
 // NewMetaData creates a new MetaData.
@@ -119,6 +136,20 @@ func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	meta.totalZ += v.Z
 }
 
+// Center returns the center of the points.
+func (meta *MetaData) Center() r3.Vector {
+	return r3.Vector{
+		X: (meta.MaxX + meta.MinX) / 2,
+		Y: (meta.MaxY + meta.MinY) / 2,
+		Z: (meta.MaxZ + meta.MinZ) / 2,
+	}
+}
+
+// MaxSideLength function for calculating the max side length of a pointcloud based on its metadata.
+func (meta *MetaData) MaxSideLength() float64 {
+	return math.Max((meta.MaxX - meta.MinX), math.Max((meta.MaxY-meta.MinY), (meta.MaxZ-meta.MinZ)))
+}
+
 // CloudContains is a silly helper method.
 func CloudContains(cloud PointCloud, x, y, z float64) bool {
 	_, got := cloud.At(x, y, z)
@@ -138,6 +169,16 @@ func CloudCentroid(pc PointCloud) r3.Vector {
 		Y: pc.MetaData().totalY / float64(pc.Size()),
 		Z: pc.MetaData().totalZ / float64(pc.Size()),
 	}
+}
+
+// CloudToPoints converts a point cloud to a list of points (a list of vectors).
+func CloudToPoints(pc PointCloud) []r3.Vector {
+	points := make([]r3.Vector, 0, pc.Size())
+	pc.Iterate(0, 0, func(point r3.Vector, _ Data) bool {
+		points = append(points, point)
+		return true // Keep going through all points
+	})
+	return points
 }
 
 // CloudMatrixCol is a type that represents the columns of a CloudMatrix.
@@ -208,4 +249,20 @@ func CloudMatrix(pc PointCloud) (*mat.Dense, []CloudMatrixCol) {
 		matData = append(matData, <-matChan...)
 	}
 	return mat.NewDense(pc.Size(), pointSize, matData), header
+}
+
+// NewPointCloudFromProto creates a new point cloud geometry from a protobuf point cloud.
+func NewPointCloudFromProto(pointCloud *commonpb.PointCloud, label string) (*BasicOctree, error) {
+	reader := bytes.NewReader(pointCloud.PointCloud)
+	pc, err := ReadPCD(reader, BasicOctreeType)
+	if err != nil {
+		return nil, err
+	}
+	octree, ok := pc.(*BasicOctree)
+	if !ok {
+		return nil, fmt.Errorf("why did ReadPCD not return a BasicOctree but a %T", pc)
+	}
+	octree.confidenceThreshold = 0
+	octree.SetLabel(label)
+	return octree, nil
 }

@@ -240,7 +240,7 @@ func TestPointCloudSplit(t *testing.T) {
 	}()
 
 	// make a simple point cloud
-	cloud := pc.New()
+	cloud := pc.NewBasicEmpty()
 	var err error
 	err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)

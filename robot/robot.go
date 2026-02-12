@@ -6,19 +6,18 @@ import (
 	"fmt"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/pexec"
+	otlpv1 "go.opentelemetry.io/proto/otlp/trace/v1"
 
 	"go.viam.com/rdk/cloud"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
-	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
@@ -29,6 +28,20 @@ import (
 const (
 	platform = "rdk"
 )
+
+// Version gets added as grpc metadata for every request. Computing this fresh requires reading the
+// binary file from disk. This is expensive, hence we cache it once at startup.
+var Version VersionResponse
+
+func init() {
+	var err error
+	if Version, err = version(); err != nil {
+		Version = VersionResponse{
+			Version:    "unknown",
+			APIVersion: "unknown",
+		}
+	}
+}
 
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
@@ -81,6 +94,9 @@ const (
 //	// Shut down the robot.
 //	err := machine.Shutdown(context.Background())
 type Robot interface {
+	framesystem.RobotFrameSystem
+	resource.Provider
+
 	// GetModelsFromModules returns a list of models supported by the configured modules,
 	// and specifies whether the models are from a local or registry module.
 	GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error)
@@ -100,9 +116,6 @@ type Robot interface {
 	// ResourceRPCAPIs returns a list of all known resource RPC APIs.
 	ResourceRPCAPIs() []resource.RPCAPI
 
-	// ProcessManager returns the process manager for the robot.
-	ProcessManager() pexec.ProcessManager
-
 	// OperationManager returns the operation manager the robot is using.
 	OperationManager() *operation.Manager
 
@@ -114,22 +127,6 @@ type Robot interface {
 
 	// Logger returns the logger the robot is using.
 	Logger() logging.Logger
-
-	// FrameSystemConfig returns the individual parts that make up a robot's frame system
-	FrameSystemConfig(ctx context.Context) (*framesystem.Config, error)
-
-	// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
-	TransformPose(
-		ctx context.Context,
-		pose *referenceframe.PoseInFrame,
-		dst string,
-		additionalTransforms []*referenceframe.LinkInFrame,
-	) (*referenceframe.PoseInFrame, error)
-
-	// TransformPointCloud will transform the pointcloud to the desired frame in the robot's frame system.
-	// Do not move the robot between the generation of the initial pointcloud and the receipt
-	// of the transformed pointcloud because that will make the transformations inaccurate.
-	TransformPointCloud(ctx context.Context, srcpc pointcloud.PointCloud, srcName, dstName string) (pointcloud.PointCloud, error)
 
 	// CloudMetadata returns app-related information about the robot.
 	CloudMetadata(ctx context.Context) (cloud.Metadata, error)
@@ -177,7 +174,7 @@ type LocalRobot interface {
 	WebAddress() (string, error)
 
 	// ModuleAddress returns the address (path) of the unix socket modules use to contact the parent.
-	ModuleAddress() (string, error)
+	ModuleAddresses() (config.ParentSockAddrs, error)
 
 	// ExportResourcesAsDot exports the resource graph as a DOT representation for
 	// visualization.
@@ -191,6 +188,14 @@ type LocalRobot interface {
 	// This operation is not clean and will not wait for completion.
 	// Only use this if comfortable with leaking resources (in cases where exiting the program as quickly as possible is desired).
 	Kill()
+
+	// FindBySimpleNameAndAPI returns a resource from the resource graph. See
+	// [resource.Graph.FindBySimpleNameAndAPI] for specifics about what is
+	// returned in the case of name collisions.
+	FindBySimpleNameAndAPI(string, resource.API) (resource.Resource, error)
+
+	// WriteTraceMessages writes trace spans to any configured exporters.
+	WriteTraceMessages(context.Context, []*otlpv1.ResourceSpans) error
 }
 
 // A RemoteRobot is a Robot that was created through a connection.
@@ -205,6 +210,18 @@ type RemoteRobot interface {
 type RestartModuleRequest struct {
 	ModuleID   string
 	ModuleName string
+}
+
+// ResourceByName looks up via short name, and will error if none or more than 1 exist.
+func ResourceByName(r Robot, name string) (resource.Resource, error) {
+	all := AllResourcesByName(r, name)
+	if len(all) == 0 {
+		return nil, fmt.Errorf("no resource named [%s]", name)
+	}
+	if len(all) > 1 {
+		return nil, fmt.Errorf("too many resources named [%s] %d", name, len(all))
+	}
+	return all[0], nil
 }
 
 // AllResourcesByName returns an array of all resources that have this short name.
@@ -331,9 +348,16 @@ const (
 
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
-	Resources []resource.Status
-	Config    config.Revision
-	State     MachineState
+	Resources   []resource.Status
+	Config      config.Revision
+	State       MachineState
+	JobStatuses map[string]JobStatus
+}
+
+// JobStatus encapsulates status information about a single JobManager job.
+type JobStatus struct {
+	RecentSuccessfulRuns []time.Time
+	RecentFailedRuns     []time.Time
 }
 
 // VersionResponse encapsulates the version info of the robot.
@@ -346,7 +370,7 @@ type VersionResponse struct {
 // Version returns platform, version and API version of the robot.
 // platform will always be `rdk`
 // If built without a version tag,  will be dev-<git hash>.
-func Version() (VersionResponse, error) {
+func version() (VersionResponse, error) {
 	var result VersionResponse
 	result.Platform = platform
 

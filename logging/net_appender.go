@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,6 +16,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -31,7 +34,7 @@ var (
 type CloudConfig struct {
 	AppAddress string
 	ID         string
-	Secret     string
+	CloudCred  rpc.DialOption
 }
 
 // NewNetAppender creates a NetAppender to send log events to the app backend. NetAppenders ought to
@@ -197,6 +200,18 @@ type wrappedEntryCaller struct {
 	Function string
 }
 
+// newInternalLogEntry creates a minimal zapcore.Entry that can be used with NetAppender.Write.
+func newInternalLogEntry(level zapcore.Level, message string) zapcore.Entry {
+	return zapcore.Entry{
+		Level:      level,
+		Time:       time.Now(),
+		LoggerName: "NetAppender",
+		Message:    message,
+		Caller:     zapcore.EntryCaller{},
+		Stack:      "",
+	}
+}
+
 func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	log := &commonpb.LogEntry{
 		Host:       nl.hostname,
@@ -307,12 +322,27 @@ func (nl *NetAppender) backgroundWorker() {
 		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			if !errors.Is(err, errUninitializedConnection) {
-				nl.loggerWithoutNet.Infof("error logging to network: %s", err)
+				errMsg := fmt.Sprintf("error logging to network: %s", err)
+				nl.loggerWithoutNet.Info(errMsg)
+
+				entry := newInternalLogEntry(zapcore.InfoLevel, errMsg)
+				err := nl.Write(entry, nil)
+				if err != nil {
+					nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+				}
 			}
 		} else {
 			interval = normalInterval
 		}
 	}
+}
+
+func isUTF8MarshallingError(err error) bool {
+	if err == nil {
+		return false
+	}
+	status := status.Convert(err)
+	return status.Code() == codes.Internal && status.Message() == "grpc: error while marshaling: string field contains invalid UTF-8"
 }
 
 // Returns whether there is more work to do or if an error was encountered
@@ -337,22 +367,52 @@ func (nl *NetAppender) syncOnce() (bool, error) {
 	batch := nl.toLog[:batchSize]
 	nl.toLogMutex.Unlock()
 
-	if err := nl.remoteWriter.write(nl.cancelCtx, batch); err != nil {
+	err := nl.remoteWriter.write(nl.cancelCtx, batch)
+	if isUTF8MarshallingError(err) {
+		nl.loggerWithoutNet.Warn("Log batch failed to serialize due to invalid UTF-8, will sanitize and retry")
+		for _, record := range batch {
+			record.Message = strings.ToValidUTF8(record.Message, "�")
+		}
+		err = nl.remoteWriter.write(nl.cancelCtx, batch)
+	}
+	if err != nil {
 		return false, err
 	}
 
 	nl.toLogMutex.Lock()
-	defer nl.toLogMutex.Unlock()
-
 	// Remove successfully synced logs from the queue. If we've overflowed more times than the size of the batch
 	// we wrote, do not mutate toLog at all. If we've synced more logs than there are logs left, set idx to length
 	// of array to prevent panics.
+	// A side effect of this is it may double-log the first batchSize in the queue (see RSDK-7064).
 	if batchSize > nl.toLogOverflowsSinceLastSync {
 		idx := min(batchSize-nl.toLogOverflowsSinceLastSync, len(nl.toLog))
 		nl.toLog = nl.toLog[idx:]
 	}
+
+	toLogOverflowsSinceLastSync := nl.toLogOverflowsSinceLastSync
 	nl.toLogOverflowsSinceLastSync = 0
-	return len(nl.toLog) > 0, nil
+
+	hasMoreToLog := len(nl.toLog) > 0
+	nl.toLogMutex.Unlock()
+
+	// Log about overflowed logs *after* we write out the latest batch. Dropped logs were technically before, but here
+	// 1) we know we're back online (don't clog up queue with this message)
+	// 2) adding to queue requires toLogMutex
+	if toLogOverflowsSinceLastSync > 0 {
+		overflowMsg := fmt.Sprintf("Overflowed %d logs while offline. Check local system logs for anything important.",
+			toLogOverflowsSinceLastSync)
+
+		// Log to console immediately
+		nl.loggerWithoutNet.Warn(overflowMsg)
+
+		// Manually create new log entry & add to cloud queue
+		entry := newInternalLogEntry(zapcore.WarnLevel, overflowMsg)
+		err := nl.Write(entry, nil)
+		if err != nil {
+			nl.loggerWithoutNet.Warnw("Unable to add to net log queue", "entry", entry, "err", err)
+		}
+	}
+	return hasMoreToLog, nil
 }
 
 // sync will flush the internal buffer of logs. This is not exposed as multiple calls to sync at
@@ -456,14 +516,10 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *CloudConfig, logger Logg
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    "robot-secret",
-				Payload: cloudCfg.Secret,
-			},
-		))
+
+	// Only add credentials when they are set.
+	if cloudCfg.CloudCred != nil {
+		dialOpts = append(dialOpts, cloudCfg.CloudCred)
 	}
 
 	if grpcURL.Scheme == "http" {

@@ -28,13 +28,22 @@ var goTmpl string
 // typePrefixes lists possible prefixes before function parameter and return types.
 var typePrefixes = []string{"*", "[]*", "[]", "chan "}
 
-// getClientCode grabs client.go code of component type.
-func getClientCode(module modulegen.ModuleInputs) (string, error) {
+// CreateGetClientCodeRequest creates a request to get the client code of the specified resource type.
+var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
 	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/client.go",
 		module.SDKVersion, module.ResourceType, module.ResourceSubtype)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get client code")
+		return nil, errors.Wrapf(err, "cannot get client code")
+	}
+	return req, nil
+}
+
+// getClientCode grabs client.go code of component type.
+func getClientCode(module modulegen.ModuleInputs) (string, error) {
+	req, err := CreateGetClientCodeRequest(module)
+	if err != nil {
+		return "", err
 	}
 
 	//nolint:bodyclose
@@ -44,19 +53,125 @@ func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url)
+		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return url, errors.Wrapf(err, "error reading response body")
+		return req.URL.String(), errors.Wrapf(err, "error reading response body")
 	}
 	clientCode := string(body)
 	return clientCode, nil
 }
 
+// CreateGetResourceCodeRequest creates a request to get the resource code of the specified resource type.
+var CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, usesnake bool) (*http.Request, error) {
+	subtype := module.ResourceSubtype
+	if usesnake {
+		subtype = module.ResourceSubtypeSnake
+	}
+	url := fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/rdk/refs/tags/v%s/%ss/%s/%s.go",
+		module.SDKVersion, module.ResourceType, module.ResourceSubtype, subtype)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "cannot get resource code")
+	}
+	return req, nil
+}
+
+// getResourceCode fetches the resource.go source code.
+func getResourceCode(module modulegen.ModuleInputs) (string, error) {
+	// It tries twice: first with the snake cased resource sub type, then without.
+	// Different components are named with and without snake case, this tries both before returning an error
+	attempts := []bool{true, false}
+
+	var resp *http.Response
+	var req *http.Request
+	var err error
+
+	for _, usesnake := range attempts {
+		// Create the HTTP request for fetching resource code
+		req, err = CreateGetResourceCodeRequest(module, usesnake)
+		if err != nil {
+			return "", err
+		}
+
+		// Send the HTTP request
+		//nolint:bodyclose
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return "", errors.Wrapf(err, "cannot get resource code")
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			// Read and return the response body if the request succeeded
+			defer utils.UncheckedErrorFunc(resp.Body.Close)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return req.URL.String(), errors.Wrapf(err, "error reading response body")
+			}
+			resourceCode := string(body)
+			return resourceCode, nil
+		}
+
+		// Close response body if not OK to prevent leaks before retrying
+		utils.UncheckedErrorFunc(resp.Body.Close)
+	}
+	return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
+}
+
+// extractInterfaceMethodDocs parses Go source code and returns a map of
+// method names to their associated documentation comments for the first
+// interface type found in the code.
+func extractInterfaceMethodDocs(resourceCode string) (map[string]*ast.CommentGroup, error) {
+	fset := token.NewFileSet()
+	node, err := parser.ParseFile(fset, "", resourceCode, parser.ParseComments)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse resource code")
+	}
+
+	docMap := make(map[string]*ast.CommentGroup)
+
+	for _, decl := range node.Decls {
+		genDecl, ok := decl.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		if genDecl.Tok != token.TYPE {
+			continue
+		}
+
+		if len(genDecl.Specs) == 0 {
+			continue
+		}
+
+		spec := genDecl.Specs[0]
+		typeSpec, ok := spec.(*ast.TypeSpec)
+		if !ok {
+			continue
+		}
+
+		if ifaceType, ok := typeSpec.Type.(*ast.InterfaceType); ok {
+			for _, method := range ifaceType.Methods.List {
+				if len(method.Names) == 0 {
+					continue
+				}
+				methodName := method.Names[0].Name
+				docMap[methodName] = method.Doc
+			}
+			break
+		}
+	}
+
+	return docMap, nil
+}
+
 // setGoModuleTemplate sets the imports and functions for the go method stubs.
-func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*modulegen.GoModuleTmpl, error) {
+func setGoModuleTemplate(
+	clientCode string,
+	module modulegen.ModuleInputs,
+	docMap map[string]*ast.CommentGroup,
+) (*modulegen.GoModuleTmpl, error) {
 	var goTmplInputs modulegen.GoModuleTmpl
 
 	if module.ResourceSubtype == "input" {
@@ -96,8 +211,12 @@ func setGoModuleTemplate(clientCode string, module modulegen.ModuleInputs) (*mod
 				module.ModuleCamel+module.ModelPascal,
 				funcDecl,
 			)
-			if name != "" {
-				functions = append(functions, formatEmptyFunction(receiver, name, args, returns))
+			if name != "" && name != "NewClientFromConn" {
+				var doc string
+				if docGroup, ok := docMap[name]; ok && docGroup != nil {
+					doc = docGroup.Text()
+				}
+				functions = append(functions, formatEmptyFunctionWithDoc(doc, receiver, name, args, returns))
 			}
 		}
 		return true
@@ -128,6 +247,9 @@ func formatType(typeExpr ast.Expr, resourceSubtype string) string {
 		return fmt.Sprintf("Error formatting type: %v", err)
 	}
 	typeString := buf.String()
+	if resourceSubtype == "switch" {
+		resourceSubtype = "sw"
+	}
 
 	// checkUpper adds "<resourceSubtype>." to the type if type is capitalized after prefix.
 	checkUpper := func(str, prefix string) string {
@@ -224,20 +346,133 @@ func parseFunctionSignature(
 	return funcName, receiver, strings.Join(params, ", "), returns
 }
 
-// formatEmptyFunction outputs the new function that removes the function body, adds the panic unimplemented statement,
-// and replaces the receiver with the new model type.
-func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
-	var returnDef string
-	switch {
-	case len(returns) == 0:
-		returnDef = ""
-	case len(returns) == 1:
-		returnDef = returns[0]
+// formatReturnDef converts a slice of return types into a properly formatted Go return type string.
+func formatReturnDef(returns []string) string {
+	switch len(returns) {
+	case 0:
+		return ""
+	case 1:
+		return " " + returns[0]
 	default:
-		returnDef = fmt.Sprintf("(%s)", strings.Join(returns, ","))
+		return " (" + strings.Join(returns, ", ") + ")"
 	}
-	newFunc := fmt.Sprintf("func (s *%s) %s(%s) %s{\n\tpanic(\"not implemented\")\n}\n\n", receiver, funcName, args, returnDef)
-	return newFunc
+}
+
+// zeroValueForType returns the zero value literal as a string for the given Go type.
+// If no literal zero value exists, it returns a generated variable name
+// that will later be declared and returned as the empty value for that type.
+func zeroValueForType(typ string, suffix int) (string, bool) {
+	// for basic built-in types use their literal zero values
+	switch typ {
+	case "string":
+		return `""`, false
+	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64", "complex64", "complex128", "byte", "rune":
+		return "0", false
+	case "bool":
+		return "false", false
+	default:
+		// return nil for pointer, slice, map, and function types
+		if strings.HasPrefix(typ, "*") ||
+			strings.HasPrefix(typ, "[]") ||
+			strings.HasPrefix(typ, "map[") ||
+			strings.HasPrefix(typ, "func(") {
+			return "nil", false
+		}
+		// otherwise, generate a variable name like "myTypeRetVal"
+		// that will later be declared and returned as the empty value for that type.
+		varName := varNameFromType(typ + "RetVal")
+		// add suffix if multiple values of the same type are being returned
+		if suffix > 1 {
+			varName += fmt.Sprintf("%d", suffix)
+		}
+		return varName, true
+	}
+}
+
+// varNameFromType returns a variable-style name from a type name,
+// lowercasing the first letter and stripping any package prefix.
+func varNameFromType(typ string) string {
+	if typ == "" {
+		return "ret"
+	}
+	// strip package prefix if present ("pkg.Type" will become "Type")
+	if idx := strings.LastIndex(typ, "."); idx != -1 {
+		typ = typ[idx+1:]
+	}
+	// lowercase the first character of the type name
+	chars := []rune(typ)
+	chars[0] = unicode.ToLower(chars[0])
+	// This return is a valid Go variable name to be used as an empty return value
+	// when a literal zero value isn't available.
+	return string(chars)
+}
+
+// formatNotImplementedBody generates the Go function body for an unimplemented stub.
+// It returns zero values and a "not implemented" error according to the function's return types.
+func formatNotImplementedBody(returns []string) string {
+	switch len(returns) {
+	case 0:
+		return "\t// not implemented"
+	case 1:
+		if returns[0] == "error" {
+			return "\treturn fmt.Errorf(\"not implemented\")"
+		}
+		returnVar, needsVar := zeroValueForType(returns[0], 1)
+		if needsVar {
+			return fmt.Sprintf("\tvar %s %s\n\treturn %s", returnVar, returns[0], returnVar)
+		} else {
+			return "\treturn " + returnVar
+		}
+	default:
+		typeCount := make(map[string]int)
+		vals := make([]string, len(returns))
+		var vars []string
+		for i, r := range returns {
+			typeCount[r]++
+			returnVar, needsVar := zeroValueForType(r, typeCount[r])
+			if r == "error" {
+				vals[i] = "fmt.Errorf(\"not implemented\")"
+			} else {
+				if needsVar {
+					vars = append(vars, fmt.Sprintf("\tvar %s %s\n", returnVar, r))
+				}
+				vals[i] = returnVar
+			}
+		}
+		body := ""
+		if len(vars) > 0 {
+			body += strings.Join(vars, "\n") + "\n"
+		}
+		body += "\treturn " + strings.Join(vals, ", ")
+		return body
+	}
+}
+
+// formatEmptyFunction generates a stub method for the given receiver,
+// inserting a "not implemented" body with appropriate zero-value returns.
+func formatEmptyFunction(receiver, funcName, args string, returns []string) string {
+	returnDef := formatReturnDef(returns)
+	body := formatNotImplementedBody(returns)
+	return fmt.Sprintf("func (s *%s) %s(%s)%s {\n%s\n}\n\n", receiver, funcName, args, returnDef, body)
+}
+
+// formatEmptyFunctionWithDoc does the same as formatEmptyFunction but adds doc comment if the component interface has one.
+func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []string) string {
+	returnDef := formatReturnDef(returns)
+	body := formatNotImplementedBody(returns)
+
+	var docComment string
+	if doc != "" {
+		doc = strings.TrimSpace(doc)
+		lines := strings.Split(doc, "\n")
+		for i := range lines {
+			lines[i] = "// " + strings.TrimSpace(lines[i])
+		}
+		docComment = strings.Join(lines, "\n") + "\n"
+	}
+
+	return fmt.Sprintf("%sfunc (s *%s) %s(%s)%s {\n%s\n}\n\n", docComment, receiver, funcName, args, returnDef, body)
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
@@ -247,7 +482,15 @@ func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	if err != nil {
 		return empty, err
 	}
-	goModule, err := setGoModuleTemplate(clientCode, module)
+	resourceCode, err := getResourceCode(module)
+	if err != nil {
+		return empty, err
+	}
+	docMap, err := extractInterfaceMethodDocs(resourceCode)
+	if err != nil {
+		return empty, err
+	}
+	goModule, err := setGoModuleTemplate(clientCode, module, docMap)
 	if err != nil {
 		return empty, err
 	}

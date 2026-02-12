@@ -101,6 +101,9 @@ func readFromCache(id string) (*Config, error) {
 
 	if err := json.NewDecoder(r).Decode(unprocessedConfig); err != nil {
 		// clear the cache if we cannot parse the file.
+		if runtime.GOOS == "windows" {
+			utils.UncheckedErrorFunc(r.Close)
+		}
 		clearCache(id)
 		return nil, errors.Wrap(err, "cannot parse the cached config as json")
 	}
@@ -224,7 +227,7 @@ func readFromCloud(
 	if !cfg.Cloud.SignalingInsecure && (checkForNewCert || tls.certificate == "" || tls.privateKey == "") {
 		logger.Debug("reading tlsCertificate from the cloud")
 
-		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+		ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
 		certData, err := readCertificateDataFromCloudGRPC(ctxWithTimeout, cloudCfg, conn)
 		if err != nil {
 			cancel()
@@ -326,7 +329,6 @@ func Read(
 
 // ReadLocalConfig reads a config from the given file but does not fetch any config from the remote servers.
 func ReadLocalConfig(
-	ctx context.Context,
 	filePath string,
 	logger logging.Logger,
 ) (*Config, error) {
@@ -335,7 +337,7 @@ func ReadLocalConfig(
 		return nil, err
 	}
 
-	return fromReader(ctx, filePath, bytes.NewReader(buf), logger, nil)
+	return fromReaderLocal(filePath, bytes.NewReader(buf), logger)
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -350,14 +352,12 @@ func FromReader(
 	return fromReader(ctx, originalPath, r, logger, conn)
 }
 
-// fromReader reads a config from the given reader and specifies
+// fromReaderLocal reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
-func fromReader(
-	ctx context.Context,
+func fromReaderLocal(
 	originalPath string,
 	r io.Reader,
 	logger logging.Logger,
-	conn rpc.ClientConn,
 ) (*Config, error) {
 	// First read and process config from disk
 	unprocessedConfig := Config{
@@ -371,9 +371,45 @@ func fromReader(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to process Config")
 	}
+	return cfgFromDisk, err
+}
+
+// fromReader reads a config from the given reader and specifies
+// where, if applicable, the file the reader originated from.
+func fromReader(
+	ctx context.Context,
+	originalPath string,
+	r io.Reader,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, error) {
+	// First read and process config from disk
+	cfgFromDisk, err := fromReaderLocal(originalPath, r, logger)
+	if err != nil {
+		return nil, err
+	}
 
 	if conn != nil && cfgFromDisk.Cloud != nil {
 		cfg, err := readFromCloud(ctx, cfgFromDisk, nil, true, true, logger, conn)
+
+		// Special case: DefaultBindAddress is set from Cloud, but user has specified a non-default BindAddress in local config.
+		// Keep the BindAddress from local config, and use Cloud options for everything else.
+		// Note: DefaultBindAddress "from Cloud" is actually set with a constant in rdk.
+		if err == nil && !cfgFromDisk.Network.BindAddressDefaultSet {
+			if cfg.Network.BindAddressDefaultSet {
+				logger.CInfof(ctx, "Using cloud config, but BindAddress is specified in local config (%v) "+
+					"and not cloud config (default = %v). Using local's.",
+					cfgFromDisk.Network.BindAddress,
+					cfg.Network.BindAddress)
+				cfg.Network.BindAddress = cfgFromDisk.Network.BindAddress
+				cfg.Network.BindAddressDefaultSet = false
+			} else {
+				logger.CInfof(ctx, "Using cloud config, and BindAddress specified in both cloud config (%v) "+
+					"and local config (%v). Using cloud's. Remove BindAddress from cloud config to use local's.",
+					cfg.Network.BindAddress,
+					cfgFromDisk.Network.BindAddress)
+			}
+		}
 		return cfg, err
 	}
 
@@ -407,11 +443,12 @@ func processConfigLocalConfig(unprocessedConfig *Config, logger logging.Logger) 
 }
 
 // additionalModuleEnvVars will get additional environment variables for modules using other parts of the config.
-func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
+func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig, tracing TracingConfig) map[string]string {
 	env := make(map[string]string)
 	if cloud != nil {
 		env[rutils.PrimaryOrgIDEnvVar] = cloud.PrimaryOrgID
 		env[rutils.LocationIDEnvVar] = cloud.LocationID
+		env[rutils.MachineFQDNEnvVar] = cloud.FQDN
 		env[rutils.MachineIDEnvVar] = cloud.MachineID
 		env[rutils.MachinePartIDEnvVar] = cloud.ID
 	}
@@ -433,7 +470,16 @@ func additionalModuleEnvVars(cloud *Cloud, auth AuthConfig) map[string]string {
 		env[rutils.APIKeyIDEnvVar] = keyIDs[0]
 		env[rutils.APIKeyEnvVar] = apiKeys[keyIDs[0]]
 	}
+	if tracing.IsEnabled() {
+		env[rutils.ViamModuleTracingEnvVar] = "1"
+	}
 	return env
+}
+
+// ProcessLocalConfigForTesting invokes processConfig with fromCloud: false. To be used
+// for testing that is not in this package but needs the side effects of processConfig.
+func ProcessLocalConfigForTesting(unprocessedConfig *Config, logger logging.Logger) (*Config, error) {
+	return processConfig(unprocessedConfig, false, logger)
 }
 
 // processConfig processes the config passed in. The config can be either JSON or gRPC derived.
@@ -528,7 +574,6 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	// Look through all associated configs for a resource config and link it to the configs that each associated config is linked to
 	convertAndAssociateResourceConfigs := func(
 		resName *resource.Name,
-		remoteName *string,
 		associatedCfgs []resource.AssociatedResourceConfig,
 	) error {
 		for subIdx, associatedConf := range associatedCfgs {
@@ -545,15 +590,10 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 				}
 				// associated resource configs for local resources might be missing the resource name,
 				// which can be inferred from its resource config.
-				// associated resource configs for remote resources might be missing the remote name for the resource,
-				// which can be inferred from its remote config.
 				converted.UpdateResourceNames(func(oldName resource.Name) resource.Name {
 					newName := oldName
 					if resName != nil {
 						newName = *resName
-					}
-					if remoteName != nil {
-						newName = newName.PrependRemote(*remoteName)
 					}
 					return newName
 				})
@@ -574,7 +614,7 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 			resName := copied.ResourceName()
 
 			// convert and associate user-written associated resource configs here.
-			if err := convertAndAssociateResourceConfigs(&resName, nil, conf.AssociatedResourceConfigs); err != nil {
+			if err := convertAndAssociateResourceConfigs(&resName, conf.AssociatedResourceConfigs); err != nil {
 				return errors.Wrapf(err, "error processing associated service configs for %q", resName)
 			}
 		}
@@ -590,14 +630,14 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 
 	// associated configs can be put on resources in remotes as well, so check remote configs
 	for _, c := range cfg.Remotes {
-		if err := convertAndAssociateResourceConfigs(nil, &c.Name, c.AssociatedResourceConfigs); err != nil {
+		if err := convertAndAssociateResourceConfigs(nil, c.AssociatedResourceConfigs); err != nil {
 			return nil, errors.Wrapf(err, "error processing associated service configs for remote %q", c.Name)
 		}
 	}
 
 	// add additional environment vars to modules
 	// adding them here ensures that if the parsed API key changes, the module will be restarted with the updated environment.
-	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth)
+	env := additionalModuleEnvVars(cfg.Cloud, cfg.Auth, cfg.Tracing)
 	if len(env) > 0 {
 		for idx := 0; idx < len(cfg.Modules); idx++ {
 			cfg.Modules[idx].MergeEnvVars(env)
@@ -623,7 +663,7 @@ func getFromCloudOrCache(
 ) (*Config, bool, error) {
 	var cached bool
 
-	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID)
+	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
 	defer cancel()
 
 	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
@@ -690,14 +730,12 @@ func CreateNewGRPCClient(ctx context.Context, cloudCfg *Cloud, logger logging.Lo
 	}
 
 	dialOpts := make([]rpc.DialOption, 0, 2)
-	// Only add credentials when secret is set.
-	if cloudCfg.Secret != "" {
-		dialOpts = append(dialOpts, rpc.WithEntityCredentials(cloudCfg.ID,
-			rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotSecret,
-				Payload: cloudCfg.Secret,
-			},
-		))
+
+	cloudCreds := cloudCfg.GetCloudCredsDialOpt()
+
+	// Only add credentials when they are set.
+	if cloudCreds != nil {
+		dialOpts = append(dialOpts, cloudCreds)
 	}
 
 	if u.Scheme == "http" {

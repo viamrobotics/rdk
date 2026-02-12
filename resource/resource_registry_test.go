@@ -12,8 +12,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/motor"
+	"go.viam.com/rdk/components/motor/fake"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
@@ -28,14 +28,14 @@ var (
 
 func TestComponentRegistry(t *testing.T) {
 	logger := logging.NewTestLogger(t)
-	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (arm.Arm, error) {
-		return &fake.Arm{Named: conf.ResourceName().AsNamed()}, nil
+	rf := func(ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger) (motor.Motor, error) {
+		return &fake.Motor{Named: conf.ResourceName().AsNamed()}, nil
 	}
 	model := resource.Model{Name: "x"}
 	test.That(t, func() {
-		resource.Register(acme.API, model, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+		resource.Register(acme.API, model, resource.Registration[motor.Motor, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(acme.API, model, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
+	resource.Register(acme.API, model, resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: rf})
 
 	resInfo, ok := resource.LookupRegistration(acme.API, model)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -44,9 +44,9 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	res, err := resInfo.Constructor(context.Background(), nil, resource.Config{Name: "foo"}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	resArm, err := resource.AsType[arm.Arm](res)
+	resMotor, err := resource.AsType[motor.Motor](res)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resArm.Name().Name, test.ShouldEqual, "foo")
+	test.That(t, resMotor.Name().Name, test.ShouldEqual, "foo")
 
 	resource.Deregister(acme.API, model)
 	_, ok = resource.LookupRegistration(acme.API, model)
@@ -54,9 +54,9 @@ func TestComponentRegistry(t *testing.T) {
 
 	modelName2 := resource.DefaultServiceModel
 	test.That(t, func() {
-		resource.Register(testService.API, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{})
+		resource.Register(testService.API, modelName2, resource.Registration[motor.Motor, resource.NoNativeConfig]{})
 	}, test.ShouldPanic)
-	resource.Register(testService.API, modelName2, resource.Registration[arm.Arm, resource.NoNativeConfig]{Constructor: rf})
+	resource.Register(testService.API, modelName2, resource.Registration[motor.Motor, resource.NoNativeConfig]{Constructor: rf})
 
 	resInfo, ok = resource.LookupRegistration(testService.API, modelName2)
 	test.That(t, resInfo, test.ShouldNotBeNil)
@@ -65,9 +65,9 @@ func TestComponentRegistry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	res, err = resInfo.Constructor(context.Background(), nil, resource.Config{Name: "bar"}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	resArm, err = resource.AsType[arm.Arm](res)
+	resMotor, err = resource.AsType[motor.Motor](res)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resArm.Name().Name, test.ShouldEqual, "bar")
+	test.That(t, resMotor.Name().Name, test.ShouldEqual, "bar")
 
 	resource.Deregister(testService.API, modelName2)
 	_, ok = resource.LookupRegistration(testService.API, modelName2)
@@ -75,62 +75,63 @@ func TestComponentRegistry(t *testing.T) {
 }
 
 func TestResourceAPIRegistry(t *testing.T) {
-	var capColl resource.APIResourceCollection[arm.Arm]
+	logger := logging.NewTestLogger(t)
+	var capColl resource.APIResourceGetter[motor.Motor]
 
-	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], _ logging.Logger) interface{} {
 		capColl = apiResColl
 		return 5
 	}
-	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.Logger) (arm.Arm, error) {
+	rcf := func(_ context.Context, _ rpc.ClientConn, _ string, name resource.Name, _ logging.Logger) (motor.Motor, error) {
 		return capColl.Resource(name.ShortName())
 	}
 
 	test.That(t, func() {
-		resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
+		resource.RegisterAPI(acme.API, resource.APIRegistration[motor.Motor]{
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		})
 	}, test.ShouldPanic)
 	test.That(t, func() {
-		resource.RegisterAPIWithAssociation(acme.API, resource.APIRegistration[arm.Arm]{
+		resource.RegisterAPIWithAssociation(acme.API, resource.APIRegistration[motor.Motor]{
 			RPCServiceServerConstructor: sf,
 			RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		}, resource.AssociatedConfigRegistration[resource.AssociatedConfig]{})
 	}, test.ShouldPanic)
-	resource.RegisterAPI(acme.API, resource.APIRegistration[arm.Arm]{
+	resource.RegisterAPI(acme.API, resource.APIRegistration[motor.Motor]{
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 	})
-	apiInfo, ok, err := resource.LookupAPIRegistration[arm.Arm](acme.API)
+	apiInfo, ok, err := resource.LookupAPIRegistration[motor.Motor](acme.API)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, apiInfo, test.ShouldNotBeNil)
-	coll, err := resource.NewAPIResourceCollection(arm.API, map[resource.Name]arm.Arm{
-		arm.Named("foo"): &fake.Arm{Named: arm.Named("foo").AsNamed()},
+	coll, err := resource.NewAPIResourceCollection(motor.API, map[resource.Name]motor.Motor{
+		motor.Named("foo"): &fake.Motor{Named: motor.Named("foo").AsNamed()},
 	})
 	test.That(t, err, test.ShouldBeNil)
-	svcServer := apiInfo.RPCServiceServerConstructor(coll)
+	svcServer := apiInfo.RPCServiceServerConstructor(coll, logger)
 	test.That(t, svcServer, test.ShouldNotBeNil)
 	test.That(t, apiInfo.RPCClient, test.ShouldBeNil)
 
 	api2 := resource.APINamespace("acme2").WithComponentType(button)
-	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api2)
+	_, ok, err = resource.LookupAPIRegistration[motor.Motor](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	resource.RegisterAPI(api2, resource.APIRegistration[arm.Arm]{
+	resource.RegisterAPI(api2, resource.APIRegistration[motor.Motor]{
 		RPCServiceServerConstructor: sf,
 		RPCClient:                   rcf,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 	})
-	apiInfo, ok, err = resource.LookupAPIRegistration[arm.Arm](api2)
+	apiInfo, ok, err = resource.LookupAPIRegistration[motor.Motor](api2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
-	svcServer = apiInfo.RPCServiceServerConstructor(coll)
+	svcServer = apiInfo.RPCServiceServerConstructor(coll, logger)
 	test.That(t, svcServer, test.ShouldNotBeNil)
-	res, err := apiInfo.RPCClient(nil, nil, "", arm.Named("foo"), nil)
+	res, err := apiInfo.RPCClient(nil, nil, "", motor.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Name().Name, test.ShouldEqual, "foo")
 	test.That(t, apiInfo.RPCServiceDesc, test.ShouldEqual, &pb.RobotService_ServiceDesc)
@@ -140,32 +141,32 @@ func TestResourceAPIRegistry(t *testing.T) {
 	test.That(t, apiInfo.ReflectRPCServiceDesc, test.ShouldResemble, reflectSvcDesc)
 
 	api3 := resource.APINamespace("acme3").WithComponentType(button)
-	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
+	_, ok, err = resource.LookupAPIRegistration[motor.Motor](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	resource.RegisterAPI(api3, resource.APIRegistration[arm.Arm]{RPCClient: rcf})
-	apiInfo, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
+	resource.RegisterAPI(api3, resource.APIRegistration[motor.Motor]{RPCClient: rcf})
+	apiInfo, ok, err = resource.LookupAPIRegistration[motor.Motor](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, apiInfo, test.ShouldNotBeNil)
-	res, err = apiInfo.RPCClient(nil, nil, "", arm.Named("foo"), nil)
+	res, err = apiInfo.RPCClient(nil, nil, "", motor.Named("foo"), nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res.Name().Name, test.ShouldEqual, "foo")
 
 	api4 := resource.APINamespace("acme4").WithComponentType(button)
-	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api4)
+	_, ok, err = resource.LookupAPIRegistration[motor.Motor](api4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, func() {
-		resource.RegisterAPI(api4, resource.APIRegistration[arm.Arm]{
+		resource.RegisterAPI(api4, resource.APIRegistration[motor.Motor]{
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		})
 	}, test.ShouldPanic)
 	test.That(t, func() {
-		resource.RegisterAPIWithAssociation(api4, resource.APIRegistration[arm.Arm]{
+		resource.RegisterAPIWithAssociation(api4, resource.APIRegistration[motor.Motor]{
 			RPCServiceServerConstructor: sf,
 			RPCClient:                   rcf,
 			RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
@@ -173,7 +174,7 @@ func TestResourceAPIRegistry(t *testing.T) {
 	}, test.ShouldPanic)
 
 	resource.DeregisterAPI(api3)
-	_, ok, err = resource.LookupAPIRegistration[arm.Arm](api3)
+	_, ok, err = resource.LookupAPIRegistration[motor.Motor](api3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 }
@@ -192,7 +193,7 @@ func (st *mockAssociatedConfig) Equals(other resource.AssociatedConfig) bool {
 }
 
 func (st *mockAssociatedConfig) UpdateResourceNames(updater func(old resource.Name) resource.Name) {
-	st.capName = updater(arm.Named("foo"))
+	st.capName = updater(motor.Named("foo"))
 }
 
 func (st *mockAssociatedConfig) Link(conf *resource.Config) {
@@ -202,12 +203,12 @@ func (st *mockAssociatedConfig) Link(conf *resource.Config) {
 }
 
 func TestResourceAPIRegistryWithAssociation(t *testing.T) {
-	sf := func(apiResColl resource.APIResourceCollection[arm.Arm]) interface{} {
+	sf := func(apiResColl resource.APIResourceGetter[motor.Motor], logger logging.Logger) interface{} {
 		return nil
 	}
 
 	someName := resource.NewName(resource.APINamespace(uuid.NewString()).WithComponentType(button), "button1")
-	resource.RegisterAPIWithAssociation(someName.API, resource.APIRegistration[arm.Arm]{
+	resource.RegisterAPIWithAssociation(someName.API, resource.APIRegistration[motor.Motor]{
 		RPCServiceServerConstructor: sf,
 		RPCServiceHandler:           pb.RegisterRobotServiceHandlerFromEndpoint,
 		RPCServiceDesc:              &pb.RobotService_ServiceDesc,
@@ -219,9 +220,9 @@ func TestResourceAPIRegistryWithAssociation(t *testing.T) {
 	test.That(t, assoc.(*mockAssociatedConfig).Field1, test.ShouldEqual, "hey")
 	test.That(t, assoc.(*mockAssociatedConfig).capName, test.ShouldResemble, resource.Name{})
 	assoc.UpdateResourceNames(func(n resource.Name) resource.Name {
-		return arm.Named(n.String()) // odd but whatever
+		return motor.Named(n.String()) // odd but whatever
 	})
-	test.That(t, assoc.(*mockAssociatedConfig).capName, test.ShouldResemble, arm.Named(arm.Named("foo").String()))
+	test.That(t, assoc.(*mockAssociatedConfig).capName, test.ShouldResemble, motor.Named(motor.Named("foo").String()))
 	cfg := &resource.Config{}
 	assoc.Link(cfg)
 	test.That(t, assoc.Equals(cfg.AssociatedAttributes[assoc.(*mockAssociatedConfig).capName]), test.ShouldBeTrue)
@@ -301,9 +302,9 @@ func TestDependencyNotReadyError(t *testing.T) {
 	human := &resource.DependencyNotReadyError{"human", leg}
 
 	test.That(t, strings.Count(human.Error(), "\\"), test.ShouldEqual, 0)
-	test.That(t, human.PrettyPrint(), test.ShouldEqual, `Dependency "human" is not ready yet
-  - Because "leg" is not ready yet
-    - Because "foot" is not ready yet
-      - Because "toe" is not ready yet
-        - Because "turf toe"`)
+	test.That(t, human.PrettyPrint(), test.ShouldEqual, `Dependency human is not ready yet
+  - Because leg is not ready yet
+    - Because foot is not ready yet
+      - Because toe is not ready yet
+        - Because turf toe`)
 }

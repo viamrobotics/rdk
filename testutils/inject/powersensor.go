@@ -16,6 +16,7 @@ type PowerSensor struct {
 	PowerFunc    func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	CloseFunc    func() error
 }
 
 // NewPowerSensor returns a new injected movement sensor.
@@ -66,4 +67,15 @@ func (i *PowerSensor) Readings(ctx context.Context, cmd map[string]interface{}) 
 		return i.PowerSensor.Readings(ctx, cmd)
 	}
 	return i.ReadingsFunc(ctx, cmd)
+}
+
+// Close calls the injected Close or the real version.
+func (i *PowerSensor) Close(ctx context.Context) error {
+	if i.CloseFunc == nil {
+		if i.PowerSensor == nil {
+			return nil
+		}
+		return i.PowerSensor.Close(ctx)
+	}
+	return i.CloseFunc()
 }

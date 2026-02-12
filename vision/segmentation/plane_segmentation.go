@@ -44,8 +44,8 @@ func distance(equation [4]float64, pt r3.Vector) float64 {
 
 // pointCloudSplit return two point clouds, one with points found in a map of point positions, and the other with those not in the map.
 func pointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointCloud, pc.PointCloud, error) {
-	mapCloud := pc.New()
-	nonMapCloud := pc.New()
+	mapCloud := pc.NewBasicEmpty()
+	nonMapCloud := pc.NewBasicEmpty()
 	var err error
 	seen := make(map[r3.Vector]bool)
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
@@ -84,7 +84,7 @@ func SegmentPlaneWRTGround(ctx context.Context, cloud pc.PointCloud, nIterations
 	dstThreshold float64, normalVec r3.Vector,
 ) (pc.Plane, pc.PointCloud, error) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
-		return pc.NewEmptyPlane(), cloud, nil
+		return pc.NewEmptyPlane(pc.NewBasicEmpty()), cloud, nil
 	}
 	//nolint:gosec
 	r := rand.New(rand.NewSource(1))
@@ -132,7 +132,7 @@ func SegmentPlaneWRTGround(ctx context.Context, cloud pc.PointCloud, nIterations
 // It also returns the equation of the found plane: [0]x + [1]y + [2]z + [3] = 0.
 func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, threshold float64) (pc.Plane, pc.PointCloud, error) {
 	if cloud.Size() <= 3 { // if point cloud does not have even 3 points, return original cloud with no planes
-		return pc.NewEmptyPlane(), cloud, nil
+		return pc.NewEmptyPlane(pc.NewBasicEmpty()), cloud, nil
 	}
 	//nolint:gosec
 	r := rand.New(rand.NewSource(1))
@@ -229,8 +229,8 @@ func findBestEq(ctx context.Context, cloud pc.PointCloud, nIterations int, equat
 
 	nPoints := cloud.Size()
 
-	planeCloud := pc.NewWithPrealloc(bestInliers)
-	nonPlaneCloud := pc.NewWithPrealloc(nPoints - bestInliers)
+	planeCloud := pc.NewBasicPointCloud(bestInliers)
+	nonPlaneCloud := pc.NewBasicPointCloud(nPoints - bestInliers)
 	planeCloudCenter := r3.Vector{}
 	for i, pt := range pts {
 		dist := distance(bestEquation, pt)
@@ -404,7 +404,7 @@ func (vgps *voxelGridPlaneSegmentation) FindGroundPlane(ctx context.Context) (pc
 // one point cloud will have all the points above the plane and the other with all the points below the plane.
 // Points exactly on the plane are not included!
 func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud, pc.PointCloud, error) {
-	aboveCloud, belowCloud := pc.New(), pc.New()
+	aboveCloud, belowCloud := pc.NewBasicEmpty(), pc.NewBasicEmpty()
 	var err error
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
 		dist := plane.Distance(pt)
@@ -426,7 +426,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 
 // ThresholdPointCloudByPlane returns a pointcloud with the points less than or equal to a given distance from a given plane.
 func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold float64) (pc.PointCloud, error) {
-	thresholdCloud := pc.New()
+	thresholdCloud := pc.NewBasicEmpty()
 	var err error
 	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
 		dist := plane.Distance(pt)

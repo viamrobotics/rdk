@@ -25,64 +25,6 @@ func createTestRegistry(loggerNames []string) *Registry {
 	return manager
 }
 
-func TestValidatePattern(t *testing.T) {
-	t.Parallel()
-
-	type testCfg struct {
-		pattern string
-		isValid bool
-	}
-
-	tests := []testCfg{
-		// Valid patterns
-		{"robot_server.resource_manager", true},
-		{"robot_server.resource_manager.*", true},
-		{"robot_server.*.resource_manager", true},
-		{"robot_server.*.*", true},
-		{"*.resource_manager", true},
-		{"*", true},
-
-		// Invalid patterns
-		{"robot_server..resource_manager", false},
-		{"robot_server.resource_manager.", false},
-		{".robot_server.resource_manager", false},
-		{"robot_server.resource_manager.**", false},
-		{"robot_server.**.resource_manager", false},
-
-		// Invalid patterns with special characters
-		{"_.robot_server.resource_manager", false},
-		{"-.robot_server", false},
-		{"robot_server.-", false},
-		{"robot_server.-.resource_manager", false},
-		{"robot_server._.resource_manager", false},
-
-		// Resource pattern matching (valid patterns)
-		{"rdk.resource_manager.rdk:service:encoder/encoder1", true},
-		{"rdk.resource_manager.rdk:component:motor/motor1", true},
-		{"rdk.resource_manager.acme:*:motor/motor1", true},
-		{"rdk.resource_manager.rdk:service:navigation/test-navigation", true},
-		{"rdk.resource_manager.*:*:motor/*", true},
-		{"rdk.resource_manager.rdk:remote:/foo", true},
-
-		// Resource pattern matching (invalid patterns)
-		{"fake.rdk:service:encoder/encoder1", false},
-		{"rdk.rdk:service:encoder/encoder1 1", false},
-		{"1 rdk.rdk:service:encoder/encoder1", false},
-		{"rdk.rdk:fake:encoder/encoder1", false},
-		{"rdk.:service:encoder/encoder1", false},
-		{"rdk.rdk:service:/encoder", false},
-		{"rdk.rdk:service:encoder/", false},
-	}
-
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.pattern, func(t *testing.T) {
-			t.Parallel()
-			test.That(t, validatePattern(tc.pattern), test.ShouldEqual, tc.isValid)
-		})
-	}
-}
-
 func TestUpdateLoggerRegistry(t *testing.T) {
 	type testCfg struct {
 		loggerConfig    []LoggerPatternConfig
@@ -104,7 +46,9 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.network_traffic",
 			},
 			expectedMatches: map[string]string{
-				"rdk.resource_manager": "WARN",
+				"rdk.resource_manager":            "WARN",
+				"rdk.resource_manager.modmanager": "INFO",
+				"rdk.network_traffic":             "INFO",
 			},
 		},
 		{
@@ -138,8 +82,9 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 				"rdk.resource_manager.test_manager",
 			},
 			expectedMatches: map[string]string{
-				"rdk.resource_manager.modmanager": "ERROR",
-				"rdk.test_manager.modmanager":     "ERROR",
+				"rdk.resource_manager.modmanager":   "ERROR",
+				"rdk.test_manager.modmanager":       "ERROR",
+				"rdk.resource_manager.test_manager": "INFO",
 			},
 		},
 		{
@@ -179,18 +124,6 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 		{
 			loggerConfig: []LoggerPatternConfig{
 				{
-					Pattern: "_.*.modmanager",
-					Level:   "DEBUG",
-				},
-			},
-			loggerNames: []string{
-				"rdk.resource_manager",
-			},
-			expectedMatches: map[string]string{},
-		},
-		{
-			loggerConfig: []LoggerPatternConfig{
-				{
 					Pattern: "a.b",
 					Level:   "DEBUG",
 				},
@@ -207,8 +140,7 @@ func TestUpdateLoggerRegistry(t *testing.T) {
 	for _, tc := range tests {
 		testRegistry := createTestRegistry(tc.loggerNames)
 
-		err := testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
-		test.That(t, err, test.ShouldBeNil)
+		testRegistry.Update(tc.loggerConfig, NewLogger("error-logger"))
 		test.That(t, verifySetLevels(testRegistry, tc.expectedMatches), test.ShouldBeTrue)
 	}
 }

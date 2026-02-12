@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"go.uber.org/zap/zapcore"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
@@ -49,11 +50,11 @@ var defaultTunnelConnectionTimeout = 10 * time.Second
 // a robot.Robot as a gRPC server.
 type Server struct {
 	pb.UnimplementedRobotServiceServer
-	robot robot.Robot
+	robot robot.LocalRobot
 }
 
 // New constructs a gRPC service server for a Robot.
-func New(robot robot.Robot) pb.RobotServiceServer {
+func New(robot robot.LocalRobot) pb.RobotServiceServer {
 	return &Server{
 		robot: robot,
 	}
@@ -61,6 +62,12 @@ func New(robot robot.Robot) pb.RobotServiceServer {
 
 // Close cleanly shuts down the server.
 func (s *Server) Close() {
+}
+
+// SendTraces sends OTLP spans to be recorded by viam server. It should only be
+// called from modules.
+func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb.SendTracesResponse, error) {
+	return nil, s.robot.WriteTraceMessages(ctx, req.ResourceSpans)
 }
 
 // Tunnel tunnels traffic to/from the client from/to a specified port on the server.
@@ -296,6 +303,19 @@ func (s *Server) FrameSystemConfig(ctx context.Context, req *pb.FrameSystemConfi
 	return &pb.FrameSystemConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
+// GetPose returns the pose of a specified component in the desired frame in the robot's frame system.
+func (s *Server) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
+	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
+	if err != nil {
+		return nil, err
+	}
+	pose, err := s.robot.GetPose(ctx, req.ComponentName, req.DestinationFrame, transforms, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
+}
+
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest) (*pb.TransformPoseResponse, error) {
 	transforms, err := referenceframe.LinkInFramesFromTransformsProtobuf(req.GetSupplementalTransforms())
@@ -318,7 +338,7 @@ func (s *Server) TransformPose(ctx context.Context, req *pb.TransformPoseRequest
 // rather than having to decode and then encode every point in the PCD. Would be a considerable speed up.
 func (s *Server) TransformPCD(ctx context.Context, req *pb.TransformPCDRequest) (*pb.TransformPCDResponse, error) {
 	// transform PCD bytes to pointcloud
-	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd))
+	pc, err := pointcloud.ReadPCD(bytes.NewReader(req.PointCloudPcd), "")
 	if err != nil {
 		return nil, err
 	}
@@ -538,16 +558,30 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		result.State = pb.GetMachineStatusResponse_STATE_RUNNING
 	}
 
+	if mStatus.JobStatuses != nil {
+		if len(mStatus.JobStatuses) > 0 {
+			timeToTspb := func(t time.Time, _ int) *timestamppb.Timestamp {
+				return timestamppb.New(t)
+			}
+			if result.JobStatuses == nil {
+				result.JobStatuses = make([]*pb.JobStatus, 0, len(mStatus.JobStatuses))
+			}
+			for jobName, jobHistory := range mStatus.JobStatuses {
+				result.JobStatuses = append(result.JobStatuses, &pb.JobStatus{
+					JobName:              jobName,
+					RecentSuccessfulRuns: lo.Map(jobHistory.RecentSuccessfulRuns, timeToTspb),
+					RecentFailedRuns:     lo.Map(jobHistory.RecentFailedRuns, timeToTspb),
+				})
+			}
+		}
+	}
+
 	return &result, nil
 }
 
 // GetVersion returns version information about the robot.
 func (s *Server) GetVersion(ctx context.Context, _ *pb.GetVersionRequest) (*pb.GetVersionResponse, error) {
-	result, err := robot.Version()
-	if err != nil {
-		return nil, err
-	}
-
+	result := robot.Version
 	return &pb.GetVersionResponse{
 		Platform:   result.Platform,
 		Version:    result.Version,

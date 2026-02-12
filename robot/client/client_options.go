@@ -33,12 +33,21 @@ type robotClientOpts struct {
 	// controls whether or not sessions are disabled.
 	disableSessions bool
 
+	// enables collection of network statistics
+	withNetworkStats bool
+
 	// initialConnectionAttempts indicates the number of times to try dialing when making
 	// initial connection to a machine. Defaults to three. If set to zero or a negative
 	// value, will attempt to connect forever.
 	initialConnectionAttempts *int
 
 	modName string
+
+	// doNotWaitForRunning allows connecting to still-initializing machines
+	// without waiting for it to reach the running state. Note that robot clients
+	// in production (not in a testing environment) will already allow connecting
+	// to still-initializing machines.
+	doNotWaitForRunning bool
 }
 
 // RobotClientOption configures how we set up the connection.
@@ -121,6 +130,24 @@ func WithDisableSessions() RobotClientOption {
 func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 	return newFuncRobotClientOption(func(o *robotClientOpts) {
 		o.dialOptions = opts
+	})
+}
+
+// WithDoNotWaitForRunning returns a RobotClientOption that allows connecting to still-initializing machines
+// without waiting for it to reach the running state. Note that robot clients
+// in production (not in a testing environment) will already allow connecting
+// to still-initializing machines.
+func WithDoNotWaitForRunning() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.doNotWaitForRunning = true
+	})
+}
+
+// WithNetworkStats returns a RobotClientOption which sets the options for
+// reporting network statistics.
+func WithNetworkStats() RobotClientOption {
+	return newFuncRobotClientOption(func(o *robotClientOpts) {
+		o.withNetworkStats = true
 	})
 }
 

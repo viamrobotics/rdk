@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"math"
 	"math/rand"
 	"strings"
@@ -11,38 +12,128 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
+	"gonum.org/v1/gonum/num/dualquat"
+	"gonum.org/v1/gonum/num/quat"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
 // A Model represents a frame that can change its name, and can return itself as a ModelConfig struct.
 type Model interface {
 	Frame
-	ModelConfig() *ModelConfig
+	ModelConfig() *ModelConfigJSON
 	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
-// ModelFramer has a method that returns the kinematics information needed to build a dynamic referenceframe.
-type ModelFramer interface {
-	ModelFrame() Model
+// KinematicModelFromProtobuf returns a model from a protobuf message representing it.
+func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsResponse) (Model, error) {
+	if resp == nil {
+		return nil, errors.New("*commonpb.GetKinematicsResponse can't be nil")
+	}
+	format := resp.GetFormat()
+	data := resp.GetKinematicsData()
+
+	switch format {
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA:
+		return UnmarshalModelJSON(data, name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
+		meshMap := resp.GetMeshesByUrdfFilepath()
+		modelconf, err := UnmarshalModelXML(data, name, meshMap)
+		if err != nil {
+			return nil, err
+		}
+		return modelconf.ParseConfig(name)
+	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		fallthrough
+	default:
+		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
+			return nil, fmt.Errorf("unable to parse file of type %s", formatName)
+		}
+		return nil, fmt.Errorf("unable to parse unknown file type %d", format)
+	}
 }
 
-// SimpleModel TODO.
+// KinematicModelToProtobuf converts a model into a protobuf message version of that model.
+func KinematicModelToProtobuf(model Model) *commonpb.GetKinematicsResponse {
+	if model == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+
+	cfg := model.ModelConfig()
+	if cfg == nil || cfg.OriginalFile == nil {
+		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}
+	}
+	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
+	switch cfg.OriginalFile.Extension {
+	case "json":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
+	case "urdf":
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
+		// Extract mesh data from geometries and populate mesh map for URDF
+		resp.MeshesByUrdfFilepath = extractMeshMapFromModelConfig(cfg)
+	default:
+		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	}
+	return resp
+}
+
+// extractMeshMapFromModelConfig extracts mesh data from link geometries in a model config.
+// Returns a map of URDF file paths to proto Mesh messages.
+func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Mesh {
+	meshMap := make(map[string]*commonpb.Mesh)
+
+	// Iterate through all links and extract mesh geometries
+	for _, link := range cfg.Links {
+		if link.Geometry == nil {
+			continue
+		}
+
+		// Check if this is a mesh geometry
+		if link.Geometry.Type == spatialmath.MeshType && len(link.Geometry.MeshData) > 0 {
+			// Use the original URDF mesh path if available
+			meshPath := link.Geometry.MeshFilePath
+			if meshPath == "" {
+				// Fallback if path wasn't preserved (shouldn't happen with URDF)
+				continue
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        link.Geometry.MeshData,
+				ContentType: link.Geometry.MeshContentType,
+			}
+		}
+	}
+
+	return meshMap
+}
+
+// KinematicModelFromFile returns a model frame from a file that defines the kinematics.
+func KinematicModelFromFile(modelPath, name string) (Model, error) {
+	switch {
+	case strings.HasSuffix(modelPath, ".urdf"):
+		return ParseModelXMLFile(modelPath, name)
+	case strings.HasSuffix(modelPath, ".json"):
+		return ParseModelJSONFile(modelPath, name)
+	default:
+		return nil, errors.New("only files with .json and .urdf file extensions are supported")
+	}
+}
+
+// SimpleModel is a model that serially concatenates a list of Frames.
 type SimpleModel struct {
-	*baseFrame
+	baseFrame
 	// OrdTransforms is the list of transforms ordered from end effector to base
-	OrdTransforms []Frame
-	modelConfig   *ModelConfig
+	ordTransforms []Frame
+	modelConfig   *ModelConfigJSON
 	poseCache     sync.Map
-	lock          sync.RWMutex
 }
 
 // NewSimpleModel constructs a new model.
 func NewSimpleModel(name string) *SimpleModel {
 	return &SimpleModel{
-		baseFrame: &baseFrame{name: name},
+		baseFrame: baseFrame{name: name},
 	}
 }
 
@@ -62,25 +153,30 @@ func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 }
 
 // ModelConfig returns the ModelConfig object used to create this model.
-func (m *SimpleModel) ModelConfig() *ModelConfig {
+func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 	return m.modelConfig
+}
+
+// Hash returns a hash value for this simple model.
+func (m *SimpleModel) Hash() int {
+	h := m.hash()
+	for _, f := range m.ordTransforms {
+		h += f.Hash()
+	}
+	return h
 }
 
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	frames, err := m.inputsToFrames(inputs, false)
-	if err != nil && frames == nil {
-		return nil, err
-	}
-	return frames[0].transform, err
+	return m.InputsToTransformOpt(inputs)
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -95,11 +191,16 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 	return interp, nil
 }
 
+// OrdTransforms gets the OrdTransforms.
+func (m *SimpleModel) OrdTransforms() []Frame {
+	return m.ordTransforms
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
@@ -114,7 +215,7 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.OrdTransforms() {
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
@@ -167,27 +268,67 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 
 // DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
-	m.lock.RLock()
-	if len(m.limits) > 0 {
-		return m.limits
-	}
-	m.lock.RUnlock()
+	return m.limits
+}
 
-	limits := make([]Limit, 0, len(m.OrdTransforms))
-	for _, transform := range m.OrdTransforms {
+// SetOrdTransforms sets the ordTransforms.
+func (m *SimpleModel) SetOrdTransforms(fs []Frame) {
+	m.ordTransforms = fs
+	m.limits = []Limit{}
+	for _, transform := range m.ordTransforms {
 		if len(transform.DoF()) > 0 {
-			limits = append(limits, transform.DoF()...)
+			m.limits = append(m.limits, transform.DoF()...)
 		}
 	}
-	m.lock.Lock()
-	m.limits = limits
-	m.lock.Unlock()
-	return limits
 }
 
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.modelConfig)
+	type serialized struct {
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
+	}
+	ser := serialized{
+		Name:   m.name,
+		Model:  m.modelConfig,
+		Limits: m.limits,
+	}
+	return json.Marshal(ser)
+}
+
+// UnmarshalJSON deserializes a Model.
+func (m *SimpleModel) UnmarshalJSON(data []byte) error {
+	type serialized struct {
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model"`
+		Limits []Limit          `json:"limits"`
+	}
+	var ser serialized
+	if err := json.Unmarshal(data, &ser); err != nil {
+		return err
+	}
+
+	frameName := ser.Name
+	if frameName == "" {
+		frameName = ser.Model.Name
+	}
+
+	if ser.Model != nil {
+		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
+		if err != nil {
+			return err
+		}
+		newModel, ok := parsed.(*SimpleModel)
+		if !ok {
+			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
+		}
+		m.SetOrdTransforms(newModel.OrdTransforms())
+	}
+	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
+	m.modelConfig = ser.Model
+
+	return nil
 }
 
 // ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
@@ -204,55 +345,130 @@ func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error)
 	return frameMap, nil
 }
 
-// TODO(rb) better comment
-// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
 func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	if len(m.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
-	var err error
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
+
+	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	posIdx := 0
+
 	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		input := inputs[posIdx:dof]
 		posIdx = dof
 
-		pose, errNew := transform.Transform(input)
+		pose, err := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		if pose == nil || err != nil {
 			return nil, err
 		}
-		multierr.AppendInto(&err, errNew)
+
 		if collectAll {
 			var geometry spatialmath.Geometry
 			gf, err := transform.Geometries(input)
 			if err != nil {
 				return nil, err
 			}
-			geometries := gf.Geometries()
+
+			geometries := gf.geometries
 			if len(geometries) == 0 {
 				geometry = nil
 			} else {
 				geometry = geometries[0]
 			}
+
 			// TODO(pl): Part of the implementation for GetGeometries will require removing the single geometry restriction
 			fixedFrame, err := NewStaticFrameWithGeometry(transform.Name(), composedTransformation, geometry)
 			if err != nil {
 				return nil, err
 			}
+
 			poses = append(poses, fixedFrame.(*staticFrame))
 		}
+
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
+
 	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
 	poses = append(poses, &staticFrame{&baseFrame{"", []Limit{}}, composedTransformation, nil})
-	return poses, err
+	return poses, nil
+}
+
+// InputsToTransformOpt is like `inputsToFrames` but only returns the end effector pose. That allows
+// us to optimize away the recording of intermediate computations.
+func (m *SimpleModel) InputsToTransformOpt(inputs []Input) (spatialmath.Pose, error) {
+	if len(m.DoF()) != len(inputs) {
+		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+	}
+
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	// composedTransformation := spatialmath.NewZeroPose()
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
+	}
+	posIdx := 0
+
+	// get quaternions from the base outwards.
+	for _, transformI := range m.ordTransforms {
+		var pose spatialmath.Pose
+
+		switch transform := transformI.(type) {
+		case *staticFrame:
+			if len(transformI.DoF()) != 0 {
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 0)
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(transform.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
+			if len(transformI.DoF()) != 1 {
+				return nil, NewIncorrectDoFError(len(transformI.DoF()), 1)
+			}
+
+			if err := transform.validInputs(inputs[posIdx : posIdx+1]); err != nil {
+				return nil, err
+			}
+
+			orientation := transform.InputToOrientation(inputs[posIdx])
+			pose = &spatialmath.DualQuaternion{
+				Number: dualquat.Number{
+					Real: orientation.Quaternion(),
+				},
+			}
+
+			posIdx++
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		default:
+			dof := len(transformI.DoF()) + posIdx
+			input := inputs[posIdx:dof]
+			posIdx = dof
+
+			var err error
+			pose, err = transform.Transform(input)
+			if err != nil {
+				return nil, err
+			}
+
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		}
+	}
+
+	return &composedTransformation, nil
 }
 
 // floatsToString turns a float array into a serializable binary representation
@@ -260,7 +476,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 func floatsToString(inputs []Input) string {
 	b := make([]byte, len(inputs)*8)
 	for i, input := range inputs {
-		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input.Value))
+		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input))
 	}
 	return string(b)
 }
@@ -295,47 +511,9 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		if err != nil {
 			return nil, err
 		}
-		model.OrdTransforms = []Frame{x, y, theta, geometry}
+		model.SetOrdTransforms([]Frame{x, y, theta, geometry})
 	} else {
-		model.OrdTransforms = []Frame{x, y, geometry}
+		model.SetOrdTransforms([]Frame{x, y, geometry})
 	}
 	return model, nil
-}
-
-// ComputeOOBPosition takes a frame and a slice of Inputs and returns the cartesian position of the frame after
-// transforming it by the given inputs even when if the inputs given would violate the Limits of the frame.
-// This is performed statelessly without changing any data.
-func ComputeOOBPosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-	if inputs == nil {
-		return nil, errors.New("cannot compute position for nil joints")
-	}
-	if frame == nil {
-		return nil, errors.New("cannot compute position for nil frame")
-	}
-
-	pose, err := frame.Transform(inputs)
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
-		return nil, err
-	}
-
-	return pose, nil
-}
-
-// ComputePosition takes a frame and a slice of Inputs and returns the cartesian position of the frame.
-func ComputePosition(frame Frame, inputs []Input) (spatialmath.Pose, error) {
-	// TODO: delete this function
-	logging.Global().Warn("ComputePosition is deprecated and will be removed in a future update. Swap to Transform()")
-
-	if inputs == nil {
-		return nil, errors.New("cannot compute position for nil joints")
-	}
-	if frame == nil {
-		return nil, errors.New("cannot compute position for nil frame")
-	}
-
-	pose, err := frame.Transform(inputs)
-	if err != nil {
-		return nil, err
-	}
-	return pose, err
 }

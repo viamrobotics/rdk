@@ -1,5 +1,3 @@
-//go:build !no_cgo
-
 // Package arm contains a gRPC based arm service server.
 package arm
 
@@ -10,10 +8,10 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/arm/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/referenceframe/urdf"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -23,13 +21,15 @@ const unimplemented = "unimplemented"
 // serviceServer implements the ArmService from arm.proto.
 type serviceServer struct {
 	pb.UnimplementedArmServiceServer
-	coll resource.APIResourceCollection[Arm]
+	coll resource.APIResourceGetter[Arm]
+
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an arm gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Arm]) interface{} {
-	return &serviceServer{coll: coll}
+func NewRPCServiceServer(coll resource.APIResourceGetter[Arm], logger logging.Logger) interface{} {
+	return &serviceServer{coll: coll, logger: logger.Sublogger("arm_server")}
 }
 
 // GetEndPosition returns the position of the arm specified.
@@ -65,7 +65,10 @@ func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointP
 	if err != nil {
 		return nil, err
 	}
-	jp, err := referenceframe.JointPositionsFromInputs(arm.ModelFrame(), pos)
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
+	m, _ := arm.Kinematics(ctx)
+	jp, err := referenceframe.JointPositionsFromInputs(m, pos)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +82,8 @@ func (s *serviceServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("Move to position", "res", req.Name, "getTo", req.GetTo())
 	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(
 		ctx,
 		spatialmath.NewPoseFromProtobuf(req.GetTo()),
@@ -96,7 +101,12 @@ func (s *serviceServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), req.Positions)
+
+	s.logger.Debugw("Move to joint positions", "res", req.Name, "pos", req.Positions)
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
+	m, _ := arm.Kinematics(ctx)
+	inputs, err := referenceframe.InputsFromJointPositions(m, req.Positions)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +123,14 @@ func (s *serviceServer) MoveThroughJointPositions(
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("Move through joint positions", "res", req.Name, "pos", req.Positions)
+	// safe to ignore error because conversion function below can handle nil values and warning messages are logged from client
+	//nolint:errcheck
+	m, _ := arm.Kinematics(ctx)
 	allInputs := make([][]referenceframe.Input, 0, len(req.Positions))
 	for _, position := range req.Positions {
-		inputs, err := referenceframe.InputsFromJointPositions(arm.ModelFrame(), position)
+		inputs, err := referenceframe.InputsFromJointPositions(m, position)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +178,7 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			if err != nil {
 				return nil, err
 			}
-			model, err := parseKinematicsResponse(req.GetName(), kinematicsPbResp)
+			model, err := referenceframe.KinematicModelFromProtobuf(req.GetName(), kinematicsPbResp)
 			if err != nil {
 				return nil, err
 			}
@@ -174,15 +189,34 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 			}
 			jointPositionsPb := jointPbResp.GetPositions()
 
-			gifs, err := model.Geometries(model.InputFromProtobuf(jointPositionsPb))
+			// Joint positions are in degrees but model.Geometries expects radians, so we convert them here.
+			jointPositionsRads, err := referenceframe.InputsFromJointPositions(model, jointPositionsPb)
 			if err != nil {
 				return nil, err
 			}
-			return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(gifs.Geometries())}, nil
+			gifs, err := model.Geometries(jointPositionsRads)
+			if err != nil {
+				return nil, err
+			}
+			return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(
+				gifs.Geometries())}, nil
 		}
 		return nil, err
 	}
-	return &commonpb.GetGeometriesResponse{Geometries: spatialmath.NewGeometriesToProto(geometries)}, nil
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
+}
+
+// Get3DModels returns the 3D models of the arm.
+func (s *serviceServer) Get3DModels(ctx context.Context, req *commonpb.Get3DModelsRequest) (*commonpb.Get3DModelsResponse, error) {
+	arm, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	models, err := arm.Get3DModels(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.Get3DModelsResponse{Models: models}, nil
 }
 
 // GetKinematics returns the kinematics information associated with the arm.
@@ -191,24 +225,11 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 	if err != nil {
 		return nil, err
 	}
-	model := arm.ModelFrame()
-	if model == nil {
-		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
+	model, err := arm.Kinematics(ctx)
+	if err != nil {
+		return nil, err
 	}
-	cfg := model.ModelConfig()
-	if cfg == nil || cfg.OriginalFile == nil {
-		return &commonpb.GetKinematicsResponse{Format: commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED}, nil
-	}
-	resp := &commonpb.GetKinematicsResponse{KinematicsData: cfg.OriginalFile.Bytes}
-	switch cfg.OriginalFile.Extension {
-	case "json":
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA
-	case urdf.Extension:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	default:
-		resp.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF
-	}
-	return resp, nil
+	return referenceframe.KinematicModelToProtobuf(model), nil
 }
 
 // DoCommand receives arbitrary commands.
@@ -219,5 +240,7 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
+	s.logger.Debugw("DoCommand", "res", req.Name, "req", req)
 	return protoutils.DoFromResourceServer(ctx, arm, req)
 }

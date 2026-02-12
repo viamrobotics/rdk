@@ -1,0 +1,605 @@
+package motionplan
+
+import (
+	"context"
+	"fmt"
+	"math"
+
+	"github.com/pkg/errors"
+	"go.viam.com/utils/trace"
+
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
+)
+
+// short descriptions of constraints used in error messages.
+const (
+	linearConstraintDescription      = "linear constraint"
+	orientationConstraintDescription = "orientation constraint"
+	planarConstraintDescription      = "planar constraint"
+
+	// collision constraint descriptions used in error messages.
+	boundingRegionConstraintDescription = "bounding region constraint"
+	obstacleConstraintDescription       = "obstacle constraint"
+	selfCollisionConstraintDescription  = "self-collision constraint"
+	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+
+	defaultCollisionBufferMM = 1e-8
+	defaultMinStepCount      = 2
+)
+
+// StateFSConstraint tests whether a given robot configuration is valid
+// If the returned error is nil, the constraint is satisfied and the state is valid.
+type StateFSConstraint func(*StateFS) error
+
+// CollisionConstraintFunc tests if there is a collision
+// first return is closest target
+type CollisionConstraintFunc func(*StateFS) (float64, error)
+
+// CollisionConstraints holds the three types of collision constraints that may be active during planning.
+type CollisionConstraints struct {
+	Obstacle      CollisionConstraintFunc // moving geometries vs world obstacles
+	RobotToRobot  CollisionConstraintFunc // moving robot component vs stationary robot component
+	SelfCollision CollisionConstraintFunc // moving geometries vs themselves
+}
+
+// ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
+// planners. Including a constraint handler as an anonymous struct member allows reuse.
+type ConstraintChecker struct {
+	collisionConstraints CollisionConstraints
+	topoConstraint       StateFSConstraint
+
+	logger logging.Logger
+}
+
+// NewEmptyConstraintChecker - creates a ConstraintChecker with nothing.
+func NewEmptyConstraintChecker(logger logging.Logger) *ConstraintChecker {
+	return &ConstraintChecker{logger: logger}
+}
+
+// NewConstraintChecker - creates a ConstraintChecker with all the params.
+func NewConstraintChecker(
+	collisionBufferMM float64,
+	constraints *Constraints,
+	startPoses, goalPoses referenceframe.FrameSystemPoses,
+	fs *referenceframe.FrameSystem,
+	movingRobotGeometries, staticRobotGeometries []spatialmath.Geometry,
+	seedMap *referenceframe.LinearInputs,
+	worldState *referenceframe.WorldState,
+	logger logging.Logger,
+) (*ConstraintChecker, error) {
+	if constraints == nil {
+		// Constraints may be nil, but if a motion profile is set in planningOpts
+		// we need it to be a valid pointer to an empty struct.
+		constraints = &Constraints{}
+	}
+	handler := NewEmptyConstraintChecker(logger)
+
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometriesLinearInputs(fs, seedMap)
+	if err != nil {
+		return nil, err
+	}
+
+	obstaclesInFrame, err := worldState.ObstaclesInWorldFrame(fs, seedMap.ToFrameSystemInputs())
+	if err != nil {
+		return nil, err
+	}
+	worldGeometries := obstaclesInFrame.Geometries()
+
+	frameNames := map[string]bool{}
+	for _, fName := range fs.FrameNames() {
+		frameNames[fName] = true
+	}
+
+	allowedCollisions, err := collisionSpecifications(
+		constraints.CollisionSpecification,
+		frameSystemGeometries,
+		frameNames,
+		worldState.ObstacleNames(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// add collision constraints
+	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+		fs,
+		movingRobotGeometries,
+		staticRobotGeometries,
+		worldGeometries,
+		allowedCollisions,
+		collisionBufferMM,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	err = handler.addTopoConstraints(fs, seedMap, startPoses, goalPoses, constraints)
+	if err != nil {
+		return nil, err
+	}
+
+	return handler, nil
+}
+
+// SetCollisionConstraints set the collision constraints explicitly
+func (c *ConstraintChecker) SetCollisionConstraints(cs CollisionConstraints) {
+	c.collisionConstraints = cs
+}
+
+// addPbConstraints will add all constraints from the passed Constraint struct. This will deal with only the topological
+// constraints. It will return a bool indicating whether there are any to add.
+func (c *ConstraintChecker) addTopoConstraints(
+	fs *referenceframe.FrameSystem,
+	startCfg *referenceframe.LinearInputs,
+	fromPosesBad, toPoses referenceframe.FrameSystemPoses,
+	constraints *Constraints,
+) error {
+	if len(constraints.LinearConstraint) == 0 &&
+		len(constraints.PseudolinearConstraint) == 0 &&
+		len(constraints.OrientationConstraint) == 0 {
+		return nil
+	}
+
+	fromPoses := referenceframe.FrameSystemPoses{}
+	for f, b := range fromPosesBad {
+		g := toPoses[f]
+		if g == nil || b.Parent() == g.Parent() {
+			fromPoses[f] = b
+			continue
+		}
+		x, err := fs.Transform(startCfg, referenceframe.NewZeroPoseInFrame(f), g.Parent())
+		if err != nil {
+			return err
+		}
+		fromPoses[f] = x.(*referenceframe.PoseInFrame)
+	}
+
+	c.topoConstraint = func(state *StateFS) error {
+		for frame, toPIF := range toPoses {
+			fromPIF := fromPoses[frame]
+
+			if fromPIF.Parent() != toPIF.Parent() {
+				return fmt.Errorf("in topo constraint, from and to are in different frames %s != %s", fromPIF.Parent(), toPIF.Parent())
+			}
+
+			currPosePIF, err := state.FS.Transform(state.Configuration, referenceframe.NewZeroPoseInFrame(frame), toPIF.Parent())
+			if err != nil {
+				return err
+			}
+
+			from := fromPIF.Pose()
+			to := toPIF.Pose()
+			currPose := currPosePIF.(*referenceframe.PoseInFrame).Pose()
+
+			for _, lc := range constraints.LinearConstraint {
+				err := checkLinearConstraint(frame, lc, from, to, currPose)
+				if err != nil {
+					return err
+				}
+			}
+
+			for _, plc := range constraints.PseudolinearConstraint {
+				err := checkPseudoLinearConstraint(frame, plc, from, to, currPose)
+				if err != nil {
+					return err
+				}
+			}
+
+			for _, oc := range constraints.OrientationConstraint {
+				err := checkOrientationConstraint(frame, oc, from, to, currPose)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
+
+	return nil
+}
+
+func orientationError(prefix string, from, to, curr spatialmath.Orientation, dist, max float64) error { //nolint: revive
+	return fmt.Errorf("%s %s violated dist: %0.5f > %0.5f from: %v to: %v currPose: %v",
+		prefix, orientationConstraintDescription, dist, max,
+		from, to, curr)
+}
+
+func checkLinearConstraint(frame string, linConstraint LinearConstraint, from, to, currPose spatialmath.Pose) error {
+	linTol := linConstraint.LineToleranceMm
+	if linTol > 0 {
+		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
+		if dist > linTol {
+			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
+		}
+	}
+	orientTol := linConstraint.OrientationToleranceDegs
+	if orientTol > 0 {
+		dist := min(
+			OrientDist(from.Orientation(), currPose.Orientation()),
+			OrientDist(to.Orientation(), currPose.Orientation()))
+		if dist > orientTol {
+			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
+		}
+	}
+
+	return nil
+}
+
+func checkPseudoLinearConstraint(frame string, plinConstraint PseudolinearConstraint, from, to, currPose spatialmath.Pose) error {
+	linTol := plinConstraint.LineToleranceFactor
+	if linTol > 0 {
+		linTol *= from.Point().Distance(to.Point())
+		dist := spatialmath.DistToLineSegment(from.Point(), to.Point(), currPose.Point())
+		if dist > linTol {
+			return fmt.Errorf("%s %s violated dist: %0.2f", frame, linearConstraintDescription, dist)
+		}
+	}
+
+	orientTol := plinConstraint.OrientationToleranceFactor
+	if orientTol > 0 {
+		orientTol *= OrientDist(from.Orientation(), to.Orientation())
+		dist := min(
+			OrientDist(from.Orientation(), currPose.Orientation()),
+			OrientDist(to.Orientation(), currPose.Orientation()))
+		if dist > orientTol {
+			return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, orientTol)
+		}
+	}
+
+	return nil
+}
+
+func checkOrientationConstraint(frame string, c OrientationConstraint, from, to, currPose spatialmath.Pose) error {
+	dist := c.Distance(from.Orientation(), to.Orientation(), currPose.Orientation())
+	if dist > c.OrientationToleranceDegs {
+		return orientationError(frame, from.Orientation(), to.Orientation(), currPose.Orientation(), dist, c.OrientationToleranceDegs)
+	}
+	return nil
+}
+
+// CheckStateFSConstraints will check a given input against all FS state constraints.
+// first is closest obstacle, negative if in collision
+func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *StateFS) (float64, error) {
+	_, span := trace.StartSpan(ctx, "CheckStateFSConstraints")
+	defer span.End()
+
+	{
+		_, err := state.Geometries()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	closest := math.Inf(1)
+
+	for _, pair := range []struct {
+		name string
+		fn   CollisionConstraintFunc
+	}{
+		{obstacleConstraintDescription, c.collisionConstraints.Obstacle},
+		{robotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
+		{selfCollisionConstraintDescription, c.collisionConstraints.SelfCollision},
+	} {
+		if pair.fn == nil {
+			continue
+		}
+		d, err := pair.fn(state)
+		closest = min(closest, d)
+		if err != nil {
+			return -1, errors.Wrap(err, pair.name)
+		}
+	}
+
+	if c.topoConstraint != nil {
+		err := c.topoConstraint(state)
+		if err != nil {
+			return closest, err
+		}
+	}
+	return closest, nil
+}
+
+// InterpolateSegmentFS is a helper function which produces a list of intermediate inputs, between the start and end
+// configuration of a segment at a given resolution value.
+func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
+	// Find the frame with the most steps by calculating steps for each frame
+	maxSteps, err := segmentStepCount(ci, resolution)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create interpolated configurations for all frames
+	var interpolatedConfigurations []*referenceframe.LinearInputs
+	for i := 0; i <= maxSteps; i++ {
+		interp := float64(i) / float64(maxSteps)
+		frameConfigs := referenceframe.NewLinearInputs()
+
+		// Interpolate each frame's configuration
+		for frameName, startConfig := range ci.StartConfiguration.Items() {
+			endConfig := ci.EndConfiguration.Get(frameName)
+			frame := ci.FS.Frame(frameName)
+
+			interpConfig, err := frame.Interpolate(startConfig, endConfig, interp)
+			if err != nil {
+				return nil, err
+			}
+			frameConfigs.Put(frameName, interpConfig)
+		}
+
+		interpolatedConfigurations = append(interpolatedConfigurations, frameConfigs)
+	}
+
+	return interpolatedConfigurations, nil
+}
+
+// CheckStateConstraintsAcrossSegmentFS will interpolate the given input from the StartConfiguration to the EndConfiguration, and ensure
+// that all intermediate states as well as both endpoints satisfy all state constraints. If all constraints are satisfied, then this will
+// return `true, nil`. If any constraints fail, this will return false, and an SegmentFS representing the valid portion of the segment,
+// if any. If no part of the segment is valid, then `false, nil` is returned.
+func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
+	ctx context.Context,
+	ci *SegmentFS,
+	resolution float64,
+	checkFinal bool,
+) (*SegmentFS, error) {
+	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
+	defer span.End()
+
+	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
+	if err != nil {
+		return nil, err
+	}
+
+	var lastGood *referenceframe.LinearInputs
+
+	end := len(interpolatedConfigurations)
+	if !checkFinal {
+		end--
+	}
+	for i := 0; i < end; i++ {
+		interpConfig := interpolatedConfigurations[i]
+		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
+		closestObstacle, err := c.CheckStateFSConstraints(ctx, interpC)
+		if err != nil {
+			if i == 0 {
+				// fail on start pos
+				return nil, err
+			}
+			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
+		}
+		lastGood = interpC.Configuration
+
+		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
+		if canSkip > 0 && c.topoConstraint == nil {
+			i += canSkip
+		}
+	}
+
+	return nil, nil
+}
+
+// CreateAllCollisionConstraints -.
+func CreateAllCollisionConstraints(
+	fs *referenceframe.FrameSystem,
+	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
+	allowedCollisions []Collision,
+	collisionBufferMM float64,
+) (CollisionConstraints, error) {
+	var constraints CollisionConstraints
+
+	if len(worldGeometries) > 0 {
+		// create constraint to keep moving geometries from hitting world state obstacles
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingRobotGeometries,
+			worldGeometries,
+			allowedCollisions,
+			collisionBufferMM,
+			false,
+		)
+		if err != nil {
+			return CollisionConstraints{}, err
+		}
+		constraints.Obstacle = obstacleConstraintFS
+	}
+
+	if len(staticRobotGeometries) > 0 {
+		robotConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingRobotGeometries,
+			staticRobotGeometries,
+			allowedCollisions,
+			collisionBufferMM,
+			false,
+		)
+		if err != nil {
+			return CollisionConstraints{}, err
+		}
+		constraints.RobotToRobot = robotConstraintFS
+	}
+
+	// create constraint to keep moving geometries from hitting themselves
+	if len(movingRobotGeometries) > 1 {
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingRobotGeometries,
+			movingRobotGeometries,
+			allowedCollisions,
+			collisionBufferMM,
+			true,
+		)
+		if err != nil {
+			return CollisionConstraints{}, err
+		}
+		constraints.SelfCollision = selfCollisionConstraintFS
+	}
+	return constraints, nil
+}
+
+// NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
+// which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
+// outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
+func NewCollisionConstraintFS(
+	fs *referenceframe.FrameSystem,
+	moving, static []spatialmath.Geometry,
+	collisionSpecifications []Collision,
+	collisionBufferMM float64,
+	isSelfCollision bool,
+) (CollisionConstraintFunc, error) {
+	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
+		collisionSpecifications, collisionBufferMM)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build a label set for filtering frame system geometries to only those in `moving`
+	movingLabels := map[string]bool{}
+	for _, g := range moving {
+		movingLabels[g.Label()] = true
+	}
+
+	// create constraint from reference collision graph
+	constraint := func(state *StateFS) (float64, error) {
+		// Use FrameSystemGeometries to get all geometries in the frame system
+		internalGeometries, err := state.Geometries()
+		if err != nil {
+			return 0, err
+		}
+
+		// We only want to compare *moving* geometries, so we filter what we get from the framesystem against what we were passed.
+		var internalGeoms []spatialmath.Geometry
+		for _, geosInFrame := range internalGeometries {
+			if len(geosInFrame.Geometries()) > 0 {
+				if movingLabels[geosInFrame.Geometries()[0].Label()] {
+					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
+				}
+			}
+		}
+
+		// For self-collision, compare moving geometries against themselves
+		staticToCheck := static
+		if isSelfCollision {
+			staticToCheck = internalGeoms
+		}
+
+		collisions, minDist, err := CheckCollisions(
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		if err != nil {
+			return minDist, err
+		}
+		if len(collisions) != 0 {
+			return minDist, fmt.Errorf(
+				"violation between %s and %s geometries",
+				collisions[0].name1,
+				collisions[0].name2,
+			)
+		}
+		return minDist, nil
+	}
+	return constraint, nil
+}
+
+func computeInitialCollisionsToIgnore(
+	fs *referenceframe.FrameSystem,
+	group1, group2 []spatialmath.Geometry,
+	collisionSpecifications []Collision,
+	collisionBufferMM float64,
+) ([]Collision, error) {
+	// Geometries in collision at move start should thereafter be ignored
+	initialCollisions, _, err := CheckCollisions(
+		group1, group2, collisionSpecifications, collisionBufferMM, true)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add collision specifications
+	initialCollisions = append(initialCollisions, collisionSpecifications...)
+
+	// Add coparented static frames that could never be brought into collision
+	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
+
+	return initialCollisions, nil
+}
+
+func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
+	skipList := []Collision{}
+
+	for _, g1 := range group1 {
+		g1Name := g1.Label()
+		for _, g2 := range group2 {
+			g2Name := g2.Label()
+			if g1Name == g2Name {
+				continue
+			}
+
+			x := fs.Frame(g1Name)
+			y := fs.Frame(g2Name)
+
+			if x == nil || y == nil {
+				// Geometry not in frame system (e.g. internal to a component), must check for collision
+				continue
+			}
+
+			xFirstMoving := firstMovingParentOrself(fs, x)
+			yFirstMoving := firstMovingParentOrself(fs, y)
+
+			if xFirstMoving == yFirstMoving {
+				skipList = append(skipList, Collision{name1: g1Name, name2: g2Name})
+			}
+		}
+	}
+	return skipList
+}
+
+// Computes the quantity of intermediate constraint check steps that should be performed across a segment
+func segmentStepCount(ci *SegmentFS, resolution float64) (int, error) {
+	// Find the frame with the most steps by calculating steps for each frame
+	maxSteps := defaultMinStepCount
+	for frameName, startConfig := range ci.StartConfiguration.Items() {
+		if len(startConfig) == 0 {
+			// No need to interpolate 0dof frames
+			continue
+		}
+		endConfig := ci.EndConfiguration.Get(frameName)
+		if endConfig == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
+		}
+
+		// Get frame from FrameSystem
+		frame := ci.FS.Frame(frameName)
+		if frame == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
+		}
+
+		// Calculate positions for this frame's start and end configs
+		startPos, err := frame.Transform(startConfig)
+		if err != nil {
+			return -1, err
+		}
+		endPos, err := frame.Transform(endConfig)
+		if err != nil {
+			return -1, err
+		}
+
+		// Compute joint step size from the largest limit range, divided by 1000
+		jointStepSize := jointStepSizeFromLimits(frame.DoF())
+
+		maxSteps = max(maxSteps, CalculateStepCount(startPos, endPos, resolution))
+		maxSteps = max(maxSteps, calculateJointStepCount(startConfig, endConfig, jointStepSize))
+	}
+	return maxSteps, nil
+}
+
+// jointStepSizeFromLimits computes the joint step size as 1/1000 of the largest limit range.
+func jointStepSizeFromLimits(limits []referenceframe.Limit) float64 {
+	var maxRange float64
+
+	for _, limit := range limits {
+		_, _, r := limit.GoodLimits()
+		maxRange = max(maxRange, r)
+	}
+	return maxRange / 1000
+}

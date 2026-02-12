@@ -18,18 +18,25 @@ import (
 	"sync/atomic"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
-	"go.opencensus.io/trace"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/propagation"
+	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
+	"go.viam.com/utils/trace"
 	"goji.io"
 	"goji.io/pat"
 	googlegrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -37,6 +44,7 @@ import (
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
 	grpcserver "go.viam.com/rdk/robot/server"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
@@ -47,10 +55,7 @@ import (
 const (
 	SubtypeName = "web"
 	// TCPParentPort is the port of the parent socket when VIAM_TCP_MODE is set.
-	TCPParentPort = 14998
-	// TestTCPParentPort is the test suite version of TCPParentPort. It's different to avoid
-	// collisions; it's listed here for documentation.
-	TestTCPParentPort = 14999
+	TCPParentPort = 0
 )
 
 // API is the fully qualified API for the internal web service.
@@ -76,7 +81,7 @@ type Service interface {
 	Address() string
 
 	// Returns the unix socket path the module server listens on.
-	ModuleAddress() string
+	ModuleAddresses() config.ParentSockAddrs
 
 	Stats() any
 
@@ -85,20 +90,31 @@ type Service interface {
 	ModPeerConnTracker() *grpc.ModPeerConnTracker
 }
 
+// resourceGetterForAPI is a type adapter that allows [robot.LocalRobot] to be used
+// as a [resource.APIResourceGetter] for a provided [resource.API] type.
+type resourceGetterForAPI struct {
+	api   resource.API
+	robot robot.LocalRobot
+}
+
+func (r resourceGetterForAPI) Resource(name string) (resource.Resource, error) {
+	return r.robot.FindBySimpleNameAndAPI(name, r.api)
+}
+
 type webService struct {
 	resource.Named
 
-	mu        sync.Mutex
-	r         robot.Robot
-	rpcServer rpc.Server
-	modServer rpc.Server
+	mu            sync.Mutex
+	r             robot.LocalRobot
+	rpcServer     rpc.Server
+	unixModServer rpc.Server
+	tcpModServer  rpc.Server
 
 	// Will be nil on non-cgo builds.
 	streamServer *webstream.Server
-	services     map[resource.API]resource.APIResourceCollection[resource.Resource]
 	opts         options
 	addr         string
-	modAddr      string
+	modAddrs     config.ParentSockAddrs
 	logger       logging.Logger
 	cancelCtx    context.Context
 	cancelFunc   func()
@@ -108,6 +124,26 @@ type webService struct {
 
 	requestCounter     RequestCounter
 	modPeerConnTracker *grpc.ModPeerConnTracker
+}
+
+// New returns a new web service for the given robot.
+func New(r robot.LocalRobot, logger logging.Logger, opts ...Option) Service {
+	var wOpts options
+	for _, opt := range opts {
+		opt.apply(&wOpts)
+	}
+	webSvc := &webService{
+		Named:              InternalServiceName.AsNamed(),
+		r:                  r,
+		logger:             logger,
+		rpcServer:          nil,
+		streamServer:       nil,
+		modPeerConnTracker: grpc.NewModPeerConnTracker(),
+		opts:               wOpts,
+		requestCounter:     RequestCounter{logger: logger},
+	}
+	webSvc.requestCounter.ensureLimit()
+	return webSvc
 }
 
 var internalWebServiceName = resource.NewName(
@@ -157,6 +193,7 @@ func RunWeb(ctx context.Context, r robot.LocalRobot, o weboptions.Options, logge
 		return err
 	}
 	<-ctx.Done()
+	logger.Info("viam-server shutting down")
 	return ctx.Err()
 }
 
@@ -177,46 +214,69 @@ func (svc *webService) Address() string {
 }
 
 // ModuleAddress returns the unix socket path the module server is listening on.
-func (svc *webService) ModuleAddress() string {
+func (svc *webService) ModuleAddresses() config.ParentSockAddrs {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
-	return svc.modAddr
+	return svc.modAddrs
 }
 
-// StartModule starts the grpc module server.
-func (svc *webService) StartModule(ctx context.Context) error {
-	svc.mu.Lock()
-	defer svc.mu.Unlock()
-	if svc.modServer != nil {
+// returns (listener, addr, error).
+func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpMode bool) error {
+	if tcpMode && svc.tcpModServer != nil || !tcpMode && svc.unixModServer != nil {
 		return errors.New("module service already started")
+	}
+
+	// Create a viam-module-[randomString] temporary directory to store UDS sock files for
+	// modules. The parent sock file, the sock file used by modules to communicate back to
+	// viam-server, will go in here. Modules' sock files, the sock files used by viam-server
+	// to send gRPC requests, will also go here.
+	//
+	// The permissions on this directory are important. Modules sometimes run as different
+	// users than viam-server (usually through a `sudo` in their entrypoint script).
+	// Communication over sock files means that both the viam-server and module users need
+	// to have read and write access to both sides' files. Use file mode 777 (unrestricted)
+	// for this directory and 776 (mostly unrestricted) for the parent socket file created
+	// below (automatically by listening).
+	dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if err != nil {
+		return errors.WithMessage(err, "could not create module socket directory")
+	}
+	//nolint:gosec
+	err = os.Chmod(dir, 0o777)
+	if err != nil {
+		return errors.WithMessage(err, "could not update permissions on module socket directory")
 	}
 
 	var lis net.Listener
 	var addr string
-	if err := module.MakeSelfOwnedFilesFunc(func() error {
-		dir, err := rutils.PlatformMkdirTemp("", "viam-module-*")
+	if tcpMode {
+		addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
+		lis, err = net.Listen("tcp", addr)
 		if err != nil {
-			return errors.WithMessage(err, "module startup failed")
+			return errors.WithMessage(err, "failed to listen over TCP")
 		}
-
-		if rutils.ViamTCPSockets() {
-			addr = "127.0.0.1:" + strconv.Itoa(TCPParentPort)
-			lis, err = net.Listen("tcp", addr)
-		} else {
-			addr, err = module.CreateSocketAddress(dir, "parent")
-			if err != nil {
-				return errors.WithMessage(err, "module startup failed")
-			}
-			lis, err = net.Listen("unix", addr)
-		}
+	} else {
+		addr, err = module.CreateSocketAddress(dir, "parent")
 		if err != nil {
-			return errors.WithMessage(err, "failed to listen")
+			return errors.WithMessage(err, "could not create filepath for parent socket")
 		}
-		svc.modAddr = addr
-		return nil
-	}); err != nil {
-		return err
+		lis, err = net.Listen("unix", addr)
+		if err != nil {
+			return errors.WithMessage(err, "failed to listen over UDS")
+		}
+		//nolint:gosec
+		err = os.Chmod(addr, 0o776)
+		if err != nil {
+			return errors.WithMessage(err, "could not update permissions on parent socket")
+		}
 	}
+
+	if tcpMode {
+		svc.modAddrs.TCPAddr = lis.Addr().String()
+	} else {
+		svc.modAddrs.UnixAddr = addr
+	}
+
 	var (
 		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
 		streamInterceptors []googlegrpc.StreamServerInterceptor
@@ -227,32 +287,69 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	// Attach the module name (as defined by the robot config) to the handler context. Can be
 	// accessed via `grpc.GetModuleName`.
 	unaryInterceptors = append(unaryInterceptors, svc.modPeerConnTracker.ModInfoUnaryServerInterceptor)
+
+	// Attach the Viam client info to the handler context. Can be accessed via
+	// client.GetViamClientInfo. Helpful for seeing the language, SDK version, and API
+	// version of the module.
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
+
+	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
+	// request manages to cause an internal panic.
+	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%v", p)
+			svc.logger.Errorw("panicked while calling unary server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
+	streamInterceptors = append(streamInterceptors, grpc_recovery.StreamServerInterceptor(grpc_recovery.WithRecoveryHandler(
+		grpc_recovery.RecoveryHandlerFunc(func(p interface{}) error {
+			err := status.Errorf(codes.Internal, "%s", p)
+			svc.logger.Errorw("panicked while calling stream server method for module request", "error", errors.WithStack(err))
+			return err
+		}))))
 
 	opManager := svc.r.OperationManager()
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+
 	// TODO(PRODUCT-343): Add session manager interceptors
 
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+
+	// MaxRecvMsgSize and MaxSendMsgSize by default are 4 MB & MaxInt32 (2.1 GB)
 	opts := []googlegrpc.ServerOption{
+		googlegrpc.MaxRecvMsgSize(rpc.MaxMessageSize),
 		googlegrpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		googlegrpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		googlegrpc.UnknownServiceHandler(svc.foreignServiceHandler),
+		googlegrpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             rpc.KeepAliveTime / 2, // keep this in sync with goutils' rpc/dialer & server.
+			PermitWithoutStream: true,
+		}),
+		googlegrpc.StatsHandler(otelStatsHandler),
 	}
-	svc.modServer = module.NewServer(opts...)
-	if err := svc.modServer.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
+	server := module.NewServer(opts...)
+	if tcpMode {
+		svc.tcpModServer = server
+	} else {
+		svc.unixModServer = server
+	}
+	if err := server.RegisterServiceServer(ctx, &pb.RobotService_ServiceDesc, grpcserver.New(svc.r)); err != nil {
 		return err
 	}
 
-	if err := svc.initStreamServerForModule(ctx); err != nil {
+	if err := svc.initStreamServer(ctx, server); err != nil {
 		return err
 	}
 
-	if err := svc.initAPIResourceCollections(ctx, true); err != nil {
-		return err
-	}
-	if err := svc.refreshResources(); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, server); err != nil {
 		return err
 	}
 
@@ -260,81 +357,35 @@ func (svc *webService) StartModule(ctx context.Context) error {
 	utils.PanicCapturingGo(func() {
 		defer svc.modWorkers.Done()
 		svc.logger.Debugw("module server listening", "socket path", lis.Addr())
-		defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(filepath.Dir(addr)) })
-		if err := svc.modServer.Serve(lis); err != nil {
+		defer func() {
+			// tcpMode starts listening on a port, not a socket file, so no need to remove.
+			if !tcpMode {
+				err := os.RemoveAll(filepath.Dir(addr))
+				if err != nil {
+					svc.logger.Debugf("RemoveAll failed: %v", err)
+				}
+			}
+		}()
+		if err := server.Serve(lis); err != nil {
 			svc.logger.Errorw("failed to serve module service", "error", err)
 		}
 	})
 	return nil
 }
 
-func (svc *webService) refreshResources() error {
-	resources := make(map[resource.Name]resource.Resource)
-	for _, name := range svc.r.ResourceNames() {
-		resource, err := svc.r.ResourceByName(name)
-		if err != nil {
-			continue
-		}
-		resources[name] = resource
-	}
-	return svc.updateResources(resources)
-}
+// StartModule starts the grpc module server. If unix sockets are supported, we start both a unix socket server and a TCP server.
+func (svc *webService) StartModule(ctx context.Context) error {
+	svc.mu.Lock()
+	defer svc.mu.Unlock()
 
-// updateResources gets every existing resource on the robot's resource graph and updates ResourceAPICollection object
-// with the correct resources, include deleting ones which have been removed from the resource graph.
-func (svc *webService) updateResources(resources map[resource.Name]resource.Resource) error {
-	groupedResources := make(map[resource.API]map[resource.Name]resource.Resource)
-	for n, v := range resources {
-		r, ok := groupedResources[n.API]
-		if !ok {
-			r = make(map[resource.Name]resource.Resource)
-		}
-		r[n] = v
-		groupedResources[n.API] = r
-	}
-
-	// For a given API that the web service has resources for, we get the new set of resources we should be updated with.
-	// If we find a set of resources, `coll.ReplaceAll` will do the work of adding any new resources and deleting old ones.
-	//
-	// If there are no input resources of the given API, we call `coll.ReplaceAll` with an empty input such that it will
-	// remove any existing resources.
-	for api, coll := range svc.services {
-		group, ok := groupedResources[api]
-		if !ok {
-			// create an empty map of resources if one does not exist
-			group = make(map[resource.Name]resource.Resource)
-		}
-		if err := coll.ReplaceAll(group); err != nil {
+	if use, reason := rutils.OnlyUseViamTCPSockets(); use {
+		svc.logger.Infow("Not starting unix socket grpc module server", "reason", reason)
+	} else {
+		if err := svc.startProtocolModuleParentServer(ctx, false); err != nil {
 			return err
 		}
-		delete(groupedResources, api)
 	}
-
-	// If there are any groupedResources remaining, check if they are registered/internal/remote.
-	//  * Custom APIs are registered and do not have a dedicated gRPC service as requests for them are routed through the
-	//    foreignServiceHandler.
-	//  * Internal services do not have an associated gRPC API and so can be safely ignored.
-	//  * Remote resources with unregistered APIs are possibly handled by the remote robot and requests would be routed through the
-	//    foreignServiceHandler.
-	for api, group := range groupedResources {
-		apiRegs := resource.RegisteredAPIs()
-		_, ok := apiRegs[api]
-		if ok {
-			// If registered, the API is most likely a custom API registered through modular resources.
-			continue
-		}
-		// Log a warning here to remind users to register their APIs.
-		if api.Type.Namespace != resource.APINamespaceRDKInternal {
-			for n := range group {
-				if !n.ContainsRemoteNames() {
-					svc.logger.Warnw(
-						"missing registration for api, resources with this API will be unreachable through a client", "api", n.API)
-					break
-				}
-			}
-		}
-	}
-	return nil
+	return svc.startProtocolModuleParentServer(ctx, true)
 }
 
 // Stop stops the main web service prior to actually closing (it leaves the module server running.)
@@ -348,6 +399,7 @@ func (svc *webService) stopWeb() {
 	if svc.cancelFunc != nil {
 		svc.cancelFunc()
 	}
+	svc.closeStreamServer()
 	svc.isRunning = false
 	svc.webWorkers.Wait()
 }
@@ -357,15 +409,17 @@ func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	svc.stopWeb()
-	var err error
-	if svc.modServer != nil {
-		err = svc.modServer.Stop()
+	var errs []error
+	for _, srv := range []rpc.Server{svc.tcpModServer, svc.unixModServer} {
+		if srv != nil {
+			errs = append(errs, srv.Stop())
+		}
 	}
 	if svc.streamServer != nil {
 		utils.UncheckedError(svc.streamServer.Close())
 	}
 	svc.modWorkers.Wait()
-	return err
+	return multierr.Combine(errs...)
 }
 
 // runWeb takes the given robot and options and runs the web server. This function will
@@ -388,7 +442,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
 	}
 
-	options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	if options.NoTLS {
+		svc.logger.Warn("disabling TLS for web server")
+		options.Secure = false
+	} else {
+		options.Secure = options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	}
 	if options.SignalingAddress == "" && !options.Secure {
 		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithInsecure())
 	}
@@ -405,6 +464,12 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	if err != nil {
 		return err
 	}
+
+	otelStatsHandler := otelgrpc.NewServerHandler(
+		otelgrpc.WithTracerProvider(trace.GetProvider()),
+		otelgrpc.WithPropagators(propagation.TraceContext{}),
+	)
+	rpcOpts = append(rpcOpts, rpc.WithStatsHandler(otelStatsHandler))
 
 	ioLogger := svc.logger.Sublogger("networking")
 	svc.rpcServer, err = rpc.NewServer(ioLogger, rpcOpts...)
@@ -425,14 +490,11 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 		return err
 	}
 
-	if err := svc.initAPIResourceCollections(ctx, false); err != nil {
-		return err
-	}
-	if err := svc.refreshResources(); err != nil {
+	if err := svc.initAPIResourceCollections(ctx, svc.rpcServer); err != nil {
 		return err
 	}
 
-	if err := svc.initStreamServer(ctx); err != nil {
+	if err := svc.initStreamServer(ctx, svc.rpcServer); err != nil {
 		return err
 	}
 
@@ -468,7 +530,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 				svc.logger.Errorw("error stopping rpc server", "error", err)
 			}
 		}()
-		svc.closeStreamServer()
 	})
 	svc.webWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -514,63 +575,6 @@ func (svc *webService) runWeb(ctx context.Context, options weboptions.Options) (
 	return err
 }
 
-// Namer is used to get a resource name from incoming requests for countingfor request. Requests for
-// resources are expected to be a gRPC object that includes a `GetName` method.
-type Namer interface {
-	GetName() string
-}
-
-// RequestCounter maps string keys to atomic ints that get bumped on every incoming gRPC request for
-// components.
-type RequestCounter struct {
-	counts sync.Map
-}
-
-// UnaryInterceptor returns an incoming server interceptor that will pull method information and
-// optionally resource information to bump the request counters.
-func (rc *RequestCounter) UnaryInterceptor(
-	ctx context.Context, req any, info *googlegrpc.UnaryServerInfo, handler googlegrpc.UnaryHandler,
-) (resp any, err error) {
-	// Handle `info.FullMethod` values such as:
-	// - `/viam.component.motor.v1.MotorService/IsMoving`
-	// - `/viam.robot.v1.RobotService/SendSessionHeartbeat`
-	//
-	// Only count component APIs, for now.
-	var apiMethod string
-	switch {
-	case strings.HasPrefix(info.FullMethod, "/viam.component."):
-		apiMethod = info.FullMethod[strings.LastIndexByte(info.FullMethod, byte('/'))+1:]
-	default:
-	}
-
-	// Storing in FTDC: `web.motor-name.IsMoving: <count>`.
-	if apiMethod != "" {
-		if namer, ok := req.(Namer); ok {
-			key := fmt.Sprintf("%v.%v", namer.GetName(), apiMethod)
-			if apiCounts, ok := rc.counts.Load(key); ok {
-				apiCounts.(*atomic.Int64).Add(1)
-			} else {
-				newCounter := new(atomic.Int64)
-				newCounter.Add(1)
-				rc.counts.Store(key, newCounter)
-			}
-		}
-	}
-
-	return handler(ctx, req)
-}
-
-// Stats satisfies the ftdc.Statser interface and will return a copy of the counters.
-func (rc *RequestCounter) Stats() any {
-	ret := make(map[string]int64)
-	rc.counts.Range(func(key, value any) bool {
-		ret[key.(string)] = value.(*atomic.Int64).Load()
-		return true
-	})
-
-	return ret
-}
-
 // RequestCounter returns the request counter object.
 func (svc *webService) RequestCounter() *RequestCounter {
 	return &svc.requestCounter
@@ -610,9 +614,16 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		rpcOpts = append(rpcOpts, rpc.WithDisableMulticastDNS())
 	}
 
-	var unaryInterceptors []googlegrpc.UnaryServerInterceptor
+	var (
+		unaryInterceptors  []googlegrpc.UnaryServerInterceptor
+		streamInterceptors []googlegrpc.StreamServerInterceptor
+	)
 	unaryInterceptors = append(unaryInterceptors, grpc.EnsureTimeoutUnaryServerInterceptor)
+
+	unaryInterceptors = append(unaryInterceptors, client.ViamClientInfoUnaryServerInterceptor)
+
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
+	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
@@ -638,8 +649,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		return nil, err
 	}
 	rpcOpts = append(rpcOpts, authOpts...)
-
-	var streamInterceptors []googlegrpc.StreamServerInterceptor
 
 	opManager := svc.r.OperationManager()
 	sessManagerInts := svc.r.SessionManager().ServerInterceptors()
@@ -749,21 +758,12 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 }
 
 // Register every API resource grpc service here.
-func (svc *webService) initAPIResourceCollections(ctx context.Context, mod bool) error {
+func (svc *webService) initAPIResourceCollections(ctx context.Context, server rpc.Server) error {
 	// TODO (RSDK-144): only register necessary services
 	apiRegs := resource.RegisteredAPIs()
-	for s, rs := range apiRegs {
-		apiResColl, ok := svc.services[s]
-		if !ok {
-			apiResColl = rs.MakeEmptyCollection()
-			svc.services[s] = apiResColl
-		}
-
-		server := svc.rpcServer
-		if mod {
-			server = svc.modServer
-		}
-		if err := rs.RegisterRPCService(ctx, server, apiResColl); err != nil {
+	for api, apiReg := range apiRegs {
+		apiGetter := resourceGetterForAPI{api, svc.r}
+		if err := apiReg.RegisterRPCService(ctx, server, apiGetter, svc.logger); err != nil {
 			return err
 		}
 	}
@@ -1041,19 +1041,28 @@ func (svc *webService) Stats() any {
 // RestartStatusResponse is the JSON response of the `restart_status` HTTP
 // endpoint.
 type RestartStatusResponse struct {
-	// RestartAllowed represents whether this instance of the viam-server can be
+	// RestartAllowed represents whether this instance of the viamserver can be
 	// safely restarted.
 	RestartAllowed bool `json:"restart_allowed"`
+	// DoesNotHandleNeedsRestart represents whether this instance of the viamserver does
+	// not check for the need to restart against app itself and, thus, needs agent to do so.
+	// Newer versions of viamserver (>= v0.9x.0) will report true for this value, while
+	// older versions won't report it at all, and agent should let viamserver handle
+	// NeedsRestart logic.
+	DoesNotHandleNeedsRestart bool `json:"does_not_handle_needs_restart,omitempty"`
+	// ModuleServerTCPAddr is the TCP address of the module server.
+	// The module server can be used for unauthenticated local RPC calls.
+	ModuleServerTCPAddr string `json:"module_server_tcp_addr,omitempty"`
 }
 
 // Handles the `/restart_status` endpoint.
 func (svc *webService) handleRestartStatus(w http.ResponseWriter, r *http.Request) {
-	localRobot, isLocal := svc.r.(robot.LocalRobot)
-	if !isLocal {
-		return
+	modAddrs := svc.ModuleAddresses()
+	response := RestartStatusResponse{
+		RestartAllowed:            svc.r.RestartAllowed(),
+		DoesNotHandleNeedsRestart: true,
+		ModuleServerTCPAddr:       modAddrs.TCPAddr,
 	}
-
-	response := RestartStatusResponse{RestartAllowed: localRobot.RestartAllowed()}
 
 	w.Header().Set("Content-Type", "application/json")
 	// Only log errors from encoding here. A failure to encode should never

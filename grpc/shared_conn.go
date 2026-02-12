@@ -101,6 +101,7 @@ func NewSharedConnForModule(grpcConn rpc.ClientConn, peerConn *webrtc.PeerConnec
 	close(pcReady)
 
 	ret := &SharedConn{
+		grpcConn:      ReconfigurableClientConn{Logger: logger},
 		peerConn:      peerConn,
 		peerConnReady: pcReady,
 		// We were passed in a ready connection. Only create this for when `Close` is called.
@@ -211,6 +212,7 @@ func (sc *SharedConn) ResetConn(conn rpc.ClientConn, moduleLogger logging.Logger
 		// we never write to the member variable, everything can continue to access this without
 		// locks.
 		sc.logger = moduleLogger.Sublogger("networking.conn")
+		sc.grpcConn.Logger = moduleLogger
 	}
 
 	// It is safe to access this without a mutex as it is only ever nil once at the beginning of the
@@ -393,7 +395,7 @@ func NewLocalPeerConnection(logger logging.Logger) (*webrtc.PeerConnection, erro
 		// Stolen from net/ip.go, `IP.String` method.
 		// Disallow non loopback addresses as this is a local peer connection
 		if p4 := ip.To4(); len(p4) == net.IPv4len && p4.IsLoopback() {
-			logger.Debugf("SetIPFilter allowing loppback ip: %s", ip.String())
+			logger.Debugf("SetIPFilter allowing loopback ip: %s", ip.String())
 			return true
 		}
 		logger.Debugf("SetIPFilter disallowing ip: %s", ip.String())

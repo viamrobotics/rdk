@@ -10,9 +10,9 @@ import (
 // DataServiceClient represents a fake instance of a data service client.
 type DataServiceClient struct {
 	datapb.DataServiceClient
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 	TabularDataByFilterFunc func(ctx context.Context, in *datapb.TabularDataByFilterRequest,
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.TabularDataByFilterResponse, error)
 	TabularDataBySQLFunc func(ctx context.Context, in *datapb.TabularDataBySQLRequest,
 		opts ...grpc.CallOption) (*datapb.TabularDataBySQLResponse, error)
@@ -26,6 +26,8 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.BinaryDataByFilterResponse, error)
 	BinaryDataByIDsFunc func(ctx context.Context, in *datapb.BinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.BinaryDataByIDsResponse, error)
+	CreateBinaryDataSignedURLFunc func(ctx context.Context, in *datapb.CreateBinaryDataSignedURLRequest,
+		opts ...grpc.CallOption) (*datapb.CreateBinaryDataSignedURLResponse, error)
 	DeleteTabularDataFunc func(ctx context.Context, in *datapb.DeleteTabularDataRequest,
 		opts ...grpc.CallOption) (*datapb.DeleteTabularDataResponse, error)
 	DeleteBinaryDataByFilterFunc func(ctx context.Context, in *datapb.DeleteBinaryDataByFilterRequest,
@@ -34,19 +36,27 @@ type DataServiceClient struct {
 		opts ...grpc.CallOption) (*datapb.DeleteBinaryDataByIDsResponse, error)
 	AddTagsToBinaryDataByIDsFunc func(ctx context.Context, in *datapb.AddTagsToBinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.AddTagsToBinaryDataByIDsResponse, error)
+	//nolint:staticcheck
 	AddTagsToBinaryDataByFilterFunc func(ctx context.Context, in *datapb.AddTagsToBinaryDataByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.AddTagsToBinaryDataByFilterResponse, error)
 	RemoveTagsFromBinaryDataByIDsFunc func(ctx context.Context, in *datapb.RemoveTagsFromBinaryDataByIDsRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveTagsFromBinaryDataByIDsResponse, error)
+	//nolint:staticcheck
 	RemoveTagsFromBinaryDataByFilterFunc func(ctx context.Context, in *datapb.RemoveTagsFromBinaryDataByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.RemoveTagsFromBinaryDataByFilterResponse, error)
+	//nolint:staticcheck
 	TagsByFilterFunc func(ctx context.Context, in *datapb.TagsByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.TagsByFilterResponse, error)
 	AddBoundingBoxToImageByIDFunc func(ctx context.Context, in *datapb.AddBoundingBoxToImageByIDRequest,
 		opts ...grpc.CallOption) (*datapb.AddBoundingBoxToImageByIDResponse, error)
 	RemoveBoundingBoxFromImageByIDFunc func(ctx context.Context, in *datapb.RemoveBoundingBoxFromImageByIDRequest,
 		opts ...grpc.CallOption) (*datapb.RemoveBoundingBoxFromImageByIDResponse, error)
+	//nolint:staticcheck
 	BoundingBoxLabelsByFilterFunc func(ctx context.Context, in *datapb.BoundingBoxLabelsByFilterRequest,
+		//nolint:staticcheck
 		opts ...grpc.CallOption) (*datapb.BoundingBoxLabelsByFilterResponse, error)
 	UpdateBoundingBoxFunc func(ctx context.Context, in *datapb.UpdateBoundingBoxRequest,
 		opts ...grpc.CallOption) (*datapb.UpdateBoundingBoxResponse, error)
@@ -62,13 +72,13 @@ type DataServiceClient struct {
 
 // TabularDataByFilter calls the injected TabularDataByFilter or the real version.
 //
-//nolint:deprecated,staticcheck
+//nolint:staticcheck
 func (client *DataServiceClient) TabularDataByFilter(ctx context.Context, in *datapb.TabularDataByFilterRequest,
 	opts ...grpc.CallOption,
-	//nolint:deprecated,staticcheck
+	//nolint:staticcheck
 ) (*datapb.TabularDataByFilterResponse, error) {
 	if client.TabularDataByFilterFunc == nil {
-		//nolint:deprecated,staticcheck
+		//nolint:staticcheck
 		return client.DataServiceClient.TabularDataByFilter(ctx, in, opts...)
 	}
 	return client.TabularDataByFilterFunc(ctx, in, opts...)
@@ -148,6 +158,16 @@ func (client *DataServiceClient) BinaryDataByIDs(ctx context.Context, in *datapb
 	return client.BinaryDataByIDsFunc(ctx, in, opts...)
 }
 
+// CreateBinaryDataSignedURL calls the injected CreateBinaryDataSignedURL or the real version.
+func (client *DataServiceClient) CreateBinaryDataSignedURL(ctx context.Context, in *datapb.CreateBinaryDataSignedURLRequest,
+	opts ...grpc.CallOption,
+) (*datapb.CreateBinaryDataSignedURLResponse, error) {
+	if client.CreateBinaryDataSignedURLFunc == nil {
+		return client.DataServiceClient.CreateBinaryDataSignedURL(ctx, in, opts...)
+	}
+	return client.CreateBinaryDataSignedURLFunc(ctx, in, opts...)
+}
+
 // DeleteTabularData calls the injected DeleteTabularData or the real version.
 func (client *DataServiceClient) DeleteTabularData(ctx context.Context, in *datapb.DeleteTabularDataRequest,
 	opts ...grpc.CallOption,
@@ -189,10 +209,14 @@ func (client *DataServiceClient) AddTagsToBinaryDataByIDs(ctx context.Context, i
 }
 
 // AddTagsToBinaryDataByFilter calls the injected AddTagsToBinaryDataByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) AddTagsToBinaryDataByFilter(ctx context.Context, in *datapb.AddTagsToBinaryDataByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.AddTagsToBinaryDataByFilterResponse, error) {
 	if client.AddTagsToBinaryDataByFilterFunc == nil {
+		//nolint:staticcheck
 		return client.DataServiceClient.AddTagsToBinaryDataByFilter(ctx, in, opts...)
 	}
 	return client.AddTagsToBinaryDataByFilterFunc(ctx, in, opts...)
@@ -210,11 +234,16 @@ func (client *DataServiceClient) RemoveTagsFromBinaryDataByIDs(ctx context.Conte
 }
 
 // RemoveTagsFromBinaryDataByFilter calls the injected RemoveTagsFromBinaryDataByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) RemoveTagsFromBinaryDataByFilter(ctx context.Context,
+	//nolint:staticcheck
 	in *datapb.RemoveTagsFromBinaryDataByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.RemoveTagsFromBinaryDataByFilterResponse, error) {
 	if client.RemoveTagsFromBinaryDataByFilterFunc == nil {
+		//nolint:staticcheck
 		return client.DataServiceClient.RemoveTagsFromBinaryDataByFilter(ctx, in, opts...)
 	}
 	return client.RemoveTagsFromBinaryDataByFilterFunc(ctx, in, opts...)
@@ -241,8 +270,11 @@ func (client *DataServiceClient) RemoveBoundingBoxFromImageByID(ctx context.Cont
 }
 
 // BoundingBoxLabelsByFilter calls the injected BoundingBoxLabelsByFilter or the real version.
+//
+//nolint:staticcheck
 func (client *DataServiceClient) BoundingBoxLabelsByFilter(ctx context.Context, in *datapb.BoundingBoxLabelsByFilterRequest,
 	opts ...grpc.CallOption,
+	//nolint:staticcheck
 ) (*datapb.BoundingBoxLabelsByFilterResponse, error) {
 	if client.BoundingBoxLabelsByFilterFunc == nil {
 		return client.DataServiceClient.BoundingBoxLabelsByFilter(ctx, in, opts...)

@@ -23,13 +23,13 @@ type Config struct {
 
 // Validate ensures that `Summer` is a non-empty string.
 // Validation error will stop the associated resource from building.
-func (cfg *Config) Validate(path string) ([]string, error) {
+func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.Summer == "" {
-		return nil, fmt.Errorf(`expected "summer" attribute for myGizmo %q`, path)
+		return nil, nil, fmt.Errorf(`expected "summer" attribute for myGizmo %q`, path)
 	}
 
 	// there are no dependencies for this model, so we return an empty list of strings
-	return []string{cfg.Summer}, nil
+	return []string{cfg.Summer}, nil, nil
 }
 
 func init() {
@@ -77,7 +77,7 @@ func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependenc
 	if err != nil {
 		return err
 	}
-	summer, err := resource.FromDependencies[summationapi.Summation](deps, summationapi.Named(gizmoConfig.Summer))
+	summer, err := resource.FromProvider[summationapi.Summation](deps, summationapi.Named(gizmoConfig.Summer))
 	if err != nil {
 		return err
 	}

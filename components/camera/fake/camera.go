@@ -61,7 +61,7 @@ func NewCamera(
 	if err != nil {
 		return nil, err
 	}
-	_, paramErr := newConf.Validate("")
+	_, _, paramErr := newConf.Validate("")
 	if paramErr != nil {
 		return nil, paramErr
 	}
@@ -111,7 +111,7 @@ func NewCamera(
 			return nil, err
 		}
 	}
-	return camera.FromVideoSource(conf.ResourceName(), src, logger), nil
+	return camera.FromVideoSource(conf.ResourceName(), src), nil
 }
 
 // Config are the attributes of the fake camera config.
@@ -124,24 +124,24 @@ type Config struct {
 }
 
 // Validate checks that the config attributes are valid for a fake camera.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	if conf.Height > 10000 || conf.Width > 10000 {
-		return nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
+		return nil, nil, errors.New("maximum supported pixel height or width for fake cameras is 10000 pixels")
 	}
 
 	if conf.Height < 0 || conf.Width < 0 {
-		return nil, errors.New("cannot use negative pixel height and width for fake cameras")
+		return nil, nil, errors.New("cannot use negative pixel height and width for fake cameras")
 	}
 
 	if conf.Height%2 != 0 {
-		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
+		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a height of %d", conf.Height)
 	}
 
 	if conf.Width%2 != 0 {
-		return nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
+		return nil, nil, fmt.Errorf("odd-number resolutions cannot be rendered, cannot use a width of %d", conf.Width)
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 var fakeIntrinsics = &transform.PinholeCameraIntrinsics{
@@ -226,11 +226,11 @@ func (c *Camera) Read(ctx context.Context) (image.Image, func(), error) {
 }
 
 // NextPointCloud always returns a pointcloud of a yellow to blue gradient, with the depth determined by the intensity of blue.
-func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *Camera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if c.cachePointCloud != nil {
 		return c.cachePointCloud, nil
 	}
-	dm := pointcloud.New()
+	dm := pointcloud.NewBasicEmpty()
 	width := float64(c.Width)
 	height := float64(c.Height)
 

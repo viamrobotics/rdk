@@ -11,16 +11,12 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
-func ConnToConnectivityStateReady(rpc.ClientConn) datasync.ConnectivityState {
-	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.Ready })
+func NoOpClientConnReady(rpc.ClientConn) rpc.ClientConn {
+	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.Ready }}
 }
 
-func connToConnectivityStateError(rpc.ClientConn) datasync.ConnectivityState {
-	return newNoOpClientConnWithConnectivity(func() connectivity.State { return connectivity.TransientFailure })
-}
-
-func newNoOpClientConnWithConnectivity(f func() connectivity.State) datasync.ConnectivityState {
-	return &noOpClientConnWithConnectivity{getStateFunc: f}
+func noOpClientConnError(rpc.ClientConn) rpc.ClientConn {
+	return &noOpClientConnWithConnectivity{getStateFunc: func() connectivity.State { return connectivity.TransientFailure }}
 }
 
 type noOpClientConnWithConnectivity struct {
@@ -59,6 +55,10 @@ func (*NoOpClientConn) Invoke(
 
 func (*NoOpClientConn) PeerConn() *webrtc.PeerConnection {
 	return nil
+}
+
+func (*NoOpClientConn) GetState() connectivity.State {
+	return connectivity.Idle
 }
 
 func (*NoOpClientConn) Close() error {

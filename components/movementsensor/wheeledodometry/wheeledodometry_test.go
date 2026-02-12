@@ -196,7 +196,7 @@ func TestValidateConfig(t *testing.T) {
 		TimeIntervalMSecs: 500,
 	}
 
-	deps, err := cfg.Validate("path")
+	deps, _, err := cfg.Validate("path")
 	expectedErr := resource.NewConfigValidationFieldRequiredError("path", "base")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
@@ -208,7 +208,7 @@ func TestValidateConfig(t *testing.T) {
 		TimeIntervalMSecs: 500,
 	}
 
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "left motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
@@ -220,7 +220,7 @@ func TestValidateConfig(t *testing.T) {
 		TimeIntervalMSecs: 500,
 	}
 
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	expectedErr = resource.NewConfigValidationFieldRequiredError("path", "right motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
@@ -232,7 +232,7 @@ func TestValidateConfig(t *testing.T) {
 		TimeIntervalMSecs: 500,
 	}
 
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	expectedErr = errors.New("mismatch number of left and right motors")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)
@@ -244,7 +244,7 @@ func TestValidateConfig(t *testing.T) {
 		TimeIntervalMSecs: 500,
 	}
 
-	deps, err = cfg.Validate("path")
+	deps, _, err = cfg.Validate("path")
 	expectedErr = errors.New("wheeled odometry only supports one left and right motor each")
 	test.That(t, err, test.ShouldBeError, expectedErr)
 	test.That(t, deps, test.ShouldBeEmpty)

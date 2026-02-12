@@ -218,7 +218,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformPointToPoint(x, y, z float6
 // ApplyRigidBodyTransform projects a 3D point in a given camera image plane and return a
 // new point cloud leaving the original unchanged.
 func (dcie *DepthColorIntrinsicsExtrinsics) ApplyRigidBodyTransform(pts pointcloud.PointCloud) (pointcloud.PointCloud, error) {
-	transformedPoints := pointcloud.New()
+	transformedPoints := pointcloud.NewBasicEmpty()
 	var err error
 	pts.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		x, y, z := dcie.TransformPointToPoint(pt.X, pt.Y, pt.Z)

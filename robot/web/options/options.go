@@ -69,6 +69,9 @@ type Options struct {
 	BakedAuthCreds  rpc.Credentials
 
 	DisableMulticastDNS bool
+
+	// If true, starts an insecure http server without TLS certificates even if one exists
+	NoTLS bool
 }
 
 // New returns a default set of options which will have the
@@ -146,10 +149,8 @@ func FromConfig(cfg *config.Config) (Options, error) {
 			},
 		})
 
-		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
-			cfg.Cloud.ID,
-			rpc.Credentials{utils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
-		)}
+		cloudCreds := cfg.Cloud.GetCloudCredsDialOpt()
+		signalingDialOpts := []rpc.DialOption{cloudCreds}
 		if cfg.Cloud.SignalingInsecure {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
 		}

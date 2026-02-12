@@ -11,7 +11,7 @@ import (
 
 func makePointCloud(t *testing.T) PointCloud {
 	t.Helper()
-	cloud := New()
+	cloud := NewBasicPointCloud(0)
 	p0 := r3.Vector{0, 0, 0}
 	test.That(t, cloud.Set(p0, nil), test.ShouldBeNil)
 	p1 := r3.Vector{1, 1, 1}
@@ -30,6 +30,76 @@ func makePointCloud(t *testing.T) PointCloud {
 	o2 := r3.Vector{2000, 2000, 2000}
 	test.That(t, cloud.Set(o2, nil), test.ShouldBeNil)
 	return cloud
+}
+
+func TestLessThan(t *testing.T) {
+	vs := kdValues{
+		treeComparableR3Vector{r3.Vector{0, 0, 0}},
+		treeComparableR3Vector{r3.Vector{1, 1, 1}},
+		treeComparableR3Vector{r3.Vector{-1.1, -1.1, -1.1}},
+		treeComparableR3Vector{r3.Vector{2, 2, 2}},
+		treeComparableR3Vector{r3.Vector{-2.2, -2.2, -2.2}},
+		treeComparableR3Vector{r3.Vector{3, 3, 3}},
+		treeComparableR3Vector{r3.Vector{-3.2, -3.2, -3.2}},
+	}
+
+	slicer := kdValuesSlicer{vs: vs}
+	test.That(t, slicer.Less(0, 1), test.ShouldBeTrue)
+	test.That(t, slicer.Less(1, 0), test.ShouldBeFalse)
+	test.That(t, slicer.Less(1, 2), test.ShouldBeTrue)
+	test.That(t, slicer.Less(2, 1), test.ShouldBeFalse)
+	test.That(t, slicer.Less(2, 3), test.ShouldBeTrue)
+	test.That(t, slicer.Less(3, 2), test.ShouldBeFalse)
+	test.That(t, slicer.Less(3, 4), test.ShouldBeTrue)
+	test.That(t, slicer.Less(4, 3), test.ShouldBeFalse)
+	test.That(t, slicer.Less(4, 5), test.ShouldBeTrue)
+	test.That(t, slicer.Less(5, 4), test.ShouldBeFalse)
+	test.That(t, slicer.Less(5, 6), test.ShouldBeTrue)
+	test.That(t, slicer.Less(6, 5), test.ShouldBeFalse)
+}
+
+func TestKDTreeNeighborFinding(t *testing.T) {
+	clusterTolerance := 20.
+
+	// Create a dense grid of points
+	points := make([]r3.Vector, 0)
+	for x := 0.0; x < 100.0; x += 5.0 {
+		for y := 0.0; y < 100.0; y += 5.0 {
+			for z := 0.0; z < 10.0; z += 5.0 {
+				points = append(points, r3.Vector{X: x, Y: y, Z: z})
+			}
+		}
+	}
+	pc := NewBasicEmpty()
+	for _, point := range points {
+		pc.Set(point, NewBasicData())
+	}
+
+	kdTree := ToKDTree(pc)
+
+	testPoints := []r3.Vector{
+		{0, 0, 0},   // Corner
+		{50, 50, 5}, // Center
+		{95, 95, 5}, // Far corner
+	}
+
+	for i, testPoint := range testPoints {
+		// Check KD-tree neighbor found count against a brute force search
+
+		neighbors := kdTree.RadiusNearestNeighbors(testPoint, clusterTolerance, true)
+
+		bruteForceCount := 0
+		for _, p := range points {
+			if testPoint.Distance(p) <= clusterTolerance {
+				bruteForceCount++
+			}
+		}
+
+		if len(neighbors) != bruteForceCount {
+			t.Errorf("Mismatch for point %d (%.1f,%.1f,%.1f): KD-tree returned %d, expected %d",
+				i, testPoint.X, testPoint.Y, testPoint.Z, len(neighbors), bruteForceCount)
+		}
+	}
 }
 
 func TestNearestNeighor(t *testing.T) {
@@ -151,7 +221,7 @@ func TestNewEmptyKDtree(t *testing.T) {
 	pt0 := r3.Vector{0, 0, 0}
 	pt1 := r3.Vector{0, 0, 1}
 	// empty tree
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	kdt := ToKDTree(pc)
 	_, _, d, got := kdt.NearestNeighbor(pt0)
 	test.That(t, got, test.ShouldBeFalse)
@@ -185,7 +255,8 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	cloud := makePointCloud(t)
 	kd := ToKDTree(cloud)
 
-	filtered, err := filter(kd)
+	filtered := NewBasicPointCloud(0)
+	err = filter(kd, filtered)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, CloudContains(filtered, 0, 0, 0), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 1, 1, 1), test.ShouldBeTrue)
@@ -196,7 +267,8 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	test.That(t, CloudContains(filtered, -3.2, -3.2, -3.2), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 2000, 2000, 2000), test.ShouldBeFalse)
 
-	filtered, err = filter(cloud)
+	filtered = NewBasicPointCloud(0)
+	err = filter(kd, filtered)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, CloudContains(filtered, 0, 0, 0), test.ShouldBeTrue)
 	test.That(t, CloudContains(filtered, 1, 1, 1), test.ShouldBeTrue)

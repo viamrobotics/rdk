@@ -119,12 +119,12 @@ type executionWaypoint struct {
 var emptyExecutionWaypoint = executionWaypoint{}
 
 // Validate creates the list of implicit dependencies.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	// Add base dependencies
 	if conf.BaseName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -143,15 +143,15 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// Ensure map_type is valid and a movement sensor is available if MapType is GPS (or default)
 	mapType, err := navigation.StringToMapType(conf.MapType)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if mapType == navigation.GPSMap && conf.MovementSensorName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "movement_sensor")
 	}
 
 	for _, obstacleDetectorPair := range conf.ObstacleDetectors {
 		if obstacleDetectorPair.VisionServiceName == "" || obstacleDetectorPair.CameraName == "" {
-			return nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
+			return nil, nil, resource.NewConfigValidationError(path, errors.New("an obstacle detector is missing either a camera or vision service"))
 		}
 		deps = append(deps, resource.NewName(vision.API, obstacleDetectorPair.VisionServiceName).String())
 		deps = append(deps, resource.NewName(camera.API, obstacleDetectorPair.CameraName).String())
@@ -159,34 +159,34 @@ func (conf *Config) Validate(path string) ([]string, error) {
 
 	// Ensure store is valid
 	if err := conf.Store.Validate(path); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Ensure inputs are non-negative
 	if conf.DegPerSec < 0 {
-		return nil, errNegativeDegPerSec
+		return nil, nil, errNegativeDegPerSec
 	}
 	if conf.MetersPerSec < 0 {
-		return nil, errNegativeMetersPerSec
+		return nil, nil, errNegativeMetersPerSec
 	}
 	if conf.PositionPollingFrequencyHz < 0 {
-		return nil, errNegativePositionPollingFrequencyHz
+		return nil, nil, errNegativePositionPollingFrequencyHz
 	}
 	if conf.ObstaclePollingFrequencyHz < 0 {
-		return nil, errNegativeObstaclePollingFrequencyHz
+		return nil, nil, errNegativeObstaclePollingFrequencyHz
 	}
 	if conf.PlanDeviationM < 0 {
-		return nil, errNegativePlanDeviationM
+		return nil, nil, errNegativePlanDeviationM
 	}
 	if conf.ReplanCostFactor < 0 {
-		return nil, errNegativeReplanCostFactor
+		return nil, nil, errNegativeReplanCostFactor
 	}
 
 	// Ensure obstacles have no translation
 	for _, obs := range conf.Obstacles {
 		for _, geoms := range obs.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errObstacleGeomWithTranslation
+				return nil, nil, errObstacleGeomWithTranslation
 			}
 		}
 	}
@@ -195,7 +195,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	for _, region := range conf.BoundingRegions {
 		for _, geoms := range region.Geometries {
 			if !geoms.TranslationOffset.ApproxEqual(r3.Vector{}) {
-				return nil, errBoundingRegionsGeomWithTranslation
+				return nil, nil, errBoundingRegionsGeomWithTranslation
 			}
 		}
 	}
@@ -203,7 +203,7 @@ func (conf *Config) Validate(path string) ([]string, error) {
 	// add framesystem service as dependency to be used by builtin and explore motion service
 	deps = append(deps, framesystem.InternalServiceName.String())
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // NewBuiltIn returns a new navigation service for the given robot.
@@ -234,7 +234,7 @@ type builtIn struct {
 	fsService            framesystem.Service
 	base                 base.Base
 	movementSensor       movementsensor.MovementSensor
-	visionServicesByName map[resource.Name]vision.Service
+	visionServicesByName map[string]vision.Service
 	motionService        motion.Service
 	obstacles            []*spatialmath.GeoGeometry
 	boundingRegions      []*spatialmath.GeoGeometry
@@ -328,37 +328,37 @@ func (svc *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	// Parse base from the configuration
-	baseComponent, err := base.FromDependencies(deps, svcConfig.BaseName)
+	baseComponent, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
 
 	// Parse motion services from the configuration
-	motionSvc, err := motion.FromDependencies(deps, motionServiceName)
+	motionSvc, err := motion.FromProvider(deps, motionServiceName)
 	if err != nil {
 		return err
 	}
 
 	var obstacleDetectorNamePairs []motion.ObstacleDetectorName
-	visionServicesByName := make(map[resource.Name]vision.Service)
+	visionServicesByName := make(map[string]vision.Service)
 	for _, pbObstacleDetectorPair := range svcConfig.ObstacleDetectors {
-		visionSvc, err := vision.FromDependencies(deps, pbObstacleDetectorPair.VisionServiceName)
+		visionSvc, err := vision.FromProvider(deps, pbObstacleDetectorPair.VisionServiceName)
 		if err != nil {
 			return err
 		}
-		camera, err := camera.FromDependencies(deps, pbObstacleDetectorPair.CameraName)
+		camera, err := camera.FromProvider(deps, pbObstacleDetectorPair.CameraName)
 		if err != nil {
 			return err
 		}
 		obstacleDetectorNamePairs = append(obstacleDetectorNamePairs, motion.ObstacleDetectorName{
-			VisionServiceName: visionSvc.Name(), CameraName: camera.Name(),
+			VisionServiceName: visionSvc.Name().Name, CameraName: camera.Name().Name,
 		})
-		visionServicesByName[visionSvc.Name()] = visionSvc
+		visionServicesByName[visionSvc.Name().Name] = visionSvc
 	}
 
 	// Parse movement sensor from the configuration if map type is GPS
 	if mapType == navigation.GPSMap {
-		movementSensor, err := movementsensor.FromDependencies(deps, svcConfig.MovementSensorName)
+		movementSensor, err := movementsensor.FromProvider(deps, svcConfig.MovementSensorName)
 		if err != nil {
 			return err
 		}
@@ -544,10 +544,10 @@ func (svc *builtIn) Close(ctx context.Context) error {
 
 func (svc *builtIn) moveToWaypoint(ctx context.Context, wp navigation.Waypoint, extra map[string]interface{}) error {
 	req := motion.MoveOnGlobeReq{
-		ComponentName:      svc.base.Name(),
+		ComponentName:      svc.base.Name().Name,
 		Destination:        wp.ToPoint(),
 		Heading:            math.NaN(),
-		MovementSensorName: svc.movementSensor.Name(),
+		MovementSensorName: svc.movementSensor.Name().Name,
 		Obstacles:          svc.obstacles,
 		MotionCfg:          svc.motionCfg,
 		BoundingRegions:    svc.boundingRegions,
@@ -669,25 +669,25 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		svc.logger.CDebugf(
 			ctx,
 			"proceeding to get detections from vision service: %s with camera: %s",
-			detector.VisionServiceName.ShortName(),
-			detector.CameraName.ShortName(),
+			detector.VisionServiceName,
+			detector.CameraName,
 		)
 
 		// get the detections
-		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName.Name, nil)
+		detections, err := visSvc.GetObjectPointClouds(ctx, detector.CameraName, nil)
 		if err != nil {
 			return nil, err
 		}
 
 		// determine transform from camera to movement sensor
 		movementsensorOrigin := referenceframe.NewPoseInFrame(svc.movementSensor.Name().ShortName(), spatialmath.NewZeroPose())
-		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName.ShortName(), nil)
+		cameraToMovementsensor, err := svc.fsService.TransformPose(ctx, movementsensorOrigin, detector.CameraName, nil)
 		if err != nil {
 			// here we make the assumption the movementsensor is coincident with the camera
 			svc.logger.CDebugf(
 				ctx,
 				"we assume the movementsensor named: %s is coincident with the camera named: %s due to err: %v",
-				svc.movementSensor.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+				svc.movementSensor.Name().Name, detector.CameraName, err.Error(),
 			)
 			cameraToMovementsensor = movementsensorOrigin
 		}
@@ -707,14 +707,14 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 		svc.logger.CDebugf(ctx, "baseToMovementSensor Pose: %v", baseToMovementSensor.Pose())
 
 		// determine transform from base to camera
-		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName.ShortName(), spatialmath.NewZeroPose())
+		cameraOrigin := referenceframe.NewPoseInFrame(detector.CameraName, spatialmath.NewZeroPose())
 		baseToCamera, err := svc.fsService.TransformPose(ctx, cameraOrigin, svc.base.Name().ShortName(), nil)
 		if err != nil {
 			// here we make the assumption the base is coincident with the camera
 			svc.logger.CDebugf(
 				ctx,
 				"we assume the base named: %s is coincident with the camera named: %s due to err: %v",
-				svc.base.Name().ShortName(), detector.CameraName.ShortName(), err.Error(),
+				svc.base.Name().ShortName(), detector.CameraName, err.Error(),
 			)
 			baseToCamera = cameraOrigin
 		}
@@ -779,7 +779,7 @@ func (svc *builtIn) Obstacles(ctx context.Context, extra map[string]interface{})
 			svc.logger.CDebugf(ctx, "obstacleGeoPose Location: %v, Heading: %v", *obstacleGeoPose.Location(), obstacleGeoPose.Heading())
 
 			// prefix the label of the geometry so we know it is transient and add extra info
-			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName.Name
+			label := "transient_" + strconv.Itoa(i) + "_" + detector.CameraName
 			if detection.Geometry.Label() != "" {
 				label += "_" + detection.Geometry.Label()
 			}
@@ -822,7 +822,7 @@ func (svc *builtIn) Paths(ctx context.Context, extra map[string]interface{}) ([]
 	}
 
 	ph, err := svc.motionService.PlanHistory(ctx, motion.PlanHistoryReq{
-		ComponentName: svc.base.Name(),
+		ComponentName: svc.base.Name().Name,
 		ExecutionID:   ewp.executionID,
 		LastPlanOnly:  true,
 	})

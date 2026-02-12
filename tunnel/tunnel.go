@@ -100,8 +100,9 @@ func ReaderSenderLoop(
 			return
 		default:
 		}
-		// copying io.Copy's default buffer size (32kb)
-		size := 32 * 1024
+		// Allow sending of "packet"s up to size 1MB. Especially useful for VNC or other
+		// protocols that send images.
+		size := 1024 * 1024
 		buf := make([]byte, size)
 		var nr int
 		nr, err = r.Read(buf)

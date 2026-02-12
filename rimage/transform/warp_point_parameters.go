@@ -51,7 +51,7 @@ func (dct *DepthColorWarpTransforms) RGBDToPointCloud(
 			dm.Width(), dm.Height(), img.Width(), img.Height())
 	}
 	// All points now in Common frame
-	pc := pointcloud.New()
+	pc := pointcloud.NewBasicEmpty()
 
 	startX, startY := 0, 0
 	endX, endY := img.Width(), img.Height()

@@ -1,0 +1,640 @@
+{
+  "frame_system": {
+    "name": "builtin",
+    "world": {
+      "frame_type": "static",
+      "frame": {
+        "id": "world",
+        "translation": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
+        "orientation": {
+          "type": "quaternion",
+          "value": {
+            "W": 1,
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          }
+        }
+      }
+    },
+    "frames": {
+      "pedastel": {
+        "frame_type": "model",
+        "frame": {
+          "name": "pedastel",
+          "model": {
+            "name": "pedastel",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 465,
+                  "y": 465,
+                  "z": 770,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "pedastel_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "pedastel_origin",
+          "translation": {
+            "X": 780,
+            "Y": 0,
+            "Z": -235
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sander-box": {
+        "frame_type": "model",
+        "frame": {
+          "name": "sander-box",
+          "model": {
+            "name": "sander-box",
+            "links": [
+              {
+                "id": "",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "quaternion",
+                  "value": {
+                    "W": 1,
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "box",
+                  "x": 250,
+                  "y": 250,
+                  "z": 200,
+                  "r": 0,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "quaternion",
+                    "value": {
+                      "W": 1,
+                      "X": 0,
+                      "Y": 0,
+                      "Z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              }
+            ],
+            "OriginalFile": null
+          },
+          "limits": []
+        }
+      },
+      "sander-box_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sander-box_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 125
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sander-edge": {
+        "frame_type": "model",
+        "frame": {
+          "name": "sander-edge",
+          "model": null,
+          "limits": []
+        }
+      },
+      "sander-edge_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sander-edge_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 250
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      },
+      "sanding-ur5": {
+        "frame_type": "model",
+        "frame": {
+          "name": "sanding-ur5",
+          "model": {
+            "name": "UR5e",
+            "kinematic_param_type": "SVA",
+            "links": [
+              {
+                "id": "base_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 162.5
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 60,
+                  "l": 260,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 130
+                  },
+                  "orientation": {
+                    "type": ""
+                  },
+                  "Label": ""
+                },
+                "parent": "world"
+              },
+              {
+                "id": "shoulder_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": null,
+                "parent": "shoulder_pan_joint"
+              },
+              {
+                "id": "upper_arm_link",
+                "translation": {
+                  "X": -425,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 65,
+                  "l": 550,
+                  "translation": {
+                    "X": -212.5,
+                    "Y": -130,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": -1,
+                      "y": 0,
+                      "z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "shoulder_lift_joint"
+              },
+              {
+                "id": "forearm_link",
+                "translation": {
+                  "X": -392.2,
+                  "Y": 0,
+                  "Z": 0
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 50,
+                  "l": 490,
+                  "translation": {
+                    "X": -196.1,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": -1,
+                      "y": 0,
+                      "z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "elbow_joint"
+              },
+              {
+                "id": "wrist_1_link",
+                "translation": {
+                  "X": 0,
+                  "Y": -133.3,
+                  "Z": 0
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 40,
+                  "l": 230,
+                  "translation": {
+                    "X": 0,
+                    "Y": -80.65,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": 0,
+                      "y": -1,
+                      "z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_1_joint"
+              },
+              {
+                "id": "wrist_2_link",
+                "translation": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": -99.7
+                },
+                "orientation": null,
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 70,
+                  "l": 0,
+                  "translation": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": 0,
+                      "y": 0,
+                      "z": -1
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_2_joint"
+              },
+              {
+                "id": "ee_link",
+                "translation": {
+                  "X": 0,
+                  "Y": -99.6,
+                  "Z": 0
+                },
+                "orientation": {
+                  "type": "ov_degrees",
+                  "value": {
+                    "th": 90,
+                    "x": 0,
+                    "y": -1,
+                    "z": 0
+                  }
+                },
+                "geometry": {
+                  "type": "",
+                  "x": 0,
+                  "y": 0,
+                  "z": 0,
+                  "r": 40,
+                  "l": 170,
+                  "translation": {
+                    "X": 0,
+                    "Y": -49.85,
+                    "Z": 0
+                  },
+                  "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                      "th": 0,
+                      "x": 0,
+                      "y": -1,
+                      "z": 0
+                    }
+                  },
+                  "Label": ""
+                },
+                "parent": "wrist_3_joint"
+              }
+            ],
+            "joints": [
+              {
+                "id": "shoulder_pan_joint",
+                "type": "revolute",
+                "parent": "base_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": 1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "shoulder_lift_joint",
+                "type": "revolute",
+                "parent": "shoulder_link",
+                "axis": {
+                  "X": 0,
+                  "Y": -1,
+                  "Z": 0
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "elbow_joint",
+                "type": "revolute",
+                "parent": "upper_arm_link",
+                "axis": {
+                  "X": 0,
+                  "Y": -1,
+                  "Z": 0
+                },
+                "max": 180,
+                "min": -180
+              },
+              {
+                "id": "wrist_1_joint",
+                "type": "revolute",
+                "parent": "forearm_link",
+                "axis": {
+                  "X": 0,
+                  "Y": -1,
+                  "Z": 0
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "wrist_2_joint",
+                "type": "revolute",
+                "parent": "wrist_1_link",
+                "axis": {
+                  "X": 0,
+                  "Y": 0,
+                  "Z": -1
+                },
+                "max": 360,
+                "min": -360
+              },
+              {
+                "id": "wrist_3_joint",
+                "type": "revolute",
+                "parent": "wrist_2_link",
+                "axis": {
+                  "X": 0,
+                  "Y": -1,
+                  "Z": 0
+                },
+                "max": 360,
+                "min": -360
+              }
+            ],
+            "OriginalFile": {
+              "Bytes": "ewogICAgIm5hbWUiOiAiVVI1ZSIsCiAgICAia2luZW1hdGljX3BhcmFtX3R5cGUiOiAiU1ZBIiwKICAgICJsaW5rcyI6IFsKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJiYXNlX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogIndvcmxkIiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgInoiOiAxNjIuNQogICAgICAgICAgICB9LAogICAgICAgICAgICAiZ2VvbWV0cnkiOiB7CiAgICAgICAgICAgICAgICAiciI6IDYwLjAsCiAgICAgICAgICAgICAgICAibCI6IDI2MC4wLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgInoiOiAxMzAuMAogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9CiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJzaG91bGRlcl9saW5rIiwKICAgICAgICAgICAgInBhcmVudCI6ICJzaG91bGRlcl9wYW5fam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAidXBwZXJfYXJtX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogInNob3VsZGVyX2xpZnRfam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IC00MjUsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfSwKICAgICAgICAgICAgImdlb21ldHJ5IjogewogICAgICAgICAgICAgICAgInIiOiA2NS4wLAogICAgICAgICAgICAgICAgImwiOiA1NTAuMCwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IC0yMTIuNSwKICAgICAgICAgICAgICAgICAgICAieSI6IC0xMzAsCiAgICAgICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgIm9yaWVudGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ0eXBlIjogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICAgICAgICAgICAgICAgIngiOiAtMSwKICAgICAgICAgICAgICAgICAgICAgICAgInkiOiAwLAogICAgICAgICAgICAgICAgICAgICAgICAieiI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ0aCI6IDAKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImZvcmVhcm1fbGluayIsCiAgICAgICAgICAgICJwYXJlbnQiOiAiZWxib3dfam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IC0zOTIuMiwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogMAogICAgICAgICAgICB9LAogICAgICAgICAgICAiZ2VvbWV0cnkiOiB7CiAgICAgICAgICAgICAgICAiciI6IDUwLjAsCiAgICAgICAgICAgICAgICAibCI6IDQ5MC4wLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogLTE5Ni4xLAogICAgICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICAib3JpZW50YXRpb24iOiB7CiAgICAgICAgICAgICAgICAgICAgInR5cGUiOiAib3ZfZGVncmVlcyIsCiAgICAgICAgICAgICAgICAgICAgInZhbHVlIjogewogICAgICAgICAgICAgICAgICAgICAgICAieCI6IC0xLAogICAgICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ6IjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgInRoIjogMAogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAid3Jpc3RfMV9saW5rIiwKICAgICAgICAgICAgInBhcmVudCI6ICJ3cmlzdF8xX2pvaW50IiwKICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAtMTMzLjMsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfSwKICAgICAgICAgICAgImdlb21ldHJ5IjogewogICAgICAgICAgICAgICAgInIiOiA0MC4wLAogICAgICAgICAgICAgICAgImwiOiAyMzAuMCwKICAgICAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgInkiOiAtODAuNjUsCiAgICAgICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgIm9yaWVudGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ0eXBlIjogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgICAgICAgICAieSI6IC0xLAogICAgICAgICAgICAgICAgICAgICAgICAieiI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ0aCI6IDAKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzJfbGluayIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMl9qb2ludCIsCiAgICAgICAgICAgICJ0cmFuc2xhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogLTk5LjcKICAgICAgICAgICAgfSwKICAgICAgICAgICAgImdlb21ldHJ5IjogewogICAgICAgICAgICAgICAgInIiOiA3MC4wLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgIm9yaWVudGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ0eXBlIjogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgICAgICJ2YWx1ZSI6IHsKICAgICAgICAgICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ6IjogLTEsCiAgICAgICAgICAgICAgICAgICAgICAgICJ0aCI6IDAKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogImVlX2xpbmsiLAogICAgICAgICAgICAicGFyZW50IjogIndyaXN0XzNfam9pbnQiLAogICAgICAgICAgICAidHJhbnNsYXRpb24iOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IC05OS42LAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJvcmllbnRhdGlvbiI6IHsKICAgICAgICAgICAgICAgICJ0eXBlIjogIm92X2RlZ3JlZXMiLAogICAgICAgICAgICAgICAgInZhbHVlIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IC0xLAogICAgICAgICAgICAgICAgICAgICJ6IjogMCwKICAgICAgICAgICAgICAgICAgICAidGgiOiA5MAogICAgICAgICAgICAgICAgfQogICAgICAgICAgICB9LAogICAgICAgICAgICAiZ2VvbWV0cnkiOiB7CiAgICAgICAgICAgICAgICAiciI6IDQwLjAsCiAgICAgICAgICAgICAgICAibCI6IDE3MC4wLAogICAgICAgICAgICAgICAgInRyYW5zbGF0aW9uIjogewogICAgICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICAgICAieSI6IC00OS44NSwKICAgICAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgICAgICAib3JpZW50YXRpb24iOiB7CiAgICAgICAgICAgICAgICAgICAgInR5cGUiOiAib3ZfZGVncmVlcyIsCiAgICAgICAgICAgICAgICAgICAgInZhbHVlIjogewogICAgICAgICAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAgICAgICAgICJ5IjogLTEsCiAgICAgICAgICAgICAgICAgICAgICAgICJ6IjogMCwKICAgICAgICAgICAgICAgICAgICAgICAgInRoIjogMAogICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQogICAgICAgIH0KICAgIF0sCiAgICAiam9pbnRzIjogWwogICAgICAgIHsKICAgICAgICAgICAgImlkIjogInNob3VsZGVyX3Bhbl9qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJiYXNlX2xpbmsiLAogICAgICAgICAgICAiYXhpcyI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogMCwKICAgICAgICAgICAgICAgICJ6IjogMQogICAgICAgICAgICB9LAogICAgICAgICAgICAibWF4IjogMzYwLAogICAgICAgICAgICAibWluIjogLTM2MAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAic2hvdWxkZXJfbGlmdF9qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJzaG91bGRlcl9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IC0xLAogICAgICAgICAgICAgICAgInoiOiAwCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJtYXgiOiAzNjAsCiAgICAgICAgICAgICJtaW4iOiAtMzYwCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJlbGJvd19qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJ1cHBlcl9hcm1fbGluayIsCiAgICAgICAgICAgICJheGlzIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAtMSwKICAgICAgICAgICAgICAgICJ6IjogMAogICAgICAgICAgICB9LAogICAgICAgICAgICAibWF4IjogMTgwLAogICAgICAgICAgICAibWluIjogLTE4MAogICAgICAgIH0sCiAgICAgICAgewogICAgICAgICAgICAiaWQiOiAid3Jpc3RfMV9qb2ludCIsCiAgICAgICAgICAgICJ0eXBlIjogInJldm9sdXRlIiwKICAgICAgICAgICAgInBhcmVudCI6ICJmb3JlYXJtX2xpbmsiLAogICAgICAgICAgICAiYXhpcyI6IHsKICAgICAgICAgICAgICAgICJ4IjogMCwKICAgICAgICAgICAgICAgICJ5IjogLTEsCiAgICAgICAgICAgICAgICAieiI6IDAKICAgICAgICAgICAgfSwKICAgICAgICAgICAgIm1heCI6IDM2MCwKICAgICAgICAgICAgIm1pbiI6IC0zNjAKICAgICAgICB9LAogICAgICAgIHsKICAgICAgICAgICAgImlkIjogIndyaXN0XzJfam9pbnQiLAogICAgICAgICAgICAidHlwZSI6ICJyZXZvbHV0ZSIsCiAgICAgICAgICAgICJwYXJlbnQiOiAid3Jpc3RfMV9saW5rIiwKICAgICAgICAgICAgImF4aXMiOiB7CiAgICAgICAgICAgICAgICAieCI6IDAsCiAgICAgICAgICAgICAgICAieSI6IDAsCiAgICAgICAgICAgICAgICAieiI6IC0xCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJtYXgiOiAzNjAsCiAgICAgICAgICAgICJtaW4iOiAtMzYwCiAgICAgICAgfSwKICAgICAgICB7CiAgICAgICAgICAgICJpZCI6ICJ3cmlzdF8zX2pvaW50IiwKICAgICAgICAgICAgInR5cGUiOiAicmV2b2x1dGUiLAogICAgICAgICAgICAicGFyZW50IjogIndyaXN0XzJfbGluayIsCiAgICAgICAgICAgICJheGlzIjogewogICAgICAgICAgICAgICAgIngiOiAwLAogICAgICAgICAgICAgICAgInkiOiAtMSwKICAgICAgICAgICAgICAgICJ6IjogMAogICAgICAgICAgICB9LAogICAgICAgICAgICAibWF4IjogMzYwLAogICAgICAgICAgICAibWluIjogLTM2MAogICAgICAgIH0KICAgIF0KfQo=",
+              "Extension": "json"
+            }
+          },
+          "limits": [
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -3.141592653589793,
+              "Max": 3.141592653589793
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            },
+            {
+              "Min": -6.283185307179586,
+              "Max": 6.283185307179586
+            }
+          ]
+        }
+      },
+      "sanding-ur5_origin": {
+        "frame_type": "tail_geometry_static",
+        "frame": {
+          "id": "sanding-ur5_origin",
+          "translation": {
+            "X": 0,
+            "Y": 0,
+            "Z": 0
+          },
+          "orientation": {
+            "type": "quaternion",
+            "value": {
+              "W": 1,
+              "X": 0,
+              "Y": 0,
+              "Z": 0
+            }
+          }
+        }
+      }
+    },
+    "parents": {
+      "pedastel": "pedastel_origin",
+      "pedastel_origin": "world",
+      "sander-box": "sander-box_origin",
+      "sander-box_origin": "sanding-ur5",
+      "sander-edge": "sander-edge_origin",
+      "sander-edge_origin": "sanding-ur5",
+      "sanding-ur5": "sanding-ur5_origin",
+      "sanding-ur5_origin": "world"
+    }
+  },
+  "goals": [
+    {
+      "poses": {
+        "sander-edge": {
+          "referenceFrame": "world",
+          "pose": {
+            "x": 580,
+            "y": 84.6,
+            "z": 150,
+            "oX": 1.2246467991473515e-16,
+            "oZ": -1
+          }
+        }
+      },
+      "configuration": null
+    }
+  ],
+  "start_state": {
+    "poses": null,
+    "configuration": {
+      "pedastel": [],
+      "pedastel_origin": [],
+      "sander-box": [],
+      "sander-box_origin": [],
+      "sander-edge": [],
+      "sander-edge_origin": [],
+      "sanding-ur5": [
+        3.060148000717163,
+        -1.364274115567543,
+        1.5666945616351529,
+        -1.7732321224608363,
+        -1.5707414785968228,
+        1.4894148111343384
+      ],
+      "sanding-ur5_origin": []
+    }
+  },
+  "world_state": {},
+  "bounding_regions": null,
+  "constraints": {
+    "linear_constraints": [],
+    "pseudolinear_constraints": [],
+    "orientation_constraints": [],
+    "collision_specifications": []
+  },
+  "planner_options": {
+    "goal_metric_type": "squared_norm",
+    "arc_length_tolerance": 0,
+    "max_ik_solutions": 100,
+    "min_ik_score": 0,
+    "resolution": 2,
+    "logging_interval": 0,
+    "timeout": 300,
+    "smooth_iter": 100,
+    "num_threads": 10,
+    "goal_threshold": 0.1,
+    "plan_iter": 1500,
+    "frame_step": 0.01,
+    "input_ident_dist": 0.0001,
+    "iter_before_rand": 50,
+    "position_seeds": 16,
+    "return_partial_plan": false,
+    "scoring_metric": "fs_config_l2",
+    "tp_space_orientation_scale": 0,
+    "configuration_distance_metric": "fs_config_l2",
+    "motion_profile": "",
+    "line_tolerance": 0.1,
+    "orient_tolerance": 2,
+    "tolerance": 0.8,
+    "collision_buffer_mm": 1e-8,
+    "planning_algorithm_settings": {
+      "algorithm": "",
+      "cbirrt_settings": null,
+      "rrtstar_settings": null
+    },
+    "rseed": 0,
+    "path_step_size": 10,
+    "meshes_as_octrees": false,
+    "fallback_options": null,
+    "time_multiple_after_finding_first_solution": 10
+  }
+}

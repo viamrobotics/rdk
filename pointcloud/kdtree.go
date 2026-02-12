@@ -5,12 +5,20 @@ import (
 
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/spatial/kdtree"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
-// PointAndData is a tiny struct to facilitate returning nearest neighbors in a neat way.
-type PointAndData struct {
-	P r3.Vector
-	D Data
+// KDTreeType for kd tree.
+const KDTreeType = "kdtree"
+
+var kdtreeConfig = TypeConfig{
+	StructureType: KDTreeType,
+	NewWithParams: func(size int) PointCloud { return newKDTreeWithPrealloc(size) },
+}
+
+func init() {
+	Register(kdtreeConfig)
 }
 
 // wraps r3.vector to make it compatible with kd trees.
@@ -44,7 +52,10 @@ func (v treeComparableR3Vector) Distance(c kdtree.Comparable) float64 {
 	if !ok {
 		panic("treeComparableR3Vector Distance got wrong data")
 	}
-	return v.vec.Distance(v2.vec)
+	// The contract of a class that implements kdtree.Comparable is that the distance method returns the squared distance.
+	// See https://pkg.go.dev/gonum.org/v1/gonum/spatial/kdtree#Comparable
+	dist := v.vec.Distance(v2.vec)
+	return dist * dist
 }
 
 type kdValues []treeComparableR3Vector
@@ -70,7 +81,8 @@ type kdValuesSlicer struct {
 func (kdv kdValuesSlicer) Len() int { return len(kdv.vs) }
 
 func (kdv kdValuesSlicer) Less(i, j int) bool {
-	return kdv.vs[i].vec.Distance(kdv.vs[j].vec) < 0
+	// Compare by distance from origin (norm)
+	return kdv.vs[i].vec.Norm() < kdv.vs[j].vec.Norm()
 }
 
 func (kdv kdValuesSlicer) Pivot() int { return kdtree.Partition(kdv, kdtree.MedianOfMedians(kdv)) }
@@ -92,13 +104,7 @@ type KDTree struct {
 	meta   MetaData
 }
 
-// NewKDTree creates a new KDTree.
-func NewKDTree() *KDTree {
-	return NewKDTreeWithPrealloc(0)
-}
-
-// NewKDTreeWithPrealloc creates a new KDTree with preallocated storage.
-func NewKDTreeWithPrealloc(size int) *KDTree {
+func newKDTreeWithPrealloc(size int) *KDTree {
 	return &KDTree{
 		tree:   kdtree.New(kdValues{}, false),
 		points: &matrixStorage{points: make([]PointAndData, 0, size), indexMap: make(map[r3.Vector]uint, size)},
@@ -112,7 +118,7 @@ func ToKDTree(pc PointCloud) *KDTree {
 	if ok {
 		return kd
 	}
-	t := NewKDTreeWithPrealloc(pc.Size())
+	t := newKDTreeWithPrealloc(pc.Size())
 
 	if pc != nil {
 		pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
@@ -182,10 +188,11 @@ func (kd *KDTree) NearestNeighbor(p r3.Vector) (r3.Vector, Data, float64, bool) 
 	if !ok {
 		panic("Mismatch between tree and point storage.")
 	}
-	return p2.vec, d, dist, true
+	// dist is squared distance, so take square root to return actual distance
+	return p2.vec, d, math.Sqrt(dist), true
 }
 
-func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData {
+func keeperToArray(heap kdtree.Heap, points storage, p r3.Vector, includeSelf bool, max int) []*PointAndData { //nolint: revive
 	nearestPoints := make([]*PointAndData, 0, heap.Len())
 	for i := 0; i < heap.Len(); i++ {
 		if heap[i].Comparable == nil {
@@ -227,7 +234,8 @@ func (kd *KDTree) KNearestNeighbors(p r3.Vector, k int, includeSelf bool) []*Poi
 // If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf bool) []*PointAndData {
-	keep := kdtree.NewDistKeeper(r)
+	// gonum kdtree uses squared distance, so we need to square the radius
+	keep := kdtree.NewDistKeeper(r * r)
 	kd.tree.NearestSet(keep, &treeComparableR3Vector{p})
 	return keeperToArray(keep.Heap, kd.points, p, includeSelf, math.MaxInt)
 }
@@ -245,4 +253,14 @@ func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) 
 		}
 		return !fn(p.vec, d)
 	})
+}
+
+// FinalizeAfterReading no-op.
+func (kd *KDTree) FinalizeAfterReading() (PointCloud, error) {
+	return kd, nil
+}
+
+// CreateNewRecentered pre-sized.
+func (kd *KDTree) CreateNewRecentered(offset spatialmath.Pose) PointCloud {
+	return newKDTreeWithPrealloc(kd.Size())
 }

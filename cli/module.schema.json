@@ -81,7 +81,7 @@
           "type": "string",
           "default": "make module.tar.gz",
           "description": "Shell command to build your module's tarball",
-          "examples": ["make module.tar.gz", "./run.sh"]
+          "examples": ["make module.tar.gz"]
         },
         "setup": {
           "type": "string",
@@ -98,7 +98,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Cloud build iterates over this and buidls for each listed platform.",
+          "description": "Cloud build iterates over this and builds for each listed platform.",
           "default": ["linux/amd64", "linux/arm64"]
         },
         "darwin_deps": {
@@ -108,7 +108,7 @@
           },
           "description": "Homebrew dependencies for darwin builds. The first example has the default list; explicitly pass `[]` for empty.",
           "examples": [
-            ["go", "pkg-config", "nlopt-static", "x264", "jpeg-turbo", "ffmpeg"]
+            ["go", "pkg-config", "nlopt-static", "x264"]
           ]
         }
       }

@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -38,7 +39,7 @@ func NewClientFromConn(
 	c := pb.NewBaseServiceClient(conn)
 	return &client{
 		Named:  name.PrependRemote(remoteName).AsNamed(),
-		name:   name.ShortName(),
+		name:   name.Name,
 		client: c,
 		logger: logger,
 	}, nil
@@ -162,5 +163,5 @@ func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) (
 	if err != nil {
 		return nil, err
 	}
-	return spatialmath.NewGeometriesFromProto(resp.GetGeometries())
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }

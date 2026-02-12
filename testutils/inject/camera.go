@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // Camera is an injected camera.
@@ -18,12 +19,16 @@ type Camera struct {
 	name                 resource.Name
 	RTPPassthroughSource rtppassthrough.Source
 	DoFunc               func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	ImageFunc            func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error)
-	ImagesFunc           func(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error)
-	NextPointCloudFunc   func(ctx context.Context) (pointcloud.PointCloud, error)
-	ProjectorFunc        func(ctx context.Context) (transform.Projector, error)
-	PropertiesFunc       func(ctx context.Context) (camera.Properties, error)
-	CloseFunc            func(ctx context.Context) error
+	ImagesFunc           func(
+		ctx context.Context,
+		filterSourceNames []string,
+		extra map[string]interface{},
+	) ([]camera.NamedImage, resource.ResponseMetadata, error)
+	NextPointCloudFunc func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
+	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
+	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
+	CloseFunc          func(ctx context.Context) error
+	GeometriesFunc     func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
 // NewCamera returns a new injected camera.
@@ -37,25 +42,14 @@ func (c *Camera) Name() resource.Name {
 }
 
 // NextPointCloud calls the injected NextPointCloud or the real version.
-func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *Camera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	if c.NextPointCloudFunc != nil {
-		return c.NextPointCloudFunc(ctx)
+		return c.NextPointCloudFunc(ctx, extra)
 	}
 	if c.Camera != nil {
-		return c.Camera.NextPointCloud(ctx)
+		return c.Camera.NextPointCloud(ctx, extra)
 	}
 	return nil, errors.New("NextPointCloud unimplemented")
-}
-
-// Image calls the injected Image or the real version.
-func (c *Camera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	if c.ImageFunc != nil {
-		return c.ImageFunc(ctx, mimeType, extra)
-	}
-	if c.Camera != nil {
-		return c.Camera.Image(ctx, mimeType, extra)
-	}
-	return nil, camera.ImageMetadata{}, errors.Wrap(ctx.Err(), "no Image function available")
 }
 
 // Properties calls the injected Properties or the real version.
@@ -67,13 +61,17 @@ func (c *Camera) Properties(ctx context.Context) (camera.Properties, error) {
 }
 
 // Images calls the injected Images or the real version.
-func (c *Camera) Images(ctx context.Context) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+func (c *Camera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 	if c.ImagesFunc != nil {
-		return c.ImagesFunc(ctx)
+		return c.ImagesFunc(ctx, filterSourceNames, extra)
 	}
 
 	if c.Camera != nil {
-		return c.Camera.Images(ctx)
+		return c.Camera.Images(ctx, filterSourceNames, extra)
 	}
 
 	return nil, resource.ResponseMetadata{}, errors.New("Images unimplemented")
@@ -96,6 +94,14 @@ func (c *Camera) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 		return c.DoFunc(ctx, cmd)
 	}
 	return c.Camera.DoCommand(ctx, cmd)
+}
+
+// Geometries calls the injected Geometries or the real version.
+func (c *Camera) Geometries(ctx context.Context, cmd map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if c.GeometriesFunc != nil {
+		return c.GeometriesFunc(ctx, cmd)
+	}
+	return c.Camera.Geometries(ctx, cmd)
 }
 
 // SubscribeRTP calls the injected RTPPassthroughSource or returns an error if unimplemented.

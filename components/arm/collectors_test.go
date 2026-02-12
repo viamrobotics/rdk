@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -25,7 +26,14 @@ const (
 	captureInterval = time.Millisecond
 )
 
-var floatList = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+var (
+	floatList    = &pb.JointPositions{Values: []float64{1.0, 2.0, 3.0}}
+	doCommandMap = map[string]interface{}{
+		"readings": map[string]interface{}{
+			"values": []interface{}{1.0, 2.0, 3.0},
+		},
+	}
+)
 
 func TestCollectors(t *testing.T) {
 	tests := []struct {
@@ -93,16 +101,29 @@ func TestCollectors(t *testing.T) {
 	}
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       arm.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newArm() },
+	})
+}
+
 func newArm() arm.Arm {
 	a := &inject.Arm{}
 	a.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		return spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3}), nil
 	}
 	a.JointPositionsFunc = func(ctx context.Context, extra map[string]interface{}) ([]referenceframe.Input, error) {
-		return referenceframe.FloatsToInputs(referenceframe.JointPositionsToRadians(floatList)), nil
+		return referenceframe.JointPositionsToRadians(floatList), nil
 	}
-	a.ModelFrameFunc = func() referenceframe.Model {
-		return nil
+	a.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
+		return nil, nil
+	}
+	a.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return a
 }

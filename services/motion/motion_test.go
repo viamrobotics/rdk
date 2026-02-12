@@ -16,15 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/components/base"
-	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/motionplan"
-	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/slam"
-	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -36,7 +29,7 @@ func TestPlanWithStatus(t *testing.T) {
 	planID := uuid.New()
 	executionID := uuid.New()
 
-	baseName := base.Named("my-base1")
+	baseName := "my-base1"
 	poseA := spatialmath.NewZeroPose()
 	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
 
@@ -50,8 +43,8 @@ func TestPlanWithStatus(t *testing.T) {
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
 			[]referenceframe.FrameSystemPoses{
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+				{baseName: referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName: referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
 			nil,
 		),
@@ -60,16 +53,16 @@ func TestPlanWithStatus(t *testing.T) {
 	protoPlan := &pb.Plan{
 		Id:            planID.String(),
 		ExecutionId:   executionID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		ComponentName: baseName,
 		Steps: []*pb.PlanStep{
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+					baseName: {Pose: spatialmath.PoseToProtobuf(poseA)},
 				},
 			},
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+					baseName: {Pose: spatialmath.PoseToProtobuf(poseB)},
 				},
 			},
 		},
@@ -98,16 +91,20 @@ func TestPlanWithStatus(t *testing.T) {
 			},
 			{
 				description: "empty status returns an error",
-				input:       &pb.PlanWithStatus{Plan: PlanWithMetadata{}.ToProto()},
-				result:      PlanWithStatus{},
-				err:         errors.New("received nil *pb.PlanStatus"),
+				input: &pb.PlanWithStatus{
+					Plan: PlanWithMetadata{
+						ComponentName: "test-component",
+					}.ToProto(),
+				},
+				result: PlanWithStatus{},
+				err:    errors.New("received nil *pb.PlanStatus"),
 			},
 			{
 				description: "nil pointers in the status history returns an error",
 				input: &pb.PlanWithStatus{
-					Plan:          PlanWithMetadata{}.ToProto(),
-					Status:        PlanStatus{}.ToProto(),
-					StatusHistory: []*pb.PlanStatus{nil},
+					Plan: PlanWithMetadata{
+						ComponentName: "test-component",
+					}.ToProto(),
 				},
 				result: PlanWithStatus{},
 				err:    errors.New("received nil *pb.PlanStatus"),
@@ -115,11 +112,15 @@ func TestPlanWithStatus(t *testing.T) {
 			{
 				description: "empty *pb.PlanWithStatus status returns an empty PlanWithStatus",
 				input: &pb.PlanWithStatus{
-					Plan:   PlanWithMetadata{}.ToProto(),
+					Plan: PlanWithMetadata{
+						ComponentName: "test-component",
+					}.ToProto(),
 					Status: PlanStatus{}.ToProto(),
 				},
 				result: PlanWithStatus{
-					Plan:          PlanWithMetadata{},
+					Plan: PlanWithMetadata{
+						ComponentName: "test-component",
+					},
 					StatusHistory: []PlanStatus{{}},
 				},
 			},
@@ -148,8 +149,8 @@ func TestPlanWithStatus(t *testing.T) {
 				},
 			},
 		}
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
+		for i, tc := range testCases {
+			t.Run(fmt.Sprintf("TestCase #%d: %s", i+1, tc.description), func(t *testing.T) {
 				res, err := planWithStatusFromProto(tc.input)
 				if tc.err != nil {
 					test.That(t, err, test.ShouldBeError, tc.err)
@@ -297,7 +298,7 @@ func TestPlanStatusWithID(t *testing.T) {
 
 		id := uuid.New()
 
-		mybase := base.Named("mybase")
+		mybase := "mybase"
 		timestamp := time.Now().UTC()
 		timestampb := timestamppb.New(timestamp)
 		reason := "some reason"
@@ -331,12 +332,12 @@ func TestPlanStatusWithID(t *testing.T) {
 				description: "no component name returns error",
 				input:       &pb.PlanStatusWithID{PlanId: id.String(), ExecutionId: id.String(), Status: &pb.PlanStatus{}},
 				result:      PlanStatusWithID{},
-				err:         errors.New("received nil *commonpb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "success case with a failed plan status & reason",
 				input: &pb.PlanStatusWithID{
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   id.String(),
 					PlanId:        id.String(),
 					Status:        &pb.PlanStatus{State: pb.PlanState_PLAN_STATE_FAILED, Timestamp: timestampb, Reason: &reason},
@@ -351,7 +352,7 @@ func TestPlanStatusWithID(t *testing.T) {
 			{
 				description: "success case with a in progress plan status",
 				input: &pb.PlanStatusWithID{
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   id.String(),
 					PlanId:        id.String(),
 					Status:        &pb.PlanStatus{State: pb.PlanState_PLAN_STATE_IN_PROGRESS, Timestamp: timestampb},
@@ -386,7 +387,7 @@ func TestPlanStatusWithID(t *testing.T) {
 
 		id := uuid.New()
 
-		mybase := base.Named("mybase")
+		mybase := "mybase"
 		timestamp := time.Now().UTC()
 		timestampb := timestamppb.New(timestamp)
 		reason := "some reason"
@@ -398,7 +399,7 @@ func TestPlanStatusWithID(t *testing.T) {
 				result: &pb.PlanStatusWithID{
 					PlanId:        uuid.Nil.String(),
 					ExecutionId:   uuid.Nil.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "",
 					Status:        PlanStatus{}.ToProto(),
 				},
 			},
@@ -411,7 +412,7 @@ func TestPlanStatusWithID(t *testing.T) {
 					Status:        PlanStatus{State: PlanStateFailed, Timestamp: timestamp, Reason: &reason},
 				},
 				result: &pb.PlanStatusWithID{
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   id.String(),
 					PlanId:        id.String(),
 					Status:        &pb.PlanStatus{State: pb.PlanState_PLAN_STATE_FAILED, Timestamp: timestampb, Reason: &reason},
@@ -426,7 +427,7 @@ func TestPlanStatusWithID(t *testing.T) {
 					Status:        PlanStatus{State: PlanStateInProgress, Timestamp: timestamp},
 				},
 				result: &pb.PlanStatusWithID{
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   id.String(),
 					PlanId:        id.String(),
 					Status:        &pb.PlanStatus{State: pb.PlanState_PLAN_STATE_IN_PROGRESS, Timestamp: timestampb},
@@ -559,23 +560,23 @@ func TestPlan(t *testing.T) {
 	planID := uuid.New()
 	executionID := uuid.New()
 
-	baseName := base.Named("my-base1")
+	baseName := "my-base1"
 	poseA := spatialmath.NewZeroPose()
 	poseB := spatialmath.NewPose(r3.Vector{X: 100}, spatialmath.NewOrientationVector())
 
 	protoAB := &pb.Plan{
 		Id:            planID.String(),
 		ExecutionId:   executionID.String(),
-		ComponentName: rprotoutils.ResourceNameToProto(baseName),
+		ComponentName: baseName,
 		Steps: []*pb.PlanStep{
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseA)},
+					baseName: {Pose: spatialmath.PoseToProtobuf(poseA)},
 				},
 			},
 			{
 				Step: map[string]*pb.ComponentState{
-					baseName.ShortName(): {Pose: spatialmath.PoseToProtobuf(poseB)},
+					baseName: {Pose: spatialmath.PoseToProtobuf(poseB)},
 				},
 			},
 		},
@@ -586,8 +587,8 @@ func TestPlan(t *testing.T) {
 		ComponentName: baseName,
 		Plan: motionplan.NewSimplePlan(
 			[]referenceframe.FrameSystemPoses{
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
-				{baseName.ShortName(): referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
+				{baseName: referenceframe.NewPoseInFrame(referenceframe.World, poseA)},
+				{baseName: referenceframe.NewPoseInFrame(referenceframe.World, poseB)},
 			},
 			nil,
 		),
@@ -624,14 +625,14 @@ func TestPlan(t *testing.T) {
 				description: "empty ComponentName in *pb.Plan{} returns an error",
 				input:       &pb.Plan{Id: planID.String(), ExecutionId: executionID.String()},
 				result:      PlanWithMetadata{},
-				err:         errors.New("received nil *pb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "a nil *pb.PlanStep{} returns an error",
 				input: &pb.Plan{
 					Id:            planID.String(),
 					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "component_name",
 					Steps:         []*pb.PlanStep{nil},
 				},
 				result: PlanWithMetadata{},
@@ -642,12 +643,12 @@ func TestPlan(t *testing.T) {
 				input: &pb.Plan{
 					Id:            planID.String(),
 					ExecutionId:   executionID.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "component_name",
 				},
 				result: PlanWithMetadata{
 					ID:            planID,
 					ExecutionID:   executionID,
-					ComponentName: resource.Name{},
+					ComponentName: "component_name",
 				},
 			},
 			{
@@ -682,7 +683,7 @@ func TestPlan(t *testing.T) {
 				input:       PlanWithMetadata{},
 				result: &pb.Plan{
 					Id:            uuid.Nil.String(),
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "",
 					ExecutionId:   uuid.Nil.String(),
 				},
 			},
@@ -703,9 +704,9 @@ func TestPlan(t *testing.T) {
 }
 
 func TestConfiguration(t *testing.T) {
-	visionCameraPairs := [][]resource.Name{
-		{vision.Named("vision service 1"), camera.Named("camera 1")},
-		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	visionCameraPairs := [][]string{
+		{"vision service 1", "camera 1"},
+		{"vision service 2", "camera 2"},
 	}
 	obstacleDetectorsPB := []*pb.ObstacleDetector{}
 	obstacleDetectors := []ObstacleDetectorName{}
@@ -715,8 +716,8 @@ func TestConfiguration(t *testing.T) {
 			CameraName:        pair[1],
 		})
 		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
-			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
-			Camera:        rprotoutils.ResourceNameToProto(pair[1]),
+			VisionService: pair[0],
+			Camera:        pair[1],
 		})
 	}
 
@@ -850,12 +851,12 @@ func TestMoveOnGlobeReq(t *testing.T) {
 
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
-			test.That(t, req.ComponentName.Name, test.ShouldResemble, "my-base")
+			test.That(t, req.ComponentName, test.ShouldResemble, "my-base")
 			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, dst.Lat())
 			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, dst.Lng())
 			test.That(t, req.Heading, test.ShouldNotBeNil)
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
-			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
+			test.That(t, req.MovementSensorName, test.ShouldResemble, "my-movementsensor")
 			test.That(t, req.Obstacles, test.ShouldBeEmpty)
 			test.That(t, req.MotionConfiguration, test.ShouldResemble, mogReq.MotionCfg.toProto())
 			test.That(t, req.Extra.AsMap(), test.ShouldBeEmpty)
@@ -867,21 +868,21 @@ func TestMoveOnGlobeReq(t *testing.T) {
 			req, err := mogReq.toProto(name)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, req.Name, test.ShouldResemble, "somename")
-			test.That(t, req.ComponentName.Name, test.ShouldResemble, "my-base")
+			test.That(t, req.ComponentName, test.ShouldResemble, "my-base")
 			test.That(t, req.Destination.Latitude, test.ShouldAlmostEqual, dst.Lat())
 			test.That(t, req.Destination.Longitude, test.ShouldAlmostEqual, dst.Lng())
 			test.That(t, req.Heading, test.ShouldNotBeNil)
 			test.That(t, *req.Heading, test.ShouldAlmostEqual, 0.5)
-			test.That(t, req.MovementSensorName.Name, test.ShouldResemble, "my-movementsensor")
+			test.That(t, req.MovementSensorName, test.ShouldResemble, "my-movementsensor")
 			test.That(t, req.Obstacles, test.ShouldBeEmpty)
 			test.That(t, req.MotionConfiguration, test.ShouldBeNil)
 			test.That(t, req.Extra.AsMap(), test.ShouldBeEmpty)
 		})
 	})
 
-	visionCameraPairs := [][]resource.Name{
-		{vision.Named("vision service 1"), camera.Named("camera 1")},
-		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	visionCameraPairs := [][]string{
+		{"vision service 1", "camera 1"},
+		{"vision service 2", "camera 2"},
 	}
 	obstacleDetectorsPB := []*pb.ObstacleDetector{}
 	obstacleDetectors := []ObstacleDetectorName{}
@@ -891,8 +892,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 			CameraName:        pair[1],
 		})
 		obstacleDetectorsPB = append(obstacleDetectorsPB, &pb.ObstacleDetector{
-			VisionService: rprotoutils.ResourceNameToProto(pair[0]),
-			Camera:        rprotoutils.ResourceNameToProto(pair[1]),
+			VisionService: pair[0],
+			Camera:        pair[1],
 		})
 	}
 
@@ -914,7 +915,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		sphere, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 1, "sphere")
 		test.That(t, err, test.ShouldBeNil)
 
-		mybase := base.Named("my-base")
+		mybase := "my-base"
 
 		testCases := []testCase{
 			{
@@ -935,30 +936,30 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Destination: &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    ErrEmptyComponentName,
 			},
 			{
 				description: "an empty movement sensor name returns an error",
 				input: &pb.MoveOnGlobeRequest{
 					Destination:   &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 				},
 				result: MoveOnGlobeReq{},
-				err:    errors.New("received nil *commonpb.ResourceName"),
+				err:    errors.New("movement sensor name cannot be empty"),
 			},
 			{
 				description: "an empty *pb.MoveOnGlobeRequest returns an empty MoveOnGlobeReq",
 				input: &pb.MoveOnGlobeRequest{
 					Heading:            &heading,
 					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
-					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
-					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+					ComponentName:      mybase,
+					MovementSensorName: "my-movementsensor",
 				},
 				result: MoveOnGlobeReq{
 					Heading:            heading,
 					Destination:        geo.NewPoint(1, 2),
 					ComponentName:      mybase,
-					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					MovementSensorName: "my-movementsensor",
 					MotionCfg:          &defaultMotionCfg,
 					Obstacles:          []*spatialmath.GeoGeometry{},
 					BoundingRegions:    []*spatialmath.GeoGeometry{},
@@ -970,8 +971,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 				input: &pb.MoveOnGlobeRequest{
 					Heading:            &heading,
 					Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
-					ComponentName:      rprotoutils.ResourceNameToProto(mybase),
-					MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+					ComponentName:      mybase,
+					MovementSensorName: "my-movementsensor",
 					Obstacles: []*commonpb.GeoGeometry{
 						{
 							Location: &commonpb.GeoPoint{Latitude: 3, Longitude: 4},
@@ -1017,7 +1018,7 @@ func TestMoveOnGlobeReq(t *testing.T) {
 					Heading:            heading,
 					Destination:        dst,
 					ComponentName:      mybase,
-					MovementSensorName: movementsensor.Named("my-movementsensor"),
+					MovementSensorName: "my-movementsensor",
 					BoundingRegions: []*spatialmath.GeoGeometry{
 						spatialmath.NewGeoGeometry(geo.NewPoint(1, 2), []spatialmath.Geometry{sphere}),
 					},
@@ -1053,8 +1054,8 @@ func TestMoveOnGlobeReq(t *testing.T) {
 		t.Run("nil heading is converted into a NaN heading", func(t *testing.T) {
 			input := &pb.MoveOnGlobeRequest{
 				Destination:        &commonpb.GeoPoint{Latitude: 1, Longitude: 2},
-				ComponentName:      rprotoutils.ResourceNameToProto(mybase),
-				MovementSensorName: rprotoutils.ResourceNameToProto(movementsensor.Named("my-movementsensor")),
+				ComponentName:      mybase,
+				MovementSensorName: "my-movementsensor",
 			}
 			res, err := moveOnGlobeRequestFromProto(input)
 			test.That(t, err, test.ShouldBeNil)
@@ -1064,9 +1065,9 @@ func TestMoveOnGlobeReq(t *testing.T) {
 }
 
 func TestMoveOnMapReq(t *testing.T) {
-	visionCameraPairs := [][]resource.Name{
-		{vision.Named("vision service 1"), camera.Named("camera 1")},
-		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	visionCameraPairs := [][]string{
+		{"vision service 1", "camera 1"},
+		{"vision service 2", "camera 2"},
 	}
 	obstacleDetectors := []ObstacleDetectorName{}
 	for _, pair := range visionCameraPairs {
@@ -1075,8 +1076,8 @@ func TestMoveOnMapReq(t *testing.T) {
 			CameraName:        pair[1],
 		})
 	}
-	myBase := base.Named("mybase")
-	mySlam := slam.Named(("mySlam"))
+	myBase := "mybase"
+	mySlam := "mySlam"
 	pollingFreq := 5.
 	motionCfg := &MotionConfiguration{
 		ObstacleDetectors:     obstacleDetectors,
@@ -1099,8 +1100,8 @@ func TestMoveOnMapReq(t *testing.T) {
 	validPbMoveOnMapRequest := &pb.MoveOnMapRequest{
 		Name:                "bloop",
 		Destination:         spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-		ComponentName:       rprotoutils.ResourceNameToProto(myBase),
-		SlamServiceName:     rprotoutils.ResourceNameToProto(mySlam),
+		ComponentName:       myBase,
+		SlamServiceName:     mySlam,
 		MotionConfiguration: motionCfg.toProto(),
 		Extra:               &structpb.Struct{},
 	}
@@ -1154,8 +1155,8 @@ func TestMoveOnMapReq(t *testing.T) {
 				result: &pb.MoveOnMapRequest{
 					Name:            "bloop",
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					ComponentName:   myBase,
+					SlamServiceName: mySlam,
 					Extra:           &structpb.Struct{},
 				},
 				err: nil,
@@ -1173,9 +1174,9 @@ func TestMoveOnMapReq(t *testing.T) {
 				result: &pb.MoveOnMapRequest{
 					Name:            "bloop",
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles:       spatialmath.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
+					ComponentName:   myBase,
+					SlamServiceName: mySlam,
+					Obstacles:       referenceframe.NewGeometriesToProto([]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{2, 2, 2}, "pt")}),
 					Extra:           &structpb.Struct{},
 				},
 				err: nil,
@@ -1225,17 +1226,17 @@ func TestMoveOnMapReq(t *testing.T) {
 					Destination: spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
 				},
 				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for component name"),
+				err:    ErrEmptyComponentName,
 			},
 			{
 				description: "nil SlamName causes failure",
 
 				input: &pb.MoveOnMapRequest{
 					Destination:   spatialmath.PoseToProtobuf(spatialmath.NewZeroPose()),
-					ComponentName: rprotoutils.ResourceNameToProto(myBase),
+					ComponentName: myBase,
 				},
 				result: MoveOnMapReq{},
-				err:    errors.New("received nil *commonpb.ResourceName for SlamService name"),
+				err:    errors.New("SlamService name cannot be empty"),
 			},
 			{
 				description: "success",
@@ -1248,8 +1249,8 @@ func TestMoveOnMapReq(t *testing.T) {
 
 				input: &pb.MoveOnMapRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					ComponentName:   myBase,
+					SlamServiceName: mySlam,
 				},
 				result: MoveOnMapReq{
 					ComponentName: myBase,
@@ -1265,9 +1266,9 @@ func TestMoveOnMapReq(t *testing.T) {
 				description: "success - allow non-nil obstacles",
 				input: &pb.MoveOnMapRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
-					Obstacles: spatialmath.NewGeometriesToProto(
+					ComponentName:   myBase,
+					SlamServiceName: mySlam,
+					Obstacles: referenceframe.NewGeometriesToProto(
 						[]spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{X: 2, Y: 2, Z: 2}, "pt")},
 					),
 				},
@@ -1285,8 +1286,8 @@ func TestMoveOnMapReq(t *testing.T) {
 				description: "fail - inconvertible geometry",
 				input: &pb.MoveOnMapRequest{
 					Destination:     spatialmath.PoseToProtobuf(spatialmath.NewPoseFromPoint(r3.Vector{2700, 0, 0})),
-					ComponentName:   rprotoutils.ResourceNameToProto(myBase),
-					SlamServiceName: rprotoutils.ResourceNameToProto(mySlam),
+					ComponentName:   myBase,
+					SlamServiceName: mySlam,
 					Obstacles:       []*commonpb.Geometry{{GeometryType: nil}},
 				},
 				result: MoveOnMapReq{},
@@ -1319,7 +1320,7 @@ func TestPlanHistoryReq(t *testing.T) {
 		}
 
 		executionID := uuid.New()
-		mybase := base.Named("mybase")
+		mybase := "mybase"
 		executionIDStr := executionID.String()
 
 		testCases := []testCase{
@@ -1329,7 +1330,7 @@ func TestPlanHistoryReq(t *testing.T) {
 				name:        "some name",
 				result: &pb.GetPlanRequest{
 					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "",
 					Extra:         &structpb.Struct{},
 				},
 			},
@@ -1343,7 +1344,7 @@ func TestPlanHistoryReq(t *testing.T) {
 				name: "some name",
 				result: &pb.GetPlanRequest{
 					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   &executionIDStr,
 					LastPlanOnly:  true,
 					Extra:         &structpb.Struct{},
@@ -1374,7 +1375,7 @@ func TestPlanHistoryReq(t *testing.T) {
 		}
 
 		executionID := uuid.New()
-		mybase := base.Named("mybase")
+		mybase := "mybase"
 		executionIDStr := executionID.String()
 
 		testCases := []testCase{
@@ -1382,20 +1383,23 @@ func TestPlanHistoryReq(t *testing.T) {
 				description: "returns an error if component name is nil",
 				input:       &pb.GetPlanRequest{},
 				result:      PlanHistoryReq{},
-				err:         errors.New("received nil *commonpb.ResourceName"),
+				err:         ErrEmptyComponentName,
 			},
 			{
 				description: "empty struct returns an empty struct",
 				input: &pb.GetPlanRequest{
-					ComponentName: rprotoutils.ResourceNameToProto(resource.Name{}),
+					ComponentName: "component_name",
 				},
-				result: PlanHistoryReq{Extra: map[string]interface{}{}},
+				result: PlanHistoryReq{
+					ComponentName: "component_name",
+					Extra:         map[string]interface{}{},
+				},
 			},
 			{
 				description: "full struct returns a full struct",
 				input: &pb.GetPlanRequest{
 					Name:          "some name",
-					ComponentName: rprotoutils.ResourceNameToProto(mybase),
+					ComponentName: mybase,
 					ExecutionId:   &executionIDStr,
 					LastPlanOnly:  true,
 					Extra:         &structpb.Struct{},
@@ -1426,9 +1430,9 @@ func TestPlanHistoryReq(t *testing.T) {
 
 func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	dst := geo.NewPoint(1, 2)
-	visionCameraPairs := [][]resource.Name{
-		{vision.Named("vision service 1"), camera.Named("camera 1")},
-		{vision.Named("vision service 2"), camera.Named("camera 2")},
+	visionCameraPairs := [][]string{
+		{"vision service 1", "camera 1"},
+		{"vision service 2", "camera 2"},
 	}
 	obstacleDetectors := []ObstacleDetectorName{}
 	for _, pair := range visionCameraPairs {
@@ -1439,10 +1443,10 @@ func validMoveOnGlobeRequest() MoveOnGlobeReq {
 	}
 	pollingFreq := 5.
 	return MoveOnGlobeReq{
-		ComponentName:      base.Named("my-base"),
+		ComponentName:      "my-base",
 		Destination:        dst,
 		Heading:            0.5,
-		MovementSensorName: movementsensor.Named("my-movementsensor"),
+		MovementSensorName: "my-movementsensor",
 		Obstacles:          nil,
 		MotionCfg: &MotionConfiguration{
 			ObstacleDetectors:     obstacleDetectors,

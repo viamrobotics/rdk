@@ -11,14 +11,16 @@ import (
 
 // RandomCubeSide choose a random integer between 0 and 5 that correspond to one facet of a cube.
 func RandomCubeSide() int {
+	//nolint: revive
 	min := 0
+	//nolint: revive
 	max := 6
 	return rand.Intn(max-min) + min
 }
 
 // GeneratePointsOnPlaneZ0 generates points on the z=0 plane.
 func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) PointCloud {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	for i := 0; i < nPoints; i++ {
 		// Point in the R3 unit cube
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
@@ -34,7 +36,7 @@ func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) Poin
 
 // GenerateCubeTestData generate 3d points on the R^3 unit cube.
 func GenerateCubeTestData(nPoints int) PointCloud {
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	for i := 0; i < nPoints; i++ {
 		// get cube side number
 		s := RandomCubeSide()

@@ -31,6 +31,10 @@ func init() {
 		API:        API,
 		MethodName: isPowered.String(),
 	}, newIsPoweredCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "motor".
@@ -44,7 +48,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // SetPower example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	myMotorComponent, err := motor.FromProvider(machine, "my_motor")
 //	// Set the motor power to 40% forwards.
 //	myMotorComponent.SetPower(context.Background(), 0.4, nil)
 //
@@ -52,7 +56,7 @@ var API = resource.APINamespaceRDK.WithComponentType(SubtypeName)
 //
 // GoFor example:
 //
-//	myMotorComponent, err := motor.FromRobot(machine, "my_motor")
+//	myMotorComponent, err := motor.FromProvider(machine, "my_motor")
 //	// Turn the motor 7.2 revolutions at 60 RPM.
 //	myMotorComponent.GoFor(context.Background(), 60, 7.2, nil)
 //
@@ -167,15 +171,25 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named motor from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named motor from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Motor, error) {
 	return resource.FromDependencies[Motor](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named motor from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named motor from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Motor, error) {
 	return robot.ResourceFromRobot[Motor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Motor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Motor, error) {
+	return resource.FromProvider[Motor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
@@ -184,7 +198,7 @@ func NamesFromRobot(r robot.Robot) []string {
 }
 
 // CheckSpeed checks if the input rpm is too slow or fast and returns a warning and/or error.
-func CheckSpeed(rpm, max float64) (string, error) {
+func CheckSpeed(rpm, max float64) (string, error) { //nolint: revive
 	switch speed := math.Abs(rpm); {
 	case speed < 0.1:
 		return "motor speed is nearly 0 rev_per_min", NewZeroRPMError()

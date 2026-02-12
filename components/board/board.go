@@ -33,6 +33,10 @@ func init() {
 		API:        API,
 		MethodName: gpios.String(),
 	}, newGPIOCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "board".
@@ -52,7 +56,7 @@ func Named(name string) resource.Name {
 //
 // AnalogByName example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -61,7 +65,7 @@ func Named(name string) resource.Name {
 //
 // DigitalInterruptByName example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the DigitalInterrupt "my_example_digital_interrupt".
 //	interrupt, err := myBoard.DigitalInterruptByName("my_example_digital_interrupt")
@@ -70,7 +74,7 @@ func Named(name string) resource.Name {
 //
 // GPIOPinByName example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the GPIOPin with pin number 15.
 //	pin, err := myBoard.GPIOPinByName("15")
@@ -79,7 +83,7 @@ func Named(name string) resource.Name {
 //
 // SetPowerMode example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	Set the power mode of the board to OFFLINE_DEEP.
 //	myBoard.SetPowerMode(context.Background(), boardpb.PowerMode_POWER_MODE_OFFLINE_DEEP, nil)
@@ -88,7 +92,7 @@ func Named(name string) resource.Name {
 //
 // StreamTicks example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Make a channel to stream ticks
 //	ticksChan := make(chan board.Tick)
@@ -128,7 +132,7 @@ type Board interface {
 	// SetPowerMode sets the board to the given power mode. If
 	// provided, the board will exit the given power mode after
 	// the specified duration.
-	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration) error
+	SetPowerMode(ctx context.Context, mode pb.PowerMode, duration *time.Duration, extra map[string]interface{}) error
 
 	// StreamTicks starts a stream of digital interrupt ticks.
 	StreamTicks(ctx context.Context, interrupts []DigitalInterrupt, ch chan Tick,
@@ -139,7 +143,7 @@ type Board interface {
 //
 // Read example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -153,7 +157,7 @@ type Board interface {
 //
 // Write example:
 //
-//	myBoard, err := board.FromRobot(robot, "my_board")
+//	myBoard, err := board.FromProvider(robot, "my_board")
 //
 //	// Get the Analog pin "my_example_analog".
 //	analog, err := myBoard.AnalogByName("my_example_analog")
@@ -184,15 +188,24 @@ type AnalogValue struct {
 	StepSize float32
 }
 
-// FromDependencies is a helper for getting the named board from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named board from a collection of
+// dependencies. Use FromProvider instead.
+// //nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (Board, error) {
 	return resource.FromDependencies[Board](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named board from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named board from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Board, error) {
 	return robot.ResourceFromRobot[Board](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Board from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Board, error) {
+	return resource.FromProvider[Board](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.

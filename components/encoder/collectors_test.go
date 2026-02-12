@@ -12,14 +12,18 @@ import (
 
 	"go.viam.com/rdk/components/encoder"
 	"go.viam.com/rdk/data"
+	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
 	tu "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 const (
+	componentName   = "encoder"
 	captureInterval = time.Millisecond
 )
+
+var doCommandMap = map[string]any{"readings": "random-test"}
 
 func TestCollectors(t *testing.T) {
 	start := time.Now()
@@ -52,6 +56,16 @@ func TestCollectors(t *testing.T) {
 	buf.Close()
 }
 
+func TestDoCommandCollector(t *testing.T) {
+	datatu.TestDoCommandCollector(t, datatu.DoCommandTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		DoCommandMap:    doCommandMap,
+		Collector:       encoder.NewDoCommandCollector,
+		ResourceFactory: func() interface{} { return newEncoder() },
+	})
+}
+
 func newEncoder() encoder.Encoder {
 	e := &inject.Encoder{}
 	e.PositionFunc = func(ctx context.Context,
@@ -59,6 +73,9 @@ func newEncoder() encoder.Encoder {
 		extra map[string]interface{},
 	) (float64, encoder.PositionType, error) {
 		return 1.0, encoder.PositionTypeTicks, nil
+	}
+	e.DoFunc = func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+		return doCommandMap, nil
 	}
 	return e
 }

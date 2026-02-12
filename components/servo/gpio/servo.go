@@ -23,6 +23,8 @@ const (
 	minWidthUs    uint    = 500  // absolute minimum PWM width
 	maxWidthUs    uint    = 2500 // absolute maximum PWM width
 	defaultFreq   uint    = 300
+	minFreqHz     uint    = 50
+	maxFreqHz     uint    = 450
 )
 
 // We want to distinguish values that are 0 because the user set them to 0 from ones that are 0
@@ -50,14 +52,14 @@ type servoConfig struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *servoConfig) Validate(path string) ([]string, error) {
+func (config *servoConfig) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if config.Board == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, config.Board)
 	if config.Pin == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "pin")
 	}
 
 	if config.StartPos != nil {
@@ -70,21 +72,21 @@ func (config *servoConfig) Validate(path string) ([]string, error) {
 			maxDeg = *config.MaxDeg
 		}
 		if *config.StartPos < minDeg || *config.StartPos > maxDeg {
-			return nil, resource.NewConfigValidationError(path,
+			return nil, nil, resource.NewConfigValidationError(path,
 				errors.Errorf("starting_position_deg should be between minimum (%.1f) and maximum (%.1f) positions", minDeg, maxDeg))
 		}
 	}
 
 	if config.MinDeg != nil && *config.MinDeg < 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("min_angle_deg cannot be lower than 0"))
 	}
 	if config.MinWidthUs != nil && *config.MinWidthUs < minWidthUs {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
+		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("min_width_us cannot be lower than %d", minWidthUs))
 	}
 	if config.MaxWidthUs != nil && *config.MaxWidthUs > maxWidthUs {
-		return nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
+		return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("max_width_us cannot be higher than %d", maxWidthUs))
 	}
-	return deps, nil
+	return deps, nil, nil
 }
 
 var model = resource.DefaultModelFamily.WithModel("gpio")
@@ -141,7 +143,7 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 
 	boardName := newConf.Board
 
-	b, err := board.FromDependencies(deps, boardName)
+	b, err := board.FromProvider(deps, boardName)
 	if err != nil {
 		return errors.Wrap(err, "board doesn't exist")
 	}
@@ -187,9 +189,9 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	}
 
 	if newConf.Frequency != nil {
-		if *newConf.Frequency > 450 || *newConf.Frequency < 50 {
+		if *newConf.Frequency > maxFreqHz || *newConf.Frequency < minFreqHz {
 			return errors.Errorf(
-				"PWM frequencies should not be above 450Hz or below 50, have %d", newConf.Frequency)
+				"PWM frequencies should not be above %dHz or below %dHz, have %dHz", maxFreqHz, minFreqHz, newConf.Frequency)
 		}
 
 		s.frequency = *newConf.Frequency
@@ -200,8 +202,12 @@ func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies,
 	// microsecond, but rarely over 10. Call it 50 microseconds just to be safe.
 	const maxDeadbandWidthUs = 50
 	if maxFrequency := 1e6 / (s.maxUs + maxDeadbandWidthUs); s.frequency > maxFrequency {
-		s.logger.CWarnf(ctx, "servo frequency (%f.1) is above maximum (%f.1), setting to max instead",
-			s.frequency, maxFrequency)
+		// if the frequency wasn't set in the config we will default to whatever the driver sets as default frequency
+		// we silence the warning below if clamping the frequency was needed
+		if newConf.Frequency != nil {
+			s.logger.CWarnf(ctx, "servo frequency (%dHz) is above maximum (%dHz), setting to max instead",
+				s.frequency, maxFrequency)
+		}
 		s.frequency = maxFrequency
 	}
 

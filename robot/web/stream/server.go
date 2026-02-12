@@ -3,20 +3,18 @@ package webstream
 import (
 	"context"
 	"fmt"
-	"image"
 	"runtime"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	streampb "go.viam.com/api/stream/v1"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
@@ -28,10 +26,19 @@ import (
 )
 
 const (
-	monitorCameraInterval = time.Second
-	retryDelay            = 50 * time.Millisecond
-	backoffCooldown       = 30 * time.Second
+	monitorCameraInterval     = time.Second
+	retryDelay                = 50 * time.Millisecond
+	backoffCooldown           = 30 * time.Second
+	defaultDebugLogInterval   = time.Minute
+	defaultWarnRepeatInterval = 5 * time.Minute
 )
+
+// streamErrorState tracks per-camera error logging timestamps for throttling.
+type streamErrorState struct {
+	lastError    string
+	lastWarnTime time.Time
+	lastLogTime  time.Time
+}
 
 const (
 	optionsCommandResize = iota
@@ -44,7 +51,7 @@ type peerState struct {
 	senders     []*webrtc.RTPSender
 }
 
-// Server implements the gRPC audio/video streaming service.
+// Server implements the gRPC video streaming service.
 type Server struct {
 	streampb.UnimplementedStreamServiceServer
 	logger    logging.Logger
@@ -58,9 +65,11 @@ type Server struct {
 	activeBackgroundWorkers sync.WaitGroup
 	isAlive                 bool
 
-	streamConfig gostream.StreamConfig
-	videoSources map[string]gostream.HotSwappableVideoSource
-	audioSources map[string]gostream.HotSwappableAudioSource
+	streamConfig       gostream.StreamConfig
+	videoSources       map[string]gostream.HotSwappableVideoSource
+	streamErrors       map[string]*streamErrorState // map of camera name to error state
+	debugLogInterval   time.Duration                // interval at which to log repeated debug messages
+	warnRepeatInterval time.Duration                // interval at which to log repeated warning messages
 }
 
 // Resolution holds the width and height of a video stream.
@@ -78,16 +87,18 @@ func NewServer(
 ) *Server {
 	closedCtx, closedFn := context.WithCancel(context.Background())
 	server := &Server{
-		closedCtx:         closedCtx,
-		closedFn:          closedFn,
-		robot:             robot,
-		logger:            logger,
-		nameToStreamState: map[string]*state.StreamState{},
-		activePeerStreams: map[*webrtc.PeerConnection]map[string]*peerState{},
-		isAlive:           true,
-		streamConfig:      streamConfig,
-		videoSources:      map[string]gostream.HotSwappableVideoSource{},
-		audioSources:      map[string]gostream.HotSwappableAudioSource{},
+		closedCtx:          closedCtx,
+		closedFn:           closedFn,
+		robot:              robot,
+		logger:             logger,
+		nameToStreamState:  map[string]*state.StreamState{},
+		activePeerStreams:  map[*webrtc.PeerConnection]map[string]*peerState{},
+		isAlive:            true,
+		streamConfig:       streamConfig,
+		videoSources:       map[string]gostream.HotSwappableVideoSource{},
+		streamErrors:       map[string]*streamErrorState{},
+		debugLogInterval:   defaultDebugLogInterval,
+		warnRepeatInterval: defaultWarnRepeatInterval,
 	}
 	server.startMonitorCameraAvailable()
 	return server
@@ -170,73 +181,35 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 		return nil, err
 	}
 
-	// return error if resource is neither a camera nor audioinput
+	// return error if resource is not a camera
 	_, isCamErr := camerautils.Camera(server.robot, streamStateToAdd.Stream)
-	_, isAudioErr := audioinput.FromRobot(server.robot, resource.SDPTrackNameToShortName(streamStateToAdd.Stream.Name()))
-	if isCamErr != nil && isAudioErr != nil {
-		return nil, errors.Errorf("stream is neither a camera nor audioinput. streamName: %v", streamStateToAdd.Stream)
+	if isCamErr != nil {
+		return nil, errors.Errorf("stream is not a camera. streamName: %v", streamStateToAdd.Stream)
 	}
 
+	var nameToPeerState map[string]*peerState
 	// return error if the caller's peer connection is already being sent stream data
-	if _, ok := server.activePeerStreams[pc][req.Name]; ok {
-		err := errors.New("stream already active")
-		server.logger.Error(err.Error())
-		return nil, err
-	}
-	nameToPeerState, ok := server.activePeerStreams[pc]
-	// if there is no active video data being sent, set up a callback to remove the peer connection from
-	// the active streams & stop the stream from doing h264 encode if this is the last peer connection
-	// subcribed to the camera's video feed
-	// the callback fires when the peer connection state changes & runs the cleanup routine when the
-	// peer connection is in a terminal state.
-	if !ok {
+	if pcStreams, pcHasStreams := server.activePeerStreams[pc]; pcHasStreams {
+		nameToPeerState = pcStreams
+		if _, isStreaming := pcStreams[req.Name]; isStreaming {
+			err := errors.New("stream already active")
+			server.logger.Error(err.Error())
+			return nil, err
+		}
+	} else {
+		// if there is no active video data being sent, set up a callback to remove the peer
+		// connection from the active streams & stop the stream from doing h264 encode if this is
+		// the last peer connection subcribed to the camera's video feed the callback fires when the
+		// peer connection state changes & runs the cleanup routine when the peer connection is in a
+		// terminal state.
 		nameToPeerState = map[string]*peerState{}
-		pc.OnConnectionStateChange(func(peerConnectionState webrtc.PeerConnectionState) {
-			server.logger.Infof("%s pc.OnConnectionStateChange state: %s", req.Name, peerConnectionState)
-			switch peerConnectionState {
-			case webrtc.PeerConnectionStateDisconnected,
-				webrtc.PeerConnectionStateFailed,
-				webrtc.PeerConnectionStateClosed:
-
-				server.mu.Lock()
-				defer server.mu.Unlock()
-
-				if server.isAlive {
-					// Dan: This conditional closing on `isAlive` is a hack to avoid a data
-					// race. Shutting down a robot causes the PeerConnection to be closed
-					// concurrently with this `stream.Server`. Thus, `stream.Server.Close` waiting
-					// on the `activeBackgroundWorkers` WaitGroup can race with adding a new
-					// "worker". Given `Close` is expected to `Stop` remaining streams, we can elide
-					// spinning off the below goroutine.
-					//
-					// Given this is an existing race, I'm choosing to add to the tech debt rather
-					// than architect how shutdown should holistically work. Revert this change and
-					// run `TestAudioTrackIsNotCreatedForVideoStream` to reproduce the race.
-					server.activeBackgroundWorkers.Add(1)
-					utils.PanicCapturingGo(func() {
-						defer server.activeBackgroundWorkers.Done()
-						server.mu.Lock()
-						defer server.mu.Unlock()
-						defer delete(server.activePeerStreams, pc)
-						var errs error
-						for _, ps := range server.activePeerStreams[pc] {
-							errs = multierr.Combine(errs, ps.streamState.Decrement())
-						}
-						// We don't want to log this if the streamState was closed (as it only happens if viam-server is terminating)
-						if errs != nil && !errors.Is(errs, state.ErrClosed) {
-							server.logger.Errorw("error(s) stopping the streamState", "errs", errs)
-						}
-					})
-				}
-			case webrtc.PeerConnectionStateConnected,
-				webrtc.PeerConnectionStateConnecting,
-				webrtc.PeerConnectionStateNew:
-				fallthrough
-			default:
-				return
-			}
-		})
 		server.activePeerStreams[pc] = nameToPeerState
+		pc.OnConnectionStateChange(func(peerConnectionState webrtc.PeerConnectionState) {
+			// In addition to shutting down existing streams, `removeStreamsOnPCDisconnect` will
+			// remove the `pc` key from `activePeerStreams`. Returning us to the same state before
+			// the peer connection requested a video.
+			removeStreamsOnPCDisconnect(server, pc, peerConnectionState)
+		})
 	}
 
 	ps, ok := nameToPeerState[req.Name]
@@ -247,6 +220,7 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 	}
 
 	guard := rutils.NewGuard(func() {
+		delete(nameToPeerState, req.Name)
 		for _, sender := range ps.senders {
 			utils.UncheckedError(pc.RemoveTrack(sender))
 		}
@@ -264,13 +238,6 @@ func (server *Server) AddStream(ctx context.Context, req *streampb.AddStreamRequ
 
 	// if the stream supports video, add the video track
 	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.VideoTrackLocal(); haveTrackLocal {
-		if err := addTrack(trackLocal); err != nil {
-			server.logger.Error(err.Error())
-			return nil, err
-		}
-	}
-	// if the stream supports audio, add the audio track
-	if trackLocal, haveTrackLocal := streamStateToAdd.Stream.AudioTrackLocal(); haveTrackLocal {
 		if err := addTrack(trackLocal); err != nil {
 			server.logger.Error(err.Error())
 			return nil, err
@@ -305,12 +272,9 @@ func (server *Server) RemoveStream(ctx context.Context, req *streampb.RemoveStre
 	if !ok {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
-
-	shortName := resource.SDPTrackNameToShortName(streamToRemove.Stream.Name())
-	_, isAudioResourceErr := audioinput.FromRobot(server.robot, shortName)
 	_, isCameraResourceErr := camerautils.Camera(server.robot, streamToRemove.Stream)
 
-	if isAudioResourceErr != nil && isCameraResourceErr != nil {
+	if isCameraResourceErr != nil {
 		return &streampb.RemoveStreamResponse{}, nil
 	}
 
@@ -346,7 +310,7 @@ func (server *Server) GetStreamOptions(
 	if req.Name == "" {
 		return nil, errors.New("stream name is required")
 	}
-	cam, err := camera.FromRobot(server.robot, req.Name)
+	cam, err := camera.FromProvider(server.robot, req.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
@@ -435,11 +399,17 @@ func validateSetStreamOptionsRequest(req *streampb.SetStreamOptionsRequest) (int
 
 // resizeVideoSource resizes the video source with the given name.
 func (server *Server) resizeVideoSource(ctx context.Context, name string, width, height int) error {
+	if width > 1000 && height > 600 {
+		// TODO - this should be smarter, ideally knowing what the original stream is
+		server.logger.Infof("not resizing (%s) to %d, %d because it's probable a bad idea as it's too big",
+			name, width, height)
+		return nil
+	}
 	existing, ok := server.videoSources[name]
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
 	}
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		server.logger.Errorf("error getting camera %q from robot", name)
 		return err
@@ -453,9 +423,9 @@ func (server *Server) resizeVideoSource(ctx context.Context, name string, width,
 		return fmt.Errorf("failed to create video source from camera: %w", err)
 	}
 	resizer := gostream.NewResizeVideoSource(vs, width, height)
-	server.logger.Debugf(
-		"resizing video source to width %d and height %d",
-		width, height,
+	server.logger.Infof(
+		"resizing video source (%s) to width %d and height %d",
+		name, width, height,
 	)
 	existing.Swap(resizer)
 	err = streamState.Resize()
@@ -471,7 +441,7 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	if !ok {
 		return fmt.Errorf("video source %q not found", name)
 	}
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		server.logger.Errorf("error getting camera %q from robot", name)
 	}
@@ -492,19 +462,18 @@ func (server *Server) resetVideoSource(ctx context.Context, name string) error {
 	return nil
 }
 
-// AddNewStreams adds new video and audio streams to the server using the updated set of video and
-// audio sources. It refreshes the sources, checks for a valid stream configuration, and starts
-// the streams if applicable.
+// AddNewStreams adds new video streams to the server using the updated set of video sources.
+// It refreshes the sources, checks for a valid stream configuration, and starts the streams
+// if applicable.
 func (server *Server) AddNewStreams(ctx context.Context) error {
-	// Refreshing sources will walk the robot resources for anything implementing the camera and
-	// audioinput APIs and mutate the `svc.videoSources` and `svc.audioSources` maps.
+	// Refreshing sources will walk the robot resources for anything implementing the camera APIs
+	// and mutate the `svc.videoSources` map.
 	server.refreshVideoSources(ctx)
-	server.refreshAudioSources()
 
 	if server.streamConfig == (gostream.StreamConfig{}) {
-		// The `streamConfig` dictates the video and audio encoder libraries to use. We can't do
-		// much if none are present.
-		if len(server.videoSources) != 0 || len(server.audioSources) != 0 {
+		// The `streamConfig` dictates the video encoder library to use. We can't do
+		// much if none is present.
+		if len(server.videoSources) != 0 {
 			server.logger.Warn("not starting streams due to no stream config being set")
 		}
 		return nil
@@ -540,23 +509,6 @@ func (server *Server) AddNewStreams(ctx context.Context) error {
 			continue
 		}
 		server.startVideoStream(ctx, server.videoSources[name], stream)
-	}
-
-	for name := range server.audioSources {
-		// Similarly, we walk the updated set of `audioSources` and ensure all of the audio sources
-		// are "created" and "started". `createStream` and `startAudioStream` have the same
-		// behaviors as described above for video streams.
-		config := gostream.StreamConfig{
-			Name:                name,
-			AudioEncoderFactory: server.streamConfig.AudioEncoderFactory,
-		}
-		stream, alreadyRegistered, err := server.createStream(config, name)
-		if err != nil {
-			return err
-		} else if alreadyRegistered {
-			continue
-		}
-		server.startAudioStream(ctx, server.audioSources[name], stream)
 	}
 
 	return nil
@@ -614,20 +566,36 @@ func (server *Server) removeMissingStreams() {
 		// Stream names are slightly modified versions of the resource short name
 		camName := streamState.Stream.Name()
 		shortName := resource.SDPTrackNameToShortName(camName)
-		if _, err := audioinput.FromRobot(server.robot, shortName); err == nil {
-			// `nameToStreamState` can contain names for both camera and audio resources. Leave the
-			// stream in place if its an audio resource.
-			continue
-		}
 
-		_, err := camera.FromRobot(server.robot, shortName)
+		_, err := camera.FromProvider(server.robot, shortName)
 		if !resource.IsNotFoundError(err) {
 			// Cameras can go through transient states during reconfigure that don't necessarily
 			// imply the camera is missing. E.g: *resource.notAvailableError. To double-check we
 			// have the right set of exceptions here, we log the error and ignore.
 			if err != nil {
-				server.logger.Warnw("Error getting camera from robot",
-					"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err))
+				now := time.Now()
+				logFields := []interface{}{
+					"camera", camName, "err", err, "errType", fmt.Sprintf("%T", err),
+				}
+				prev, ok := server.streamErrors[camName]
+				if !ok || prev.lastError != err.Error() {
+					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					server.streamErrors[camName] = &streamErrorState{
+						lastError:    err.Error(),
+						lastWarnTime: now,
+						lastLogTime:  now,
+					}
+				} else if now.Sub(prev.lastWarnTime) >= server.warnRepeatInterval {
+					server.logger.Warnw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					prev.lastWarnTime = now
+					prev.lastLogTime = now
+				} else if now.Sub(prev.lastLogTime) >= server.debugLogInterval {
+					server.logger.Debugw("Camera unavailable, will retry on next reconfiguration", logFields...)
+					prev.lastLogTime = now
+				}
+			} else {
+				// Camera is healthy, clear any previously tracked error.
+				delete(server.streamErrors, camName)
 			}
 			continue
 		}
@@ -636,6 +604,7 @@ func (server *Server) removeMissingStreams() {
 		// first. Such that we only try closing/unsubscribing once.
 		server.logger.Infow("Camera doesn't exist. Closing its streams",
 			"camera", camName, "err", err, "Type", fmt.Sprintf("%T", err))
+		delete(server.streamErrors, camName)
 		delete(server.nameToStreamState, key)
 
 		for pc, peerStateByCamName := range server.activePeerStreams {
@@ -668,7 +637,7 @@ func (server *Server) removeMissingStreams() {
 // refreshVideoSources checks and initializes every possible video source that could be viewed from the robot.
 func (server *Server) refreshVideoSources(ctx context.Context) {
 	for _, name := range camera.NamesFromRobot(server.robot) {
-		cam, err := camera.FromRobot(server.robot, name)
+		cam, err := camera.FromProvider(server.robot, name)
 		if err != nil {
 			continue
 		}
@@ -677,14 +646,14 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 			server.logger.Errorf("error creating video source from camera: %v", err)
 			continue
 		}
-		existing, ok := server.videoSources[cam.Name().SDPTrackName()]
+		existing, ok := server.videoSources[cam.Name().Name]
 		if ok {
 			// Check stream state for the camera to see if it is in resized mode.
 			// If it is in resized mode, we want to apply the resize transformation to the
 			// video source before swapping it.
-			streamState, ok := server.nameToStreamState[cam.Name().SDPTrackName()]
+			streamState, ok := server.nameToStreamState[cam.Name().Name]
 			if ok && streamState.IsResized() {
-				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().SDPTrackName())
+				server.logger.Debugf("stream %q is resized attempting to reapply resize transformation", cam.Name().Name)
 				mediaProps, err := existing.MediaProperties(server.closedCtx)
 				if err != nil {
 					server.logger.Errorf("error getting media properties from resize source: %v", err)
@@ -704,34 +673,17 @@ func (server *Server) refreshVideoSources(ctx context.Context) {
 				// If we can't get the media properties or the width and height are 0, we fall back to
 				// the original source and need to notify the stream state that the source is no longer
 				// resized.
-				server.logger.Warnf("falling back to original source for stream %q", cam.Name().SDPTrackName())
+				server.logger.Warnf("falling back to original source for stream %q", cam.Name().Name)
 				err = streamState.Reset()
 				if err != nil {
-					server.logger.Errorf("error resetting stream %q: %v", cam.Name().SDPTrackName(), err)
+					server.logger.Errorf("error resetting stream %q: %v", cam.Name().Name, err)
 				}
 			}
 			existing.Swap(src)
 			continue
 		}
 		newSwapper := gostream.NewHotSwappableVideoSource(src)
-		server.videoSources[cam.Name().SDPTrackName()] = newSwapper
-	}
-}
-
-// refreshAudioSources checks and initializes every possible audio source that could be viewed from the robot.
-func (server *Server) refreshAudioSources() {
-	for _, name := range audioinput.NamesFromRobot(server.robot) {
-		input, err := audioinput.FromRobot(server.robot, name)
-		if err != nil {
-			continue
-		}
-		existing, ok := server.audioSources[input.Name().SDPTrackName()]
-		if ok {
-			existing.Swap(input)
-			continue
-		}
-		newSwapper := gostream.NewHotSwappableAudioSource(input)
-		server.audioSources[input.Name().SDPTrackName()] = newSwapper
+		server.videoSources[cam.Name().Name] = newSwapper
 	}
 }
 
@@ -773,16 +725,8 @@ func (server *Server) startVideoStream(ctx context.Context, source gostream.Vide
 	})
 }
 
-func (server *Server) startAudioStream(ctx context.Context, source gostream.AudioSource, stream gostream.Stream) {
-	server.startStream(func(opts *BackoffTuningOptions) error {
-		// Merge ctx that may be coming from a Reconfigure.
-		streamAudioCtx, _ := utils.MergeContext(server.closedCtx, ctx)
-		return streamAudioSource(streamAudioCtx, source, stream, opts, server.logger)
-	})
-}
-
 func (server *Server) getFramerateFromCamera(name string) (int, error) {
-	cam, err := camera.FromRobot(server.robot, name)
+	cam, err := camera.FromProvider(server.robot, name)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get camera from robot: %w", err)
 	}
@@ -829,24 +773,82 @@ func sampleFrameSize(ctx context.Context, cam camera.Camera, logger logging.Logg
 	logger.Debug("sampling frame size")
 	// Attempt to get a frame from the stream with a maximum of 5 retries.
 	// This is useful if cameras have a warm-up period before they can start streaming.
-	var frame image.Image
-	var err error
-retryLoop:
+	var lastErr error
+
 	for i := 0; i < 5; i++ {
 		select {
 		case <-ctx.Done():
 			return 0, 0, ctx.Err()
 		default:
-			frame, err = camera.DecodeImageFromCamera(ctx, "", nil, cam)
-			if err == nil {
-				break retryLoop // Break out of the for loop, not just the select.
+			namedImage, err := camerautils.GetStreamableNamedImageFromCamera(ctx, cam)
+			if err != nil {
+				logger.Debugf("failed to get streamable named image from camera: %v", err)
+				lastErr = err
+				time.Sleep(retryDelay)
+				continue
 			}
-			logger.Debugf("failed to get frame, retrying... (%d/5)", i+1)
-			time.Sleep(retryDelay)
+			frame, err := namedImage.Image(ctx)
+			if err != nil {
+				logger.Debugf("failed to get frame from named image: %v", err)
+				lastErr = err
+				time.Sleep(retryDelay)
+				continue
+			}
+			return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 		}
 	}
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", err)
+	return 0, 0, fmt.Errorf("failed to get frame after 5 attempts: %w", lastErr)
+}
+
+func removeStreamsOnPCDisconnect(server *Server, pc *webrtc.PeerConnection, peerConnectionState webrtc.PeerConnectionState) {
+	// WARNING: The WebRTC library runs this callback in an unmanaged goroutine which can easily lead to data races. As a
+	// mitigation, do not use server.logger or read any data before locking server.mu and checking that server.isAlive
+	// is true. If server.isAlive is false you should return early. See Dan's comment below for related information.
+
+	switch peerConnectionState {
+	case webrtc.PeerConnectionStateDisconnected,
+		webrtc.PeerConnectionStateFailed,
+		webrtc.PeerConnectionStateClosed:
+
+		server.mu.Lock()
+		defer server.mu.Unlock()
+
+		if !server.isAlive {
+			// Dan: This conditional closing on `isAlive` is a hack to avoid a data race. Shutting
+			// down a robot causes the PeerConnection to be closed concurrently with this
+			// `stream.Server`. Thus, `stream.Server.Close` waiting on the `activeBackgroundWorkers`
+			// WaitGroup can race with adding a new "worker". Given `Close` is expected to `Stop`
+			// remaining streams, we can elide spinning off the below goroutine.
+			//
+			// Given this is an existing race, I'm choosing to add to the tech debt rather than
+			// architect how shutdown should holistically work. Revert this change and run
+			// `TestAudioTrackIsNotCreatedForVideoStream` to reproduce the race.
+			return
+		}
+
+		server.logger.Infow("Removing streams due to PeerConnection disconnect",
+			"state", peerConnectionState)
+		server.activeBackgroundWorkers.Add(1)
+		utils.PanicCapturingGo(func() {
+			defer server.activeBackgroundWorkers.Done()
+			server.mu.Lock()
+			defer server.mu.Unlock()
+			defer delete(server.activePeerStreams, pc)
+			var errs error
+			for _, ps := range server.activePeerStreams[pc] {
+				errs = multierr.Combine(errs, ps.streamState.Decrement())
+			}
+			// We don't want to log this if the streamState was closed (as it only happens if
+			// viam-server is terminating)
+			if errs != nil && !errors.Is(errs, state.ErrClosed) {
+				server.logger.Errorw("error(s) stopping the streamState", "errs", errs)
+			}
+		})
+	case webrtc.PeerConnectionStateConnected,
+		webrtc.PeerConnectionStateConnecting,
+		webrtc.PeerConnectionStateNew:
+		fallthrough
+	default:
+		return
 	}
-	return frame.Bounds().Dx(), frame.Bounds().Dy(), nil
 }

@@ -90,19 +90,19 @@ type Config struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if conf.Pins.I == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "i")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "i")
 	}
 
 	if len(conf.BoardName) == 0 {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "board")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "board")
 	}
 	deps = append(deps, conf.BoardName)
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // AttachDirectionalAwareness to pre-created encoder.
@@ -151,7 +151,7 @@ func (e *Encoder) Reconfigure(
 	needRestart := existingBoardName != newConf.BoardName ||
 		existingDIPinName != newConf.Pins.I
 
-	board, err := board.FromDependencies(deps, newConf.BoardName)
+	board, err := board.FromProvider(deps, newConf.BoardName)
 	if err != nil {
 		return err
 	}

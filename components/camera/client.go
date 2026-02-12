@@ -8,19 +8,22 @@ import (
 	"image"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
-	"go.opencensus.io/trace"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	streampb "go.viam.com/api/stream/v1"
 	goutils "go.viam.com/utils"
 	goprotoutils "go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"golang.org/x/exp/slices"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
 	"go.viam.com/rdk/data"
@@ -29,9 +32,10 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -87,7 +91,7 @@ func NewClientFromConn(
 	return &client{
 		remoteName:     remoteName,
 		Named:          name.PrependRemote(remoteName).AsNamed(),
-		name:           name.ShortName(),
+		name:           name.Name,
 		conn:           conn,
 		streamClient:   streamClient,
 		client:         c,
@@ -146,7 +150,7 @@ func (c *client) Stream(
 				return
 			}
 
-			img, err := DecodeImageFromCamera(streamCtx, mimeTypeFromCtx, nil, c)
+			img, err := DecodeImageFromCamera(streamCtx, c, nil, nil)
 			if err != nil {
 				for _, handler := range errHandlers {
 					handler(streamCtx, err)
@@ -174,83 +178,64 @@ func (c *client) Stream(
 }
 
 func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
-	defer span.End()
-	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
+	peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+	moduleName := grpc.GetModuleName(ctx)
+	md, _ := metadata.FromIncomingContext(ctx)
+	errorMsg := fmt.Sprintf(
+		"camera client error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
+			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated for this "+
+			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
+			"camera_name: %s, camera_remote_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
+		c.Name(),
+		c.remoteName,
+		peerInfo.RemoteAddress,
+		moduleName,
+		md,
+	)
 
-	convertedExtra, err := goprotoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
-		Name:     c.name,
-		MimeType: expectedType,
-		Extra:    convertedExtra,
-	})
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	if len(resp.Image) == 0 {
-		return nil, ImageMetadata{}, errors.New("received empty bytes from client GetImage")
-	}
-
-	if expectedType != "" && resp.MimeType != expectedType {
-		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-		if resp.MimeType == "" {
-			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
-			// response's mime_type was what the user requested
-			resp.MimeType = mimeType
-		}
-	}
-
-	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
+	c.logger.Error(errorMsg)
+	return nil, ImageMetadata{}, errors.New(errorMsg)
 }
 
-func (c *client) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+func (c *client) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::Images")
 	defer span.End()
 
+	convertedExtra, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
 	resp, err := c.client.GetImages(ctx, &pb.GetImagesRequest{
-		Name: c.name,
+		Name:              c.name,
+		FilterSourceNames: filterSourceNames,
+		Extra:             convertedExtra,
 	})
 	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not gets images from the camera %w", err)
+		return nil, resource.ResponseMetadata{}, fmt.Errorf("camera client: could not get images from the camera %w", err)
 	}
 
 	images := make([]NamedImage, 0, len(resp.Images))
 	// keep everything lazy encoded by default, if type is unknown, attempt to decode it
 	for _, img := range resp.Images {
-		var rdkImage image.Image
-		switch img.Format {
-		case pb.Format_FORMAT_RAW_RGBA:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawRGBA)
-		case pb.Format_FORMAT_RAW_DEPTH:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeRawDepth)
-		case pb.Format_FORMAT_JPEG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypeJPEG)
-		case pb.Format_FORMAT_PNG:
-			rdkImage = rimage.NewLazyEncodedImage(img.Image, utils.MimeTypePNG)
-		case pb.Format_FORMAT_UNSPECIFIED:
-			rdkImage, _, err = image.Decode(bytes.NewReader(img.Image))
-			if err != nil {
-				return nil, resource.ResponseMetadata{}, err
-			}
+		namedImg, err := NamedImageFromBytes(img.Image, img.SourceName, img.MimeType, data.AnnotationsFromProto(img.Annotations))
+		if err != nil {
+			return nil, resource.ResponseMetadata{}, err
 		}
-		images = append(images, NamedImage{rdkImage, img.SourceName})
+		images = append(images, namedImg)
 	}
 	return images, resource.ResponseMetadataFromProto(resp.ResponseMetadata), nil
 }
 
-func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (c *client) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::client::NextPointCloud")
 	defer span.End()
 
 	ctx, getPcdSpan := trace.StartSpan(ctx, "camera::client::NextPointCloud::GetPointCloud")
 
-	extra := make(map[string]interface{})
-	if ctx.Value(data.FromDMContextKey{}) == true {
-		extra[data.FromDMString] = true
-	}
 	extraStructPb, err := goprotoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -274,7 +259,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		_, span := trace.StartSpan(ctx, "camera::client::NextPointCloud::ReadPCD")
 		defer span.End()
 
-		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud), "")
 	}()
 }
 
@@ -311,7 +296,8 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return result, nil
 	}
 	// switch distortion model based on model name
-	model := transform.DistortionType(resp.DistortionParameters.Model)
+	// Parse the model as a lowercase string
+	model := transform.DistortionType(strings.ToLower(resp.DistortionParameters.Model))
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
 	if err != nil {
 		return Properties{}, err
@@ -322,6 +308,21 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := goprotoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }
 
 // TODO(RSDK-6433): This method can be called more than once during a client's lifecycle.
@@ -678,11 +679,11 @@ func (c *client) trackName() string {
 	if c.remoteName != "" {
 		// if c.remoteName != "" it indicates that we are talking to a remote part & we need to pop the remote name
 		// as the remote doesn't know it's own name from the perspective of the main part
-		return c.Name().PopRemote().SDPTrackName()
+		return c.Name().PopRemote().Name
 	}
 
 	// in this case we are talking to a main part & the remote name (if it exists) needs to be preserved
-	return c.Name().SDPTrackName()
+	return c.Name().Name
 }
 
 func (c *client) unsubscribeAll() {

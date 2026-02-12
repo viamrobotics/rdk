@@ -9,20 +9,21 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/navigation/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceServer implements the contract from navigation.proto.
 type serviceServer struct {
 	pb.UnimplementedNavigationServiceServer
-	coll resource.APIResourceCollection[Service]
+	coll resource.APIResourceGetter[Service]
 }
 
 // NewRPCServiceServer constructs a navigation gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Service]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Service], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -150,7 +151,7 @@ func (server *serviceServer) GetObstacles(ctx context.Context, req *pb.GetObstac
 	}
 	protoObs := []*commonpb.GeoGeometry{}
 	for _, obstacle := range obstacles {
-		protoObs = append(protoObs, spatialmath.GeoGeometryToProtobuf(obstacle))
+		protoObs = append(protoObs, referenceframe.GeoGeometryToProtobuf(obstacle))
 	}
 	return &pb.GetObstaclesResponse{Obstacles: protoObs}, nil
 }

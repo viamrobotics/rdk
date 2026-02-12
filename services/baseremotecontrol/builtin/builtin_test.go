@@ -28,12 +28,12 @@ func TestBaseRemoteControl(t *testing.T) {
 		ControlModeName:     "",
 	}
 
-	depNames, err := cfg.Validate("")
+	depNames, _, err := cfg.Validate("")
 	test.That(t, err, test.ShouldBeNil)
 	testutils.VerifySameElements(t, depNames, []string{"baseTest", "inputTest"})
 
 	cfg.ControlModeName = "fail"
-	_, err = cfg.Validate("")
+	_, _, err = cfg.Validate("")
 	test.That(t, err, test.ShouldBeError,
 		resource.NewConfigValidationError("", errors.Errorf("Control mode '%s' is not in %v", cfg.ControlModeName, modes)))
 
@@ -151,7 +151,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		},
 		logger)
 	test.That(t, err, test.ShouldBeError,
-		errors.New("dependency \"rdk:component:base/baseTest\" should be an implementation of base.Base but it was a *inject.InputController"))
+		errors.New("dependency rdk:component:base/baseTest should be an implementation of base.Base but it was a *inject.InputController"))
 
 	// Controller event by mode
 	t.Run("controller events joystick control mode", func(t *testing.T) {

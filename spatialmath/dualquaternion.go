@@ -13,18 +13,18 @@ import (
 
 var defaultPrecision = 6
 
-// dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
+// DualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
 // using these instead.
-type dualQuaternion struct {
+type DualQuaternion struct {
 	dualquat.Number
 }
 
 // newDualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
 // Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
 // instead of &dualQuaternion{}.
-func newDualQuaternion() *dualQuaternion {
-	return &dualQuaternion{dualquat.Number{
+func newDualQuaternion() *DualQuaternion {
+	return &DualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	}}
@@ -32,15 +32,15 @@ func newDualQuaternion() *dualQuaternion {
 
 // newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation
 // quaternion is set from a provided orientation.
-func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
-	return &dualQuaternion{dualquat.Number{
+func newDualQuaternionFromRotation(o Orientation) *DualQuaternion {
+	return &DualQuaternion{dualquat.Number{
 		Real: o.Quaternion(),
 		Dual: quat.Number{},
 	}}
 }
 
 // newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter.
-func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
+func newDualQuaternionFromDH(a, d, alpha float64) *DualQuaternion {
 	m := mgl64.Ident4()
 
 	m.Set(1, 1, math.Cos(alpha))
@@ -57,29 +57,32 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	return q
 }
 
-// newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
-// protobuf pose.
-func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *dualQuaternion {
+// newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation
+// quaternion is set from a provided protobuf pose.
+func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *DualQuaternion {
 	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
 	q.SetTranslation(r3.Vector{pos.X, pos.Y, pos.Z})
 	return q
 }
 
-// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
-// new one.
-func newDualQuaternionFromPose(p Pose) *dualQuaternion {
-	if q, ok := p.(*dualQuaternion); ok {
-		return &dualQuaternion{q.Number}
+// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so,
+// otherwise creates a new one.
+func newDualQuaternionFromPose(p Pose) *DualQuaternion {
+	if q, ok := p.(*DualQuaternion); ok {
+		return &DualQuaternion{q.Number}
 	}
 	q := newDualQuaternionFromRotation(p.Orientation())
 	q.SetTranslation(p.Point())
 	return q
 }
 
-// newDualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so, otherwise creates a
-// new one.
-func dualQuaternionFromPose(p Pose) *dualQuaternion {
-	if q, ok := p.(*dualQuaternion); ok {
+// DualQuaternionFromPose takes any pose, checks if it is already a DQ and returns that if so,
+// otherwise creates a new one.
+//
+// Dan: What's the difference between this and the above? It's not clear that
+// `OrientationVectorRadians` is meaningful.
+func DualQuaternionFromPose(p Pose) *DualQuaternion {
+	if q, ok := p.(*DualQuaternion); ok {
 		return q
 	}
 	q := newDualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
@@ -88,7 +91,7 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 }
 
 // ToProtobuf converts a dualQuaternion to a protobuf pose.
-func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
+func (q *DualQuaternion) ToProtobuf() *commonpb.Pose {
 	final := &commonpb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
@@ -106,43 +109,42 @@ func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
 // and the dual is representative of real world millimeters. We then return the XYZ point on its own.
 // We intentionally do not return the resulting dual quaternion, because we do not want to mix dq's representing
 // transformations and ones representing pure points.
-func (q *dualQuaternion) Point() r3.Vector {
+func (q *DualQuaternion) Point() r3.Vector {
 	tQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number)).Dual
 	return r3.Vector{tQuat.Imag, tQuat.Jmag, tQuat.Kmag}
 }
 
 // Orientation returns the rotation quaternion as an Orientation.
-func (q *dualQuaternion) Orientation() Orientation {
+func (q *DualQuaternion) Orientation() Orientation {
 	return (*Quaternion)(&q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
-func (q *dualQuaternion) SetTranslation(pt r3.Vector) {
+func (q *DualQuaternion) SetTranslation(pt r3.Vector) {
 	q.Dual = quat.Number{0, pt.X / 2, pt.Y / 2, pt.Z / 2}
 	q.rotate()
 }
 
 // rotate multiplies the dual part of the quaternion by the real part give the correct rotation.
-func (q *dualQuaternion) rotate() {
+func (q *DualQuaternion) rotate() {
 	q.Dual = quat.Mul(q.Dual, q.Real)
 }
 
 // Invert returns a dualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
 // then Invert(p) will transform b -> a.
-func (q *dualQuaternion) Invert() Pose {
-	return &dualQuaternion{dualquat.ConjQuat(q.Number)}
+func (q *DualQuaternion) Invert() Pose {
+	return &DualQuaternion{dualquat.ConjQuat(q.Number)}
 }
 
 // SetZ sets the z translation.
-func (q *dualQuaternion) SetZ(z float64) {
+func (q *DualQuaternion) SetZ(z float64) {
 	q.Dual.Kmag = z
 }
 
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
-func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
+func (q *DualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	var newReal quat.Number
 
-	//nolint: gocritic
 	if q.Real.Real == 1 {
 		// Since we're working with unit quaternions, if either Real is 1, then that quat is an identity quat
 		newReal = by.Real
@@ -199,7 +201,7 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 //	%.3v    | {X:0.000 Y:0.000 Z:0.000 OX:0.000 OY:0.000 OZ:1.000 Theta:0.000°}
 //	%#v     | r3.Vector{0 0 0} *spatialmath.OrientationVectorDegrees{0 0 0 1}
 //	%g      | ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
+func (q *DualQuaternion) Format(fs fmt.State, verb rune) {
 	prec, ok := fs.Precision()
 	if !ok {
 		prec = defaultPrecision
@@ -217,7 +219,7 @@ func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
 		}
 		fallthrough
 	case 's':
-		format = fmt.Sprintf("{X:%s Y:%s Z:%s OX:%s OY:%s OZ:%s Theta:%s°}", format, format, format, format, format, format, format)
+		format = fmt.Sprintf("{X:%[1]s Y:%[1]s Z:%[1]s OX:%[1]s OY:%[1]s OZ:%[1]s Theta:%[1]s°}", format)
 		//nolint:errcheck
 		fmt.Fprintf(fs, format, pt.X, pt.Y, pt.Z, o.OX, o.OY, o.OZ, o.Theta)
 	default:
@@ -229,7 +231,12 @@ func (q *dualQuaternion) Format(fs fmt.State, verb rune) {
 func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q1 := newDualQuaternionFromProtobuf(a)
 	q2 := newDualQuaternionFromProtobuf(b)
-	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
+	q3 := &DualQuaternion{q1.Transformation(q2.Number)}
 
 	return q3.ToProtobuf()
+}
+
+// Hash returns a hash value for this dual quaternion.
+func (q *DualQuaternion) Hash() int {
+	return HashPose(q)
 }

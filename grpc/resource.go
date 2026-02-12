@@ -13,7 +13,7 @@ import (
 )
 
 // UnimplementedError is returned any time a gRPC method is unimplemented.
-var UnimplementedError = status.Error(codes.Unimplemented, codes.Unimplemented.String())
+var UnimplementedError = status.Error(codes.Unimplemented, codes.Unimplemented.String()) //nolint: errname
 
 // An ForeignResource is used to dynamically invoke RPC calls to resources that have their
 // RPC information dervied on demand.

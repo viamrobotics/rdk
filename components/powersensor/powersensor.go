@@ -37,6 +37,10 @@ func init() {
 		API:        API,
 		MethodName: readings.String(),
 	}, newReadingsCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "power_sensor".
@@ -91,15 +95,25 @@ type PowerSensor interface {
 	Power(ctx context.Context, extra map[string]interface{}) (float64, error)
 }
 
-// FromDependencies is a helper for getting the named PowerSensor from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named PowerSensor from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check.
 func FromDependencies(deps resource.Dependencies, name string) (PowerSensor, error) {
 	return resource.FromDependencies[PowerSensor](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named PowerSensor from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named PowerSensor from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (PowerSensor, error) {
 	return robot.ResourceFromRobot[PowerSensor](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named PowerSensor from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (PowerSensor, error) {
+	return resource.FromProvider[PowerSensor](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all PowerSensor names from the given Robot.

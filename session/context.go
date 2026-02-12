@@ -62,7 +62,7 @@ func SafetyMonitor(ctx context.Context, target resource.Resource) {
 	SafetyMonitorResourceName(ctx, target.Name())
 }
 
-// SafetyMonitorResourceName works just like SafetyMonitor but uses resource names
+// SafetyMonitorResourceName works just like [SafetyMonitor] but uses resource names
 // directly.
 func SafetyMonitorResourceName(ctx context.Context, targetName resource.Name) {
 	setSafetyMonitoredResourceMetadata(ctx, targetName)

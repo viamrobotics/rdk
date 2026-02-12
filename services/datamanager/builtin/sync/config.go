@@ -6,6 +6,7 @@ import (
 
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/services/datamanager/builtin/shared"
 )
 
 // Config is the sync config from builtin.
@@ -49,8 +50,8 @@ type Config struct {
 	// which in english reads:
 	//
 	// If datacapture is enabled then every 30 seconds
-	// if the disk is full (which is defined as the disk
-	// is 90% full and 50% is contributed by the CaptureDir)
+	// if the disk is full (file system usage is at or above DiskUsageDeletionThreshold
+	// and CaptureDirToFSThreshold of the disk usage is contributed by the CaptureDir)
 	// delete every Nth file in the CaptureDir & child
 	// directories.
 	//
@@ -58,6 +59,15 @@ type Config struct {
 	// disk if the robot is unable to sync data for a long period
 	// of time. Defaults to 5.
 	DeleteEveryNthWhenDiskFull int
+	// DiskUsageDeletionThreshold defines the threshold at which file deletion might occur.
+	// If disk usage is at or above this threshold, AND the capture directory makes up at least CaptureDirToFSThreshold of the disk usage,
+	// then file deletion will occur based on the DeleteEveryNthWhenDiskFull parameter. If disk usage is at or above the disk usage threshold,
+	// but the capture directory is below the capture directory threshold, then file deletion will not occur but a
+	// warning will be logged periodically.
+	// Defaults to 0.90.
+	DiskUsageDeletionThreshold float64
+	// Defaults to 0.50
+	CaptureDirDeletionThreshold float64
 	// FileLastModifiedMillis defines the number of milliseconds that
 	// we should wait for an arbitrary file (aka a file that doesn't end in
 	// either the .prog nor the .capture file extension) before we consider
@@ -99,6 +109,8 @@ func (c Config) Equal(o Config) bool {
 		c.CaptureDir == o.CaptureDir &&
 		c.CaptureDisabled == o.CaptureDisabled &&
 		c.DeleteEveryNthWhenDiskFull == o.DeleteEveryNthWhenDiskFull &&
+		c.DiskUsageDeletionThreshold == o.DiskUsageDeletionThreshold &&
+		c.CaptureDirDeletionThreshold == o.CaptureDirDeletionThreshold &&
 		c.FileLastModifiedMillis == o.FileLastModifiedMillis &&
 		c.MaximumNumSyncThreads == o.MaximumNumSyncThreads &&
 		c.ScheduledSyncDisabled == o.ScheduledSyncDisabled &&
@@ -177,5 +189,10 @@ func (c *Config) logDiff(o Config, logger logging.Logger) {
 
 // SyncPaths returns the capture directory and additional sync paths as a slice.
 func (c Config) SyncPaths() []string {
-	return append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
+	// TODO(DATA-4287): Remove this once all windows machines have updated to a version of viam-server that uses the new capture directory.
+	syncPaths := append([]string{c.CaptureDir}, c.AdditionalSyncPaths...)
+	if c.CaptureDir == shared.ViamCaptureDotDir && shared.DefaultCaptureDirChanged {
+		syncPaths = append(syncPaths, shared.OldViamCaptureDotDir)
+	}
+	return syncPaths
 }

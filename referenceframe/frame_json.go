@@ -1,6 +1,10 @@
 package referenceframe
 
 import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+
 	"github.com/golang/geo/r3"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -48,21 +52,42 @@ type DHParamConfig struct {
 }
 
 // NewLinkConfig constructs a config from a Frame.
-func NewLinkConfig(frame staticFrame) (*LinkConfig, error) {
-	var geom *spatial.GeometryConfig
-	orient, err := spatial.NewOrientationConfig(frame.transform.Orientation())
+// NOTE: this currently only works with Frames of len(DoF)==0 and will error otherwise
+// NOTE: this will not work if more than one Geometry is returned by the Geometries function.
+func NewLinkConfig(frame Frame) (*LinkConfig, error) {
+	if len(frame.DoF()) > 0 {
+		return nil, fmt.Errorf("cannot create link config for Frame with %d DoF", len(frame.DoF()))
+	}
+
+	pose, err := frame.Transform([]Input{})
 	if err != nil {
 		return nil, err
 	}
-	if frame.geometry != nil {
-		geom, err = spatial.NewGeometryConfig(frame.geometry)
+	orient, err := spatial.NewOrientationConfig(pose.Orientation())
+	if err != nil {
+		return nil, err
+	}
+
+	var geom *spatial.GeometryConfig
+	gif, err := frame.Geometries([]Input{})
+	if err != nil {
+		return nil, err
+	}
+	geometries := gif.Geometries()
+	if len(geometries) > 0 {
+		// TODO: when we support having multiple geometries on a pb.Frame in the API this will need to go away
+		if len(geometries) > 1 {
+			return nil, fmt.Errorf("cannot create link config for Frame with %d geometries", len(geometries))
+		}
+		geom, err = spatial.NewGeometryConfig(geometries[0])
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return &LinkConfig{
-		ID:          frame.name,
-		Translation: frame.transform.Point(),
+		ID:          frame.Name(),
+		Translation: pose.Point(),
 		Orientation: orient,
 		Geometry:    geom,
 	}, nil
@@ -143,4 +168,54 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 		}
 	}
 	return rFrame, lFrame, nil
+}
+
+// frameToJSON marshals an implementer of the Frame interface into JSON.
+func frameToJSON(frame Frame) ([]byte, error) {
+	type typedFrame struct {
+		FrameType string `json:"frame_type"`
+		Frame     Frame  `json:"frame"`
+	}
+	for name, f := range registeredFrameImplementers {
+		if reflect.ValueOf(frame).Type().Elem() == f {
+			return json.Marshal(&typedFrame{
+				FrameType: name,
+				Frame:     frame,
+			})
+		}
+	}
+	return []byte{}, fmt.Errorf("Frame of type %T is not a registered Frame implementation", frame)
+}
+
+// jsonToFrame converts raw JSON into a Frame by using a key called "frame_type"
+// to determine the explicit struct type to which the frame data (found under the key
+// "frame") should be marshalled.
+func jsonToFrame(data json.RawMessage) (Frame, error) {
+	var sF map[string]json.RawMessage
+	if err := json.Unmarshal(data, &sF); err != nil {
+		return nil, err
+	}
+	var frameType string
+	if err := json.Unmarshal(sF["frame_type"], &frameType); err != nil {
+		return nil, err
+	}
+	if _, ok := sF["frame"]; !ok {
+		return nil, fmt.Errorf("no frame data found for frame, type was %s", frameType)
+	}
+
+	implementer, ok := registeredFrameImplementers[frameType]
+	if !ok {
+		return nil, fmt.Errorf("%s is not a registered Frame implementation", frameType)
+	}
+	frameZeroStruct := reflect.New(implementer).Elem()
+	frame := frameZeroStruct.Addr().Interface()
+	frameI, err := utils.AssertType[Frame](frame)
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(sF["frame"], frame); err != nil {
+		return nil, err
+	}
+
+	return frameI, nil
 }

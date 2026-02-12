@@ -26,6 +26,7 @@ DESC=$(git describe --tags --match="v*" --exclude="*-rc*" --long | sed 's/^v//')
 
 BASE_VERSION=$(echo "$DESC" | cut -d'-' -f1)
 COMMITS_SINCE_TAG=$(echo "$DESC" | cut -d'-' -f2)
+COMMIT_HASH=$(echo "$DESC" | cut -d'-' -f3 | sed 's/^g//')
 
 # Calculate next version by incrementing patch number
 NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)
@@ -34,7 +35,7 @@ NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)
 if [ "$COMMITS_SINCE_TAG" -eq 0 ]; then
     TAG_VERSION="$BASE_VERSION"
 else
-    TAG_VERSION="${NEXT_VERSION}-dev.${COMMITS_SINCE_TAG}"
+    TAG_VERSION="${NEXT_VERSION}-dev.${COMMITS_SINCE_TAG}-${COMMIT_HASH}"
 fi
 
 # Set PATH_VERSION based on TAG_VERSION

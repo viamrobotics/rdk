@@ -16,6 +16,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
@@ -33,7 +34,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/shell"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -138,7 +138,6 @@ func TestConfig3(t *testing.T) {
 			"hi":     3.3,
 			"friend": 4.4,
 		},
-		RemoteName: "rem1",
 	})
 	test.That(t, cfg.Remotes[0].AssociatedResourceConfigs[1], test.ShouldResemble, resource.AssociatedResourceConfig{
 		API: resource.APINamespaceRDK.WithServiceType("some_type"),
@@ -146,7 +145,6 @@ func TestConfig3(t *testing.T) {
 			"hi":     5.5,
 			"friend": 6.6,
 		},
-		RemoteName: "rem1",
 	})
 }
 
@@ -187,7 +185,7 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 }
 
 func TestConfigEnsure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -201,48 +199,69 @@ func TestConfigEnsure(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
+	err = invalidCloud.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
 
+	logs.TakeAll() // clear logs
 	invalidRemotes := config.Config{
-		DisablePartialStart: true,
-		Remotes:             []config.Remote{{}},
+		Remotes: []config.Remote{{}},
 	}
 	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `remotes.0`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Remote config error".
+	remoteConfigErrorLogs := logs.FilterMessageSnippet("Remote config error")
+	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	logs.TakeAll() // clear logs
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name: "foo",
 	}
 	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "address")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Remote config error".
+	remoteConfigErrorLogs = logs.FilterMessageSnippet("Remote config error")
+	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name:    "foo",
 		Address: "bar",
 	}
 	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	invalidComponents := config.Config{
-		DisablePartialStart: true,
-		Components:          []resource.Config{{}},
+		Components: []resource.Config{{}},
 	}
 	err = invalidComponents.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Component config error".
+	componentConfigErrorLogs := logs.FilterMessageSnippet("Component config error")
+	test.That(t, componentConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, componentConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
 	invalidComponents.Components[0] = resource.Config{
 		Name:  "foo",
 		API:   base.API,
@@ -292,31 +311,37 @@ func TestConfigEnsure(t *testing.T) {
 		Model:     resource.DefaultModelFamily.WithModel("c7"),
 	}
 	components := config.Config{
-		DisablePartialStart: true,
-		Components:          []resource.Config{c7, c6, c5, c3, c4, c1, c2},
+		Components: []resource.Config{c7, c6, c5, c3, c4, c1, c2},
 	}
 	err = components.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	invalidProcesses := config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{}},
+		Processes: []pexec.ProcessConfig{{}},
 	}
 	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `processes.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Process config error".
+	processConfigErrorLogs := logs.FilterMessageSnippet("Process config error")
+	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	logs.TakeAll() // clear logs
 	invalidProcesses = config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{ID: "bar"}},
+		Processes: []pexec.ProcessConfig{{ID: "bar"}},
 	}
 	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
-	invalidProcesses = config.Config{
-		DisablePartialStart: true,
-		Processes:           []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing the snippet "Process config error".
+	processConfigErrorLogs = logs.FilterMessageSnippet("Process config error")
+	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+
+	validProcesses := config.Config{
+		Processes: []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
 	}
-	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, validProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -444,7 +469,7 @@ func TestConfigEnsure(t *testing.T) {
 }
 
 func TestConfigEnsurePartialStart(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -458,14 +483,24 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidCloud.Cloud.ID = "some_id"
 	err = invalidCloud.Ensure(false, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "secret")
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
+	err = invalidCloud.Ensure(false, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
+	err = invalidCloud.Ensure(true, logger)
+	test.That(t, err, test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
+	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
+	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
+	invalidCloud.Cloud.APIKey = config.APIKey{}
 	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true, logger)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -513,6 +548,7 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 	invalidProcesses.Processes[0].Name = "foo"
 	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
+	logs.TakeAll() // clear logs
 	cloudErr := "bad cloud err doing validation"
 	invalidModules := config.Config{
 		Modules: []config.Module{{
@@ -527,16 +563,18 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 			},
 		}},
 	}
-	invalidModules.DisablePartialStart = true
 	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing "Module config error".
+	cloudErrLogs := logs.FilterMessageSnippet("Module config error")
+	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 
-	invalidModules.DisablePartialStart = false
 	err = invalidModules.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	invalidPackges := config.Config{
+	logs.TakeAll() // clear logs
+	invalidPackages := config.Config{
 		Packages: []config.PackageConfig{{
 			Name:    "testPackage",
 			Type:    config.PackageTypeMlModel,
@@ -547,13 +585,14 @@ func TestConfigEnsurePartialStart(t *testing.T) {
 		}},
 	}
 
-	invalidModules.DisablePartialStart = true
-	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, cloudErr)
+	err = invalidPackages.Ensure(false, logger)
+	test.That(t, err, test.ShouldBeNil)
+	// Assert that some error log was output containing "Package config error".
+	cloudErrLogs = logs.FilterMessageSnippet("Package config error")
+	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
+	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 
-	invalidModules.DisablePartialStart = false
-	err = invalidPackges.Ensure(false, logger)
+	err = invalidPackages.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
@@ -674,7 +713,7 @@ func TestRemoteValidate(t *testing.T) {
 			Frame:   lc,
 		}
 
-		_, err := validRemote.Validate("path")
+		_, _, err := validRemote.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
 
 		validRemote = config.Remote{
@@ -682,7 +721,7 @@ func TestRemoteValidate(t *testing.T) {
 			Address: "address",
 			Frame:   lc,
 		}
-		_, err = validRemote.Validate("path")
+		_, _, err = validRemote.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(
 			t,
@@ -954,7 +993,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 
 		for alg := range algTypes {
 			keyset := jwk.NewSet()
-			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 2048)
 			test.That(t, err, test.ShouldBeNil)
 			publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
 			test.That(t, err, test.ShouldBeNil)
@@ -985,7 +1024,7 @@ func TestAuthConfigEnsure(t *testing.T) {
 		for _, badType := range badTypes {
 			t.Run(fmt.Sprintf(" with %s", badType), func(t *testing.T) {
 				keyset := jwk.NewSet()
-				privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 256)
+				privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 2048)
 				test.That(t, err, test.ShouldBeNil)
 				publicKeyForWebAuth, err := jwk.New(privKeyForWebAuth.PublicKey)
 				test.That(t, err, test.ShouldBeNil)
@@ -1028,17 +1067,10 @@ func TestAuthConfigEnsure(t *testing.T) {
 }
 
 func TestValidateUniqueNames(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	component := resource.Config{
-		Name:  "custom",
-		Model: fakeModel,
-		API:   arm.API,
-	}
-	service := resource.Config{
-		Name:  "custom",
-		Model: fakeModel,
-		API:   shell.API,
-	}
+	// Test that config.Ensure outputs correct logs for non-unique packages, modules,
+	// processes, remotes, and jobs. Non-unique components and services are handled and
+	// validated by the resource manager.
+
 	package1 := config.PackageConfig{
 		Package: "package1",
 		Name:    "package1",
@@ -1049,69 +1081,43 @@ func TestValidateUniqueNames(t *testing.T) {
 		LogLevel: "info",
 		ExePath:  ".",
 	}
-
 	process1 := pexec.ProcessConfig{
 		ID: "process1", Name: "process1",
 	}
-
 	remote1 := config.Remote{
 		Name:    "remote1",
 		Address: "test",
 	}
-	config1 := config.Config{
-		Components: []resource.Config{component, component},
-	}
-	config2 := config.Config{
-		Services: []resource.Config{service, service},
-	}
-
-	config3 := config.Config{
-		Packages: []config.PackageConfig{package1, package1},
-	}
-	config4 := config.Config{
-		Modules: []config.Module{module1, module1},
-	}
-	config5 := config.Config{
-		Processes: []pexec.ProcessConfig{process1, process1},
-	}
-
-	config6 := config.Config{
-		Remotes: []config.Remote{remote1, remote1},
-	}
-	allConfigs := []config.Config{config1, config2, config3, config4, config5, config6}
-
-	for _, config := range allConfigs {
-		// returns an error instead of logging it
-		config.DisablePartialStart = true
-		// test that the logger returns an error after the ensure method is done
-		err := config.Ensure(false, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "duplicate resource")
-
-		observedLogger, logs := logging.NewObservedTestLogger(t)
-		// now test it with logging enabled
-		config.DisablePartialStart = false
-		err = config.Ensure(false, observedLogger)
-		test.That(t, err, test.ShouldBeNil)
-
-		test.That(t, logs.FilterMessageSnippet("duplicate resource").Len(), test.ShouldBeGreaterThan, 0)
-	}
-
-	// mix components and services with the same name -- no error as use triplets
-	config7 := config.Config{
-		Components: []resource.Config{component},
-		Services:   []resource.Config{service},
-		Modules:    []config.Module{module1},
-		Remotes: []config.Remote{
-			{
-				Name:    module1.Name,
-				Address: "test1",
-			},
+	job1 := config.JobConfig{
+		config.JobConfigData{
+			Name: "job1",
 		},
 	}
-	config7.DisablePartialStart = true
-	err := config7.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
+
+	config1 := config.Config{
+		Packages: []config.PackageConfig{package1, package1},
+	}
+	config2 := config.Config{
+		Modules: []config.Module{module1, module1},
+	}
+	config3 := config.Config{
+		Processes: []pexec.ProcessConfig{process1, process1},
+	}
+	config4 := config.Config{
+		Remotes: []config.Remote{remote1, remote1},
+	}
+	config5 := config.Config{
+		Jobs: []config.JobConfig{job1, job1},
+	}
+	allConfigs := []config.Config{config1, config2, config3, config4, config5}
+
+	for _, config := range allConfigs {
+		observedLogger, logs := logging.NewObservedTestLogger(t)
+		err := config.Ensure(false, observedLogger)
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, logs.FilterMessageSnippet("Duplicate").Len(), test.ShouldBeGreaterThan, 0)
+	}
 }
 
 func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap {
@@ -1130,9 +1136,6 @@ func keysetToAttributeMap(t *testing.T, keyset jwks.KeySet) rutils.AttributeMap 
 }
 
 func TestPackageConfig(t *testing.T) {
-	homeDir, _ := os.UserHomeDir()
-	viamDotDir := filepath.Join(homeDir, ".viam")
-
 	packageTests := []struct {
 		config               config.PackageConfig
 		shouldFailValidation bool
@@ -1153,7 +1156,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_module",
 				Version: "1.2",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "module", "my_org-my_module-1_2"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "module", "my_org-my_module-1_2"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1162,7 +1165,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_ml_model",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "ml_model", "my_org-my_ml_model-latest"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "ml_model", "my_org-my_ml_model-latest"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1171,7 +1174,7 @@ func TestPackageConfig(t *testing.T) {
 				Package: "my_org/my_slam_map",
 				Version: "latest",
 			},
-			expectedRealFilePath: filepath.Join(viamDotDir, "packages", "data", "slam_map", "my_org-my_slam_map-latest"),
+			expectedRealFilePath: filepath.Join(rutils.ViamDotDir, "packages", "data", "slam_map", "my_org-my_slam_map-latest"),
 		},
 		{
 			config: config.PackageConfig{
@@ -1200,8 +1203,96 @@ func TestPackageConfig(t *testing.T) {
 			continue
 		}
 		test.That(t, err, test.ShouldBeNil)
-		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(viamDotDir, "packages"))
+		actualFilepath := pt.config.LocalDataDirectory(filepath.Join(rutils.ViamDotDir, "packages"))
 		test.That(t, actualFilepath, test.ShouldEqual, pt.expectedRealFilePath)
+	}
+}
+
+func TestJobsConfig(t *testing.T) {
+	errString := func(field string) string {
+		return fmt.Sprintf("Error validating, missing required field. Field: %q", field)
+	}
+	jobsTests := []struct {
+		config               config.JobConfig
+		shouldFailValidation bool
+		expRespErr           string
+	}{
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing resource",
+					Method:   "my_method",
+					Schedule: "5s",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("resource"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Method:   "my_method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("name"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing method",
+					Schedule: "5s",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("method"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "missing schedule",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: true,
+			expRespErr:           errString("schedule"),
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "0 0 * * *",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+		{
+			config: config.JobConfig{
+				config.JobConfigData{
+					Name:     "my_name",
+					Schedule: "1m",
+					Method:   "my_method",
+					Resource: "my_resource",
+				},
+			},
+			shouldFailValidation: false,
+		},
+	}
+
+	for _, jt := range jobsTests {
+		err := jt.config.Validate("")
+		if jt.shouldFailValidation {
+			test.That(t, err, test.ShouldBeError)
+			test.That(t, err.Error(), test.ShouldContainSubstring, jt.expRespErr)
+			continue
+		}
+		test.That(t, err, test.ShouldBeNil)
 	}
 }
 
@@ -1333,6 +1424,192 @@ func TestConfigJSONMarshalRoundtrip(t *testing.T) {
 								Port: 23654,
 							},
 						},
+					},
+				},
+			},
+		},
+		{
+			name: "jobs path",
+			c: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+				},
+			},
+			expected: config.Config{
+				Jobs: []config.JobConfig{
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "5s",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "* * * * *",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": false,
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "3h45m",
+							Resource: "my-resource",
+							Method:   "my-method",
+							Command: map[string]any{
+								"argument1": float64(12),
+								"argument2": "string",
+							},
+						},
+					},
+					{
+						config.JobConfigData{
+							Name:     "my-job",
+							Schedule: "30 5 10 7 2 Sun",
+							Resource: "my-resource",
+							Method:   "my-method",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "remote prefixes",
+			c: config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: "localhost:12345",
+						Prefix:  "fooprefix",
+					},
+				},
+			},
+			expected: config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: "localhost:12345",
+						Prefix:  "fooprefix",
+					},
+				},
+			},
+		},
+		{
+			name: "resource",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("arm"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:  "foo",
+						API:   resource.APINamespaceRDK.WithComponentType("motion"),
+						Model: resource.DefaultServiceModel,
+					},
+				},
+			},
+		},
+		{
+			name: "resource with log config",
+			c: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+			},
+			expected: config.Config{
+				Components: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("arm"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
+					},
+				},
+				Services: []resource.Config{
+					{
+						Name:             "foo",
+						API:              resource.APINamespaceRDK.WithComponentType("motion"),
+						Model:            resource.DefaultServiceModel,
+						LogConfiguration: &resource.LogConfig{Level: logging.DEBUG},
 					},
 				},
 			},

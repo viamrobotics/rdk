@@ -2,7 +2,6 @@ package movementsensor
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	v1 "go.viam.com/api/common/v1"
@@ -23,6 +22,7 @@ const (
 	linearAcceleration
 	orientation
 	readings
+	doCommand
 )
 
 func (m method) String() string {
@@ -41,6 +41,8 @@ func (m method) String() string {
 		return "Orientation"
 	case readings:
 		return "Readings"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -70,10 +72,10 @@ func newLinearVelocityCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetLinearVelocityResponse{
@@ -102,10 +104,10 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, linearVelocity.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, linearVelocity.String(), err)
 		}
 		var lat, lng float64
 		if pos != nil {
@@ -141,10 +143,10 @@ func newAngularVelocityCollector(resource interface{}, params data.CollectorPara
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, angularVelocity.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, angularVelocity.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetAngularVelocityResponse{
@@ -173,10 +175,10 @@ func newCompassHeadingCollector(resource interface{}, params data.CollectorParam
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, compassHeading.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, compassHeading.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetCompassHeadingResponse{
@@ -203,10 +205,10 @@ func newLinearAccelerationCollector(resource interface{}, params data.CollectorP
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, linearAcceleration.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, linearAcceleration.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetLinearAccelerationResponse{
@@ -235,10 +237,10 @@ func newOrientationCollector(resource interface{}, params data.CollectorParams) 
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, orientation.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, orientation.String(), err)
 		}
 		var orientVector *spatialmath.OrientationVectorDegrees
 		if orient != nil {
@@ -272,14 +274,26 @@ func newReadingsCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, readings.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, readings.String(), err)
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResultReadings(ts, values)
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	ms, err := assertMovementSensor(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(ms, params)
 	return data.NewCollector(cFunc, params)
 }

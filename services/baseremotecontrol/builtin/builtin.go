@@ -53,15 +53,15 @@ type Config struct {
 }
 
 // Validate creates the list of implicit dependencies.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 	if conf.InputControllerName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "input_controller")
 	}
 	deps = append(deps, conf.InputControllerName)
 
 	if conf.BaseName == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "base")
+		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "base")
 	}
 	deps = append(deps, conf.BaseName)
 
@@ -75,11 +75,11 @@ func (conf *Config) Validate(path string) ([]string, error) {
 		}
 
 		if !configModeExists {
-			return nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
+			return nil, nil, resource.NewConfigValidationError(path, errors.Errorf("Control mode '%s' is not in %v", conf.ControlModeName, modes))
 		}
 	}
 
-	return deps, nil
+	return deps, nil, nil
 }
 
 // builtIn is the structure of the remote service.
@@ -134,11 +134,11 @@ func (svc *builtIn) Reconfigure(
 	if err != nil {
 		return err
 	}
-	base1, err := base.FromDependencies(deps, svcConfig.BaseName)
+	base1, err := base.FromProvider(deps, svcConfig.BaseName)
 	if err != nil {
 		return err
 	}
-	controller, err := input.FromDependencies(deps, svcConfig.InputControllerName)
+	controller, err := input.FromProvider(deps, svcConfig.InputControllerName)
 	if err != nil {
 		return err
 	}

@@ -24,7 +24,7 @@ var ErrNoIntrinsics = errors.New("camera intrinsic parameters are not available"
 
 // NewNoIntrinsicsError is used when the intriniscs are not defined.
 func NewNoIntrinsicsError(msg string) error {
-	return errors.Wrapf(ErrNoIntrinsics, msg) //nolint:govet
+	return errors.Wrapf(ErrNoIntrinsics, "%s", msg)
 }
 
 // PinholeCameraModel is the model of a pinhole camera.
@@ -234,7 +234,7 @@ func ProjectPointCloudToRGBPlane(
 	params PinholeCameraIntrinsics,
 	pixel2meter float64,
 ) (pointcloud.PointCloud, error) {
-	coordinates := pointcloud.New()
+	coordinates := pointcloud.NewBasicEmpty()
 	var err error
 	pts.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
 		j, i := params.PointToPixel(pt.X, pt.Y, pt.Z)
@@ -331,7 +331,7 @@ func intrinsics2DTo3D(img *rimage.Image, dm *rimage.DepthMap, pci *PinholeCamera
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
-	pc := pointcloud.NewWithPrealloc((endY - startY) * (endX - startX))
+	pc := pointcloud.NewBasicPointCloud((endY - startY) * (endX - startX))
 
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {

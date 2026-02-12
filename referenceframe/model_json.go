@@ -2,6 +2,7 @@ package referenceframe
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/pkg/errors"
@@ -11,8 +12,8 @@ import (
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
 
-// ModelConfig represents all supported fields in a kinematics JSON file.
-type ModelConfig struct {
+// ModelConfigJSON represents all supported fields in a kinematics JSON file.
+type ModelConfigJSON struct {
 	Name         string          `json:"name"`
 	KinParamType string          `json:"kinematic_param_type,omitempty"`
 	Links        []LinkConfig    `json:"links,omitempty"`
@@ -31,7 +32,7 @@ type ModelFile struct {
 // UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
 // will use the name from the JSON if string is empty.
 func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
-	m := &ModelConfig{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
+	m := &ModelConfigJSON{OriginalFile: &ModelFile{Bytes: jsonData, Extension: "json"}}
 
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
@@ -47,7 +48,7 @@ func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
 }
 
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
-func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
+func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	var err error
 	if modelName == "" {
 		modelName = cfg.Name
@@ -116,10 +117,12 @@ func (cfg *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Create an ordered list of transforms
-	model.OrdTransforms, err = sortTransforms(transforms, parentMap)
+	ot, err := sortTransforms(transforms, parentMap)
 	if err != nil {
 		return nil, err
 	}
+
+	model.SetOrdTransforms(ot)
 
 	return model, nil
 }
@@ -148,7 +151,7 @@ func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]F
 	}
 	// ensure there is only on end effector
 	if len(ees) != 1 {
-		return nil, ErrNeedOneEndEffector
+		return nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, ees)
 	}
 
 	// start the search from the end effector

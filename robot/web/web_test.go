@@ -6,9 +6,14 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +23,8 @@ import (
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 	echopb "go.viam.com/api/component/testecho/v1"
 	robotpb "go.viam.com/api/robot/v1"
 	streampb "go.viam.com/api/stream/v1"
@@ -31,20 +38,20 @@ import (
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/audioinput"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/config"
 	gizmopb "go.viam.com/rdk/examples/customresources/apis/proto/api/component/gizmo/v1"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
+	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/testutils/robottestutils"
@@ -95,7 +102,7 @@ func TestModule(t *testing.T) {
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(), logger)
+	conn1, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	arm1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
@@ -733,86 +740,6 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 }
 
-func TestWebReconfigure(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	// robot is configured with an arm
-	ctx, robot := setupRobotCtx(t)
-
-	svc := web.New(robot, logger)
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	err := svc.Start(ctx, options)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, svc.Close(ctx), test.ShouldBeNil)
-	})
-
-	conn, err := rgrpc.Dial(context.Background(), addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, conn.Close(), test.ShouldBeNil)
-	})
-
-	aClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, aClient.Close(ctx), test.ShouldBeNil)
-	})
-
-	arm1Position, err := aClient.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-
-	// replace the arm in the robot and then reconfigure web service
-	injectArm := &inject.Arm{}
-	newPos := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 3, Z: 6})
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return newPos, nil
-	}
-	rs := map[resource.Name]resource.Resource{arm.Named(arm1String): injectArm}
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	aClient, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-	position, err := aClient.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, newPos)
-
-	// add a second arm
-	arm2 := "arm2"
-	injectArm2 := &inject.Arm{}
-	pos2 := spatialmath.NewPoseFromPoint(r3.Vector{X: 2, Y: 3, Z: 4})
-	injectArm2.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return pos2, nil
-	}
-	rs[arm.Named(arm2)] = injectArm2
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	aClient2, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm2), logger)
-	test.That(t, err, test.ShouldBeNil)
-	t.Cleanup(func() {
-		test.That(t, aClient2.Close(ctx), test.ShouldBeNil)
-	})
-
-	position, err = aClient2.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, position, test.ShouldResemble, pos2)
-
-	// check that removing both arms means that neither arms are accessible
-	err = svc.Reconfigure(context.Background(), make(map[resource.Name]resource.Resource), resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
-	_, err = aClient.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm1\" not found")
-
-	_, err = aClient2.EndPosition(context.Background(), nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "resource \"rdk:component:arm/arm2\" not found")
-}
-
 func TestWebWithStreams(t *testing.T) {
 	const (
 		camera1Key = "camera1"
@@ -836,7 +763,6 @@ func TestWebWithStreams(t *testing.T) {
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err := svc.Start(ctx, options)
@@ -865,21 +791,12 @@ func TestWebWithStreams(t *testing.T) {
 	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
-	// Add an audio stream
-	audio := &inject.AudioInput{}
-	robot.Mu.Lock()
-	rs[audioinput.Named(audioKey)] = audio
-	robot.Mu.Unlock()
-	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
-	test.That(t, err, test.ShouldBeNil)
-
 	// Test that new streams are available
 	resp, err = streamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Names, test.ShouldContain, camera1Key)
 	test.That(t, resp.Names, test.ShouldContain, camera2Key)
-	test.That(t, resp.Names, test.ShouldHaveLength, 3)
+	test.That(t, resp.Names, test.ShouldHaveLength, 2)
 
 	// We need to cancel otherwise we are stuck waiting for WebRTC to start streaming.
 	cancel()
@@ -972,13 +889,44 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	<-ctx.Done()
 }
 
-func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
+type (
+	setupRobotOption  func(*setupRobotOptions) *setupRobotOptions
+	setupRobotOptions struct {
+		armEndPosition armEndPositionFunc
+		machineStatus  machineStatusFunc
+	}
+	armEndPositionFunc func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error)
+	machineStatusFunc  func(ctx context.Context) (robot.MachineStatus, error)
+)
+
+func withArmEndPosition(f armEndPositionFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.armEndPosition = f
+		return sro
+	}
+}
+
+func withMachineStatus(f machineStatusFunc) setupRobotOption {
+	return func(sro *setupRobotOptions) *setupRobotOptions {
+		sro.machineStatus = f
+		return sro
+	}
+}
+
+func setupRobotCtx(t *testing.T, opts ...setupRobotOption) (context.Context, robot.LocalRobot) {
 	t.Helper()
 
-	injectArm := &inject.Arm{}
-	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
-		return pos, nil
+	options := &setupRobotOptions{
+		armEndPosition: func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+			return pos, nil
+		},
 	}
+	for _, o := range opts {
+		options = o(options)
+	}
+
+	injectArm := &inject.Arm{}
+	injectArm.EndPositionFunc = options.armEndPosition
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func() *config.Config { return &config.Config{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
@@ -986,9 +934,16 @@ func setupRobotCtx(t *testing.T) (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (resource.Resource, error) {
 		return injectArm, nil
 	}
+	injectRobot.FindBySimpleNameAndAPIFunc = func(string, resource.API) (resource.Resource, error) {
+		return injectArm, nil
+	}
 	injectRobot.LoggerFunc = func() logging.Logger { return logging.NewTestLogger(t) }
 	injectRobot.FrameSystemConfigFunc = func(ctx context.Context) (*framesystem.Config, error) {
 		return &framesystem.Config{}, nil
+	}
+
+	if options.machineStatus != nil {
+		injectRobot.MachineStatusFunc = options.machineStatus
 	}
 
 	return context.Background(), injectRobot
@@ -1115,9 +1070,11 @@ func TestRawClientOperation(t *testing.T) {
 	// Need an unfiltered streaming call to test interceptors
 	echoAPI := resource.NewAPI("rdk", "component", "echo")
 	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
-		RPCServiceServerConstructor: func(apiResColl resource.APIResourceCollection[resource.Resource]) interface{} { return &echoServer{} },
-		RPCServiceHandler:           echopb.RegisterTestEchoServiceHandlerFromEndpoint,
-		RPCServiceDesc:              &echopb.TestEchoService_ServiceDesc,
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
 	})
 	defer resource.DeregisterAPI(echoAPI)
 
@@ -1175,6 +1132,166 @@ func TestRawClientOperation(t *testing.T) {
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
+func TestUnaryRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	iRobot.(*inject.Robot).MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{}, nil
+	}
+	iRobot.(*inject.Robot).FindBySimpleNameAndAPIFunc = func(s string, a resource.API) (resource.Resource, error) {
+		return nil, resource.NewNotFoundError(resource.NewName(a, s))
+	}
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+
+	// test un-targeted (no name field) counts
+	client := robotpb.NewRobotServiceClient(conn)
+
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = client.GetMachineStatus(ctx, &robotpb.GetMachineStatusRequest{})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["RobotService/GetMachineStatus"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test targeted (with name field) counts
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	_, ok = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test1"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	_, err = echoclient.Echo(ctx, &echopb.EchoRequest{Name: "test2"})
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test2.TestEchoService/Echo"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// test service with a name field
+	genericclient, err := genericservice.NewClientFromConn(ctx, conn, "", genericservice.Named("generictest"), logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = genericclient.DoCommand(ctx, nil)
+	// errors here but RC still counts the request.
+	test.That(t, err.Error(), test.ShouldEqual,
+		"rpc error: code = Unknown desc = resource rdk:service:generic/generictest not found")
+
+	count = svc.RequestCounter().Stats().(map[string]int64)["generictest.GenericService/DoCommand"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, svc.Close(ctx), test.ShouldBeNil)
+}
+
+func TestStreamingRequestCounter(t *testing.T) {
+	echoAPI := resource.NewAPI("rdk", "component", "echo")
+	resource.RegisterAPI(echoAPI, resource.APIRegistration[resource.Resource]{
+		RPCServiceServerConstructor: func(apiResColl resource.APIResourceGetter[resource.Resource], logger logging.Logger) interface{} {
+			return &echoServer{}
+		},
+		RPCServiceHandler: echopb.RegisterTestEchoServiceHandlerFromEndpoint,
+		RPCServiceDesc:    &echopb.TestEchoService_ServiceDesc,
+	})
+	defer resource.DeregisterAPI(echoAPI)
+
+	logger := logging.NewTestLogger(t)
+	ctx, iRobot := setupRobotCtx(t)
+
+	svc := web.New(iRobot, logger)
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
+	test.That(t, err, test.ShouldBeNil)
+	echoclient := echopb.NewTestEchoServiceClient(conn)
+
+	// test counting streaming service with name
+	_, ok := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, ok, test.ShouldBeFalse)
+	s, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+
+	test.That(t, err, test.ShouldBeNil)
+	count := svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	s, err = echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{Name: "test1", Message: ""})
+	test.That(t, err, test.ShouldBeNil)
+	_, err = s.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["test1.TestEchoService/EchoMultiple"]
+	test.That(t, count, test.ShouldEqual, 2)
+
+	// test named bidirectional stream (client sends multiple messages, but RC only increments once)
+	client, err := echoclient.EchoBiDi(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "asdfg"})
+	test.That(t, err, test.ShouldBeNil)
+	ch, err := client.Recv()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, ch.GetMessage(), test.ShouldEqual, "a")
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "qwerty.TestEchoService/EchoBiDi.dataSentBytes")
+	test.That(t, stats["qwerty.TestEchoService/EchoBiDi.dataSentBytes"], test.ShouldBeGreaterThan, 0)
+
+	err = client.Send(&echopb.EchoBiDiRequest{Name: "qwerty", Message: "zxcvb"})
+	test.That(t, err, test.ShouldBeNil)
+	err = client.CloseSend()
+	test.That(t, err, test.ShouldBeNil)
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	// EchoBiDi echoes back all received msgs one character at a time.
+	// 10 in total for this test & the first one is checked separately above.
+	for range 9 {
+		ch, err := client.Recv()
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ch.GetMessage()), test.ShouldEqual, 1)
+	}
+	count = svc.RequestCounter().Stats().(map[string]int64)["qwerty.TestEchoService/EchoBiDi"]
+	test.That(t, count, test.ShouldEqual, 1)
+
+	test.That(t, conn.Close(), test.ShouldBeNil)
 	test.That(t, svc.Close(ctx), test.ShouldBeNil)
 }
 
@@ -1271,7 +1388,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
@@ -1302,7 +1419,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 				return robot.MachineStatus{}, nil
 			}
 
-			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddress(),
+			conn, err := rgrpc.Dial(context.Background(), "unix://"+svc.ModuleAddresses().UnixAddr,
 				logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 			test.That(t, err, test.ShouldBeNil)
 			client := robotpb.NewRobotServiceClient(conn)
@@ -1334,6 +1451,24 @@ func (srv *echoServer) Echo(context.Context, *echopb.EchoRequest) (*echopb.EchoR
 	return &echopb.EchoResponse{}, nil
 }
 
+// EchoBiDi responds to incoming Message(s) by echoing back one character at a time.
+func (srv *echoServer) EchoBiDi(stream echopb.TestEchoService_EchoBiDiServer) error {
+	for {
+		in, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		for _, ch := range in.GetMessage() {
+			if err := stream.Send(&echopb.EchoBiDiResponse{Message: fmt.Sprintf("%c", ch)}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // signJWKBasedExternalAccessToken returns an access jwt access token typically returned by an OIDC provider.
 func signJWKBasedExternalAccessToken(
 	key *rsa.PrivateKey,
@@ -1358,4 +1493,369 @@ func signJWKBasedExternalAccessToken(
 	}
 
 	return token.SignedString(key)
+}
+
+func TestPerRequestFTDC(t *testing.T) {
+	// This test creates a robot with a resource running with a web service. It will then assert
+	// that making gRPC requests will increment counters output by the `RequestCounter`s `Stats`
+	// call.
+	logger := logging.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx(t)
+	defer injectRobot.Close(ctx)
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Dial to the robot and create a gRPC client object to the "arm" specifically.
+	conn, err := rgrpc.Dial(context.Background(), addr, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer utils.UncheckedErrorFunc(conn.Close)
+	armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+	//nolint
+	defer armClient.Close(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Making a gRPC `EndPosition` call with the default inject method returns a success.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// We can assert that there are 5 counters in our stats: 4 for the api and 1
+	// for the resource. The fact that `GetEndPosition` was called once and we
+	// hence spent (negligible) time in that RPC call.
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 5)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.dataSentBytes"], test.ShouldBeGreaterThan, 0)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.errorCnt")
+	test.That(t, stats, test.ShouldContainKey, "arm1.viam.component.arm.v1.ArmService.inFlightRequests")
+
+	// Get a handle on the inject arm resource.
+	injectArmRes, err := injectRobot.ResourceByName(arm.Named(arm1String))
+	test.That(t, err, test.ShouldBeNil)
+	injectArm := injectArmRes.(*inject.Arm)
+	// Mutate the arm to have its `EndPosition` RPC call return an error.
+	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+		return nil, errors.New("error")
+	}
+
+	// Try calling `EndPosition` again. Assert it returned an error.
+	_, err = armClient.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Now observe that we called `GetEndPosition` a second time. And one of the responses returned
+	// an error.
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, len(stats), test.ShouldEqual, 5)
+	test.That(t, stats["arm1.ArmService/GetEndPosition"], test.ShouldEqual, 2)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.timeSpent")
+	test.That(t, stats["arm1.ArmService/GetEndPosition.errorCnt"], test.ShouldEqual, 1)
+	test.That(t, stats, test.ShouldContainKey, "arm1.ArmService/GetEndPosition.dataSentBytes")
+}
+
+type clientCall = func(context.Context) error
+
+func testResourceLimitsAndFTDC(
+	t *testing.T,
+	keyPrefix string,
+	method string,
+	setupBlock func(onEnter, wait func()) setupRobotOption,
+	createCall func(string, logging.Logger) clientCall,
+) {
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	blockCall := make(chan struct{})
+	callBlocking := make(chan struct{})
+	opt := setupBlock(
+		func() {
+			close(callBlocking)
+		},
+		func() {
+			<-blockCall
+		},
+	)
+	ctx, injectRobot := setupRobotCtx(t, opt)
+	defer injectRobot.Close(ctx)
+
+	originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+	os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
+	t.Cleanup(func() {
+		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
+	})
+
+	svc := web.New(injectRobot, logger)
+	defer svc.Stop()
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+
+	err := svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a caller to invoke the gRPC method used for testing
+	call := createCall(addr, logger)
+
+	// Check that the in-flight request counter is zero
+	statsKey := keyPrefix + ".inFlightRequests"
+	stats := svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+
+	// Make a gRPC `EndPosition` call that hangs until we close the channel
+	clientCallsWg := sync.WaitGroup{}
+	clientCallsWg.Add(1)
+	go func() {
+		defer clientCallsWg.Done()
+		err := call(ctx)
+		test.That(t, err, test.ShouldBeNil)
+	}()
+
+	// Wait for the gRPC call to reach our function so we know the request
+	// counters have been updated.
+	<-callBlocking
+
+	// Check that the in-flight request counter has increased to 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+
+	// Make a second request that should return an error due to the limit.
+	err = call(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+	test.That(t, err.Error(), test.ShouldEndWith,
+		fmt.Sprintf(
+			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
+				"See %v for troubleshooting steps",
+			keyPrefix,
+			web.ReqLimitExceededURL,
+		),
+	)
+
+	// Assert that an appropriate warning log was output by the server.
+	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+
+	var fields map[string]any
+	err = json.Unmarshal(
+		[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+		&fields,
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fields["method"], test.ShouldEqual, method)
+	test.That(t, fields["resource"], test.ShouldEqual, keyPrefix)
+	{
+		offendingClientInformation := fields["offending_client_information"]
+		offendingClientInformationM, ok := offendingClientInformation.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		// Assert exact values on inflight_requests and rejected_requests and assert the rest
+		// of the fields simply exist.
+		inFlightRequests := offendingClientInformationM["inflight_requests"]
+		inFlightRequestsM, ok := inFlightRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, inFlightRequestsM[keyPrefix], test.ShouldEqual, 1)
+		rejectedRequests := offendingClientInformationM["rejected_requests"]
+		rejectedRequestsM, ok := rejectedRequests.(map[string]any)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, rejectedRequestsM[keyPrefix], test.ShouldEqual, 1)
+		test.That(t, offendingClientInformationM["client_metadata"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connection_id"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["connect_time"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["server_ip"], test.ShouldNotBeNil)
+		test.That(t, offendingClientInformationM["client_ip"], test.ShouldNotBeNil)
+	}
+	test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
+
+	// In-flight requests counter should still only be 1
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 1)
+
+	// Release the original call and wait for it to complete
+	close(blockCall)
+	clientCallsWg.Wait()
+
+	// In-flight requests counter should be back to 0
+	stats = svc.RequestCounter().Stats().(map[string]int64)
+	test.That(t, stats[statsKey], test.ShouldEqual, 0)
+}
+
+func TestPerResourceLimitsAndFTDC(t *testing.T) {
+	t.Run("arm resource", func(t *testing.T) {
+		testResourceLimitsAndFTDC(
+			t,
+			"arm1.viam.component.arm.v1.ArmService",
+			"/viam.component.arm.v1.ArmService/GetEndPosition",
+			func(onEnter, wait func()) setupRobotOption {
+				return withArmEndPosition(func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
+					onEnter()
+					wait()
+					return pos, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				conn, err := rgrpc.Dial(context.Background(), addr, logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					utils.UncheckedErrorFunc(conn.Close)
+				})
+				armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					armClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := armClient.EndPosition(ctx, nil)
+					return err
+				}
+			},
+		)
+	})
+	t.Run("robot service", func(t *testing.T) {
+		testResourceLimitsAndFTDC(
+			t,
+			"viam.robot.v1.RobotService",
+			"/viam.robot.v1.RobotService/GetMachineStatus",
+			func(onEnter, wait func()) setupRobotOption {
+				return withMachineStatus(func(ctx context.Context) (robot.MachineStatus, error) {
+					onEnter()
+					wait()
+					return robot.MachineStatus{}, nil
+				})
+			},
+			func(addr string, logger logging.Logger) clientCall {
+				// The robot client implicitly calls MachineStatus by default when run
+				// in a test. Disable that behavior since we're going to block the
+				// first call to that method.
+				robotClient, err := rclient.New(context.Background(), addr, logger, rclient.WithDoNotWaitForRunning())
+				test.That(t, err, test.ShouldBeNil)
+				t.Cleanup(func() {
+					robotClient.Close(context.Background())
+				})
+				return func(ctx context.Context) error {
+					_, err := robotClient.MachineStatus(ctx)
+					return err
+				}
+			},
+		)
+	})
+	t.Run("request counter map pruning", func(t *testing.T) {
+		// Primarily a regression test for RSDK-12896. Ensures that a client that has
+		// connected, invoked a gRPC method on a resource, and disconnected before the request
+		// limit exceeded is actually hit is not included in all_other_client_information.
+
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Lower resource requests limit for test.
+		originalRequestLimit := os.Getenv(rutils.ViamResourceRequestsLimitEnvVar)
+		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
+		t.Cleanup(func() {
+			os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
+		})
+
+		// Create and start web service of injected robot.
+		callBlocking := make(chan struct{})
+		blockCall := make(chan struct{})
+		var numTimesEndPositionInvoked int
+		ctx, injectRobot := setupRobotCtx(
+			t,
+			withArmEndPosition(func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
+				// Do NOT block on first call to EndPosition.
+				if numTimesEndPositionInvoked++; numTimesEndPositionInvoked < 2 {
+					return pos, nil
+				}
+				close(callBlocking)
+				<-blockCall
+				return pos, nil
+			}))
+		defer injectRobot.Close(ctx)
+		svc := web.New(injectRobot, logger)
+		defer svc.Stop()
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := svc.Start(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Create a client, invoke EndPosition on the arm resource, and then close the client.
+		// This EndPosition call should not block but should add the pc to rc.requestsPerPC
+		// and rc.pcToClientMetadata.
+		conn, err := rgrpc.Dial(context.Background(), addr, logger)
+		test.That(t, err, test.ShouldBeNil)
+		armClient, err := arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+		_, err = armClient.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, armClient.Close(ctx), test.ShouldBeNil)
+		utils.UncheckedErrorFunc(conn.Close)
+
+		// Wait for two logs indicating the connection closure: one from the client-side
+		// ("webrtc.client") and one from the server-side ("networking"):
+		var observedCSChangedLogs *observer.ObservedLogs
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			observedCSChangedLogs = logs.FilterMessageSnippet("connection state changed")
+			test.That(tb, observedCSChangedLogs.Len(), test.ShouldEqual, 2)
+		})
+		csChangedLogs := observedCSChangedLogs.All()
+		test.That(t, strings.HasSuffix(csChangedLogs[0].LoggerName, "webrtc.client"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[0].ContextMap()["conn_state"], test.ShouldEqual, "closed")
+		test.That(t, strings.HasSuffix(csChangedLogs[1].LoggerName, "networking"), test.ShouldBeTrue)
+		test.That(t, csChangedLogs[1].ContextMap()["conn_state"], test.ShouldEqual, "closed")
+
+		// Create a new client, and invoke EndPosition in a goroutine on the arm resource.
+		// This EndPosition call should block and should add to rc.requestsPerPC and
+		// rc.pcToClientMetadata.
+		conn, err = rgrpc.Dial(context.Background(), addr, logger)
+		t.Cleanup(func() {
+			utils.UncheckedErrorFunc(conn.Close)
+		})
+		test.That(t, err, test.ShouldBeNil)
+		armClient, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+		clientCallsWg := sync.WaitGroup{}
+		clientCallsWg.Go(func() {
+			_, err = armClient.EndPosition(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		// Wait for the gRPC call to reach our function so we know the request is "in-flight."
+		<-callBlocking
+
+		// Invoke EndPosition for a _third_ time. We should now error due to the limit.
+		_, err = armClient.EndPosition(ctx, nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, status.Convert(err).Code(), test.ShouldEqual, codes.ResourceExhausted)
+		test.That(t, err.Error(), test.ShouldEndWith,
+			fmt.Sprintf(
+				"exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService (your client is responsible for 1). "+
+					"See %v for troubleshooting steps",
+				web.ReqLimitExceededURL,
+			),
+		)
+
+		// Assert that an appropriate warning log was output by the server. In generating this
+		// warning log, the request counter should have pruned the first of the two clients
+		// from the appropriate maps.
+		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+		var fields map[string]any
+		err = json.Unmarshal(
+			[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+			&fields,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		// Assert that the first of the two clients is no longer included in
+		// "all_other_client_information" now that it has disconnected. No need to assert on
+		// any of the other fields, as the subtests above will do that.
+		test.That(t, fields["all_other_client_information"], test.ShouldResemble, []any{})
+
+		// Release the original call and wait for it to complete
+		close(blockCall)
+		clientCallsWg.Wait()
+	})
 }

@@ -3,42 +3,37 @@ package camera
 import (
 	"context"
 	"fmt"
-	"image"
-	"sync"
 
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
+	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
+	"google.golang.org/grpc/metadata"
 
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
 // serviceServer implements the CameraService from camera.proto.
 type serviceServer struct {
 	pb.UnimplementedCameraServiceServer
-	coll resource.APIResourceCollection[Camera]
-
-	imgTypesMu sync.RWMutex
-	imgTypes   map[string]ImageType
-	logger     logging.Logger
+	coll   resource.APIResourceGetter[Camera]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an camera gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Camera]) interface{} {
-	logger := logging.NewLogger("camserver")
-	imgTypes := make(map[string]ImageType)
+func NewRPCServiceServer(coll resource.APIResourceGetter[Camera], logger logging.Logger) interface{} {
 	return &serviceServer{
-		coll:     coll,
-		logger:   logger,
-		imgTypes: imgTypes,
+		coll:   coll,
+		logger: logger.Sublogger("cam_server"),
 	}
 }
 
@@ -48,50 +43,22 @@ func (s *serviceServer) GetImage(
 	ctx context.Context,
 	req *pb.GetImageRequest,
 ) (*pb.GetImageResponse, error) {
-	ctx, span := trace.StartSpan(ctx, "camera::server::GetImage")
-	defer span.End()
-	cam, err := s.coll.Resource(req.Name)
-	if err != nil {
-		return nil, err
-	}
+	peerInfo := rpc.PeerConnectionInfoFromContext(ctx)
+	moduleName := grpc.GetModuleName(ctx)
+	md, _ := metadata.FromIncomingContext(ctx)
+	errorMsg := fmt.Sprintf(
+		"camera server error: GetImage (Image, get_image etc.) is no longer a camera method, please use "+
+			"GetImages (Images, get_images) instead. Make sure your modules' code has been updated for this "+
+			"change, and is presently deployed and set to the latest stable version to ensure compatibility; "+
+			"camera_name: %s, peer_remote_addr: %s, module_name: %s, grpc_metadata: %v",
+		req.Name,
+		peerInfo.RemoteAddress,
+		moduleName,
+		md,
+	)
 
-	// Determine the mimeType we should try to use based on camera properties
-	if req.MimeType == "" {
-		s.imgTypesMu.RLock()
-		imgType, ok := s.imgTypes[req.Name]
-		s.imgTypesMu.RUnlock()
-		if !ok {
-			props, err := cam.Properties(ctx)
-			if err != nil {
-				s.logger.CWarnf(ctx, "camera properties not found for %s, assuming color images: %v", req.Name, err)
-				imgType = ColorStream
-			} else {
-				imgType = props.ImageType
-			}
-			s.imgTypesMu.Lock()
-			s.imgTypes[req.Name] = imgType
-			s.imgTypesMu.Unlock()
-		}
-		switch imgType {
-		case ColorStream, UnspecifiedStream:
-			req.MimeType = utils.MimeTypeJPEG
-		case DepthStream:
-			req.MimeType = utils.MimeTypeRawDepth
-		default:
-			req.MimeType = utils.MimeTypeJPEG
-		}
-	}
-	req.MimeType = utils.WithLazyMIMEType(req.MimeType)
-
-	resBytes, resMetadata, err := cam.Image(ctx, req.MimeType, req.Extra.AsMap())
-	if err != nil {
-		return nil, err
-	}
-	if len(resBytes) == 0 {
-		return nil, fmt.Errorf("received empty bytes from Image method of %s", req.Name)
-	}
-	actualMIME, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	return &pb.GetImageResponse{MimeType: actualMIME, Image: resBytes}, nil
+	s.logger.Error(errorMsg)
+	return nil, errors.New(errorMsg)
 }
 
 // GetImages returns a list of images and metadata from a camera of the underlying robot.
@@ -105,22 +72,34 @@ func (s *serviceServer) GetImages(
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages had an error getting the camera component")
 	}
+
+	if len(req.FilterSourceNames) > 1 {
+		seen := make(map[string]bool)
+		for _, sourceName := range req.FilterSourceNames {
+			if seen[sourceName] {
+				return nil, fmt.Errorf("duplicate source name in filter: %s", sourceName)
+			}
+			seen[sourceName] = true
+		}
+	}
+
 	// request the images, and then check to see what the underlying type is to determine
 	// what to encode as. If it's color, just encode as JPEG.
-	imgs, metadata, err := cam.Images(ctx)
+	imgs, metadata, err := cam.Images(ctx, req.FilterSourceNames, req.Extra.AsMap())
 	if err != nil {
 		return nil, errors.Wrap(err, "camera server GetImages could not call Images on the camera")
 	}
 	imagesMessage := make([]*pb.Image, 0, len(imgs))
 	for _, img := range imgs {
-		format, outBytes, err := encodeImageFromUnderlyingType(ctx, img.Image)
+		imgBytes, err := img.Bytes(ctx)
 		if err != nil {
-			return nil, errors.Wrap(err, "camera server GetImages could not encode the images")
+			return nil, errors.Wrap(err, "camera server GetImages could not get the image bytes")
 		}
 		imgMes := &pb.Image{
-			SourceName: img.SourceName,
-			Format:     format,
-			Image:      outBytes,
+			SourceName:  img.SourceName,
+			MimeType:    img.MimeType(),
+			Image:       imgBytes,
+			Annotations: img.Annotations.ToProto(),
 		}
 		imagesMessage = append(imagesMessage, imgMes)
 	}
@@ -133,52 +112,14 @@ func (s *serviceServer) GetImages(
 	return resp, nil
 }
 
-func encodeImageFromUnderlyingType(ctx context.Context, img image.Image) (pb.Format, []byte, error) {
-	switch v := img.(type) {
-	case *rimage.LazyEncodedImage:
-		format := pb.Format_FORMAT_UNSPECIFIED
-		switch v.MIMEType() {
-		case utils.MimeTypeRawDepth:
-			format = pb.Format_FORMAT_RAW_DEPTH
-		case utils.MimeTypeRawRGBA:
-			format = pb.Format_FORMAT_RAW_RGBA
-		case utils.MimeTypeJPEG:
-			format = pb.Format_FORMAT_JPEG
-		case utils.MimeTypePNG:
-			format = pb.Format_FORMAT_PNG
-		default:
-		}
-		return format, v.RawData(), nil
-	case *rimage.DepthMap:
-		format := pb.Format_FORMAT_RAW_DEPTH
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeRawDepth)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	case *image.Gray16:
-		format := pb.Format_FORMAT_PNG
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypePNG)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	default:
-		format := pb.Format_FORMAT_JPEG
-		outBytes, err := rimage.EncodeImage(ctx, v, utils.MimeTypeJPEG)
-		if err != nil {
-			return pb.Format_FORMAT_UNSPECIFIED, nil, err
-		}
-		return format, outBytes, nil
-	}
-}
-
 // RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
+// Deprecated: Use GetImages instead.
 func (s *serviceServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	s.logger.CWarn(ctx, "RenderFrame is deprecated; please use GetImages instead")
 	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
 	defer span.End()
 	if req.MimeType == "" {
@@ -208,7 +149,11 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
-	pc, err := camera.NextPointCloud(ctx)
+	if camClient, ok := camera.(*client); ok {
+		return camClient.client.GetPointCloud(ctx, req)
+	}
+
+	pc, err := camera.NextPointCloud(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -273,4 +218,16 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, camera, req)
+}
+
+func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

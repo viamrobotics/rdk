@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/servo/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
@@ -14,12 +15,12 @@ import (
 
 type serviceServer struct {
 	pb.UnimplementedServoServiceServer
-	coll resource.APIResourceCollection[Servo]
+	coll resource.APIResourceGetter[Servo]
 }
 
 // NewRPCServiceServer constructs a servo gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Servo]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Servo], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

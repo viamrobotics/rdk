@@ -10,6 +10,7 @@ import (
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -28,12 +29,12 @@ var (
 // serviceServer implements the InputControllerService from proto.
 type serviceServer struct {
 	pb.UnimplementedInputControllerServiceServer
-	coll resource.APIResourceCollection[Controller]
+	coll resource.APIResourceGetter[Controller]
 }
 
 // NewRPCServiceServer constructs an input controller gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Controller]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Controller], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 

@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
@@ -30,12 +31,12 @@ var (
 // serviceServer implements the BoardService from board.proto.
 type serviceServer struct {
 	pb.UnimplementedBoardServiceServer
-	coll resource.APIResourceCollection[Board]
+	coll resource.APIResourceGetter[Board]
 }
 
 // NewRPCServiceServer constructs an board gRPC service server.
 // It is intentionally untyped to prevent use outside of tests.
-func NewRPCServiceServer(coll resource.APIResourceCollection[Board]) interface{} {
+func NewRPCServiceServer(coll resource.APIResourceGetter[Board], logger logging.Logger) interface{} {
 	return &serviceServer{coll: coll}
 }
 
@@ -314,13 +315,13 @@ func (s *serviceServer) SetPowerMode(ctx context.Context,
 	}
 
 	if req.Duration == nil {
-		err = b.SetPowerMode(ctx, req.PowerMode, nil)
+		err = b.SetPowerMode(ctx, req.PowerMode, nil, req.Extra.AsMap())
 	} else {
 		if err := req.Duration.CheckValid(); err != nil {
 			return nil, err
 		}
 		duration := req.Duration.AsDuration()
-		err = b.SetPowerMode(ctx, req.PowerMode, &duration)
+		err = b.SetPowerMode(ctx, req.PowerMode, &duration, req.Extra.AsMap())
 	}
 
 	if err != nil {

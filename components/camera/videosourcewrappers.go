@@ -6,9 +6,10 @@ import (
 
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
+	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera/rtppassthrough"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
@@ -16,6 +17,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -24,7 +26,7 @@ import (
 // Note: this strips away Reconfiguration and DoCommand abilities.
 // If needed, implement the Camera another way. For example, a webcam
 // implements a Camera manually so that it can atomically reconfigure itself.
-func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger) VideoSource {
+func FromVideoSource(name resource.Name, src VideoSource) VideoSource {
 	var rtpPassthroughSource rtppassthrough.Source
 	if ps, ok := src.(rtppassthrough.Source); ok {
 		rtpPassthroughSource = ps
@@ -33,7 +35,6 @@ func FromVideoSource(name resource.Name, src VideoSource, logger logging.Logger)
 		rtpPassthroughSource: rtpPassthroughSource,
 		VideoSource:          src,
 		Named:                name.AsNamed(),
-		Logger:               logger,
 	}
 }
 
@@ -235,11 +236,15 @@ func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[str
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
 // The default returns a list of 1 image from ReadImage, and the current time.
-func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.ResponseMetadata, error) {
+func (vs *videoSource) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]NamedImage, resource.ResponseMetadata, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::Images")
 	defer span.End()
 	if c, ok := vs.actualSource.(ImagesSource); ok {
-		return c.Images(ctx)
+		return c.Images(ctx, filterSourceNames, extra)
 	}
 	img, release, err := ReadImage(ctx, vs.videoSource)
 	if err != nil {
@@ -251,15 +256,22 @@ func (vs *videoSource) Images(ctx context.Context) ([]NamedImage, resource.Respo
 		}
 	}()
 	ts := time.Now()
-	return []NamedImage{{img, ""}}, resource.ResponseMetadata{CapturedAt: ts}, nil
+	namedImg, err := NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: ts}, nil
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (vs *videoSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (vs *videoSource) NextPointCloud(
+	ctx context.Context,
+	extra map[string]interface{},
+) (pointcloud.PointCloud, error) {
 	ctx, span := trace.StartSpan(ctx, "camera::videoSource::NextPointCloud")
 	defer span.End()
 	if c, ok := vs.actualSource.(PointCloudSource); ok {
-		return c.NextPointCloud(ctx)
+		return c.NextPointCloud(ctx, extra)
 	}
 	if vs.system == nil || vs.system.PinholeCameraIntrinsics == nil {
 		return nil, transform.NewNoIntrinsicsError("cannot do a projection to a point cloud")
@@ -316,4 +328,11 @@ func (vs *videoSource) Close(ctx context.Context) error {
 		return res.Close(ctx)
 	}
 	return vs.videoSource.Close(ctx)
+}
+
+func (vs *videoSource) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if res, ok := vs.actualSource.(resource.Shaped); ok {
+		return res.Geometries(ctx, extra)
+	}
+	return nil, errors.New("videoSource: geometries unavailable")
 }

@@ -27,6 +27,8 @@ const (
 	defaultFirstRunTimeout = 1 * time.Hour
 )
 
+var errLocalTarballEntrypoint = errors.New("local tarballs must contain a meta.json with the 'entrypoint' field")
+
 // Module represents an external resource module, with a path to the binary module file.
 type Module struct {
 	// Name is an arbitrary name used to identify the module, and is used to name it's socket as well.
@@ -48,6 +50,9 @@ type Module struct {
 	// Environment contains additional variables that are passed to the module process when it is started.
 	// They overwrite existing environment variables.
 	Environment map[string]string `json:"env,omitempty"`
+	// TCPMode indicates that the module should be started with a TCP connection. Regardless of the value
+	// set here, a TCP connection will be used if the `VIAM_TCP_SOCKETS` env var is set to true.
+	TCPMode bool `json:"tcp_mode,omitempty"`
 
 	// FirstRunTimeout is the timeout duration for the first run script.
 	// This field will only be applied if it is a positive value. Supplying a
@@ -64,6 +69,12 @@ type Module struct {
 
 	// LocalVersion is an in-process fake version used for local module change management.
 	LocalVersion string
+}
+
+// ParentSockAddrs stores addresses for both TCP and UDS-based connection.
+type ParentSockAddrs struct {
+	TCPAddr  string
+	UnixAddr string
 }
 
 // JSONManifest contains meta.json fields that are used by both RDK and CLI.
@@ -101,7 +112,11 @@ func (m *Module) validate(path string) error {
 	// Only check if the path exists during validation for local modules because the packagemanager may not have downloaded
 	// the package yet.
 	if m.Type == ModuleTypeLocal {
-		_, err := os.Stat(m.ExePath)
+		exePath, err := utils.ExpandHomeDir(m.ExePath)
+		if err != nil {
+			return err
+		}
+		_, err = os.Stat(exePath)
 		if err != nil {
 			return fmt.Errorf("module %s executable path error: %w", path, err)
 		}
@@ -165,8 +180,8 @@ func (m Module) SyntheticPackage() (PackageConfig, error) {
 	return PackageConfig{Name: name, Package: name, Type: PackageTypeModule, Version: m.LocalVersion}, nil
 }
 
-// exeDir returns the parent directory for the unpacked module.
-func (m Module) exeDir(packagesDir string) (string, error) {
+// ExeDir returns the parent directory for the unpacked module.
+func (m Module) ExeDir(packagesDir string) (string, error) {
 	if !m.NeedsSyntheticPackage() {
 		return filepath.Dir(m.ExePath), nil
 	}
@@ -193,14 +208,17 @@ func parseJSONFile[T any](path string) (*T, error) {
 
 // EvaluateExePath returns absolute ExePath from one of three sources (in order of precedence):
 // 1. if there is a meta.json in the exe dir, use that, except in local non-tarball case.
-// 2. if this is a local tarball and there's a meta.json next to the tarball, use that.
-// 3. otherwise use the exe path from config, or fail if this is a local tarball.
+// 2. otherwise use the exe path from config, or fail if this is a local tarball.
 // Note: the working directory must be the unpacked tarball directory or local exec directory.
 func (m Module) EvaluateExePath(packagesDir string) (string, error) {
-	if !filepath.IsAbs(m.ExePath) {
-		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", m.ExePath)
+	path, err := utils.ExpandHomeDir(m.ExePath)
+	if err != nil {
+		return "", err
 	}
-	exeDir, err := m.exeDir(packagesDir)
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("expected ExePath to be absolute path, got %s", path)
+	}
+	exeDir, err := m.ExeDir(packagesDir)
 	if err != nil {
 		return "", err
 	}
@@ -225,26 +243,12 @@ func (m Module) EvaluateExePath(packagesDir string) (string, error) {
 			}
 			return filepath.Abs(entrypoint)
 		}
+		if m.NeedsSyntheticPackage() {
+			// registry modules can use configured ExePath, but for local tarballs it is wrong, throw an error.
+			return "", errLocalTarballEntrypoint
+		}
 	}
-	if m.NeedsSyntheticPackage() {
-		// this is case 2, side-by-side
-		// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-		metaPath, err := utils.SafeJoinDir(filepath.Dir(m.ExePath), "meta.json")
-		if err != nil {
-			return "", err
-		}
-		meta, err := parseJSONFile[JSONManifest](metaPath)
-		if err != nil {
-			// note: this error deprecates the side-by-side case because the side-by-side case is deprecated.
-			return "", fmt.Errorf("couldn't find meta.json inside tarball %s (or next to it): %w", m.ExePath, err)
-		}
-		entrypoint, err := utils.SafeJoinDir(exeDir, meta.Entrypoint)
-		if err != nil {
-			return "", err
-		}
-		return filepath.Abs(entrypoint)
-	}
-	return m.ExePath, nil
+	return path, nil
 }
 
 // FirstRunSuccessSuffix is the suffix of the file whose existence
@@ -266,7 +270,7 @@ func (m *Module) FirstRun(
 ) error {
 	logger = logger.Sublogger("first_run").WithFields("module", m.Name)
 
-	unpackedModDir, err := m.exeDir(localPackagesDir)
+	unpackedModDir, err := m.ExeDir(localPackagesDir)
 	if err != nil {
 		return err
 	}
@@ -290,10 +294,24 @@ func (m *Module) FirstRun(
 	var pathErr *os.PathError
 	switch {
 	case errors.As(err, &pathErr):
-		logger.Infow("meta.json does not exist, skipping first run")
+		//nolint: errcheck
+		cwd, _ := os.Getwd()
+		logger.Infow("meta.json does not exist, skipping first run",
+			"unpackedModDir", unpackedModDir,
+			"firstRunSuccessPath", firstRunSuccessPath,
+			"localPackagesDir", localPackagesDir,
+			"cwd", cwd,
+			"envViamModuleRoot", os.Getenv("VIAM_MODULE_ROOT"))
 		return nil
 	case err != nil:
-		logger.Warnw("failed to parse meta.json, skipping first run", "error", err)
+		//nolint: errcheck
+		cwd, _ := os.Getwd()
+		logger.Warnw("failed to parse meta.json, skipping first run", "error", err,
+			"unpackedModDir", unpackedModDir,
+			"firstRunSuccessPath", firstRunSuccessPath,
+			"localPackagesDir", localPackagesDir,
+			"cwd", cwd,
+			"envViamModuleRoot", os.Getenv("VIAM_MODULE_ROOT"))
 		return nil
 	}
 
@@ -456,27 +474,6 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 		}
 	}
 
-	var exeDir string
-	var localTarballErr error
-
-	// TODO(RSDK-7848): remove this case once java sdk supports internal meta.json.
-	// case 3: local AND tarball
-	if m.NeedsSyntheticPackage() {
-		exeDir = filepath.Dir(m.ExePath)
-
-		var meta *JSONManifest
-		meta, localTarballErr = findMetaJSONFile(exeDir)
-		if localTarballErr != nil {
-			if !os.IsNotExist(localTarballErr) {
-				return nil, "", fmt.Errorf("local tarball: %w", localTarballErr)
-			}
-		}
-
-		if meta != nil {
-			return meta, exeDir, nil
-		}
-	}
-
 	if online {
 		if !ok {
 			return nil, "", fmt.Errorf("registry module: failed to find meta.json. VIAM_MODULE_ROOT not set: %w", registryTarballErr)
@@ -486,7 +483,7 @@ func (m Module) getJSONManifest(unpackedModDir string, env map[string]string) (*
 	}
 
 	if !localNonTarball {
-		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", errors.Join(registryTarballErr, localTarballErr))
+		return nil, "", fmt.Errorf("local tarball: failed to find meta.json: %w", registryTarballErr)
 	}
 
 	return nil, "", errors.New("local non-tarball: did not search for meta.json")

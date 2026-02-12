@@ -13,14 +13,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/edaniels/lidario"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"go.viam.com/utils"
+	lzf "github.com/zhuyie/golzf"
 	"gonum.org/v1/gonum/num/quat"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -37,186 +34,24 @@ const (
 )
 
 // NewFromFile returns a pointcloud read in from the given file.
-func NewFromFile(fn string, logger logging.Logger) (PointCloud, error) {
-	switch filepath.Ext(fn) {
-	case ".las":
-		return NewFromLASFile(fn, logger)
-	case ".pcd":
-		f, err := os.Open(filepath.Clean(fn))
-		if err != nil {
-			return nil, err
-		}
-		return ReadPCD(f)
-	default:
-		return nil, errors.Errorf("do not know how to read file %q", fn)
-	}
-}
-
-// pointValueDataTag encodes if the point has value data.
-const pointValueDataTag = "rc|pv"
-
-// NewFromLASFile returns a point cloud from reading a LAS file. If any
-// lossiness of points could occur from reading it in, it's reported but is not
-// an error.
-func NewFromLASFile(fn string, logger logging.Logger) (PointCloud, error) {
-	lf, err := lidario.NewLasFile(fn, "r")
+func NewFromFile(filename, pcStructureType string) (PointCloud, error) {
+	cfg, err := Find(pcStructureType)
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(lf.Close)
 
-	var hasValue bool
-	var valueData []byte
-	for _, d := range lf.VlrData {
-		if d.Description == pointValueDataTag {
-			hasValue = true
-			valueData = d.BinaryData
-			break
-		}
-	}
-
-	pc := New()
-	for i := 0; i < lf.Header.NumberPoints; i++ {
-		p, err := lf.LasPoint(i)
+	switch filepath.Ext(filename) {
+	case ".las":
+		return newFromLASFile(filename, cfg)
+	case ".pcd":
+		f, err := os.Open(filepath.Clean(filename))
 		if err != nil {
 			return nil, err
 		}
-		data := p.PointData()
-
-		x, y, z := data.X, data.Y, data.Z
-		if x < minPreciseFloat64 || x > maxPreciseFloat64 ||
-			y < minPreciseFloat64 || y > maxPreciseFloat64 ||
-			z < minPreciseFloat64 || z > maxPreciseFloat64 {
-			logger.Warnf("potential floating point lossiness for LAS point",
-				"point", data, "range", fmt.Sprintf("[%f,%f]", minPreciseFloat64, maxPreciseFloat64))
-		}
-
-		v := r3.Vector{X: x, Y: y, Z: z}
-		var dd Data
-		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
-			r := uint8(p.RgbData().Red / 256)
-			g := uint8(p.RgbData().Green / 256)
-			b := uint8(p.RgbData().Blue / 256)
-			dd = NewColoredData(color.NRGBA{r, g, b, 255})
-		}
-
-		if hasValue {
-			value := int(binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8]))
-			if dd == nil {
-				dd = NewBasicData()
-			}
-			dd.SetValue(value)
-		}
-
-		if err := pc.Set(v, dd); err != nil {
-			return nil, err
-		}
+		return readPCD(f, cfg)
+	default:
+		return nil, errors.Errorf("do not know how to read file %q", filename)
 	}
-	return pc, nil
-}
-
-// WriteToLASFile writes the point cloud out to a LAS file.
-func WriteToLASFile(cloud PointCloud, fn string) (err error) {
-	lf, err := lidario.NewLasFile(fn, "w")
-	if err != nil {
-		return
-	}
-	defer func() {
-		cerr := lf.Close()
-		err = multierr.Combine(err, cerr)
-	}()
-
-	meta := cloud.MetaData()
-
-	pointFormatID := 0
-	if meta.HasColor {
-		pointFormatID = 2
-	}
-	if err = lf.AddHeader(lidario.LasHeader{
-		PointFormatID: byte(pointFormatID),
-	}); err != nil {
-		return
-	}
-
-	var pVals []int
-	if meta.HasValue {
-		pVals = make([]int, 0, cloud.Size())
-	}
-	var lastErr error
-	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
-		var lp lidario.LasPointer
-		pr0 := &lidario.PointRecord0{
-			// floating point lossiness validated/warned from set/load
-			X: pos.X,
-			Y: pos.Y,
-			Z: pos.Z,
-			BitField: lidario.PointBitField{
-				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
-			},
-			ClassBitField: lidario.ClassificationBitField{
-				Value: 0,
-			},
-			ScanAngle:     0,
-			UserData:      0,
-			PointSourceID: 1,
-		}
-		lp = pr0
-
-		if d != nil {
-			pr0.Intensity = d.Intensity()
-		}
-
-		if meta.HasColor {
-			red, green, blue := 255, 255, 255
-			if d != nil && d.HasColor() {
-				r, g, b := d.RGB255()
-				red, green, blue = int(r), int(g), int(b)
-			}
-			lp = &lidario.PointRecord2{
-				PointRecord0: pr0,
-				RGB: &lidario.RgbData{
-					Red:   uint16(red * 256),
-					Green: uint16(green * 256),
-					Blue:  uint16(blue * 256),
-				},
-			}
-		}
-		if meta.HasValue {
-			if d != nil && d.HasValue() {
-				pVals = append(pVals, d.Value())
-			} else {
-				pVals = append(pVals, 0)
-			}
-		}
-		if lerr := lf.AddLasPoint(lp); lerr != nil {
-			lastErr = lerr
-			return false
-		}
-		return true
-	})
-	if meta.HasValue {
-		var buf bytes.Buffer
-		for _, v := range pVals {
-			bytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(bytes, uint64(v))
-			buf.Write(bytes)
-		}
-		if err = lf.AddVLR(lidario.VLR{
-			UserID:                  "",
-			Description:             pointValueDataTag,
-			BinaryData:              buf.Bytes(),
-			RecordLengthAfterHeader: buf.Len(),
-		}); err != nil {
-			return
-		}
-	}
-	if lastErr != nil {
-		err = lastErr
-		return
-	}
-
-	//nolint:nakedret
-	return
 }
 
 func _colorToPCDInt(pt Data) int {
@@ -238,6 +73,19 @@ func _pcdIntToColor(c int) color.NRGBA {
 	g := uint8(0xFF & (c >> 8))
 	b := uint8(0xFF & (c >> 0))
 	return color.NRGBA{r, g, b, 255}
+}
+
+// ToBytes takes a pointcloud object and converts it to bytes.
+func ToBytes(cloud PointCloud) ([]byte, error) {
+	if cloud == nil {
+		return nil, errors.New("pointcloud cannot be nil")
+	}
+	var buf bytes.Buffer
+	buf.Grow(200 + (cloud.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes, 200 is header size
+	if err := ToPCD(cloud, &buf, PCDBinary); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // ToPCD writes out a point cloud to a PCD file of the specified type.
@@ -292,13 +140,16 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 			return err
 		}
 	case PCDCompressed:
-		// _, err = fmt.Fprintf(out, "DATA binary_compressed\n")
-		// if err != nil {
-		// 	return err
-		// }
-		return errors.New("compressed PCD not yet implemented")
+		_, err = fmt.Fprintf(out, "DATA binary_compressed\n")
+		if err != nil {
+			return err
+		}
 	}
-	err = writePCDData(cloud, out, outputType)
+	if outputType == PCDCompressed {
+		err = writePCDCompressed(cloud, out)
+	} else {
+		err = writePCDData(cloud, out, outputType)
+	}
 	if err != nil {
 		return err
 	}
@@ -306,8 +157,8 @@ func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 }
 
 func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
+	var err error
 	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
-		var err error
 		// Converts RDK units (millimeters) to meters for PCD
 		x := pos.X / 1000.
 		y := pos.Y / 1000.
@@ -347,7 +198,7 @@ func writePCDData(cloud PointCloud, out io.Writer, pcdtype PCDType) error {
 		}
 		return err == nil
 	})
-	return nil
+	return err
 }
 
 func readFloat(n uint32) float64 {
@@ -502,90 +353,40 @@ func parsePCDHeader(in *bufio.Reader) (*pcdHeader, error) {
 	return header, nil
 }
 
-// PCType is the type of point cloud to read the PCD file into.
-type PCType int
-
-const (
-	// BasicType is a selector for a pointcloud backed by a BasicPointCloud.
-	BasicType PCType = 0
-	// KDTreeType is a selector for a pointcloud backed by a KD Tree.
-	KDTreeType PCType = 1
-	// BasicOctreeType is a selector for a pointcloud backed by a Basic Octree.
-	BasicOctreeType PCType = 2
-)
-
-// ReadPCD reads a PCD file into a pointcloud.
-func ReadPCD(inRaw io.Reader) (PointCloud, error) {
-	return readPCDHelper(inRaw, BasicType)
-}
-
-// ReadPCDToKDTree reads a PCD file into a KD Tree pointcloud.
-func ReadPCDToKDTree(inRaw io.Reader) (*KDTree, error) {
-	cloud, err := readPCDHelper(inRaw, KDTreeType)
+// ReadPCD reads pcd.
+func ReadPCD(inRaw io.Reader, pcStructureType string) (PointCloud, error) {
+	cfg, err := Find(pcStructureType)
 	if err != nil {
 		return nil, err
 	}
-	kd, ok := (cloud).(*KDTree)
-	if !ok {
-		return nil, fmt.Errorf("pointcloud %v is not a KD Tree", cloud)
-	}
-	return kd, nil
+	return readPCD(inRaw, cfg)
 }
 
-// ReadPCDToBasicOctree reads a PCD file into a basic octree.
-func ReadPCDToBasicOctree(inRaw io.Reader) (*BasicOctree, error) {
-	cloud, err := readPCDHelper(inRaw, BasicOctreeType)
+func readPCD(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
+	pc, err := readPCDHelper(inRaw, cfg)
 	if err != nil {
 		return nil, err
 	}
-	basicOct, ok := (cloud).(*BasicOctree)
-	if !ok {
-		return nil, errors.Errorf("pointcloud %v is not a basic octree", cloud)
-	}
-	return basicOct, nil
+	return pc.FinalizeAfterReading()
 }
 
-func readPCDHelper(inRaw io.Reader, pctype PCType) (PointCloud, error) {
-	var pc PointCloud
+func readPCDHelper(inRaw io.Reader, cfg TypeConfig) (PointCloud, error) {
 	in := bufio.NewReader(inRaw)
+
 	header, err := parsePCDHeader(in)
 	if err != nil {
 		return nil, err
 	}
-	switch pctype {
-	case BasicType:
-		pc = NewWithPrealloc(int(header.points))
-	case KDTreeType:
-		pc = NewKDTreeWithPrealloc(int(header.points))
-	case BasicOctreeType:
 
-		// Extract data from bufio.Reader to make a copy for metadata acquisition
-		buf, err := io.ReadAll(in)
-		if err != nil {
-			return nil, err
-		}
-		in.Reset(bufio.NewReader(bytes.NewReader(buf)))
+	pc := cfg.NewWithParams(int(header.points))
 
-		meta, err := parsePCDMetaData(*bufio.NewReader(bytes.NewReader(buf)), *header)
-		if err != nil {
-			return nil, err
-		}
-
-		pc, err = NewBasicOctree(getCenterFromPcMetaData(meta), getMaxSideLengthFromPcMetaData(meta))
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, fmt.Errorf("unsupported point cloud type %d", pctype)
-	}
 	switch header.data {
 	case PCDAscii:
 		return readPCDASCII(in, *header, pc)
 	case PCDBinary:
 		return readPCDBinary(in, *header, pc)
 	case PCDCompressed:
-		// return readPCDCompressed(in, header)
-		return nil, errors.New("compressed pcd not yet supported")
+		return readPCDCompressed(in, *header, pc)
 	default:
 		return nil, fmt.Errorf("unsupported pcd data type %v", header.data)
 	}
@@ -677,46 +478,6 @@ func readPCDBinary(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointClou
 	return pc, nil
 }
 
-func parsePCDMetaData(in bufio.Reader, header pcdHeader) (MetaData, error) {
-	meta := NewMetaData()
-	switch header.data {
-	case PCDAscii:
-		for i := 0; i < int(header.points); i++ {
-			pd, err := extractPCDPointASCII(&in, header, i)
-			if err != nil {
-				return MetaData{}, err
-			}
-			meta.Merge(pd.P, pd.D)
-		}
-
-	case PCDBinary:
-		for i := 0; i < int(header.points); i++ {
-			pd, err := extractPCDPointBinary(&in, header)
-			if err != nil {
-				return MetaData{}, err
-			}
-			meta.Merge(pd.P, pd.D)
-		}
-	case PCDCompressed:
-		// return readPCDCompressed(in, header)
-		return MetaData{}, errors.New("compressed pcd not yet supported")
-	default:
-		return MetaData{}, fmt.Errorf("unsupported pcd data type %v", header.data)
-	}
-
-	return meta, nil
-}
-
-// GetPCDMetaData returns the metadata for the PCD read from the provided reader.
-func GetPCDMetaData(inRaw io.Reader) (MetaData, error) {
-	in := bufio.NewReader(inRaw)
-	header, err := parsePCDHeader(in)
-	if err != nil {
-		return MetaData{}, err
-	}
-	return parsePCDMetaData(*in, *header)
-}
-
 // reads a specified amount of bytes from a buffer. The number of bytes specified is defined from the pcd.
 func readBuffer(in *bufio.Reader, header pcdHeader, index int) ([]byte, error) {
 	buf := make([]byte, header.size[index])
@@ -744,4 +505,216 @@ func readSliceToPoint(slice []float64, header pcdHeader) (r3.Vector, Data, error
 	default:
 		return r3.Vector{}, nil, fmt.Errorf("unsupported pcd field type %d", header.fields)
 	}
+}
+
+// reorganizeToStructureOfArrays converts point cloud data from array-of-structures
+// to structure-of-arrays format for better compression.
+func reorganizeToStructureOfArrays(cloud PointCloud) ([]byte, error) {
+	size := cloud.Size()
+	if size == 0 {
+		return nil, errors.New("empty point cloud")
+	}
+
+	hasColor := cloud.MetaData().HasColor
+	var data []byte
+
+	if hasColor {
+		// Reserve space for x, y, z, rgb arrays
+		data = make([]byte, 0, size*16) // 4 float32s per point
+
+		// Separate arrays for x, y, z, rgb
+		xData := make([]byte, 0, size*4)
+		yData := make([]byte, 0, size*4)
+		zData := make([]byte, 0, size*4)
+		rgbData := make([]byte, 0, size*4)
+
+		cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
+			// Convert RDK units (millimeters) to meters for PCD
+			x := pos.X / 1000.
+			y := pos.Y / 1000.
+			z := pos.Z / 1000.
+
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+			xData = append(xData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(y)))
+			yData = append(yData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(z)))
+			zData = append(zData, buf...)
+
+			c := _colorToPCDInt(d)
+			binary.LittleEndian.PutUint32(buf, uint32(c))
+			rgbData = append(rgbData, buf...)
+
+			return true
+		})
+
+		// Combine all arrays
+		data = append(data, xData...)
+		data = append(data, yData...)
+		data = append(data, zData...)
+		data = append(data, rgbData...)
+	} else {
+		// Reserve space for x, y, z arrays
+		data = make([]byte, 0, size*12) // 3 float32s per point
+
+		// Separate arrays for x, y, z
+		xData := make([]byte, 0, size*4)
+		yData := make([]byte, 0, size*4)
+		zData := make([]byte, 0, size*4)
+
+		cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
+			// Convert RDK units (millimeters) to meters for PCD
+			x := pos.X / 1000.
+			y := pos.Y / 1000.
+			z := pos.Z / 1000.
+
+			buf := make([]byte, 4)
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(x)))
+			xData = append(xData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(y)))
+			yData = append(yData, buf...)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(z)))
+			zData = append(zData, buf...)
+
+			return true
+		})
+
+		// Combine all arrays
+		data = append(data, xData...)
+		data = append(data, yData...)
+		data = append(data, zData...)
+	}
+
+	return data, nil
+}
+
+// writePCDCompressed writes compressed point cloud data using LZF compression.
+func writePCDCompressed(cloud PointCloud, out io.Writer) error {
+	// Reorganize data to structure-of-arrays format
+	uncompressedData, err := reorganizeToStructureOfArrays(cloud)
+	if err != nil {
+		return err
+	}
+
+	// Compress the data using LZF
+	// Allocate output buffer with maximum possible size
+	compressedData := make([]byte, len(uncompressedData)+len(uncompressedData)/64+16+3)
+	compressedBytes, err := lzf.Compress(uncompressedData, compressedData)
+	if err != nil {
+		return errors.Wrap(err, "failed to compress point cloud data")
+	}
+	compressedData = compressedData[:compressedBytes]
+
+	// Write compressed size (4 bytes)
+	compressedSize := uint32(len(compressedData))
+	if err := binary.Write(out, binary.LittleEndian, compressedSize); err != nil {
+		return errors.Wrap(err, "failed to write compressed size")
+	}
+
+	// Write uncompressed size (4 bytes)
+	uncompressedSize := uint32(len(uncompressedData))
+	if err := binary.Write(out, binary.LittleEndian, uncompressedSize); err != nil {
+		return errors.Wrap(err, "failed to write uncompressed size")
+	}
+
+	// Write compressed data
+	if _, err := out.Write(compressedData); err != nil {
+		return errors.Wrap(err, "failed to write compressed data")
+	}
+
+	return nil
+}
+
+// readPCDCompressed reads compressed point cloud data using LZF decompression.
+func readPCDCompressed(in *bufio.Reader, header pcdHeader, pc PointCloud) (PointCloud, error) {
+	// Read compressed size (4 bytes)
+	var compressedSize uint32
+	if err := binary.Read(in, binary.LittleEndian, &compressedSize); err != nil {
+		return nil, errors.Wrap(err, "failed to read compressed size")
+	}
+
+	// Read uncompressed size (4 bytes)
+	var uncompressedSize uint32
+	if err := binary.Read(in, binary.LittleEndian, &uncompressedSize); err != nil {
+		return nil, errors.Wrap(err, "failed to read uncompressed size")
+	}
+
+	// Read compressed data
+	compressedData := make([]byte, compressedSize)
+	if _, err := io.ReadFull(in, compressedData); err != nil {
+		return nil, errors.Wrap(err, "failed to read compressed data")
+	}
+
+	// Decompress the data
+	uncompressedData := make([]byte, uncompressedSize)
+	decompressedBytes, err := lzf.Decompress(compressedData, uncompressedData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to decompress point cloud data")
+	}
+	if decompressedBytes != int(uncompressedSize) {
+		return nil, fmt.Errorf("decompressed size mismatch: expected %d, got %d", uncompressedSize, decompressedBytes)
+	}
+
+	// Parse the decompressed data from structure-of-arrays format
+	return parseStructureOfArrays(uncompressedData, header, pc)
+}
+
+// parseStructureOfArrays parses structure-of-arrays format data back to point cloud.
+func parseStructureOfArrays(data []byte, header pcdHeader, pc PointCloud) (PointCloud, error) {
+	numPoints := int(header.points)
+	if numPoints == 0 {
+		return pc, nil
+	}
+
+	hasColor := header.fields == pcdPointColor
+	expectedSize := numPoints * 3 * 4 // 3 float32s per point minimum
+	if hasColor {
+		expectedSize = numPoints * 4 * 4 // 4 float32s per point with color
+	}
+
+	if len(data) != expectedSize {
+		return nil, fmt.Errorf("unexpected data size: got %d, expected %d", len(data), expectedSize)
+	}
+
+	// Parse structure-of-arrays format
+	offset := 0
+	pointSize := 4 // 4 bytes per float32
+
+	for i := 0; i < numPoints; i++ {
+		// Read x coordinate
+		xOffset := offset + i*pointSize
+		x := math.Float32frombits(binary.LittleEndian.Uint32(data[xOffset : xOffset+4]))
+
+		// Read y coordinate
+		yOffset := offset + numPoints*pointSize + i*pointSize
+		y := math.Float32frombits(binary.LittleEndian.Uint32(data[yOffset : yOffset+4]))
+
+		// Read z coordinate
+		zOffset := offset + 2*numPoints*pointSize + i*pointSize
+		z := math.Float32frombits(binary.LittleEndian.Uint32(data[zOffset : zOffset+4]))
+
+		// Convert PCD units (meters) to millimeters for RDK
+		point := r3.Vector{X: 1000. * float64(x), Y: 1000. * float64(y), Z: 1000. * float64(z)}
+
+		var colorData Data
+		if hasColor {
+			// Read RGB data
+			rgbOffset := offset + 3*numPoints*pointSize + i*pointSize
+			rgb := binary.LittleEndian.Uint32(data[rgbOffset : rgbOffset+4])
+			colorData = NewColoredData(_pcdIntToColor(int(rgb)))
+		} else {
+			colorData = NewBasicData()
+		}
+
+		if err := pc.Set(point, colorData); err != nil {
+			return nil, err
+		}
+	}
+
+	return pc, nil
 }

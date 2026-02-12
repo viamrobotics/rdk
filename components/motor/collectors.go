@@ -2,7 +2,6 @@ package motor
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	pb "go.viam.com/api/component/motor/v1"
@@ -16,6 +15,7 @@ type method int64
 const (
 	position method = iota
 	isPowered
+	doCommand
 )
 
 func (m method) String() string {
@@ -24,6 +24,8 @@ func (m method) String() string {
 		return "Position"
 	case isPowered:
 		return "IsPowered"
+	case doCommand:
+		return "DoCommand"
 	}
 	return "Unknown"
 }
@@ -43,10 +45,10 @@ func newPositionCollector(resource interface{}, params data.CollectorParams) (da
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, position.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, position.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.GetPositionResponse{
@@ -71,10 +73,10 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 		if err != nil {
 			// A modular filter component can be created to filter the readings from a component. The error ErrNoCaptureToStore
 			// is used in the datamanager to exclude readings from being captured and stored.
-			if errors.Is(err, data.ErrNoCaptureToStore) {
+			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.FailedToReadErr(params.ComponentName, isPowered.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, isPowered.String(), err)
 		}
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
 		return data.NewTabularCaptureResult(ts, pb.IsPoweredResponse{
@@ -82,6 +84,18 @@ func newIsPoweredCollector(resource interface{}, params data.CollectorParams) (d
 			PowerPct: powerPct,
 		})
 	})
+	return data.NewCollector(cFunc, params)
+}
+
+// newDoCommandCollector returns a collector to register a doCommand action. If one is already registered
+// with the same MethodMetadata it will panic.
+func newDoCommandCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	motor, err := assertMotor(resource)
+	if err != nil {
+		return nil, err
+	}
+
+	cFunc := data.NewDoCommandCaptureFunc(motor, params)
 	return data.NewCollector(cFunc, params)
 }
 

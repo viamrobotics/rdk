@@ -2,7 +2,6 @@ package spatialmath
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	"github.com/golang/geo/r3"
@@ -26,7 +25,10 @@ type Geometry interface {
 	Transform(Pose) Geometry
 
 	// CollidesWith returns a bool describing if the two geometries are within the given float of colliding with each other.
-	CollidesWith(Geometry, float64) (bool, error)
+	// The 2nd return value is -1 if there is a collision, and if not, a lower bound of the distance between the objects.
+	// It is meant to be computed quickly.
+	// If it cannot be, should just return buffer
+	CollidesWith(other Geometry, buffer float64) (bool, float64, error)
 
 	// If DistanceFrom is negative, it represents the penetration depth of the two geometries, which are in collision.
 	// Penetration depth magnitude is defined as the minimum translation which would result in the geometries not colliding.
@@ -48,6 +50,8 @@ type Geometry interface {
 	// ToProtobuf converts a Geometry to its protobuf representation.
 	ToProtobuf() *commonpb.Geometry
 
+	Hash() int
+
 	json.Marshaler
 }
 
@@ -61,6 +65,7 @@ const (
 	SphereType  = GeometryType("sphere")
 	CapsuleType = GeometryType("capsule")
 	PointType   = GeometryType("point")
+	MeshType    = GeometryType("mesh")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -77,6 +82,11 @@ type GeometryConfig struct {
 
 	// parameter used for defining a capsule's length
 	L float64 `json:"l"`
+
+	// parameters used for defining a mesh
+	MeshData        []byte `json:"mesh_data,omitempty"`         // Binary mesh file data
+	MeshContentType string `json:"mesh_content_type,omitempty"` // e.g., "stl", "ply"
+	MeshFilePath    string `json:"mesh_file_path,omitempty"`    // Original URDF mesh path (e.g., "meshes/ur20/collision/base.stl")
 
 	// define an offset to position the geometry
 	TranslationOffset r3.Vector         `json:"translation,omitempty"`
@@ -106,6 +116,12 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Label = gType.label
 	case *point:
 		config.Type = PointType
+		config.Label = gType.label
+	case *Mesh:
+		config.Type = MeshType
+		config.MeshData = gType.rawBytes
+		config.MeshContentType = string(gType.fileType)
+		config.MeshFilePath = gType.originalFilePath
 		config.Label = gType.label
 	default:
 		return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, fmt.Sprintf("%T", gType))
@@ -140,6 +156,24 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewCapsule(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
+	case MeshType:
+		if len(config.MeshData) == 0 {
+			return nil, fmt.Errorf("mesh geometry requires mesh data")
+		}
+		// Create proto Mesh and use NewMeshFromProto
+		protoMesh := &commonpb.Mesh{
+			Mesh:        config.MeshData,
+			ContentType: config.MeshContentType,
+		}
+		mesh, err := NewMeshFromProto(offset, protoMesh, config.Label)
+		if err != nil {
+			return nil, err
+		}
+		// Preserve the original file path for round-tripping
+		if config.MeshFilePath != "" {
+			mesh.SetOriginalFilePath(config.MeshFilePath)
+		}
+		return mesh, nil
 	case UnknownType:
 		// no type specified, iterate through supported types and try to infer intent
 		boxDims := r3.Vector{X: config.X, Y: config.Y, Z: config.Z}
@@ -156,7 +190,7 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, fmt.Errorf("%w %s", errGeometryTypeUnsupported, string(config.Type))
+	return nil, fmt.Errorf("%w: %s", errGeometryTypeUnsupported, string(config.Type))
 }
 
 // ToProtobuf converts a GeometryConfig to Protobuf.
@@ -170,6 +204,12 @@ func (config *GeometryConfig) ToProtobuf() (*commonpb.Geometry, error) {
 
 // GeometriesAlmostEqual returns a bool describing if the two input Geometries are equal.
 func GeometriesAlmostEqual(a, b Geometry) bool {
+	if a == nil {
+		return b == nil
+	} else if b == nil {
+		return false
+	}
+
 	switch gType := a.(type) {
 	case *box:
 		return gType.almostEqual(b)
@@ -182,53 +222,4 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 	default:
 		return false
 	}
-}
-
-// NewGeometryFromProto instantiates a new Geometry from a protobuf Geometry message.
-func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
-	if geometry.Center == nil {
-		return nil, errors.New("cannot have nil pose for geometry")
-	}
-	pose := NewPoseFromProtobuf(geometry.Center)
-	if box := geometry.GetBox().GetDimsMm(); box != nil {
-		return NewBox(pose, r3.Vector{X: box.X, Y: box.Y, Z: box.Z}, geometry.Label)
-	}
-	if capsule := geometry.GetCapsule(); capsule != nil {
-		return NewCapsule(pose, capsule.RadiusMm, capsule.LengthMm, geometry.Label)
-	}
-	if sphere := geometry.GetSphere(); sphere != nil {
-		if sphere.RadiusMm == 0 {
-			return NewPoint(pose.Point(), geometry.Label), nil
-		}
-		return NewSphere(pose, sphere.RadiusMm, geometry.Label)
-	}
-	if mesh := geometry.GetMesh(); mesh != nil {
-		return newMeshFromProto(pose, mesh, geometry.Label)
-	}
-	return nil, errGeometryTypeUnsupported
-}
-
-// NewGeometriesFromProto converts a list of Geometries from protobuf.
-func NewGeometriesFromProto(proto []*commonpb.Geometry) ([]Geometry, error) {
-	if proto == nil {
-		return nil, nil
-	}
-	geometries := []Geometry{}
-	for _, geometry := range proto {
-		g, err := NewGeometryFromProto(geometry)
-		if err != nil {
-			return nil, err
-		}
-		geometries = append(geometries, g)
-	}
-	return geometries, nil
-}
-
-// NewGeometriesToProto converts a list of Geometries to profobuf.
-func NewGeometriesToProto(geometries []Geometry) []*commonpb.Geometry {
-	var proto []*commonpb.Geometry
-	for _, geometry := range geometries {
-		proto = append(proto, geometry.ToProtobuf())
-	}
-	return proto
 }

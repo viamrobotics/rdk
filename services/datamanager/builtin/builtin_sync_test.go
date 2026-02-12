@@ -25,6 +25,9 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
+	rgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/internal/cloud"
+	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -45,32 +48,32 @@ func TestSyncEnabled(t *testing.T) {
 		name                 string
 		syncStartDisabled    bool
 		syncEndDisabled      bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
 			name:                 "config with sync disabled while online should sync nothing",
 			syncStartDisabled:    true,
 			syncEndDisabled:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "config with sync enabled while online should sync",
 			syncStartDisabled:    false,
 			syncEndDisabled:      false,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "disabling sync while online should stop syncing",
 			syncStartDisabled:    false,
 			syncEndDisabled:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "enabling sync while online should trigger syncing to start",
 			syncStartDisabled:    true,
 			syncEndDisabled:      false,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:               "config with sync disabled while offline should sync nothing",
@@ -100,25 +103,25 @@ func TestSyncEnabled(t *testing.T) {
 			name:                 "config with sync disabled while connection is not ready should sync nothing",
 			syncStartDisabled:    true,
 			syncEndDisabled:      true,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name:                 "config with sync enabled while connection is not ready should sync nothing",
 			syncStartDisabled:    false,
 			syncEndDisabled:      false,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name:                 "disabling sync while connection is not ready should sync nothing",
 			syncStartDisabled:    false,
 			syncEndDisabled:      true,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name:                 "enabling sync while connection is not ready sync nothing",
 			syncStartDisabled:    true,
 			syncEndDisabled:      false,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 	}
 
@@ -154,17 +157,15 @@ func TestSyncEnabled(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
-				camera.Named("c1"): &inject.Camera{
-					ImageFunc: func(
-						ctx context.Context,
-						mimeType string,
-						extra map[string]interface{},
-					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
-					},
-				},
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 			})
+
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
+
 			c := config.ConvertedAttributes.(*Config)
 			c.CaptureDisabled = false
 			c.ScheduledSyncDisabled = tc.syncStartDisabled
@@ -174,7 +175,7 @@ func TestSyncEnabled(t *testing.T) {
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
 
-			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer b.Close(context.Background())
 			t.Logf("waiting for data capture to write a data capture file %s", time.Now())
@@ -187,7 +188,7 @@ func TestSyncEnabled(t *testing.T) {
 			case <-firstCalledCtx.Done():
 			}
 
-			offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+			offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
 			if tc.syncStartDisabled || offline || tc.cloudConnectionErr != nil {
 				test.That(t, firstCalledCtx.Err(), test.ShouldBeNil)
 			} else {
@@ -226,55 +227,55 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		scheduledSyncDisabled bool
 		failTransiently       bool
 		emptyFile             bool
-		connStateConstructor  func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor  func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr    error
 	}{
 		{
 			name:                 "previously captured tabular data should be synced at start up if online",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "previously captured binary data should be synced at start up if online",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                  "manual sync should successfully sync captured tabular data if online",
 			dataType:              v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
-			connStateConstructor:  ConnToConnectivityStateReady,
+			connStateConstructor:  NoOpClientConnReady,
 		},
 		{
 			name:                  "manual sync should successfully sync captured binary data if online",
 			dataType:              v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			manualSync:            true,
 			scheduledSyncDisabled: true,
-			connStateConstructor:  ConnToConnectivityStateReady,
+			connStateConstructor:  NoOpClientConnReady,
 		},
 		{
 			name:                 "running manual and scheduled sync concurrently should not cause data races or duplicate uploads if online",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:           true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "if tabular uploads fail transiently, they should be retried until they succeed if online",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "if binary uploads fail transiently, they should be retried until they succeed if online",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
 			failTransiently:      true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "files with no sensor data should not be synced if online",
 			emptyFile:            true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:               "previously captured tabular data should not be synced at start up if offline",
@@ -301,24 +302,24 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 		{
 			name:                 "previously captured tabular data should not be synced at start up if connection is not ready",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name:                 "previously captured binary data should not be synced at start up if connection is not ready",
 			dataType:             v1.DataType_DATA_TYPE_BINARY_SENSOR,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name: "running manual and scheduled sync concurrently should not " +
 				"cause data races or duplicate uploads if connection is not ready",
 			dataType:             v1.DataType_DATA_TYPE_TABULAR_SENSOR,
 			manualSync:           true,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 		{
 			name:                 "files with no sensor data should not be synced if connection is not ready",
 			emptyFile:            true,
-			connStateConstructor: connToConnectivityStateError,
+			connStateConstructor: noOpClientConnError,
 		},
 	}
 	initialWaitTimeMillis := datasync.InitialWaitTimeMillis
@@ -357,18 +358,14 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 					config, deps = setupConfig(t, r, enabledTabularCollectorConfigPath)
 				} else {
 					r := setupRobot(tc.cloudConnectionErr, map[resource.Name]resource.Resource{
-						camera.Named("c1"): &inject.Camera{
-							ImageFunc: func(
-								ctx context.Context,
-								mimeType string,
-								extra map[string]interface{},
-							) ([]byte, camera.ImageMetadata, error) {
-								return newImageBytesResp(ctx, imgPng, mimeType)
-							},
-						},
+						camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 					})
 					config, deps = setupConfig(t, r, enabledBinaryCollectorConfigPath)
 				}
+			}
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
 			}
 
 			// Set up service config with only capture enabled.
@@ -378,7 +375,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			c.SyncIntervalMins = syncIntervalMins
 			c.CaptureDir = tmpDir
 
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			time.Sleep(captureInterval * 20)
@@ -454,7 +451,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 			c.ScheduledSyncDisabled = tc.scheduledSyncDisabled
 			c.SyncIntervalMins = syncIntervalMins
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 
@@ -503,7 +500,7 @@ func TestDataCaptureUploadIntegration(t *testing.T) {
 				for i := 0; i < numFiles; i++ {
 					select {
 					case <-wait:
-						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).GetState() != connectivity.Ready
+						offline := tc.connStateConstructor == nil || tc.connStateConstructor(nil).(rgrpc.ConnectivityState).GetState() != connectivity.Ready
 						if offline && !tc.manualSync {
 							err = b2.Close(context.Background())
 							test.That(t, err, test.ShouldBeNil)
@@ -556,41 +553,56 @@ func TestArbitraryFileUpload(t *testing.T) {
 		name                 string
 		manualSync           bool
 		scheduleSyncDisabled bool
+		uploadToDataset      bool
 		serviceFail          bool
-		connStateConstructor func(rpc.ClientConn) datasync.ConnectivityState
+		connStateConstructor func(rpc.ClientConn) rpc.ClientConn
 		cloudConnectionErr   error
 	}{
 		{
 			name:                 "scheduled sync of arbitrary files should work",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "manual sync of arbitrary files should work",
 			manualSync:           true,
 			scheduleSyncDisabled: true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "running manual and scheduled sync concurrently should work and not lead to duplicate uploads",
 			manualSync:           true,
 			scheduleSyncDisabled: false,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 "if an error response is received from the backend, local files should not be deleted",
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
 		},
 		{
 			name:                 emptyFileTestName,
 			manualSync:           false,
 			scheduleSyncDisabled: false,
 			serviceFail:          true,
-			connStateConstructor: ConnToConnectivityStateReady,
+			connStateConstructor: NoOpClientConnReady,
+		},
+		{
+			name:                 "uploading an image to a dataset with scheduled sync of arbitrary files should work",
+			manualSync:           false,
+			scheduleSyncDisabled: false,
+			uploadToDataset:      true,
+			connStateConstructor: NoOpClientConnReady,
+		},
+		{
+			name:                 "uploading an image to a dataset with manual sync of arbitrary files should work",
+			manualSync:           true,
+			scheduleSyncDisabled: true,
+			uploadToDataset:      true,
+			connStateConstructor: NoOpClientConnReady,
 		},
 	}
 
@@ -640,6 +652,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 			})
 			dataSyncServiceClientConstructor := func(cc grpc.ClientConnInterface) v1.DataSyncServiceClient { return mockClient }
 			config, deps := setupConfig(t, r, disabledTabularCollectorConfigPath)
+			injectedCloudConn := deps[cloud.InternalServiceName].(*cloudinject.CloudConnectionService)
+			if tc.connStateConstructor != nil {
+				injectedCloudConn.Conn = tc.connStateConstructor(NewNoOpClientConn())
+			}
 			c := config.ConvertedAttributes.(*Config)
 			c.ScheduledSyncDisabled = tc.scheduleSyncDisabled
 			c.SyncIntervalMins = syncIntervalMins
@@ -648,7 +664,7 @@ func TestArbitraryFileUpload(t *testing.T) {
 			c.FileLastModifiedMillis = 1
 			t.Logf("cfg.AdditionalSyncPaths: %s, cfg.CaptureDir: %s", additionalPathsDir, c.CaptureDir)
 
-			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, tc.connStateConstructor, logger)
+			b, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer b.Close(context.Background())
 
@@ -695,10 +711,39 @@ func TestArbitraryFileUpload(t *testing.T) {
 			case <-closeCtx.Done():
 			}
 
+			// Call upload to dataset.
+			datasetBytes := []byte("hi")
+			datasetsMetadata := []string{"dataset1"}
+			tagsMetadata := []string{"tag1"}
+			mimeType := v1.MimeType_MIME_TYPE_IMAGE_PNG
+			if tc.uploadToDataset {
+				t.Log("calling upload to a dataset")
+				// Add the bytes to the file contents.
+				fileContents = append(fileContents, datasetBytes...)
+				timeoutCtx, timeoutFn := context.WithTimeout(context.Background(), time.Second*5)
+				defer timeoutFn()
+				for {
+					if err = b.UploadBinaryDataToDatasets(context.Background(), datasetBytes, datasetsMetadata, tagsMetadata, mimeType, nil); err == nil {
+						break
+					}
+
+					if timeoutCtx.Err() != nil {
+						t.Log("timed out waiting for mocked cloud connection")
+						t.FailNow()
+					}
+					time.Sleep(time.Millisecond * 50)
+				}
+			}
+
 			waitUntilNoFiles(additionalPathsDir)
+			waitUntilNoFiles(filepath.Join(captureDir, datasync.DatasetDir))
 			if !tc.serviceFail {
 				// Validate first metadata message.
-				test.That(t, uploadCount.Load(), test.ShouldEqual, 1)
+				expectedUploadedCount := 1
+				if tc.uploadToDataset {
+					expectedUploadedCount++
+				}
+				test.That(t, uploadCount.Load(), test.ShouldEqual, expectedUploadedCount)
 				test.That(t, len(rs), test.ShouldBeGreaterThan, 0)
 				actMD := rs[0].GetMetadata()
 				test.That(t, actMD, test.ShouldNotBeNil)
@@ -707,6 +752,16 @@ func TestArbitraryFileUpload(t *testing.T) {
 				test.That(t, actMD.FileExtension, test.ShouldEqual, fileExt)
 				test.That(t, actMD.PartId, test.ShouldNotBeBlank)
 
+				// Validate metadata for dataset upload.
+				if tc.uploadToDataset {
+					datasetMD := rs[2].GetMetadata()
+					test.That(t, datasetMD.Type, test.ShouldEqual, v1.DataType_DATA_TYPE_FILE)
+					test.That(t, filepath.Base(datasetMD.FileName), test.ShouldNotBeBlank)
+					test.That(t, datasetMD.FileExtension, test.ShouldEqual, ".png")
+					test.That(t, datasetMD.PartId, test.ShouldNotBeBlank)
+					test.That(t, datasetMD.Tags, test.ShouldResemble, tagsMetadata)
+					test.That(t, datasetMD.DatasetIds, test.ShouldResemble, datasetsMetadata)
+				}
 				// Validate ensuing data messages.
 				dataRequests := rs[1:]
 				var actData []byte
@@ -717,6 +772,10 @@ func TestArbitraryFileUpload(t *testing.T) {
 
 				// Validate file no longer exists.
 				test.That(t, len(getAllFileInfos(additionalPathsDir)), test.ShouldEqual, 0)
+				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
+
+				// Validate file in dataset directory no longer exists.
+				test.That(t, len(getAllFileInfos(filepath.Join(captureDir, datasync.DatasetDir))), test.ShouldEqual, 0)
 				test.That(t, b.Close(context.Background()), test.ShouldBeNil)
 			} else {
 				// Validate no files were successfully uploaded.
@@ -760,15 +819,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			// Set up data manager.
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
-				camera.Named("c1"): &inject.Camera{
-					ImageFunc: func(
-						ctx context.Context,
-						mimeType string,
-						extra map[string]interface{},
-					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
-					},
-				},
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -781,7 +832,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
-			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, ConnToConnectivityStateReady, logger)
+			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Capture an image, then close.
@@ -857,7 +908,7 @@ func TestStreamingDCUpload(t *testing.T) {
 			c.CaptureDisabled = true
 			c.ScheduledSyncDisabled = true
 
-			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
+			b2Svc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b2 := b2Svc.(*builtIn)
 			defer b2.Close(context.Background())
@@ -1001,15 +1052,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 
 			imgPng := newImgPng(t)
 			r := setupRobot(nil, map[resource.Name]resource.Resource{
-				camera.Named("c1"): &inject.Camera{
-					ImageFunc: func(
-						ctx context.Context,
-						mimeType string,
-						extra map[string]interface{},
-					) ([]byte, camera.ImageMetadata, error) {
-						return newImageBytesResp(ctx, imgPng, mimeType)
-					},
-				},
+				camera.Named("c1"): newMockCameraWithImages(t, imgPng),
 			})
 			config, deps := setupConfig(t, r, enabledBinaryCollectorConfigPath)
 			c := config.ConvertedAttributes.(*Config)
@@ -1020,7 +1063,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			c.CaptureDir = tmpDir
 			c.SyncIntervalMins = tc.initSyncIntervalMins
 
-			bSvc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, ConnToConnectivityStateReady, logger)
+			bSvc, err := New(context.Background(), deps, config, dataSyncServiceClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 			b := bSvc.(*builtIn)
 			defer b.Close(context.Background())
@@ -1167,6 +1210,25 @@ func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([
 		return nil, camera.ImageMetadata{}, err
 	}
 	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
+}
+
+// newMockCameraWithImages creates a mock camera that implements both ImageFunc and ImagesFunc
+// ImageFunc will fail the test if called, ImagesFunc returns a single JPEG image.
+func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
+	return &inject.Camera{
+		ImagesFunc: func(
+			ctx context.Context,
+			filterSourceNames []string,
+			extra map[string]interface{},
+		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+			t.Helper()
+			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+			test.That(t, err, test.ShouldBeNil)
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
+			test.That(t, err, test.ShouldBeNil)
+			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+		},
+	}
 }
 
 func newImgPng(t *testing.T) image.Image {

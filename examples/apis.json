@@ -1,8 +1,35 @@
 {
+   "audio_in": {
+    "func": "Properties",
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}" ],
+    "packageName": "audioin",
+    "importName": "audioin"
+  },
+  "audio_out": {
+    "func": "Properties",
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "packageName": "audioout",
+    "importName": "audioout"
+  },
   "base": {
     "func": "IsMoving",
     "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()"]
+  },
+  "button": {
+    "func": "Push",
+    "packagePath": "go.viam.com/rdk/components",
+    "commented": true,
+    "hasReturn": false
+  },
+  "genericcomponent": {
+    "func": "DoCommand",
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "importName": "genericcomponent",
+    "commented": true
   },
   "board": {
     "func": "GPIOPinByName",
@@ -80,6 +107,13 @@
     "func": "Poses",
     "packagePath": "go.viam.com/rdk/components",
     "args": []
+  },
+  "genericservice": {
+    "func": "DoCommand",
+    "packagePath": "go.viam.com/rdk/services",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "commented": true,
+    "importName": "genericservice"
   },
   "motion": {
     "func": "GetPose",

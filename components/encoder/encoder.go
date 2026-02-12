@@ -25,6 +25,10 @@ func init() {
 		API:        API,
 		MethodName: ticksCount.String(),
 	}, newTicksCountCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: doCommand.String(),
+	}, newDoCommandCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "encoder".
@@ -65,7 +69,7 @@ func (t PositionType) String() string {
 //
 // Position example:
 //
-//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//	myEncoder, err := encoder.FromProvider(machine, "my_encoder")
 //	if err != nil {
 //	  logger.Fatalf("cannot get encoder: %v", err)
 //	}
@@ -77,7 +81,7 @@ func (t PositionType) String() string {
 //
 // ResetPosition example:
 //
-//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//	myEncoder, err := encoder.FromProvider(machine, "my_encoder")
 //	if err != nil {
 //	  logger.Fatalf("cannot get encoder: %v", err)
 //	}
@@ -88,7 +92,7 @@ func (t PositionType) String() string {
 //
 // Properties example:
 //
-//	myEncoder, err := encoder.FromRobot(machine, "my_encoder")
+//	myEncoder, err := encoder.FromProvider(machine, "my_encoder")
 //
 //	// Get whether the encoder returns position in ticks or degrees.
 //	properties, err := myEncoder.Properties(context.Background(), nil)
@@ -117,15 +121,25 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
-// FromDependencies is a helper for getting the named encoder from a collection of
-// dependencies.
+// Deprecated: FromDependencies is a helper for getting the named encoder from a collection of
+// dependencies. Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromDependencies(deps resource.Dependencies, name string) (Encoder, error) {
 	return resource.FromDependencies[Encoder](deps, Named(name))
 }
 
-// FromRobot is a helper for getting the named encoder from the given Robot.
+// Deprecated: FromRobot is a helper for getting the named encoder from the given Robot.
+// Use FromProvider instead.
+//
+//nolint:revive // ignore exported comment check
 func FromRobot(r robot.Robot, name string) (Encoder, error) {
 	return robot.ResourceFromRobot[Encoder](r, Named(name))
+}
+
+// FromProvider is a helper for getting the named Encoder from a resource Provider (collection of Dependencies or a Robot).
+func FromProvider(provider resource.Provider, name string) (Encoder, error) {
+	return resource.FromProvider[Encoder](provider, Named(name))
 }
 
 // NamesFromRobot is a helper for getting all encoder names from the given Robot.

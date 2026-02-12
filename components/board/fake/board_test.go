@@ -46,28 +46,28 @@ func TestConfigValidate(t *testing.T) {
 	validConfig := Config{}
 
 	validConfig.AnalogReaders = []board.AnalogReaderConfig{{}}
-	_, err := validConfig.Validate("path")
+	_, _, err := validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.analogs.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.AnalogReaders = []board.AnalogReaderConfig{{Name: "bar"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "name")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `path.digital_interrupts.0`)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "pin")
 
 	validConfig.DigitalInterrupts = []board.DigitalInterruptConfig{{Name: "bar", Pin: "3"}}
-	_, err = validConfig.Validate("path")
+	_, _, err = validConfig.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }

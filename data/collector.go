@@ -5,6 +5,7 @@ package data
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,11 +13,12 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -25,10 +27,6 @@ import (
 // The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
 var sleepCaptureCutoff = 2 * time.Millisecond
 
-// FromDMContextKey is used to check whether the context is from data management.
-// Deprecated: use a camera.Extra with camera.NewContext instead.
-type FromDMContextKey struct{}
-
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
 
@@ -36,7 +34,10 @@ const FromDMString = "fromDataManagement"
 var FromDMExtraMap = map[string]interface{}{FromDMString: true}
 
 // ErrNoCaptureToStore is returned when a modular filter resource filters the capture coming from the base resource.
-var ErrNoCaptureToStore = status.Error(codes.FailedPrecondition, "no capture from filter module")
+var (
+	errNoCaptureToStoreMsg = "no capture from filter module"
+	ErrNoCaptureToStore    = status.Error(codes.FailedPrecondition, errNoCaptureToStoreMsg)
+)
 
 // If an error is ongoing, the frequency (in seconds) with which to suppress identical error logs.
 const identicalErrorLogFrequencyHz = 2
@@ -208,7 +209,7 @@ func (c *collector) getAndPushNextReading() {
 	}
 
 	if err != nil {
-		if errors.Is(err, ErrNoCaptureToStore) {
+		if IsNoCaptureToStoreError(err) {
 			c.logger.Debug("capture filtered out by modular resource")
 			return
 		}
@@ -359,9 +360,15 @@ func (c *collector) logCaptureErrs() {
 				continue
 			}
 		}
+
 		// Only log a specific error message if we haven't logged it in the past 2 seconds.
 		if lastLogged, ok := c.lastLoggedErrors[err.Error()]; (ok && int(now-lastLogged) > identicalErrorLogFrequencyHz) || !ok {
-			c.logger.Error((err))
+			var failedToReadError *FailedToReadError
+			if errors.As(err, &failedToReadError) {
+				c.logger.Warn(err)
+			} else {
+				c.logger.Error((err))
+			}
 			c.lastLoggedErrors[err.Error()] = now
 		}
 	}
@@ -373,7 +380,132 @@ func InvalidInterfaceErr(api resource.API) error {
 	return errors.Errorf("passed interface does not conform to expected resource type %s", api)
 }
 
-// FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
-func FailedToReadErr(component, method string, err error) error {
-	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
+// NewFailedToReadError constructs a new FailedToReadError.
+func NewFailedToReadError(component, method string, err error) error {
+	return &FailedToReadError{
+		Component: component,
+		Method:    method,
+		Err:       err,
+	}
+}
+
+// FailedToReadError is the error describing when a Capturer was unable to get the reading of a method.
+type FailedToReadError struct {
+	Component string
+	Method    string
+	Err       error
+}
+
+func (e *FailedToReadError) Error() string {
+	return fmt.Sprintf("failed to get reading of method %s of component %s: %v", e.Method, e.Component, e.Err)
+}
+
+func (e *FailedToReadError) Unwrap() error {
+	return e.Err
+}
+
+// NewDoCommandCaptureFunc returns a capture function for DoCommand operations that can be used by any resource.
+// Components should assert their specific type and pass it to this function.
+func NewDoCommandCaptureFunc[T interface {
+	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+}](resource T, params CollectorParams) CaptureFunc {
+	return func(ctx context.Context, _ map[string]*anypb.Any) (CaptureResult, error) {
+		timeRequested := time.Now()
+		var result CaptureResult
+
+		var payload map[string]interface{}
+
+		if payloadAny, exists := params.MethodParams["docommand_input"]; exists && payloadAny != nil {
+			// Check if payloadAny is an empty map (empty *anypb.Any)
+			if payloadAny.TypeUrl == "" && len(payloadAny.Value) == 0 {
+				payload = make(map[string]interface{})
+			} else {
+				unmarshaledPayload, err := UnmarshalToValueOrString(payloadAny)
+				if err != nil {
+					return result, err
+				}
+
+				if payloadMap, ok := unmarshaledPayload.(map[string]interface{}); ok {
+					payload = payloadMap
+				} else {
+					return result, fmt.Errorf("payload is not a map, got type: %T, value: %v", unmarshaledPayload, unmarshaledPayload)
+				}
+			}
+		} else {
+			// key does not exist
+			return result, errors.New("DoCommand missing payload with key: \"docommand_input\"")
+		}
+
+		values, err := resource.DoCommand(ctx, payload)
+		if err != nil {
+			if IsNoCaptureToStoreError(err) {
+				return result, err
+			}
+			return result, NewFailedToReadError(params.ComponentName, "DoCommand", err)
+		}
+		ts := Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
+		return NewTabularCaptureResultDoCommand(ts, values)
+	}
+}
+
+// UnmarshalToValueOrString attempts to unmarshal a protobuf Any to either a structpb.Value
+// or extracts the string value if it's a string type.
+func UnmarshalToValueOrString(v *anypb.Any) (interface{}, error) {
+	// Try to unmarshal to Struct first
+	structVal := &structpb.Struct{}
+	if err := v.UnmarshalTo(structVal); err == nil {
+		result := make(map[string]interface{})
+		for fieldName, fieldValue := range structVal.Fields {
+			result[fieldName] = flattenValue(fieldValue)
+		}
+		return result, nil
+	}
+
+	// Try to unmarshal to Value
+	val := &structpb.Value{}
+	if err := v.UnmarshalTo(val); err == nil {
+		return flattenValue(val), nil
+	}
+
+	// If unmarshaling fails, try to unmarshal to string
+	stringVal, err := v.UnmarshalNew()
+	if err != nil {
+		return nil, err
+	}
+	return stringVal, nil
+}
+
+// flattenValue extracts the actual value from a structpb.Value, removing protobuf metadata.
+func flattenValue(val *structpb.Value) interface{} {
+	switch v := val.Kind.(type) {
+	case *structpb.Value_NullValue:
+		return nil
+	case *structpb.Value_NumberValue:
+		return v.NumberValue
+	case *structpb.Value_StringValue:
+		return v.StringValue
+	case *structpb.Value_BoolValue:
+		return v.BoolValue
+	case *structpb.Value_StructValue:
+		// Flatten struct fields recursively
+		result := make(map[string]interface{})
+		for fieldName, fieldValue := range v.StructValue.Fields {
+			result[fieldName] = flattenValue(fieldValue)
+		}
+		return result
+	case *structpb.Value_ListValue:
+		// Flatten list values recursively
+		result := make([]interface{}, len(v.ListValue.Values))
+		for i, item := range v.ListValue.Values {
+			result[i] = flattenValue(item)
+		}
+		return result
+	default:
+		return val
+	}
+}
+
+// IsNoCaptureToStoreError returns true if the error is NoCaptureToStoreError. Use this instead of errors.Is.
+func IsNoCaptureToStoreError(err error) bool {
+	return status.Code(err) == codes.FailedPrecondition && strings.Contains(err.Error(), errNoCaptureToStoreMsg)
 }

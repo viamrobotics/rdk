@@ -9,7 +9,7 @@ import (
 )
 
 func TestEmptyPlane(t *testing.T) {
-	plane := NewEmptyPlane()
+	plane := NewEmptyPlane(NewBasicPointCloud(0))
 	test.That(t, plane.Equation(), test.ShouldResemble, [4]float64{})
 	test.That(t, plane.Normal(), test.ShouldResemble, r3.Vector{})
 	test.That(t, plane.Center(), test.ShouldResemble, r3.Vector{})
@@ -24,7 +24,7 @@ func TestEmptyPlane(t *testing.T) {
 
 func TestNewPlane(t *testing.T) {
 	// make the point cloud, a diamond of slope 1 in x and y
-	pc := New()
+	pc := NewBasicPointCloud(0)
 	p0 := NewVector(0., 0., 0.)
 	test.That(t, pc.Set(p0, nil), test.ShouldBeNil)
 	p1 := NewVector(0., 2., 2.)
@@ -50,7 +50,7 @@ func TestNewPlane(t *testing.T) {
 
 func TestIntersect(t *testing.T) {
 	// plane at z = 0
-	plane := NewPlane(nil, [4]float64{0, 0, 1, 0})
+	plane := NewPlane(NewBasicPointCloud(0), [4]float64{0, 0, 1, 0})
 	// perpendicular line at x= 4, y= 9, should intersect at (4,9,0)
 	p0, p1 := r3.Vector{4, 9, 22}, r3.Vector{4, 9, 12.3}
 	result := plane.Intersect(p0, p1)

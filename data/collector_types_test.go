@@ -2,6 +2,7 @@ package data
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,7 +10,6 @@ import (
 	datasyncPB "go.viam.com/api/app/datasync/v1"
 	commonPB "go.viam.com/api/common/v1"
 	armPB "go.viam.com/api/component/arm/v1"
-	cameraPB "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -344,12 +344,12 @@ func TestMimeTypeFromProto(t *testing.T) {
 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType(20)), test.ShouldEqual, MimeTypeUnspecified)
 }
 
-func TestCameraFormatToMimeType(t *testing.T) {
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_JPEG), test.ShouldEqual, MimeTypeImageJpeg)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_PNG), test.ShouldEqual, MimeTypeImagePng)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_RAW_RGBA), test.ShouldEqual, MimeTypeUnspecified)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_RAW_DEPTH), test.ShouldEqual, MimeTypeUnspecified)
-	test.That(t, CameraFormatToMimeType(cameraPB.Format_FORMAT_UNSPECIFIED), test.ShouldEqual, MimeTypeUnspecified)
+func TestMimeTypeStringToMimeType(t *testing.T) {
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeJPEG), test.ShouldEqual, MimeTypeImageJpeg)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypePNG), test.ShouldEqual, MimeTypeImagePng)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawRGBA), test.ShouldEqual, MimeTypeUnspecified)
+	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawDepth), test.ShouldEqual, MimeTypeUnspecified)
+	test.That(t, MimeTypeStringToMimeType(""), test.ShouldEqual, MimeTypeUnspecified)
 }
 
 func TestAnnotationsToProto(t *testing.T) {
@@ -413,7 +413,42 @@ func TestGetFileExt(t *testing.T) {
 	test.That(t, getFileExt(CaptureTypeBinary, "anything", nil), test.ShouldResemble, "")
 	test.That(t, getFileExt(CaptureTypeBinary, "NextPointCloud", nil), test.ShouldResemble, ".pcd")
 	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", nil), test.ShouldResemble, "")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypeJPEG}), test.ShouldResemble, ".jpeg")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypePNG}), test.ShouldResemble, ".png")
-	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage", map[string]string{"mime_type": rutils.MimeTypePCD}), test.ShouldResemble, ".pcd")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypeJPEG}),
+		test.ShouldResemble, ".jpeg")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypePNG}),
+		test.ShouldResemble, ".png")
+	test.That(t, getFileExt(CaptureTypeBinary, "ReadImage",
+		map[string]interface{}{"mime_type": rutils.MimeTypePCD}),
+		test.ShouldResemble, ".pcd")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM16}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM32}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecPCM32Float}), test.ShouldResemble, ".wav")
+	test.That(t, getFileExt(CaptureTypeBinary, "GetAudio",
+		map[string]interface{}{"codec": rutils.CodecMP3}), test.ShouldResemble, ".mp3")
+}
+
+func TestBoundingBoxString(t *testing.T) {
+	x := .5
+	bb := BoundingBox{
+		"foo",
+		&x,
+		.1, .1, .8, .8,
+	}
+
+	s := fmt.Sprintf("%v", bb)
+	test.That(t, s, test.ShouldEqual, "foo 50.0% (0.10, 0.10) (0.80, 0.80)")
+
+	bb = BoundingBox{
+		"foo",
+		nil,
+		.1, .1, .8, .8,
+	}
+
+	s = fmt.Sprintf("%v", bb)
+	test.That(t, s, test.ShouldEqual, "foo (0.10, 0.10) (0.80, 0.80)")
 }

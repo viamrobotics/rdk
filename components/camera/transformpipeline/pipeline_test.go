@@ -2,7 +2,6 @@ package transformpipeline
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/pion/mediadevices/pkg/prop"
@@ -38,7 +37,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	vs, err := videoSourceFromCamera(context.Background(), src)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -50,7 +49,7 @@ func TestTransformPipelineColor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, outImg.Bounds().Dx(), test.ShouldEqual, 10)
 	test.That(t, outImg.Bounds().Dy(), test.ShouldEqual, 20)
-	_, err = color.NextPointCloud(context.Background())
+	_, err = color.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldWrap, transform.ErrNoIntrinsics)
 
@@ -84,7 +83,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	source := gostream.NewVideoSource(&fake.StaticSource{DepthImg: dm}, prop.Video{})
 	src, err := camera.WrapVideoSourceWithProjector(context.Background(), source, nil, camera.DepthStream)
 	test.That(t, err, test.ShouldBeNil)
-	inImg, err := camera.DecodeImageFromCamera(context.Background(), "", nil, src)
+	inImg, err := camera.DecodeImageFromCamera(context.Background(), src, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, inImg.Bounds().Dx(), test.ShouldEqual, 128)
 	test.That(t, inImg.Bounds().Dy(), test.ShouldEqual, 72)
@@ -101,7 +100,7 @@ func TestTransformPipelineDepth(t *testing.T) {
 	prop, err := depth.Properties(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, prop.IntrinsicParams, test.ShouldResemble, intrinsics)
-	outPc, err := depth.NextPointCloud(context.Background())
+	outPc, err := depth.NextPointCloud(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not defined for last videosource")
 	test.That(t, outPc, test.ShouldBeNil)
@@ -187,7 +186,7 @@ func TestTransformPipelineValidatePass(t *testing.T) {
 			{Type: "resize", Attributes: utils.AttributeMap{"height_px": 20, "width_px": 10}},
 		},
 	}
-	deps, err := transformConf.Validate("path")
+	deps, _, err := transformConf.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, deps, test.ShouldResemble, []string{"source"})
 }
@@ -200,20 +199,7 @@ func TestTransformPipelineValidateFail(t *testing.T) {
 		},
 	}
 	path := "path"
-	deps, err := transformConf.Validate(path)
+	deps, _, err := transformConf.Validate(path)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "source")
 	test.That(t, deps, test.ShouldBeNil)
-}
-
-func TestVideoSourceFromCameraError(t *testing.T) {
-	malformedCam := &inject.Camera{
-		ImageFunc: func(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-			return []byte("not a valid image"), camera.ImageMetadata{MimeType: utils.MimeTypePNG}, nil
-		},
-	}
-
-	vs, err := videoSourceFromCamera(context.Background(), malformedCam)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, errors.Is(err, ErrVideoSourceCreation), test.ShouldBeTrue)
-	test.That(t, vs, test.ShouldBeNil)
 }

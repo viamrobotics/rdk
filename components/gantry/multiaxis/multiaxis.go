@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -38,15 +39,15 @@ type multiAxis struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (conf *Config) Validate(path string) ([]string, error) {
+func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var deps []string
 
 	if len(conf.SubAxes) == 0 {
-		return nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
 	deps = append(deps, conf.SubAxes...)
-	return deps, nil
+	return deps, nil, nil
 }
 
 func init() {
@@ -74,7 +75,7 @@ func newMultiAxis(
 	}
 
 	for _, s := range newConf.SubAxes {
-		subAx, err := gantry.FromDependencies(deps, s)
+		subAx, err := gantry.FromProvider(deps, s)
 		if err != nil {
 			return nil, errors.Wrapf(err, "no axes named [%s]", s)
 		}
@@ -90,6 +91,16 @@ func newMultiAxis(
 	if err != nil {
 		return nil, err
 	}
+
+	model := referenceframe.NewSimpleModel(mAx.Name().Name)
+	for _, subAx := range mAx.subAxes {
+		k, err := subAx.Kinematics(ctx)
+		if err != nil {
+			return nil, err
+		}
+		model.SetOrdTransforms(append(model.OrdTransforms(), k))
+	}
+	mAx.model = model
 
 	return mAx, nil
 }
@@ -169,7 +180,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, inputSteps ...[]referencefra
 
 		// MoveToPosition will use the default gantry speed when an empty float is passed in
 		speeds := []float64{}
-		err := g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), speeds, nil)
+		err := g.MoveToPosition(ctx, goal, speeds, nil)
 		if err != nil {
 			return err
 		}
@@ -229,6 +240,22 @@ func (g *multiAxis) IsMoving(ctx context.Context) (bool, error) {
 	return g.opMgr.OpRunning(), nil
 }
 
+func (g *multiAxis) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	inputs, err := g.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gif, err := g.model.Geometries(inputs)
+	if err != nil {
+		return nil, err
+	}
+	return gif.Geometries(), nil
+}
+
+func (g *multiAxis) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+	return g.model, nil
+}
+
 // CurrentInputs returns the current inputs of the Gantry frame.
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if len(g.subAxes) == 0 {
@@ -239,17 +266,5 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 		return nil, err
 	}
 
-	return referenceframe.FloatsToInputs(positions), nil
-}
-
-// ModelFrame returns the frame model of the Gantry.
-func (g *multiAxis) ModelFrame() referenceframe.Model {
-	if g.model == nil {
-		model := referenceframe.NewSimpleModel("")
-		for _, subAx := range g.subAxes {
-			model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
-		}
-		g.model = model
-	}
-	return g.model
+	return positions, nil
 }

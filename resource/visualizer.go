@@ -141,10 +141,10 @@ type nameNode struct {
 	Node *GraphNode
 }
 
-func getRemoteNames(nodes graphNodes) []string {
+func getRemoteNames(nodes graphStorage) []string {
 	uniqueRemotes := make(map[string]bool)
-	//nolint
-	for name, _ := range nodes {
+
+	for name := range nodes.Keys() {
 		if name.Remote != "" {
 			uniqueRemotes[name.Remote] = true
 		}
@@ -160,9 +160,9 @@ func getRemoteNames(nodes graphNodes) []string {
 	return ret
 }
 
-func nodesSortedByName(nodes graphNodes) []nameNode {
+func nodesSortedByName(nodes graphStorage) []nameNode {
 	var ret []nameNode
-	for name, node := range nodes {
+	for name, node := range nodes.All() {
 		ret = append(ret, nameNode{name, node})
 	}
 	slices.SortFunc(ret, func(left, right nameNode) int {
@@ -172,14 +172,18 @@ func nodesSortedByName(nodes graphNodes) []nameNode {
 	return ret
 }
 
+func genNodeName(name Name) string {
+	return "\"" + name.String() + "\""
+}
+
 //nolint:godot
 /**
  * E.g:
  *	    MotorName
  *	rdk:component:motor
  */
-func genNodeName(name Name) string {
-	return fmt.Sprintf("\"%s\\n%s\"", name.ShortName(), name.API)
+func genNodeLabel(name Name, prefix string) string {
+	return fmt.Sprintf("\"%s\\n%s\"", name.WithPrefix(prefix).Name, name.API)
 }
 
 func exportNode(bw *blockWriter, name Name, node *GraphNode) {
@@ -204,20 +208,22 @@ func exportNode(bw *blockWriter, name Name, node *GraphNode) {
 		model.String(), newline, updatedAt, newline, needsDepRes, newline, unresolvedDepsStr)
 
 	// Color nodes based on error state.
+	nodeName := genNodeName(name)
+	nodeLabel := genNodeLabel(name, node.prefix)
 	switch {
 	case err == nil && !limboState:
-		bw.WriteStringf("%s [color=bisque,tooltip=%q];", genNodeName(name), tooltipNoError)
+		bw.WriteStringf("%s [color=bisque,tooltip=%q,label=%s];", nodeName, tooltipNoError, nodeLabel)
 	case err == nil && limboState:
-		bw.WriteStringf("%s [color=salmon,tooltip=%q];", genNodeName(name), tooltipNoError)
+		bw.WriteStringf("%s [color=salmon,tooltip=%q,label=%s];", nodeName, tooltipNoError, nodeLabel)
 	case errors.Is(err, errPendingRemoval):
 		tooltip := fmt.Sprintf("State: Pending Removal%v%v", newline, tooltipNoError)
-		bw.WriteStringf("%s [color=indianred,tooltip=%q];", genNodeName(name), tooltip)
+		bw.WriteStringf("%s [color=indianred,tooltip=%q,label=%s];", nodeName, tooltip, nodeLabel)
 	case errors.Is(err, errNotInitalized):
 		tooltip := fmt.Sprintf("State: Not initialized%v%v", newline, tooltipNoError)
-		bw.WriteStringf("%s [color=indianred,tooltip=%q];", genNodeName(name), tooltip)
+		bw.WriteStringf("%s [color=indianred,tooltip=%q,label=%s];", nodeName, tooltip, nodeLabel)
 	default:
 		tooltip := fmt.Sprintf("Error: %v%v%v", err.Error(), newline, tooltipNoError)
-		bw.WriteStringf("%s [color=indianred,tooltip=%q];", genNodeName(name), tooltip)
+		bw.WriteStringf("%s [color=indianred,tooltip=%q,label=%s];", nodeName, tooltip, nodeLabel)
 	}
 }
 

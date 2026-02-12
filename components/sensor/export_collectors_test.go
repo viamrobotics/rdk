@@ -2,4 +2,7 @@
 package sensor
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
-var NewReadingsCollector = newReadingsCollector
+var (
+	NewReadingsCollector  = newReadingsCollector
+	NewDoCommandCollector = newDoCommandCollector
+)

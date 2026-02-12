@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -31,51 +30,35 @@ type config struct {
 type component struct {
 	resource.Named
 	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+
 	logger logging.Logger
 	cfg    *config
 }
 
 // Validate validates the config depending on VERSION.
-func (cfg *config) Validate(_ string) ([]string, error) {
+func (cfg *config) Validate(_ string) ([]string, []string, error) {
 	switch VERSION {
 	case "v2":
 		if cfg.Parameter == "" {
-			return nil, errors.New("version 2 requires a parameter")
+			return nil, nil, errors.New("version 2 requires a parameter")
 		}
 	case "v3":
 		if cfg.Motor == "" {
-			return nil, errors.New("version 3 requires a motor")
+			return nil, nil, errors.New("version 3 requires a motor")
 		}
-		return []string{cfg.Motor}, nil
+		return []string{cfg.Motor}, nil, nil
 	default:
 	}
-	return make([]string, 0), nil
+	return make([]string, 0), make([]string, 0), nil
 }
 
 func main() {
-	utils.ContextualMain(mainWithArgs, logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)))
-}
-
-func mainWithArgs(ctx context.Context, args []string, logger logging.Logger) error {
-	myMod, err := module.NewModuleFromArgs(ctx)
-	if err != nil {
-		return err
-	}
+	logging.NewLogger(fmt.Sprintf("MultiVersionModule-%s", VERSION)).Info("starting module")
 	resource.RegisterComponent(generic.API, myModel, resource.Registration[resource.Resource, *config]{
 		Constructor: newComponent,
 	})
-	err = myMod.AddModelFromRegistry(ctx, generic.API, myModel)
-	if err != nil {
-		return err
-	}
-
-	err = myMod.Start(ctx)
-	defer myMod.Close(ctx)
-	if err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return nil
+	module.ModularMain(resource.APIModel{generic.API, myModel})
 }
 
 func newComponent(_ context.Context,
@@ -87,27 +70,17 @@ func newComponent(_ context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "create component failed due to config parsing")
 	}
+	if VERSION == "v3" {
+		// Version 3 should have a motor in the deps
+		if _, err := motor.FromProvider(deps, newConf.Motor); err != nil {
+			return nil, errors.Wrapf(err, "failed to resolve motor %q for version 3", newConf.Motor)
+		}
+	}
 	return &component{
 		Named:  conf.ResourceName().AsNamed(),
 		cfg:    newConf,
 		logger: logger,
 	}, nil
-}
-
-// Reconfigure swaps the config to the new conf.
-func (c *component) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	newConf, err := resource.NativeConfig[*config](conf)
-	if err != nil {
-		return err
-	}
-	if VERSION == "v3" {
-		// Version 3 should have a motor in the deps
-		if _, err := motor.FromDependencies(deps, "motor1"); err != nil {
-			return errors.Wrapf(err, "failed to resolve motor %q for version 3", "motor1")
-		}
-	}
-	c.cfg = newConf
-	return nil
 }
 
 // DoCommand does nothing for now.
