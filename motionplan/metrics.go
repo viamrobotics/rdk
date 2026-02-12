@@ -8,6 +8,42 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// GoalCloud can express leeway in the individual dimensions with respect to a goal pose. Combined,
+// these leeways describe a cloud where arriving at any destination within that cloud are considered
+// equivalent.
+//
+// All of the leeways affect the algorithm independently. None of the leeways will be scaled based
+// on how close a candidate pose is to the goal pose. Consider a case where gripper wants to pick up
+// a cup. There may be some freedom with respect to the exact orientation and theta of the
+// gripper. But a scenario where a legal, but severe orientation leeway might work with a smaller
+// difference in the candidate's theta, but not necessarily a larger one.
+type GoalCloud struct {
+	// X represents a [negative leeway, positive leeway] in units of millimeters. The same as the
+	// goal pose. Any candidate pose with an X inside the leeway will be considered equivalent.
+	X [2]float64 `json:"x"`
+	// Y represents a [negative leeway, positive leeway] in units of millimeters. The same as the
+	// goal pose. Any candidate pose with an Y inside the leeway will be considered equivalent.
+	Y [2]float64 `json:"y"`
+	// Z represents a [negative leeway, positive leeway] in units of millimeters. The same as the
+	// goal pose. Any candidate pose with an Z inside the leeway will be considered equivalent.
+	Z [2]float64 `json:"z"`
+
+	// The orientation values are unitless, but must keep in mind they are applied to an orientation
+	// vector that has been normalized to a unit sphere. For example, an OX leeway of [-1, 1] would
+	// accept any OX for a candidate pose.
+
+	// OX represents the [negative leeway, positive leeway] as described above.
+	OX [2]float64 `json:"ox"`
+	// OY represents the [negative leeway, positive leeway] as described above.
+	OY [2]float64 `json:"oy"`
+	// OZ represents the [negative leeway, positive leeway] as described above.
+	OZ [2]float64 `json:"oz"`
+
+	// Theta represents the [negative leeway, positive leeway] in an objects rotation around its
+	// orientation axis in the unit of degrees.
+	Theta [2]float64 `json:"theta"`
+}
+
 const orientationDistanceScaling = 10.
 
 // SegmentFSMetricType is a string enum indicating which algorithm to use for distance in

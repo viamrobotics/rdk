@@ -82,6 +82,10 @@ type PlannerOptions struct {
 	// configurations for nodes.
 	GoalMetricType motionplan.GoalMetricType `json:"goal_metric_type"`
 
+	// GoalCloud can describe a cloud of candidate poses that are considered equivalent to the goal
+	// pose for a motion plan. The default value allows no leeway in any dimension.
+	GoalCloud motionplan.GoalCloud `json:"goal_cloud"`
+
 	// For the below values, if left uninitialized, default values will be used. To disable, set < 0
 	// Max number of ik solutions to consider
 	MaxSolutions int `json:"max_ik_solutions"`
