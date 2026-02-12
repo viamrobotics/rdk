@@ -63,6 +63,8 @@ type Config struct {
 	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
+	// Selective Capture
+	SelectiveCaptureName string `json:"selective_capture_name"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -107,17 +109,20 @@ func (c *Config) getCaptureDir(logger logging.Logger) string {
 	return captureDir
 }
 
-func (c *Config) captureConfig(logger logging.Logger) capture.Config {
+func (c *Config) captureConfig(captureSensor sensor.Sensor, captureSensorEnabled bool, logger logging.Logger) capture.Config {
 	maximumCaptureFileSizeBytes := defaultMaxCaptureSize
 	if c.MaximumCaptureFileSizeBytes != 0 {
 		maximumCaptureFileSizeBytes = c.MaximumCaptureFileSizeBytes
 	}
 	return capture.Config{
-		CaptureDisabled:             c.CaptureDisabled,
-		CaptureDir:                  c.getCaptureDir(logger),
-		Tags:                        c.Tags,
-		MaximumCaptureFileSizeBytes: maximumCaptureFileSizeBytes,
-		MongoConfig:                 c.MongoCaptureConfig,
+		CaptureDisabled:              c.CaptureDisabled,
+		CaptureDir:                   c.getCaptureDir(logger),
+		Tags:                         c.Tags,
+		MaximumCaptureFileSizeBytes:  maximumCaptureFileSizeBytes,
+		MongoConfig:                  c.MongoCaptureConfig,
+		SelectiveCaptureName:         c.SelectiveCaptureName,
+		SelectiveCaptureSensor:       captureSensor,
+		SelectiveCaptureSensorEnabled: captureSensorEnabled,
 	}
 }
 

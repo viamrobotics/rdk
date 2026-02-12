@@ -186,7 +186,8 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	captureConfig := c.captureConfig(b.logger)
+	captureSensor, captureSensorEnabled := captureSensorFromDeps(c.SelectiveCaptureName, deps, b.logger)
+	captureConfig := c.captureConfig(captureSensor, captureSensorEnabled, b.logger)
 	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
@@ -205,7 +206,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths())
-	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
+	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig, deps)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	return nil
@@ -223,6 +224,20 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 		return nil, true
 	}
 	return syncSensor, true
+}
+
+func captureSensorFromDeps(name string, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, bool) {
+	if name == "" {
+		return nil, false
+	}
+	captureSensor, err := sensor.FromProvider(deps, name)
+	if err != nil {
+		logger.Errorw(
+			"unable to initialize selective capture sensor; will use machine config only",
+			"error", err.Error())
+		return nil, true
+	}
+	return captureSensor, true
 }
 
 // Lookup the collector configs associated with the data manager service.

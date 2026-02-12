@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
@@ -64,6 +65,15 @@ type Capture struct {
 	maxCaptureFileSize int64
 	mongoMU            sync.Mutex
 	mongo              captureMongo
+
+	// Selective capture fields
+	selectiveCaptureMu       sync.Mutex
+	selectiveCaptureWorker   *goutils.StoppableWorkers
+	selectiveCaptureCtx      context.Context
+	selectiveCaptureCancelFn func()
+	currentOverrides         map[string]CaptureOverride
+	allowedCapturePairs      map[string]datamanager.DataCaptureConfig // resource+method -> config from machine config
+	deps                     resource.Dependencies
 }
 
 type captureMongo struct {
@@ -96,9 +106,11 @@ func New(
 	logger logging.Logger,
 ) *Capture {
 	return &Capture{
-		clk:        clock,
-		logger:     logger,
-		collectors: collectors{},
+		clk:                 clock,
+		logger:              logger,
+		collectors:          collectors{},
+		currentOverrides:    make(map[string]CaptureOverride),
+		allowedCapturePairs: make(map[string]datamanager.DataCaptureConfig),
 	}
 }
 
@@ -208,9 +220,14 @@ func (c *Capture) Reconfigure(
 	ctx context.Context,
 	collectorConfigsByResource CollectorConfigsByResource,
 	config Config,
+	deps resource.Dependencies,
 ) {
 	c.logger.Debug("Reconfigure START")
 	defer c.logger.Debug("Reconfigure END")
+
+	// Store deps for later use in selective capture
+	c.deps = deps
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
 		c.logger.Info("Capture Disabled")
@@ -224,6 +241,16 @@ func (c *Capture) Reconfigure(
 
 	if c.maxCaptureFileSize != config.MaximumCaptureFileSizeBytes {
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
+	}
+
+	// Store allowed capture pairs from machine config (including disabled ones)
+	// This allows selective capture to enable disabled collectors
+	c.allowedCapturePairs = make(map[string]datamanager.DataCaptureConfig)
+	for _, cfgs := range collectorConfigsByResource {
+		for _, cfg := range cfgs {
+			key := buildOverrideKey(cfg.Name.ShortName(), cfg.Method)
+			c.allowedCapturePairs[key] = cfg
+		}
 	}
 
 	collection := c.mongoReconfigure(ctx, config.MongoConfig)
@@ -240,12 +267,261 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Unlock()
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
+
+	// Handle selective capture polling worker
+	selectiveCaptureEnabled := config.SelectiveCaptureSensorEnabled && config.SelectiveCaptureSensor != nil
+
+	if selectiveCaptureEnabled {
+		// Start or restart polling worker
+		if c.selectiveCaptureWorker != nil {
+			c.logger.Debug("Stopping existing selective capture worker to restart with new config")
+			c.selectiveCaptureCancelFn()
+			c.selectiveCaptureWorker.Stop()
+		}
+
+		c.selectiveCaptureCtx, c.selectiveCaptureCancelFn = context.WithCancel(context.Background())
+		c.selectiveCaptureWorker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+			c.runSelectiveCapturePoller(ctx, config)
+		})
+		c.logger.Info("Started selective capture polling worker")
+	} else {
+		// Stop selective capture if previously running
+		if c.selectiveCaptureWorker != nil {
+			c.logger.Debug("Stopping selective capture worker (disabled in config)")
+			c.selectiveCaptureCancelFn()
+			c.selectiveCaptureWorker.Stop()
+			c.selectiveCaptureWorker = nil
+		}
+	}
+}
+
+// runSelectiveCapturePoller polls the selective capture sensor and applies overrides.
+func (c *Capture) runSelectiveCapturePoller(ctx context.Context, config Config) {
+	interval := time.Duration(1000.0/defaultSelectiveCapturePollingHz) * time.Millisecond
+	ticker := c.clk.Ticker(interval)
+	defer ticker.Stop()
+
+	c.logger.Infow("Selective capture poller started", "interval", interval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			c.logger.Debug("Selective capture poller stopped")
+			return
+		case <-ticker.C:
+			// Read sensor
+			readings, err := config.SelectiveCaptureSensor.Readings(ctx, nil)
+			if err != nil {
+				c.logger.Warnw("Failed to get readings from selective capture sensor", "error", err)
+				continue
+			}
+
+			// Parse overrides
+			overrides, err := parseOverridesFromReadings(readings)
+			if err != nil {
+				c.logger.Warnw("Failed to parse overrides from sensor readings", "error", err)
+				continue
+			}
+
+			// Build override map keyed by resource+method
+			newOverridesMap := make(map[string]CaptureOverride)
+			for _, override := range overrides {
+				key := buildOverrideKey(override.ResourceName, override.Method)
+				newOverridesMap[key] = override
+			}
+
+			// Check if overrides changed
+			c.selectiveCaptureMu.Lock()
+			if overridesMapEqual(c.currentOverrides, newOverridesMap) {
+				c.selectiveCaptureMu.Unlock()
+				continue
+			}
+			c.selectiveCaptureMu.Unlock()
+
+			// Apply overrides
+			c.logger.Debugw("Applying selective capture overrides", "num_overrides", len(overrides))
+			if err := c.applyOverrides(ctx, overrides, config); err != nil {
+				c.logger.Warnw("Failed to apply overrides", "error", err)
+				continue
+			}
+
+			// Update current overrides after successful application
+			c.selectiveCaptureMu.Lock()
+			c.currentOverrides = newOverridesMap
+			c.selectiveCaptureMu.Unlock()
+		}
+	}
+}
+
+// applyOverrides applies selective capture overrides by surgically updating collectors.
+// This method does NOT trigger full reconfiguration - it updates collectors directly.
+// Important: Overrides can only modify collectors that are defined in the machine config
+// (even if disabled). The machine config serves as the source of truth for what's allowed.
+func (c *Capture) applyOverrides(ctx context.Context, overrides []CaptureOverride, config Config) error {
+	c.collectorsMu.Lock()
+	defer c.collectorsMu.Unlock()
+
+	// Build map of overrides by resource+method for quick lookup
+	overridesMap := make(map[string]CaptureOverride)
+	for _, override := range overrides {
+		key := buildOverrideKey(override.ResourceName, override.Method)
+		overridesMap[key] = override
+	}
+
+	// Track which overrides we've processed
+	processedOverrides := make(map[string]bool)
+
+	// First pass: update existing collectors (ones that are currently active)
+	for md, collAndConfig := range c.collectors {
+		key := buildOverrideKey(collAndConfig.Config.Name.ShortName(), collAndConfig.Config.Method)
+		override, hasOverride := overridesMap[key]
+
+		if hasOverride {
+			processedOverrides[key] = true
+
+			// Handle frequency=0 (disable)
+			if override.FrequencyHz != nil && *override.FrequencyHz == 0 {
+				c.logger.Infof("Disabling collector via override: %s", md.String())
+				collAndConfig.Collector.Close()
+				delete(c.collectors, md)
+				continue
+			}
+
+			// Check if frequency changed
+			needsRecreate := false
+			if override.FrequencyHz != nil && *override.FrequencyHz != collAndConfig.Config.CaptureFrequencyHz {
+				needsRecreate = true
+			}
+
+			if needsRecreate {
+				// Close old collector and create new one with updated frequency
+				c.logger.Infof("Recreating collector with new frequency: %s", md.String())
+				collAndConfig.Collector.Close()
+
+				// Create new config with override values
+				newConfig := collAndConfig.Config
+				if override.FrequencyHz != nil {
+					newConfig.CaptureFrequencyHz = *override.FrequencyHz
+				}
+				if override.Tags != nil {
+					newConfig.Tags = override.Tags
+				}
+
+				// Create new collector
+				newCollAndConfig, err := c.initializeOrUpdateCollector(
+					collAndConfig.Resource,
+					md,
+					newConfig,
+					config,
+					c.mongo.collection,
+				)
+				if err != nil {
+					c.logger.Warnw("Failed to recreate collector with override",
+						"error", err,
+						"resource", collAndConfig.Config.Name.ShortName(),
+						"method", collAndConfig.Config.Method)
+					continue
+				}
+				c.collectors[md] = newCollAndConfig
+			} else {
+				// Just update tags in-place (no frequency change)
+				if override.Tags != nil {
+					c.logger.Debugf("Updating tags for collector: %s", md.String())
+					collAndConfig.Config.Tags = override.Tags
+				}
+			}
+		}
+	}
+
+	// Second pass: create collectors for overrides that match machine config but are currently disabled
+	for key, override := range overridesMap {
+		if processedOverrides[key] {
+			continue // Already handled in first pass
+		}
+
+		// Check if this override matches an allowed pair from machine config
+		baseConfig, isAllowed := c.allowedCapturePairs[key]
+		if !isAllowed {
+			c.logger.Warnw("Override ignored - resource/method not found in machine config",
+				"resource_name", override.ResourceName,
+				"method", override.Method,
+				"hint", "Add this resource/method to machine config to allow selective capture")
+			continue
+		}
+
+		// Skip if frequency is 0 (trying to disable something that's already disabled)
+		if override.FrequencyHz != nil && *override.FrequencyHz == 0 {
+			c.logger.Debugf("Skipping override with frequency=0 for already disabled collector: %s/%s",
+				override.ResourceName, override.Method)
+			continue
+		}
+
+		// Lookup resource in deps
+		res, err := c.deps.Lookup(baseConfig.Name)
+		if err != nil {
+			c.logger.Warnw("Resource not found for override",
+				"resource_name", override.ResourceName,
+				"error", err)
+			continue
+		}
+
+		// Create config based on machine config + override
+		captureConfig := baseConfig
+		if override.FrequencyHz != nil {
+			captureConfig.CaptureFrequencyHz = *override.FrequencyHz
+		} else {
+			// Use frequency from machine config, or default if it was disabled
+			if captureConfig.CaptureFrequencyHz <= 0 {
+				captureConfig.CaptureFrequencyHz = 1.0
+			}
+		}
+
+		if override.Tags != nil {
+			captureConfig.Tags = override.Tags
+		}
+		// Note: other fields (CaptureQueueSize, CaptureBufferSize, etc.) come from baseConfig
+
+		captureConfig.CaptureDirectory = config.CaptureDir
+
+		// Create collector metadata
+		md := newCollectorMetadata(captureConfig)
+
+		// Create collector (enabling a previously disabled collector)
+		c.logger.Infof("Enabling disabled collector via override: %s/%s", override.ResourceName, override.Method)
+		newCollAndConfig, err := c.initializeOrUpdateCollector(
+			res,
+			md,
+			captureConfig,
+			config,
+			c.mongo.collection,
+		)
+		if err != nil {
+			c.logger.Warnw("Failed to create collector from override",
+				"error", err,
+				"resource", override.ResourceName,
+				"method", override.Method)
+			continue
+		}
+
+		c.collectors[md] = newCollAndConfig
+	}
+
+	return nil
 }
 
 // Close closes the capture manager.
 func (c *Capture) Close(ctx context.Context) {
 	c.FlushCollectors()
 	c.closeCollectors()
+
+	// Stop selective capture worker if running
+	if c.selectiveCaptureWorker != nil {
+		c.logger.Debug("Stopping selective capture worker during Close")
+		c.selectiveCaptureCancelFn()
+		c.selectiveCaptureWorker.Stop()
+		c.selectiveCaptureWorker = nil
+	}
+
 	c.mongoMU.Lock()
 	defer c.mongoMU.Unlock()
 	if c.mongo.client != nil {
