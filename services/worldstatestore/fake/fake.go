@@ -76,8 +76,8 @@ func init() {
 		}})
 }
 
-// Reconfigure reconfigures the fake world state store.
-func (f *WorldStateStore) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// BuiltInReconfigure reconfigures the fake world state store.
+func (f *WorldStateStore) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	// Cancel existing background workers and wait for them to stop
 	f.mu.Lock()
 	f.cancel()

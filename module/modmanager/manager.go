@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -653,13 +654,17 @@ func (mgr *Manager) IsModularResource(name resource.Name) bool {
 	return ok
 }
 
+// ErrResourceNotFoundInResourceModuleMap is used to indicate the resource is not found in the modules map, possibly because it was
+// already removed.
+var ErrResourceNotFoundInResourceModuleMap = errors.New("resource not found in modules map")
+
 // RemoveResource requests the removal of a resource from a module.
 func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
 	mod, ok := mgr.rMap.Load(name)
 	if !ok {
-		return errors.Errorf("resource %+v not found in module", name)
+		return fmt.Errorf("resource %+v not found in modules map: %w", name, ErrResourceNotFoundInResourceModuleMap)
 	}
 
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)

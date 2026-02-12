@@ -1557,12 +1557,12 @@ func TestReconfigure(t *testing.T) {
 	manager.resources.AddNode(svc1.ResourceName(), svcNode)
 	newService, newlyBuilt, err = manager.processResource(ctx, svc1, svcNode, local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeFalse)
+	test.That(t, newlyBuilt, test.ShouldBeTrue)
 
 	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, mockRe, test.ShouldNotBeNil)
-	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 0)
 
 	defer func() {
 		test.That(t, local.Close(ctx), test.ShouldBeNil)

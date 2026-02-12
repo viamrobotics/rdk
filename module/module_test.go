@@ -475,13 +475,15 @@ func TestAttributeConversion(t *testing.T) {
 				ctx context.Context, deps resource.Dependencies, cfg resource.Config, logger logging.Logger,
 			) (shell.Service, error) {
 				injectable := &inject.ShellService{}
-				injectable.ReconfigureFunc = func(ctx context.Context, deps resource.Dependencies, cfg resource.Config) error {
+				if reconfigConf1.Name == "" {
+					// first time constructing
+					reconfigConf1 = cfg
+					reconfigDeps1 = deps
+				} else {
+					// subsequent constructions
 					reconfigConf2 = cfg
 					reconfigDeps2 = deps
-					return nil
 				}
-				reconfigConf1 = cfg
-				reconfigDeps1 = deps
 				return injectable, nil
 			},
 		})

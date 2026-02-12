@@ -800,15 +800,12 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-
-						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
-						if newlyBuilt || err != nil {
-							if err := manager.markChildrenForUpdate(resName); err != nil {
-								manager.logger.CErrorw(ctx,
-									"failed to mark children of resource for update",
-									"resource", resName,
-									"reason", err)
-							}
+						newRes, _, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						if err := manager.markChildrenForUpdate(resName); err != nil {
+							manager.logger.CErrorw(ctx,
+								"failed to mark children of resource for update",
+								"resource", resName,
+								"reason", err)
 						}
 
 						if err != nil {
@@ -1100,11 +1097,6 @@ func (manager *resourceManager) processResource(
 		return newRes, true, nil
 	}
 
-	currentRes, err := gNode.UnsafeResource()
-	if err != nil {
-		return nil, false, err
-	}
-
 	resName := conf.ResourceName()
 	deps, err := lr.getDependencies(resName, gNode)
 	if err != nil {
@@ -1120,19 +1112,16 @@ func (manager *resourceManager) processResource(
 	isModular := manager.moduleManager.Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
 		if isModular {
-			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
+			err = manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
+			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
+				manager.logger.Warnw("Unable to remove resource.", "resourceName", conf.ResourceName(), "err", err)
 				return nil, false, err
 			}
-			return currentRes, false, nil
-		}
-
-		err = currentRes.Reconfigure(ctx, deps, conf)
-		if err == nil {
-			return currentRes, false, nil
-		}
-
-		if !resource.IsMustRebuildError(err) {
-			return nil, false, err
+			newRes, err := manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			if err != nil {
+				return nil, false, err
+			}
+			return newRes, false, nil
 		}
 	} else {
 		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
