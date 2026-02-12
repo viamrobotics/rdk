@@ -157,7 +157,9 @@ jobs:
         brew install ffmpeg
     - name: test
       run: |
-        make test-go
+        # Run all tests besides motion plannning, as they can take a long time on MacOS
+        # runners which are costly to use.
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $(go list ./... | grep -v motionplan)
 
     - name: Upload test.json
       if: always()
