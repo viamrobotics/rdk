@@ -37,16 +37,17 @@ type FrameSystemPart struct {
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem struct {
-	name    string
-	world   Frame // separate from the map of frames so it can be detached easily
-	frames  map[string]Frame
-	parents map[string]string
+	name           string
+	world          Frame // separate from the map of frames so it can be detached easily
+	frames         map[string]Frame
+	parents        map[string]string
+	cachedBFSNames []string
 }
 
 // NewEmptyFrameSystem creates a graph of Frames that have.
 func NewEmptyFrameSystem(name string) *FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
-	return &FrameSystem{name, worldFrame, map[string]Frame{}, map[string]string{}}
+	return &FrameSystem{name, worldFrame, map[string]Frame{}, map[string]string{}, []string{}}
 }
 
 // NewFrameSystem assembles a frame system from a set of parts and additional transforms.
@@ -138,13 +139,18 @@ func (sfs *FrameSystem) frameExists(name string) bool {
 
 // RemoveFrame will delete the given frame and all descendents from the frame system if it exists.
 func (sfs *FrameSystem) RemoveFrame(frame Frame) {
+	sfs.removeFrameRecursive(frame)
+	sfs.cachedBFSNames = bfsFrameNames(sfs)
+}
+
+func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
 	delete(sfs.frames, frame.Name())
 	delete(sfs.parents, frame.Name())
 
 	// Remove all descendents
 	for childName, parentName := range sfs.parents {
 		if parentName == frame.Name() {
-			sfs.RemoveFrame(sfs.Frame(childName))
+			sfs.removeFrameRecursive(sfs.Frame(childName))
 		}
 	}
 }
@@ -182,11 +188,7 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 
 // FrameNames returns the list of frame names registered in the frame system.
 func (sfs *FrameSystem) FrameNames() []string {
-	var frameNames []string
-	for k := range sfs.frames {
-		frameNames = append(frameNames, k)
-	}
-	return frameNames
+	return sfs.cachedBFSNames
 }
 
 // AddFrame sets an already defined Frame into the system.
@@ -207,6 +209,7 @@ func (sfs *FrameSystem) AddFrame(frame, parent Frame) error {
 	// add to frame system
 	sfs.frames[frame.Name()] = frame
 	sfs.parents[frame.Name()] = parent.Name()
+	sfs.cachedBFSNames = bfsFrameNames(sfs)
 	return nil
 }
 
@@ -335,7 +338,7 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 // at the given frame and containing all descendents of it. The original frame system is unchanged.
 func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
-	newFS := &FrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[string]string{}}
+	newFS := &FrameSystem{newRoot.Name() + "_FS", newWorld, map[string]Frame{}, map[string]string{}, nil}
 
 	rootFrame := sfs.Frame(newRoot.Name())
 	if rootFrame == nil {
@@ -376,6 +379,7 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		}
 	}
 
+	newFS.cachedBFSNames = bfsFrameNames(newFS)
 	return newFS, nil
 }
 
@@ -569,6 +573,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	sfs.parents = serFS.Parents
 	sfs.world = worldFrame
 	sfs.name = serFS.Name
+	sfs.cachedBFSNames = bfsFrameNames(sfs)
 	return nil
 }
 
@@ -587,7 +592,7 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 // NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 	positions := NewLinearInputs()
-	for _, fn := range fs.FrameNames() {
+	for _, fn := range fs.cachedBFSNames {
 		frame := fs.Frame(fn)
 		if frame != nil {
 			positions.Put(fn, make([]Input, len(frame.DoF())))
@@ -873,6 +878,34 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 	}
 
 	return topoSortedParts, unlinkedParts
+}
+
+// bfsFrameNames returns frame names in BFS order from world. Children at each level are
+// sorted alphabetically for determinism.
+func bfsFrameNames(fs *FrameSystem) []string {
+	childrenOf := map[string][]string{}
+	for name := range fs.frames {
+		parent, err := fs.Parent(fs.Frame(name))
+		if err != nil || parent == nil {
+			continue
+		}
+		childrenOf[parent.Name()] = append(childrenOf[parent.Name()], name)
+	}
+	for k := range childrenOf {
+		sort.Strings(childrenOf[k])
+	}
+
+	var result []string
+	queue := []string{World}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if cur != World {
+			result = append(result, cur)
+		}
+		queue = append(queue, childrenOf[cur]...)
+	}
+	return result
 }
 
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
