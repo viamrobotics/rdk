@@ -1624,20 +1624,42 @@ func validateJobSchedule(schedule string) error {
 	if strings.ToLower(schedule) == "continuous" {
 		return nil
 	}
-	if _, err := time.ParseDuration(schedule); err == nil {
+
+	intErr := validateInterval(schedule)
+	if intErr == nil {
 		return nil
 	}
+
+	cronErr := validateCronExpression(schedule)
+	if cronErr == nil {
+		return nil
+	}
+
+	return errors.Errorf(
+		"invalid schedule %q: not a valid interval (%v) or cron expression (%v)",
+		schedule, intErr, cronErr,
+	)
+}
+
+func validateInterval(interval string) error {
+	if _, err := time.ParseDuration(interval); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateCronExpression(schedule string) error {
 	// Try parsing as cron. Use 6-field (with seconds) parser if there are 6+ fields,
 	// otherwise use standard 5-field parser. This matches the jobmanager's behavior.
 	withSeconds := len(strings.Fields(schedule)) >= 6
 	if withSeconds {
 		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 		if _, err := p.Parse(schedule); err != nil {
-			return fmt.Errorf("invalid schedule %q: %w", schedule, err)
+			return err
 		}
 	} else {
 		if _, err := cron.ParseStandard(schedule); err != nil {
-			return fmt.Errorf("invalid schedule %q: %w", schedule, err)
+			return err
 		}
 	}
 	return nil
@@ -1657,14 +1679,176 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 		return err
 	}
 
-	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
-	if err != nil {
-		return err
-	}
+	var jobConfig map[string]any
+	var part *apppb.RobotPart
 
-	jobConfig, err := parseJSONOrFile(args.Attributes)
-	if err != nil {
-		return errors.Wrap(err, "failed to parse job config")
+	// If no attributes are provided, run the interactive huh flow.
+	if args.Attributes == "" {
+		// first, get part id through flag or prompt
+		if args.Part == "" {
+			var partID string
+			partForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Part ID:").
+						Description("Run 'viam machines list --all --organization=<org-id>' to see all machines with their part-ids").
+						Validate(func(s string) error {
+							if strings.TrimSpace(s) == "" {
+								return errors.New("part ID cannot be empty")
+							}
+							return nil
+						}).
+						Value(&partID),
+				),
+			)
+			if err := partForm.Run(); err != nil {
+				return err
+			}
+			partID = strings.TrimSpace(partID)
+			if partID == "" {
+				return errors.New("part ID cannot be empty")
+			}
+
+			// Look up the part by ID and store it so we can use its config below.
+			resp, err := client.getRobotPart(partID)
+			if err != nil {
+				return errors.Wrapf(err, "part ID %q not found", partID)
+			}
+			part = resp.Part
+			args.Part = partID
+		} else {
+			var err error
+			part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+			if err != nil {
+				return err
+			}
+		}
+
+		// 2. Build interactive form from the part config.
+		confMap := part.RobotConfig.AsMap()
+		var resourceOpts []huh.Option[string]
+		for _, key := range []string{"components", "services"} {
+			resources, err := resourcesFromPartConfig(confMap, key)
+			if err != nil {
+				return err
+			}
+			for _, r := range resources {
+				if n, ok := r["name"].(string); ok && n != "" {
+					resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+				}
+			}
+		}
+
+		// 3. Create the form and run it
+		var name, resource, method, commandStr, logLevel, scheduleType string
+		form1 := huh.NewForm(
+			huh.NewGroup(
+				huh.NewNote().Title("Add a job to a part"),
+				huh.NewInput().Title("Set a job name:").Value(&name),
+				huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
+				huh.NewInput().Title("Set a method:").Value(&method),
+				huh.NewInput().
+					Title("If using DoCommand, set a command in JSON format (leave empty otherwise):").
+					Placeholder("{}").
+					Value(&commandStr),
+				huh.NewSelect[string]().
+					Title("Set the log threshold:").
+					Options(
+						huh.NewOption("debug", "debug"),
+						huh.NewOption("info", "info"),
+						huh.NewOption("warn", "warn"),
+						huh.NewOption("error", "error"),
+					).
+					Value(&logLevel),
+				huh.NewSelect[string]().
+					Title("Set the schedule type:").
+					Options(
+						huh.NewOption("Interval", "interval"),
+						huh.NewOption("Cron", "cron"),
+						huh.NewOption("Continuous", "continuous"),
+					).
+					Value(&scheduleType),
+			),
+		)
+		if err := form1.Run(); err != nil {
+			return err
+		}
+
+		// 4. last page form loads based on what type of schedule is selected
+		var schedule string
+		switch scheduleType {
+		case "interval":
+			var intervalStr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Set the interval:").
+						Description("Valid intervals look like 10s, 1m, 1h1m, etc. (Go duration format).").
+						Validate(func(s string) error {
+							return validateInterval(s)
+						}).
+						Value(&intervalStr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = intervalStr
+		case "cron":
+			var cronExpr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Cron expression:").
+						Description("Valid cron expressions look like 0 0 * * * for daily, */5 * * * * * for every 5 seconds, etc...").
+						Validate(func(s string) error {
+							return validateCronExpression(s)
+						}).
+						Value(&cronExpr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = cronExpr
+		default:
+			schedule = "continuous"
+		}
+
+		// 5. Build the jobConfig map from the interactive inputs.
+		jobConfig = map[string]any{
+			"name": name, "schedule": schedule, "resource": resource, "method": method,
+		}
+
+		if method == "DoCommand" {
+			if strings.TrimSpace(commandStr) == "" {
+				jobConfig["command"] = map[string]any{}
+			} else {
+				var cmd map[string]any
+				if err := json.Unmarshal([]byte(commandStr), &cmd); err != nil {
+					return errors.Wrapf(err, "invalid command JSON")
+				}
+				jobConfig["command"] = cmd
+			}
+		}
+		if logLevel != "" {
+			jobConfig["log_configuration"] = map[string]any{"level": logLevel}
+		}
+	} else {
+		// Non-interactive path: attributes and part are required flags.
+		jobConfig, err = parseJSONOrFile(args.Attributes)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse job config")
+		}
+
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --attributes; specify --part (or --part-id/--part-name)")
+		}
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Validate required fields and format
@@ -1672,6 +1856,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 	if !ok || name == "" {
 		return errors.New("job config must include 'name' field (string)")
 	}
+
 	config := part.RobotConfig.AsMap()
 	if err := validateJobConfig(c.App.ErrWriter, jobConfig, config, false); err != nil {
 		return err

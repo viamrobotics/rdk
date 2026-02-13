@@ -204,6 +204,36 @@ var commonPartFlags = []cli.Flag{
 	},
 }
 
+// addJobPartFlags is like commonPartFlags but Part is optional (prompted in interactive form; prompt accepts part ID only).
+var addJobPartFlags = []cli.Flag{
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:     generalFlagPart,
+			Aliases:  []string{generalFlagPartID, generalFlagPartName},
+			Required: false,
+			Usage:    "part ID or name; omit to be prompted for part ID only",
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagOrganization,
+			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagLocation,
+			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+		},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachine,
+			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+		},
+	},
+}
+
 var commonOtlpFlags = []cli.Flag{
 	&cli.StringFlag{
 		Name:        "endpoint",
@@ -2789,7 +2819,10 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "add-job",
 							Usage: "add a scheduled job to a machine part",
 							Description: `Add a scheduled job that runs a method on a resource at a given interval.
-The --attributes flag accepts a single JSON object (inline or a path to a JSON file) with the following fields:
+
+Omit --part to be prompted for part (prompt accepts part ID only). With --part you can pass part ID or name (use --organization, --location, --machine when using a part name). Omit --attributes to use an interactive form for the job.
+
+With --attributes, pass a single JSON object (inline or path to a JSON file) with:
   name       (required)  unique name for this job
   schedule   (required)  must be one of:
                            "continuous"    run in a loop without stopping
@@ -2800,6 +2833,9 @@ The --attributes flag accepts a single JSON object (inline or a path to a JSON f
   command    (optional)  JSON object passed as the argument to DoCommand
   log_configuration (optional)  e.g. {"level":"debug"}. Level must be one of: debug, info, warn, error
 
+Example (interactive; prompts for part and job):
+  viam machines part add-job
+
 Example with inline JSON:
   viam machines part add-job --part=<part-id> \
     --attributes '{"name":"my-job","schedule":"1h","resource":"my-sensor","method":"GetReadings"}'
@@ -2807,10 +2843,10 @@ Example with inline JSON:
 Example with a JSON file:
   viam machines part add-job --part=<part-id> --attributes ./job.json`,
 							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
-							Flags: append(commonPartFlags, &cli.StringFlag{
+							Flags: append(addJobPartFlags, &cli.StringFlag{
 								Name:     generalFlagAttributes,
-								Required: true,
-								Usage:    "JSON job config or path to JSON file (must include name, schedule, resource, method)",
+								Required: false,
+								Usage:    "JSON job config or path to JSON file; omit to use the interactive form",
 							}),
 							Action: createCommandWithT(machinesPartAddJobAction),
 						},
