@@ -884,7 +884,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 // sorted alphabetically for determinism.
 func bfsFrameNames(fs *FrameSystem) []string {
 	childrenOf := map[string][]string{}
-	for _, name := range fs.FrameNames() {
+	for name := range fs.frames {
 		parent, err := fs.Parent(fs.Frame(name))
 		if err != nil || parent == nil {
 			continue
