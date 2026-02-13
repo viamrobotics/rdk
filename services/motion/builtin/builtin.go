@@ -376,14 +376,20 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		// Resolve override keys: try name first, fall back to moveable-frame index.
+		// Resolve override keys: match by name first, then by stringified moveable-frame index
 		resolved := make(map[string]referenceframe.Limit, len(mods))
 		moveableNames := sm.MoveableFrameNames()
 		for key, limit := range mods {
-			if idx, err := strconv.Atoi(key); err == nil && idx >= 0 && idx < len(moveableNames) {
-				resolved[moveableNames[idx]] = limit
-			} else {
-				resolved[key] = limit
+			matched := false
+			for i, name := range moveableNames {
+				if key == name || key == strconv.Itoa(i) {
+					resolved[name] = limit
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return nil, fmt.Errorf("can't find mod (%s)", key)
 			}
 		}
 
