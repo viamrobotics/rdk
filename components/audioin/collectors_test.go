@@ -227,10 +227,8 @@ func TestGetAudioCollector(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 			expected := []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: expectedBinary},
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data:     &datasyncpb.SensorData_Binary{Binary: expectedBinary},
 			}}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

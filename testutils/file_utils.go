@@ -315,18 +315,18 @@ func (m *MockBuffer) Close() {
 }
 
 // WriteBinary writes binary sensor data.
-func (m *MockBuffer) WriteBinary(items []*v1.SensorData) error {
+func (m *MockBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
 	if err := m.ctx.Err(); err != nil {
 		return err
 	}
-	for i, item := range items {
-		if !isBinary(item) {
-			m.t.Errorf("MockBuffer.WriteBinary called with non binary data. index: %d, items: %#v\n", i, items)
-			m.t.FailNow()
-		}
+	// for i, item := range items {
+	if !isBinary(item) {
+		m.t.Errorf("MockBuffer.WriteBinary called with non binary data. index: %d, items: %#v\n", 0, item)
+		m.t.FailNow()
 	}
+	// }
 	select {
-	case m.Writes <- items:
+	case m.Writes <- []*v1.SensorData{item}:
 	case <-m.ctx.Done():
 	}
 	return nil

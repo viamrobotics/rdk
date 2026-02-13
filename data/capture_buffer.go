@@ -9,7 +9,7 @@ import (
 
 // CaptureBufferedWriter is a buffered, persistent queue of SensorData.
 type CaptureBufferedWriter interface {
-	WriteBinary(items []*v1.SensorData) error
+	WriteBinary(items *v1.SensorData, mimeType string) error
 	WriteTabular(items *v1.SensorData) error
 	Flush() error
 	Path() string
@@ -45,25 +45,26 @@ var (
 // '.prog'.
 // Files that have finished being written to are indicated by
 // '.capture'.
-func (b *CaptureBuffer) WriteBinary(items []*v1.SensorData) error {
+func (b *CaptureBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	for _, item := range items {
-		if !IsBinary(item) {
-			return errInvalidBinarySensorData
-		}
+	// for _, item := range items {
+	if !IsBinary(item) {
+		return errInvalidBinarySensorData
 	}
+	// }
 
+	b.MetaData.MimeType = mimeType
 	binFile, err := NewCaptureFile(b.Directory, b.MetaData)
 	if err != nil {
 		return err
 	}
-	for _, item := range items {
-		if err := binFile.WriteNext(item); err != nil {
-			return err
-		}
+	// for _, item := range items {
+	if err := binFile.WriteNext(item); err != nil {
+		return err
 	}
+	// }
 	if err := binFile.Close(); err != nil {
 		return err
 	}

@@ -123,6 +123,7 @@ func uploadMetadata(partID string, md *datasyncPB.DataCaptureMetadata) *datasync
 		MethodParameters: md.GetMethodParameters(),
 		Tags:             md.GetTags(),
 		FileExtension:    md.GetFileExtension(),
+		MimeType:         md.GetMimeType(),
 	}
 }
 
@@ -230,12 +231,13 @@ func uploadBinarySensorData(
 ) error {
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
-	mimeType := sd.GetMetadata().GetMimeType()
-	md.MimeType = data.MimeTypeFromProto(mimeType).ToString()
-	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
-	if fileExtensionFromMimeType != "" {
-		md.FileExtension = fileExtensionFromMimeType
-	}
+	// TODO THINK ABOUT THIS IF STILL APPLIES
+	// mimeType := sd.GetMetadata().GetMimeType()
+	// md.MimeType = data.MimeTypeFromProto(mimeType).ToString()
+	// fileExtensionFromMimeType := getFileExtFromMimeType(md.MimeType)
+	// if fileExtensionFromMimeType != "" {
+	// 	md.FileExtension = fileExtensionFromMimeType
+	// }
 	if _, err := client.DataCaptureUpload(ctx, &datasyncPB.DataCaptureUploadRequest{
 		Metadata:       md,
 		SensorContents: []*datasyncPB.SensorData{sd},
@@ -324,12 +326,12 @@ func uploadLargeBinarySensorData(
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
 	smd := sd.GetMetadata()
-	mimeType := smd.GetMimeType()
-	md.MimeType = data.MimeTypeFromProto(mimeType).ToString()
-	fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
-	if fileExtensionFromMimeType != "" {
-		md.FileExtension = fileExtensionFromMimeType
-	}
+	// mimeType := smd.GetMimeType()
+	// md.MimeType = data.MimeTypeFromProto(mimeType).ToString()
+	// fileExtensionFromMimeType := getFileExtFromMimeType(mimeType)
+	// if fileExtensionFromMimeType != "" {
+	// 	md.FileExtension = fileExtensionFromMimeType
+	// }
 	streamMD := &datasyncPB.StreamingDataCaptureUploadRequest_Metadata{
 		Metadata: &datasyncPB.DataCaptureUploadMetadata{
 			UploadMetadata: md,

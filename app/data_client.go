@@ -1888,8 +1888,8 @@ func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 	return &syncPb.SensorMetadata{
 		TimeRequested: timestamppb.New(metadata.TimeRequested),
 		TimeReceived:  timestamppb.New(metadata.TimeReceived),
-		MimeType:      syncPb.MimeType(metadata.MimeType),
-		Annotations:   annotationsToProto(metadata.Annotations),
+		// MimeType:      syncPb.MimeType(metadata.MimeType),
+		Annotations: annotationsToProto(metadata.Annotations),
 	}
 }
 
