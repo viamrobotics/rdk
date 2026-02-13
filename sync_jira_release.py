@@ -73,66 +73,31 @@ def verify_release_exists(version):
         raise Exception(f"Release {tag} not found on {GITHUB_REPO}")
 
 
-def get_release_commits(tag):
-    """Get commits from this release"""
-    # Get all releases to find previous one
-    releases_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
-    all_releases = requests.get(releases_url, headers=github_headers).json()
+def get_tickets_from_release_notes(tag):
+    """
+    Get Jira tickets directly from GitHub release notes/description
+    Much simpler than comparing commits between releases
+    """
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/{tag}"
+    response = requests.get(url, headers=github_headers)
     
-    # Find current and previous release
-    current_index = next((i for i, r in enumerate(all_releases) if r['tag_name'] == tag), None)
+    if response.status_code != 200:
+        raise Exception(f"Could not fetch release notes for {tag}")
     
-    if current_index is None:
-        raise Exception(f"Could not find release {tag} in releases list")
+    release_data = response.json()
     
-    previous_tag = all_releases[current_index + 1]['tag_name'] if current_index + 1 < len(all_releases) else None
+    # Get the release description/body
+    body = release_data.get('body', '')
     
-    if not previous_tag:
-        print(f"⚠️  No previous release found, using first 100 commits")
-        commits_url = f"https://api.github.com/repos/{GITHUB_REPO}/commits"
-        response = requests.get(commits_url, headers=github_headers, params={"per_page": 100})
-        return response.json()
+    if not body:
+        print(f"⚠️  Warning: Release {tag} has no description/notes")
+        return []
     
-    # Compare commits between releases
-    compare_url = f"https://api.github.com/repos/{GITHUB_REPO}/compare/{previous_tag}...{tag}"
-    compare_data = requests.get(compare_url, headers=github_headers).json()
-    
-    return compare_data.get('commits', [])
-
-
-def get_prs_from_commits(commits):
-    """Extract and fetch PR details from commits"""
-    pr_pattern = r'#(\d+)'
-    pr_numbers = set()
-    
-    for commit in commits:
-        message = commit['commit']['message']
-        matches = re.findall(pr_pattern, message)
-        pr_numbers.update(matches)
-    
-    prs = []
-    for pr_num in pr_numbers:
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/pulls/{pr_num}"
-        response = requests.get(url, headers=github_headers)
-        if response.status_code == 200:
-            prs.append(response.json())
-    
-    return prs
-
-
-def extract_jira_tickets(commits, prs):
-    """Extract RSDK ticket IDs from commits and PRs"""
-    text = ""
-    
-    for commit in commits:
-        text += commit['commit']['message'] + "\n"
-    
-    for pr in prs:
-        text += pr['title'] + "\n"
-        text += (pr['body'] or "") + "\n"
-    
+    # Extract all RSDK-XXX ticket IDs from the release notes
     pattern = f"{JIRA_PROJECT_KEY}-\\d+"
-    return list(set(re.findall(pattern, text, re.IGNORECASE)))
+    tickets = list(set(re.findall(pattern, body, re.IGNORECASE)))
+    
+    return tickets
 
 
 def create_jira_version(github_version):
@@ -265,26 +230,17 @@ def main(user_input):
     version_id = jira_version["id"]
     print(f"✅ Jira version: {jira_version['name']} (ID: {version_id})\n")
     
-    # 4. Get commits and PRs from release
-    print(f"📥 Fetching commits from GitHub release...")
-    commits = get_release_commits(tag)
-    print(f"   Found {len(commits)} commits")
-    
-    print(f"📥 Fetching PRs from commits...")
-    prs = get_prs_from_commits(commits)
-    print(f"   Found {len(prs)} PRs\n")
-    
-    # 5. Extract Jira tickets
-    print(f"🔍 Extracting Jira tickets...")
-    ticket_keys = extract_jira_tickets(commits, prs)
+    # 4. Extract Jira tickets from release notes
+    print(f"🔍 Extracting Jira tickets from release notes...")
+    ticket_keys = get_tickets_from_release_notes(tag)
     print(f"📋 Found {len(ticket_keys)} unique tickets:")
-    print(f"   {', '.join(ticket_keys)}\n")
+    print(f"   {', '.join(ticket_keys) if ticket_keys else 'None'}\n")
     
     if not ticket_keys:
         print("⚠️  No Jira tickets found in this release")
         return
     
-    # 6. Process tickets in "Awaiting Release"
+    # 5. Process tickets in "Awaiting Release"
     print(f"🔄 Processing tickets...\n")
     closed_count = 0
     skipped_count = 0
@@ -303,7 +259,7 @@ def main(user_input):
             print(f"   ⏭️  {ticket_key}: {status} (skipped)")
             skipped_count += 1
     
-    # 7. Summary
+    # 6. Summary
     print(f"\n{'='*60}")
     print(f"🎉 Release sync complete!")
     print(f"   Version: rdk {version}")
