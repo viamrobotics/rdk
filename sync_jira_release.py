@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """
-GitHub to Jira Release Sync - User Prompted Version
+GitHub to Jira Release Sync
 Syncs a specific release from viamrobotics/rdk to Jira RSDK project
 
-Usage: 
-    python sync_jira_release.py "update jira for release 0.42.0"
+Usage:
     python sync_jira_release.py 0.42.0
 
 Environment Variables Required:
@@ -18,7 +17,6 @@ import os
 import re
 import sys
 import requests
-from datetime import datetime
 
 # Configuration
 GITHUB_REPO = "viamrobotics/rdk"
@@ -45,18 +43,10 @@ github_headers = {
 }
 
 
-def parse_release_version(user_input):
-    """Extract version from user prompt"""
-    patterns = [
-        r'v?\d+\.\d+\.\d+',  # 0.42.0 or v0.42.0
-        r'v?\d+\.\d+',       # 0.42 or v0.42
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, user_input)
-        if match:
-            return match.group(0)
-    
+def validate_version(version):
+    """Validate that the input is a valid version string (e.g., 0.42.0 or v0.42.0)"""
+    if re.fullmatch(r'v?\d+\.\d+\.\d+', version):
+        return version
     return None
 
 
@@ -196,18 +186,16 @@ def set_fix_version_and_close(ticket_key, version_id):
     return response.status_code == 204
 
 
-def main(user_input):
+def main(version_input):
     """Main workflow triggered by user prompt"""
-    print(f"📝 Processing: {user_input}\n")
-    
-    # 1. Parse version from user input
-    version = parse_release_version(user_input)
+    # 1. Validate version input
+    version = validate_version(version_input)
     if not version:
-        print("❌ Could not parse version from input")
-        print("   Try: 'update jira for release 0.42.0' or just '0.42.0'")
+        print(f"❌ Invalid version format: {version_input}")
+        print("   Expected format: 0.42.0 or v0.42.0")
         return
-    
-    print(f"🔍 Extracted version: {version}")
+
+    print(f"🔍 Version: {version}")
     
     # 2. Verify release exists on GitHub
     print(f"🔍 Checking GitHub for release...")
@@ -270,10 +258,9 @@ def main(user_input):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python sync_jira_release.py 'update jira for release 0.42.0'")
-        print("   or: python sync_jira_release.py 0.42.0")
+    if len(sys.argv) != 2:
+        print("Usage: python sync_jira_release.py <version>")
+        print("   e.g. python sync_jira_release.py 0.42.0")
         sys.exit(1)
-    
-    user_input = " ".join(sys.argv[1:])
-    main(user_input)
+
+    main(sys.argv[1])
