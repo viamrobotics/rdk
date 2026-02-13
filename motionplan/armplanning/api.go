@@ -176,9 +176,9 @@ func PlanFrameMotion(ctx context.Context,
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration     time.Duration
-	Partial      bool
-	PartialError error
+	Duration       time.Duration
+	Partial        bool
+	PartialError   error
 	GoalsProcessed int
 }
 
