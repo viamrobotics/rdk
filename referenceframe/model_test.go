@@ -171,7 +171,7 @@ func TestNewModelWithLimitOverrides(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
 }
 
-func TestSerialFrameSystemDuplicateNames(t *testing.T) {
+func TestSerialModelDuplicateNames(t *testing.T) {
 	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
