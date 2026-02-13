@@ -18,7 +18,7 @@ func TestSqNormMetric(t *testing.T) {
 	d1 := WeightedSquaredNormDistance(p1, p1)
 	test.That(t, d1, test.ShouldAlmostEqual, 0)
 	d2 := WeightedSquaredNormDistance(p1, p2)
-	test.That(t, d2, test.ShouldAlmostEqual, 100.0) // 10^2 * 1 = 1.0
+	test.That(t, d2, test.ShouldAlmostEqual, 1.0) // 10^2 * 0.01 = 1.0
 }
 
 func TestBasicMetric(t *testing.T) {
