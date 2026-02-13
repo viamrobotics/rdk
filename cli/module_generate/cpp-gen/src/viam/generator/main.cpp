@@ -18,18 +18,30 @@ static llvm::cl::opt<bool> justCMake(
     llvm::cl::desc("If true, output the template CMakeLists.txt and exit"),
     llvm::cl::cat(opts));
 
+static llvm::cl::opt<std::string> outfile("o",
+                                          llvm::cl::init("-"),
+                                          llvm::cl::desc("Output file, default stdout"),
+                                          llvm::cl::cat(opts));
+
 int main(int argc, const char** argv) try {
     // CommonOptionsParser::create will set up a compilation DB, so first let's check for the
     // quick exit options
     llvm::cl::ParseCommandLineOptions(argc, argv);
 
+    std::error_code ec;
+    llvm::raw_fd_ostream out(outfile, ec, llvm::sys::fs::CD_CreateAlways);
+
+    if (ec != std::error_code{}) {
+        throw std::system_error(ec);
+    }
+
     if (justMain) {
-        Generator::main_fn(llvm::outs());
+        Generator::main_fn(out);
         return 0;
     }
 
     if (justCMake) {
-        Generator::cmakelists(llvm::outs());
+        Generator::cmakelists(out);
         return 0;
     }
 
@@ -48,11 +60,11 @@ int main(int argc, const char** argv) try {
         return 1;
     }
 
-    auto gen = Generator::createFromCommandLine(
-        OptionsParser.getCompilations(), sources.front(), llvm::outs());
+    auto gen =
+        Generator::createFromCommandLine(OptionsParser.getCompilations(), sources.front(), out);
 
     return gen.run();
 } catch (const std::exception& e) {
-    std::cerr << e.what() << "\n";
+    std::cerr << "Generator failed with exception: " << e.what() << "\n";
     return 1;
 }
