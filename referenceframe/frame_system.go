@@ -188,11 +188,7 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 
 // FrameNames returns the list of frame names registered in the frame system.
 func (sfs *FrameSystem) FrameNames() []string {
-	var frameNames []string
-	for k := range sfs.frames {
-		frameNames = append(frameNames, k)
-	}
-	return frameNames
+	return sfs.cachedBFSNames
 }
 
 // AddFrame sets an already defined Frame into the system.
