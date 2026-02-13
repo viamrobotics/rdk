@@ -317,7 +317,7 @@ func (c *Capture) runSelectiveCapturePoller(ctx context.Context, config Config) 
 			}
 
 			// Parse overrides
-			overrides, err := parseOverridesFromReadings(readings)
+			overrides, err := parseOverridesFromReadings(readings, config.SelectiveCaptureSensorKey)
 			if err != nil {
 				c.logger.Warnw("Failed to parse overrides from sensor readings", "error", err)
 				continue

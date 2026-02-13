@@ -41,6 +41,12 @@ const (
 // Default maximum size in bytes of a data capture file.
 var defaultMaxCaptureSize = int64(256 * 1024)
 
+// CaptureOverrideSensorConfig configures the sensor used for selective capture overrides.
+type CaptureOverrideSensorConfig struct {
+	Name string `json:"name"` // Sensor name to lookup
+	Key  string `json:"key"`  // Key in sensor readings to extract overrides from
+}
+
 // Config describes how to configure the service.
 // See sync.Config and capture.Config for docs on what each field does
 // to both sync & capture respectively.
@@ -64,7 +70,7 @@ type Config struct {
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
 	// Selective Capture
-	SelectiveCaptureName string `json:"selective_capture_name"`
+	CaptureOverrideSensor *CaptureOverrideSensorConfig `json:"capture_override_sensor"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
@@ -109,19 +115,26 @@ func (c *Config) getCaptureDir(logger logging.Logger) string {
 	return captureDir
 }
 
-func (c *Config) captureConfig(captureSensor sensor.Sensor, captureSensorEnabled bool, logger logging.Logger) capture.Config {
+func (c *Config) captureConfig(captureSensor sensor.Sensor, captureKey string, captureSensorEnabled bool, logger logging.Logger) capture.Config {
 	maximumCaptureFileSizeBytes := defaultMaxCaptureSize
 	if c.MaximumCaptureFileSizeBytes != 0 {
 		maximumCaptureFileSizeBytes = c.MaximumCaptureFileSizeBytes
 	}
+
+	var sensorName string
+	if c.CaptureOverrideSensor != nil {
+		sensorName = c.CaptureOverrideSensor.Name
+	}
+
 	return capture.Config{
-		CaptureDisabled:              c.CaptureDisabled,
-		CaptureDir:                   c.getCaptureDir(logger),
-		Tags:                         c.Tags,
-		MaximumCaptureFileSizeBytes:  maximumCaptureFileSizeBytes,
-		MongoConfig:                  c.MongoCaptureConfig,
-		SelectiveCaptureName:         c.SelectiveCaptureName,
-		SelectiveCaptureSensor:       captureSensor,
+		CaptureDisabled:               c.CaptureDisabled,
+		CaptureDir:                    c.getCaptureDir(logger),
+		Tags:                          c.Tags,
+		MaximumCaptureFileSizeBytes:   maximumCaptureFileSizeBytes,
+		MongoConfig:                   c.MongoCaptureConfig,
+		SelectiveCaptureName:          sensorName,
+		SelectiveCaptureSensor:        captureSensor,
+		SelectiveCaptureSensorKey:     captureKey,
 		SelectiveCaptureSensorEnabled: captureSensorEnabled,
 	}
 }

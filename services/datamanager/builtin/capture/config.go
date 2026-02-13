@@ -4,8 +4,8 @@ import (
 	"go.viam.com/rdk/components/sensor"
 )
 
-// Default polling frequency for selective capture sensor (1Hz).
-const defaultSelectiveCapturePollingHz = 1.0
+// Default polling frequency for selective capture sensor (10Hz).
+const defaultSelectiveCapturePollingHz = 10.0
 
 // MongoConfig is the optional data capture mongo config.
 type MongoConfig struct {
@@ -35,7 +35,8 @@ type Config struct {
 	MongoConfig *MongoConfig
 
 	// Selective Capture fields
-	SelectiveCaptureName         string
-	SelectiveCaptureSensor       sensor.Sensor
+	SelectiveCaptureName          string
+	SelectiveCaptureSensor        sensor.Sensor
+	SelectiveCaptureSensorKey     string
 	SelectiveCaptureSensorEnabled bool
 }

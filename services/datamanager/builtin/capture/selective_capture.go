@@ -5,11 +5,6 @@ import (
 	"fmt"
 )
 
-const (
-	// Key for override readings in sensor data.
-	captureOverridesKey = "overrides"
-)
-
 // CaptureOverride represents a single capture override from the selective capture sensor.
 type CaptureOverride struct {
 	ResourceName string   `json:"resource_name"` // Required
@@ -25,8 +20,9 @@ type CaptureOverrides struct {
 
 // parseOverridesFromReadings extracts and parses override data from sensor readings.
 // Returns a slice of CaptureOverride structs, or an error if parsing fails.
-func parseOverridesFromReadings(readings map[string]interface{}) ([]CaptureOverride, error) {
-	overridesData, ok := readings[captureOverridesKey]
+// The key parameter specifies which key in the readings map contains the override data.
+func parseOverridesFromReadings(readings map[string]interface{}, key string) ([]CaptureOverride, error) {
+	overridesData, ok := readings[key]
 	if !ok {
 		// No overrides key present - return empty slice (use machine config)
 		return []CaptureOverride{}, nil

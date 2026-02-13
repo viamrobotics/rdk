@@ -186,8 +186,8 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return err
 	}
 
-	captureSensor, captureSensorEnabled := captureSensorFromDeps(c.SelectiveCaptureName, deps, b.logger)
-	captureConfig := c.captureConfig(captureSensor, captureSensorEnabled, b.logger)
+	captureSensor, captureKey, captureSensorEnabled := captureSensorFromDeps(c.CaptureOverrideSensor, deps, b.logger)
+	captureConfig := c.captureConfig(captureSensor, captureKey, captureSensorEnabled, b.logger)
 	collectorConfigsByResource, err := lookupCollectorConfigsByResource(deps, conf, captureConfig.CaptureDir, b.logger)
 	if err != nil {
 		// If this error occurs it's a resource graph error
@@ -226,18 +226,22 @@ func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.
 	return syncSensor, true
 }
 
-func captureSensorFromDeps(name string, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, bool) {
-	if name == "" {
-		return nil, false
+func captureSensorFromDeps(sensorConfig *CaptureOverrideSensorConfig, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, string, bool) {
+	if sensorConfig == nil || sensorConfig.Name == "" {
+		return nil, "", false
 	}
-	captureSensor, err := sensor.FromProvider(deps, name)
+	if sensorConfig.Key == "" {
+		logger.Error("capture_override_sensor.key is required when capture_override_sensor.name is specified")
+		return nil, "", false
+	}
+	captureSensor, err := sensor.FromProvider(deps, sensorConfig.Name)
 	if err != nil {
 		logger.Errorw(
 			"unable to initialize selective capture sensor; will use machine config only",
 			"error", err.Error())
-		return nil, true
+		return nil, "", true
 	}
-	return captureSensor, true
+	return captureSensor, sensorConfig.Key, true
 }
 
 // Lookup the collector configs associated with the data manager service.
