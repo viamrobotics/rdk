@@ -301,12 +301,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "camera-1",
 						ComponentType: camera.API.String(),
-						// FileExtension: ".jpeg",
-						MethodName: "ReadImage",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypeJPEG,
+						FileExtension: ".jpeg",
+						MethodName:    "ReadImage",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: smallBinaryJpegResult.ToProto(),
 				},
@@ -592,12 +592,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "camera-1",
 						ComponentType: camera.API.String(),
-						// FileExtension: ".jpeg",
-						MethodName: "GetImages",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypeJPEG,
+						FileExtension: ".jpeg",
+						MethodName:    "GetImages",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: []*v1.SensorData{smallGetImagesResult.ToProto()[0]},
 				},
@@ -605,12 +605,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "camera-1",
 						ComponentType: camera.API.String(),
-						// FileExtension: ".png",
-						MethodName: "GetImages",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypePNG,
+						FileExtension: ".png",
+						MethodName:    "GetImages",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: []*v1.SensorData{smallGetImagesResult.ToProto()[1]},
 				},
@@ -661,12 +661,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "camera-1",
 						ComponentType: camera.API.String(),
-						// FileExtension: ".jpeg",
-						MethodName: "GetImages",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypeJPEG,
+						FileExtension: ".jpeg",
+						MethodName:    "GetImages",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: []*v1.SensorData{largeGetImagesResult.ToProto()[0]},
 				},
@@ -674,12 +674,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "camera-1",
 						ComponentType: camera.API.String(),
-						// FileExtension: ".png",
-						MethodName: "GetImages",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypePNG,
+						FileExtension: ".png",
+						MethodName:    "GetImages",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: []*v1.SensorData{largeGetImagesResult.ToProto()[1]},
 				},
@@ -716,12 +716,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "vision-1",
 						ComponentType: vision.API.String(),
-						// FileExtension: ".jpeg",
-						MethodName: "CaptureAllFromCamera",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypeJPEG,
+						FileExtension: ".jpeg",
+						MethodName:    "CaptureAllFromCamera",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: smallVisionCaptureAllFromCamera.ToProto(),
 				},
@@ -772,12 +772,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					md: &v1.UploadMetadata{
 						ComponentName: "vision-1",
 						ComponentType: vision.API.String(),
-						// FileExtension: ".png",
-						MethodName: "CaptureAllFromCamera",
-						PartId:     partID,
-						Tags:       []string{"tag1", "tag2"},
-						Type:       v1.DataType_DATA_TYPE_BINARY_SENSOR,
-						MimeType:   utils.MimeTypePNG,
+						FileExtension: ".png",
+						MethodName:    "CaptureAllFromCamera",
+						PartId:        partID,
+						Tags:          []string{"tag1", "tag2"},
+						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: largeVisionCaptureAllFromCamera.ToProto(),
 				},
@@ -807,9 +807,14 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			}
 
 			for i := 0; i < numFiles; i++ {
-				// Set MimeType from binary data if available
+				// Set MimeType and FileExtension from binary data if available
 				if ct == data.CaptureTypeBinary && len(tc.captureResults.Binaries) > 0 {
-					md.MimeType = tc.captureResults.Binaries[i].MimeType.ToString()
+					mimeType := tc.captureResults.Binaries[i].MimeType
+					md.MimeType = mimeType.ToString()
+					// Derive FileExtension from MimeType (if MimeType is set)
+					if mimeType != data.MimeTypeUnspecified {
+						md.FileExtension = getFileExtFromMimeType(mimeType.ToProto())
+					}
 				}
 
 				// Create and write file
@@ -851,14 +856,13 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					case req := <-tc.unaryReqs:
 						t.Logf("got req\n")
 						test.That(t, len(tc.expectedUploads[i].sd), test.ShouldEqual, 1)
-						// test.That(t, req.Metadata.FileExtension, test.ShouldResemble, tc.expectedUploads[i].md.FileExtension)
-						// Compare metadata fields except FileExtension
 						test.That(t, req.Metadata.PartId, test.ShouldResemble, tc.expectedUploads[i].md.PartId)
 						test.That(t, req.Metadata.ComponentType, test.ShouldResemble, tc.expectedUploads[i].md.ComponentType)
 						test.That(t, req.Metadata.ComponentName, test.ShouldResemble, tc.expectedUploads[i].md.ComponentName)
 						test.That(t, req.Metadata.MethodName, test.ShouldResemble, tc.expectedUploads[i].md.MethodName)
 						test.That(t, req.Metadata.Type, test.ShouldResemble, tc.expectedUploads[i].md.Type)
 						test.That(t, req.Metadata.Tags, test.ShouldResemble, tc.expectedUploads[i].md.Tags)
+						test.That(t, req.Metadata.FileExtension, test.ShouldResemble, tc.expectedUploads[i].md.FileExtension)
 						test.That(t, req.Metadata.MimeType, test.ShouldResemble, tc.expectedUploads[i].md.MimeType)
 						compareSensorData(t, tc.captureType.ToProto(), req.SensorContents, tc.expectedUploads[i].sd)
 					}
@@ -874,7 +878,6 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					var data []byte
 					for req := range tc.steamingReqs[i] {
 						if !gotHeader {
-							// Compare metadata fields except FileExtension
 							actualMD := req.GetMetadata().UploadMetadata
 							test.That(t, actualMD.PartId, test.ShouldResemble, md.PartId)
 							test.That(t, actualMD.ComponentType, test.ShouldResemble, md.ComponentType)
@@ -882,6 +885,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 							test.That(t, actualMD.MethodName, test.ShouldResemble, md.MethodName)
 							test.That(t, actualMD.Type, test.ShouldResemble, md.Type)
 							test.That(t, actualMD.Tags, test.ShouldResemble, md.Tags)
+							test.That(t, actualMD.FileExtension, test.ShouldResemble, md.FileExtension)
 							test.That(t, actualMD.MimeType, test.ShouldResemble, md.MimeType)
 							test.That(t, req.GetMetadata().SensorMetadata, test.ShouldResemble, sd.GetMetadata())
 							gotHeader = true
