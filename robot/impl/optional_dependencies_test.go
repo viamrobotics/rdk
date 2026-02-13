@@ -626,6 +626,162 @@ func TestModularOptionalDependencies(t *testing.T) {
 	}
 }
 
+func TestOptionalDependencyOnBuiltin(t *testing.T) {
+	// This test ensures that a component can optionally depend upon a resource named
+	// "builtin". This validates that the optional dependency system works correctly when the
+	// dependency name is "builtin", which could be confused with internal builtin services
+	// but is actually just a regular resource with that name.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+
+	// Register the optional child component defined above and defer its deregistration.
+	optionalChildModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	ocName := generic.Named("oc")
+	resource.Register(
+		generic.API,
+		optionalChildModel,
+		resource.Registration[*optionalChild, *optionalChildConfig]{
+			Constructor: newOptionalChild,
+		})
+	defer resource.Deregister(generic.API, optionalChildModel)
+
+	// Reconfigure the robot to have an optional child component with a required motor 'm'
+	// and an optional dependency on a motor named "builtin" (which already exists).
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  ocName.Name,
+				API:   generic.API,
+				Model: optionalChildModel,
+				ConvertedAttributes: &optionalChildConfig{
+					RequiredMotor: "m",
+					OptionalMotor: "builtin",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "builtin",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Assert that the optional child component built successfully.
+	ocRes, err := lr.ResourceByName(ocName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that the optional child reconfigured twice. The first is from construction,
+	// and the second is from reconfiguring of the resource due to a call
+	// to `updateWeakAndOptionalDependents` directly after `completeConfig`.
+	oc, err := resource.AsType[*optionalChild](ocRes)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
+
+	// Assert that there is either 0 or 1 log about an inability to "get optional motor."
+	//
+	// The optional child _might_ get 'builtin' as a dependency as part of its initial
+	// construction (if builtin initializes first), in which case no log will be emitted, or
+	// it _might_ get 'builtin' as a dependency only during the reconfigure triggered by the
+	// unconditional call to `updateWeakAndOptionalDependents`, in which case one log will be
+	// emitted due to the initial construction lacking the 'builtin' dependency.
+	//
+	// Optional dependencies are _not_ represented as edges in the resource graph and have no
+	// influence on build order. 0 logs would mean the order was m -> builtin -> oc. 1 log
+	// would mean the order was m -> oc -> builtin (or builtin -> m -> oc).
+	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+	test.That(t, msgNum, test.ShouldBeIn, []int{0, 1})
+
+	// Assert that, on the component itself, both `requiredMotor` and `optionalMotor` are set.
+	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
+	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+}
+
+func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
+	// This test ensures that a modular component can optionally depend upon a resource named
+	// "builtin". This is a modular version of TestOptionalDependencyOnBuiltin.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+
+	// Reconfigure the robot to have a foo component with a required motor 'm' and an
+	// optional dependency on a motor named "builtin".
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m",
+					"optional_motor": "builtin",
+				},
+			},
+			{
+				Name:                "m",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "builtin",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Assert that the foo component built successfully.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that there are either 0 or 1 logs about an inability to "get optional motor."
+	// With serial configuration (WithDisableCompleteConfigWorker), the build order is more
+	// predictable but still depends on module startup timing. 0 logs means 'builtin' was
+	// fully available during construction. 1 log means 'builtin' was available during the
+	// updateWeakAndOptionalDependents reconfigure.
+	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
+	test.That(t, msgNum, test.ShouldBeIn, []int{0, 1})
+
+	// Assert that 'm' is accessible through the foo component and not moving.
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	// Assert that 'builtin' is accessible through the foo component and not moving.
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
 func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	// Ensures that a modular resource can optionally depend upon a remote resource.
 	//
