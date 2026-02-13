@@ -18,6 +18,7 @@ func inputChangeRatio(
 	startNotMine *referenceframe.LinearInputs,
 	frameSystem *referenceframe.FrameSystem,
 	distanceFunc motionplan.StateFSMetric,
+	minJog float64,
 	logger logging.Logger,
 ) ([]float64, error) {
 	inputsSchema, err := startNotMine.GetSchema(frameSystem)
@@ -73,7 +74,7 @@ func inputChangeRatio(
 			thisRatio := startDistance / math.Abs(myDistance-startDistance)
 			myJogRatio := percentJog * thisRatio
 			// For movable frames/joints, 0.03 is the actual smallest value we'll use.
-			adjustedJogRatio := min(1, max(.03, myJogRatio*5))
+			adjustedJogRatio := min(1, max(minJog, (myJogRatio*5)))
 
 			if math.IsNaN(adjustedJogRatio) {
 				adjustedJogRatio = 1
