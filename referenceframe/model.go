@@ -199,11 +199,6 @@ func (m *SimpleModel) MoveableFrameNames() []string {
 	return names
 }
 
-// framesInOrder returns the ordered list of frames in this model.
-func (m *SimpleModel) framesInOrder() []Frame {
-	return m.ordTransforms
-}
-
 // setOrdTransforms sets the internal ordered transforms and recomputes limits.
 func (m *SimpleModel) setOrdTransforms(fs []Frame) {
 	m.ordTransforms = fs
@@ -238,7 +233,7 @@ func (m *SimpleModel) ModelConfig() *ModelConfigJSON {
 // Hash returns a hash value for this simple model.
 func (m *SimpleModel) Hash() int {
 	h := m.hash()
-	for _, f := range m.framesInOrder() {
+	for _, f := range m.ordTransforms {
 		h += f.Hash()
 	}
 	return h
@@ -254,7 +249,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.framesInOrder() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -273,7 +268,7 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.framesInOrder() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
@@ -286,7 +281,7 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.framesInOrder() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
