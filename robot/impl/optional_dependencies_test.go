@@ -105,7 +105,7 @@ func TestOptionalDependencies(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 
 	// Register the optional child component defined above and defer its deregistration.
 	optionalChildModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
@@ -359,7 +359,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 
 	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
 
@@ -635,7 +635,7 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 
 	// Register the optional child component defined above and defer its deregistration.
 	optionalChildModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
@@ -855,7 +855,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 		},
 	}
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"))
+	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"), WithDisableCompleteConfigWorker())
 
 	// Assert that the foo component built successfully and was also reconfigured. Then
 	// assert that its optional dependency on the remote motor is reachable.
@@ -872,7 +872,10 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	})
 	allResourceNames := lr.ResourceNames()
 	test.That(t, remote.Close(ctx), test.ShouldBeNil)
+
+	// With the complete config worker disabled, manually trigger remote updates in a loop.
 	gotestutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		verifyReachableResourceNames(tb, lr, localResourceNames)
 	})
 
@@ -890,7 +893,10 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	options.Network.Listener = listener
 	err = remote2.StartWeb(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
+
+	// With the complete config worker disabled, manually trigger remote updates in a loop.
 	gotestutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 300, func(tb testing.TB) {
+		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		verifyReachableResourceNames(tb, lr, allResourceNames)
 	})
 
@@ -968,7 +974,7 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 		},
 	}
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"))
+	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"), WithDisableCompleteConfigWorker())
 
 	// Assert that the foo component built successfully and was also reconfigured. Then
 	// assert that its optional dependency on the remote motor is reachable.
@@ -1055,7 +1061,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 
 	// Register the mutual optional child component defined above and defer its deregistration.
 	mutualOptionalChildModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
@@ -1215,7 +1221,7 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
 
-	lr := setupLocalRobot(t, ctx, &config.Config{}, logger)
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
 
 	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
 
