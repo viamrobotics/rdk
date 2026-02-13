@@ -224,8 +224,8 @@ func BuildCaptureMetadata(
 		MethodName:       method,
 		Type:             dataType.ToProto(),
 		MethodParameters: methodParams,
-		// FileExtension:    getFileExt(dataType, method, additionalParams),
-		Tags: tags,
+		FileExtension:    getFileExt(dataType, method, additionalParams),
+		Tags:             tags,
 	}, dataType
 }
 
