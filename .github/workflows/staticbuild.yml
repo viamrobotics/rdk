@@ -299,6 +299,15 @@ jobs:
       date: ${{ needs.mac.outputs.date }}
 
     steps:
+    - name: Install dependencies
+      run: |
+        brew config
+        brew update && (brew list cmake || brew install cmake)
+        brew tap viamrobotics/brews
+        brew install nlopt-static
+        brew install x264
+        brew install ffmpeg
+
     - name: Test MacOS Binary
       run: |
         channel="${{ github.ref_name }}"
