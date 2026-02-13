@@ -161,17 +161,16 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	m.inputSchema = schema
 	m.limits = schema.GetLimits()
 
-	// Pre-compute the transform chain: walk from primaryOutputFrame back to world,
-	// recording each frame and its input offset in the flat []Input vector.
+	// Pre-compute the transform chain: walk from primaryOutputFrame back to world recording each frame
 	m.transformChain = m.buildTransformChain()
 
 	return m, nil
 }
 
 // NewSerialModel is a convenience constructor that builds a Model from a serial chain of frames.
-// It combines NewSerialFrameSystem and NewModel into a single call.
+// It combines newSerialFrameSystem and NewModel into a single call.
 func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
-	fs, lastFrame, err := NewSerialFrameSystem(frames)
+	fs, lastFrame, err := newSerialFrameSystem(frames)
 	if err != nil {
 		return nil, err
 	}
@@ -216,29 +215,6 @@ func (m *SimpleModel) MoveableFrameNames() []string {
 		}
 	}
 	return names
-}
-
-// NewSerialFrameSystem builds a FrameSystem from a serial chain of frames.
-// frame[0] parent=world, frame[i] parent=frame[i-1].
-// Duplicate frame names are automatically made unique.
-// Returns the FrameSystem and the name of the last frame (for use as primaryOutputFrame).
-func NewSerialFrameSystem(frames []Frame) (*FrameSystem, string, error) {
-	fs := NewEmptyFrameSystem("internal")
-	parentFrame := fs.World()
-	nameCounts := map[string]int{}
-
-	for _, f := range frames {
-		nameCounts[f.Name()]++
-		if nameCounts[f.Name()] > 1 {
-			f = NewNamedFrame(f, fmt.Sprintf("%s_%d", f.Name(), nameCounts[f.Name()]))
-		}
-		if err := fs.AddFrame(f, parentFrame); err != nil {
-			return nil, "", err
-		}
-		parentFrame = f
-	}
-
-	return fs, parentFrame.Name(), nil
 }
 
 // framesInOrder returns the Frame objects in schema order.
@@ -568,4 +544,27 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 	}
 
 	return NewSerialModel(name, frames)
+}
+
+// newSerialFrameSystem builds a FrameSystem from a serial chain of frames.
+// frame[0] parent=world, frame[i] parent=frame[i-1].
+// Duplicate frame names are automatically made unique.
+// Returns the FrameSystem and the name of the last frame (for use as primaryOutputFrame).
+func newSerialFrameSystem(frames []Frame) (*FrameSystem, string, error) {
+	fs := NewEmptyFrameSystem("internal")
+	parentFrame := fs.World()
+	nameCounts := map[string]int{}
+
+	for _, f := range frames {
+		nameCounts[f.Name()]++
+		if nameCounts[f.Name()] > 1 {
+			f = NewNamedFrame(f, fmt.Sprintf("%s_%d", f.Name(), nameCounts[f.Name()]))
+		}
+		if err := fs.AddFrame(f, parentFrame); err != nil {
+			return nil, "", err
+		}
+		parentFrame = f
+	}
+
+	return fs, parentFrame.Name(), nil
 }

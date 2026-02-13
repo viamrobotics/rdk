@@ -129,7 +129,7 @@ func TestNewModel(t *testing.T) {
 	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
 
 	// Invalid primary output frame should error
-	badFS, _, err := NewSerialFrameSystem([]Frame{x, y})
+	badFS, _, err := newSerialFrameSystem([]Frame{x, y})
 	test.That(t, err, test.ShouldBeNil)
 	_, err = NewModel("bad", badFS, "nonexistent")
 	test.That(t, err, test.ShouldNotBeNil)
@@ -182,13 +182,13 @@ func TestNewModelWithLimitOverrides(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
 }
 
-func TestNewSerialFrameSystemDuplicateNames(t *testing.T) {
+func TestSerialFrameSystemDuplicateNames(t *testing.T) {
 	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)
 
-	_, lastFrame, err := NewSerialFrameSystem([]Frame{j1, j2})
+	_, lastFrame, err := newSerialFrameSystem([]Frame{j1, j2})
 	test.That(t, err, test.ShouldBeNil)
 
 	// The second frame should have been renamed to avoid collision
