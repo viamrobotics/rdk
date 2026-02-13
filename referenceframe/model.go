@@ -339,10 +339,10 @@ func (m *SimpleModel) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	type serialized struct {
-		Name          string             `json:"name"`
-		Model         *ModelConfigJSON   `json:"model,omitempty"`
-		Limits        []Limit            `json:"limits"`
-		OrdTransforms []json.RawMessage  `json:"ord_transforms,omitempty"`
+		Name          string            `json:"name"`
+		Model         *ModelConfigJSON  `json:"model,omitempty"`
+		Limits        []Limit           `json:"limits"`
+		OrdTransforms []json.RawMessage `json:"ord_transforms,omitempty"`
 	}
 	ser := serialized{
 		Name:   m.name,
@@ -367,10 +367,10 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON deserializes a Model.
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	type serialized struct {
-		Name          string             `json:"name"`
-		Model         *ModelConfigJSON   `json:"model,omitempty"`
-		Limits        []Limit            `json:"limits"`
-		OrdTransforms []json.RawMessage  `json:"ord_transforms,omitempty"`
+		Name          string            `json:"name"`
+		Model         *ModelConfigJSON  `json:"model,omitempty"`
+		Limits        []Limit           `json:"limits"`
+		OrdTransforms []json.RawMessage `json:"ord_transforms,omitempty"`
 	}
 	var ser serialized
 	if err := json.Unmarshal(data, &ser); err != nil {
