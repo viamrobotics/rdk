@@ -73,7 +73,7 @@ func inputChangeRatio(
 			thisRatio := startDistance / math.Abs(myDistance-startDistance)
 			myJogRatio := percentJog * thisRatio
 			// For movable frames/joints, 0.03 is the actual smallest value we'll use.
-			adjustedJogRatio := min(1, max(.03, myJogRatio*5))
+			adjustedJogRatio := min(1, max(.25, (myJogRatio*5)))
 
 			if math.IsNaN(adjustedJogRatio) {
 				adjustedJogRatio = 1
