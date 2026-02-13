@@ -165,6 +165,17 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
 
+	{
+		ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
+			sss.psc.pc.planOpts.getGoalMetric(psc.goal), .25, sss.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+	}
+
 	if sss.goodCost > 1 && minRatio > .05 {
 		sss.doingSmartSeeds = true
 		ssc, err := smartSeed(psc.pc.fs, logger)
@@ -202,7 +213,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
+		sss.psc.pc.planOpts.getGoalMetric(goal), .03, sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
