@@ -815,8 +815,8 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
-		ordTransforms1 := f1.OrdTransforms()
-		ordTransforms2 := f2.OrdTransforms()
+		ordTransforms1 := f1.ordTransforms
+		ordTransforms2 := f2.ordTransforms
 		if len(ordTransforms1) != len(ordTransforms2) {
 			return false, nil
 		} else {

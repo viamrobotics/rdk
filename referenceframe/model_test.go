@@ -65,8 +65,8 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{baseFrame: baseFrame{name: "test"}}
-	m.SetOrdTransforms([]Frame{frame1, frame2, frame3})
+	m, err := NewSerialModel("test", []Frame{frame1, frame2, frame3})
+	test.That(t, err, test.ShouldBeNil)
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
@@ -111,6 +111,80 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// gets the correct limits back
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestNewModel(t *testing.T) {
+	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	model, err := NewSerialModel("gantry", []Frame{x, y})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+
+	pose, err := model.Transform([]Input{10, 20})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+func TestHash(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	m1, err := NewSerialModel("model_a", []Frame{j1})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Hash should be stable across calls and clones
+	h1 := m1.Hash()
+	m1clone, err := Clone(m1)
+	test.That(t, err, test.ShouldBeNil)
+	h2 := m1clone.Hash()
+	test.That(t, h1, test.ShouldEqual, h2)
+}
+
+func TestNewModelWithLimitOverrides(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	base, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Override the limit of j1
+	newLimit := Limit{Min: -0.5, Max: 0.5}
+	overridden, err := NewModelWithLimitOverrides(base, map[string]Limit{"j1": newLimit})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The overridden model should reflect the new limit
+	test.That(t, overridden.DoF()[0], test.ShouldResemble, newLimit)
+	// j2 should be unchanged
+	test.That(t, overridden.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+	// Original model should be unchanged
+	test.That(t, base.DoF()[0], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+
+	// Override a nonexistent frame should error
+	_, err = NewModelWithLimitOverrides(base, map[string]Limit{"nonexistent": newLimit})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
+}
+
+func TestSerialFrameSystemDuplicateNames(t *testing.T) {
+	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	model, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The second frame should have been renamed to avoid collision
+	names := model.MoveableFrameNames()
+	test.That(t, len(names), test.ShouldEqual, 2)
+	test.That(t, names[0], test.ShouldEqual, "joint")
+	test.That(t, names[1], test.ShouldEqual, "joint_2")
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

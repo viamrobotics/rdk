@@ -376,38 +376,23 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		smCloned, err := referenceframe.Clone(sm)
+		// Resolve override keys: try name first, fall back to moveable-frame index.
+		resolved := make(map[string]referenceframe.Limit, len(mods))
+		moveableNames := sm.MoveableFrameNames()
+		for key, limit := range mods {
+			if idx, err := strconv.Atoi(key); err == nil && idx >= 0 && idx < len(moveableNames) {
+				resolved[moveableNames[idx]] = limit
+			} else {
+				resolved[key] = limit
+			}
+		}
+
+		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
 		if err != nil {
 			return nil, err
 		}
-		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
 
-		sub := smClonedTyped.OrdTransforms()
-
-		for modString, l := range mods {
-			idx := 0
-
-			found := false
-			for _, ss := range sub {
-				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
-					found = true
-					ss.DoF()[0] = l
-					break
-				}
-
-				if len(ss.DoF()) > 0 {
-					idx++
-				}
-			}
-
-			if !found {
-				return nil, fmt.Errorf("can't find mod (%s)", modString)
-			}
-		}
-
-		smClonedTyped.SetOrdTransforms(sub)
-
-		err = frameSys.ReplaceFrame(smClonedTyped)
+		err = frameSys.ReplaceFrame(newModel)
 		if err != nil {
 			return nil, err
 		}
