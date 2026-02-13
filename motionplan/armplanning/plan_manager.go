@@ -167,7 +167,11 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	if err != nil {
+		return nil, err
+	}
+
 	return finalSteps.steps, nil
 }
 
@@ -216,7 +220,11 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	if err != nil {
+		return nil, err
+	}
+
 	return finalSteps.steps, nil
 }
 
