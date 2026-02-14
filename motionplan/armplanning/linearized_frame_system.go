@@ -18,9 +18,7 @@ const searchHeadroom = 5.0
 // joint's total range is estimated to be needed to reach the goal. Non-moving joints are indicated
 // with a value of -1. Use clampSensitivities to convert raw ratios into usable search bounds.
 //
-// For each moving joint, a small perturbation (1% of range) is applied in both the positive and
-// negative directions. The direction producing the larger distance change is used to estimate
-// sensitivity, avoiding underestimates near joint limits or in non-linear regions of the metric.
+// For each moving joint, a small perturbation (1% of range) is applied to estimate sensitivity.
 func computeJointSensitivities(
 	mc *motionChains,
 	startNotMine *referenceframe.LinearInputs,
@@ -66,30 +64,24 @@ func computeJointSensitivities(
 			linearIdx := len(rawRatios)
 			orig := start.Get(frame.Name())[idx]
 
-			// Test positive direction: compute the new input for a specific joint that's
-			// one "jog" away (e.g. ~5 degrees for a rotational joint).
-			yPos := inputsSchema.Jog(linearIdx, orig, percentJog)
-			start.Get(frame.Name())[idx] = yPos
-			distPos := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
-			effectPos := math.Abs(distPos - startDistance)
+			// Compute the new input for a specific joint that's one "jog" away. E.g: ~5 degrees for
+			// a rotational joint.
+			y := inputsSchema.Jog(linearIdx, orig, percentJog)
 
-			// Test negative direction to get a more robust sensitivity estimate.
-			yNeg := inputsSchema.Jog(linearIdx, orig, -percentJog)
-			start.Get(frame.Name())[idx] = yNeg
-			distNeg := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
-			effectNeg := math.Abs(distNeg - startDistance)
+			// Update the copied joint set in place. This is undone at the end of the loop.
+			start.Get(frame.Name())[idx] = y
 
-			// Use the direction with more effect. This avoids underestimating sensitivity
-			// when one direction is near a joint limit or in a flat region of the metric.
+			myDistance := distanceFunc(&motionplan.StateFS{Configuration: start, FS: mc.fs})
+			// Compute how much effect the small change made. The bigger the difference, the smaller
+			// the ratio.
 			//
-			// Note that Go deals with the potential divide by 0, representing `thisRatio` as
+			// Note that Go deals with the potential divide by 0. Representing `thisRatio` as
 			// infinite. The following comparisons continue to work as expected.
-			maxEffect := max(effectPos, effectNeg)
-			thisRatio := startDistance / maxEffect
+			thisRatio := startDistance / math.Abs(myDistance-startDistance)
 			myJogRatio := percentJog * thisRatio
 
-			logger.Debugf("idx: %d distPos: %0.2f distNeg: %0.2f thisRatio: %0.3f myJogRatio: %0.3f",
-				linearIdx, distPos, distNeg, thisRatio, myJogRatio)
+			logger.Debugf("idx: %d myDistance: %0.2f thisRatio: %0.3f myJogRatio: %0.3f",
+				linearIdx, myDistance, thisRatio, myJogRatio)
 
 			rawRatios = append(rawRatios, myJogRatio)
 
