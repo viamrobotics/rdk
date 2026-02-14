@@ -337,27 +337,14 @@ func (m *SimpleModel) DoF() []Limit {
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	type serialized struct {
-		Name          string            `json:"name"`
-		Model         *ModelConfigJSON  `json:"model,omitempty"`
-		Limits        []Limit           `json:"limits"`
-		OrdTransforms []json.RawMessage `json:"ord_transforms,omitempty"`
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model,omitempty"`
+		Limits []Limit          `json:"limits"`
 	}
 	ser := serialized{
 		Name:   m.name,
 		Model:  m.modelConfig,
 		Limits: m.limits,
-	}
-	// When there's no modelConfig, serialize ordTransforms directly so
-	// JSON round-tripping (e.g. clone) preserves them.
-	if m.modelConfig == nil && len(m.ordTransforms) > 0 {
-		ser.OrdTransforms = make([]json.RawMessage, len(m.ordTransforms))
-		for i, f := range m.ordTransforms {
-			data, err := frameToJSON(f)
-			if err != nil {
-				return nil, err
-			}
-			ser.OrdTransforms[i] = data
-		}
 	}
 	return json.Marshal(ser)
 }
@@ -365,10 +352,9 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON deserializes a Model.
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	type serialized struct {
-		Name          string            `json:"name"`
-		Model         *ModelConfigJSON  `json:"model,omitempty"`
-		Limits        []Limit           `json:"limits"`
-		OrdTransforms []json.RawMessage `json:"ord_transforms,omitempty"`
+		Name   string           `json:"name"`
+		Model  *ModelConfigJSON `json:"model,omitempty"`
+		Limits []Limit          `json:"limits"`
 	}
 	var ser serialized
 	if err := json.Unmarshal(data, &ser); err != nil {
@@ -376,7 +362,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	}
 
 	frameName := ser.Name
-	if frameName == "" && ser.Model != nil {
+	if frameName == "" {
 		frameName = ser.Model.Name
 	}
 
@@ -390,16 +376,6 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
 		}
 		m.ordTransforms = newModel.ordTransforms
-	} else if len(ser.OrdTransforms) > 0 {
-		frames := make([]Frame, len(ser.OrdTransforms))
-		for i, raw := range ser.OrdTransforms {
-			f, err := jsonToFrame(raw)
-			if err != nil {
-				return err
-			}
-			frames[i] = f
-		}
-		m.setOrdTransforms(frames)
 	}
 	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model

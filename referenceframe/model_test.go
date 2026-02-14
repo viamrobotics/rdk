@@ -130,10 +130,7 @@ func TestNewModel(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
-	test.That(t, err, test.ShouldBeNil)
-
-	m1, err := NewSerialModel("model_a", []Frame{j1})
+	m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Hash should be stable across calls and clones
