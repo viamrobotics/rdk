@@ -174,6 +174,17 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
 		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+
+		if len(ratios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
+			ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
+				sss.psc.pc.planOpts.getGoalMetric(psc.goal), 1, sss.logger)
+			if err != nil {
+				return nil, err
+			}
+
+			sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+			sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+		}
 	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
