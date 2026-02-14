@@ -138,7 +138,7 @@ func TestHash(t *testing.T) {
 
 	// Hash should be stable across calls and clones
 	h1 := m1.Hash()
-	m1clone, err := Clone(m1)
+	m1clone, err := clone(m1)
 	test.That(t, err, test.ShouldBeNil)
 	h2 := m1clone.Hash()
 	test.That(t, h1, test.ShouldEqual, h2)

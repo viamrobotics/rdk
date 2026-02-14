@@ -836,8 +836,8 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	return true, nil
 }
 
-// Clone makes a copy of a Frame.
-func Clone(f Frame) (Frame, error) {
+// clone makes a copy of a Frame.
+func clone(f Frame) (Frame, error) {
 	t := reflect.TypeOf(f)
 	var newFrame Frame
 

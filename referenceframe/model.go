@@ -161,7 +161,7 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
 	clonedFrames := make([]Frame, len(base.ordTransforms))
 	for i, f := range base.ordTransforms {
-		cloned, err := Clone(f)
+		cloned, err := clone(f)
 		if err != nil {
 			return nil, fmt.Errorf("cloning frame %q: %w", f.Name(), err)
 		}
@@ -350,7 +350,7 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 		Limits: m.limits,
 	}
 	// When there's no modelConfig, serialize ordTransforms directly so
-	// JSON round-tripping (e.g. Clone) preserves them.
+	// JSON round-tripping (e.g. clone) preserves them.
 	if m.modelConfig == nil && len(m.ordTransforms) > 0 {
 		ser.OrdTransforms = make([]json.RawMessage, len(m.ordTransforms))
 		for i, f := range m.ordTransforms {
