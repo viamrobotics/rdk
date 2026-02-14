@@ -178,13 +178,9 @@ func TestSerialModelDuplicateNames(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	model, err := NewSerialModel("test", []Frame{j1, j2})
-	test.That(t, err, test.ShouldBeNil)
-
-	// The second frame should have been renamed to avoid collision
-	names := model.MoveableFrameNames()
-	test.That(t, len(names), test.ShouldEqual, 2)
-	test.That(t, names[0], test.ShouldEqual, "joint")
-	test.That(t, names[1], test.ShouldEqual, "joint_2")
+	test.That(t, model, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, `duplicate frame name "joint" in serial model`)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

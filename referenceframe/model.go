@@ -137,21 +137,19 @@ func NewSimpleModel(name string) *SimpleModel {
 }
 
 // NewSerialModel is a convenience constructor that builds a Model from a serial chain of frames.
-// Duplicate frame names are automatically made unique.
+// Returns an error if duplicate frame names are detected.
 func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
-	nameCounts := map[string]int{}
-	deduped := make([]Frame, len(frames))
-	for i, f := range frames {
-		nameCounts[f.Name()]++
-		if nameCounts[f.Name()] > 1 {
-			deduped[i] = NewNamedFrame(f, fmt.Sprintf("%s_%d", f.Name(), nameCounts[f.Name()]))
-		} else {
-			deduped[i] = f
+	seen := make(map[string]bool)
+	for _, f := range frames {
+		frameName := f.Name()
+		if seen[frameName] {
+			return nil, NewDuplicateFrameNameError(frameName)
 		}
+		seen[frameName] = true
 	}
 
 	m := NewSimpleModel(name)
-	m.setOrdTransforms(deduped)
+	m.setOrdTransforms(frames)
 	return m, nil
 }
 
