@@ -157,34 +157,23 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
-	ratios, minRatio, err := sss.computeGoodCost(psc.goal)
+	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
 	}
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+	sss.seedLimits = append(sss.seedLimits,
+		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
 
-	{
-		ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-			sss.psc.pc.planOpts.getGoalMetric(psc.goal), .25, sss.logger)
-		if err != nil {
-			return nil, err
-		}
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.seedLimits = append(sss.seedLimits,
+		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
 
+	if len(rawRatios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
 		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
-
-		if len(ratios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
-			ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-				sss.psc.pc.planOpts.getGoalMetric(psc.goal), 1, sss.logger)
-			if err != nil {
-				return nil, err
-			}
-
-			sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-			sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
-		}
+		sss.seedLimits = append(sss.
+			seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, 1)))
 	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
@@ -223,11 +212,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
-	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-		sss.psc.pc.planOpts.getGoalMetric(goal), .03, sss.logger)
+	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
+		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
+
+	ratios := clampSensitivities(rawRatios, .03)
 
 	minRatio := 1.0
 
@@ -250,7 +241,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
 	sss.logger.Debugf("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
-	return ratios, minRatio, nil
+	return rawRatios, minRatio, nil
 }
 
 // return bool is if we should stop because we're done.
