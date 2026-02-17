@@ -24,7 +24,6 @@ import (
 type Model interface {
 	Frame
 	ModelConfig() *ModelConfigJSON
-	ModelPieceFrames([]Input) (map[string]Frame, error)
 }
 
 // KinematicModelFromProtobuf returns a model from a protobuf message representing it.
@@ -137,6 +136,78 @@ func NewSimpleModel(name string) *SimpleModel {
 	}
 }
 
+// NewSerialModel is a convenience constructor that builds a Model from a serial chain of frames.
+// Returns an error if duplicate frame names are detected.
+func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
+	seen := make(map[string]bool)
+	for _, f := range frames {
+		frameName := f.Name()
+		if seen[frameName] {
+			return nil, NewDuplicateFrameNameError(frameName)
+		}
+		seen[frameName] = true
+	}
+
+	m := NewSimpleModel(name)
+	m.setOrdTransforms(frames)
+	return m, nil
+}
+
+// NewModelWithLimitOverrides constructs a new model identical to base but with the specified
+// joint limits overridden. Overrides are keyed by frame name. Each override replaces the
+// first DoF limit of the matching frame.
+func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
+	clonedFrames := make([]Frame, len(base.ordTransforms))
+	for i, f := range base.ordTransforms {
+		cloned, err := clone(f)
+		if err != nil {
+			return nil, fmt.Errorf("cloning frame %q: %w", f.Name(), err)
+		}
+		clonedFrames[i] = cloned
+	}
+
+	for name, limit := range overrides {
+		found := false
+		for _, f := range clonedFrames {
+			if f.Name() == name && len(f.DoF()) > 0 {
+				f.DoF()[0] = limit
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
+		}
+	}
+
+	m := NewSimpleModel(base.name)
+	m.setOrdTransforms(clonedFrames)
+	m.modelConfig = base.modelConfig
+	return m, nil
+}
+
+// MoveableFrameNames returns the names of frames with non-zero DoF, in order.
+func (m *SimpleModel) MoveableFrameNames() []string {
+	var names []string
+	for _, f := range m.ordTransforms {
+		if len(f.DoF()) > 0 {
+			names = append(names, f.Name())
+		}
+	}
+	return names
+}
+
+// setOrdTransforms sets the internal ordered transforms and recomputes limits.
+func (m *SimpleModel) setOrdTransforms(fs []Frame) {
+	m.ordTransforms = fs
+	m.limits = []Limit{}
+	for _, transform := range m.ordTransforms {
+		if len(transform.DoF()) > 0 {
+			m.limits = append(m.limits, transform.DoF()...)
+		}
+	}
+}
+
 // GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
 func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
@@ -176,7 +247,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error) {
 	interp := make([]Input, 0, len(from))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		fromSubset := from[posIdx:dof]
 		toSubset := to[posIdx:dof]
@@ -191,23 +262,16 @@ func (m *SimpleModel) Interpolate(from, to []Input, by float64) ([]Input, error)
 	return interp, nil
 }
 
-// OrdTransforms gets the OrdTransforms.
-func (m *SimpleModel) OrdTransforms() []Frame {
-	return m.ordTransforms
-}
-
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		jPos := jp.Values[posIdx:dof]
 		posIdx = dof
-
 		inputs = append(inputs, transform.InputFromProtobuf(&pb.JointPositions{Values: jPos})...)
 	}
-
 	return inputs
 }
 
@@ -215,12 +279,11 @@ func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 func (m *SimpleModel) ProtobufFromInput(input []Input) *pb.JointPositions {
 	jPos := &pb.JointPositions{}
 	posIdx := 0
-	for _, transform := range m.OrdTransforms() {
+	for _, transform := range m.ordTransforms {
 		dof := len(transform.DoF()) + posIdx
 		jPos.Values = append(jPos.Values, transform.ProtobufFromInput(input[posIdx:dof]).Values...)
 		posIdx = dof
 	}
-
 	return jPos
 }
 
@@ -271,22 +334,11 @@ func (m *SimpleModel) DoF() []Limit {
 	return m.limits
 }
 
-// SetOrdTransforms sets the ordTransforms.
-func (m *SimpleModel) SetOrdTransforms(fs []Frame) {
-	m.ordTransforms = fs
-	m.limits = []Limit{}
-	for _, transform := range m.ordTransforms {
-		if len(transform.DoF()) > 0 {
-			m.limits = append(m.limits, transform.DoF()...)
-		}
-	}
-}
-
 // MarshalJSON serializes a Model.
 func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 	type serialized struct {
 		Name   string           `json:"name"`
-		Model  *ModelConfigJSON `json:"model"`
+		Model  *ModelConfigJSON `json:"model,omitempty"`
 		Limits []Limit          `json:"limits"`
 	}
 	ser := serialized{
@@ -301,7 +353,7 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	type serialized struct {
 		Name   string           `json:"name"`
-		Model  *ModelConfigJSON `json:"model"`
+		Model  *ModelConfigJSON `json:"model,omitempty"`
 		Limits []Limit          `json:"limits"`
 	}
 	var ser serialized
@@ -323,26 +375,12 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		if !ok {
 			return fmt.Errorf("could not parse config for simple model, name: %v", ser.Name)
 		}
-		m.SetOrdTransforms(newModel.OrdTransforms())
+		m.ordTransforms = newModel.ordTransforms
 	}
 	m.baseFrame = baseFrame{name: frameName, limits: ser.Limits}
 	m.modelConfig = ser.Model
 
 	return nil
-}
-
-// ModelPieceFrames takes a list of inputs and returns a map of frame names to their corresponding static frames,
-// effectively breaking the model into its kinematic pieces.
-func (m *SimpleModel) ModelPieceFrames(inputs []Input) (map[string]Frame, error) {
-	poses, err := m.inputsToFrames(inputs, true)
-	if err != nil {
-		return nil, err
-	}
-	frameMap := map[string]Frame{}
-	for _, sFrame := range poses {
-		frameMap[sFrame.Name()] = sFrame
-	}
-	return frameMap, nil
 }
 
 // inputsToFrames takes a model and a list of joint angles in radians and computes the dual quaternion representing the
@@ -353,7 +391,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
 
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms()))
+	poses := make([]*staticFrame, 0, len(m.ordTransforms))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
 	composedTransformation := spatialmath.NewZeroPose()
 	posIdx := 0
@@ -505,15 +543,16 @@ func New2DMobileModelFrame(name string, limits []Limit, collisionGeometry spatia
 		return nil, err
 	}
 
-	model := NewSimpleModel(name)
+	var frames []Frame
 	if len(limits) == 3 {
 		theta, err := NewRotationalFrame("theta", *spatialmath.NewR4AA(), limits[2])
 		if err != nil {
 			return nil, err
 		}
-		model.SetOrdTransforms([]Frame{x, y, theta, geometry})
+		frames = []Frame{x, y, theta, geometry}
 	} else {
-		model.SetOrdTransforms([]Frame{x, y, geometry})
+		frames = []Frame{x, y, geometry}
 	}
-	return model, nil
+
+	return NewSerialModel(name, frames)
 }

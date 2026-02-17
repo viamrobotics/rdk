@@ -122,7 +122,7 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, err
 	}
 
-	model.SetOrdTransforms(ot)
+	model.setOrdTransforms(ot)
 
 	return model, nil
 }
