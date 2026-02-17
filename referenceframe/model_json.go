@@ -113,14 +113,11 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
-	// Build the internal frame system from the transforms and parent map
+	// Build the internal frame system from the transforms and parent map.
+	// buildModelFrameSystem validates that there is exactly one end effector.
 	fs, leaves, err := buildModelFrameSystem(transforms, parentMap)
 	if err != nil {
 		return nil, err
-	}
-
-	if len(leaves) != 1 {
-		return nil, fmt.Errorf("%w, have %v", ErrCircularReference, leaves)
 	}
 
 	builtModel, err := NewModel(modelName, fs, leaves[0])
@@ -150,6 +147,19 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 	childrenOf := map[string][]string{}
 	for child, parent := range parents {
 		childrenOf[parent] = append(childrenOf[parent], child)
+	}
+
+	// Find leaves (frames with no children) before BFS. This must be checked first
+	// because cycles (e.g. worldDH.json) can prevent BFS from visiting any nodes,
+	// and we want to report the leaf-count error rather than a circular reference error.
+	var leaves []string
+	for name := range transforms {
+		if len(childrenOf[name]) == 0 {
+			leaves = append(leaves, name)
+		}
+	}
+	if len(leaves) != 1 {
+		return nil, nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, leaves)
 	}
 
 	fs := NewEmptyFrameSystem("internal")
@@ -200,14 +210,6 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 	// Check all transforms were visited
 	if len(seen) != len(transforms) {
 		return nil, nil, ErrCircularReference
-	}
-
-	// Find leaves: frames with no children
-	var leaves []string
-	for name := range transforms {
-		if len(childrenOf[name]) == 0 {
-			leaves = append(leaves, name)
-		}
 	}
 
 	return fs, leaves, nil

@@ -912,7 +912,7 @@ func bfsFrameNames(fs *FrameSystem) []string {
 // and rebuilding the parent-child relationships.
 func cloneFrameSystem(fs *FrameSystem) (*FrameSystem, error) {
 	newFS := NewEmptyFrameSystem(fs.name)
-	for _, name := range bfsFrameNames(fs) {
+	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
 		clonedFrame, err := clone(frame)
 		if err != nil {
