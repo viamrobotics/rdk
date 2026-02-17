@@ -4,6 +4,6 @@
 /cli/CONTRIBUTING.md @viamrobotics/sdk
 /cli/STYLEGUIDE.md @viamrobotics/sdk
 /cli/internal/ @viamrobotics/sdk
-/components/*/client.go @viamrobotics/sdk
-/services/*/client.go @viamrobotics/sdk
+/components/**/client.go @viamrobotics/sdk
+/services/**/client.go @viamrobotics/sdk
 /app/ @viamrobotics/sdk
