@@ -1103,15 +1103,6 @@ func ProcessConfig(in *Config) (*Config, error) {
 		remoteCopy := remote
 		if in.Cloud == nil {
 			remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
-		} else {
-			if remote.ManagedBy != in.Cloud.ManagedBy {
-				continue
-			}
-			remoteCopy.Auth.Managed = true
-			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
-			remoteCopy.Auth.SignalingCreds = selfCreds
-		}
 		out.Remotes[idx] = remoteCopy
 	}
 	return &out, nil

@@ -1542,7 +1542,18 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 		dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
 	if opts.tlsConfig != nil {
-		dialOpts = append(dialOpts, rpc.WithTLSConfig(opts.tlsConfig))
+		// Clone the TLS config but remove GetClientCertificate (and Certificates, since the Go TLS
+		// library will fallback to checking this for a client certificate) to avoid presenting
+		// a client certificate. This allows us to use API keys/location secrets for
+		// authentication instead of mTLS, which requires the cert to have clientAuth EKU, but
+		// they only have serverAuth.
+
+		// The server's ClientAuth is set to tls.VerifyClientCertIfGiven, so not presenting
+		// a client cert is allowed and authentication proceeds via application-level auth.
+		clientTLSConfig := opts.tlsConfig.Clone()
+		clientTLSConfig.GetClientCertificate = nil
+		clientTLSConfig.Certificates = nil
+		dialOpts = append(dialOpts, rpc.WithTLSConfig(clientTLSConfig))
 	}
 	if config.Auth.Credentials != nil {
 		if config.Auth.Entity == "" {
@@ -1576,14 +1587,8 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 			wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
 		}
 		dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
-
-		if config.Auth.Managed {
-			// managed robots use TLS authN/Z
-			dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-				RemoveAuthCredentials: true,
-			}))
-		}
 	}
+
 	return dialOpts
 }
 
