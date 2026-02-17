@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 )
 
 // ErrNoModelInformation is used when there is no model information.
@@ -54,8 +53,6 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		modelName = cfg.Name
 	}
 
-	model := NewSimpleModel(modelName)
-	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
@@ -116,15 +113,23 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
-	// Create an ordered list of transforms
-	ot, err := sortTransforms(transforms, parentMap)
+	// Build the internal frame system from the transforms and parent map
+	fs, leaves, err := buildModelFrameSystem(transforms, parentMap)
 	if err != nil {
 		return nil, err
 	}
 
-	model.setOrdTransforms(ot)
+	if len(leaves) != 1 {
+		return nil, fmt.Errorf("%w, have %v", ErrCircularReference, leaves)
+	}
 
-	return model, nil
+	builtModel, err := NewModel(modelName, fs, leaves[0])
+	if err != nil {
+		return nil, err
+	}
+	builtModel.modelConfig = cfg
+
+	return builtModel, nil
 }
 
 // ParseModelJSONFile will read a given file and then parse the contained JSON data.
@@ -137,54 +142,73 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	return UnmarshalModelJSON(jsonData, modelName)
 }
 
-// Create an ordered list of transforms given a mapping of child to parent frames.
-func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]Frame, error) {
-	// find the end effector first - determine which transforms have no children
-	// copy the map of children -> parents
-	ees := map[string]string{}
+// buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
+// It performs BFS from the root (frames whose parent is "" or not in the map, i.e., world).
+// It returns the FrameSystem and the list of leaf frame names.
+func buildModelFrameSystem(transforms map[string]Frame, parents map[string]string) (*FrameSystem, []string, error) {
+	// Build children map
+	childrenOf := map[string][]string{}
 	for child, parent := range parents {
-		ees[child] = parent
-	}
-	// now remove all parents
-	for _, parent := range parents {
-		delete(ees, parent)
-	}
-	// ensure there is only on end effector
-	if len(ees) != 1 {
-		return nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, ees)
+		childrenOf[parent] = append(childrenOf[parent], child)
 	}
 
-	// start the search from the end effector
-	curr := maps.Keys(ees)[0]
-	seen := map[string]bool{curr: true}
-	orderedTransforms := []Frame{}
-	for i := 0; i < len(parents); i++ {
-		frame, ok := transforms[curr]
+	fs := NewEmptyFrameSystem("internal")
+
+	// BFS from root frames (those whose parent is not in the transforms map, e.g. "world" or "")
+	seen := map[string]bool{}
+	queue := []string{}
+	for child, parent := range parents {
+		if _, inTransforms := transforms[parent]; !inTransforms {
+			queue = append(queue, child)
+		}
+	}
+
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if seen[cur] {
+			return nil, nil, ErrCircularReference
+		}
+		seen[cur] = true
+
+		frame, ok := transforms[cur]
 		if !ok {
-			return nil, NewFrameNotInListOfTransformsError(curr)
-		}
-		orderedTransforms = append(orderedTransforms, frame)
-
-		// find the parent of the current transform
-		parent, ok := parents[curr]
-		if !ok {
-			return nil, NewParentFrameNotInMapOfParentsError(curr)
+			return nil, nil, NewFrameNotInListOfTransformsError(cur)
 		}
 
-		// make sure it wasn't seen, mark it seen, then add it to the list
-		if seen[parent] {
-			return nil, ErrCircularReference
+		parentName := parents[cur]
+		var parentFrame Frame
+		if _, inTransforms := transforms[parentName]; !inTransforms {
+			// Parent is not a frame in the transforms map (e.g., "world" or ""), treat as world
+			parentFrame = fs.World()
+		} else {
+			parentFrame = fs.Frame(parentName)
+			if parentFrame == nil {
+				return nil, nil, NewParentFrameNotInMapOfParentsError(cur)
+			}
 		}
-		seen[parent] = true
 
-		// update the frame to add next
-		curr = parent
+		if err := fs.AddFrame(frame, parentFrame); err != nil {
+			return nil, nil, err
+		}
+
+		for _, child := range childrenOf[cur] {
+			queue = append(queue, child)
+		}
 	}
 
-	// After the above loop, the transforms are in reverse order, so we reverse the list.
-	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
-		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
+	// Check all transforms were visited
+	if len(seen) != len(transforms) {
+		return nil, nil, ErrCircularReference
 	}
 
-	return orderedTransforms, nil
+	// Find leaves: frames with no children
+	var leaves []string
+	for name := range transforms {
+		if len(childrenOf[name]) == 0 {
+			leaves = append(leaves, name)
+		}
+	}
+
+	return fs, leaves, nil
 }

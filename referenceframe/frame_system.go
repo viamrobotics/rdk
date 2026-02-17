@@ -908,6 +908,27 @@ func bfsFrameNames(fs *FrameSystem) []string {
 	return result
 }
 
+// cloneFrameSystem creates a deep copy of a FrameSystem by cloning each frame individually
+// and rebuilding the parent-child relationships.
+func cloneFrameSystem(fs *FrameSystem) (*FrameSystem, error) {
+	newFS := NewEmptyFrameSystem(fs.name)
+	for _, name := range bfsFrameNames(fs) {
+		frame := fs.Frame(name)
+		clonedFrame, err := clone(frame)
+		if err != nil {
+			return nil, fmt.Errorf("cloning frame %q: %w", name, err)
+		}
+		parent, err := fs.Parent(frame)
+		if err != nil {
+			return nil, err
+		}
+		if err := newFS.AddFrame(clonedFrame, newFS.Frame(parent.Name())); err != nil {
+			return nil, err
+		}
+	}
+	return newFS, nil
+}
+
 func frameSystemsAlmostEqual(fs1, fs2 *FrameSystem, epsilon float64) (bool, error) {
 	if fs1 == nil {
 		return fs2 == nil, nil
