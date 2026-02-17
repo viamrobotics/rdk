@@ -697,7 +697,7 @@ func (ms *builtIn) writePlanRequest(
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+		fn = filepath.Join(ms.conf.PlanFilePath, fmt.Sprint("tag=", traceID), fn)
 	} else {
 		fn = filepath.Join(ms.conf.PlanFilePath, fn)
 	}
