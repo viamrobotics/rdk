@@ -163,12 +163,12 @@ def set_fix_version_and_close(ticket_key, version_id):
     
     transitions = response.json().get("transitions", [])
     close_transition = next(
-        (t for t in transitions if t["name"].lower() == "close"),
+        (t for t in transitions if t["name"].lower() == "closed"),
         None
     )
     
     if not close_transition:
-        print(f"⚠️  No 'Close' transition for {ticket_key}")
+        print(f"⚠️  No 'Closed' transition for {ticket_key}")
         return False
     
     # Step 3: Transition to Closed
