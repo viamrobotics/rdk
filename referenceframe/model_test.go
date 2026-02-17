@@ -168,6 +168,30 @@ func TestNewModelWithLimitOverrides(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
 }
 
+func TestLimitOverrideRoundTrip(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	base, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	overriddenLimit := Limit{Min: -0.5, Max: 0.5}
+	overridden, err := NewModelWithLimitOverrides(base, map[string]Limit{"j1": overriddenLimit})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := overridden.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	restored := new(SimpleModel)
+	err = restored.UnmarshalJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, restored.DoF()[0], test.ShouldResemble, overriddenLimit)
+	test.That(t, restored.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+}
+
 func TestSerialModelDuplicateNames(t *testing.T) {
 	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
 	test.That(t, err, test.ShouldBeNil)

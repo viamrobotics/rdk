@@ -118,8 +118,6 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 }
 
 // SimpleModel is a model that uses an internal FrameSystem to represent its kinematic tree.
-// It supports both serial chains and branching tree topologies (e.g. grippers with branching fingers).
-// A user-specified "primary output frame" determines what Transform() returns.
 type SimpleModel struct {
 	baseFrame
 	internalFS         *FrameSystem        // tree of frames
@@ -150,6 +148,18 @@ func NewSimpleModel(name string) *SimpleModel {
 func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
 	if fs.Frame(primaryOutputFrame) == nil {
 		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
+	}
+
+	// Verify the frame system is a linear chain: no frame may have more than one child.
+	childCount := map[string]int{}
+	for frameName := range fs.frames {
+		parent := fs.parents[frameName]
+		childCount[parent]++
+	}
+	for parent, count := range childCount {
+		if count > 1 {
+			return nil, fmt.Errorf("%w: frame %q has %d children", ErrNeedOneEndEffector, parent, count)
+		}
 	}
 
 	m := &SimpleModel{
@@ -224,7 +234,6 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 	if err != nil {
 		return nil, err
 	}
-	m.modelConfig = base.modelConfig
 	return m, nil
 }
 
@@ -505,6 +514,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	}
 
 	if ser.Model != nil {
+		// If Model is not nil, we build by parsing the config
 		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
 		if err != nil {
 			return err
@@ -518,6 +528,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
 	} else if ser.InternalFS != nil {
+		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
 		if err != nil {
 			return err
