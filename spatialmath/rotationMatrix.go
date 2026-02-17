@@ -98,14 +98,6 @@ func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 	}
 }
 
-// TransformPoint applies a rotation and translation to a point.
-func TransformPoint(rm *RotationMatrix, translation, pt r3.Vector) r3.Vector {
-	return r3.Vector{
-		X: rm.mat[0]*pt.X + rm.mat[3]*pt.Y + rm.mat[6]*pt.Z + translation.X,
-		Y: rm.mat[1]*pt.X + rm.mat[4]*pt.Y + rm.mat[7]*pt.Z + translation.Y,
-		Z: rm.mat[2]*pt.X + rm.mat[5]*pt.Y + rm.mat[8]*pt.Z + translation.Z,
-	}
-}
 
 // MatMul returns the product of one matrix A applied to B as AB  = C
 //

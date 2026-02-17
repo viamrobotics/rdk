@@ -213,13 +213,13 @@ func computeCapsuleAABB(c *capsule) (r3.Vector, r3.Vector) {
 func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 	minPt := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
 	maxPt := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
-	rm := m.pose.Orientation().RotationMatrix()
+	q := m.pose.Orientation().Quaternion()
 	trans := m.pose.Point()
 
 	for _, tri := range m.triangles {
-		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p0))
-		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p1))
-		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(rm, trans, tri.p2))
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(q, trans, tri.p0))
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(q, trans, tri.p1))
+		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(q, trans, tri.p2))
 	}
 	return minPt, maxPt
 }
@@ -254,12 +254,13 @@ func aabbDistance(min1, max1, min2, max2 r3.Vector) float64 {
 
 func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
 	rm := pose.Orientation().RotationMatrix()
+	q := pose.Orientation().Quaternion()
 	trans := pose.Point()
 
 	center := minPt.Add(maxPt).Mul(0.5)
 	extents := maxPt.Sub(minPt).Mul(0.5)
 
-	worldCenter := TransformPoint(rm, trans, center)
+	worldCenter := TransformPoint(q, trans, center)
 	worldExtents := rotatedAABBExtents(rm, extents)
 	return aabbFromCenterExtents(worldCenter, worldExtents)
 }

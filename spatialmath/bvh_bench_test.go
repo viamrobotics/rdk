@@ -215,7 +215,7 @@ func BenchmarkPointTransform(b *testing.B) {
 		&OrientationVector{OX: 0.3, OY: -0.2, OZ: 0.9, Theta: 1.2},
 	)
 	pt := r3.Vector{X: -12, Y: 8, Z: 5}
-	rm := pose.Orientation().RotationMatrix()
+	q := pose.Orientation().Quaternion()
 	trans := pose.Point()
 
 	b.Run("dual_quaternion_compose_point", func(b *testing.B) {
@@ -224,9 +224,9 @@ func BenchmarkPointTransform(b *testing.B) {
 		}
 	})
 
-	b.Run("rotation_matrix_transform_point", func(b *testing.B) {
+	b.Run("quaternion_transform_point", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			benchmarkVecSink = TransformPoint(rm, trans, pt)
+			benchmarkVecSink = TransformPoint(q, trans, pt)
 		}
 	})
 }
