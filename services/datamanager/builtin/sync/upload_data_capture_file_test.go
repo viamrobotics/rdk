@@ -811,12 +811,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 				if ct == data.CaptureTypeBinary && len(tc.captureResults.Binaries) > 0 {
 					mimeType := tc.captureResults.Binaries[i].MimeType
 					md.MimeType = mimeType.ToString()
-					// Derive FileExtension from MimeType (if MimeType is set)
-					if mimeType != data.MimeTypeUnspecified {
-						md.FileExtension = getFileExtFromMimeType(mimeType.ToProto())
-					}
 				}
-
 				// Create and write file
 				w, err := data.NewCaptureFile(tempDir, md)
 				test.That(t, err, test.ShouldBeNil)
@@ -878,15 +873,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 					var data []byte
 					for req := range tc.steamingReqs[i] {
 						if !gotHeader {
-							actualMD := req.GetMetadata().UploadMetadata
-							test.That(t, actualMD.PartId, test.ShouldResemble, md.PartId)
-							test.That(t, actualMD.ComponentType, test.ShouldResemble, md.ComponentType)
-							test.That(t, actualMD.ComponentName, test.ShouldResemble, md.ComponentName)
-							test.That(t, actualMD.MethodName, test.ShouldResemble, md.MethodName)
-							test.That(t, actualMD.Type, test.ShouldResemble, md.Type)
-							test.That(t, actualMD.Tags, test.ShouldResemble, md.Tags)
-							test.That(t, actualMD.FileExtension, test.ShouldResemble, md.FileExtension)
-							test.That(t, actualMD.MimeType, test.ShouldResemble, md.MimeType)
+							test.That(t, req.GetMetadata().UploadMetadata, test.ShouldResemble, md)
 							test.That(t, req.GetMetadata().SensorMetadata, test.ShouldResemble, sd.GetMetadata())
 							gotHeader = true
 							continue

@@ -49,22 +49,21 @@ func (b *CaptureBuffer) WriteBinary(item *v1.SensorData, mimeType string) error 
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
-	// for _, item := range items {
 	if !IsBinary(item) {
 		return errInvalidBinarySensorData
 	}
-	// }
 
+	// assign mime type to DataCaptureMetadata
 	b.MetaData.MimeType = mimeType
 	binFile, err := NewCaptureFile(b.Directory, b.MetaData)
 	if err != nil {
 		return err
 	}
-	// for _, item := range items {
+
 	if err := binFile.WriteNext(item); err != nil {
 		return err
 	}
-	// }
+
 	if err := binFile.Close(); err != nil {
 		return err
 	}

@@ -127,8 +127,7 @@ func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 				Metadata: &datasyncPB.SensorMetadata{
 					TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
 					TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
-					// MimeType:      b.MimeType.ToProto(),
-					Annotations: b.Annotations.ToProto(),
+					Annotations:   b.Annotations.ToProto(),
 				},
 				Data: &datasyncPB.SensorData_Binary{
 					Binary: b.Payload,
