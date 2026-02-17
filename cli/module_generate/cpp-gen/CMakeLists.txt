@@ -5,6 +5,18 @@ project(viam-cpp-module-gen
     LANGUAGES C CXX
 )
 
+set(CMAKE_MACOSX_RPATH 1)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+
+# Set RPATH for installed binaries to find libraries in the same install directory
+if(APPLE)
+    # On macOS, use @executable_path to find libraries relative to the executable
+    set(CMAKE_INSTALL_RPATH "@executable_path/../lib;@executable_path")
+elseif(UNIX)
+    # On Linux, use $ORIGIN
+    set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib:$ORIGIN")
+endif()
+
 if (LLVM_ROOT)
     # LLVM_ROOT is absolute
     get_filename_component(LLVM_ROOT "${LLVM_ROOT}" ABSOLUTE)
@@ -92,6 +104,5 @@ add_executable(cl_gen
 target_link_libraries(cl_gen PRIVATE generator)
 
 install(
-    TARGETS generator
-    DESTINATION lib
+    TARGETS generator cl_gen
 )
