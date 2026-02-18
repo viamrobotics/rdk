@@ -1624,10 +1624,10 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	reconfigLogsAfterAllUpdates := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
 	test.That(t, reconfigLogsAfterAllUpdates, test.ShouldEqual, 0)
 
-	// The total reconfigurations should be at most initialReconfigLogs + reconfigLogsAfterFirstError
-	// (one potential reconfiguration from the first error's clock change).
-	totalReconfigLogs := initialReconfigLogs + reconfigLogsAfterFirstError + reconfigLogsAfterAllUpdates
-	test.That(t, totalReconfigLogs-initialReconfigLogs, test.ShouldBeLessThanOrEqualTo, 1)
+	// Verify the optional child reconfigured exactly once from the initial state (triggered by
+	// the first error's clock increment during lr.Reconfigure). The repeated retry calls should
+	// NOT have caused additional reconfigurations.
+	test.That(t, reconfigLogsAfterFirstError-initialReconfigLogs, test.ShouldEqual, 1)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
 	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1649,4 +1649,257 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+}
+
+func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
+	// This test verifies behavior when an unrelated resource is removed from the config.
+	// Currently, removing any resource increments the clock, which triggers
+	// updateWeakAndOptionalDependents for all resources with optional dependencies.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	// Register the optional child component.
+	optionalChildModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	ocName := generic.Named("oc")
+	resource.Register(
+		generic.API,
+		optionalChildModel,
+		resource.Registration[*optionalChild, *optionalChildConfig]{
+			Constructor: newOptionalChild,
+		})
+	defer resource.Deregister(generic.API, optionalChildModel)
+
+	// Configure the robot with:
+	// - An optional child "oc" that has required motor "m_required" and optional motor "m_optional"
+	// - An unrelated motor "m_unrelated" that we will later remove
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  ocName.Name,
+				API:   generic.API,
+				Model: optionalChildModel,
+				ConvertedAttributes: &optionalChildConfig{
+					RequiredMotor: "m_required",
+					OptionalMotor: "m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_unrelated",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Get the optional child and verify initial state.
+	ocRes, err := lr.ResourceByName(ocName)
+	test.That(t, err, test.ShouldBeNil)
+	oc, err := resource.AsType[*optionalChild](ocRes)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The optional child should have reconfigured twice:
+	// 1. Initial construction
+	// 2. updateWeakAndOptionalDependents after completeConfig
+	initialReconfigCount := oc.reconfigCount
+	test.That(t, initialReconfigCount, test.ShouldEqual, 2)
+
+	// Verify both motors are accessible.
+	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
+	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+
+	initialClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+
+	// Clear logs for cleaner assertions.
+	logs.TakeAll()
+
+	// Reconfigure to remove the unrelated motor.
+	cfg = config.Config{
+		Components: []resource.Config{
+			{
+				Name:  ocName.Name,
+				API:   generic.API,
+				Model: optionalChildModel,
+				ConvertedAttributes: &optionalChildConfig{
+					RequiredMotor: "m_required",
+					OptionalMotor: "m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Verify the clock incremented (m_unrelated was marked for removal).
+	clockAfterRemoval := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+	test.That(t, clockAfterRemoval, test.ShouldBeGreaterThan, initialClockValue)
+
+	// Verify the optional child reconfigured once (triggered by clock change from removal).
+	// This is the current behavior - any clock change triggers updateWeakAndOptionalDependents.
+	test.That(t, oc.reconfigCount, test.ShouldEqual, initialReconfigCount+1)
+
+	// Verify both motors are still accessible (the reconfiguration was successful).
+	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
+	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+}
+
+func TestModularOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
+	// This test is the modular version of TestOptionalDependencyUnrelatedResourceRemoval.
+	// It verifies behavior when an unrelated resource is removed from the config.
+	// Currently, removing any resource increments the clock, which triggers
+	// updateWeakAndOptionalDependents for all resources with optional dependencies.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+
+	// Configure the robot with:
+	// - A foo component that has required motor "m_required" and optional motor "m_optional"
+	// - An unrelated motor "m_unrelated" that we will later remove
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m_required",
+					"optional_motor": "m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_unrelated",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Assert that the foo component built successfully.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify both motors are accessible through the foo component.
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+
+	initialClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+
+	// Clear logs for cleaner assertions.
+	logs.TakeAll()
+
+	// Reconfigure to remove the unrelated motor.
+	cfg = config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m_required",
+					"optional_motor": "m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Verify the clock incremented (m_unrelated was marked for removal).
+	clockAfterRemoval := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+	test.That(t, clockAfterRemoval, test.ShouldBeGreaterThan, initialClockValue)
+
+	// Verify the foo component reconfigured once (triggered by clock change from removal).
+	// This is the current behavior - any clock change triggers updateWeakAndOptionalDependents.
+	reconfigLogsAfterRemoval := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
+	test.That(t, reconfigLogsAfterRemoval, test.ShouldEqual, 1)
+
+	// Verify both motors are still accessible through the foo component after reconfiguration.
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 }
