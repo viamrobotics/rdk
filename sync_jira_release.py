@@ -286,6 +286,7 @@ def main(version_input):
     print(f"   Tickets tagged (already closed): {tagged_count}")
     print(f"   Tickets skipped: {skipped_count}")
     print(f"   Total tickets: {len(ticket_keys)}")
+    print(f"   Release page: {JIRA_BASE_URL}/projects/{JIRA_PROJECT_KEY}/versions/{version_id}/tab/release-report-all-issues")
     print(f"{'='*60}")
 
 
