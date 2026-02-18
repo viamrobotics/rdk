@@ -296,6 +296,10 @@ jobs:
       date: ${{ needs.mac.outputs.date }}
 
     steps:
+      # The MacOS binary generated above DYNAMICALLY links in nlopt-static and x264. See
+      # RSDK-12852 for reasoning on requiring the brew install steps below instead of
+      # attempting to statically link in those libraries. viam-agent installation has the
+      # same brew install steps on MacOS, so users must indirectly run the same commands.
     - name: Install dependencies
       run: |
         brew update
