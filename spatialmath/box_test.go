@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"math"
 	"testing"
+	"fmt"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -132,5 +133,164 @@ func TestBoxPC(t *testing.T) {
 	}
 	for i, v := range output2 {
 		test.That(t, R3VectorAlmostEqual(v, checkAgainst2[i], 1e-2), test.ShouldBeTrue)
+	}
+}
+
+func TestBoxCollision(t *testing.T) {
+	box1 := makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 10})
+	box2 := makeTestBox(NewZeroOrientation(), r3.Vector{5, 10, 0}, r3.Vector{2, 2, 10})
+	fmt.Println(box1.CollidesWith(box2, 1))
+	fmt.Println(box1.DistanceFrom(box2))
+}
+
+func TestBoxDistanceMethods(t *testing.T) {
+	deg45 := math.Pi / 4.0
+
+	cases := []struct {
+		name     string
+		a, b     *box
+		satExact bool // whether SAT max should equal exact distance for this case
+	}{
+		{
+			"axis_aligned_face_separated",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			true,
+		},
+		{
+			"axis_aligned_diagonal",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}).(*box),
+			false, // vertex-to-vertex diagonal: SAT underestimates
+		},
+		{
+			"elongated",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 10}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 10, 0}, r3.Vector{2, 2, 10}).(*box),
+			false, // diagonal separation: SAT underestimates
+		},
+		{
+			"vertex_to_face_rotated",
+			makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}).(*box),
+			true,
+		},
+		{
+			"edge_to_edge_rotated",
+			makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			false, // edge-edge: SAT max may underestimate
+		},
+		{
+			"different_sizes",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{1, 1, 1}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{3, 4, 0}, r3.Vector{4, 2, 6}).(*box),
+			false, // diagonal separation: SAT underestimates
+		},
+		{
+			"both_rotated",
+			makeTestBox(&EulerAngles{0.3, 0.5, 0.7}, r3.Vector{}, r3.Vector{2, 3, 4}).(*box),
+			makeTestBox(&EulerAngles{1.0, 0.2, 0.4}, r3.Vector{6, 3, 2}, r3.Vector{3, 2, 1}).(*box),
+			false, // general case
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			exact := boxVsBoxSeparationDist(tc.a, tc.b)
+			satMax := boxVsBoxSATMaxDistance(tc.a, tc.b)
+			gjk := boxVsBoxGJKDistance(tc.a, tc.b)
+			hybrid := boxVsBoxHybridDistance(tc.a, tc.b)
+
+			t.Logf("Exact=%.10f  SATMax=%.10f  GJK=%.10f  Hybrid=%.10f", exact, satMax, gjk, hybrid)
+
+			// GJK should match exact distance
+			test.That(t, math.Abs(gjk-exact) < 1e-6, test.ShouldBeTrue)
+
+			// Hybrid should match exact distance
+			test.That(t, math.Abs(hybrid-exact) < 1e-6, test.ShouldBeTrue)
+
+			// SAT max should be a lower bound (or equal) to exact distance
+			test.That(t, satMax <= exact+1e-6, test.ShouldBeTrue)
+
+			// SAT max should be positive for non-colliding boxes
+			test.That(t, satMax > 0, test.ShouldBeTrue)
+
+			if tc.satExact {
+				test.That(t, math.Abs(satMax-exact) < 1e-6, test.ShouldBeTrue)
+			}
+		})
+	}
+}
+
+func boxDistanceBenchCases() []struct {
+	name string
+	a, b *box
+} {
+	deg45 := math.Pi / 4.0
+	return []struct {
+		name string
+		a, b *box
+	}{
+		{
+			"axis_aligned_diagonal",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"elongated",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 10}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 10, 0}, r3.Vector{2, 2, 10}).(*box),
+		},
+		{
+			"vertex_to_face_rotated",
+			makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"edge_to_edge_rotated",
+			makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+	}
+}
+
+func BenchmarkBoxVsBoxDistance(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxSeparationDist(tc.a, tc.b)
+			}
+		})
+	}
+}
+
+func BenchmarkBoxVsBoxSATMax(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxSATMaxDistance(tc.a, tc.b)
+			}
+		})
+	}
+}
+
+func BenchmarkBoxVsBoxGJK(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxGJKDistance(tc.a, tc.b)
+			}
+		})
+	}
+}
+
+func BenchmarkBoxVsBoxHybrid(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxHybridDistance(tc.a, tc.b)
+			}
+		})
 	}
 }
