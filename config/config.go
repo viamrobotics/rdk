@@ -1065,10 +1065,6 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 			// always return same cert
 			return &cert, nil
 		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			// always return same cert
-			return &cert, nil
-		},
 	}, nil
 }
 
@@ -1088,13 +1084,6 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		if in.Cloud.APIKey.IsFullySet() {
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Key}
-			selfAuthEntity = in.Cloud.APIKey.ID
-		} else {
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-			selfAuthEntity = in.Cloud.ID
-		}
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
@@ -1103,14 +1092,6 @@ func ProcessConfig(in *Config) (*Config, error) {
 		remoteCopy := remote
 		if in.Cloud == nil {
 			remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
-		} else {
-			if remote.ManagedBy != in.Cloud.ManagedBy {
-				continue
-			}
-			remoteCopy.Auth.Managed = true
-			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
-			remoteCopy.Auth.SignalingCreds = selfCreds
 		}
 		out.Remotes[idx] = remoteCopy
 	}

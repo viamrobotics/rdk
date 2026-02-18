@@ -1566,24 +1566,6 @@ func remoteDialOptions(config config.Remote, opts resourceManagerOptions) []rpc.
 		dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
 	}
 
-	if config.Auth.SignalingServerAddress != "" {
-		wrtcOpts := rpc.DialWebRTCOptions{
-			Config:                 &rpc.DefaultWebRTCConfiguration,
-			SignalingServerAddress: config.Auth.SignalingServerAddress,
-			SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
-		}
-		if config.Auth.SignalingCreds != nil {
-			wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
-		}
-		dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
-
-		if config.Auth.Managed {
-			// managed robots use TLS authN/Z
-			dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-				RemoveAuthCredentials: true,
-			}))
-		}
-	}
 	return dialOpts
 }
 
