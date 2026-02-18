@@ -303,8 +303,13 @@ func (w *GraphNode) MarkedForRemoval() bool {
 // The additional `args` should come in key/value pairs for structured logging.
 func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.mu.Lock()
+	// Only increment the clock if this is a transition from usable to unusable.
+	wasUsable := w.lastErr == nil
 	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
+	if wasUsable && w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+	}
 	w.mu.Unlock()
 
 	if w.logger != nil {
@@ -382,7 +387,14 @@ func (w *GraphNode) markReachability(reachable bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.unreachable = !reachable
+	// Only update if reachability actually changed.
+	if w.unreachable == reachable {
+		w.unreachable = !reachable
+		// Increment the logical clock when resource reachability changes.
+		if w.graphLogicalClock != nil {
+			w.updatedAt = w.graphLogicalClock.Add(1)
+		}
+	}
 }
 
 // IsReachable indicates if a resource on a remote machine is connected.
