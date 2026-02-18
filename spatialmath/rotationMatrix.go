@@ -98,7 +98,6 @@ func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 	}
 }
 
-
 // MatMul returns the product of one matrix A applied to B as AB  = C
 //
 //nolint:dupl
