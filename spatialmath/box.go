@@ -339,6 +339,82 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	return true, -1
 }
 
+// boxVsBoxGJKCollision uses GJK with early exit for collision detection with a buffer.
+// At each iteration the support function yields a lower bound on the true distance that
+// monotonically increases; as soon as this bound exceeds collisionBufferMM the function
+// exits with no-collision. When GJK fully converges the returned distance is exact.
+//
+// Returns (colliding, distance) where distance is:
+//   - exact Euclidean distance when GJK fully converges
+//   - a tight lower bound when early-exiting (distance clearly exceeds buffer)
+//   - -1 when colliding (penetration depth not computed)
+func boxVsBoxGJKCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
+	centerDist := b.centerPt.Sub(a.centerPt)
+
+	// Bounding-sphere pre-check (same as SAT path).
+	dist := centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR)
+	if dist > collisionBufferMM {
+		return false, dist
+	}
+
+	d := centerDist
+	if d.Norm2() < floatEpsilon*floatEpsilon {
+		d = r3.Vector{X: 1}
+	}
+
+	w := gjkMinkowskiSupport(a, b, d)
+	simplex := []r3.Vector{w}
+	v := w
+	mu := 0.0 // best lower bound on distance
+
+	const maxIter = 64
+	const eps = 1e-10
+
+	for iter := 0; iter < maxIter; iter++ {
+		vv := v.Norm2()
+		if vv < 1e-20 {
+			return true, -1
+		}
+		vNorm := math.Sqrt(vv)
+
+		d = v.Mul(-1)
+		w = gjkMinkowskiSupport(a, b, d)
+
+		// Update lower bound: all points in the Minkowski difference satisfy
+		// x·(v/||v||) >= w·v/||v||, so the closest point is at least this far.
+		if lb := v.Dot(w) / vNorm; lb > mu {
+			mu = lb
+		}
+
+		// Early exit: lower bound proves distance exceeds buffer.
+		if mu > collisionBufferMM {
+			return false, mu
+		}
+
+		// Convergence: new support point can't improve distance significantly.
+		if vv-v.Dot(w) <= eps*vv {
+			break
+		}
+
+		simplex = append(simplex, w)
+		switch len(simplex) {
+		case 2:
+			v, simplex = gjkClosestOnSegment(simplex[0], simplex[1])
+		case 3:
+			v, simplex = gjkClosestOnTriangle(simplex[0], simplex[1], simplex[2])
+		case 4:
+			v, simplex = gjkClosestOnTetrahedron(simplex)
+		}
+	}
+
+	// Fully converged: v.Norm() is the exact distance.
+	finalDist := v.Norm()
+	if finalDist > collisionBufferMM {
+		return false, finalDist
+	}
+	return true, -1
+}
+
 // boxVsBoxDistance takes two boxes as arguments and returns a floating point number. If this number is nonpositive it represents
 // the penetration depth for the two boxes, which are in collision. If the returned float is positive, it is the
 // separation distance for the two boxes, which are not in collision.
