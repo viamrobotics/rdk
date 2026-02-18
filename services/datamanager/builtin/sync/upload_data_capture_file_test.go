@@ -850,15 +850,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						t.FailNow()
 					case req := <-tc.unaryReqs:
 						t.Logf("got req\n")
-						test.That(t, len(tc.expectedUploads[i].sd), test.ShouldEqual, 1)
-						test.That(t, req.Metadata.PartId, test.ShouldResemble, tc.expectedUploads[i].md.PartId)
-						test.That(t, req.Metadata.ComponentType, test.ShouldResemble, tc.expectedUploads[i].md.ComponentType)
-						test.That(t, req.Metadata.ComponentName, test.ShouldResemble, tc.expectedUploads[i].md.ComponentName)
-						test.That(t, req.Metadata.MethodName, test.ShouldResemble, tc.expectedUploads[i].md.MethodName)
-						test.That(t, req.Metadata.Type, test.ShouldResemble, tc.expectedUploads[i].md.Type)
-						test.That(t, req.Metadata.Tags, test.ShouldResemble, tc.expectedUploads[i].md.Tags)
-						test.That(t, req.Metadata.FileExtension, test.ShouldResemble, tc.expectedUploads[i].md.FileExtension)
-						test.That(t, req.Metadata.MimeType, test.ShouldResemble, tc.expectedUploads[i].md.MimeType)
+						test.That(t, req.Metadata, test.ShouldResemble, tc.expectedUploads[i].md)
 						compareSensorData(t, tc.captureType.ToProto(), req.SensorContents, tc.expectedUploads[i].sd)
 					}
 				}
