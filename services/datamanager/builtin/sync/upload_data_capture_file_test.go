@@ -798,30 +798,30 @@ func TestUploadDataCaptureFile(t *testing.T) {
 
 			protoData := tc.captureResults.ToProto()
 
-			// Create and upload capture files
-			// For multiple binaries (e.g., GetImages), create one file per binary
-			// Otherwise, create one file with all data
-			numFiles := 1
-			if ct == data.CaptureTypeBinary && len(tc.captureResults.Binaries) > 1 {
-				numFiles = len(tc.captureResults.Binaries)
-			}
+			var files [][]*v1.SensorData
 
-			for i := 0; i < numFiles; i++ {
-				// Set MimeType and FileExtension from binary data if available
+			if ct == data.CaptureTypeBinary {
+				// one binary data per capture file
+				for i := range protoData {
+					files = append(files, []*v1.SensorData{protoData[i]})
+				}
+			} else {
+				files = append(files, protoData)
+			}
+			for i, fileData := range files {
+				mdCopy := md
+
 				if ct == data.CaptureTypeBinary && len(tc.captureResults.Binaries) > 0 {
-					mimeType := tc.captureResults.Binaries[i].MimeType
-					md.MimeType = mimeType.ToString()
+					mdCopy.MimeType = tc.captureResults.Binaries[i].MimeType.ToString()
 				}
-				// Create and write file
-				w, err := data.NewCaptureFile(tempDir, md)
+
+				w, err := data.NewCaptureFile(tempDir, mdCopy)
 				test.That(t, err, test.ShouldBeNil)
-				if numFiles > 1 {
-					test.That(t, w.WriteNext(protoData[i]), test.ShouldBeNil)
-				} else {
-					for _, sd := range protoData {
-						test.That(t, w.WriteNext(sd), test.ShouldBeNil)
-					}
+
+				for _, sd := range fileData {
+					test.That(t, w.WriteNext(sd), test.ShouldBeNil)
 				}
+
 				w.Flush()
 				w.Close()
 

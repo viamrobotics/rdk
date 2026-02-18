@@ -88,7 +88,7 @@ func TestCaptureQueue(t *testing.T) {
 			for i := 0; i < tc.pushCount; i++ {
 				switch {
 				case tc.dataType == CaptureTypeBinary.ToProto():
-					err := sut.WriteBinary(binarySensorData, "application/octet-stream")
+					err := sut.WriteBinary(binarySensorData, rutils.MimeTypeDefault)
 					test.That(t, err, test.ShouldBeNil)
 				case tc.dataType == CaptureTypeTabular.ToProto():
 					err := sut.WriteTabular(structSensorData)
@@ -426,7 +426,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       readImage,
-				mimeType:         "application/octet-stream",
+				mimeType:         rutils.MimeTypeJPEG,
 			},
 			{
 				name:              readImage + " with jpeg mime type in additional params",
@@ -470,7 +470,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       GetImages,
-				mimeType:         "application/octet-stream",
+				mimeType:         rutils.MimeTypeDefault,
 			},
 			{
 				name:             pointCloudMap,
@@ -480,7 +480,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				// NOTE: The fact that this doesn't get a .pcd extension is inconsistent with
 				// how camera.NextPointCloud is handled
 				methodName: pointCloudMap,
-				mimeType:   "application/octet-stream",
+				mimeType:   rutils.MimeTypePCD,
 			},
 		}
 
