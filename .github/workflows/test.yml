@@ -148,12 +148,12 @@ jobs:
         go-version-file: go.mod
     - name: Install dependencies
       run: |
-        brew config
-        brew update && (brew list cmake || brew install cmake)
+        brew update
         brew tap viamrobotics/brews
-        brew install pkg-config
         brew install nlopt-static
         brew install x264
+        # While it's not a requirement to actually run the viam-server binary, ffmpeg is
+        # required for a couple unit tests in CI.
         brew install ffmpeg
     - name: test
       run: |

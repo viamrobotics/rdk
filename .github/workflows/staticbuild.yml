@@ -167,13 +167,10 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew config
-        brew update && (brew list cmake || brew install cmake)
+        brew update
         brew tap viamrobotics/brews
-        brew install pkg-config
         brew install nlopt-static
         brew install x264
-        brew install ffmpeg
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -301,12 +298,10 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        brew config
-        brew update && (brew list cmake || brew install cmake)
+        brew update
         brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
-        brew install ffmpeg
 
     - name: Test MacOS Binary
       run: |
