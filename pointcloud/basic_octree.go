@@ -466,38 +466,45 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 
 	switch octree.node.nodeType {
 	case internalNode:
-		// Create a bounding box for this octree region
-		ocbox, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(octree.center),
-			r3.Vector{
-				X: octree.sideLength + collisionBufferMM,
-				Y: octree.sideLength + collisionBufferMM,
-				Z: octree.sideLength + collisionBufferMM,
-			},
-			"",
-		)
-		if err != nil {
-			return
+		// Get or create cached bounding box for this octree region
+		var ocbox spatialmath.Geometry
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			var err error
+			ocbox, err = spatialmath.NewBox(
+				spatialmath.NewPoseFromPoint(octree.center),
+				r3.Vector{
+					X: octree.sideLength + collisionBufferMM,
+					Y: octree.sideLength + collisionBufferMM,
+					Z: octree.sideLength + collisionBufferMM,
+				},
+				"",
+			)
+			if err != nil {
+				return
+			}
+			octree.boxCache.Store(&ocbox)
+		} else {
+			ocbox = *boxPtr
 		}
 
-		// Check if any geometry intersects with this octree region
-		intersects := false
+		// Collect geometries that intersect with this octree region
+		// Pre-allocate with capacity to avoid reallocations
+		intersectingGeoms := make([]spatialmath.Geometry, 0, len(geometries))
 		for _, geom := range geometries {
 			collides, _, err := geom.CollidesWith(ocbox, collisionBufferMM)
 			if err == nil && collides {
-				intersects = true
-				break
+				intersectingGeoms = append(intersectingGeoms, geom)
 			}
 		}
 
 		// If no geometry intersects this region, skip all children
-		if !intersects {
+		if len(intersectingGeoms) == 0 {
 			return
 		}
 
-		// Recursively check children and collect results
+		// Recursively check children with only the intersecting geometries
 		for _, child := range octree.node.children {
-			child.accumulatePointsCollidingWith(geometries, collisionBufferMM, accumulator)
+			child.accumulatePointsCollidingWith(intersectingGeoms, collisionBufferMM, accumulator)
 		}
 
 	case leafNodeEmpty:
@@ -510,14 +517,14 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 			return
 		}
 
-		// Create a point geometry for collision checking
-		pointGeom := spatialmath.NewPoint(octree.node.point.P, "")
-
-		// Check collision with each geometry
+		// Check collision with each geometry using the point's r3.Vector directly
+		// This avoids allocating a Point geometry for every leaf node
+		pt := octree.node.point.P
 		for _, geom := range geometries {
-			collides, _, err := geom.CollidesWith(pointGeom, collisionBufferMM)
+			// log.Println("checking collision with geom", geom.Label())
+			collides, _, err := spatialmath.GeometryCollidesWithPoint(geom, pt, collisionBufferMM)
 			if err == nil && collides {
-				*accumulator = append(*accumulator, octree.node.point.P)
+				*accumulator = append(*accumulator, pt)
 				break // Point collides with at least one geometry, no need to check others
 			}
 		}
