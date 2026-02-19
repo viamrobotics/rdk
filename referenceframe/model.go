@@ -505,6 +505,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 	}
 
 	if ser.Model != nil {
+		// If Model is not nil, we build by parsing the config
 		parsed, err := ser.Model.ParseConfig(ser.Model.Name)
 		if err != nil {
 			return err
@@ -518,6 +519,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
 	} else if ser.InternalFS != nil {
+		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
 		if err != nil {
 			return err

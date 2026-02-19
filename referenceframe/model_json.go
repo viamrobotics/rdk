@@ -202,9 +202,7 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 			return nil, nil, err
 		}
 
-		for _, child := range childrenOf[cur] {
-			queue = append(queue, child)
-		}
+		queue = append(queue, childrenOf[cur]...)
 	}
 
 	// Check all transforms were visited
