@@ -196,12 +196,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" release-macos
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" static-release-macos
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" release-macos
+        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release-macos
 
     - name: Set Date
       id: build_date
