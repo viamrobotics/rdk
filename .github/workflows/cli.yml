@@ -83,3 +83,4 @@ jobs:
         glob: 'viam-cli-*'
         destination: 'packages.viam.com/apps/viam-cli/'
         parent: false
+        gzip: true
