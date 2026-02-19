@@ -1,7 +1,4 @@
-// Package matrix provides matrix algebra utilities that depend on gonum.
-// These were extracted from go.viam.com/rdk/utils to avoid pulling gonum
-// into binaries (like the CLI) that only need lightweight utils helpers.
-package matrix
+package utils
 
 import (
 	"math"
@@ -9,8 +6,6 @@ import (
 
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
-
-	"go.viam.com/rdk/utils"
 )
 
 // Vec2Matrix is a wrapper around a mat.Dense intended for a series of
@@ -22,7 +17,7 @@ func (v2m *Vec2Matrix) RotateMatrixAbout(x, y, theta float64) *Vec2Matrix {
 	if (*mat.Dense)(v2m).IsEmpty() {
 		return v2m
 	}
-	thetaRad := utils.DegToRad(utils.AntiCWDeg(theta))
+	thetaRad := DegToRad(AntiCWDeg(theta))
 	rot := vec2RotationMatrixAbout(x, y, thetaRad)
 	var rotated mat.Dense
 	rotated.Mul(rot, (*mat.Dense)(v2m))

@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/utils/matrix"
 )
 
 // SamplingType stores 0 if a sampling of image points for BRIEF is uniform, 1 if gaussian.
@@ -67,13 +66,13 @@ func sampleIntegers(patchSize, n int, sampling SamplingType) []int {
 	vMax := math.Round(float64(patchSize) / 2.)
 	switch sampling {
 	case uniform:
-		return matrix.SampleNIntegersUniform(n, vMin, vMax)
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
 	case normal:
-		return matrix.SampleNIntegersNormal(n, vMin, vMax)
+		return utils.SampleNIntegersNormal(n, vMin, vMax)
 	case fixed:
 		return utils.SampleNRegularlySpaced(n, vMin, vMax)
 	default:
-		return matrix.SampleNIntegersUniform(n, vMin, vMax)
+		return utils.SampleNIntegersUniform(n, vMin, vMax)
 	}
 }
 
