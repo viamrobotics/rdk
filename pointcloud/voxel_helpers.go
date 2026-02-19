@@ -10,8 +10,8 @@ import (
 
 // helpers for Voxel attributes computation
 
-// estimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector.
-func estimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
+// EstimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector.
+func EstimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	// Put points in mat
 	nPoints := len(points)
 	mPt := mat.NewDense(nPoints, 3, nil)
