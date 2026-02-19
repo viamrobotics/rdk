@@ -548,6 +548,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
+		m.transformChainInputOffsets = newModel.transformChainInputOffsets
 	} else if ser.InternalFS != nil {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
@@ -558,6 +559,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = rebuilt.primaryOutputFrame
 		m.inputSchema = rebuilt.inputSchema
 		m.transformChain = rebuilt.transformChain
+		m.transformChainInputOffsets = rebuilt.transformChainInputOffsets
 		m.limits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)

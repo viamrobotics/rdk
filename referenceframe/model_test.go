@@ -130,15 +130,32 @@ func TestNewModel(t *testing.T) {
 }
 
 func TestHash(t *testing.T) {
-	m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
-	test.That(t, err, test.ShouldBeNil)
+	t.Run("model from config", func(t *testing.T) {
+		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+		test.That(t, err, test.ShouldBeNil)
 
-	// Hash should be stable across calls and clones
-	h1 := m1.Hash()
-	m1clone, err := clone(m1)
-	test.That(t, err, test.ShouldBeNil)
-	h2 := m1clone.Hash()
-	test.That(t, h1, test.ShouldEqual, h2)
+		h1 := m1.Hash()
+		m1clone, err := clone(m1)
+		test.That(t, err, test.ShouldBeNil)
+		h2 := m1clone.Hash()
+		test.That(t, h1, test.ShouldEqual, h2)
+	})
+
+	t.Run("model from frames", func(t *testing.T) {
+		j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+		test.That(t, err, test.ShouldBeNil)
+		j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+		test.That(t, err, test.ShouldBeNil)
+
+		m1, err := NewSerialModel("arm", []Frame{j1, j2})
+		test.That(t, err, test.ShouldBeNil)
+
+		h1 := m1.Hash()
+		m1clone, err := clone(m1)
+		test.That(t, err, test.ShouldBeNil)
+		h2 := m1clone.Hash()
+		test.That(t, h1, test.ShouldEqual, h2)
+	})
 }
 
 func TestNewModelWithLimitOverrides(t *testing.T) {
