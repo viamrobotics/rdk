@@ -174,8 +174,8 @@ jobs:
 
         # Hackily disable all the dylibs from the two installed Brew libraries to force
         # make server-static to create a binary that statically links them in.
-        for f in "$(brew --prefix nlopt-static)"/lib/*.bak; do mv "$f" "${f%.bak}"; done
-        for f in "$(brew --prefix x264)"/lib/*.bak; do mv "$f" "${f%.bak}"; done
+        for f in "$(brew --prefix nlopt-static)"/lib/*.dylib; do mv "$f" "$f.bak"; done
+        for f in "$(brew --prefix x264)"/lib/*.dylib; do mv "$f" "$f.bak"; done
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
