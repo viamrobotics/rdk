@@ -72,16 +72,16 @@ static-release-win:
 		--resources-json win-resources.json \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
 
-release-macos: server
-	# Use "static" directory naming here despite the created darwin binary not being static.
-	# We want to keep MacOS binary creation as similar to Linux and Windows above as
-	# possible.
-
+static-release-macos: server-cpp-linked
+	# It's assumed that the nlopt-static and x264 dylib files have been renamed by this
+	# point, so the `server-cpp-linked` make dependency creates a binary that dynamically
+	# links in libc++ but statically links in nlopt-static and x264. This is hacky, but
+	# ensures users need no `brew install` commands to run the viam-server binary.
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
-	cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64
+	cp bin/Darwin-arm64/viam-server-cpp-linked etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64
 	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
-		cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-darwin-aarch64; \
+		cp bin/Darwin-arm64/viam-server-cpp-linked etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-darwin-aarch64; \
 	fi
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/

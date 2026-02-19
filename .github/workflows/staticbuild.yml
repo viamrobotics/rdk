@@ -172,10 +172,15 @@ jobs:
         brew install nlopt-static
         brew install x264
 
+        # Hackily disable all the dylibs from the two installed Brew libraries to force
+        # make server-static to create a binary that statically links them in.
+        for f in "$(brew --prefix nlopt-static)"/lib/*.bak; do mv "$f" "${f%.bak}"; done
+        for f in "$(brew --prefix x264)"/lib/*.bak; do mv "$f" "${f%.bak}"; done
+
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" release-macos
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release-macos
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -296,17 +301,6 @@ jobs:
       date: ${{ needs.mac.outputs.date }}
 
     steps:
-      # The MacOS binary generated above DYNAMICALLY links in nlopt-static and x264. See
-      # RSDK-12852 for reasoning on requiring the brew install steps below instead of
-      # attempting to statically link in those libraries. viam-agent installation has the
-      # same brew install steps on MacOS, so users must indirectly run the same commands.
-    - name: Install dependencies
-      run: |
-        brew update
-        brew tap viamrobotics/brews
-        brew install nlopt-static
-        brew install x264
-
     - name: Test MacOS Binary
       run: |
         channel="${{ github.ref_name }}"
