@@ -41,7 +41,8 @@ int main(int argc, const char** argv) try {
     llvm::raw_fd_ostream out(outfile, ec, llvm::sys::fs::CD_CreateAlways);
 
     if (ec != std::error_code{}) {
-        throw std::system_error(ec);
+        llvm::errs() << "Error " << ec.message() << " opening file " << outfile << "\n";
+        return 1;
     }
 
     if (justMain) {
