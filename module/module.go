@@ -2,13 +2,10 @@ package module
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/base32"
 	"errors"
 	"fmt"
 	"net"
 	"os"
-	"path/filepath"
 	"slices"
 	"sync"
 
@@ -32,6 +29,7 @@ import (
 	_ "go.viam.com/rdk/components/register_apis"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/module/modutil"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
@@ -41,57 +39,23 @@ import (
 )
 
 const (
-	socketSuffix = ".sock"
-	// socketHashSuffixLength determines how many characters from the module's name's hash should be used when truncating the module socket.
-	socketHashSuffixLength int = 5
-	// maxSocketAddressLength is the length (-1 for null terminator) of the .sun_path field as used in kernel bind()/connect() syscalls.
-	// Linux allows for a max length of 107 but to simplify this code, we truncate to the macOS limit of 103.
-	socketMaxAddressLength int = 103
-	rtpBufferSize          int = 512
+	rtpBufferSize int = 512
 	// https://viam.atlassian.net/browse/RSDK-7347
 	// https://viam.atlassian.net/browse/RSDK-7521
 	// maxSupportedWebRTCTRacks is the max number of WebRTC tracks that can be supported given wihout hitting the sctp SDP message size limit.
 	maxSupportedWebRTCTRacks = 9
 
 	// NoModuleParentEnvVar indicates whether there is a parent for a module being started.
-	NoModuleParentEnvVar = "VIAM_NO_MODULE_PARENT"
+	NoModuleParentEnvVar = modutil.NoModuleParentEnvVar
 )
 
 // CreateSocketAddress returns a socket address of the form parentDir/desiredName.sock
-// if it is shorter than the socketMaxAddressLength. If this path would be too long, this function
-// truncates desiredName and returns parentDir/truncatedName-hashOfDesiredName.sock.
+// if it is shorter than the OS socket address limit. If this path would be too long,
+// this function truncates desiredName and appends a hash suffix.
 //
 // Importantly, this function will return the same socket address as long as the desiredName doesn't change.
 func CreateSocketAddress(parentDir, desiredName string) (string, error) {
-	baseAddr := filepath.ToSlash(parentDir)
-	numRemainingChars := socketMaxAddressLength -
-		len(baseAddr) -
-		len(socketSuffix) -
-		1 // `/` between baseAddr and name
-	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
-		return "", fmt.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
-			socketMaxAddressLength, baseAddr)
-	}
-	// If possible, early-exit with a non-truncated socket path
-	if numRemainingChars >= len(desiredName) {
-		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
-	}
-	// Hash the desiredName so that every invocation returns the same truncated address
-	desiredNameHashCreator := sha256.New()
-	_, err := desiredNameHashCreator.Write([]byte(desiredName))
-	if err != nil {
-		return "", fmt.Errorf("failed to calculate a hash for %q while creating a truncated socket address", desiredName)
-	}
-	desiredNameHash := base32.StdEncoding.EncodeToString(desiredNameHashCreator.Sum(nil))
-	if len(desiredNameHash) < socketHashSuffixLength {
-		// sha256.Sum() should return 32 bytes so this shouldn't occur, but good to check instead of panicing
-		return "", fmt.Errorf("the encoded hash %q for %q is shorter than the minimum socket suffix length %v",
-			desiredNameHash, desiredName, socketHashSuffixLength)
-	}
-	// Assemble the truncated socket address
-	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
-	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
-	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
+	return modutil.CreateSocketAddress(parentDir, desiredName)
 }
 
 // Module represents an external resource module that services components/services.

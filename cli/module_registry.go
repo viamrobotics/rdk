@@ -28,9 +28,9 @@ import (
 
 	modconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/module/modutil"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/utils"
 )
@@ -919,11 +919,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	parentAddr := tmpdir + "/parent.sock"
 
 	// allows a module to start without connecting to a parent
-	if err := os.Setenv(module.NoModuleParentEnvVar, "true"); err != nil {
+	if err := os.Setenv(modutil.NoModuleParentEnvVar, "true"); err != nil {
 		return nil, err
 	}
 	//nolint:errcheck
-	defer os.Unsetenv(module.NoModuleParentEnvVar)
+	defer os.Unsetenv(modutil.NoModuleParentEnvVar)
 
 	cfg := modconfig.Module{
 		Name:    "xxxx",

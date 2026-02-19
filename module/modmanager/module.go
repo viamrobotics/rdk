@@ -33,7 +33,7 @@ import (
 	"go.viam.com/rdk/ftdc/sys"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modlib "go.viam.com/rdk/module"
+	"go.viam.com/rdk/module/modutil"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
@@ -49,7 +49,7 @@ type module struct {
 	// stopProcess and startProcess, it will simply be the previous (stopped) process.
 	// This is used with wait to enforce clean shutdown without goroutine leaks.
 	prevProcess pexec.ManagedProcess
-	handles     modlib.HandlerMap
+	handles     modutil.HandlerMap
 	sharedConn  rdkgrpc.SharedConn
 	client      pb.ModuleServiceClient
 	// robotClient supplements the ModuleServiceClient client to serve select robot level methods from the module server
@@ -196,7 +196,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 		// The `ReadyRespones` also includes the Viam `API`s and `Model`s the module provides. This
 		// will be used to construct "generic Client" objects that can execute gRPC commands for
 		// methods that are not part of the viam-server's API proto.
-		m.handles, err = modlib.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
+		m.handles, err = modutil.NewHandlerMapFromProto(ctx, resp.Handlermap, m.sharedConn.GrpcConn())
 		return err
 	}
 }
@@ -233,7 +233,7 @@ func (m *module) startProcess(
 	} else {
 		// append a random alpha string to the module name while creating a socket address to avoid conflicts
 		// with old versions of the module.
-		if m.addr, err = modlib.CreateSocketAddress(
+		if m.addr, err = modutil.CreateSocketAddress(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}

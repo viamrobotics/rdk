@@ -23,8 +23,8 @@ import (
 	"go.viam.com/rdk/ftdc"
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
-	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	"go.viam.com/rdk/module/modutil"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
@@ -195,8 +195,8 @@ func (mgr *Manager) Kill() {
 }
 
 // Handles returns all the models for each module registered.
-func (mgr *Manager) Handles() map[string]modlib.HandlerMap {
-	res := map[string]modlib.HandlerMap{}
+func (mgr *Manager) Handles() map[string]modutil.HandlerMap {
+	res := map[string]modutil.HandlerMap{}
 
 	mgr.modules.Range(func(n string, m *module) bool {
 		res[n] = m.handles
