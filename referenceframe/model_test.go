@@ -204,6 +204,102 @@ func TestSerialModelDuplicateNames(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldEqual, `duplicate frame name "joint" in serial model`)
 }
 
+// TestBranchingModelTransform verifies that Transform correctly uses schema offsets
+// rather than a sequential posIdx when the internal frame system has branches with
+// nonzero DoF.  Without the fix, D's input would be read from C's slot in the flat
+// input vector, producing the wrong pose.
+//
+// Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> D(Z,1DOF)  [primary output]
+//                           -> C(Z,1DOF)
+//
+// BFS/schema order (children sorted alphabetically): A(off=0), B(off=1), C(off=2), D(off=3)
+// transformChain: [A, B, D]; offsets must be [0, 1, 3] – not [0, 1, 2].
+func TestBranchingModelTransform(t *testing.T) {
+	a, err := NewTranslationalFrame("A", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	b, err := NewTranslationalFrame("B", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	c, err := NewTranslationalFrame("C", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	d, err := NewTranslationalFrame("D", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("internal")
+	test.That(t, fs.AddFrame(a, fs.World()), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(b, a), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(c, a), test.ShouldBeNil) // branch sibling of B with nonzero DoF
+	test.That(t, fs.AddFrame(d, b), test.ShouldBeNil) // primary output
+
+	model, err := NewModel("branching", fs, "D")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 4)
+
+	// Schema order (BFS, children alphabetical): A(0), B(1), C(2), D(3)
+	// inputs: [aVal, bVal, cVal, dVal]
+	aVal, bVal, cVal, dVal := 3.0, 5.0, 99.0, 7.0
+	_ = cVal // C is on the sibling branch; its value must NOT affect D's pose
+	pose, err := model.Transform([]Input{aVal, bVal, cVal, dVal})
+	test.That(t, err, test.ShouldBeNil)
+
+	// D's world pose should be (aVal, bVal, dVal) — X from A, Y from B, Z from D.
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: aVal, Y: bVal, Z: dVal}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+// TestBranchingModelGeometries verifies that Geometries() correctly places geometry
+// at the end of both the primary chain and non-primary branches when those branches
+// have nonzero DoF.
+//
+// Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> primaryEnd(static, geometry) [primary]
+//                           -> C(Z,1DOF) -> branchEnd(static, geometry)
+//
+// BFS/schema order: A(off=0,dof=1), B(off=1,dof=1), C(off=2,dof=1)
+// 0-DoF frames contribute no inputs → total DoF = 3.
+// inputs: [aVal, bVal, cVal]
+//
+// Expected world positions:
+//   primaryEnd geometry: (aVal, bVal, 0) — path through A then B
+//   branchEnd  geometry: (aVal, 0,    cVal) — path through A then C (not B)
+func TestBranchingModelGeometries(t *testing.T) {
+	a, err := NewTranslationalFrame("A", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	b, err := NewTranslationalFrame("B", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	c, err := NewTranslationalFrame("C", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	zp := spatial.NewZeroPose()
+	box, err := spatial.NewBox(zp, r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	primaryEnd, err := NewStaticFrameWithGeometry("primaryEnd", zp, box)
+	test.That(t, err, test.ShouldBeNil)
+	branchEnd, err := NewStaticFrameWithGeometry("branchEnd", zp, box)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("internal")
+	test.That(t, fs.AddFrame(a, fs.World()), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(b, a), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(c, a), test.ShouldBeNil) // branch sibling of B with nonzero DoF
+	test.That(t, fs.AddFrame(primaryEnd, b), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(branchEnd, c), test.ShouldBeNil)
+
+	model, err := NewModel("branching", fs, "primaryEnd")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 3)
+
+	aVal, bVal, cVal := 3.0, 5.0, 7.0
+	geoms, err := model.Geometries([]Input{aVal, bVal, cVal})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Primary chain end: goes through A(X) then B(Y), Z unchanged.
+	primaryPt := geoms.GeometryByName("branching:primaryEnd").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(primaryPt, r3.Vector{X: aVal, Y: bVal, Z: 0}, defaultFloatPrecision), test.ShouldBeTrue)
+
+	// Branch end: goes through A(X) then C(Z), Y unchanged.
+	// If cVal's input were incorrectly mapped, this position would be wrong.
+	branchPt := geoms.GeometryByName("branching:branchEnd").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(branchPt, r3.Vector{X: aVal, Y: 0, Z: cVal}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
 func TestExtractMeshMapFromModelConfig(t *testing.T) {
 	// Use dummy bytes for testing - no need to load actual files
 	stlBytes := []byte("fake stl data")
