@@ -45,6 +45,13 @@ bin/$(GOOS)-$(GOARCH)/viam-cli: $(GO_FILES) Makefile go.mod go.sum
 .PHONY: cli
 cli: bin/$(GOOS)-$(GOARCH)/viam-cli
 
+bin/$(GOOS)-$(GOARCH)/viam-cli-compressed: bin/$(GOOS)-$(GOARCH)/viam-cli
+	cp $< $@
+	upx --best --lzma $@
+
+.PHONY: cli-compressed
+cli-compressed: bin/$(GOOS)-$(GOARCH)/viam-cli-compressed
+
 .PHONY: cli-ci
 cli-ci: bin/$(GOOS)-$(GOARCH)/viam-cli
 	if [ -n "$(CI_RELEASE)" ]; then \
