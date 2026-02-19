@@ -49,11 +49,15 @@ func TestGripperModelJSON(t *testing.T) {
 
 	// left_finger: base → left_joint at (0,+25,0) → geometry center at (0,+25,15)
 	leftPt := geoms.GeometryByName("test_gripper:left_finger").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(leftPt, r3.Vector{X: 0, Y: leftMM, Z: fingerBodyCenterZ}, defaultFloatPrecision), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(
+		leftPt, r3.Vector{X: 0, Y: leftMM, Z: fingerBodyCenterZ}, defaultFloatPrecision,
+	), test.ShouldBeTrue)
 
 	// right_finger: base → right_joint at (0,−25,0) → geometry center at (0,−25,15)
 	rightPt := geoms.GeometryByName("test_gripper:right_finger").Pose().Point()
-	test.That(t, spatial.R3VectorAlmostEqual(rightPt, r3.Vector{X: 0, Y: -rightMM, Z: fingerBodyCenterZ}, defaultFloatPrecision), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(
+		rightPt, r3.Vector{X: 0, Y: -rightMM, Z: fingerBodyCenterZ}, defaultFloatPrecision,
+	), test.ShouldBeTrue)
 
 	// Fingers should be symmetric about Y=0 at the same Z.
 	test.That(t, spatial.R3VectorAlmostEqual(

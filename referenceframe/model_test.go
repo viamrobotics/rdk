@@ -210,7 +210,8 @@ func TestSerialModelDuplicateNames(t *testing.T) {
 // input vector, producing the wrong pose.
 //
 // Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> D(Z,1DOF)  [primary output]
-//                           -> C(Z,1DOF)
+//
+//	-> C(Z,1DOF)
 //
 // BFS/schema order (children sorted alphabetically): A(off=0), B(off=1), C(off=2), D(off=3)
 // transformChain: [A, B, D]; offsets must be [0, 1, 3] – not [0, 1, 2].
@@ -250,15 +251,17 @@ func TestBranchingModelTransform(t *testing.T) {
 // have nonzero DoF.
 //
 // Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> primaryEnd(static, geometry) [primary]
-//                           -> C(Z,1DOF) -> branchEnd(static, geometry)
+//
+//	-> C(Z,1DOF) -> branchEnd(static, geometry)
 //
 // BFS/schema order: A(off=0,dof=1), B(off=1,dof=1), C(off=2,dof=1)
 // 0-DoF frames contribute no inputs → total DoF = 3.
 // inputs: [aVal, bVal, cVal]
 //
 // Expected world positions:
-//   primaryEnd geometry: (aVal, bVal, 0) — path through A then B
-//   branchEnd  geometry: (aVal, 0,    cVal) — path through A then C (not B)
+//
+//	primaryEnd geometry: (aVal, bVal, 0) — path through A then B
+//	branchEnd  geometry: (aVal, 0,    cVal) — path through A then C (not B)
 func TestBranchingModelGeometries(t *testing.T) {
 	a, err := NewTranslationalFrame("A", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
 	test.That(t, err, test.ShouldBeNil)
