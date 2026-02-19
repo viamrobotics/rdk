@@ -177,7 +177,6 @@ var testAuthConfig = AuthConfig{
 			},
 		},
 	},
-	TLSAuthEntities: []string{"tls1", "tls2"},
 }
 
 var testCloudConfig = Cloud{
@@ -765,7 +764,6 @@ func TestNetworkConfigToProto(t *testing.T) {
 
 //nolint:thelper
 func validateAuthConfig(t *testing.T, actual, expected AuthConfig) {
-	test.That(t, actual.TLSAuthEntities, test.ShouldResemble, expected.TLSAuthEntities)
 	test.That(t, actual.Handlers, test.ShouldHaveLength, 2)
 	test.That(t, actual.Handlers[0].Type, test.ShouldEqual, expected.Handlers[0].Type)
 	test.That(t, actual.Handlers[0].Config.Int("config-1", 0), test.ShouldEqual, expected.Handlers[0].Config.Int("config-1", -1))
@@ -794,7 +792,6 @@ func TestAuthConfigToProto(t *testing.T) {
 		test.That(t, keyset.Add(publicKeyForWebAuth), test.ShouldBeTrue)
 
 		authConfig := AuthConfig{
-			TLSAuthEntities: []string{"tls1", "tls2"},
 			ExternalAuthConfig: &ExternalAuthConfig{
 				JSONKeySet: keysetToInterface(t, keyset).AsMap(),
 			},

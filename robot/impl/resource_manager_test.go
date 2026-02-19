@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -1227,18 +1226,12 @@ func TestConfigRemoteAllowInsecureCreds(t *testing.T) {
 		os.Remove(keyFile)
 	})
 
-	leaf, err := x509.ParseCertificate(cert.Certificate[0])
-	test.That(t, err, test.ShouldBeNil)
-
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
-		ClientCAs:    certPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
-	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
 	locationSecret := "locsosecret"

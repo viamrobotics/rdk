@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -592,7 +591,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	}
 }
 
-func TestConfigRemoteWithTLSAuth(t *testing.T) {
+func TestConfigRemoteWithCredentialAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), "data/fake.json", logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -609,18 +608,12 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		os.Remove(keyFile)
 	})
 
-	leaf, err := x509.ParseCertificate(cert.Certificate[0])
-	test.That(t, err, test.ShouldBeNil)
-
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
-		ClientCAs:    certPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
-	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
 	locationSecret := "locsosecret"
@@ -670,19 +663,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	}
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
 
-	// Create a clone such that the prior launched robot and the next robot can have their own tls
-	// config object to safely read from.
-	remoteConfig.Network.NetworkConfigData.TLSConfig = options.Network.TLSConfig.Clone()
-	remoteTLSConfig = remoteConfig.Network.NetworkConfigData.TLSConfig
-	// use cert
-	remoteTLSConfig.Certificates = []tls.Certificate{cert}
-	remoteTLSConfig.ServerName = "somename"
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
-
-	// use cert with mDNS
-	remoteConfig.Remotes[0].Address = options.FQDN
-	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
-
 	// use signaling creds
 	remoteConfig.Remotes[0].Address = addr
 	remoteConfig.Remotes[0].Auth.Credentials = nil
@@ -693,37 +673,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Payload: locationSecret,
 	}
 	test.That(t, setupLocalRobot(t, context.Background(), remoteConfig, logger).Close(context.Background()), test.ShouldBeNil)
-
-	// use cert with mDNS while signaling present
-	ctx2 := context.Background()
-	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
-		Type:    rutils.CredentialsTypeRobotLocationSecret,
-		Payload: locationSecret + "bad",
-	}
-	remoteConfig.Remotes[0].Address = options.FQDN
-	r2 := setupLocalRobot(t, ctx2, remoteConfig, logger)
-
-	expected := []resource.Name{
-		arm.Named("foo:pieceArm"),
-		camera.Named("foo:cameraOver"),
-		movementsensor.Named("foo:movement_sensor1"),
-		movementsensor.Named("foo:movement_sensor2"),
-		gripper.Named("foo:pieceGripper"),
-	}
-
-	resources2 := r2.ResourceNames()
-
-	rtestutils.VerifySameResourceNames(t, resources2, expected)
-
-	remotes2 := r2.RemoteNames()
-	expectedRemotes := []string{"foo"}
-
-	rtestutils.VerifySameElements(t, remotes2, expectedRemotes)
-
-	statuses, err := r2.MachineStatus(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses.Resources), test.ShouldEqual, 10)
-	test.That(t, statuses, test.ShouldNotBeNil)
 }
 
 func TestStopAll(t *testing.T) {

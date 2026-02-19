@@ -894,7 +894,6 @@ func (tte *TrafficTunnelEndpoint) MarshalJSON() ([]byte, error) {
 // AuthConfig describes authentication and authorization settings for the web server.
 type AuthConfig struct {
 	Handlers           []AuthHandlerConfig `json:"handlers,omitempty"`
-	TLSAuthEntities    []string            `json:"tls_auth_entities,omitempty"`
 	ExternalAuthConfig *ExternalAuthConfig `json:"external_auth_config,omitempty"`
 }
 
