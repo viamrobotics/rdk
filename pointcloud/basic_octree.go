@@ -71,7 +71,7 @@ type basicOctreeNode struct {
 	nodeType     NodeType
 	children     []*BasicOctree
 	point        *PointAndData
-	pointGeoOnce sync.Once
+	pointGeoOnce *sync.Once
 	pointGeo     spatialmath.Geometry
 	maxVal       int
 }
