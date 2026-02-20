@@ -298,7 +298,8 @@ jobs:
     steps:
     - name: Test MacOS Binary
       run: |
-        channel="${{ github.ref_name }}"
+        #channel="${{ github.ref_name }}"
+        channel="main"
         # we call our main branch releases "latest"
         if [ "$channel" = "main" ]; then
           channel="latest"

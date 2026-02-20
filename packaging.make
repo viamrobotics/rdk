@@ -1,4 +1,5 @@
 BUILD_CHANNEL?=local
+DEBUG_CHANNEL="v0.114.1-dev.6-test"
 # note: UNAME_M is overrideable because it is wrong in 32-bit arm container executing natively on 64-bit arm
 UNAME_M ?= $(shell uname -m)
 ifneq ($(shell which dpkg 2>/dev/null), "")
@@ -90,15 +91,15 @@ static-release-macos:
 
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
-	cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64
+	cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${DEBUG_CHANNEL}-darwin-aarch64
 	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
 		cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-darwin-aarch64; \
 	fi
 	rm -rf etc/packaging/static/manifest/
 	mkdir -p etc/packaging/static/manifest/
 	go run etc/subsystem_manifest/main.go \
-		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64 \
-		--upload-path "packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-darwin-aarch64" \
-		--version ${BUILD_CHANNEL} \
+		--binary-path etc/packaging/static/deploy/viam-server-${DEBUG_CHANNEL}-darwin-aarch64 \
+		--upload-path "packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${DEBUG_CHANNEL}-darwin-aarch64" \
+		--version ${DEBUG_CHANNEL} \
 		--arch aarch64 \
-		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-darwin-aarch64.json
+		--output-path etc/packaging/static/manifest/viam-server-${DEBUG_CHANNEL}-darwin-aarch64.json
