@@ -1026,8 +1026,8 @@ github.com/vbatts/tar-split v0.11.5 h1:3bHCTIheBm1qFTcgh9oPu+nNBtX+XJIupG/vacinC
 github.com/vbatts/tar-split v0.11.5/go.mod h1:yZbwRsSeGjusneWgA781EKej9HF8vme8okylkAeNKLk=
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a h1:qk5MX36oytFyepYzy+RX/PJDtHyK1wfWpgZz00KQBH4=
 github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a/go.mod h1:MwPm+Hpd8PZRx+jkOVLGxqHl/bN+Hcsw0dD7ntSpLy0=
-github.com/viam-labs/motion-tools v0.19.2 h1:HYnpTnMUzOgYTz/EQCVL29G5pyB5jOPBakVGmAVIGqg=
-github.com/viam-labs/motion-tools v0.19.2/go.mod h1:RwYJi8nLvyEGuQBYHWSQ11GWXHJLTdRxTlhnuFnZVR0=
+github.com/viam-labs/motion-tools v1.9.0 h1:oUcxVMdrwVS7PXkWVYsUJOXkh0aTydmFlK/rciFcGxw=
+github.com/viam-labs/motion-tools v1.9.0/go.mod h1:unpRaVV4ETuJVoHa/3pzknoTnxqjSpfUMewE1vU27BA=
 github.com/viamrobotics/evdev v0.1.3 h1:mR4HFafvbc5Wx4Vp1AUJp6/aITfVx9AKyXWx+rWjpfc=
 github.com/viamrobotics/evdev v0.1.3/go.mod h1:N6nuZmPz7HEIpM7esNWwLxbYzqWqLSZkfI/1Sccckqk=
 github.com/viamrobotics/ice/v2 v2.3.40 h1:H9r4ztsKkxWSn42R4fLvYlaPtpBys1Yj7/MERBtZY0k=

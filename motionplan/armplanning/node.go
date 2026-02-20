@@ -157,13 +157,24 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
-	ratios, minRatio, err := sss.computeGoodCost(psc.goal)
+	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
 	}
 
 	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-	sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], ratios))
+	sss.seedLimits = append(sss.seedLimits,
+		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
+
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.seedLimits = append(sss.seedLimits,
+		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
+
+	if len(rawRatios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
+		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+		sss.seedLimits = append(sss.
+			seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, 1)))
+	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
 		sss.doingSmartSeeds = true
@@ -180,13 +191,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 			logger.Warnf("findSeeds failed, ignoring: %v", err)
 		}
 
-		logger.Infof("got %d altSeeds", len(altSeeds))
+		logger.Debugf("got %d altSeeds", len(altSeeds))
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
 			sss.seedLimits = append(sss.seedLimits, ll)
-			logger.Infof("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	} else {
 		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
@@ -201,11 +212,13 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 }
 
 func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
-	ratios, err := inputChangeRatio(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
+	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
+
+	ratios := clampSensitivities(rawRatios, .03)
 
 	minRatio := 1.0
 
@@ -228,7 +241,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
 	sss.logger.Debugf("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
-	return ratios, minRatio, nil
+	return rawRatios, minRatio, nil
 }
 
 // return bool is if we should stop because we're done.
@@ -362,7 +375,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.logger.Infof("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
 			elapsed, timeToSearch, sss.firstSolutionTime)
@@ -372,7 +385,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
-		sss.logger.Infof("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		sss.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
 		return true
 	}
 

@@ -1731,12 +1731,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				// The robot client implicitly calls MachineStatus by default when run
 				// in a test. Disable that behavior since we're going to block the
 				// first call to that method.
-				originalDoNotWaitForRunning := rclient.DoNotWaitForRunning.Load()
-				rclient.DoNotWaitForRunning.Store(true)
-				t.Cleanup(func() {
-					rclient.DoNotWaitForRunning.Store(originalDoNotWaitForRunning)
-				})
-				robotClient, err := rclient.New(context.Background(), addr, logger)
+				robotClient, err := rclient.New(context.Background(), addr, logger, rclient.WithDoNotWaitForRunning())
 				test.That(t, err, test.ShouldBeNil)
 				t.Cleanup(func() {
 					robotClient.Close(context.Background())
