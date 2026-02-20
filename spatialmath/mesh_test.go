@@ -181,13 +181,13 @@ func TestMeshTransform(t *testing.T) {
 	test.That(t, mesh.Pose().Point().X, test.ShouldEqual, 0)
 }
 
-func TestNewMeshAutoDecimates(t *testing.T) {
+func TestNewMeshDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
 	mesh := NewMesh(NewZeroPose(), triangles, "dense")
-	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 }
 
-func TestNewMeshFromPLYFileAutoDecimates(t *testing.T) {
+func TestNewMeshFromPLYFileDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
 	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
 	plyBytes := source.TrianglesToPLYBytes(false)
@@ -198,10 +198,10 @@ func TestNewMeshFromPLYFileAutoDecimates(t *testing.T) {
 
 	mesh, err := NewMeshFromPLYFile(path)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 }
 
-func TestNewMeshFromSTLFileAutoDecimates(t *testing.T) {
+func TestNewMeshFromSTLFileDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
 	stlBytes := trianglesToBinarySTL(triangles)
 
@@ -211,10 +211,10 @@ func TestNewMeshFromSTLFileAutoDecimates(t *testing.T) {
 
 	mesh, err := NewMeshFromSTLFile(path)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 }
 
-func TestNewMeshFromProtoAutoDecimates(t *testing.T) {
+func TestNewMeshFromProtoDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
 	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
 	plyBytes := source.TrianglesToPLYBytes(false)
@@ -224,20 +224,24 @@ func TestNewMeshFromProtoAutoDecimates(t *testing.T) {
 		Mesh:        plyBytes,
 	}, "dense")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 }
 
-func TestAutoDecimationAppliesToVisualizationMesh(t *testing.T) {
+func TestExplicitDecimationRoundTrip(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
 	mesh := NewMesh(NewZeroPose(), triangles, "dense")
-	test.That(t, len(mesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 
-	// Visualization should use the same decimated mesh representation.
-	proto := mesh.ToProtobuf()
+	// Explicitly decimate (as the URDF path would do).
+	decimated, err := mesh.ConservativeDecimateToDefault()
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+
+	// Visualization round-trip should preserve the decimated triangle count.
+	proto := decimated.ToProtobuf()
 	visMesh, err := NewMeshFromProto(NewZeroPose(), proto.GetMesh(), "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(visMesh.Triangles()), test.ShouldEqual, len(mesh.Triangles()))
-	test.That(t, len(visMesh.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(visMesh.Triangles()), test.ShouldEqual, len(decimated.Triangles()))
 }
 
 func TestMeshCollidesWithMesh(t *testing.T) {

@@ -303,6 +303,13 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.G
 		if err != nil {
 			return nil, err
 		}
+		// Decimate large meshes for collision performance.
+		if len(mesh.Triangles()) > spatialmath.DefaultConservativeDecimatedTriangleCount {
+			if decimated, err := mesh.ConservativeDecimateToDefault(); err == nil {
+				mesh = decimated
+			}
+			// On error, keep the original undecimated mesh (graceful fallback).
+		}
 		// Store the original mesh path for round-tripping
 		mesh.SetOriginalFilePath(meshPath)
 		return mesh, nil

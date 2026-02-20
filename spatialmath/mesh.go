@@ -76,8 +76,6 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 	mesh.fileType = plyType
 	mesh.rawBytes = plyBytes
 
-	mesh = maybeAutoConservativeDecimateMesh(mesh)
-
 	return mesh
 }
 
@@ -98,7 +96,6 @@ func NewMeshFromPLYFile(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	mesh = maybeAutoConservativeDecimateMesh(mesh)
 	mesh.SetOriginalFilePath(path)
 	return mesh, nil
 }
@@ -120,21 +117,8 @@ func NewMeshFromSTLFile(path string) (*Mesh, error) {
 	if err != nil {
 		return nil, err
 	}
-	mesh = maybeAutoConservativeDecimateMesh(mesh)
 	mesh.SetOriginalFilePath(path)
 	return mesh, nil
-}
-
-func maybeAutoConservativeDecimateMesh(m *Mesh) *Mesh {
-	if len(m.triangles) <= DefaultConservativeDecimatedTriangleCount {
-		return m
-	}
-	decimated, err := m.ConservativeDecimateToDefault()
-	if err != nil {
-		// Fallback to the original mesh if simplification fails.
-		return m
-	}
-	return decimated
 }
 
 func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err error) {
@@ -180,7 +164,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		fileType:  plyType,
 		rawBytes:  data,
 	}
-	return maybeAutoConservativeDecimateMesh(mesh), nil
+	return mesh, nil
 }
 
 func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
@@ -233,7 +217,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		fileType:  stlType,
 		rawBytes:  data,
 	}
-	return maybeAutoConservativeDecimateMesh(mesh), nil
+	return mesh, nil
 }
 
 // readSTLVertex reads a 3D vertex from STL binary data at the given offset.
@@ -263,7 +247,7 @@ func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) 
 	if err != nil {
 		return nil, err
 	}
-	return maybeAutoConservativeDecimateMesh(mesh), nil
+	return mesh, nil
 }
 
 // SetOriginalFilePath sets the original URDF file path for this mesh.

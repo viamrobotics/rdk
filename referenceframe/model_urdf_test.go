@@ -216,7 +216,8 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 
 		for _, meshFile := range expectedMeshes {
 			mesh := protoResp.MeshesByUrdfFilepath[meshFile]
-			test.That(t, mesh.ContentType, test.ShouldEqual, "stl")
+			// After decimation, mesh data is re-encoded as PLY.
+			test.That(t, mesh.ContentType, test.ShouldBeIn, []string{"stl", "ply"})
 			test.That(t, len(mesh.Mesh), test.ShouldBeGreaterThan, 1000)
 		}
 
@@ -235,6 +236,18 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 			}
 		}
 		test.That(t, len(filePaths), test.ShouldEqual, 7)
+	})
+
+	t.Run("meshes are decimated during URDF loading", func(t *testing.T) {
+		simpleModel, ok := model.(*SimpleModel)
+		test.That(t, ok, test.ShouldBeTrue)
+		geometries, err := simpleModel.Geometries(make([]Input, 6))
+		test.That(t, err, test.ShouldBeNil)
+		for _, g := range geometries.Geometries() {
+			if m, ok := g.(*spatialmath.Mesh); ok {
+				test.That(t, len(m.Triangles()), test.ShouldBeLessThanOrEqualTo, spatialmath.DefaultConservativeDecimatedTriangleCount)
+			}
+		}
 	})
 
 	t.Run("mesh file paths use package URI normalization", func(t *testing.T) {
