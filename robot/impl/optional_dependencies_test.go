@@ -987,6 +987,75 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 }
 
+func TestModularOptionalDependencyOnFullyQualifiedName(t *testing.T) {
+	// Ensures that optional dependencies specified as fully qualified resource names
+	// (e.g. "rdk:component:motor/m_optional") are correctly resolved by the robot.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+
+	// Configure the robot with foo optionally depending on "m_optional" expressed as its
+	// fully qualified resource name. The robot must resolve this FQN to the same motor
+	// that a simple short name would.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m_required",
+					"optional_motor": "rdk:component:motor/m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Assert that the foo component built successfully and that the FQN was resolved:
+	// updateWeakAndOptionalDependents reconfigures foo once after construction because
+	// it correctly identifies m_optional via the fully qualified name.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+
+	// Verify foo works and that the optional dependency is reachable.
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
 // Contains _another_ MOC that this MOC will optionally depend upon.
 type mutualOptionalChildConfig struct {
 	OtherMOC string `json:"other_moc"`
