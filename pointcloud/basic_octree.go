@@ -442,23 +442,33 @@ func (octree *BasicOctree) FinalizeAfterReading() (PointCloud, error) {
 // PointsCollidingWith returns all points in the octree that collide with any of the given geometries.
 // A point is considered colliding if it meets the confidence threshold and is within the collision buffer distance.
 func (octree *BasicOctree) PointsCollidingWith(geometries []spatialmath.Geometry, collisionBufferMM float64) []r3.Vector {
-	// Finding these points in an octree involves recursing into each child node of the tree.
-	// Rather than returning a list of points from each recursive call and concatenating copies of
-	// them together, we pass an accumulator in, which greatly reduces the number of copies of data
-	// created.
 	results := []r3.Vector{}
-	octree.accumulatePointsCollidingWith(geometries, collisionBufferMM, &results)
+	if len(geometries) == 0 {
+		return results
+	}
+	// Use bitmask approach to avoid slice allocations during recursion.
+	// Limited to 64 geometries, which is sufficient for typical use cases.
+	if len(geometries) > 64 {
+		// Fallback for large geometry counts (rare)
+		octree.accumulatePointsCollidingWithSlice(geometries, collisionBufferMM, &results)
+		return results
+	}
+	allActive := uint64(1<<len(geometries)) - 1
+	octree.accumulatePointsCollidingWith(geometries, allActive, collisionBufferMM, &results)
 	return results
 }
 
-// accumulatePointsCollidingWith is a helper function internal to PointsCollidingWith. It takes an
-// extra argument, a pointer to where results should be stored, and stores additional points to it
-// as relevant.
+// accumulatePointsCollidingWith uses a bitmask to track which geometries are still active,
+// avoiding slice allocations at each recursion level.
 func (octree *BasicOctree) accumulatePointsCollidingWith(
 	geometries []spatialmath.Geometry,
+	activeGeoms uint64,
 	collisionBufferMM float64,
 	accumulator *[]r3.Vector,
 ) {
+	if activeGeoms == 0 {
+		return
+	}
 	// Early exit if this octree region has no points above confidence threshold
 	if octree.MaxVal() < octree.confidenceThreshold {
 		return
@@ -466,42 +476,49 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 
 	switch octree.node.nodeType {
 	case internalNode:
-		// Create a bounding box for this octree region
-		ocbox, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(octree.center),
-			r3.Vector{
-				X: octree.sideLength + collisionBufferMM,
-				Y: octree.sideLength + collisionBufferMM,
-				Z: octree.sideLength + collisionBufferMM,
-			},
-			"",
-		)
-		if err != nil {
-			return
+		// Get or create cached bounding box for this octree region
+		var ocbox spatialmath.Geometry
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			var err error
+			ocbox, err = spatialmath.NewBox(
+				spatialmath.NewPoseFromPoint(octree.center),
+				r3.Vector{
+					X: octree.sideLength + collisionBufferMM,
+					Y: octree.sideLength + collisionBufferMM,
+					Z: octree.sideLength + collisionBufferMM,
+				},
+				"",
+			)
+			if err != nil {
+				return
+			}
+			octree.boxCache.Store(&ocbox)
+		} else {
+			ocbox = *boxPtr
 		}
 
-		// Check if any geometry intersects with this octree region
-		intersects := false
-		for _, geom := range geometries {
+		// Check which geometries intersect, updating bitmask (no allocation)
+		var intersectingMask uint64
+		for i, geom := range geometries {
+			if activeGeoms&(1<<i) == 0 {
+				continue // This geometry is not active
+			}
 			collides, _, err := geom.CollidesWith(ocbox, collisionBufferMM)
 			if err == nil && collides {
-				intersects = true
-				break
+				intersectingMask |= (1 << i)
 			}
 		}
 
-		// If no geometry intersects this region, skip all children
-		if !intersects {
+		if intersectingMask == 0 {
 			return
 		}
 
-		// Recursively check children and collect results
+		// Recursively check children with updated bitmask
 		for _, child := range octree.node.children {
-			child.accumulatePointsCollidingWith(geometries, collisionBufferMM, accumulator)
+			child.accumulatePointsCollidingWith(geometries, intersectingMask, collisionBufferMM, accumulator)
 		}
 
 	case leafNodeEmpty:
-		// Empty leaf has no points
 		return
 
 	case leafNodeFilled:
@@ -510,15 +527,83 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 			return
 		}
 
-		// Create a point geometry for collision checking
-		pointGeom := spatialmath.NewPoint(octree.node.point.P, "")
-
-		// Check collision with each geometry
-		for _, geom := range geometries {
-			collides, _, err := geom.CollidesWith(pointGeom, collisionBufferMM)
+		// Check collision with each active geometry
+		pt := octree.node.point.P
+		for i, geom := range geometries {
+			if activeGeoms&(1<<i) == 0 {
+				continue
+			}
+			collides, _, err := spatialmath.GeometryCollidesWithPoint(geom, pt, collisionBufferMM)
 			if err == nil && collides {
-				*accumulator = append(*accumulator, octree.node.point.P)
-				break // Point collides with at least one geometry, no need to check others
+				*accumulator = append(*accumulator, pt)
+				break
+			}
+		}
+	}
+}
+
+// accumulatePointsCollidingWithSlice is a fallback for when there are more than 64 geometries.
+func (octree *BasicOctree) accumulatePointsCollidingWithSlice(
+	geometries []spatialmath.Geometry,
+	collisionBufferMM float64,
+	accumulator *[]r3.Vector,
+) {
+	if octree.MaxVal() < octree.confidenceThreshold {
+		return
+	}
+
+	switch octree.node.nodeType {
+	case internalNode:
+		var ocbox spatialmath.Geometry
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			var err error
+			ocbox, err = spatialmath.NewBox(
+				spatialmath.NewPoseFromPoint(octree.center),
+				r3.Vector{
+					X: octree.sideLength + collisionBufferMM,
+					Y: octree.sideLength + collisionBufferMM,
+					Z: octree.sideLength + collisionBufferMM,
+				},
+				"",
+			)
+			if err != nil {
+				return
+			}
+			octree.boxCache.Store(&ocbox)
+		} else {
+			ocbox = *boxPtr
+		}
+
+		intersectingGeoms := make([]spatialmath.Geometry, 0, len(geometries))
+		for _, geom := range geometries {
+			collides, _, err := geom.CollidesWith(ocbox, collisionBufferMM)
+			if err == nil && collides {
+				intersectingGeoms = append(intersectingGeoms, geom)
+			}
+		}
+
+		if len(intersectingGeoms) == 0 {
+			return
+		}
+
+		for _, child := range octree.node.children {
+			child.accumulatePointsCollidingWithSlice(intersectingGeoms, collisionBufferMM, accumulator)
+		}
+
+	case leafNodeEmpty:
+		return
+
+	case leafNodeFilled:
+		if octree.node.point.D.HasValue() && octree.node.point.D.Value() < octree.confidenceThreshold {
+			return
+		}
+
+		pt := octree.node.point.P
+		for _, geom := range geometries {
+			collides, _, err := spatialmath.GeometryCollidesWithPoint(geom, pt, collisionBufferMM)
+			if err == nil && collides {
+				*accumulator = append(*accumulator, pt)
+				break
 			}
 		}
 	}

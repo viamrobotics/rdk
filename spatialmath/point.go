@@ -177,3 +177,34 @@ func hashString(s string) int {
 func (pt *point) ToPoints(resolution float64) []r3.Vector {
 	return []r3.Vector{pt.position}
 }
+
+func GeometryCollidesWithPoint(g Geometry, pt r3.Vector, collisionBufferMM float64) (bool, float64, error) {
+	switch other := g.(type) {
+	case *box:
+		col, d := pointVsBoxCollision(pt, other, collisionBufferMM)
+		return col, d, nil
+	case *sphere:
+		dist := sphereVsPointDistance(other, pt)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
+	case *capsule:
+		dist := capsuleVsPointDistance(other, pt)
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
+	case *point:
+		dist := pt.Sub(other.position).Norm()
+		if dist <= collisionBufferMM {
+			return true, -1, nil
+		}
+		return false, dist, nil
+	case *Mesh:
+		// Fallback to creating a point for mesh collision
+		return other.CollidesWith(NewPoint(pt, ""), collisionBufferMM)
+	default:
+		return true, collisionBufferMM, newCollisionTypeUnsupportedError(NewPoint(pt, ""), g)
+	}
+}
