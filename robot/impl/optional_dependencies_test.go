@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"slices"
 	"testing"
 	"time"
@@ -2044,6 +2045,179 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 	test.That(t, reconfigLogsAfterModuleChange, test.ShouldEqual, 2)
 
 	// Verify both motors are still accessible through the foo component after reconfiguration.
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
+func TestModularOptionalDependencyModuleCrash(t *testing.T) {
+	// This test verifies behavior when an unrelated resource depends on a module that crashes.
+	// The crash is simulated by moving the module binary (to block restarts) and then calling
+	// DoCommand("kill_module") to trigger os.Exit(1) in the module process.
+	//
+	// During crash-and-retry: resources remain in retry state, so the logical clock does NOT
+	// increment and foo does NOT reconfigure.
+	// After recovery (binary restored): the clock increments when the module restarts and
+	// h_unrelated is re-added, triggering exactly one reconfiguration of foo.
+
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	fooModel := resource.NewModel("acme", "demo", "foo")
+	fooName := generic.Named("f")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	// Configure the robot with:
+	// - A "foo" component from optional-deps module with optional dependencies on motors
+	// - An unrelated "h_unrelated" helper component from the test module
+	// The helper has no dependency relationship with foo, making it truly unrelated.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+			{
+				Name:    "test",
+				ExePath: testModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  fooName.Name,
+				API:   generic.API,
+				Model: fooModel,
+				Attributes: rutils.AttributeMap{
+					"required_motor": "m_required",
+					"optional_motor": "m_optional",
+				},
+			},
+			{
+				Name:                "m_required",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "m_optional",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:                "h_unrelated",
+				API:                 generic.API,
+				Model:               helperModel,
+				ConvertedAttributes: &resource.NoNativeConfig{},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg)
+
+	// Assert that the foo component built successfully.
+	fooRes, err := lr.ResourceByName(fooName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that the helper component built successfully.
+	helperRes, err := lr.ResourceByName(generic.Named("h_unrelated"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, helperRes, test.ShouldNotBeNil)
+
+	// Verify both motors are accessible through the foo component.
+	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+
+	// Record the initial clock value before the crash.
+	initialClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+
+	// Clear logs; count only events from this point forward.
+	logs.TakeAll()
+
+	// Move the test module binary to prevent it from restarting after the crash.
+	movedBinaryPath := testModulePath + ".moved"
+	err = os.Rename(testModulePath, movedBinaryPath)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		// Restore the binary at the end for cleanup.
+		_ = os.Rename(movedBinaryPath, testModulePath)
+	}()
+
+	// Trigger a crash; the test module calls os.Exit(1) on this command.
+	_, _ = helperRes.DoCommand(ctx, map[string]any{"command": "kill_module"})
+
+	// Wait for the module manager to detect the crash and fail to restart (binary is missing).
+	gotestutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
+		tb.Helper()
+		errorLogs := logs.FilterMessageSnippet("Error while restarting crashed module").Len()
+		test.That(tb, errorLogs, test.ShouldBeGreaterThanOrEqualTo, 1)
+	})
+
+	// The helper stays in the resource graph during retry, but is unusable.
+	helperRes, err = lr.ResourceByName(generic.Named("h_unrelated"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, helperRes, test.ShouldNotBeNil)
+	_, err = helperRes.DoCommand(ctx, map[string]any{"command": "echo"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Verify both motors are still accessible through the foo component.
+	// The foo component should continue working normally despite the unrelated module crash.
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
+
+	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+
+	// Resources in retry state do not increment the clock, so foo does not reconfigure.
+	finalClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+	test.That(t, finalClockValue, test.ShouldEqual, initialClockValue)
+
+	newReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
+	test.That(t, newReconfigCount, test.ShouldEqual, 0)
+
+	// --- Recovery phase ---
+
+	// Clear logs to count only recovery-phase events.
+	logs.TakeAll()
+
+	// Restore the binary so the module can restart successfully.
+	err = os.Rename(movedBinaryPath, testModulePath)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Drive restarts until the clock advances, indicating the module restarted
+	// and h_unrelated was successfully re-added to the graph.
+	gotestutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
+		tb.Helper()
+		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
+		currentClock := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+		test.That(tb, currentClock, test.ShouldBeGreaterThan, initialClockValue)
+	})
+
+	recoveredClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
+	test.That(t, recoveredClockValue, test.ShouldBeGreaterThan, initialClockValue)
+
+	// The clock increment triggers one reconfiguration of foo.
+	recoveryReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
+	test.That(t, recoveryReconfigCount, test.ShouldEqual, 1)
+
+	// Both motors remain accessible through foo after the full crash-recovery cycle.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
