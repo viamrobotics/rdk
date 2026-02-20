@@ -196,6 +196,50 @@ func (m *SimpleModel) OrdTransforms() []Frame {
 	return m.ordTransforms
 }
 
+// MoveableFrameNames returns the names of frames with non-zero DoF, in order.
+func (m *SimpleModel) MoveableFrameNames() []string {
+	var names []string
+	for _, f := range m.ordTransforms {
+		if len(f.DoF()) > 0 {
+			names = append(names, f.Name())
+		}
+	}
+	return names
+}
+
+// NewModelWithLimitOverrides constructs a new model identical to base but with the specified
+// joint limits overridden. Overrides are keyed by frame name. Each override replaces the
+// first DoF limit of the matching frame.
+func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
+	clonedFrames := make([]Frame, len(base.ordTransforms))
+	for i, f := range base.ordTransforms {
+		cloned, err := Clone(f)
+		if err != nil {
+			return nil, fmt.Errorf("cloning frame %q: %w", f.Name(), err)
+		}
+		clonedFrames[i] = cloned
+	}
+
+	for name, limit := range overrides {
+		found := false
+		for _, f := range clonedFrames {
+			if f.Name() == name && len(f.DoF()) > 0 {
+				f.DoF()[0] = limit
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, fmt.Errorf("frame %q not found or has no DoF", name)
+		}
+	}
+
+	newModel := NewSimpleModel(base.name)
+	newModel.SetOrdTransforms(clonedFrames)
+	newModel.modelConfig = base.modelConfig
+	return newModel, nil
+}
+
 // InputFromProtobuf converts pb.JointPosition to inputs.
 func (m *SimpleModel) InputFromProtobuf(jp *pb.JointPositions) []Input {
 	inputs := make([]Input, 0, len(jp.Values))

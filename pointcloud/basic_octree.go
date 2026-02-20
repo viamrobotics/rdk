@@ -535,6 +535,130 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 	}
 }
 
+// PointsCollidingWithCounts returns a map of points to the number of geometry groups they collide with.
+// Each inner slice represents a "group" (e.g., a plan step). A point is counted once per group,
+// even if it collides with multiple geometries within that group.
+// This allows a single octree traversal instead of one traversal per group.
+func (octree *BasicOctree) PointsCollidingWithCounts(
+	geometryGroups [][]spatialmath.Geometry,
+	collisionBufferMM float64,
+) map[r3.Vector]int {
+	results := make(map[r3.Vector]int)
+	if len(geometryGroups) == 0 {
+		return results
+	}
+
+	// Start with all groups active
+	activeGroups := make([]bool, len(geometryGroups))
+	for i := range activeGroups {
+		activeGroups[i] = true
+	}
+
+	octree.accumulatePointsCollidingWithCounts(geometryGroups, activeGroups, collisionBufferMM, results)
+	return results
+}
+
+// accumulatePointsCollidingWithCounts traverses the octree once and counts group collisions per point.
+// activeGroups tracks which geometry groups are still potentially relevant for this subtree.
+func (octree *BasicOctree) accumulatePointsCollidingWithCounts(
+	geometryGroups [][]spatialmath.Geometry,
+	activeGroups []bool,
+	collisionBufferMM float64,
+	accumulator map[r3.Vector]int,
+) {
+	// Early exit if this octree region has no points above confidence threshold
+	if octree.MaxVal() < octree.confidenceThreshold {
+		return
+	}
+
+	switch octree.node.nodeType {
+	case internalNode:
+		// Get or create cached bounding box for this octree region
+		var ocbox spatialmath.Geometry
+		var err error
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			ocbox, err = spatialmath.NewBox(
+				spatialmath.NewPoseFromPoint(octree.center),
+				r3.Vector{
+					X: octree.sideLength + collisionBufferMM,
+					Y: octree.sideLength + collisionBufferMM,
+					Z: octree.sideLength + collisionBufferMM,
+				},
+				"",
+			)
+			if err != nil {
+				return
+			}
+			octree.boxCache.Store(&ocbox)
+		} else {
+			ocbox = *boxPtr
+		}
+
+		// Check which groups have geometries intersecting this region
+		// Filter to only groups that are both active AND intersecting
+		newActiveGroups := make([]bool, len(geometryGroups))
+		anyActive := false
+		for i, group := range geometryGroups {
+			if !activeGroups[i] {
+				continue // Group already filtered out
+			}
+			// Check if any geometry in this group intersects
+			for _, geom := range group {
+				collides, _, err := geom.CollidesWith(ocbox, collisionBufferMM)
+				if err == nil && collides {
+					newActiveGroups[i] = true
+					anyActive = true
+					break
+				}
+			}
+		}
+
+		// If no groups intersect this region, skip all children
+		if !anyActive {
+			return
+		}
+
+		// Recursively check children with filtered groups
+		for _, child := range octree.node.children {
+			child.accumulatePointsCollidingWithCounts(geometryGroups, newActiveGroups, collisionBufferMM, accumulator)
+		}
+
+	case leafNodeEmpty:
+		return
+
+	case leafNodeFilled:
+		// Check confidence threshold
+		if octree.node.point.D.HasValue() && octree.node.point.D.Value() < octree.confidenceThreshold {
+			return
+		}
+
+		// Cache point geometry
+		if octree.node.pointGeo == nil {
+			octree.node.pointGeo = spatialmath.NewPoint(octree.node.point.P, "")
+		}
+
+		// Count how many active groups this point collides with
+		count := 0
+		for i, group := range geometryGroups {
+			if !activeGroups[i] {
+				continue // Skip groups that were filtered out
+			}
+			// Check if point collides with ANY geometry in this group
+			for _, geom := range group {
+				collides, _, err := geom.CollidesWith(octree.node.pointGeo, collisionBufferMM)
+				if err == nil && collides {
+					count++
+					break // Point collides with this group, move to next group
+				}
+			}
+		}
+
+		if count > 0 {
+			accumulator[octree.node.point.P] = count
+		}
+	}
+}
+
 // PointsWithinRadius returns all points in the octree that are within the specified radius of the given location.
 func (octree *BasicOctree) PointsWithinRadius(center r3.Vector, radius float64) ([]r3.Vector, error) {
 	// Create a sphere geometry at the center with the given radius
