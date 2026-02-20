@@ -387,14 +387,7 @@ func (w *GraphNode) markReachability(reachable bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	// Only update if reachability actually changed.
-	if w.unreachable == reachable {
-		w.unreachable = !reachable
-		// Increment the logical clock when resource reachability changes.
-		if w.graphLogicalClock != nil {
-			w.updatedAt = w.graphLogicalClock.Add(1)
-		}
-	}
+	w.unreachable = !reachable
 }
 
 // IsReachable indicates if a resource on a remote machine is connected.
