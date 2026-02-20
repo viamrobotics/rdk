@@ -487,6 +487,29 @@ func TestSandingWallCollision(t *testing.T) {
 	})
 }
 
+func TestTeleOpTwoMove(t *testing.T) {
+	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for i := 0; i < 5; i++ {
+		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			logger := newChattyMotionPlanTestLogger(t)
+
+			req.PlannerOptions.RandomSeed = i
+			plan, _, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+
+			a := plan.Trajectory()[0]["right-arm"]
+			b := plan.Trajectory()[1]["right-arm"]
+
+			test.That(t, len(a), test.ShouldEqual, 6)
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .01)
+		})
+	}
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()

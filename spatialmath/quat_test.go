@@ -226,6 +226,122 @@ func TestOVNormalize(t *testing.T) {
 	test.That(t, ov1.OZ, test.ShouldEqual, 0)
 }
 
+func TestTransformPoint(t *testing.T) {
+	sqrt2over2 := math.Sqrt(2) / 2.0
+
+	tests := []struct {
+		name        string
+		q           quat.Number
+		translation r3.Vector
+		pt          r3.Vector
+		expected    r3.Vector
+	}{
+		{
+			"identity rotation, zero translation",
+			quat.Number{1, 0, 0, 0},
+			r3.Vector{},
+			r3.Vector{X: 1, Y: 2, Z: 3},
+			r3.Vector{X: 1, Y: 2, Z: 3},
+		},
+		{
+			"identity rotation, with translation",
+			quat.Number{1, 0, 0, 0},
+			r3.Vector{X: 10, Y: 20, Z: 30},
+			r3.Vector{X: 1, Y: 2, Z: 3},
+			r3.Vector{X: 11, Y: 22, Z: 33},
+		},
+		{
+			"90 deg around Z, no translation",
+			quat.Number{sqrt2over2, 0, 0, sqrt2over2},
+			r3.Vector{},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		},
+		{
+			"90 deg around X, no translation",
+			quat.Number{sqrt2over2, sqrt2over2, 0, 0},
+			r3.Vector{},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+		},
+		{
+			"90 deg around Y, no translation",
+			quat.Number{sqrt2over2, 0, sqrt2over2, 0},
+			r3.Vector{},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+		},
+		{
+			"180 deg around Z, no translation",
+			quat.Number{0, 0, 0, 1},
+			r3.Vector{},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: -1, Y: 0, Z: 0},
+		},
+		{
+			"90 deg around Z with translation",
+			quat.Number{sqrt2over2, 0, 0, sqrt2over2},
+			r3.Vector{X: 5, Y: 10, Z: 15},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 5, Y: 11, Z: 15},
+		},
+		{
+			"origin point, rotation only",
+			quat.Number{sqrt2over2, sqrt2over2, 0, 0},
+			r3.Vector{},
+			r3.Vector{},
+			r3.Vector{},
+		},
+		{
+			"origin point, translation only",
+			quat.Number{1, 0, 0, 0},
+			r3.Vector{X: 7, Y: 8, Z: 9},
+			r3.Vector{},
+			r3.Vector{X: 7, Y: 8, Z: 9},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := TransformPoint(tc.q, tc.translation, tc.pt)
+			test.That(t, result.X, test.ShouldAlmostEqual, tc.expected.X, 1e-10)
+			test.That(t, result.Y, test.ShouldAlmostEqual, tc.expected.Y, 1e-10)
+			test.That(t, result.Z, test.ShouldAlmostEqual, tc.expected.Z, 1e-10)
+		})
+	}
+}
+
+// TestTransformPointMatchesPose verifies TransformPoint produces the same result
+// as composing a pose with a point pose via the dual quaternion path.
+func TestTransformPointMatchesPose(t *testing.T) {
+	poses := []Pose{
+		NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &OrientationVector{Theta: 0.5, OX: 0, OY: 0, OZ: 1}),
+		NewPose(r3.Vector{X: -5, Y: 10, Z: 0}, &OrientationVector{Theta: math.Pi / 3, OX: 1, OY: 0, OZ: 0}),
+		NewPose(r3.Vector{X: 0, Y: 0, Z: 0}, &OrientationVector{Theta: math.Pi, OX: 0, OY: 1, OZ: 0}),
+	}
+	points := []r3.Vector{
+		{X: 1, Y: 0, Z: 0},
+		{X: 0, Y: 5, Z: -3},
+		{X: 10, Y: 10, Z: 10},
+	}
+
+	for _, pose := range poses {
+		for _, pt := range points {
+			// Compose approach: treat point as a translation-only pose
+			composed := Compose(pose, NewPoseFromPoint(pt))
+			expected := composed.Point()
+
+			// TransformPoint approach
+			dq := pose.(*DualQuaternion)
+			result := TransformPoint(dq.Real, pose.Point(), pt)
+
+			test.That(t, result.X, test.ShouldAlmostEqual, expected.X, 1e-10)
+			test.That(t, result.Y, test.ShouldAlmostEqual, expected.Y, 1e-10)
+			test.That(t, result.Z, test.ShouldAlmostEqual, expected.Z, 1e-10)
+		}
+	}
+}
+
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
 	t.Helper()
 	q1 := ov1.Quaternion()

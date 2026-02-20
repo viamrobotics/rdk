@@ -164,14 +164,18 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 
 func smoothPath(
 	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
-) []*referenceframe.LinearInputs {
+) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
+	var err error
 	steps = smoothPathSimple(ctx, psc, steps)
 	if !psc.pc.request.myTestOptions.doNotCloseObstacles {
-		steps = addCloseObstacleWaypoints(ctx, psc, steps)
+		steps, err = addCloseObstacleWaypoints(ctx, psc, steps)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return steps
+	return steps, nil
 }
 
 // addCloseObstacleWaypoints interpolates between waypoints and adds new waypoints
@@ -179,19 +183,22 @@ func smoothPath(
 // This prevents the smoothed path from getting too close to obstacles during interpolation.
 func addCloseObstacleWaypoints(
 	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
-) []*referenceframe.LinearInputs {
+) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "addCloseObstacleWaypoints")
 	defer span.End()
 
 	if len(steps) < 2 {
-		return steps
+		return steps, nil
 	}
 
 	result := []*referenceframe.LinearInputs{steps[0]}
 
 	for i := 1; i < len(steps); i++ {
 		// Get waypoints that are close to obstacles in this segment
-		closeWaypoints := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
+		closeWaypoints, err := findCloseObstacleWaypoints(ctx, psc, steps[i-1], steps[i])
+		if err != nil {
+			return nil, err
+		}
 
 		// Add close waypoints before the current step
 		result = append(result, closeWaypoints...)
@@ -203,7 +210,7 @@ func addCloseObstacleWaypoints(
 			len(result)-len(steps), len(steps), len(result))
 	}
 
-	return result
+	return result, nil
 }
 
 // findCloseObstacleWaypoints interpolates between start and end configurations
@@ -215,7 +222,7 @@ func findCloseObstacleWaypoints(
 	ctx context.Context,
 	psc *planSegmentContext,
 	start, end *referenceframe.LinearInputs,
-) []*referenceframe.LinearInputs {
+) ([]*referenceframe.LinearInputs, error) {
 	segment := &motionplan.SegmentFS{
 		StartConfiguration: start,
 		EndConfiguration:   end,
@@ -224,23 +231,15 @@ func findCloseObstacleWaypoints(
 
 	interpolated, err := motionplan.InterpolateSegmentFS(segment, psc.pc.planOpts.Resolution)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
 	if len(interpolated) < 3 {
-		return nil
+		return nil, nil
 	}
 
-	// Compute distances for all interpolated points (skip first and last)
-	type pointDistance struct {
-		idx      int
-		config   *referenceframe.LinearInputs
-		distance float64
-		hasError bool
-	}
+	var closeWaypoints []*referenceframe.LinearInputs
 
-	distances := make([]pointDistance, 0, len(interpolated)-2)
-	minDistance := math.Inf(1)
 	for i := 1; i < len(interpolated)-1; i++ {
 		state := &motionplan.StateFS{
 			FS:            psc.pc.fs,
@@ -248,26 +247,14 @@ func findCloseObstacleWaypoints(
 		}
 
 		closestObstacle, err := psc.checker.CheckStateFSConstraints(ctx, state)
-		pd := pointDistance{
-			idx:      i,
-			config:   interpolated[i],
-			distance: closestObstacle,
-			hasError: err != nil,
+		if err != nil {
+			return nil, err
 		}
-		if closestObstacle < minDistance {
-			minDistance = closestObstacle
-		}
-		distances = append(distances, pd)
-	}
 
-	// Find contiguous zones within threshold and select the minimum point in each
-	var closeWaypoints []*referenceframe.LinearInputs
-
-	for i, pd := range distances {
-		if pd.hasError || pd.distance < minDistance*2 {
-			closeWaypoints = append(closeWaypoints, distances[i].config)
+		if closestObstacle < max(.1, 10*psc.pc.planOpts.CollisionBufferMM) {
+			closeWaypoints = append(closeWaypoints, interpolated[i])
 		}
 	}
 
-	return closeWaypoints
+	return closeWaypoints, nil
 }

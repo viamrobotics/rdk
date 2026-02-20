@@ -7,39 +7,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 )
 
-const (
-	// Model names
-	modelUR5E  = "ur5e"
-	modelUR20  = "ur20"
-	modelXArm6 = "xarm6"
-	modelLite6 = "lite6"
-	modelSO101 = "so101"
-
-	// Part names - UR5E and UR20
-	partNameBaseLink     = "base_link"
-	partNameEELink       = "ee_link"
-	partNameShoulderLink = "shoulder_link"
-	partNameForearmLink  = "forearm_link"
-	partNameUpperArmLink = "upper_arm_link"
-	partNameWrist1Link   = "wrist_1_link"
-	partNameWrist2Link   = "wrist_2_link"
-	partNameWrist3Link   = "wrist_3_link"
-
-	// Part names - XArm6 and Lite6
-	partNameBase         = "base"
-	partNameBaseTop      = "base_top"
-	partNameUpperArm     = "upper_arm"
-	partNameUpperForearm = "upper_forearm"
-	partNameLowerForearm = "lower_forearm"
-	partNameWristLink    = "wrist_link"
-	partNameGripperMount = "gripper_mount"
-
-	// Part names - SO101
-	partNameShoulder = "shoulder"
-	partNameLowerArm = "lower_arm"
-	partNameWrist    = "wrist"
-)
-
 //go:embed ur5e/base_link.glb
 var ur5eBaseLinkGLB []byte
 
@@ -124,249 +91,198 @@ var lite6WristLinkGLB []byte
 //go:embed lite6/gripper_mount.glb
 var lite6GripperMountGLB []byte
 
-//go:embed so101/base.glb
-var so101BaseGLB []byte
-
-//go:embed so101/shoulder.glb
-var so101ShoulderGLB []byte
-
-//go:embed so101/upper_arm.glb
-var so101UpperArmGLB []byte
-
-//go:embed so101/lower_arm.glb
-var so101LowerArmGLB []byte
-
-//go:embed so101/wrist.glb
-var so101WristGLB []byte
-
 // ArmTo3DModelParts maps arm model names to their list of 3D model part names.
 var ArmTo3DModelParts = map[string][]string{
-	modelUR5E: {
-		partNameEELink,
-		partNameForearmLink,
-		partNameUpperArmLink,
-		partNameWrist1Link,
-		partNameWrist2Link,
-		partNameBaseLink,
-		partNameShoulderLink,
+	"ur5e": {
+		"ee_link",
+		"forearm_link",
+		"upper_arm_link",
+		"wrist_1_link",
+		"wrist_2_link",
+		"base_link",
+		"shoulder_link",
 	},
-	modelUR20: {
-		partNameBaseLink,
-		partNameShoulderLink,
-		partNameUpperArmLink,
-		partNameForearmLink,
-		partNameWrist1Link,
-		partNameWrist2Link,
-		partNameWrist3Link,
+	"ur20": {
+		"base_link",
+		"shoulder_link",
+		"upper_arm_link",
+		"forearm_link",
+		"wrist_1_link",
+		"wrist_2_link",
+		"wrist_3_link",
 	},
-	modelXArm6: {
-		partNameBase,
-		partNameBaseTop,
-		partNameUpperArm,
-		partNameUpperForearm,
-		partNameLowerForearm,
-		partNameWristLink,
-		partNameGripperMount,
+	"xarm6": {
+		"base",
+		"base_top",
+		"upper_arm",
+		"upper_forearm",
+		"lower_forearm",
+		"wrist_link",
+		"gripper_mount",
 	},
-	modelLite6: {
-		partNameBase,
-		partNameBaseTop,
-		partNameUpperArm,
-		partNameUpperForearm,
-		partNameLowerForearm,
-		partNameWristLink,
-		partNameGripperMount,
-	},
-	modelSO101: {
-		partNameBase,
-		partNameShoulder,
-		partNameUpperArm,
-		partNameLowerArm,
-		partNameWrist,
+	"lite6": {
+		"base",
+		"base_top",
+		"upper_arm",
+		"upper_forearm",
+		"lower_forearm",
+		"wrist_link",
+		"gripper_mount",
 	},
 }
 
 // ThreeDMeshFromName returns the 3D mesh for a given arm model and part name.
 func ThreeDMeshFromName(model, name string) commonpb.Mesh {
 	switch model {
-	case modelUR5E:
+	case "ur5e":
 		switch name {
-		case partNameBaseLink:
+		case "base_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eBaseLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameEELink:
+		case "ee_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eEELinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameShoulderLink:
+		case "shoulder_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eShoulderLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameForearmLink:
+		case "forearm_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eForearmLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperArmLink:
+		case "upper_arm_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eUpperArmLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWrist1Link:
+		case "wrist_1_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eWrist1LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWrist2Link:
+		case "wrist_2_link":
 			return commonpb.Mesh{
 				Mesh:        ur5eWrist2LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}
-	case modelUR20:
+	case "ur20":
 		switch name {
-		case partNameBaseLink:
+		case "base_link":
 			return commonpb.Mesh{
 				Mesh:        ur20BaseLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameShoulderLink:
+		case "shoulder_link":
 			return commonpb.Mesh{
 				Mesh:        ur20ShoulderLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperArmLink:
+		case "upper_arm_link":
 			return commonpb.Mesh{
 				Mesh:        ur20UpperArmLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameForearmLink:
+		case "forearm_link":
 			return commonpb.Mesh{
 				Mesh:        ur20ForearmLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWrist1Link:
+		case "wrist_1_link":
 			return commonpb.Mesh{
 				Mesh:        ur20Wrist1LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWrist2Link:
+		case "wrist_2_link":
 			return commonpb.Mesh{
 				Mesh:        ur20Wrist2LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWrist3Link:
+		case "wrist_3_link":
 			return commonpb.Mesh{
 				Mesh:        ur20Wrist3LinkGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}
-	case modelXArm6:
+	case "xarm6":
 		switch name {
-		case partNameBase:
+		case "base":
 			return commonpb.Mesh{
 				Mesh:        xarm6BaseGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameBaseTop:
+		case "base_top":
 			return commonpb.Mesh{
 				Mesh:        xarm6BaseTopGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperArm:
+		case "upper_arm":
 			return commonpb.Mesh{
 				Mesh:        xarm6UpperArmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperForearm:
+		case "upper_forearm":
 			return commonpb.Mesh{
 				Mesh:        xarm6UpperForearmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameLowerForearm:
+		case "lower_forearm":
 			return commonpb.Mesh{
 				Mesh:        xarm6LowerForearmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWristLink:
+		case "wrist_link":
 			return commonpb.Mesh{
 				Mesh:        xarm6WristLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameGripperMount:
+		case "gripper_mount":
 			return commonpb.Mesh{
 				Mesh:        xarm6GripperMountGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}
-	case modelLite6:
+	case "lite6":
 		switch name {
-		case partNameBase:
+		case "base":
 			return commonpb.Mesh{
 				Mesh:        lite6BaseGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameBaseTop:
+		case "base_top":
 			return commonpb.Mesh{
 				Mesh:        lite6BaseTopGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperArm:
+		case "upper_arm":
 			return commonpb.Mesh{
 				Mesh:        lite6UpperArmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameUpperForearm:
+		case "upper_forearm":
 			return commonpb.Mesh{
 				Mesh:        lite6UpperForearmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameLowerForearm:
+		case "lower_forearm":
 			return commonpb.Mesh{
 				Mesh:        lite6LowerForearmGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameWristLink:
+		case "wrist_link":
 			return commonpb.Mesh{
 				Mesh:        lite6WristLinkGLB,
 				ContentType: "model/gltf-binary",
 			}
-		case partNameGripperMount:
+		case "gripper_mount":
 			return commonpb.Mesh{
 				Mesh:        lite6GripperMountGLB,
-				ContentType: "model/gltf-binary",
-			}
-		}
-	case modelSO101:
-		switch name {
-		case partNameBase:
-			return commonpb.Mesh{
-				Mesh:        so101BaseGLB,
-				ContentType: "model/gltf-binary",
-			}
-
-		case partNameShoulder:
-			return commonpb.Mesh{
-				Mesh:        so101ShoulderGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case partNameUpperArm:
-			return commonpb.Mesh{
-				Mesh:        so101UpperArmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case partNameLowerArm:
-			return commonpb.Mesh{
-				Mesh:        so101LowerArmGLB,
-				ContentType: "model/gltf-binary",
-			}
-		case partNameWrist:
-			return commonpb.Mesh{
-				Mesh:        so101WristGLB,
 				ContentType: "model/gltf-binary",
 			}
 		}

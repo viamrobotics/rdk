@@ -38,17 +38,22 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
+func NewRobotClient(
+	tb testing.TB, logger logging.Logger, addr string, dur time.Duration, opts ...client.RobotClientOption,
+) *client.RobotClient {
 	tb.Helper()
 	// start robot client
 	ctx := context.Background()
+	defaultOpts := []client.RobotClientOption{
+		client.WithRefreshEvery(dur),
+		client.WithCheckConnectedEvery(5 * dur),
+		client.WithReconnectEvery(dur),
+	}
 	robotClient, err := client.New(
 		ctx,
 		addr,
 		logger,
-		client.WithRefreshEvery(dur),
-		client.WithCheckConnectedEvery(5*dur),
-		client.WithReconnectEvery(dur),
+		append(defaultOpts, opts...)...,
 	)
 	test.That(tb, err, test.ShouldBeNil)
 	tb.Cleanup(func() {

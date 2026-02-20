@@ -711,7 +711,7 @@ func TestWritePlanRequest(t *testing.T) {
 	// This time though, that entry is a directory with the "trace ID" name.
 	traceIDDirEntry := planDirEntries[0]
 	test.That(t, traceIDDirEntry.IsDir(), test.ShouldBeTrue)
-	test.That(t, traceIDDirEntry.Name(), test.ShouldEqual, "1234-abc-56-no-78")
+	test.That(t, traceIDDirEntry.Name(), test.ShouldEqual, "tag=1234-abc-56-no-78")
 
 	// The directory constructed under the trace ID path also has one entry.
 	traceIDDir := filepath.Join(planDir, traceIDDirEntry.Name())

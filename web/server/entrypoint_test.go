@@ -310,14 +310,7 @@ func TestMachineState(t *testing.T) {
 		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
 	}()
 
-	// Set `DoNotWaitForRunning` to true to allow connecting to a still-initializing
-	// machine.
-	client.DoNotWaitForRunning.Store(true)
-	defer func() {
-		client.DoNotWaitForRunning.Store(false)
-	}()
-
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second, client.WithDoNotWaitForRunning())
 
 	// Assert that, from client's perspective, robot is in an initializing state until
 	// `slowpoke` completes construction.

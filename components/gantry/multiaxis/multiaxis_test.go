@@ -17,8 +17,8 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
-	fakesingleaxis := inject.NewGantry("fake")
+func createFakeOneaAxis(name string, length float64, positions []float64) *inject.Gantry {
+	fakesingleaxis := inject.NewGantry(name)
 	fakesingleaxis.PositionFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return positions, nil
 	}
@@ -38,7 +38,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		return nil
 	}
 	fakesingleaxis.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return referenceframe.NewSimpleModel(""), nil
+		return referenceframe.NewSimpleModel(name), nil
 	}
 	return fakesingleaxis
 }
@@ -49,21 +49,21 @@ func createFakeDeps() resource.Dependencies {
 		return []float64{1}, nil
 	}
 	fakeGantry1.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return referenceframe.NewSimpleModel(""), nil
+		return referenceframe.NewSimpleModel("1"), nil
 	}
 	fakeGantry2 := inject.NewGantry("2")
 	fakeGantry2.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
 	fakeGantry2.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return referenceframe.NewSimpleModel(""), nil
+		return referenceframe.NewSimpleModel("2"), nil
 	}
 	fakeGantry3 := inject.NewGantry("3")
 	fakeGantry3.LengthsFunc = func(ctx context.Context, extra map[string]interface{}) ([]float64, error) {
 		return []float64{1}, nil
 	}
 	fakeGantry3.KinematicsFunc = func(ctx context.Context) (referenceframe.Model, error) {
-		return referenceframe.NewSimpleModel(""), nil
+		return referenceframe.NewSimpleModel("3"), nil
 	}
 	fakeMotor := &fm.Motor{
 		Named: motor.Named("fm1").AsNamed(),
@@ -78,14 +78,14 @@ func createFakeDeps() resource.Dependencies {
 }
 
 var threeAxes = []gantry.Gantry{
-	createFakeOneaAxis(1, []float64{1}),
-	createFakeOneaAxis(2, []float64{5}),
-	createFakeOneaAxis(3, []float64{9}),
+	createFakeOneaAxis("axis1", 1, []float64{1}),
+	createFakeOneaAxis("axis2", 2, []float64{5}),
+	createFakeOneaAxis("axis3", 3, []float64{9}),
 }
 
 var twoAxes = []gantry.Gantry{
-	createFakeOneaAxis(5, []float64{1}),
-	createFakeOneaAxis(6, []float64{5}),
+	createFakeOneaAxis("axis5", 5, []float64{1}),
+	createFakeOneaAxis("axis6", 6, []float64{5}),
 }
 
 func TestValidate(t *testing.T) {
