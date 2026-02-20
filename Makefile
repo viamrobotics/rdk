@@ -100,12 +100,6 @@ $(BIN_OUTPUT_PATH)/viam-server-static: $(GO_FILES) Makefile go.mod go.sum
 .PHONY: server-static
 server-static: $(BIN_OUTPUT_PATH)/viam-server-static
 
-$(BIN_OUTPUT_PATH)/viam-server-cpp-linked: $(GO_FILES) Makefile go.mod go.sum
-	CGO_LDFLAGS="-lc++" go build $(GCFLAGS) $(LDFLAGS) -o $@ ./web/cmd/server
-
-.PHONY: server-cpp-linked
-server-cpp-linked: $(BIN_OUTPUT_PATH)/viam-server-cpp-linked
-
 bin/static/viam-server-$(GOARCH): $(GO_FILES) Makefile go.mod go.sum
 	mkdir -p $(dir $@)
 	go build -tags no_cgo,osusergo,netgo $(GCFLAGS) -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o $@ ./web/cmd/server
