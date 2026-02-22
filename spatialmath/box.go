@@ -304,6 +304,7 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
 func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
+	//~ return boxVsBoxGJKCollision(a, b, collisionBufferMM)
 	centerDist := b.centerPt.Sub(a.centerPt)
 
 	// check if there is a distance between bounding spheres to potentially exit early
@@ -479,25 +480,13 @@ func boxVsBoxSATMaxDistance(a, b *box) float64 {
 	centerDist := b.centerPt.Sub(a.centerPt)
 	rmA := a.rotationMatrix()
 	rmB := b.rotationMatrix()
-
-	best := math.Inf(-1)
-	for i := 0; i < 3; i++ {
-		if s := separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB); s > best {
-			best = s
-		}
-		if s := separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB); s > best {
-			best = s
-		}
-		for j := 0; j < 3; j++ {
-			cp := rmA.Row(i).Cross(rmB.Row(j))
-			if !utils.Float64AlmostEqual(cp.Norm(), 0, floatEpsilon) {
-				if s := separatingAxisTest(centerDist, cp.Normalize(), a.halfSize, b.halfSize, rmA, rmB); s > best {
-					best = s
-				}
-			}
-		}
-	}
-	return best
+	var input [27]float64
+	copy(input[0:9], rmA.mat[:])
+	copy(input[9:18], rmB.mat[:])
+	copy(input[18:21], a.halfSize[:])
+	copy(input[21:24], b.halfSize[:])
+	input[24], input[25], input[26] = centerDist.X, centerDist.Y, centerDist.Z
+	return obbSATMaxGap(&input)
 }
 
 // gjkBoxSupport returns the support point (farthest vertex) of a box in the given direction.

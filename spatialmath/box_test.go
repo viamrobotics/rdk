@@ -1,9 +1,10 @@
 package spatialmath
 
 import (
-	"math"
-	"testing"
 	"fmt"
+	"math"
+	"math/rand"
+	"testing"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -265,6 +266,16 @@ func BenchmarkBoxVsBoxDistance(b *testing.B) {
 	}
 }
 
+func BenchmarkBoxVsBoxCollision(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxCollision(tc.a, tc.b, defaultCollisionBufferMM)
+			}
+		})
+	}
+}
+
 func BenchmarkBoxVsBoxSATMax(b *testing.B) {
 	for _, tc := range boxDistanceBenchCases() {
 		b.Run(tc.name, func(b *testing.B) {
@@ -408,6 +419,18 @@ func collisionBenchCases() []struct {
 			makeTestBox(&EulerAngles{0, math.Pi / 4.0, 0}, r3.Vector{4, 0, 0}, r3.Vector{2, 2, 2}).(*box),
 			0.5,
 		},
+		{
+			"elongated_far",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 100}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 0, 0}, r3.Vector{2, 2, 100}).(*box),
+			1,
+		},
+		{
+			"elongated_close",
+			makeTestBox(&EulerAngles{0.3, 0.5, 0}, r3.Vector{}, r3.Vector{2, 2, 50}).(*box),
+			makeTestBox(&EulerAngles{0.7, 0.1, 0}, r3.Vector{10, 5, 0}, r3.Vector{2, 2, 50}).(*box),
+			1,
+		},
 	}
 }
 
@@ -421,11 +444,235 @@ func BenchmarkBoxCollisionSAT(b *testing.B) {
 	}
 }
 
+func BenchmarkBoxCollisionSATFullAxes(b *testing.B) {
+	for _, tc := range collisionBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				d := boxVsBoxSATMaxDistance(tc.a, tc.b)
+				_ = d <= tc.buffer
+			}
+		})
+	}
+}
+
+func TestCollisionDistanceAccuracy(t *testing.T) {
+	// Compare the distance estimates returned by the two collision methods
+	// (boxVsBoxCollision / SAT and boxVsBoxGJKCollision / GJK) against
+	// the exact exhaustive distance (boxVsBoxSeparationDist).
+	rng := rand.New(rand.NewSource(42))
+
+	randVec := func(lo, hi float64) r3.Vector {
+		return r3.Vector{
+			X: lo + rng.Float64()*(hi-lo),
+			Y: lo + rng.Float64()*(hi-lo),
+			Z: lo + rng.Float64()*(hi-lo),
+		}
+	}
+	randOri := func() Orientation {
+		return &EulerAngles{
+			Roll:  rng.Float64() * 2 * math.Pi,
+			Pitch: rng.Float64() * 2 * math.Pi,
+			Yaw:   rng.Float64() * 2 * math.Pi,
+		}
+	}
+
+	const nTrials = 5000
+
+	type stats struct {
+		maxAbsErr  float64
+		maxRelErr  float64
+		sumAbsErr  float64
+		sumRelErr  float64
+		exactCount int // abs error < 1e-9
+		count      int
+	}
+
+	updateStats := func(s *stats, dist, exact float64) {
+		absErr := math.Abs(dist - exact)
+		relErr := 0.0
+		if exact > 1e-12 {
+			relErr = absErr / exact
+		}
+		if absErr > s.maxAbsErr {
+			s.maxAbsErr = absErr
+		}
+		if relErr > s.maxRelErr {
+			s.maxRelErr = relErr
+		}
+		s.sumAbsErr += absErr
+		s.sumRelErr += relErr
+		if absErr < 1e-9 {
+			s.exactCount++
+		}
+		s.count++
+	}
+
+	satStats := stats{}
+	gjkStats := stats{}
+	skippedColliding := 0
+
+	for i := 0; i < nTrials; i++ {
+		dimsA := randVec(0.5, 5)
+		dimsB := randVec(0.5, 5)
+		posA := randVec(-2, 2)
+		posB := randVec(2, 10)
+		oriA := randOri()
+		oriB := randOri()
+
+		a := makeTestBox(oriA, posA, dimsA).(*box)
+		b := makeTestBox(oriB, posB, dimsB).(*box)
+
+		exact := boxVsBoxSeparationDist(a, b)
+		if exact < 1e-6 {
+			skippedColliding++
+			continue
+		}
+
+		_, satDist := boxVsBoxCollision(a, b, defaultCollisionBufferMM)
+		_, gjkDist := boxVsBoxGJKCollision(a, b, defaultCollisionBufferMM)
+
+		updateStats(&satStats, satDist, exact)
+		updateStats(&gjkStats, gjkDist, exact)
+	}
+
+	printStats := func(name string, s stats) {
+		t.Logf("%-10s  maxAbsErr=%.4f  maxRelErr=%.4f  meanAbsErr=%.4f  meanRelErr=%.4f  exact=%d/%d (%.1f%%)",
+			name, s.maxAbsErr, s.maxRelErr,
+			s.sumAbsErr/float64(s.count), s.sumRelErr/float64(s.count),
+			s.exactCount, s.count, 100*float64(s.exactCount)/float64(s.count))
+	}
+
+	t.Logf("Ran %d non-colliding trials (%d colliding skipped)", satStats.count, skippedColliding)
+	t.Logf("")
+	printStats("SAT", satStats)
+	printStats("GJK", gjkStats)
+}
+
 func BenchmarkBoxCollisionGJK(b *testing.B) {
 	for _, tc := range collisionBenchCases() {
 		b.Run(tc.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				boxVsBoxGJKCollision(tc.a, tc.b, tc.buffer)
+			}
+		})
+	}
+}
+
+func TestOBBSATMaxGap(t *testing.T) {
+	// Verify obbSATMaxGap matches the old separatingAxisTest-based implementation
+	// across all existing distance test cases.
+	deg45 := math.Pi / 4.0
+
+	cases := []struct {
+		name string
+		a, b *box
+	}{
+		{
+			"axis_aligned_face_separated",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"axis_aligned_diagonal",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"elongated",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 10}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 10, 0}, r3.Vector{2, 2, 10}).(*box),
+		},
+		{
+			"vertex_to_face_rotated",
+			makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"edge_to_edge_rotated",
+			makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+		{
+			"both_rotated",
+			makeTestBox(&EulerAngles{0.3, 0.5, 0.7}, r3.Vector{}, r3.Vector{2, 3, 4}).(*box),
+			makeTestBox(&EulerAngles{1.0, 0.2, 0.4}, r3.Vector{6, 3, 2}, r3.Vector{3, 2, 1}).(*box),
+		},
+		{
+			"colliding",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{1, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := boxVsBoxSATMaxDistance(tc.a, tc.b)
+			exact := boxVsBoxSeparationDist(tc.a, tc.b)
+			t.Logf("SATMax=%.10f  Exact=%.10f", got, exact)
+
+			// For non-colliding boxes, SAT max should be a lower bound on exact distance.
+			if exact > 0 {
+				test.That(t, got <= exact+1e-6, test.ShouldBeTrue)
+				test.That(t, got > 0, test.ShouldBeTrue)
+			}
+		})
+	}
+}
+
+func TestOBBSATRandomized(t *testing.T) {
+	// Randomized test: compare obbSATMaxGap against exact distance for many random box pairs.
+	rng := rand.New(rand.NewSource(12345))
+
+	randVec := func(lo, hi float64) r3.Vector {
+		return r3.Vector{
+			X: lo + rng.Float64()*(hi-lo),
+			Y: lo + rng.Float64()*(hi-lo),
+			Z: lo + rng.Float64()*(hi-lo),
+		}
+	}
+	randOri := func() Orientation {
+		return &EulerAngles{
+			Roll:  rng.Float64() * 2 * math.Pi,
+			Pitch: rng.Float64() * 2 * math.Pi,
+			Yaw:   rng.Float64() * 2 * math.Pi,
+		}
+	}
+
+	const nTrials = 10000
+	failures := 0
+
+	for i := 0; i < nTrials; i++ {
+		dimsA := randVec(0.5, 5)
+		dimsB := randVec(0.5, 5)
+		posA := randVec(-2, 2)
+		posB := randVec(2, 10)
+
+		a := makeTestBox(randOri(), posA, dimsA).(*box)
+		b := makeTestBox(randOri(), posB, dimsB).(*box)
+
+		satMax := boxVsBoxSATMaxDistance(a, b)
+		exact := boxVsBoxSeparationDist(a, b)
+
+		if exact < 1e-6 {
+			continue // skip colliding pairs
+		}
+
+		// SAT max must be a lower bound (within epsilon).
+		if satMax > exact+1e-6 {
+			t.Errorf("trial %d: SAT max %.10f > exact %.10f", i, satMax, exact)
+			failures++
+			if failures > 10 {
+				t.Fatal("too many failures")
+			}
+		}
+	}
+}
+
+func BenchmarkOBBSATGo(b *testing.B) {
+	for _, tc := range boxDistanceBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxSATMaxDistance(tc.a, tc.b)
 			}
 		})
 	}
