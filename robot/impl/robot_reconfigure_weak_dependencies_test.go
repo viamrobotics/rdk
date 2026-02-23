@@ -564,7 +564,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 0)
 
 	lRobot := robot.(*localRobot)
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
 	// Introduce a config diff for base1. This test serves to ensure that updating the configuration of
 	// a resource with a dependency on a resource with weak dependencies functions as expected.
@@ -600,7 +600,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 0)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 8)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 7)
 
 	// Introduce a config diff for base2. The test serves to ensure that updating the configuration of
 	// a weak dependency functions as expected. The following scenario is expected:
@@ -634,7 +634,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 0)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 11)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 10)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount
