@@ -4,9 +4,8 @@ import "math"
 
 // obbSATMaxGap computes the maximum separation gap across all 15 SAT axes
 // for two oriented bounding boxes using Ericson's precomputed R-matrix formulation
-// ("Real-Time Collision Detection" Ch. 4.4).
 //
-// Input layout (27 float64s, row-major):
+// Input layout (27 float64s):
 //
 //	[0..8]   rmA rotation matrix
 //	[9..17]  rmB rotation matrix
@@ -74,13 +73,13 @@ func obbSATMaxGap(input *[27]float64) float64 {
 	}
 
 	// --- 3 face axes from B ---
-	if g := math.Abs(t0*r00+t1*r10+t2*r20) - hB0 - (hA0*ar00+hA1*ar10+hA2*ar20); g > best {
+	if g := math.Abs(t0*r00+t1*r10+t2*r20) - hB0 - (hA0*ar00 + hA1*ar10 + hA2*ar20); g > best {
 		best = g
 	}
-	if g := math.Abs(t0*r01+t1*r11+t2*r21) - hB1 - (hA0*ar01+hA1*ar11+hA2*ar21); g > best {
+	if g := math.Abs(t0*r01+t1*r11+t2*r21) - hB1 - (hA0*ar01 + hA1*ar11 + hA2*ar21); g > best {
 		best = g
 	}
-	if g := math.Abs(t0*r02+t1*r12+t2*r22) - hB2 - (hA0*ar02+hA1*ar12+hA2*ar22); g > best {
+	if g := math.Abs(t0*r02+t1*r12+t2*r22) - hB2 - (hA0*ar02 + hA1*ar12 + hA2*ar22); g > best {
 		best = g
 	}
 

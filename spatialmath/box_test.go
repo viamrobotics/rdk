@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
@@ -136,14 +135,6 @@ func TestBoxPC(t *testing.T) {
 	}
 }
 
-func TestBoxCollision(t *testing.T) {
-	box1 := makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 10})
-	box2 := makeTestBox(NewZeroOrientation(), r3.Vector{5, 10, 0}, r3.Vector{2, 2, 10})
-	fmt.Println(box1.CollidesWith(box2, 1))
-	fmt.Println(box1.DistanceFrom(box2))
-}
-
-
 func collisionBenchCases() []struct {
 	name   string
 	a, b   *box
@@ -215,4 +206,3 @@ func BenchmarkBoxCollisionSAT(b *testing.B) {
 		})
 	}
 }
-

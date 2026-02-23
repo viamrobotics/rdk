@@ -141,24 +141,18 @@ func naiveCapsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	}
 	rmA := c.rotationMatrix()
 	rmB := b.rotationMatrix()
-	max := math.Inf(-1)
+	result := math.Inf(-1)
 	for i := 0; i < 3; i++ {
-		if separation := naiveSeparatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB); separation > max {
-			max = separation
-		}
-		if separation := naiveSeparatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB); separation > max {
-			max = separation
-		}
+		result = max(result, naiveSeparatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB))
+		result = max(result, naiveSeparatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB))
 		for j := 0; j < 3; j++ {
 			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separation := naiveSeparatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB); separation > max {
-					max = separation
-				}
+				result = max(result, naiveSeparatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB))
 			}
 		}
 	}
-	return max - c.radius
+	return result - c.radius
 }
 
 func capsuleBoxBenchCases() []struct {
