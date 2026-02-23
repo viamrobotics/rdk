@@ -95,7 +95,7 @@ func promptUnauthenticated() bool {
 				Affirmative("Continue without authentication").
 				Negative("Do not continue"),
 		),
-	).WithHeight(15).WithWidth(77)
+	).WithWidth(77)
 	err := form.Run()
 	if err != nil {
 		return false
@@ -342,7 +342,8 @@ func promptUser(module *modulegen.ModuleInputs) error {
 			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
 				Options(resourceOptions...).
-				Value(&module.Resource).WithHeight(25),
+				Value(&module.Resource).
+				Height(len(resourceOptions)),
 			huh.NewInput().
 				Title("Set a model name of the resource:").
 				Description("This is the name of the new resource model that your module will provide.\n"+
