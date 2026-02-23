@@ -1541,10 +1541,8 @@ func parseJSONOrFile(input string) (map[string]any, error) {
 
 // validateJobConfig validates the fields of a job config map. When isUpdate is true,
 // this is an update-job so not all fields are required.
-// partConfig is used to reject unrecognized resource names.
 func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) error {
-	// Validate schedule format if provided (or required for add).
-	// Valid values: "continuous", a Go duration (e.g. "5s", "1h30m"), or a cron expression (5-6 fields).
+	// validate schedule
 	if schedule, ok := jobConfig["schedule"].(string); ok {
 		if err := validateJobSchedule(schedule); err != nil {
 			return err
@@ -1553,8 +1551,7 @@ func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) erro
 		return errors.New("job config must include 'schedule' field (string)")
 	}
 
-	// Validate resource is a non-empty string. Warn if not found in config
-	// (could still be a built-in or remote resource).
+	// validate resource
 	if resource, ok := jobConfig["resource"].(string); ok {
 		if resource == "" {
 			return errors.New("'resource' field must be a non-empty string")
@@ -1566,7 +1563,7 @@ func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) erro
 		return errors.New("job config must include 'resource' field (string)")
 	}
 
-	// Validate method is a non-empty string
+	// validate method
 	if method, ok := jobConfig["method"].(string); ok {
 		if method == "" {
 			return errors.New("'method' field must be a non-empty string")
@@ -1582,8 +1579,7 @@ func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) erro
 		}
 	}
 
-	// Validate log_configuration.level if provided.
-	// Valid values: "debug", "info", "warn", "warning", "error".
+	// validate log configuration
 	if logConfig, ok := jobConfig["log_configuration"].(map[string]any); ok {
 		if level, ok := logConfig["level"].(string); ok {
 			validLevels := map[string]bool{
@@ -1614,8 +1610,6 @@ func resourceExistsInConfig(config map[string]any, name string) bool {
 	return false
 }
 
-// validateJobSchedule checks that schedule is "continuous", a valid Go duration, or a valid cron expression.
-// This mirrors the parsing logic in robot/jobmanager/jobmanager.go scheduleJob().
 func validateJobSchedule(schedule string) error {
 	if strings.ToLower(schedule) == "continuous" {
 		return nil
@@ -1645,8 +1639,6 @@ func validateInterval(interval string) error {
 }
 
 func validateCronExpression(schedule string) error {
-	// Try parsing as cron. Use 6-field (with seconds) parser if there are 6+ fields,
-	// otherwise use standard 5-field parser. This matches the jobmanager's behavior.
 	withSeconds := len(strings.Fields(schedule)) >= 6
 	if withSeconds {
 		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
