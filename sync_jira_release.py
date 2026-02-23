@@ -133,6 +133,28 @@ def get_ticket_status(ticket_key):
     return None
 
 
+def set_fix_version(ticket_key, version_id):
+    """Set fix version on a ticket without transitioning it."""
+    update_url = f"{JIRA_BASE_URL}/rest/api/3/issue/{ticket_key}"
+    update_payload = {
+        "fields": {
+            "fixVersions": [{"id": version_id}]
+        }
+    }
+
+    response = requests.put(
+        update_url,
+        auth=jira_auth,
+        headers={"Content-Type": "application/json"},
+        json=update_payload
+    )
+
+    if response.status_code != 204:
+        print(f"⚠️  Failed to set fix version for {ticket_key}")
+        return False
+    return True
+
+
 def set_fix_version_and_close(ticket_key, version_id):
     """
     Step 1: Set fix version while in "Awaiting Release"
@@ -163,12 +185,12 @@ def set_fix_version_and_close(ticket_key, version_id):
     
     transitions = response.json().get("transitions", [])
     close_transition = next(
-        (t for t in transitions if t["name"].lower() == "close"),
+        (t for t in transitions if t["name"].lower() == "closed"),
         None
     )
     
     if not close_transition:
-        print(f"⚠️  No 'Close' transition for {ticket_key}")
+        print(f"⚠️  No 'Closed' transition for {ticket_key}")
         return False
     
     # Step 3: Transition to Closed
@@ -233,9 +255,11 @@ def main(version_input):
     closed_count = 0
     skipped_count = 0
     
+    tagged_count = 0
+
     for ticket_key in ticket_keys:
         status = get_ticket_status(ticket_key)
-        
+
         if status == "Awaiting Release":
             print(f"   {ticket_key}: {status} → Setting fix version & closing...")
             if set_fix_version_and_close(ticket_key, version_id):
@@ -243,6 +267,13 @@ def main(version_input):
                 closed_count += 1
             else:
                 print(f"   ❌ Failed to close {ticket_key}")
+        elif status == "Closed":
+            print(f"   {ticket_key}: {status} → Tagging fix version...")
+            if set_fix_version(ticket_key, version_id):
+                print(f"   ✅ {ticket_key} tagged with fix version rdk {version}")
+                tagged_count += 1
+            else:
+                print(f"   ❌ Failed to tag fix version for {ticket_key}")
         else:
             print(f"   ⏭️  {ticket_key}: {status} (skipped)")
             skipped_count += 1
@@ -252,8 +283,10 @@ def main(version_input):
     print(f"🎉 Release sync complete!")
     print(f"   Version: rdk {version}")
     print(f"   Tickets closed: {closed_count}")
+    print(f"   Tickets tagged (already closed): {tagged_count}")
     print(f"   Tickets skipped: {skipped_count}")
     print(f"   Total tickets: {len(ticket_keys)}")
+    print(f"   Release page: {JIRA_BASE_URL}/projects/{JIRA_PROJECT_KEY}/versions/{version_id}/tab/release-report-all-issues")
     print(f"{'='*60}")
 
 

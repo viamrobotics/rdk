@@ -237,7 +237,7 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 	result := b.centerPt
 	direction := pt.Sub(result)
-	rm := b.center.Orientation().RotationMatrix()
+	rm := b.rotationMatrix()
 	for i := 0; i < 3; i++ {
 		axis := rm.Row(i)
 		distance := direction.Dot(axis)
@@ -254,7 +254,7 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
 func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.centerPt)
-	rm := b.center.Orientation().RotationMatrix()
+	rm := b.rotationMatrix()
 	//nolint: revive
 	min := math.Inf(1)
 	for i := 0; i < 3; i++ {
