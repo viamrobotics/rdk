@@ -196,18 +196,18 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 	return readings
 }
 
-// CaptureControl defines a dynamic capture control for a specific resource/method pair.
-// Controls are provided by a sensor configured as capture_control_sensor and take effect
-// within 100ms of being emitted. If no controls are emitted, data capture reverts to the
+// CaptureConfigReading defines a dynamic capture config for a specific resource/method pair.
+// Configs are provided by a sensor configured as capture_control_sensor and take effect
+// within 100ms of being emitted. If no configs are emitted, data capture reverts to the
 // machine config within 100ms.
-type CaptureControl struct {
+type CaptureConfigReading struct {
 	// ResourceName is the short name of the resource (e.g. "camera-1").
 	ResourceName string `json:"resource_name"`
 	// Method is the capture method name (e.g. "GetImages").
 	Method string `json:"method"`
-	// CaptureFrequencyHz, when non-nil, controls the capture frequency for this resource/method pair.
+	// CaptureFrequencyHz, when non-nil, overrides the capture frequency for this resource/method pair.
 	// A value of 0 disables capture.
 	CaptureFrequencyHz *float32 `json:"capture_frequency_hz,omitempty"`
-	// Tags, when non-nil, controls the data manager's tags for this resource/method pair.
+	// Tags, when non-nil, overrides the data manager's tags for this resource/method pair.
 	Tags []string `json:"tags"`
 }

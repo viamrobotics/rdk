@@ -268,9 +268,9 @@ func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource
 	return s, cfg.Key
 }
 
-// parseControlsFromReadings extracts capture controls from sensor readings.
+// parseOverridesFromReadings extracts capture config overrides from sensor readings.
 // Returns nil if the key is absent, the value is empty, or parsing fails.
-func parseControlsFromReadings(readings map[string]interface{}, key string) map[string]datamanager.CaptureControl {
+func parseOverridesFromReadings(readings map[string]interface{}, key string) map[string]datamanager.CaptureConfigReading {
 	raw, ok := readings[key]
 	if !ok {
 		return nil
@@ -279,23 +279,23 @@ func parseControlsFromReadings(readings map[string]interface{}, key string) map[
 	if err != nil {
 		return nil
 	}
-	var controlList []datamanager.CaptureControl
+	var controlList []datamanager.CaptureConfigReading
 	if err := json.Unmarshal(jsonBytes, &controlList); err != nil {
 		return nil
 	}
 	if len(controlList) == 0 {
 		return nil
 	}
-	result := make(map[string]datamanager.CaptureControl, len(controlList))
+	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, o := range controlList {
 		result[fmt.Sprintf("%s/%s", o.ResourceName, o.Method)] = o
 	}
 	return result
 }
 
-// runCaptureControlPoller polls the control sensor at 10 Hz and calls capture.SetControls
-// whenever the parsed controls change. On sensor error or missing readings, it reverts to
-// the machine config by passing nil controls.
+// runCaptureControlPoller polls the control sensor at 10 Hz and calls capture.SetCaptureConfig
+// whenever the parsed configs change. On sensor error or missing readings, it reverts to
+// the machine config by passing nil configs.
 func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
@@ -322,25 +322,25 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 			return
 		}
 
-		var newControls map[string]datamanager.CaptureControl
+		var newConfigs map[string]datamanager.CaptureConfigReading
 		if err != nil {
 			b.logger.Debugw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
 		} else {
-			newControls = parseControlsFromReadings(readings, key)
-			if newControls == nil {
-				b.logger.Debugw("capture control sensor returned no controls", "key", key, "readings", readings)
+			newConfigs = parseOverridesFromReadings(readings, key)
+			if newConfigs == nil {
+				b.logger.Debugw("capture control sensor returned no configs", "key", key, "readings", readings)
 			} else {
-				b.logger.Debugw("capture control sensor parsed controls", "count", len(newControls))
+				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
 			}
 		}
 
-		// Apply under lock; SetControls is a no-op if controls haven't changed.
+		// Apply under lock; SetCaptureConfig is a no-op if configs haven't changed.
 		b.mu.Lock()
 		if ctx.Err() != nil {
 			b.mu.Unlock()
 			return
 		}
-		b.capture.SetControls(ctx, newControls)
+		b.capture.SetCaptureConfig(ctx, newConfigs)
 		b.mu.Unlock()
 	}
 }

@@ -64,12 +64,12 @@ type Capture struct {
 	mongo              captureMongo
 
 	// baseCollectorConfigs and baseCaptureConfig are stored after each Reconfigure so
-	// that SetControls can compute effective configs without requiring callers to pass them.
+	// that SetCaptureConfig can compute effective configs without requiring callers to pass them.
 	baseCollectorConfigs CollectorConfigsByResource
 	baseCaptureConfig    Config
-	// currentControls is the last set of controls applied via SetControls,
+	// currentCaptureConfig is the last set of capture config overrides applied via SetCaptureConfig,
 	// keyed by "resourceShortName/method" (e.g. "camera-1/GetImages").
-	currentControls map[string]datamanager.CaptureControl
+	currentCaptureConfig map[string]datamanager.CaptureConfigReading
 }
 
 type captureMongo struct {
@@ -242,16 +242,16 @@ func (c *Capture) Reconfigure(
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
-	// Store base state so SetControls can compute effective configs even when capture is disabled.
-	// Reset currentControls: the control poller will re-apply them within 100ms if still active.
+	// Store base state so SetCaptureConfig can compute effective configs even when capture is disabled.
+	// Reset currentCaptureConfig: the control poller will re-apply them within 100ms if still active.
 	c.baseCollectorConfigs = collectorConfigsByResource
 	c.baseCaptureConfig = config
-	c.currentControls = nil
+	c.currentCaptureConfig = nil
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 
 	// Service is disabled: close all active collectors and return.
-	// SetControls can still re-enable individual resources via controls.
+	// SetCaptureConfig can still re-enable individual resources via per-resource configs.
 	if config.CaptureDisabled {
 		c.logger.Info("Capture Disabled")
 		c.Close(ctx)
