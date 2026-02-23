@@ -3,7 +3,6 @@ package modmanager
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -664,7 +663,8 @@ func (mgr *Manager) RemoveResource(ctx context.Context, name resource.Name) erro
 	defer mgr.mu.Unlock()
 	mod, ok := mgr.rMap.Load(name)
 	if !ok {
-		return fmt.Errorf("resource %+v not found in modules map: %w", name, ErrResourceNotFoundInResourceModuleMap)
+		mgr.logger.CWarnw(ctx, "resource not found in modules map", "name", name)
+		return ErrResourceNotFoundInResourceModuleMap
 	}
 
 	mod.logger.CInfow(ctx, "Removing resource for module", "resource", name.String(), "module", mod.cfg.Name)
