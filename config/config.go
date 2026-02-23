@@ -302,9 +302,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	for idx := range conf.Services {
 		conf.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
 	}
-	for idx := range conf.Remotes {
-		conf.Remotes[idx].adjustPartialNames()
-	}
 
 	c.Cloud = conf.Cloud
 	c.Modules = conf.Modules
@@ -335,9 +332,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 	for idx := range c.Services {
 		c.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
-	}
-	for idx := range c.Remotes {
-		c.Remotes[idx].adjustPartialNames()
 	}
 
 	return json.Marshal(configData{
@@ -515,18 +509,7 @@ func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	return nil, nil, conf.cachedErr
 }
 
-// adjustPartialNames assumes this config comes from a place where the associated
-// config type names are partially stored (JSON/Proto/Database) and will
-// fix them up to the builtin values they are intended for.
-func (conf *Remote) adjustPartialNames() {
-	for idx := range conf.AssociatedResourceConfigs {
-		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
-	}
-}
-
 func (conf *Remote) validate(path string) error {
-	conf.adjustPartialNames()
-
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}

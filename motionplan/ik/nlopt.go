@@ -40,6 +40,8 @@ type NloptIK struct {
 	// If true, this will terminate solving when nlopt alg iterations change the distance to goal by less than some proportion of calculated
 	// distance. This can cause premature terminations when the distances are large.
 	useRelTol bool
+
+	maxTime time.Duration
 }
 
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
@@ -49,6 +51,7 @@ func CreateNloptSolver(
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
+	maxTime time.Duration,
 ) (*NloptIK, error) {
 	// if debugIkMinFunc {
 	//  	// DONT COMMIT. Assert this works w.r.t registry. We might be omitting prior debug log lines
@@ -66,6 +69,7 @@ func CreateNloptSolver(
 	ik.maxIterations = iter
 	ik.exact = exact
 	ik.useRelTol = useRelTol
+	ik.maxTime = maxTime
 
 	return ik, nil
 }
@@ -208,7 +212,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
-	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
+	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
 		iterations++
 
 		seedNumberRanged := seedNumber % len(seedStates)

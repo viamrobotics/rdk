@@ -701,9 +701,8 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if
-		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
-		// higher than the `lastWeakAndOptionalDependentsRound` value.
+		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
+		// value.
 		//
 		// This will make sure that weak and optional dependents are updated before they are
 		// passed into constructors or reconfigure methods.
@@ -725,9 +724,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakAndOptionalDependents(ctx)
-			}
+			lr.updateWeakAndOptionalDependents(ctx)
+			break
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.
@@ -1378,40 +1376,56 @@ func (manager *resourceManager) markRemoved(
 	ctx context.Context,
 	conf *config.Config,
 ) ([]resource.Resource, map[resource.Name]struct{}, []resource.Name) {
-	var resourcesToMark, resourcesToRebuild []resource.Name
+	var closedModularResourceNames []resource.Name
 	for _, conf := range conf.Modules {
 		affectedResourceNames, err := manager.moduleManager.Remove(conf.Name)
 		if err != nil {
 			manager.logger.CErrorw(ctx, "error removing module", "module", conf.Name, "error", err)
 		}
-		resourcesToRebuild = append(resourcesToRebuild, affectedResourceNames...)
+		closedModularResourceNames = append(closedModularResourceNames, affectedResourceNames...)
 	}
 
+	var resourcesToMark []resource.Name
 	for _, conf := range conf.Remotes {
 		resourcesToMark = append(
 			resourcesToMark,
 			fromRemoteNameToRemoteNodeName(conf.Name),
 		)
 	}
+
+	resourcesToRemove := map[resource.Name]struct{}{}
 	for _, conf := range append(conf.Components, conf.Services...) {
 		resourcesToMark = append(resourcesToMark, conf.ResourceName())
+		resourcesToRemove[conf.ResourceName()] = struct{}{}
 	}
+
 	markedResourceNames := map[resource.Name]struct{}{}
 	addNames := func(names ...resource.Name) {
 		for _, name := range names {
 			markedResourceNames[name] = struct{}{}
 		}
 	}
-	// if the resource was directly removed, remove its dependents as well, since their parents will
-	// be removed.
+	// If the resource was directly removed, mark its dependents for removal as well, since their parents will
+	// be removed and will not come back until the config is updated again, which is different from the case
+	// below.
 	resourcesToCloseBeforeComplete := manager.markResourcesRemoved(resourcesToMark, addNames, true)
 
-	// for modular resources that are being removed because the underlying module was removed,
-	// we only want to mark the resources for removal, but not its dependents. They will be marked
-	// for update later in the process.
+	// For modular resources that are being removed because the underlying module was removed,
+	// we only want to mark the resources for removal, but not its dependents. Those dependent
+	// resources will be marked for rebuilding later in the process. This is because if the modular
+	// resource is served by a different module, this allows the chain of dependencies to be rebuilt.
 	resourcesToCloseBeforeComplete = append(
 		resourcesToCloseBeforeComplete,
-		manager.markResourcesRemoved(resourcesToRebuild, addNames, false)...)
+		manager.markResourcesRemoved(closedModularResourceNames, addNames, false)...)
+
+	// Only rebuild modular resources that are not marked for removal.
+	var resourcesToRebuild []resource.Name
+	for _, name := range closedModularResourceNames {
+		if _, ok := resourcesToRemove[name]; !ok {
+			resourcesToRebuild = append(resourcesToRebuild, name)
+		}
+	}
+
 	return resourcesToCloseBeforeComplete, markedResourceNames, resourcesToRebuild
 }
 

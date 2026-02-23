@@ -61,6 +61,7 @@ const (
 	generalFlagPart              = "part"
 	generalFlagPartName          = "part-name"
 	generalFlagPartID            = "part-id"
+	generalFlagFragment          = "fragment"
 	generalFlagID                = "id"
 	generalFlagName              = "name"
 	generalFlagNewName           = "new-name"
@@ -2670,6 +2671,34 @@ Note: There is no progress meter while copying is in progress.
 							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
+							Name:            "fragments",
+							Usage:           "work with fragments on a part",
+							UsageText:       createUsageText("machines part fragments", nil, false, true),
+							HideHelpCommand: true,
+							Subcommands: []*cli.Command{
+								{
+									Name:      "add",
+									Usage:     "add a fragment to a part",
+									UsageText: createUsageText("machines part fragments add", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to add (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartAddFragmentAction),
+								},
+								{
+									Name:      "remove",
+									Usage:     "remove a fragment from a part",
+									UsageText: createUsageText("machines part fragments remove", []string{generalFlagPart}, true, false),
+									Flags: append(commonPartFlags, &cli.StringFlag{
+										Name:  generalFlagFragment,
+										Usage: "fragment name or ID to remove (if not provided, uses interactive selection)",
+									}),
+									Action: createCommandWithT(RobotsPartRemoveFragmentAction),
+								},
+							},
+						},
+						{
 							Name:      "restart",
 							Usage:     "request part restart",
 							UsageText: createUsageText("machines part restart", []string{generalFlagPart}, true, false),
@@ -3527,7 +3556,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	# Specify a component/service model (and optionally a name) to add to the config along with
 	# the module (the API is automatically looked up from meta.json)
 	# By default, no resources are added when a module is reloaded
-	viam module reload --model-name acme:module-name:mybase --name my-resource`,
+	viam module reload --model-name acme:module-name:mybase --name my-resource
+
+	# Trigger a reload build of a module located in a different directory than the current workdir
+	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
@@ -3536,7 +3568,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
-							Usage: "path to a meta.json. used for module ID. can be overridden with --id or --name",
+							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
 						},
 						&cli.BoolFlag{
@@ -3574,7 +3606,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						},
 						&cli.StringFlag{
 							Name:        generalFlagPath,
-							Usage:       "The path to the root of the git repo to build",
+							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 						},
 					},
@@ -3742,6 +3774,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  mlTrainingFlagURL,
 							Usage: "url of Github repository associated with the training scripts",
+						},
+						&cli.StringFlag{
+							Name:     mlTrainingFlagVisibility,
+							Usage:    formatAcceptedValues("visibility of the training script", "public", "private"),
+							Required: false,
 						},
 					},
 					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),

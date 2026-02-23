@@ -342,6 +342,195 @@ func TestCollisionConstraints(t *testing.T) {
 	}
 }
 
+func TestCalculateJointStepCount(t *testing.T) {
+	t.Run("no movement", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{0, 0, 0}
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 0)
+	})
+
+	t.Run("small movement under step size", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{0.04, 0, 0} // 0.04 rad < defaultJointStepSizeRadians
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 1)
+	})
+
+	t.Run("one radian movement", func(t *testing.T) {
+		start := []float64{0, 0, 0}
+		end := []float64{1.0, 0, 0} // 1 rad / defaultJointStepSizeRadians = 20 steps
+		test.That(t, calculateJointStepCount(start, end, 0.05), test.ShouldEqual, 20)
+	})
+
+	t.Run("large joint movement from sanding collision bug", func(t *testing.T) {
+		// Joint 1 from TestSandingWallCollision moves ~6.7 radians
+		start := []float64{1.06, -3.336, -0.18, 1.90, -1.53, 4.20}
+		end := []float64{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
+		// Joint 1 moves 6.715 rad / 0.05 = 135 steps
+		steps := calculateJointStepCount(start, end, 0.05)
+		test.That(t, steps, test.ShouldEqual, 135)
+	})
+}
+
+// TestSegmentStepCount tests that segmentStepCount correctly emits step count from either joint or cartesian excursion
+func TestSegmentStepCount(t *testing.T) {
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur20.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	jointStepSize := jointStepSizeFromLimits(model.DoF())
+
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	startConfig := []referenceframe.Input{1.06, -3.336, -0.18, 1.90, -1.53, 4.20}
+	startPos, err := model.Transform(startConfig)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("joint steps dominate when cartesian distance is small", func(t *testing.T) {
+		// For a ur20 this config is very close to startConfig in cartesian space but far away in joint space
+		endConfig := []referenceframe.Input{1.06, 3.379, -1.26, -0.59, 1.53, 1.06}
+		segment := &SegmentFS{
+			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{model.Name(): endConfig}.ToLinearInputs(),
+			FS:                 fs,
+		}
+		endPos, err := model.Transform(endConfig)
+		test.That(t, err, test.ShouldBeNil)
+
+		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
+
+		totalSteps, err := segmentStepCount(segment, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Joint steps should dominate over cartesian for this trajectory
+		test.That(t, jointSteps, test.ShouldBeGreaterThan, cartesianSteps)
+
+		// segmentStepCount should return the joint step count
+		test.That(t, totalSteps, test.ShouldEqual, jointSteps)
+	})
+
+	t.Run("cartesian steps dominate when joint distance is small", func(t *testing.T) {
+		// Joints are close to startConfig, but quite far in cartesian space
+		endConfig := []referenceframe.Input{1.06, -3.379, -1.26, -0.59, 1.53, 1.06}
+		segment := &SegmentFS{
+			StartConfiguration: referenceframe.FrameSystemInputs{model.Name(): startConfig}.ToLinearInputs(),
+			EndConfiguration:   referenceframe.FrameSystemInputs{model.Name(): endConfig}.ToLinearInputs(),
+			FS:                 fs,
+		}
+		endPos, err := model.Transform(endConfig)
+		test.That(t, err, test.ShouldBeNil)
+
+		cartesianSteps := CalculateStepCount(startPos, endPos, 1.0)
+		jointSteps := calculateJointStepCount(startConfig, endConfig, jointStepSize)
+
+		totalSteps, err := segmentStepCount(segment, 1.0)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Cartesian steps should dominate over joint for this trajectory
+		test.That(t, cartesianSteps, test.ShouldBeGreaterThan, jointSteps)
+
+		// segmentStepCount should return the cartesian step count
+		test.That(t, totalSteps, test.ShouldEqual, cartesianSteps)
+	})
+}
+
+func TestComputeInitialCollisionsToIgnore(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("combines initial collisions with specifications", func(t *testing.T) {
+		// Create colliding geometries
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
+
+		// Test that initial collisions are detected and combined with specifications
+		collisionSpecs := []Collision{{"box1", "box3"}}
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static,
+			collisionSpecs, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ignoreList), test.ShouldEqual, 2)
+
+		// Verify the specification collision is included
+		found := false
+		for _, c := range ignoreList {
+			if c.name1 == "box1" && c.name2 == "box3" {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	})
+
+	t.Run("empty when no collisions or specs", func(t *testing.T) {
+		// Create non-colliding geometries
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
+		geom2.SetLabel("box2")
+
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
+
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ignoreList), test.ShouldEqual, 0)
+	})
+}
+
+func TestCollisionDistance(t *testing.T) {
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("collision returns -1 and error", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
+			defaultCollisionBufferMM, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldNotBeEmpty)
+		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
+		test.That(t, collisions[0].name2, test.ShouldBeIn, "box1", "box2")
+	})
+
+	t.Run("no collision returns positive distance", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
+		geom2.SetLabel("box2")
+
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
+	})
+
+	t.Run("ignored collision returns positive distance", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		ignoreList := []Collision{{"box1", "box2"}}
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
+	})
+}
+
 func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")

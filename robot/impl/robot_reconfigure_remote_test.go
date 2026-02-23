@@ -16,9 +16,13 @@ import (
 	"go.viam.com/rdk/components/arm"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
+	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
+	internalcloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/datamanager/builtin"
 	// TODO(RSDK-7884): change all referenced resources to mocks.
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -859,4 +863,81 @@ func TestFullResourceNameCollision(t *testing.T) {
 		test.That(t, arm2IsMovingCount.Load(), test.ShouldEqual, 1 /* increase */)
 		test.That(t, arm3IsMovingCount.Load(), test.ShouldEqual, 1 /* no increase */)
 	}
+}
+
+func TestRemoteCaptureMethodsName(t *testing.T) {
+	// Primarily a regression test for RSDK-13349.
+	//
+	// Setup two machines:
+	// - machineA with a sensor "foo"
+	// - machineB with machineA as a remote and data capture on machineA's "foo" sensor
+	//
+	// Ensure that machineB's datamanager instance is able to access the "foo" sensor via
+	// the capture methods of its associated resource config. Try two scenarios: one where
+	// machineA has a prefix in machineB's config, and one where it does not.
+
+	testRemoteCaptureMethodsName(t, "")
+	testRemoteCaptureMethodsName(t, "machineA:")
+}
+
+func testRemoteCaptureMethodsName(t *testing.T, machineAPrefix string) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	ctx := context.Background()
+
+	machineACfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "foo",
+				API:   sensor.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+		},
+	}
+	machineA := setupLocalRobot(t, ctx, machineACfg, logger)
+	options, _, machineAAddr := robottestutils.CreateBaseOptionsAndListener(t)
+	err := machineA.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	unprocessedMachineBCfg := &config.Config{
+		Services: []resource.Config{
+			{
+				Name:                "datamanager",
+				Model:               resource.DefaultServiceModel,
+				API:                 datamanager.API,
+				ConvertedAttributes: &builtin.Config{},
+				DependsOn:           []string{internalcloud.InternalServiceName.String()},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Prefix:  machineAPrefix,
+				Name:    "machineA",
+				Address: machineAAddr,
+				AssociatedResourceConfigs: []resource.AssociatedResourceConfig{
+					{
+						API: datamanager.API,
+						Attributes: utils.AttributeMap{
+							"capture_methods": []any{
+								map[string]any{
+									"name":   "rdk:component:sensor/foo",
+									"method": "Readings",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// "Process" the config before setting up a machine. processConfig has the side of
+	// creating the appropriate converted attributes for the associated resource config
+	// defined above.
+	machineBCfg, err := config.ProcessLocalConfigForTesting(unprocessedMachineBCfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	_ = setupLocalRobot(t, ctx, machineBCfg, logger)
+
+	// Assert that there were no logs about datamanager failing to lookup the resource from
+	// dependencies.
+	test.That(t, logs.FilterMessageSnippet("datamanager failed to lookup resource from config").Len(),
+		test.ShouldEqual, 0)
 }

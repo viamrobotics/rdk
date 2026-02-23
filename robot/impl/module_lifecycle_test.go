@@ -403,7 +403,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 
 	h, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -438,7 +438,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// 'h2' and 'h3' should also continue to exist, but fail any requests that depends on 'h'.
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -451,9 +451,11 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
+	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
 
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
@@ -466,9 +468,9 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err := h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"command": "echo"})
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
@@ -479,7 +481,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// and a builtin resource ('h3') that depends on a modular resource ('h') on 'mod'
 	// continues to exist and work.
 	//
-	// 'h' is setup to always fail on the its first construction on the module.
+	// 'h' is setup to always fail on the first construction on the module.
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 	r, cfg := setupModuleTest(t, ctx, true, logger)
@@ -492,7 +494,7 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	h, err := r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h.DoCommand(ctx, map[string]interface{}{"command": "kill_module"})
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
@@ -512,40 +514,55 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 	// 'h2' and 'h3' should also continue to exist, but fail any requests that depends on 'h'.
 	h2, err := r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 3)
 
 	// Assert that restoring the testmodule binary restores the module but not 'h'.
 	err = os.Rename(testPath+".disabled", testPath)
 	test.That(t, err, test.ShouldBeNil)
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, logs.FilterMessage("Module resources successfully re-added after module restart").Len(),
+		test.That(tb, logs.FilterMessage("Module resources to be re-added after module restart").Len(),
 			test.ShouldEqual, 1)
 	})
 
-	// Assert that 'h' is not available, but 'h2' and 'h3' are.
+	// Before 'h' is rebuilt, assert that 'h' is not available, but 'h2' and 'h3' are.
 	// 'h2' and 'h3' should continue to fail any requests that depends on 'h'.
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "resource rdk:component:generic/h not available; "+
+		"reason=resource not initialized yet")
 
 	_, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+
+	// test reusing previous handle of h2
+	_, err = h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "rpc error: code = Unknown "+
+		"desc = resource rdk:component:generic/h not available; reason=resource not initialized yet")
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that after another attempt at configuring resources, 'h' now exists,
+	// Assert that after an attempt at configuring resources, 'h' now exists,
 	// and commands on 'h2' and 'h3' that depend on 'h' succeed.
 	anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 	test.That(t, anyChanges, test.ShouldBeTrue)
+	// do this twice because 'h' will fail to build the first time (failOnFirst).
+	anyChanges = r.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
+
+	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
+		tb.Helper()
+		test.That(tb, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
+	})
 
 	h, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldBeNil)
@@ -554,9 +571,9 @@ func TestCrashedModuleDependentRecoveryAfterFailedFirstConstruction(t *testing.T
 
 	h2, err = r.ResourceByName(generic.Named("h2"))
 	test.That(t, err, test.ShouldBeNil)
-	resp, err := h2.DoCommand(ctx, map[string]interface{}{"command": "echo_dep"})
+	resp, err := h2.DoCommand(ctx, map[string]any{"command": "echo_dep"})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]interface{}{"command": "echo"})
+	test.That(t, resp, test.ShouldResemble, map[string]any{"command": "echo"})
 
 	_, err = r.ResourceByName(generic.Named("h3"))
 	test.That(t, err, test.ShouldBeNil)
@@ -894,4 +911,52 @@ func TestImplicitDependencyUpdatesAfterModuleRestart(t *testing.T) {
 	resp, err = s.Readings(ctx, map[string]any{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldResemble, map[string]any{"a": 1, "b": 2, "c": 3})
+}
+
+func TestModuleAndResourceRemoval(t *testing.T) {
+	// on module 1 "mod" and "h" removal, test that if both module and resource
+	// are removed at the same time, the machine does not attempt to re-construct the
+	// resource.
+	ctx := context.Background()
+	logger, obs := logging.NewObservedTestLogger(t)
+
+	// Precompile modules to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	// Manually define models, as importing them can cause double registration.
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	// Config has one failing module.
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "h",
+				Model: helperModel,
+				API:   generic.API,
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, &cfg, logger, WithDisableCompleteConfigWorker())
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
+	test.That(t, err, test.ShouldBeNil)
+
+	obs.TakeAll() // clear logs
+
+	// Reconfigure so that the "mod" and "h" are both removed.
+	cfg = config.Config{}
+	r.Reconfigure(ctx, &cfg)
+
+	// Assert that "h" is no longer available and that we never attempted to build it.
+	_, err = r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
 }

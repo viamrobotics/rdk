@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/utils"
 )
 
 // Order specifies the order in which data is returned.
@@ -1293,6 +1294,14 @@ func (d *DataClient) FileUploadFromPath(
 	var data []byte
 	// Prepare file data from filepath
 	if filePath != "" {
+		// Get file timestamps before reading the file
+		fileTimes, err := utils.GetFileTimes(filePath)
+		if err != nil {
+			return "", err
+		}
+		metadata.FileCreateTime = timestamppb.New(fileTimes.CreateTime)
+		metadata.FileModifyTime = timestamppb.New(fileTimes.ModifyTime)
+
 		//nolint:gosec
 		fileData, err := os.ReadFile(filePath)
 		if err != nil {
@@ -1739,10 +1748,21 @@ func filterToProto(filter *Filter) *pb.Filter {
 }
 
 func captureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
-	return &pb.CaptureInterval{
-		Start: timestamppb.New(interval.Start),
-		End:   timestamppb.New(interval.End),
+	// If both are zero, don't return an interval.
+	if interval.Start.IsZero() && interval.End.IsZero() {
+		return nil
 	}
+
+	// Allow partial intervals (only start or only end).
+	protoInterval := &pb.CaptureInterval{}
+	if !interval.Start.IsZero() {
+		protoInterval.Start = timestamppb.New(interval.Start)
+	}
+	if !interval.End.IsZero() {
+		protoInterval.End = timestamppb.New(interval.End)
+	}
+
+	return protoInterval
 }
 
 func tagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {

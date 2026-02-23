@@ -418,9 +418,15 @@ type Uploads struct {
 
 // MLModelMetadata holds the metadata for a ML model.
 type MLModelMetadata struct {
-	Versions       []string
+	Versions       []*MLModelVersion
 	ModelType      ModelType
 	ModelFramework ModelFramework
+}
+
+// MLModelVersion is the version of a ML model.
+type MLModelVersion struct {
+	Version   string
+	CreatedOn *time.Time
 }
 
 // MLTrainingMetadata is the metadata of an ML Training.
@@ -599,6 +605,7 @@ type AppContent struct {
 	BlobPath   string
 	Entrypoint string
 	AppType    int
+	Public     bool
 }
 
 // AppClient is a gRPC client for method calls to the App API.
@@ -3753,10 +3760,29 @@ func mlModelMetadataFromProto(md *pb.MLModelMetadata) *MLModelMetadata {
 	if md == nil {
 		return nil
 	}
+	var versions []*MLModelVersion
+	for _, version := range md.DetailedVersions {
+		versions = append(versions, mlModelVersionFromProto(version))
+	}
 	return &MLModelMetadata{
-		Versions:       md.Versions,
+		Versions:       versions,
 		ModelType:      modelTypeFromProto(md.ModelType),
 		ModelFramework: modelFrameworkFromProto(md.ModelFramework),
+	}
+}
+
+func mlModelVersionFromProto(version *pb.MLModelVersion) *MLModelVersion {
+	if version == nil {
+		return nil
+	}
+	var createdOn *time.Time
+	if version.CreatedOn != nil {
+		t := version.CreatedOn.AsTime()
+		createdOn = &t
+	}
+	return &MLModelVersion{
+		Version:   version.Version,
+		CreatedOn: createdOn,
 	}
 }
 
@@ -3909,5 +3935,6 @@ func appContentFromProto(resp *pb.GetAppContentResponse) *AppContent {
 		BlobPath:   resp.GetBlobPath(),
 		Entrypoint: resp.GetEntrypoint(),
 		AppType:    int(resp.GetAppType()),
+		Public:     resp.GetPublic(),
 	}
 }

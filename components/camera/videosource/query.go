@@ -97,7 +97,16 @@ func findReaderAndDriver(
 		if err == nil {
 			path = resolvedPath
 		}
-		reader, driver, err := getReaderAndDriver(filepath.Base(path), constraints, logger)
+
+		var searchPath string
+		if runtime.GOOS == "windows" {
+			// Use full path for windows driver paths for compatibility
+			searchPath = path
+		} else {
+			searchPath = filepath.Base(path)
+		}
+
+		reader, driver, err := getReaderAndDriver(searchPath, constraints, logger)
 		if err != nil {
 			return nil, nil, "", err
 		}
