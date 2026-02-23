@@ -3,15 +3,8 @@ package capture
 import (
 	"context"
 	"fmt"
-	"os"
 	"slices"
 
-	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
-
-	"go.viam.com/rdk/data"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -90,11 +83,8 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 				continue
 			}
 
-			// Apply service-level settings.
-			cfg.Tags = c.baseCaptureConfig.Tags
-			if c.baseCaptureConfig.CaptureDisabled {
-				cfg.Disabled = true
-			}
+			// Apply service-level tags.
+			cfg.Tags = c.baseDMConfig.Tags
 
 			// Apply per-resource config if one exists for this key, otherwise revert to base.
 			if config, ok := configs[key]; ok {
@@ -146,7 +136,7 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 
 			// buildCollector skips queue/buffer/additional-params validation: those fields
 			// are unchanged from the base config that was already validated during Reconfigure.
-			cac, err := c.buildCollector(res, md, cfg, c.baseCaptureConfig, c.mongo.collection)
+			cac, err := c.buildCollector(res, md, cfg, c.baseDMConfig, c.mongo.collection)
 			if err != nil {
 				c.logger.Warnw("failed to build collector for capture config", "error", err, "key", key)
 				continue
@@ -178,68 +168,16 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 	}
 }
 
-// buildCollector constructs and starts a new collector for res/md.
-// It does not validate queue size, buffer size, or additional params — those are
-// validated once by initializeOrUpdateCollector on the Reconfigure path.
-// The control path (SetCaptureConfig) calls this directly since the base config was already validated.
-func (c *Capture) buildCollector(
-	res resource.Resource,
-	md collectorMetadata,
-	collectorConfig datamanager.DataCaptureConfig,
-	config Config,
-	collection *mongo.Collection,
-) (*collectorAndConfig, error) {
-	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
-	if err != nil {
-		return nil, err
+// overrideCollectors atomically replaces the current collectors map with newColls,
+// closing any collectors no longer present.
+func (c *Capture) overrideCollectors(newColls collectors) {
+	c.collectorsMu.Lock()
+	for md, collAndConfig := range c.collectors {
+		if _, present := newColls[md]; !present {
+			c.logger.Infof("%s closing collector", md.String())
+			collAndConfig.Collector.Close()
+		}
 	}
-
-	// Get collector constructor for the component API and method.
-	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
-	if collectorConstructor == nil {
-		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
-	}
-
-	targetDir := targetDir(config.CaptureDir, collectorConfig)
-	// Create a collector for this resource and method.
-	if err := os.MkdirAll(targetDir, 0o700); err != nil {
-		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
-	}
-	// Build metadata.
-	captureMetadata, dataType := data.BuildCaptureMetadata(
-		collectorConfig.Name.API,
-		collectorConfig.Name.ShortName(),
-		collectorConfig.Method,
-		collectorConfig.AdditionalParams,
-		methodParams,
-		collectorConfig.Tags,
-	)
-	// Parameters to initialize collector.
-	queueSize := defaultIfZeroVal(collectorConfig.CaptureQueueSize, defaultCaptureQueueSize)
-	bufferSize := defaultIfZeroVal(collectorConfig.CaptureBufferSize, defaultCaptureBufferSize)
-	collector, err := collectorConstructor(res, data.CollectorParams{
-		MongoCollection: collection,
-		DataType:        dataType,
-		ComponentName:   collectorConfig.Name.ShortName(),
-		ComponentType:   collectorConfig.Name.API.String(),
-		MethodName:      collectorConfig.Method,
-		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
-		MethodParams:    methodParams,
-		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
-		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
-		QueueSize:  queueSize,
-		BufferSize: bufferSize,
-		Logger:     c.logger,
-		Clock:      c.clk,
-	})
-	if err != nil {
-		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
-			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
-	}
-
-	c.logger.Infof("collector initialized; collector: %s, config: %s",
-		md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
-	collector.Collect()
-
-	return &collectorAndConfig{res, collector, collectorConfig}, nil
+	c.collectors = newColls
+	c.collectorsMu.Unlock()
 }

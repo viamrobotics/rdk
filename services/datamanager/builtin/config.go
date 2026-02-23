@@ -71,8 +71,8 @@ type Config struct {
 	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-	// CaptureControlSensor when set specifies a sensor to poll at 10 Hz for dynamic
-	// per-resource capture controls.
+	// CaptureControlSensor when set specifies a sensor to poll for dynamic
+	// capture configurations.
 	CaptureControlSensor *CaptureControlSensorConfig `json:"capture_control_sensor,omitempty"`
 }
 

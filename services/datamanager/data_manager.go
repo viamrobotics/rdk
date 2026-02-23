@@ -196,10 +196,8 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 	return readings
 }
 
-// CaptureConfigReading defines a dynamic capture config for a specific resource/method pair.
-// Configs are provided by a sensor configured as capture_control_sensor and take effect
-// within 100ms of being emitted. If no configs are emitted, data capture reverts to the
-// machine config within 100ms.
+// CaptureConfigReading defines a dynamic capture config for a specific resource/method pair,
+// as emitted by the capture_control_sensor.
 type CaptureConfigReading struct {
 	// ResourceName is the short name of the resource (e.g. "camera-1").
 	ResourceName string `json:"resource_name"`

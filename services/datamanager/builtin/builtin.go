@@ -243,7 +243,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
-	if controlSensor != nil {
+	if controlSensor != nil && !captureConfig.CaptureDisabled {
 		b.controlPoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			b.runCaptureControlPoller(ctx)
 		})
