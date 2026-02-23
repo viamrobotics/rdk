@@ -9,7 +9,7 @@ import (
 
 // CaptureBufferedWriter is a buffered, persistent queue of SensorData.
 type CaptureBufferedWriter interface {
-	WriteBinary(items *v1.SensorData, mimeType string) error
+	WriteBinary(item *v1.SensorData, mimeType string) error
 	WriteTabular(items *v1.SensorData) error
 	Flush() error
 	Path() string
