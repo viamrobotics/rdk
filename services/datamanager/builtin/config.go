@@ -41,11 +41,11 @@ const (
 // Default maximum size in bytes of a data capture file.
 var defaultMaxCaptureSize = int64(256 * 1024)
 
-// CaptureOverrideSensorConfig describes a sensor that provides dynamic capture overrides.
-type CaptureOverrideSensorConfig struct {
+// CaptureControlSensorConfig describes a sensor that provides dynamic capture controls.
+type CaptureControlSensorConfig struct {
 	// Name is the resource name of the sensor.
 	Name string `json:"name"`
-	// Key is the key in the sensor's Readings map that contains the overrides array.
+	// Key is the key in the sensor's Readings map that contains the controls array.
 	Key string `json:"key"`
 }
 
@@ -71,9 +71,9 @@ type Config struct {
 	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
-	// CaptureOverrideSensor when set specifies a sensor to poll at 10 Hz for dynamic
-	// per-resource capture overrides.
-	CaptureOverrideSensor *CaptureOverrideSensorConfig `json:"capture_override_sensor,omitempty"`
+	// CaptureControlSensor when set specifies a sensor to poll at 10 Hz for dynamic
+	// per-resource capture controls.
+	CaptureControlSensor *CaptureControlSensorConfig `json:"capture_control_sensor,omitempty"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
