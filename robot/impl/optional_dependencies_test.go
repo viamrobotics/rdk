@@ -2267,6 +2267,9 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 
 	// Drive restarts until the clock advances, indicating the module restarted
 	// and h_unrelated was successfully re-added to the graph.
+	//
+	// The onUnexpectedExitHandler waits for 5s between restart attempts, so wait double that
+	// amount of time.
 	gotestutils.WaitForAssertionWithSleep(t, 500*time.Millisecond, 20, func(tb testing.TB) {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		currentClock := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
