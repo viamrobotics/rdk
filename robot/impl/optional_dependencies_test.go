@@ -2222,17 +2222,12 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	movedBinaryPath := testModulePath + ".moved"
 	err = os.Rename(testModulePath, movedBinaryPath)
 	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		// Restore the binary at the end for cleanup.
-		_ = os.Rename(movedBinaryPath, testModulePath)
-	}()
 
 	// Trigger a crash; the test module calls os.Exit(1) on this command.
 	_, _ = helperRes.DoCommand(ctx, map[string]any{"command": "kill_module"})
 
 	// Wait for the module manager to detect the crash and fail to restart (binary is missing).
-	gotestutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
-		tb.Helper()
+	gotestutils.WaitForAssertion(t, func(tb testing.TB) {
 		errorLogs := logs.FilterMessageSnippet("Error while restarting crashed module").Len()
 		test.That(tb, errorLogs, test.ShouldBeGreaterThanOrEqualTo, 1)
 	})
@@ -2272,8 +2267,10 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 
 	// Drive restarts until the clock advances, indicating the module restarted
 	// and h_unrelated was successfully re-added to the graph.
-	gotestutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
-		tb.Helper()
+	//
+	// The onUnexpectedExitHandler waits for 5s between restart attempts, so wait double that
+	// amount of time.
+	gotestutils.WaitForAssertionWithSleep(t, 500*time.Millisecond, 20, func(tb testing.TB) {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		currentClock := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 		test.That(tb, currentClock, test.ShouldBeGreaterThan, initialClockValue)
