@@ -341,6 +341,9 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				}),
 			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
+				Description("A resource is a component or service that provides functionality to your machine.\n"+
+					"You can navigate and scroll this list with arrow keys and vim bindings,\n"+
+					"and filter this list with `/`").
 				Options(resourceOptions...).
 				Value(&module.Resource).
 				Height(len(resourceOptions)),
