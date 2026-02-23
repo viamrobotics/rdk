@@ -176,63 +176,39 @@ const (
 	xacroFlagROSDistro         = "ros-distro"
 )
 
-var commonPartFlags = []cli.Flag{
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:     generalFlagPart,
-			Aliases:  []string{generalFlagPartID, generalFlagPartName},
-			Required: true,
+// partFlags builds the standard part/org/location/machine flag set.
+// partRequired controls whether --part is mandatory.
+func partFlags(partRequired bool) []cli.Flag {
+	return []cli.Flag{
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:     generalFlagPart,
+				Aliases:  []string{generalFlagPartID, generalFlagPartName},
+				Required: partRequired,
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagOrganization,
-			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagOrganization,
+				Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagLocation,
-			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagLocation,
+				Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagMachine,
-			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagMachine,
+				Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+			},
 		},
-	},
+	}
 }
 
-// addJobPartFlags is like commonPartFlags but Part is optional (prompted in interactive form; prompt accepts part ID only).
-var addJobPartFlags = []cli.Flag{
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:     generalFlagPart,
-			Aliases:  []string{generalFlagPartID, generalFlagPartName},
-			Required: false,
-			Usage:    "part ID or name; omit to be prompted for part ID only",
-		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagOrganization,
-			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagLocation,
-			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagMachine,
-			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-		},
-	},
-}
+var commonPartFlags = partFlags(true)
 
 var commonOtlpFlags = []cli.Flag{
 	&cli.StringFlag{
@@ -2841,7 +2817,7 @@ Example with inline JSON:
 Example with a JSON file:
   viam machines part add-job --part=<part-id> --attributes ./job.json`,
 							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
-							Flags: append(addJobPartFlags, &cli.StringFlag{
+							Flags: append(partFlags(false), &cli.StringFlag{
 								Name:     generalFlagAttributes,
 								Required: false,
 								Usage:    "JSON job config or path to JSON file; omit to use the interactive form",
