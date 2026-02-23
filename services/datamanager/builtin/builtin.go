@@ -11,13 +11,17 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
@@ -82,6 +86,11 @@ type builtIn struct {
 	capture            *capture.Capture
 	sync               *datasync.Sync
 	diskSummaryTracker *diskSummaryTracker
+
+	// capture override sensor fields
+	overridePoller    *goutils.StoppableWorkers
+	overrideSensor    sensor.Sensor
+	overrideSensorKey string
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -127,6 +136,17 @@ func New(
 func (b *builtIn) Close(ctx context.Context) error {
 	b.logger.Info("Close START")
 	defer b.logger.Info("Close END")
+
+	// Stop the override poller before acquiring b.mu to avoid deadlock:
+	// the poller goroutine holds b.mu while calling capture.SetOverrides.
+	b.mu.Lock()
+	poller := b.overridePoller
+	b.overridePoller = nil
+	b.mu.Unlock()
+	if poller != nil {
+		poller.Stop()
+	}
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryTracker.close()
@@ -199,8 +219,23 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
+	overrideSensor, overrideSensorKey := captureOverrideSensorFromDeps(c.CaptureOverrideSensor, deps, b.logger)
+
+	// Stop the old override poller before acquiring b.mu to avoid deadlock:
+	// the poller goroutine holds b.mu while calling capture.SetOverrides.
+	b.mu.Lock()
+	oldPoller := b.overridePoller
+	b.overridePoller = nil
+	b.mu.Unlock()
+	if oldPoller != nil {
+		oldPoller.Stop()
+	}
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	b.overrideSensor = overrideSensor
+	b.overrideSensorKey = overrideSensorKey
+
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
@@ -208,7 +243,106 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
+	if overrideSensor != nil {
+		b.overridePoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+			b.runCaptureOverridePoller(ctx)
+		})
+	}
+
 	return nil
+}
+
+// captureOverrideSensorFromDeps resolves the override sensor from dependencies.
+// Returns nil, "" if no sensor is configured or the sensor cannot be found.
+func captureOverrideSensorFromDeps(cfg *CaptureOverrideSensorConfig, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, string) {
+	if cfg == nil || cfg.Name == "" {
+		return nil, ""
+	}
+	s, err := sensor.FromProvider(deps, cfg.Name)
+	if err != nil {
+		logger.Errorw(
+			"unable to initialize capture override sensor; overrides will not apply until fixed or removed from config",
+			"error", err.Error())
+		return nil, ""
+	}
+	return s, cfg.Key
+}
+
+// parseOverridesFromReadings extracts capture overrides from sensor readings.
+// Returns nil if the key is absent, the value is empty, or parsing fails.
+func parseOverridesFromReadings(readings map[string]interface{}, key string) map[string]datamanager.CaptureOverride {
+	raw, ok := readings[key]
+	if !ok {
+		return nil
+	}
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var overrideList []datamanager.CaptureOverride
+	if err := json.Unmarshal(jsonBytes, &overrideList); err != nil {
+		return nil
+	}
+	if len(overrideList) == 0 {
+		return nil
+	}
+	result := make(map[string]datamanager.CaptureOverride, len(overrideList))
+	for _, o := range overrideList {
+		result[fmt.Sprintf("%s/%s", o.ResourceName, o.Method)] = o
+	}
+	return result
+}
+
+// runCaptureOverridePoller polls the override sensor at 10 Hz and calls capture.SetOverrides
+// whenever the parsed overrides change. On sensor error or missing readings, it reverts to
+// the machine config by passing nil overrides.
+func (b *builtIn) runCaptureOverridePoller(ctx context.Context) {
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		// Read the sensor reference under a brief lock.
+		b.mu.Lock()
+		s := b.overrideSensor
+		key := b.overrideSensorKey
+		b.mu.Unlock()
+
+		if s == nil {
+			return
+		}
+
+		// Call Readings without holding b.mu to avoid blocking Reconfigure.
+		readings, err := s.Readings(ctx, nil)
+		if ctx.Err() != nil {
+			return
+		}
+
+		var newOverrides map[string]datamanager.CaptureOverride
+		if err != nil {
+			b.logger.Debugw("error getting readings from capture override sensor, reverting to machine config", "error", err.Error())
+		} else {
+			newOverrides = parseOverridesFromReadings(readings, key)
+			if newOverrides == nil {
+				b.logger.Debugw("capture override sensor returned no overrides", "key", key, "readings", readings)
+			} else {
+				b.logger.Debugw("capture override sensor parsed overrides", "count", len(newOverrides))
+			}
+		}
+
+		// Apply under lock; SetOverrides is a no-op if overrides haven't changed.
+		b.mu.Lock()
+		if ctx.Err() != nil {
+			b.mu.Unlock()
+			return
+		}
+		b.capture.SetOverrides(ctx, newOverrides)
+		b.mu.Unlock()
+	}
 }
 
 func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, bool) {
