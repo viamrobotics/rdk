@@ -58,7 +58,6 @@ import (
 	"go.viam.com/rdk/robot/packages"
 	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
-	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/utils"
 )
@@ -997,7 +996,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			// NOTE(cheukt): when adding internal services that reconfigure, also add them to
 			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
-			case web.InternalServiceName, datamanager.InternalServiceName:
+			case web.InternalServiceName:
 				if internalRes, ok := res.(resource.BuiltInResource); ok {
 					if err := internalRes.BuiltInReconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
 						r.Logger().CErrorw(
