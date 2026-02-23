@@ -1541,8 +1541,8 @@ func parseJSONOrFile(input string) (map[string]any, error) {
 
 // validateJobConfig validates the fields of a job config map. When isUpdate is true,
 // this is an update-job so not all fields are required.
-// partConfig is used to warn about unrecognized resource names.
-func validateJobConfig(w io.Writer, jobConfig, partConfig map[string]any, isUpdate bool) error {
+// partConfig is used to reject unrecognized resource names.
+func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) error {
 	// Validate schedule format if provided (or required for add).
 	// Valid values: "continuous", a Go duration (e.g. "5s", "1h30m"), or a cron expression (5-6 fields).
 	if schedule, ok := jobConfig["schedule"].(string); ok {
@@ -1560,11 +1560,7 @@ func validateJobConfig(w io.Writer, jobConfig, partConfig map[string]any, isUpda
 			return errors.New("'resource' field must be a non-empty string")
 		}
 		if !resourceExistsInConfig(partConfig, resource) {
-			warningf(w,
-				"resource %q not found in part config; job will fail if this resource does not exist on the machine "+
-					"(note: built-in and remote resources may not appear in config)",
-				resource,
-			)
+			return fmt.Errorf("resource %q not found in part config", resource)
 		}
 	} else if !isUpdate {
 		return errors.New("job config must include 'resource' field (string)")
@@ -1881,7 +1877,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 	}
 
 	config := part.RobotConfig.AsMap()
-	if err := validateJobConfig(c.App.ErrWriter, jobConfig, config, false); err != nil {
+	if err := validateJobConfig(jobConfig, config, false); err != nil {
 		return err
 	}
 
@@ -1939,7 +1935,7 @@ func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs)
 	}
 
 	config := part.RobotConfig.AsMap()
-	if err := validateJobConfig(c.App.ErrWriter, newJobConfig, config, true); err != nil {
+	if err := validateJobConfig(newJobConfig, config, true); err != nil {
 		return err
 	}
 
