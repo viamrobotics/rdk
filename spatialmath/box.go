@@ -304,7 +304,6 @@ func (b *box) rotationMatrix() *RotationMatrix {
 // true == collision / false == no collision.
 // Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
 func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
-	//~ return boxVsBoxGJKCollision(a, b, collisionBufferMM)
 	centerDist := b.centerPt.Sub(a.centerPt)
 
 	// check if there is a distance between bounding spheres to potentially exit early
@@ -312,108 +311,35 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	if dist > collisionBufferMM {
 		return false, dist
 	}
+	
+	dist = boxVsBoxDistance(a, b)
+	return dist < collisionBufferMM, dist
 
-	rmA := a.rotationMatrix()
-	rmB := b.rotationMatrix()
+	//~ rmA := a.rotationMatrix()
+	//~ rmB := b.rotationMatrix()
 
-	for i := 0; i < 3; i++ {
-		dist = separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if dist > collisionBufferMM {
-			return false, dist
-		}
-		dist = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if dist > collisionBufferMM {
-			return false, dist
-		}
-		for j := 0; j < 3; j++ {
-			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+	//~ for i := 0; i < 3; i++ {
+		//~ dist = separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
+		//~ if dist > collisionBufferMM {
+			//~ return false, dist
+		//~ }
+		//~ dist = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
+		//~ if dist > collisionBufferMM {
+			//~ return false, dist
+		//~ }
+		//~ for j := 0; j < 3; j++ {
+			//~ crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
 
-			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				dist = separatingAxisTest(centerDist, crossProductPlane.Normalize(), a.halfSize, b.halfSize, rmA, rmB)
-				if dist > collisionBufferMM {
-					return false, dist
-				}
-			}
-		}
-	}
-	return true, -1
-}
-
-// boxVsBoxGJKCollision uses GJK with early exit for collision detection with a buffer.
-// At each iteration the support function yields a lower bound on the true distance that
-// monotonically increases; as soon as this bound exceeds collisionBufferMM the function
-// exits with no-collision. When GJK fully converges the returned distance is exact.
-//
-// Returns (colliding, distance) where distance is:
-//   - exact Euclidean distance when GJK fully converges
-//   - a tight lower bound when early-exiting (distance clearly exceeds buffer)
-//   - -1 when colliding (penetration depth not computed)
-func boxVsBoxGJKCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
-	centerDist := b.centerPt.Sub(a.centerPt)
-
-	// Bounding-sphere pre-check (same as SAT path).
-	dist := centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR)
-	if dist > collisionBufferMM {
-		return false, dist
-	}
-
-	d := centerDist
-	if d.Norm2() < floatEpsilon*floatEpsilon {
-		d = r3.Vector{X: 1}
-	}
-
-	w := gjkMinkowskiSupport(a, b, d)
-	simplex := []r3.Vector{w}
-	v := w
-	mu := 0.0 // best lower bound on distance
-
-	const maxIter = 64
-	const eps = 1e-10
-
-	for iter := 0; iter < maxIter; iter++ {
-		vv := v.Norm2()
-		if vv < 1e-20 {
-			return true, -1
-		}
-		vNorm := math.Sqrt(vv)
-
-		d = v.Mul(-1)
-		w = gjkMinkowskiSupport(a, b, d)
-
-		// Update lower bound: all points in the Minkowski difference satisfy
-		// x·(v/||v||) >= w·v/||v||, so the closest point is at least this far.
-		if lb := v.Dot(w) / vNorm; lb > mu {
-			mu = lb
-		}
-
-		// Early exit: lower bound proves distance exceeds buffer.
-		if mu > collisionBufferMM {
-			return false, mu
-		}
-
-		// Convergence: new support point can't improve distance significantly.
-		if vv-v.Dot(w) <= eps*vv {
-			break
-		}
-
-		simplex = append(simplex, w)
-		switch len(simplex) {
-		case 2:
-			v, simplex = gjkClosestOnSegment(simplex[0], simplex[1])
-		case 3:
-			v, simplex = gjkClosestOnTriangle(simplex[0], simplex[1], simplex[2])
-		case 4:
-			v, simplex = gjkClosestOnTetrahedron(simplex)
-		}
-	}
-
-	// Fully converged: v.Norm() is the exact distance.
-	finalDist := v.Norm()
-	if finalDist > collisionBufferMM {
-		return false, finalDist
-	}
-	return true, -1
+			//~ // if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			//~ if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
+				//~ dist = separatingAxisTest(centerDist, crossProductPlane.Normalize(), a.halfSize, b.halfSize, rmA, rmB)
+				//~ if dist > collisionBufferMM {
+					//~ return false, dist
+				//~ }
+			//~ }
+		//~ }
+	//~ }
+	//~ return true, -1
 }
 
 // boxVsBoxDistance takes two boxes as arguments and returns a floating point number. If this number is nonpositive it represents
@@ -426,57 +352,6 @@ func boxVsBoxGJKCollision(a, b *box, collisionBufferMM float64) (bool, float64) 
 //
 //	https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
-	_, max := boxVsBoxCollision(a, b, 0)
-
-	// If the boxes are colliding, return the SAT penetration depth.
-	if max <= 0 {
-		return max
-	}
-
-	// For non-colliding boxes, compute exact distance by enumerating closest
-	// vertex-to-box and edge-to-edge distances across both boxes.
-	return boxVsBoxSeparationDist(a, b)
-}
-
-// boxVsBoxSeparationDist computes the exact Euclidean distance between two non-colliding boxes
-// by checking all vertex-to-box and edge-to-edge feature pairs.
-func boxVsBoxSeparationDist(a, b *box) float64 {
-	vertsA := a.vertices()
-	vertsB := b.vertices()
-
-	minDist := math.Inf(1)
-
-	// Check each vertex of A against closest point on B, and vice versa.
-	for i := range vertsA {
-		if d := vertsA[i].Sub(b.closestPoint(vertsA[i])).Norm(); d < minDist {
-			minDist = d
-		}
-	}
-	for i := range vertsB {
-		if d := vertsB[i].Sub(a.closestPoint(vertsB[i])).Norm(); d < minDist {
-			minDist = d
-		}
-	}
-
-	// Check all edge-edge pairs for edge-to-edge closest distance.
-	for _, ea := range boxEdgeIndices {
-		for _, eb := range boxEdgeIndices {
-			if d := SegmentDistanceToSegment(vertsA[ea[0]], vertsA[ea[1]], vertsB[eb[0]], vertsB[eb[1]]); d < minDist {
-				minDist = d
-			}
-		}
-	}
-
-	return minDist
-}
-
-// boxVsBoxSATMaxDistance computes the maximum separation gap across all 15 SAT axes
-// for two oriented bounding boxes. This value is:
-//   - A tight lower bound on the true Euclidean distance between the boxes
-//   - Exact when the closest features are face-vertex or face-face
-//   - An underestimate only in edge-edge closest-feature configurations
-//   - Negative (and equal to penetration depth) when the boxes overlap
-func boxVsBoxSATMaxDistance(a, b *box) float64 {
 	centerDist := b.centerPt.Sub(a.centerPt)
 	rmA := a.rotationMatrix()
 	rmB := b.rotationMatrix()
@@ -487,278 +362,6 @@ func boxVsBoxSATMaxDistance(a, b *box) float64 {
 	copy(input[21:24], b.halfSize[:])
 	input[24], input[25], input[26] = centerDist.X, centerDist.Y, centerDist.Z
 	return obbSATMaxGap(&input)
-}
-
-// gjkBoxSupport returns the support point (farthest vertex) of a box in the given direction.
-func gjkBoxSupport(b *box, d r3.Vector) r3.Vector {
-	rm := b.rotationMatrix()
-	result := b.centerPt
-	for i := 0; i < 3; i++ {
-		axis := rm.Row(i)
-		if d.Dot(axis) >= 0 {
-			result = result.Add(axis.Mul(b.halfSize[i]))
-		} else {
-			result = result.Sub(axis.Mul(b.halfSize[i]))
-		}
-	}
-	return result
-}
-
-// gjkMinkowskiSupport returns support_A(d) - support_B(-d), a support point
-// of the Minkowski difference A - B in direction d.
-func gjkMinkowskiSupport(a, b *box, d r3.Vector) r3.Vector {
-	return gjkBoxSupport(a, d).Sub(gjkBoxSupport(b, d.Mul(-1)))
-}
-
-// gjkClosestOnSegment returns the closest point on segment [a,b] to the origin,
-// along with the reduced simplex.
-func gjkClosestOnSegment(a, b r3.Vector) (r3.Vector, []r3.Vector) {
-	ab := b.Sub(a)
-	denom := ab.Norm2()
-	if denom < 1e-30 {
-		return a, []r3.Vector{a}
-	}
-	t := a.Mul(-1).Dot(ab) / denom
-	if t <= 0 {
-		return a, []r3.Vector{a}
-	}
-	if t >= 1 {
-		return b, []r3.Vector{b}
-	}
-	return a.Add(ab.Mul(t)), []r3.Vector{a, b}
-}
-
-// gjkClosestOnTriangle returns the closest point on triangle [a,b,c] to the origin,
-// along with the reduced simplex. Uses Ericson's Voronoi region method from
-// "Real-Time Collision Detection".
-func gjkClosestOnTriangle(a, b, c r3.Vector) (r3.Vector, []r3.Vector) {
-	ab := b.Sub(a)
-	ac := c.Sub(a)
-	ao := a.Mul(-1)
-
-	d1 := ab.Dot(ao)
-	d2 := ac.Dot(ao)
-	if d1 <= 0 && d2 <= 0 {
-		return a, []r3.Vector{a}
-	}
-
-	bo := b.Mul(-1)
-	d3 := ab.Dot(bo)
-	d4 := ac.Dot(bo)
-	if d3 >= 0 && d4 <= d3 {
-		return b, []r3.Vector{b}
-	}
-
-	vc := d1*d4 - d3*d2
-	if vc <= 0 && d1 >= 0 && d3 <= 0 {
-		v := d1 / (d1 - d3)
-		return a.Add(ab.Mul(v)), []r3.Vector{a, b}
-	}
-
-	co := c.Mul(-1)
-	d5 := ab.Dot(co)
-	d6 := ac.Dot(co)
-	if d6 >= 0 && d5 <= d6 {
-		return c, []r3.Vector{c}
-	}
-
-	vb := d5*d2 - d1*d6
-	if vb <= 0 && d2 >= 0 && d6 <= 0 {
-		w := d2 / (d2 - d6)
-		return a.Add(ac.Mul(w)), []r3.Vector{a, c}
-	}
-
-	va := d3*d6 - d5*d4
-	if va <= 0 && (d4-d3) >= 0 && (d5-d6) >= 0 {
-		w := (d4 - d3) / ((d4 - d3) + (d5 - d6))
-		return b.Add(c.Sub(b).Mul(w)), []r3.Vector{b, c}
-	}
-
-	denom := 1.0 / (va + vb + vc)
-	v := vb * denom
-	w := vc * denom
-	return a.Add(ab.Mul(v)).Add(ac.Mul(w)), []r3.Vector{a, b, c}
-}
-
-// gjkOriginInTetrahedron checks whether the origin is inside the tetrahedron
-// defined by the four given points, by verifying the origin is on the interior
-// side of every face.
-func gjkOriginInTetrahedron(pts []r3.Vector) bool {
-	type face struct{ v0, v1, v2, opp int }
-	faces := [4]face{
-		{0, 1, 2, 3},
-		{0, 1, 3, 2},
-		{0, 2, 3, 1},
-		{1, 2, 3, 0},
-	}
-	for _, f := range faces {
-		p0, p1, p2 := pts[f.v0], pts[f.v1], pts[f.v2]
-		normal := p1.Sub(p0).Cross(p2.Sub(p0))
-		dOrigin := normal.Dot(p0.Mul(-1))
-		dOpp := normal.Dot(pts[f.opp].Sub(p0))
-		if dOrigin*dOpp < 0 {
-			return false
-		}
-	}
-	return true
-}
-
-// gjkClosestOnTetrahedron returns the closest point on the tetrahedron to the origin.
-// If the origin is inside, returns the zero vector (collision detected).
-func gjkClosestOnTetrahedron(pts []r3.Vector) (r3.Vector, []r3.Vector) {
-	if gjkOriginInTetrahedron(pts) {
-		return r3.Vector{}, pts
-	}
-	faces := [4][3]int{{0, 1, 2}, {0, 1, 3}, {0, 2, 3}, {1, 2, 3}}
-	bestDist := math.Inf(1)
-	var bestV r3.Vector
-	var bestS []r3.Vector
-
-	for _, f := range faces {
-		v, s := gjkClosestOnTriangle(pts[f[0]], pts[f[1]], pts[f[2]])
-		if d := v.Norm2(); d < bestDist {
-			bestDist = d
-			bestV = v
-			bestS = s
-		}
-	}
-	return bestV, bestS
-}
-
-// boxVsBoxGJKDistance computes the exact Euclidean distance between two boxes
-// using the GJK (Gilbert-Johnson-Keerthi) algorithm. Returns 0 for colliding boxes.
-// Typically converges in 3-5 iterations for boxes.
-func boxVsBoxGJKDistance(a, b *box) float64 {
-	return boxVsBoxGJKDistanceSeeded(a, b, b.centerPt.Sub(a.centerPt))
-}
-
-// boxVsBoxGJKDistanceSeeded is GJK with a caller-supplied initial search direction.
-// A good seed (e.g. the SAT winning axis) can reduce iterations from ~6 to ~1.
-func boxVsBoxGJKDistanceSeeded(a, b *box, initialDir r3.Vector) float64 {
-	d := initialDir
-	if d.Norm2() < floatEpsilon*floatEpsilon {
-		d = r3.Vector{X: 1}
-	}
-
-	w := gjkMinkowskiSupport(a, b, d)
-	simplex := []r3.Vector{w}
-	v := w
-
-	const maxIter = 64
-	const eps = 1e-10
-
-	for iter := 0; iter < maxIter; iter++ {
-		vv := v.Norm2()
-		if vv < 1e-20 {
-			return 0
-		}
-
-		d = v.Mul(-1)
-		w = gjkMinkowskiSupport(a, b, d)
-
-		if vv-v.Dot(w) <= eps*vv {
-			break
-		}
-
-		simplex = append(simplex, w)
-		switch len(simplex) {
-		case 2:
-			v, simplex = gjkClosestOnSegment(simplex[0], simplex[1])
-		case 3:
-			v, simplex = gjkClosestOnTriangle(simplex[0], simplex[1], simplex[2])
-		case 4:
-			v, simplex = gjkClosestOnTetrahedron(simplex)
-		}
-	}
-
-	return v.Norm()
-}
-
-// boxVsBoxHybridDistance uses SAT to detect face-separated boxes (returning the exact
-// SAT gap in ~200ns) and falls back to GJK seeded with the SAT axis for all other cases.
-//
-// Detection rule: if the winning SAT axis is a face normal from box X, and box X's other
-// two face normals both show overlap (gap <= 0), the boxes are separated only along that
-// face and the SAT gap is the exact Euclidean distance. Otherwise GJK refines.
-func boxVsBoxHybridDistance(a, b *box) float64 {
-	centerDist := b.centerPt.Sub(a.centerPt)
-	rmA := a.rotationMatrix()
-	rmB := b.rotationMatrix()
-
-	var faceGapsA, faceGapsB [3]float64
-	best := math.Inf(-1)
-	var bestAxis r3.Vector
-	bestFromFaceA := -1 // index into faceGapsA, or -1
-	bestFromFaceB := -1
-
-	for i := 0; i < 3; i++ {
-		axisA := rmA.Row(i)
-		gA := separatingAxisTest(centerDist, axisA, a.halfSize, b.halfSize, rmA, rmB)
-		faceGapsA[i] = gA
-		if gA > best {
-			best = gA
-			bestAxis = axisA
-			bestFromFaceA = i
-			bestFromFaceB = -1
-		}
-
-		axisB := rmB.Row(i)
-		gB := separatingAxisTest(centerDist, axisB, a.halfSize, b.halfSize, rmA, rmB)
-		faceGapsB[i] = gB
-		if gB > best {
-			best = gB
-			bestAxis = axisB
-			bestFromFaceA = -1
-			bestFromFaceB = i
-		}
-
-		for j := 0; j < 3; j++ {
-			cp := rmA.Row(i).Cross(rmB.Row(j))
-			if !utils.Float64AlmostEqual(cp.Norm(), 0, floatEpsilon) {
-				cpn := cp.Normalize()
-				if g := separatingAxisTest(centerDist, cpn, a.halfSize, b.halfSize, rmA, rmB); g > best {
-					best = g
-					bestAxis = cpn
-					bestFromFaceA = -1
-					bestFromFaceB = -1
-				}
-			}
-		}
-	}
-
-	if best <= 0 {
-		return best // collision: return SAT penetration depth
-	}
-
-	// If winning axis is a face normal and the other two face axes from the
-	// same box overlap, the SAT gap IS the exact Euclidean distance.
-	if bestFromFaceA >= 0 {
-		exact := true
-		for i := 0; i < 3; i++ {
-			if i != bestFromFaceA && faceGapsA[i] > 0 {
-				exact = false
-				break
-			}
-		}
-		if exact {
-			return best
-		}
-	}
-	if bestFromFaceB >= 0 {
-		exact := true
-		for i := 0; i < 3; i++ {
-			if i != bestFromFaceB && faceGapsB[i] > 0 {
-				exact = false
-				break
-			}
-		}
-		if exact {
-			return best
-		}
-	}
-
-	// SAT not proven exact; refine with GJK seeded from the SAT axis.
-	return boxVsBoxGJKDistanceSeeded(a, b, bestAxis)
 }
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
