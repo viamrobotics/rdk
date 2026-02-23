@@ -118,6 +118,8 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 }
 
 // SimpleModel is a model that uses an internal FrameSystem to represent its kinematic tree.
+// It supports both serial chains and branching tree topologies (e.g. grippers with branching fingers).
+// A user-specified "primary output frame" determines what Transform() returns.
 type SimpleModel struct {
 	baseFrame
 	internalFS         *FrameSystem        // tree of frames
@@ -130,6 +132,12 @@ type SimpleModel struct {
 	// to iterate a slice instead of doing map lookups and linear scans per
 	// frame per call.
 	transformChain []Frame
+
+	// transformChainInputOffsets holds the offset into the flat input vector for
+	// each frame in transformChain. For branching models, frames not on the
+	// primary path may appear between chain frames in the BFS-ordered input
+	// array, so a sequential posIdx would be wrong.
+	transformChainInputOffsets []int
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
@@ -148,18 +156,6 @@ func NewSimpleModel(name string) *SimpleModel {
 func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
 	if fs.Frame(primaryOutputFrame) == nil {
 		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
-	}
-
-	// Verify the frame system is a linear chain: no frame may have more than one child.
-	childCount := map[string]int{}
-	for frameName := range fs.frames {
-		parent := fs.parents[frameName]
-		childCount[parent]++
-	}
-	for parent, count := range childCount {
-		if count > 1 {
-			return nil, fmt.Errorf("%w: frame %q has %d children", ErrNeedOneEndEffector, parent, count)
-		}
 	}
 
 	m := &SimpleModel{
@@ -185,6 +181,8 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 
 	// Pre-compute the transform chain: walk from primaryOutputFrame back to world recording each frame
 	m.transformChain = m.buildTransformChain()
+	// Pre-compute schema offsets for each chain frame so Transform() can handle branching correctly.
+	m.transformChainInputOffsets = m.buildTransformChainOffsets()
 
 	return m, nil
 }
@@ -234,6 +232,7 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 	if err != nil {
 		return nil, err
 	}
+	m.modelConfig = base.modelConfig
 	return m, nil
 }
 
@@ -338,6 +337,26 @@ func (m *SimpleModel) buildTransformChain() []Frame {
 	return chain
 }
 
+// buildTransformChainOffsets returns, for each frame in transformChain, the
+// offset of that frame's inputs within the flat input vector defined by
+// inputSchema. For 0-DoF frames the offset is unused, so 0 is stored.
+// This must be called after both transformChain and inputSchema are set.
+func (m *SimpleModel) buildTransformChainOffsets() []int {
+	offsets := make([]int, len(m.transformChain))
+	for i, frame := range m.transformChain {
+		if len(frame.DoF()) == 0 {
+			continue // offset unused for 0-DoF frames
+		}
+		for _, meta := range m.inputSchema.metas {
+			if meta.frameName == frame.Name() {
+				offsets[i] = meta.offset
+				break
+			}
+		}
+	}
+	return offsets
+}
+
 // emptyInputs is a pre-allocated empty slice used for 0-DoF frame transforms.
 var emptyInputs = []Input{}
 
@@ -356,9 +375,13 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	}
 
 	// Iterate base-to-tip (the storage order of transformChain).
-	posIdx := 0
-	for _, chainFrame := range m.transformChain {
+	// Use transformChainInputOffsets to locate each frame's inputs within the
+	// flat vector: a sequential posIdx would be wrong for branching models
+	// because sibling-branch frames with nonzero DoF occupy slots between
+	// chain frames in the BFS-ordered input array.
+	for i, chainFrame := range m.transformChain {
 		dof := len(chainFrame.DoF())
+		offset := m.transformChainInputOffsets[i]
 
 		switch frame := chainFrame.(type) {
 		case *staticFrame:
@@ -366,7 +389,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
 			}
 		case *rotationalFrame:
-			frameInputs := inputs[posIdx : posIdx+dof]
+			frameInputs := inputs[offset : offset+dof]
 			if err := frame.validInputs(frameInputs); err != nil {
 				return &composedTransformation, err
 			}
@@ -385,7 +408,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			if dof == 0 {
 				pose, err = chainFrame.Transform(emptyInputs)
 			} else {
-				pose, err = chainFrame.Transform(inputs[posIdx : posIdx+dof])
+				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
 				return &composedTransformation, err
@@ -394,8 +417,6 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
 			}
 		}
-
-		posIdx += dof
 	}
 
 	return &composedTransformation, nil
@@ -527,6 +548,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
+		m.transformChainInputOffsets = newModel.transformChainInputOffsets
 	} else if ser.InternalFS != nil {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
@@ -537,6 +559,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = rebuilt.primaryOutputFrame
 		m.inputSchema = rebuilt.inputSchema
 		m.transformChain = rebuilt.transformChain
+		m.transformChainInputOffsets = rebuilt.transformChainInputOffsets
 		m.limits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)

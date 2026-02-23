@@ -18,6 +18,7 @@ type ModelConfigJSON struct {
 	Links        []LinkConfig    `json:"links,omitempty"`
 	Joints       []JointConfig   `json:"joints,omitempty"`
 	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
+	OutputFrames []string        `json:"output_frames,omitempty"`
 	OriginalFile *ModelFile
 }
 
@@ -114,13 +115,26 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 	}
 
 	// Build the internal frame system from the transforms and parent map.
-	// buildModelFrameSystem validates that there is exactly one end effector.
-	fs, leaves, err := buildModelFrameSystem(transforms, parentMap)
+	// When no output_frames are specified, exactly one leaf (end effector)
+	// is required so we can determine the output unambiguously.
+	requireSingleLeaf := len(cfg.OutputFrames) == 0
+	fs, leaves, err := buildModelFrameSystem(transforms, parentMap, requireSingleLeaf)
 	if err != nil {
 		return nil, err
 	}
 
-	builtModel, err := NewModel(modelName, fs, leaves[0])
+	if len(cfg.OutputFrames) > 1 {
+		return nil, fmt.Errorf("multiple output frames are not yet supported, got %v", cfg.OutputFrames)
+	}
+
+	var primaryOutput string
+	if len(cfg.OutputFrames) == 0 {
+		primaryOutput = leaves[0]
+	} else {
+		primaryOutput = cfg.OutputFrames[0]
+	}
+
+	builtModel, err := NewModel(modelName, fs, primaryOutput)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +156,10 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 // buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
 // It performs BFS from the root (frames whose parent is "" or not in the map, i.e., world).
 // It returns the FrameSystem and the list of leaf frame names.
-func buildModelFrameSystem(transforms map[string]Frame, parents map[string]string) (*FrameSystem, []string, error) {
+// When requireSingleLeaf is true, the function errors if the model does not have exactly one leaf
+// (end effector). Pass false when output_frames is explicitly specified in the config, allowing
+// branching topologies with multiple leaves.
+func buildModelFrameSystem(transforms map[string]Frame, parents map[string]string, requireSingleLeaf bool) (*FrameSystem, []string, error) {
 	// Build children map
 	childrenOf := map[string][]string{}
 	for child, parent := range parents {
@@ -158,7 +175,7 @@ func buildModelFrameSystem(transforms map[string]Frame, parents map[string]strin
 			leaves = append(leaves, name)
 		}
 	}
-	if len(leaves) != 1 {
+	if requireSingleLeaf && len(leaves) != 1 {
 		return nil, nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, leaves)
 	}
 

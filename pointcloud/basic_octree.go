@@ -3,6 +3,7 @@ package pointcloud
 import (
 	"fmt"
 	"math"
+	"sync"
 	"sync/atomic"
 
 	"github.com/golang/geo/r3"
@@ -67,10 +68,17 @@ type BasicOctree struct {
 // basicOctreeNode is a struct comprised of the type of node, children nodes (should they exist) and the pointcloud's
 // PointAndData datatype representing a point in space.
 type basicOctreeNode struct {
-	nodeType NodeType
-	children []*BasicOctree
-	point    *PointAndData
-	maxVal   int
+	nodeType     NodeType
+	children     []*BasicOctree
+	point        *PointAndData
+	pointGeoOnce *sync.Once
+	pointGeo     spatialmath.Geometry
+	maxVal       int
+}
+
+func (b *basicOctreeNode) pointGeometry() spatialmath.Geometry {
+	b.pointGeoOnce.Do(func() { b.pointGeo = spatialmath.NewPoint(b.point.P, "") })
+	return b.pointGeo
 }
 
 // NewFromMesh returns an octree representation of the Mesh geometry.
@@ -467,17 +475,25 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 	switch octree.node.nodeType {
 	case internalNode:
 		// Create a bounding box for this octree region
-		ocbox, err := spatialmath.NewBox(
-			spatialmath.NewPoseFromPoint(octree.center),
-			r3.Vector{
-				X: octree.sideLength + collisionBufferMM,
-				Y: octree.sideLength + collisionBufferMM,
-				Z: octree.sideLength + collisionBufferMM,
-			},
-			"",
-		)
-		if err != nil {
-			return
+		var ocbox spatialmath.Geometry
+		var err error
+		if boxPtr := octree.boxCache.Load(); boxPtr == nil {
+			ocbox, err = spatialmath.NewBox(
+				spatialmath.NewPoseFromPoint(octree.center),
+				r3.Vector{
+					X: octree.sideLength + collisionBufferMM,
+					Y: octree.sideLength + collisionBufferMM,
+					Z: octree.sideLength + collisionBufferMM,
+				},
+				"",
+			)
+			if err != nil {
+				return
+			}
+
+			octree.boxCache.Store(&ocbox)
+		} else {
+			ocbox = *boxPtr
 		}
 
 		// Check if any geometry intersects with this octree region
@@ -510,12 +526,9 @@ func (octree *BasicOctree) accumulatePointsCollidingWith(
 			return
 		}
 
-		// Create a point geometry for collision checking
-		pointGeom := spatialmath.NewPoint(octree.node.point.P, "")
-
 		// Check collision with each geometry
 		for _, geom := range geometries {
-			collides, _, err := geom.CollidesWith(pointGeom, collisionBufferMM)
+			collides, _, err := geom.CollidesWith(octree.node.pointGeometry(), collisionBufferMM)
 			if err == nil && collides {
 				*accumulator = append(*accumulator, octree.node.point.P)
 				break // Point collides with at least one geometry, no need to check others
