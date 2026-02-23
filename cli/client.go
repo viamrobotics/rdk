@@ -1741,35 +1741,66 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 
 		// 3. Create the form and run it
 		var name, resource, method, commandStr, logLevel, scheduleType string
-		form1 := huh.NewForm(
-			huh.NewGroup(
-				huh.NewNote().Title("Add a job to a part"),
-				huh.NewInput().Title("Set a job name:").Value(&name),
-				huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
-				huh.NewInput().Title("Set a method:").Value(&method),
-				huh.NewInput().
-					Title("If using DoCommand, set a command in JSON format (leave empty otherwise):").
-					Placeholder("{}").
-					Value(&commandStr),
-				huh.NewSelect[string]().
-					Title("Set the log threshold:").
-					Options(
-						huh.NewOption("debug", "debug"),
-						huh.NewOption("info", "info"),
-						huh.NewOption("warn", "warn"),
-						huh.NewOption("error", "error"),
-					).
-					Value(&logLevel),
-				huh.NewSelect[string]().
-					Title("Set the schedule type:").
-					Options(
-						huh.NewOption("Interval", "interval"),
-						huh.NewOption("Cron", "cron"),
-						huh.NewOption("Continuous", "continuous"),
-					).
-					Value(&scheduleType),
-			),
+		var fields []huh.Field
+		fields = append(fields,
+			huh.NewNote().Title("Add a job to a part"),
+			huh.NewInput().Title("Set a job name:").Value(&name).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("job name cannot be empty")
+					}
+					return nil
+				}),
 		)
+		if len(resourceOpts) == 0 {
+			return errors.New("no components or services found on this part; add a resource before creating a job")
+		}
+		fields = append(fields,
+			huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
+		)
+		fields = append(fields,
+			huh.NewInput().Title("Set a method:").Value(&method).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("method cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title("If using DoCommand, set a command in JSON format (leave empty otherwise):").
+				Placeholder("{}").
+				Value(&commandStr).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return nil
+					}
+					var cmd map[string]any
+					if err := json.Unmarshal([]byte(s), &cmd); err != nil {
+						return errors.Wrap(err, "invalid JSON object")
+					}
+					return nil
+				}),
+		)
+		fields = append(fields,
+			huh.NewSelect[string]().
+				Title("Set the log threshold:").
+				Options(
+					huh.NewOption("debug", "debug"),
+					huh.NewOption("info", "info"),
+					huh.NewOption("warn", "warn"),
+					huh.NewOption("error", "error"),
+				).
+				Value(&logLevel),
+			huh.NewSelect[string]().
+				Title("Set the schedule type:").
+				Options(
+					huh.NewOption("Interval", "interval"),
+					huh.NewOption("Cron", "cron"),
+					huh.NewOption("Continuous", "continuous"),
+				).
+				Value(&scheduleType),
+		)
+		form1 := huh.NewForm(huh.NewGroup(fields...))
 		if err := form1.Run(); err != nil {
 			return err
 		}
