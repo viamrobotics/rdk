@@ -2820,8 +2820,6 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "add a scheduled job to a machine part",
 							Description: `Add a scheduled job that runs a method on a resource at a given interval.
 
-Omit --part to be prompted for part (prompt accepts part ID only). With --part you can pass part ID or name (use --organization, --location, --machine when using a part name). Omit --attributes to use an interactive form for the job.
-
 With --attributes, pass a single JSON object (inline or path to a JSON file) with:
   name       (required)  unique name for this job
   schedule   (required)  must be one of:
@@ -2833,7 +2831,7 @@ With --attributes, pass a single JSON object (inline or path to a JSON file) wit
   command    (optional)  JSON object passed as the argument to DoCommand
   log_configuration (optional)  e.g. {"level":"debug"}. Level must be one of: debug, info, warn, error
 
-Example (interactive; prompts for part and job):
+Example (interactive prompt):
   viam machines part add-job
 
 Example with inline JSON:

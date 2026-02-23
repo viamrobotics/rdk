@@ -1738,11 +1738,13 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 				}
 			}
 		}
+		if len(resourceOpts) == 0 {
+			return errors.New("This machine contains no components or services")
+		}
 
 		// 3. Create the form and run it
 		var name, resource, method, commandStr, logLevel, scheduleType string
-		var fields []huh.Field
-		fields = append(fields,
+		form := huh.NewForm(huh.NewGroup(
 			huh.NewNote().Title("Add a job to a part"),
 			huh.NewInput().Title("Set a job name:").Value(&name).
 				Validate(func(s string) error {
@@ -1751,14 +1753,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					}
 					return nil
 				}),
-		)
-		if len(resourceOpts) == 0 {
-			return errors.New("no components or services found on this part; add a resource before creating a job")
-		}
-		fields = append(fields,
 			huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
-		)
-		fields = append(fields,
 			huh.NewInput().Title("Set a method:").Value(&method).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
@@ -1780,8 +1775,6 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					}
 					return nil
 				}),
-		)
-		fields = append(fields,
 			huh.NewSelect[string]().
 				Title("Set the log threshold:").
 				Options(
@@ -1799,9 +1792,8 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					huh.NewOption("Continuous", "continuous"),
 				).
 				Value(&scheduleType),
-		)
-		form1 := huh.NewForm(huh.NewGroup(fields...))
-		if err := form1.Run(); err != nil {
+		))
+		if err := form.Run(); err != nil {
 			return err
 		}
 
