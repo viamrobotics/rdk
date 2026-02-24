@@ -1526,7 +1526,7 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 const (
 	triggerEventPartOnline              = "part_online"
 	triggerEventPartOffline             = "part_offline"
-	triggerEventPartDataIngested        = "part_data_ingested"
+	triggerEventPartDataSynced          = "part_data_ingested"
 	triggerEventConditionalDataIngested = "conditional_data_ingested"
 	triggerEventConditionalLogsIngested = "conditional_logs_ingested"
 )
@@ -1615,18 +1615,16 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			}
 		}
 
-		// 2. Build resource options from the part config.
+		// 2. Build resource options from the part config (components only).
 		confMap := part.RobotConfig.AsMap()
 		var resourceOpts []huh.Option[string]
-		for _, key := range []string{"components", "services"} {
-			resources, err := resourcesFromPartConfig(confMap, key)
-			if err != nil {
-				return err
-			}
-			for _, r := range resources {
-				if n, ok := r["name"].(string); ok && n != "" {
-					resourceOpts = append(resourceOpts, huh.NewOption(n, n))
-				}
+		resources, err := resourcesFromPartConfig(confMap, "components")
+		if err != nil {
+			return err
+		}
+		for _, r := range resources {
+			if n, ok := r["name"].(string); ok && n != "" {
+				resourceOpts = append(resourceOpts, huh.NewOption(n, n))
 			}
 		}
 
@@ -1643,11 +1641,11 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 				}),
 			huh.NewSelect[string]().Title("Select an event type:").
 				Options(
-					huh.NewOption(triggerEventPartOnline, triggerEventPartOnline),
-					huh.NewOption(triggerEventPartOffline, triggerEventPartOffline),
-					huh.NewOption(triggerEventPartDataIngested, triggerEventPartDataIngested),
-					huh.NewOption(triggerEventConditionalDataIngested, triggerEventConditionalDataIngested),
-					huh.NewOption(triggerEventConditionalLogsIngested, triggerEventConditionalLogsIngested),
+					huh.NewOption("Part is online", triggerEventPartOnline),
+					huh.NewOption("Part is offline", triggerEventPartOffline),
+					huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
+					huh.NewOption("Conditional data ingested", triggerEventConditionalDataIngested),
+					huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
 				).
 				Value(&eventType),
 		))
@@ -1658,14 +1656,15 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 		// 4. Event-type-specific follow-up form.
 		event := map[string]any{"type": eventType}
 		switch eventType {
-		case triggerEventPartDataIngested:
+		case triggerEventPartDataSynced:
 			var dataTypes []string
 			if err := huh.NewForm(huh.NewGroup(
 				huh.NewMultiSelect[string]().Title("Select data types:").
 					Options(
-						huh.NewOption("binary", "binary"),
-						huh.NewOption("tabular", "tabular"),
-						huh.NewOption("file", "file"),
+						huh.NewOption("Unspecified", "unspecified"),
+						huh.NewOption("Binary(image)", "binary"),
+						huh.NewOption("Tabular(sensor)", "tabular"),
+						huh.NewOption("File", "file"),
 					).
 					Value(&dataTypes).
 					Validate(func(s []string) error {
@@ -1681,7 +1680,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 
 		case triggerEventConditionalDataIngested:
 			if len(resourceOpts) == 0 {
-				return errors.New("this machine contains no components or services")
+				return errors.New("this machine contains no components")
 			}
 			conditionalEvent, err := collectConditionalDataIngested(confMap, resourceOpts)
 			if err != nil {
@@ -1694,9 +1693,9 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			if err := huh.NewForm(huh.NewGroup(
 				huh.NewMultiSelect[string]().Title("Select log levels:").
 					Options(
-						huh.NewOption("info", "info"),
-						huh.NewOption("warn", "warn"),
-						huh.NewOption("error", "error"),
+						huh.NewOption("Info", "info"),
+						huh.NewOption("Warn", "warn"),
+						huh.NewOption("Error", "error"),
 					).
 					Value(&logLevels).
 					Validate(func(s []string) error {
@@ -1821,9 +1820,18 @@ func collectConditionalDataIngested(confMap map[string]any, resourceOpts []huh.O
 
 	dcm := subtype + ":" + resourceName + ":" + method
 
-	// 3. Operator and value.
-	var operator, valueJSON string
+	// 3. Key, operator, and value.
+	var conditionKey, operator, conditionValue string
 	if err := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title("Condition key:").
+			Description("The field to evaluate, e.g. x, y, readings").
+			Value(&conditionKey).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("key cannot be empty")
+				}
+				return nil
+			}),
 		huh.NewSelect[string]().Title("Select a condition operator:").
 			Options(
 				huh.NewOption("gt (greater than)", "gt"),
@@ -1835,16 +1843,12 @@ func collectConditionalDataIngested(confMap map[string]any, resourceOpts []huh.O
 				huh.NewOption("regex", "regex"),
 			).
 			Value(&operator),
-		huh.NewInput().Title("Condition value (JSON):").
-			Description(`e.g. {"readings": {"cpu": 80}}`).
-			Value(&valueJSON).
+		huh.NewInput().Title("Condition value:").
+			Description("The threshold value, e.g. 4, 80.5, true, hello").
+			Value(&conditionValue).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {
 					return errors.New("value cannot be empty")
-				}
-				var v any
-				if err := json.Unmarshal([]byte(s), &v); err != nil {
-					return errors.Wrap(err, "invalid JSON")
 				}
 				return nil
 			}),
@@ -1852,18 +1856,30 @@ func collectConditionalDataIngested(confMap map[string]any, resourceOpts []huh.O
 		return nil, err
 	}
 
-	var parsedValue any
-	//nolint:errcheck
-	json.Unmarshal([]byte(valueJSON), &parsedValue)
-
 	return map[string]any{
 		"data_capture_method": dcm,
 		"condition": map[string]any{
 			"evals": []any{
-				map[string]any{"operator": operator, "value": parsedValue},
+				map[string]any{
+					"operator": operator,
+					"value":    map[string]any{conditionKey: parseValueString(conditionValue)},
+				},
 			},
 		},
 	}, nil
+}
+
+// parseValueString attempts to interpret a string as a number or boolean,
+// falling back to the raw string if neither applies.
+func parseValueString(s string) any {
+	s = strings.TrimSpace(s)
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	if b, err := strconv.ParseBool(s); err == nil {
+		return b
+	}
+	return s
 }
 
 // subtypeForResource finds the API subtype for a named component/service in the part config.
@@ -1930,7 +1946,7 @@ func collectNotifications(eventType string) ([]any, error) {
 					Validate(func(s string) error {
 						u, parseErr := url.Parse(strings.TrimSpace(s))
 						if parseErr != nil || u.Scheme == "" || u.Host == "" {
-							return errors.New("must be a valid URL with scheme and host")
+							return errors.New("not a valid url")
 						}
 						return nil
 					}),
@@ -1950,16 +1966,14 @@ func collectNotifications(eventType string) ([]any, error) {
 		addWebhook = addAnother
 	}
 
-	// Section 2: Email alerts.
-	var emailAll, addSpecific bool
+	// Section 2: Email alerts — email all machine owners.
+	var emailAll bool
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewNote().Title("Email alerts"),
 		huh.NewConfirm().Title("Email all machine owners?").Value(&emailAll),
-		huh.NewConfirm().Title("Add a specific email address?").Value(&addSpecific),
 	)).Run(); err != nil {
 		return nil, err
 	}
-
 	if emailAll {
 		var secondsStr string
 		if err := huh.NewForm(huh.NewGroup(
@@ -1975,6 +1989,13 @@ func collectNotifications(eventType string) ([]any, error) {
 		})
 	}
 
+	// Section 3: Email alerts — specific email addresses.
+	var addSpecific bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().Title("Email a specific email address?").Value(&addSpecific),
+	)).Run(); err != nil {
+		return nil, err
+	}
 	for addSpecific {
 		var email, secondsStr string
 		var addAnother bool
@@ -2092,12 +2113,6 @@ var validDataCaptureMethods = map[string][]string{
 	"sensor":       {"Readings", "DoCommand"},
 	"servo":        {"Position", "DoCommand"},
 	"switch":       {"DoCommand"},
-	// services
-	"vision":    {"CaptureAllFromCamera", "DoCommand"},
-	"slam":      {"Position", "PointCloudMap", "DoCommand"},
-	"motion":    {"DoCommand"},
-	"discovery": {"DoCommand"},
-	"shell":     {"DoCommand"},
 }
 
 // warnUnknownKeys warns about any keys in m that are not in validKeys.
@@ -2140,7 +2155,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	validEventTypes := map[string]bool{
 		triggerEventPartOnline:              true,
 		triggerEventPartOffline:             true,
-		triggerEventPartDataIngested:        true,
+		triggerEventPartDataSynced:          true,
 		triggerEventConditionalDataIngested: true,
 		triggerEventConditionalLogsIngested: true,
 	}
@@ -2158,7 +2173,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	// warn about unknown event keys
 	validEventKeys := map[string]bool{"type": true}
 	switch eventType {
-	case triggerEventPartDataIngested:
+	case triggerEventPartDataSynced:
 		validEventKeys["data_ingested"] = true
 	case triggerEventConditionalDataIngested:
 		validEventKeys["conditional"] = true
@@ -2169,8 +2184,8 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 
 	// 4. event-type-specific validation
 	switch eventType {
-	case triggerEventPartDataIngested:
-		if err := validateDataIngested(event); err != nil {
+	case triggerEventPartDataSynced:
+		if err := validateDataSynced(event); err != nil {
 			return err
 		}
 	case triggerEventConditionalDataIngested:
@@ -2212,7 +2227,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	return nil
 }
 
-func validateDataIngested(event map[string]any) error {
+func validateDataSynced(event map[string]any) error {
 	diRaw, ok := event["data_ingested"]
 	if !ok {
 		return errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field")
@@ -2425,7 +2440,7 @@ func validateNotification(w io.Writer, n map[string]any, index int, eventType st
 			if sbn <= 0 {
 				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be over 0 for liveness triggers; got %v", index, sbn)
 			}
-		case triggerEventPartDataIngested, triggerEventConditionalDataIngested:
+		case triggerEventPartDataSynced, triggerEventConditionalDataIngested:
 			if sbn < 0 {
 				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn)
 			}
