@@ -29,30 +29,6 @@ type someTypeWithWeakAndStrongDeps struct {
 	reconfigCount int
 }
 
-func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	s.resources = deps
-	s.reconfigCount++
-	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
-	if err != nil {
-		return err
-	}
-	for _, dep := range ourConf.deps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	for _, dep := range ourConf.weakDeps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 type someTypeWithWeakAndStrongDepsConfig struct {
 	deps     []resource.Name
 	weakDeps []resource.Name

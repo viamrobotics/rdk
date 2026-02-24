@@ -3659,10 +3659,6 @@ type mockFakeConfig struct {
 	Value                 int      `json:"value"`
 }
 
-func (m *mockFake) Reconfigure(_ context.Context, _ resource.Dependencies, _ resource.Config) error {
-	return errors.Errorf("should not be called")
-}
-
 func (m *mockFake) Close(ctx context.Context) error {
 	if m.logicalClock != nil {
 		m.closedAt = m.logicalClock.Add(1)
@@ -3698,11 +3694,6 @@ type mockFake2 struct {
 	closeCount  int
 }
 
-func (m *mockFake2) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfCount++
-	return errors.New("oh no")
-}
-
 func (m *mockFake2) Close(ctx context.Context) error {
 	m.closeCount++
 	return nil
@@ -3713,34 +3704,16 @@ func (m *mockFake2) Close(ctx context.Context) error {
 // former can directly update the pin values of the latter.
 type mockWithDep struct {
 	resource.Named
-	parent      *mockFake
-	Slot        string
-	Value       int
-	reconfCount int
-	closeCount  int
+	parent     *mockFake
+	Slot       string
+	Value      int
+	closeCount int
 }
 
 type mockWithDepConfig struct {
 	MockDep string `json:"mock_dep"`
 	Slot    string `json:"slot"`
 	Value   int    `json:"value"`
-}
-
-func (m *mockWithDep) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfCount++
-	convAttrs := conf.ConvertedAttributes.(*mockWithDepConfig)
-	mockDepName := convAttrs.MockDep
-	mockDep, ok := deps[mockNamed(mockDepName)]
-	if !ok {
-		return errors.New("missing dependency")
-	}
-	parent := mockDep.(*mockFake)
-	m.parent.SetChildValue(m.Slot, 0)
-	m.parent = parent
-	m.Slot = convAttrs.Slot
-	m.Value = convAttrs.Value
-	m.parent.SetChildValue(m.Slot, m.Value)
-	return nil
 }
 
 func (m *mockWithDep) Close(ctx context.Context) error {

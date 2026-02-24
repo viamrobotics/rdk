@@ -49,14 +49,6 @@ func (s *ShellService) Status(ctx context.Context) (map[string]interface{}, erro
 	return map[string]interface{}{}, nil
 }
 
-// Reconfigure calls the injected Reconfigure or the real variant.
-func (s *ShellService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	if s.ReconfigureFunc == nil {
-		return resource.NewMustRebuildError(conf.ResourceName())
-	}
-	return s.ReconfigureFunc(ctx, deps, conf)
-}
-
 // Close calls the injected Close or the real version.
 func (s *ShellService) Close(ctx context.Context) error {
 	if s.CloseFunc == nil {
