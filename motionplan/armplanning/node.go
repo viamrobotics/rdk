@@ -21,7 +21,7 @@ import (
 
 // fixedStepInterpolation returns inputs at qstep distance along the path from start to target.
 func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *referenceframe.LinearInputs {
-	newNear := referenceframe.NewLinearInputs()
+	newNear := &referenceframe.LinearInputs{}
 
 	for frameName, startInputs := range start.inputs.Items() {
 		// As this is constructed in-algorithm from already-near nodes, this is guaranteed to always exist

@@ -10,7 +10,7 @@ import (
 )
 
 func TestLinearInputs(t *testing.T) {
-	li := NewLinearInputs()
+	li := &LinearInputs{}
 
 	// Getting inputs for a frame that does not exist should return nil. For parity with a typical
 	// map access.
@@ -77,7 +77,7 @@ func TestLinearInputsLimits(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Create inputs, do a transform call that succeeds.
-	li := NewLinearInputs()
+	li := &LinearInputs{}
 	li.Put("arm", []Input{-1, -2})
 
 	dq, err := fs.TransformToDQ(li, "arm", "world")

@@ -315,7 +315,7 @@ func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.
 	var interpolatedConfigurations []*referenceframe.LinearInputs
 	for i := 0; i <= maxSteps; i++ {
 		interp := float64(i) / float64(maxSteps)
-		frameConfigs := referenceframe.NewLinearInputs()
+		frameConfigs := &referenceframe.LinearInputs{}
 
 		// Interpolate each frame's configuration
 		for frameName, startConfig := range ci.StartConfiguration.Items() {

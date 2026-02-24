@@ -165,7 +165,7 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 	}
 
 	// Build zero inputs in BFS order for deterministic schema ordering
-	zeroInputs := NewLinearInputs()
+	zeroInputs := &LinearInputs{}
 	for _, fn := range bfsFrameNames(fs) {
 		frame := fs.Frame(fn)
 		if frame != nil {

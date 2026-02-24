@@ -412,7 +412,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 
 	fullSeeds := []*referenceframe.LinearInputs{}
 	for _, s := range seeds {
-		i := referenceframe.NewLinearInputs()
+		i := &referenceframe.LinearInputs{}
 		for k, v := range start.Items() {
 			i.Put(k, v)
 		}

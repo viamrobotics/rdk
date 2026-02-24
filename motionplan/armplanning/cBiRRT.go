@@ -439,7 +439,7 @@ func (mp *cBiRRTMotionPlanner) sample(rSeed *node, sampleNum int) (*node, error)
 
 	percent := min(1, float64(sampleNum)/1000)
 
-	newInputs := referenceframe.NewLinearInputs()
+	newInputs := &referenceframe.LinearInputs{}
 	for name, inputs := range rSeed.inputs.Items() {
 		f := mp.pc.fs.Frame(name)
 		if f != nil && len(f.DoF()) > 0 {

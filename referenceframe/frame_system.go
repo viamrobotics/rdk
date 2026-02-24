@@ -591,7 +591,7 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 
 // NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
-	positions := NewLinearInputs()
+	positions := &LinearInputs{}
 	for _, fn := range fs.cachedBFSNames {
 		frame := fs.Frame(fn)
 		if frame != nil {
@@ -603,7 +603,7 @@ func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 
 // InterpolateFS interpolates.
 func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*LinearInputs, error) {
-	interp := NewLinearInputs()
+	interp := &LinearInputs{}
 	for fn, fromInputs := range from.Items() {
 		if len(fromInputs) == 0 {
 			continue

@@ -124,7 +124,7 @@ func (inputs FrameSystemInputs) ToLinearInputs() *LinearInputs {
 	}
 	slices.Sort(sortedFrameNames)
 
-	ret := NewLinearInputs()
+	ret := &LinearInputs{}
 	for _, frameName := range sortedFrameNames {
 		ret.Put(frameName, inputs[frameName])
 	}

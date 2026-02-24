@@ -54,7 +54,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	near1 := &node{inputs: referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs()}
 	seedMap := rrtMap{}
 	seedMap[near1] = nil
-	target := referenceframe.NewLinearInputs()
+	target := &referenceframe.LinearInputs{}
 	target.Put(m.Name(), []referenceframe.Input{
 		0.22034293025523666,
 		0.023301860367034785,

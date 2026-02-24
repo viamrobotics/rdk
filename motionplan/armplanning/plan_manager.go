@@ -118,7 +118,7 @@ func (pm *planManager) planToDirectJoints(
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "planToDirectJoints")
 	defer span.End()
-	fullConfig := referenceframe.NewLinearInputs()
+	fullConfig := &referenceframe.LinearInputs{}
 	for k, v := range goal.Configuration() {
 		fullConfig.Put(k, v)
 	}

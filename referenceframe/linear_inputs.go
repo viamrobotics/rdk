@@ -57,7 +57,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 		li.inputs = append(li.inputs, make([]Input, newMeta.dof)...)
 	}
 
-	return li.schema, nil
+	return &li.schema, nil
 }
 
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
@@ -72,7 +72,7 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 	}
 
 	return &LinearInputs{
-		schema: lis,
+		schema: *lis,
 		inputs: inps,
 	}, nil
 }
@@ -143,16 +143,8 @@ type linearInputMeta struct {
 // only be used by direct consumers of the frame system library.
 type LinearInputs struct {
 	// Cache map[string][]Input ?
-	schema *LinearInputsSchema
+	schema LinearInputsSchema
 	inputs []Input
-}
-
-// NewLinearInputs initializes a LinearInputs.
-func NewLinearInputs() *LinearInputs {
-	return &LinearInputs{
-		schema: &LinearInputsSchema{},
-		inputs: make([]Input, 0, 8),
-	}
 }
 
 // Len returns how many frames (included 0-DoF frames) are in the LinearInputs.
@@ -205,6 +197,9 @@ func (li *LinearInputs) Get(frameName string) []Input {
 
 	for _, meta := range li.schema.metas {
 		if meta.frameName == frameName {
+			if meta.dof == 0 {
+				return []Input{}
+			}
 			return li.inputs[meta.offset : meta.offset+meta.dof]
 		}
 	}
@@ -272,8 +267,8 @@ func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
 }
 
 // CopyWithZeros makes a new copy with everything zero
-func (li *LinearInputs) CopyWithZeros() *LinearInputs {
-	return &LinearInputs{
+func (li *LinearInputs) CopyWithZeros() LinearInputs {
+	return LinearInputs{
 		schema: li.schema,
 		inputs: make([]Input, len(li.inputs)),
 	}
