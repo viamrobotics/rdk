@@ -70,7 +70,7 @@ type Capture struct {
 	baseCollectorConfigs CollectorConfigsByResource
 	baseTags             []string
 	// currentCaptureConfig is the last set of capture config overrides applied via SetCaptureConfigs,
-	// keyed by "resourceShortName/method" (e.g. "camera-1/GetImages").
+	// keyed by "resourceName/method" (e.g. "camera-1/GetImages").
 	currentCaptureConfig map[string]datamanager.CaptureConfigReading
 }
 
@@ -244,6 +244,7 @@ func (c *Capture) Reconfigure(
 			collAndConfig.Collector.Close()
 		}
 	}
+	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
 	c.baseCollectorConfigs = collectorConfigsByResource
 	c.baseTags = config.Tags

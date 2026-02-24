@@ -199,7 +199,7 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 // CaptureConfigReading defines a dynamic capture config for a specific resource/method pair,
 // as emitted by the capture_control_sensor.
 type CaptureConfigReading struct {
-	// ResourceName is the short name of the resource (e.g. "camera-1").
+	// ResourceName is the name of the resource (e.g. "camera-1").
 	ResourceName string `json:"resource_name"`
 	// Method is the capture method name (e.g. "GetImages").
 	Method string `json:"method"`

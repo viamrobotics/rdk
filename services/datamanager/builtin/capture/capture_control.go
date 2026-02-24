@@ -13,7 +13,7 @@ func captureConfigKey(resourceString, method string) string {
 	return fmt.Sprintf("%s/%s", resourceString, method)
 }
 
-// captureConfigsEqual returns true when two per-resource config maps are semantically equal.
+// captureConfigsEqual returns true when two per-resource capture config maps are semantically equal.
 func captureConfigsEqual(a, b map[string]datamanager.CaptureConfigReading) bool {
 	if len(a) != len(b) {
 		return false
@@ -29,7 +29,8 @@ func captureConfigsEqual(a, b map[string]datamanager.CaptureConfigReading) bool 
 		if av.CaptureFrequencyHz != nil && *av.CaptureFrequencyHz != *bv.CaptureFrequencyHz {
 			return false
 		}
-		// nil means "no tag override" while []string{} means "override to empty" — treat them differently.
+
+		// nil means "no tag override" while []string{} means "override to empty"
 		if (av.Tags == nil) != (bv.Tags == nil) {
 			return false
 		}
@@ -99,8 +100,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 							key, oldFreq, cfg.CaptureFrequencyHz)
 					}
 				}
-				// Any config re-enables if effective frequency is positive —
-				// even a tags-only config. Zero freq still disables.
+
 				if cfg.CaptureFrequencyHz > 0 {
 					cfg.Disabled = false
 				}
@@ -132,9 +132,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 				continue
 			}
 
-			// buildCollector skips queue/buffer/additional-params validation: those fields
-			// are unchanged from the base config that was already validated during Reconfigure.
-			cac, err := c.buildCollector(res, md, cfg, c.maxCaptureFileSize, c.mongo.collection)
+			coll, err := c.buildCollector(res, md, cfg, c.maxCaptureFileSize, c.mongo.collection)
 			if err != nil {
 				c.logger.Warnw("failed to build collector for capture config", "error", err, "key", key)
 				continue
@@ -142,7 +140,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 			if existing != nil {
 				toClose = append(toClose, existing)
 			}
-			updates = append(updates, collectorUpdate{md, cac})
+			updates = append(updates, collectorUpdate{md, coll})
 		}
 	}
 

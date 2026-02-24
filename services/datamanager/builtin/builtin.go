@@ -138,7 +138,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 	defer b.logger.Info("Close END")
 
 	// Stop the control poller before acquiring b.mu to avoid deadlock:
-	// the poller goroutine holds b.mu while calling capture.SetControls.
+	// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
 	b.mu.Lock()
 	poller := b.controlPoller
 	b.controlPoller = nil
@@ -222,7 +222,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
 
 	// Stop the old control poller before acquiring b.mu to avoid deadlock:
-	// the poller goroutine holds b.mu while calling capture.SetControls.
+	// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
 	b.mu.Lock()
 	oldPoller := b.controlPoller
 	b.controlPoller = nil
@@ -253,7 +253,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 }
 
 // captureControlSensorFromDeps resolves the control sensor from dependencies.
-// Returns nil, "" if no sensor is configured or the sensor cannot be found.
+// Returns nil if no sensor is configured or the sensor cannot be found.
 func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource.Dependencies,
 	logger logging.Logger,
 ) (sensor.Sensor, string) {
@@ -271,28 +271,27 @@ func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource
 }
 
 // parseOverridesFromReadings extracts capture config overrides from sensor readings.
-// Returns nil if the key is absent, the value is empty, or parsing fails.
-func parseOverridesFromReadings(readings map[string]interface{}, key string) map[string]datamanager.CaptureConfigReading {
+func parseOverridesFromReadings(readings map[string]interface{}, key string) (map[string]datamanager.CaptureConfigReading, error) {
 	raw, ok := readings[key]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	jsonBytes, err := json.Marshal(raw)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to marshal reading: %w", err)
 	}
 	var controlList []datamanager.CaptureConfigReading
 	if err := json.Unmarshal(jsonBytes, &controlList); err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to unmarshal reading: %w", err)
 	}
 	if len(controlList) == 0 {
-		return nil
+		return nil, nil
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, o := range controlList {
 		result[fmt.Sprintf("%s/%s", o.ResourceName, o.Method)] = o
 	}
-	return result
+	return result, nil
 }
 
 // runCaptureControlPoller polls the capture control sensor at 10 Hz and calls capture.SetCaptureConfigs
@@ -328,8 +327,11 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 		if err != nil {
 			b.logger.Debugw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
 		} else {
-			newConfigs = parseOverridesFromReadings(readings, key)
-			if newConfigs == nil {
+			var parseErr error
+			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
+			if parseErr != nil {
+				b.logger.Warnw("failed to parse capture config from sensor reading, reverting to machine config", "error", parseErr)
+			} else if newConfigs == nil {
 				b.logger.Debugw("capture control sensor returned no configs", "key", key, "readings", readings)
 			} else {
 				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
