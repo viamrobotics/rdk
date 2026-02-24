@@ -1,0 +1,76 @@
+FROM debian:bookworm
+
+ENV HOME /root
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update
+
+RUN apt-get -y dist-upgrade
+
+RUN apt-get -y --no-install-recommends install \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    doxygen \
+    g++ \
+    gdb \
+    git \
+    gnupg \
+    gpg \
+    less \
+    libboost-all-dev \
+    libgrpc++-dev \
+    libprotobuf-dev \
+    libssl-dev \
+    libxtensor-dev \
+    ninja-build \
+    pkg-config \
+    protobuf-compiler-grpc \
+    software-properties-common \
+    sudo \
+    wget
+
+RUN bash -c 'wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/llvm.asc'
+RUN apt-add-repository -y 'deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-15 main'
+# NOTE: For reasons I cannot explain, the first invocation of apt-add-repository fails
+# but the second works fine. I suspect a Debian bug
+RUN apt-add-repository -y 'deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-15 main'
+RUN apt-get update
+
+RUN apt-get -y --no-install-recommends install -t llvm-toolchain-bookworm-15 \
+    clang-15 \
+    llvm-15-dev \
+    libclang-15-dev
+
+COPY . /module-generator
+
+RUN git clone https://github.com/viamrobotics/viam-cpp-sdk/ --depth 1
+
+WORKDIR /viam-cpp-sdk
+
+# Note we only generate but do not build the SDK--we just need a compile_commands.json in the build dir.
+RUN mkdir build && \
+    cd build && \
+    cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DVIAMCPPSDK_OFFLINE_PROTO_GENERATION=ON \
+    -DVIAMCPPSDK_BUILD_EXAMPLES=OFF \
+    -DVIAMCPPSDK_BUILD_TESTS=OFF \
+    -DCMAKE_CXX_COMPILER=clang++-15
+
+ARG BUILD_TYPE=RelWithDebInfo
+ARG EXTRA_CMAKE_ARGS
+
+WORKDIR /module-generator
+
+RUN mkdir build && \
+    cd build && \
+    cmake .. -G Ninja \
+    -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+    -DCMAKE_CXX_COMPILER=clang++-15 \
+    -DLLVM_DIR=/usr/lib/llvm-15 \
+    ${EXTRA_CMAKE_ARGS}
+
+RUN cmake --build build --target all
+

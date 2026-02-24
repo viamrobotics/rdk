@@ -78,3 +78,9 @@ func NewParentFrameNotInMapOfParentsError(parentFrameName string) error {
 func NewReservedWordError(configType, reservedWord string) error {
 	return errors.Errorf("reserved word: cannot name a %s '%s'", configType, reservedWord)
 }
+
+// NewDuplicateFrameNameError returns an error indicating that multiple frames
+// with the same name were provided.
+func NewDuplicateFrameNameError(frameName string) error {
+	return errors.Errorf("duplicate frame name %q in serial model", frameName)
+}

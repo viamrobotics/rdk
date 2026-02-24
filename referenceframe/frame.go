@@ -815,19 +815,18 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
-		ordTransforms1 := f1.OrdTransforms()
-		ordTransforms2 := f2.OrdTransforms()
-		if len(ordTransforms1) != len(ordTransforms2) {
+		frames1 := f1.framesInOrder()
+		frames2 := f2.framesInOrder()
+		if len(frames1) != len(frames2) {
 			return false, nil
-		} else {
-			for i, f := range ordTransforms1 {
-				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
-				if err != nil {
-					return false, err
-				}
-				if !frameEquality {
-					return false, nil
-				}
+		}
+		for i, f := range frames1 {
+			frameEquality, err := framesAlmostEqual(f, frames2[i], epsilon)
+			if err != nil {
+				return false, err
+			}
+			if !frameEquality {
+				return false, nil
 			}
 		}
 	default:
@@ -836,8 +835,8 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	return true, nil
 }
 
-// Clone makes a copy of a Frame.
-func Clone(f Frame) (Frame, error) {
+// clone makes a copy of a Frame.
+func clone(f Frame) (Frame, error) {
 	t := reflect.TypeOf(f)
 	var newFrame Frame
 

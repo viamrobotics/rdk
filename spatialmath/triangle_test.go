@@ -40,7 +40,8 @@ func TestBasicTriangleFunctions(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		for i := range tri2.Points() {
-			test.That(t, tri2.Points()[i], test.ShouldResemble, NewPoint(expectedPts[i], "").Transform(tf).Pose().Point())
+			expected := NewPoint(expectedPts[i], "").Transform(tf).Pose().Point()
+			test.That(t, R3VectorAlmostEqual(tri2.Points()[i], expected, 1e-12), test.ShouldBeTrue)
 		}
 	})
 

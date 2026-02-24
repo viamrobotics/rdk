@@ -84,6 +84,7 @@ func TestSmoothPlans1(t *testing.T) {
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
+	req.myTestOptions.doNotCloseObstacles = true
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
@@ -97,13 +98,15 @@ func TestSmoothPlans1(t *testing.T) {
 		inputSlice[i] = n.inputs
 	}
 
-	nodes := smoothPath(ctx, psc, inputSlice)
+	nodes, err := smoothPath(ctx, psc, inputSlice)
+	test.That(t, err, test.ShouldBeNil)
+
 	for idx, n := range nodes {
 		logger.Infof("%d : %v", idx, n.Get("arm-left"))
 	}
 	// Smoothing reduces 62 waypoints to 3, then addCloseObstacleWaypoints adds 5 more
 	// where the path comes within 5mm of obstacles
-	test.That(t, len(nodes), test.ShouldEqual, 8)
+	test.That(t, len(nodes), test.ShouldEqual, 3)
 }
 
 func BenchmarkSmoothPlans1(b *testing.B) {
@@ -114,6 +117,7 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 	logger := logging.NewTestLogger(b)
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
+	req.myTestOptions.doNotCloseObstacles = true
 	test.That(b, err, test.ShouldBeNil)
 
 	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
@@ -130,7 +134,8 @@ func BenchmarkSmoothPlans1(b *testing.B) {
 
 	b.ResetTimer()
 	for b.Loop() {
-		nodes := smoothPath(ctx, psc, inputSlice)
+		nodes, err := smoothPath(ctx, psc, inputSlice)
+		test.That(b, err, test.ShouldBeNil)
 		test.That(b, len(nodes), test.ShouldEqual, 5)
 	}
 }
