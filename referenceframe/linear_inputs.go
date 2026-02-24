@@ -60,6 +60,26 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	return li.schema, nil
 }
 
+// NewLinearInputs creates a pre-allocated LinearInputs associated with this schema.
+// For use with FloatsToInputsInto in hot paths.
+func (lis *LinearInputsSchema) NewLinearInputs() *LinearInputs {
+	return &LinearInputs{schema: lis}
+}
+
+// FloatsToInputsInto updates target in place to wrap inps, avoiding allocation.
+// target must have been created by this schema's NewLinearInputs.
+func (lis *LinearInputsSchema) FloatsToInputsInto(inps []float64, target *LinearInputs) error {
+	totDoF := 0
+	for idx := range lis.metas {
+		totDoF += lis.metas[idx].dof
+	}
+	if totDoF != len(inps) {
+		return fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
+	}
+	target.inputs = inps
+	return nil
+}
+
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
 // if the wrong number of floats are provided.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {

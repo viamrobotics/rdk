@@ -50,6 +50,12 @@ type StateFS struct {
 	poses      referenceframe.FrameSystemPoses
 }
 
+// Reset clears cached geometries and poses so this StateFS can be safely reused.
+func (s *StateFS) Reset() {
+	s.geometries = nil
+	s.poses = nil
+}
+
 // Geometries get Geometries and cache
 func (s *StateFS) Geometries() (map[string]*referenceframe.GeometriesInFrame, error) {
 	if s.geometries == nil {
