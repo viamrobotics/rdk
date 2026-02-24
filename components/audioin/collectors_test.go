@@ -318,11 +318,15 @@ func TestGetAudioCollectorFormatChanges(t *testing.T) {
 
 			// Read from the buffer
 			var writes []*datasyncpb.SensorData
-			select {
-			case <-ctx.Done():
-				t.Error("timeout waiting for data")
-				t.FailNow()
-			case writes = <-buf.Writes:
+			for range tc.expectedBinaries {
+				select {
+				case <-ctx.Done():
+					t.Error("timeout waiting for data")
+					t.FailNow()
+					return
+				case sd := <-buf.Writes:
+					writes = append(writes, sd...)
+				}
 			}
 
 			// Assert correct number of binaries were made

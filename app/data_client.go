@@ -224,6 +224,7 @@ type ExportTabularDataResponse struct {
 type SensorMetadata struct {
 	TimeRequested time.Time
 	TimeReceived  time.Time
+	MimeType      MimeType
 	Annotations   *Annotations
 }
 
