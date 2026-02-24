@@ -1632,8 +1632,12 @@ func validateJobSchedule(schedule string) error {
 }
 
 func validateInterval(interval string) error {
-	if _, err := time.ParseDuration(interval); err != nil {
+	d, err := time.ParseDuration(interval)
+	if err != nil {
 		return err
+	}
+	if d <= 0 {
+		return errors.New("interval must be a positive duration")
 	}
 	return nil
 }
@@ -1766,10 +1770,10 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 			huh.NewSelect[string]().
 				Title("Set the log threshold:").
 				Options(
-					huh.NewOption("debug", "debug"),
-					huh.NewOption("info", "info"),
-					huh.NewOption("warn", "warn"),
-					huh.NewOption("error", "error"),
+					huh.NewOption("Debug", "debug"),
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warn", "warn"),
+					huh.NewOption("Error", "error"),
 				).
 				Value(&logLevel),
 			huh.NewSelect[string]().
@@ -1795,9 +1799,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					huh.NewInput().
 						Title("Set the interval:").
 						Description("Valid intervals look like 10s, 1m, 1h1m, etc. (Go duration format).").
-						Validate(func(s string) error {
-							return validateInterval(s)
-						}).
+						Validate(validateInterval).
 						Value(&intervalStr),
 				),
 			)
@@ -1812,9 +1814,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					huh.NewInput().
 						Title("Cron expression:").
 						Description("Valid cron expressions look like 0 0 * * * for daily, */5 * * * * * for every 5 seconds, etc...").
-						Validate(func(s string) error {
-							return validateCronExpression(s)
-						}).
+						Validate(validateCronExpression).
 						Value(&cronExpr),
 				),
 			)
