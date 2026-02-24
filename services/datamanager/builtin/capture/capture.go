@@ -65,11 +65,11 @@ type Capture struct {
 	mongoMU            sync.Mutex
 	mongo              captureMongo
 
-	// baseCollectorConfigs and baseDMConfig are stored after each Reconfigure so
-	// that SetCaptureConfig can compute effective configs without requiring callers to pass them.
+	// baseCollectorConfigs and baseTags are stored after each Reconfigure so
+	// that SetCaptureConfigs can compute effective configs without requiring callers to pass them.
 	baseCollectorConfigs CollectorConfigsByResource
-	baseDMConfig         Config
-	// currentCaptureConfig is the last set of capture config overrides applied via SetCaptureConfig,
+	baseTags             []string
+	// currentCaptureConfig is the last set of capture config overrides applied via SetCaptureConfigs,
 	// keyed by "resourceShortName/method" (e.g. "camera-1/GetImages").
 	currentCaptureConfig map[string]datamanager.CaptureConfigReading
 }
@@ -116,8 +116,6 @@ func format(c datamanager.DataCaptureConfig) string {
 		c.Name, c.Method, c.CaptureFrequencyHz, c.CaptureQueueSize, c.AdditionalParams, c.Disabled, c.Tags, c.CaptureDirectory)
 }
 
-// newCollectors builds a fresh collectors map from collectorConfigsByResource and config.
-// It is only called from Reconfigure; control handling is done separately in SetControls.
 func (c *Capture) newCollectors(
 	collectorConfigsByResource CollectorConfigsByResource,
 	config Config,
@@ -131,7 +129,6 @@ func (c *Capture) newCollectors(
 
 			// We only use service-level tags.
 			cfg.Tags = config.Tags
-
 			if cfg.Disabled {
 				c.logger.Infof("collector disabled due to config `disabled` being true; collector: %s", md)
 				continue
@@ -222,6 +219,12 @@ func (c *Capture) Reconfigure(
 ) {
 	c.logger.Debug("Reconfigure START")
 	defer c.logger.Debug("Reconfigure END")
+	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
+	if config.CaptureDisabled {
+		c.logger.Info("Capture Disabled")
+		c.Close(ctx)
+		return
+	}
 
 	if c.captureDir != config.CaptureDir {
 		c.logger.Infof("capture_dir old: %s, new: %s", c.captureDir, config.CaptureDir)
@@ -231,14 +234,8 @@ func (c *Capture) Reconfigure(
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
-	if config.CaptureDisabled {
-		c.logger.Info("Capture Disabled")
-		c.Close(ctx)
-		return
-	}
-
 	c.baseCollectorConfigs = collectorConfigsByResource
-	c.baseDMConfig = config
+	c.baseTags = config.Tags
 	c.currentCaptureConfig = nil
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
@@ -273,8 +270,8 @@ func (c *Capture) closeNoMongoMutex(ctx context.Context) {
 	}
 }
 
-// initializeOrUpdateCollector checks whether the existing collector for md can be reused,
-// validates the config, then delegates construction to buildCollector.
+// Initialize a collector for the component/method or update it if it has previously been created.
+// Return the component/method metadata which is used as a key in the collectors map.
 func (c *Capture) initializeOrUpdateCollector(
 	res resource.Resource,
 	md collectorMetadata,
@@ -310,20 +307,19 @@ func (c *Capture) initializeOrUpdateCollector(
 		}
 	}
 
-	return c.buildCollector(res, md, collectorConfig, config, collection)
+	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
 }
 
-// buildCollector constructs and starts a new collector for res/md.
-// It does not validate queue size, buffer size, or additional params — those are
-// validated once by initializeOrUpdateCollector on the Reconfigure path.
-// The control path (SetCaptureConfig) calls this directly since the base config was already validated.
+// buildCollector constructs and starts a new collector.
+// The override path (SetCaptureConfigs) calls this directly since the base config was already validated.
 func (c *Capture) buildCollector(
 	res resource.Resource,
 	md collectorMetadata,
 	collectorConfig datamanager.DataCaptureConfig,
-	config Config,
+	maxCaptureFileSize int64,
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
+	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
 		return nil, err
@@ -335,7 +331,7 @@ func (c *Capture) buildCollector(
 		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
 	}
 
-	targetDir := targetDir(config.CaptureDir, collectorConfig)
+	targetDir := targetDir(collectorConfig.CaptureDirectory, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
@@ -360,7 +356,7 @@ func (c *Capture) buildCollector(
 		MethodName:      collectorConfig.Method,
 		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
 		MethodParams:    methodParams,
-		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
+		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, maxCaptureFileSize),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 		QueueSize:  queueSize,
 		BufferSize: bufferSize,
@@ -369,11 +365,11 @@ func (c *Capture) buildCollector(
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
-			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
+			md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize))
 	}
 
 	c.logger.Infof("collector initialized; collector: %s, config: %s",
-		md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
+		md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize))
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil

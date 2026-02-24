@@ -293,8 +293,8 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) map
 	return result
 }
 
-// runCaptureControlPoller polls the control sensor at 10 Hz and calls capture.SetCaptureConfig
-// whenever the parsed configs change. On sensor error or missing readings, it reverts to
+// runCaptureControlPoller polls the capture control sensor at 10 Hz and calls capture.SetCaptureConfigs
+// whenever the parsed configs change. On invalid or missing readings, it reverts to
 // the machine config by passing nil configs.
 func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -334,13 +334,13 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 			}
 		}
 
-		// Apply under lock; SetCaptureConfig is a no-op if configs haven't changed.
+		// Apply under lock; SetCaptureConfigs is a no-op if configs haven't changed.
 		b.mu.Lock()
 		if ctx.Err() != nil {
 			b.mu.Unlock()
 			return
 		}
-		b.capture.SetCaptureConfig(ctx, newConfigs)
+		b.capture.SetCaptureConfigs(ctx, newConfigs)
 		b.mu.Unlock()
 	}
 }

@@ -9,8 +9,8 @@ import (
 )
 
 // captureConfigKey returns the lookup key for a per-resource capture config map.
-func captureConfigKey(resourceShortName, method string) string {
-	return fmt.Sprintf("%s/%s", resourceShortName, method)
+func captureConfigKey(resourceString, method string) string {
+	return fmt.Sprintf("%s/%s", resourceString, method)
 }
 
 // captureConfigsEqual returns true when two per-resource config maps are semantically equal.
@@ -48,11 +48,11 @@ func fmtFloat32Ptr(f *float32) string {
 	return fmt.Sprintf("%f", *f)
 }
 
-// SetCaptureConfig applies dynamic per-resource capture configs without triggering a full Reconfigure.
+// SetCaptureConfigs applies dynamic per-resource capture configs without triggering a full Reconfigure.
 // Only collectors whose effective config (base + override) has changed are updated.
 // Passing nil or an empty map reverts all collectors to their base machine configs.
-// configs is keyed by "resourceShortName/method" (e.g. "camera-1/GetImages").
-func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datamanager.CaptureConfigReading) {
+// configs is keyed by "resourceName/method" (e.g. "camera-1/GetImages").
+func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]datamanager.CaptureConfigReading) {
 	if captureConfigsEqual(c.currentCaptureConfig, configs) {
 		return
 	}
@@ -66,7 +66,7 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 	for k := range configs {
 		affectedKeys[k] = struct{}{}
 	}
-	c.logger.Infof("SetCaptureConfig: applying %d configs (affecting %d keys)", len(configs), len(affectedKeys))
+	c.logger.Infof("SetCaptureConfigs: applying %d configs (affecting %d resources)", len(configs), len(affectedKeys))
 	c.currentCaptureConfig = configs
 
 	type collectorUpdate struct {
@@ -78,13 +78,13 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 
 	for res, cfgs := range c.baseCollectorConfigs {
 		for _, cfg := range cfgs {
-			key := captureConfigKey(cfg.Name.ShortName(), cfg.Method)
+			key := captureConfigKey(cfg.Name.String(), cfg.Method)
 			if _, affected := affectedKeys[key]; !affected {
 				continue
 			}
 
 			// Apply service-level tags.
-			cfg.Tags = c.baseDMConfig.Tags
+			cfg.Tags = c.baseTags
 
 			// Apply per-resource config if one exists for this key, otherwise revert to base.
 			if config, ok := configs[key]; ok {
@@ -116,8 +116,6 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 			}
 
 			md := newCollectorMetadata(cfg)
-			// Safe to read c.collectors without collectorsMu: SetCaptureConfig is always called
-			// under b.mu, and all writers of c.collectors also hold b.mu.
 			existing := c.collectors[md]
 
 			if cfg.Disabled || cfg.CaptureFrequencyHz <= 0 {
@@ -136,7 +134,7 @@ func (c *Capture) SetCaptureConfig(ctx context.Context, configs map[string]datam
 
 			// buildCollector skips queue/buffer/additional-params validation: those fields
 			// are unchanged from the base config that was already validated during Reconfigure.
-			cac, err := c.buildCollector(res, md, cfg, c.baseDMConfig, c.mongo.collection)
+			cac, err := c.buildCollector(res, md, cfg, c.maxCaptureFileSize, c.mongo.collection)
 			if err != nil {
 				c.logger.Warnw("failed to build collector for capture config", "error", err, "key", key)
 				continue
