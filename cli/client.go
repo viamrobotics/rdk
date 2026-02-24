@@ -1525,12 +1525,13 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 // parseJSONOrFile tries json.Unmarshal first; if that fails and s is a file path, reads and parses it.
 func parseJSONOrFile(s string) (map[string]any, error) {
 	var result map[string]any
-	if err := json.Unmarshal([]byte(s), &result); err == nil {
+	jsonErr := json.Unmarshal([]byte(s), &result)
+	if jsonErr == nil {
 		return result, nil
 	}
 	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse as JSON and failed to read file %q: %w", s, err)
+		return nil, fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err)
 	}
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
@@ -1543,7 +1544,7 @@ type resourceEnableDisableArgs struct {
 	Machine      string
 	Location     string
 	Organization string
-	Component    []string
+	Resource     []string
 }
 
 func resourceEnableAction(c *cli.Context, args resourceEnableDisableArgs) error {
@@ -1555,28 +1556,25 @@ func resourceDisableAction(c *cli.Context, args resourceEnableDisableArgs) error
 }
 
 func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disable bool) error {
-	for _, name := range args.Component {
-		if strings.TrimSpace(name) == "" {
-			return errors.New("--component value must not be empty")
-		}
-	}
-
-	// warn on duplicate components and create a list of unique ones
-	seen := make(map[string]bool, len(args.Component))
-	var uniqueComponents []string
-	for _, name := range args.Component {
-		if seen[name] {
-			warningf(c.App.Writer, "duplicate component %q ignored\n", name)
-			continue
-		}
-		seen[name] = true
-		uniqueComponents = append(uniqueComponents, name)
-	}
-	args.Component = uniqueComponents
-
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
+	}
+
+	for _, name := range args.Resource {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("--resource value must not be empty")
+		}
+	}
+
+	// warn on duplicate resources and create a set of unique ones
+	uniqueResources := make(map[string]bool, len(args.Resource))
+	for _, name := range args.Resource {
+		if uniqueResources[name] {
+			warningf(c.App.Writer, "duplicate resource %q ignored\n", name)
+			continue
+		}
+		uniqueResources[name] = true
 	}
 
 	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
@@ -1585,30 +1583,35 @@ func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disab
 	}
 
 	config := part.RobotConfig.AsMap()
-	components, err := resourcesFromPartConfig(config, "components")
-	if err != nil {
-		return err
-	}
-
-	for _, name := range args.Component {
-		found := false
-		for _, comp := range components {
-			if comp["name"] == name {
-				found = true
-				if disable {
-					comp["disabled"] = true
-				} else {
-					delete(comp, "disabled")
-				}
-				break
+	var updatedResources []string
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			name, ok := resource["name"].(string)
+			if !ok || !uniqueResources[name] {
+				continue
 			}
+			if disable {
+				resource["disabled"] = true
+			} else {
+				delete(resource, "disabled")
+			}
+			updatedResources = append(updatedResources, name)
+			delete(uniqueResources, name)
 		}
-		if !found {
-			return fmt.Errorf("component %q not found in part config", name)
-		}
+		config[resourceType] = resources
+	}
+	for name := range uniqueResources {
+		warningf(c.App.Writer, "resource %q not found in part config\n", name)
 	}
 
-	config["components"] = components
+	if len(updatedResources) == 0 {
+		return errors.New("no matching resources found in part config")
+	}
+
 	pbConfig, err := protoutils.StructToStructPb(config)
 	if err != nil {
 		return err
@@ -1624,7 +1627,7 @@ func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disab
 	if disable {
 		action = "disabled"
 	}
-	printf(c.App.Writer, "successfully %s component(s): %s", action, strings.Join(args.Component, ", "))
+	printf(c.App.Writer, "successfully %s resource(s): %s", action, strings.Join(updatedResources, ", "))
 	return nil
 }
 
@@ -1648,16 +1651,6 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 		return nil
 	}
 
-	for k, v := range updates {
-		if rutils.IsEmptyJSONValue(v) {
-			return fmt.Errorf("field %q has an empty value; config deletion must be done through app.viam.com", k)
-		}
-	}
-
-	if _, ok := updates["name"]; ok {
-		return errors.New("cannot update \"name\" field; name is used to identify the resource")
-	}
-
 	client, err := newViamClient(c)
 	if err != nil {
 		return err
@@ -1678,9 +1671,19 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 		for _, resource := range resources {
 			if resource["name"] == args.Name {
 				resourceFound = true
-				for k, v := range updates {
-					resource[k] = v
+				attrs, _ := resource["attributes"].(map[string]any)
+				if attrs == nil {
+					attrs = make(map[string]any)
 				}
+				for k, v := range updates {
+					if rutils.IsEmptyJSONValue(v) {
+						delete(attrs, k)
+						infof(c.App.Writer, "successfully deleted field %q from resource %q", k, args.Name)
+					} else {
+						attrs[k] = v
+					}
+				}
+				resource["attributes"] = attrs
 				break
 			}
 		}

@@ -81,7 +81,7 @@ const (
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
 	generalFlagAttributes        = "attributes"
-	generalFlagComponent         = "component"
+	generalFlagResource          = "resource"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -2588,30 +2588,6 @@ Note: There is no progress meter while copying is in progress.
 							Action:    createCommandWithT(robotsPartRemoveResourceAction),
 						},
 						{
-							Name:  "update-resource",
-							Usage: "update a resource on a machine part",
-							UsageText: createUsageText("machines part update-resource",
-								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
-							Description: `Update fields on an existing resource. The --attributes flag accepts inline JSON
-or a path to a JSON file. Each field you provide fully replaces the existing value for that
-field. The "name" field cannot be changed
-(it is used to identify the resource).
-
-Examples:
-  # Change the model
-  viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes '{"model": "acme:demo:my-sensor"}'
-
-  # Update from a JSON file
-  viam machines part update-resource --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes /path/to/updates.json`,
-							Flags: append(commonPartFlags,
-								&cli.StringFlag{Name: generalFlagName, Required: true},
-								&cli.StringFlag{Name: generalFlagAttributes, Required: true},
-							),
-							Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),
-						},
-						{
 							Name:      "status",
 							Usage:     "display part status",
 							UsageText: createUsageText("machines part status", []string{generalFlagPart}, true, false),
@@ -2988,20 +2964,20 @@ Note: There is no progress meter while copying is in progress.
 			Subcommands: []*cli.Command{
 				{
 					Name:  "enable",
-					Usage: "enable components on a machine part",
+					Usage: "enable resources on a machine part",
 					UsageText: createUsageText("resource enable",
-						[]string{generalFlagPart, generalFlagComponent}, true, false),
-					Description: `Enable one or more components on a machine part.
+						[]string{generalFlagPart, generalFlagResource}, true, false),
+					Description: `Enable one or more resources (components or services) on a machine part.
 
 Examples:
-  # Enable a single component
-  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --component my-sensor
+  # Enable a single resource
+  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor
 
-  # Enable multiple components at once
-  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --component my-sensor --component arm-1`,
+  # Enable multiple resources at once
+  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
 					Flags: append(commonPartFlags,
 						&cli.StringSliceFlag{
-							Name:     generalFlagComponent,
+							Name:     generalFlagResource,
 							Required: true,
 						},
 					),
@@ -3009,24 +2985,52 @@ Examples:
 				},
 				{
 					Name:  "disable",
-					Usage: "disable components on a machine part",
+					Usage: "disable resources on a machine part",
 					UsageText: createUsageText("resource disable",
-						[]string{generalFlagPart, generalFlagComponent}, true, false),
-					Description: `Disable one or more components on a machine part. Disabled components will not start on the machine.
+						[]string{generalFlagPart, generalFlagResource}, true, false),
+					Description: `Disable one or more resources (components or services) on a machine part.
+Disabled resources will not start on the machine.
 
 Examples:
-  # Disable a single component
-  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --component my-sensor
+  # Disable a single resource
+  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor
 
-  # Disable multiple components at once
-  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --component my-sensor --component arm-1`,
+  # Disable multiple resources at once
+  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
 					Flags: append(commonPartFlags,
 						&cli.StringSliceFlag{
-							Name:     generalFlagComponent,
+							Name:     generalFlagResource,
 							Required: true,
 						},
 					),
 					Action: createCommandWithT[resourceEnableDisableArgs](resourceDisableAction),
+				},
+				{
+					Name:  "update",
+					Usage: "update a resource on a machine part",
+					UsageText: createUsageText("resource update",
+						[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
+					Description: `Update the attributes of an existing resource. The --attributes flag accepts inline JSON
+or a path to a JSON file. Each field you provide will be set in the resource's attributes map.
+Fields with empty values will be deleted from attributes.
+
+Examples:
+  # Set an attribute
+  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+    --name my-sensor --attributes '{"pin": "38"}'
+
+  # Update from a JSON file
+  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+    --name my-sensor --attributes /path/to/updates.json
+
+  # Delete an attribute by passing an empty value
+  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+    --name my-sensor --attributes '{"pin": ""}'`,
+					Flags: append(commonPartFlags,
+						&cli.StringFlag{Name: generalFlagName, Required: true},
+						&cli.StringFlag{Name: generalFlagAttributes, Required: true},
+					),
+					Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),
 				},
 			},
 		},
