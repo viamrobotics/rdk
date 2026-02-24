@@ -70,14 +70,14 @@ func newOptionalChild(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := oc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := oc.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return oc, nil
 }
 
-func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependencies,
+func (oc *optionalChild) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
 	oc.reconfigCount++
@@ -1090,14 +1090,14 @@ func newMutualOptionalChild(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := moc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := moc.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return moc, nil
 }
 
-func (moc *mutualOptionalChild) Reconfigure(ctx context.Context, deps resource.Dependencies,
+func (moc *mutualOptionalChild) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
 	moc.reconfigCount++

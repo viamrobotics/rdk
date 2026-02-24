@@ -246,11 +246,6 @@ var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 // changes to its config or dependencies.
 type TriviallyReconfigurable struct{}
 
-// Reconfigure always succeeds.
-func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
-	return nil
-}
-
 // TriviallyCloseable is to be embedded by any resource that does not care about
 // handling Closes. When is used, it is assumed that the resource does not need
 // to return errors when future non-Close methods are called.
@@ -280,11 +275,6 @@ type NoNativeConfig struct {
 // AlwaysRebuild is to be embedded by any resource that must always rebuild
 // and not reconfigure.
 type AlwaysRebuild struct{}
-
-// Reconfigure always returns a must rebuild error.
-func (a AlwaysRebuild) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
-	return NewMustRebuildError(conf.ResourceName())
-}
 
 // Named is to be embedded by any resource that just needs to return a name.
 type Named interface {
