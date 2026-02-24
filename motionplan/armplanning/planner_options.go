@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -161,15 +162,31 @@ func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) mo
 		orientScale = 0
 	}
 
+	// Pre-compute goal DQs once at closure creation time to avoid repeated interface
+	// dispatch and DualQuaternionFromPose allocations on every hot-path evaluation.
+	type goalEntry struct {
+		frameName string
+		goalDQ    spatial.DualQuaternion
+		parent    string
+	}
+	goalEntries := make([]goalEntry, 0, len(goals))
+	for frame, goal := range goals {
+		goalEntries = append(goalEntries, goalEntry{
+			frameName: frame,
+			goalDQ:    *spatial.DualQuaternionFromPose(goal.Pose()),
+			parent:    goal.Parent(),
+		})
+	}
+
 	return func(state *motionplan.StateFS) float64 {
 		score := 0.
-		for frame, goal := range goals {
-			dq, err := state.FS.TransformToDQ(state.Configuration, frame, goal.Parent())
+		for i := range goalEntries {
+			entry := &goalEntries[i]
+			dq, err := state.FS.TransformToDQ(state.Configuration, entry.frameName, entry.parent)
 			if err != nil {
-				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
+				panic(fmt.Errorf("frame: %v goal parent: %s", entry.frameName, entry.parent))
 			}
-
-			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
+			score += motionplan.WeightedSquaredNormDistanceDQ(entry.goalDQ, dq, cartesianScale, orientScale)
 		}
 		return score
 	}

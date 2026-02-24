@@ -3,6 +3,8 @@ package motionplan
 import (
 	"math"
 
+	"gonum.org/v1/gonum/num/quat"
+
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -108,6 +110,24 @@ func WeightedSquaredNormDistanceWithOptions(start, end spatial.Pose, cartesianSc
 		ptDelta = end.Point().Mul(cartesianScale).Sub(start.Point().Mul(cartesianScale)).Norm2()
 	}
 
+	return ptDelta + orientDelta
+}
+
+// WeightedSquaredNormDistanceDQ computes the same metric as WeightedSquaredNormDistanceWithOptions
+// but accepts concrete DualQuaternion values, avoiding the &Quaternion heap allocation in
+// OrientationBetween on every hot-path evaluation.
+func WeightedSquaredNormDistanceDQ(start, end spatial.DualQuaternion, cartesianScale, orientScale float64) float64 {
+	orientDelta := 0.0
+	if orientScale > 0 {
+		rotBetween := quat.Mul(end.Number.Real, quat.Conj(start.Number.Real))
+		orientDelta = spatial.QuatToR3AA(rotBetween).Mul(orientScale).Norm2()
+	}
+	ptDelta := 0.0
+	if cartesianScale > 0 {
+		startPt := start.Point()
+		endPt := end.Point()
+		ptDelta = endPt.Mul(cartesianScale).Sub(startPt.Mul(cartesianScale)).Norm2()
+	}
 	return ptDelta + orientDelta
 }
 
