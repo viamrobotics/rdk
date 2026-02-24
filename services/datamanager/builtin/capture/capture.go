@@ -69,9 +69,6 @@ type Capture struct {
 	// that SetCaptureConfigs can compute effective configs without requiring callers to pass them.
 	baseCollectorConfigs CollectorConfigsByResource
 	baseTags             []string
-	// currentCaptureConfig is the last set of capture config overrides applied via SetCaptureConfigs,
-	// keyed by "resourceName/method" (e.g. "camera-1/GetImages").
-	currentCaptureConfig map[string]datamanager.CaptureConfigReading
 }
 
 type captureMongo struct {
@@ -248,7 +245,6 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Unlock()
 	c.baseCollectorConfigs = collectorConfigsByResource
 	c.baseTags = config.Tags
-	c.currentCaptureConfig = nil
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }

@@ -3,7 +3,6 @@ package capture
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"go.viam.com/rdk/services/datamanager"
 )
@@ -11,34 +10,6 @@ import (
 // captureConfigKey returns the lookup key for a per-resource capture config map.
 func captureConfigKey(resourceString, method string) string {
 	return fmt.Sprintf("%s/%s", resourceString, method)
-}
-
-// captureConfigsEqual returns true when two per-resource capture config maps are semantically equal.
-func captureConfigsEqual(a, b map[string]datamanager.CaptureConfigReading) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, av := range a {
-		bv, ok := b[k]
-		if !ok {
-			return false
-		}
-		if (av.CaptureFrequencyHz == nil) != (bv.CaptureFrequencyHz == nil) {
-			return false
-		}
-		if av.CaptureFrequencyHz != nil && *av.CaptureFrequencyHz != *bv.CaptureFrequencyHz {
-			return false
-		}
-
-		// nil means "no tag override" while []string{} means "override to empty"
-		if (av.Tags == nil) != (bv.Tags == nil) {
-			return false
-		}
-		if av.Tags != nil && !slices.Equal(av.Tags, bv.Tags) {
-			return false
-		}
-	}
-	return true
 }
 
 // fmtFloat32Ptr formats a *float32 for logging.
@@ -54,22 +25,6 @@ func fmtFloat32Ptr(f *float32) string {
 // Passing nil or an empty map reverts all collectors to their base machine configs.
 // configs is keyed by "resourceName/method" (e.g. "camera-1/GetImages").
 func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]datamanager.CaptureConfigReading) {
-	if captureConfigsEqual(c.currentCaptureConfig, configs) {
-		return
-	}
-
-	// affectedKeys is the union of previously-overridden and newly-overridden resource/method pairs.
-	// These are the only collectors whose effective config may have changed.
-	affectedKeys := make(map[string]struct{}, len(c.currentCaptureConfig)+len(configs))
-	for k := range c.currentCaptureConfig {
-		affectedKeys[k] = struct{}{}
-	}
-	for k := range configs {
-		affectedKeys[k] = struct{}{}
-	}
-	c.logger.Infof("SetCaptureConfigs: applying %d configs (affecting %d resources)", len(configs), len(affectedKeys))
-	c.currentCaptureConfig = configs
-
 	type collectorUpdate struct {
 		md  collectorMetadata
 		cac *collectorAndConfig // nil means remove
@@ -79,15 +34,12 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 
 	for res, cfgs := range c.baseCollectorConfigs {
 		for _, cfg := range cfgs {
-			key := captureConfigKey(cfg.Name.String(), cfg.Method)
-			if _, affected := affectedKeys[key]; !affected {
-				continue
-			}
+			key := captureConfigKey(cfg.Name.ShortName(), cfg.Method)
 
 			// Apply service-level tags.
 			cfg.Tags = c.baseTags
 
-			// Apply per-resource config if one exists for this key, otherwise revert to base.
+			// Apply per-resource override if present, otherwise use base config as-is.
 			if config, ok := configs[key]; ok {
 				c.logger.Infof("applying capture config for %s: capture_frequency_hz=%s tags=%v",
 					key, fmtFloat32Ptr(config.CaptureFrequencyHz), config.Tags)
@@ -111,8 +63,6 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 					c.logger.Infof("capture config changing tags for %s: %v -> %v", key, cfg.Tags, config.Tags)
 					cfg.Tags = config.Tags
 				}
-			} else {
-				c.logger.Infof("reverting %s to base config", key)
 			}
 
 			md := newCollectorMetadata(cfg)
