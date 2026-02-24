@@ -173,7 +173,6 @@ func TestNewBinaryCaptureResult(t *testing.T) {
 			test.That(t, proto[j].Metadata, test.ShouldResemble, &datasyncPB.SensorMetadata{
 				TimeRequested: timestamppb.New(timeRequested.UTC()),
 				TimeReceived:  timestamppb.New(timeReceived.UTC()),
-				MimeType:      res.Binaries[j].MimeType.ToProto(),
 				Annotations:   res.Binaries[j].Annotations.ToProto(),
 			})
 
