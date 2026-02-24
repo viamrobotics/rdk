@@ -254,7 +254,9 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 // captureControlSensorFromDeps resolves the control sensor from dependencies.
 // Returns nil, "" if no sensor is configured or the sensor cannot be found.
-func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, string) {
+func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource.Dependencies,
+	logger logging.Logger,
+) (sensor.Sensor, string) {
 	if cfg == nil || cfg.Name == "" {
 		return nil, ""
 	}

@@ -234,15 +234,22 @@ func (c *Capture) Reconfigure(
 		c.logger.Infof("maximum_capture_file_size_bytes old: %d, new: %d", c.maxCaptureFileSize, config.MaximumCaptureFileSizeBytes)
 	}
 
+	collection := c.mongoReconfigure(ctx, config.MongoConfig)
+	newCollectors := c.newCollectors(collectorConfigsByResource, config, collection)
+	// If a component/method has been removed from the config, close the collector.
+	c.collectorsMu.Lock()
+	for md, collAndConfig := range c.collectors {
+		if _, present := newCollectors[md]; !present {
+			c.logger.Infof("%s closing collector which is no longer in config", md.String())
+			collAndConfig.Collector.Close()
+		}
+	}
+	c.collectorsMu.Unlock()
 	c.baseCollectorConfigs = collectorConfigsByResource
 	c.baseTags = config.Tags
 	c.currentCaptureConfig = nil
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
-
-	collection := c.mongoReconfigure(ctx, config.MongoConfig)
-	newColls := c.newCollectors(collectorConfigsByResource, config, collection)
-	c.overrideCollectors(newColls)
 }
 
 // Close closes the capture manager.

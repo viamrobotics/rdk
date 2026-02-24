@@ -43,15 +43,23 @@ func TestCaptureConfigsEqual(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "equal configs",
-			a:        map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {CaptureFrequencyHz: float32Ptr(10.0), Tags: []string{"tag1"}}},
-			b:        map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {CaptureFrequencyHz: float32Ptr(10.0), Tags: []string{"tag1"}}},
+			name: "equal configs",
+			a: map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {
+				CaptureFrequencyHz: float32Ptr(10.0), Tags: []string{"tag1"},
+			}},
+			b: map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {
+				CaptureFrequencyHz: float32Ptr(10.0), Tags: []string{"tag1"},
+			}},
 			expected: true,
 		},
 		{
-			name:     "different frequency",
-			a:        map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {CaptureFrequencyHz: float32Ptr(10.0)}},
-			b:        map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {CaptureFrequencyHz: float32Ptr(5.0)}},
+			name: "different frequency",
+			a: map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {
+				CaptureFrequencyHz: float32Ptr(10.0),
+			}},
+			b: map[string]datamanager.CaptureConfigReading{"camera-1/GetImages": {
+				CaptureFrequencyHz: float32Ptr(5.0),
+			}},
 			expected: false,
 		},
 		{

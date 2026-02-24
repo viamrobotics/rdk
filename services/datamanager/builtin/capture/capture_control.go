@@ -165,17 +165,3 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, configs map[string]data
 		old.Collector.Close()
 	}
 }
-
-// overrideCollectors atomically replaces the current collectors map with newColls,
-// closing any collectors no longer present.
-func (c *Capture) overrideCollectors(newColls collectors) {
-	c.collectorsMu.Lock()
-	for md, collAndConfig := range c.collectors {
-		if _, present := newColls[md]; !present {
-			c.logger.Infof("%s closing collector", md.String())
-			collAndConfig.Collector.Close()
-		}
-	}
-	c.collectors = newColls
-	c.collectorsMu.Unlock()
-}
