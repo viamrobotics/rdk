@@ -366,12 +366,17 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	if len(m.DoF()) != len(inputs) {
 		return nil, NewIncorrectDoFError(len(inputs), len(m.DoF()))
 	}
+	num, err := m.transformToDQNumber(inputs)
+	result := spatialmath.DualQuaternion{Number: num}
+	return &result, err
+}
 
-	composedTransformation := spatialmath.DualQuaternion{
-		Number: dualquat.Number{
-			Real: quat.Number{Real: 1},
-			Dual: quat.Number{},
-		},
+// transformToDQNumber computes the composed transform as a dualquat.Number without allocating.
+// It returns the partial result along with any out-of-bounds error, matching Transform's semantics.
+func (m *SimpleModel) transformToDQNumber(inputs []Input) (dualquat.Number, error) {
+	composed := dualquat.Number{
+		Real: quat.Number{Real: 1},
+		Dual: quat.Number{},
 	}
 
 	// Iterate base-to-tip (the storage order of transformChain).
@@ -383,24 +388,26 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 		dof := len(chainFrame.DoF())
 		offset := m.transformChainInputOffsets[i]
 
+		var frameDQ dualquat.Number
 		switch frame := chainFrame.(type) {
 		case *staticFrame:
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
-			}
+			frameDQ = frame.transform.(*spatialmath.DualQuaternion).Number
 		case *rotationalFrame:
 			frameInputs := inputs[offset : offset+dof]
 			if err := frame.validInputs(frameInputs); err != nil {
-				return &composedTransformation, err
+				return composed, err
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
-			pose := &spatialmath.DualQuaternion{
-				Number: dualquat.Number{
-					Real: orientation.Quaternion(),
-				},
+			frameDQ = dualquat.Number{Real: orientation.Quaternion()}
+		case *translationalFrame:
+			frameInputs := inputs[offset : offset+dof]
+			if err := frame.validInputs(frameInputs); err != nil {
+				return composed, err
 			}
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.Number),
+			pt := frame.transAxis.Mul(frameInputs[0])
+			frameDQ = dualquat.Number{
+				Real: quat.Number{Real: 1},
+				Dual: quat.Number{Imag: pt.X / 2, Jmag: pt.Y / 2, Kmag: pt.Z / 2},
 			}
 		default:
 			var pose spatialmath.Pose
@@ -411,15 +418,16 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
-				return &composedTransformation, err
+				return composed, err
 			}
-			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
-			}
+			frameDQ = pose.(*spatialmath.DualQuaternion).Number
 		}
+
+		composedDQ := spatialmath.DualQuaternion{Number: composed}
+		composed = composedDQ.Transformation(frameDQ)
 	}
 
-	return &composedTransformation, nil
+	return composed, nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.

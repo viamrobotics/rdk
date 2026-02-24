@@ -273,11 +273,7 @@ func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string
 		return spatial.DualQuaternion{}, err
 	}
 
-	ret := tfParent.Transformation(dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{},
-	})
-	return spatial.DualQuaternion{Number: ret}, nil
+	return tfParent, nil
 }
 
 // Name returns the name of the simpleFrameSystem.
@@ -482,30 +478,64 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		Dual: quat.Number{},
 	}
 
-	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		var pose spatial.Pose
+		var frameDQ dualquat.Number
 		var err error
 
-		if len(frame.DoF()) == 0 {
-			pose, err = frame.Transform([]Input{})
+		switch f := frame.(type) {
+		case *staticFrame:
+			frameDQ = f.transform.(*spatial.DualQuaternion).Number
+		case *rotationalFrame:
+			frameInputs := linearInputs.Get(f.Name())
+			if len(f.DoF()) != len(frameInputs) {
+				return ret, NewIncorrectDoFError(len(frameInputs), len(f.DoF()))
+			}
+			if err = f.validInputs(frameInputs); err != nil {
+				return ret, err
+			}
+			orientation := f.InputToOrientation(frameInputs[0])
+			frameDQ = dualquat.Number{Real: orientation.Quaternion()}
+		case *translationalFrame:
+			frameInputs := linearInputs.Get(f.Name())
+			if len(f.DoF()) != len(frameInputs) {
+				return ret, NewIncorrectDoFError(len(frameInputs), len(f.DoF()))
+			}
+			if err = f.validInputs(frameInputs); err != nil {
+				return ret, err
+			}
+			pt := f.transAxis.Mul(frameInputs[0])
+			frameDQ = dualquat.Number{
+				Real: quat.Number{Real: 1},
+				Dual: quat.Number{Imag: pt.X / 2, Jmag: pt.Y / 2, Kmag: pt.Z / 2},
+			}
+		case *SimpleModel:
+			frameInputs := linearInputs.Get(f.Name())
+			if len(f.DoF()) != len(frameInputs) {
+				return ret, NewIncorrectDoFError(len(frameInputs), len(f.DoF()))
+			}
+			frameDQ, err = f.transformToDQNumber(frameInputs)
 			if err != nil {
 				return ret, err
 			}
-		} else {
-			frameInputs := linearInputs.Get(frame.Name())
-			numMoveableFrames++
-			if len(frame.DoF()) != len(frameInputs) {
-				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+		default:
+			var pose spatial.Pose
+			if len(frame.DoF()) == 0 {
+				pose, err = frame.Transform(emptyInputs)
+			} else {
+				frameInputs := linearInputs.Get(frame.Name())
+				if len(frame.DoF()) != len(frameInputs) {
+					return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+				}
+				pose, err = frame.Transform(frameInputs)
 			}
-
-			pose, err = frame.Transform(frameInputs)
 			if err != nil {
 				return ret, err
 			}
+			frameDQ = pose.(*spatial.DualQuaternion).Number
 		}
 
-		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
+		dq := spatial.DualQuaternion{Number: frameDQ}
+		ret = dq.Transformation(ret)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
 
