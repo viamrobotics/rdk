@@ -191,7 +191,8 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 }
 
 func checkDesiredJointPositions(
-	limits []referenceframe.Limit, currentJointPos, desiredInputs []referenceframe.Input) error {
+	limits []referenceframe.Limit, currentJointPos, desiredInputs []referenceframe.Input,
+) error {
 	for i, val := range desiredInputs {
 		//nolint: revive
 		max := limits[i].Max
