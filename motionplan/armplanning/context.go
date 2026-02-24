@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"sync"
 
 	"go.viam.com/utils/trace"
 
@@ -59,17 +60,31 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	return pc, nil
 }
 
+type linearizeFSmetricReusable struct {
+	conf  *referenceframe.LinearInputs
+	state *motionplan.StateFS
+}
+
 func (pc *planContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+	pool := &sync.Pool{
+		New: func() any {
+			conf := pc.lis.NewLinearInputs()
+			return &linearizeFSmetricReusable{
+				conf:  conf,
+				state: &motionplan.StateFS{Configuration: conf, FS: pc.fs},
+			}
+		},
+	}
 	return func(ctx context.Context, linearizedInputs []float64) float64 {
-		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
-		if err != nil {
+		r := pool.Get().(*linearizeFSmetricReusable)
+		if err := pc.lis.FloatsToInputsInto(linearizedInputs, r.conf); err != nil {
+			pool.Put(r)
 			return math.Inf(1)
 		}
-
-		return metric(&motionplan.StateFS{
-			Configuration: conf,
-			FS:            pc.fs,
-		})
+		r.state.Reset()
+		result := metric(r.state)
+		pool.Put(r)
+		return result
 	}
 }
 

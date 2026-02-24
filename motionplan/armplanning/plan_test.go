@@ -310,6 +310,9 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 		&PlanRequest{
 			FrameSystem:    fs,
 			PlannerOptions: &PlannerOptions{},
+			StartState: NewPlanState(nil, referenceframe.FrameSystemInputs{
+				"xarm6": make([]referenceframe.Input, len(armModel.DoF())),
+			}),
 		},
 		&PlanMeta{},
 	)

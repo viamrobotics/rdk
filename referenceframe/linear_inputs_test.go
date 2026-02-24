@@ -49,6 +49,35 @@ func TestLinearInputs(t *testing.T) {
 	test.That(t, li.Get("0dof"), test.ShouldResemble, []Input{})
 }
 
+func TestFloatsToInputsInto(t *testing.T) {
+	// Set up a simple frame system with a 1-DoF rotational frame.
+	fs := NewEmptyFrameSystem("fs")
+	rotFrame, err := NewRotationalFrame("1dof", spatial.R4AA{RX: 1, RY: 0, RZ: 0}, Limit{-10, 10})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(rotFrame, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	li := NewLinearInputs()
+	li.Put("1dof", []Input{0})
+	schema, err := li.GetSchema(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Round-trip: create via NewLinearInputs, fill via FloatsToInputsInto, verify correct reads.
+	target := schema.NewLinearInputs()
+	err = schema.FloatsToInputsInto([]float64{1.5}, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, target.Get("1dof"), test.ShouldResemble, []Input{1.5})
+
+	// Error case: wrong input length returns an error.
+	err = schema.FloatsToInputsInto([]float64{1.5, 2.5}, target)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// Reuse: calling FloatsToInputsInto again with different data gives updated values.
+	err = schema.FloatsToInputsInto([]float64{3.0}, target)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, target.Get("1dof"), test.ShouldResemble, []Input{3.0})
+}
+
 func TestLinearInputsLimits(t *testing.T) {
 	// Set up a frame system with three "top-level" frames. A 0dof static frame, a 1dof rotational
 	// frame and a 2dof simple model. We envision the 2dof simple model as an arm with 2 joints and
