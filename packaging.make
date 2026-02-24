@@ -71,3 +71,34 @@ static-release-win:
 		--arch ${UNAME_M} \
 		--resources-json win-resources.json \
 		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-windows-${UNAME_M}.json
+
+static-release-macos:
+	# HACK: rename all *.dylib dynamic libraries installed via Homebrew for nlopt-static and
+	# x264. We want to _statically_ link in these libraries to avoid viam-server users on
+	# MacOS having to `brew install` the libraries just to run the binary. Renaming the
+	# *.dylib files here should force clang/ld to select the .a files that will be present
+	# in the same directories.
+	for f in $(shell brew --prefix nlopt-static)/lib/*.dylib; do mv "$$f" "$$f.bak"; done
+	for f in $(shell brew --prefix x264)/lib/*.dylib; do mv "$$f" "$$f.bak"; done
+
+	# Now build viam-server as we normally would with `make server`.
+	make server
+
+	# Restore brew files to their previous state.
+	for f in $(shell brew --prefix nlopt-static)/lib/*.bak; do mv "$$f" "$${f%.bak}"; done
+	for f in $(shell brew --prefix x264)/lib/*.bak; do mv "$$f" "$${f%.bak}"; done
+
+	rm -rf etc/packaging/static/deploy/
+	mkdir -p etc/packaging/static/deploy/
+	cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64
+	if [ "${RELEASE_TYPE}" = "stable" ] || [ "${RELEASE_TYPE}" = "latest" ]; then \
+		cp bin/Darwin-arm64/viam-server etc/packaging/static/deploy/viam-server-${RELEASE_TYPE}-darwin-aarch64; \
+	fi
+	rm -rf etc/packaging/static/manifest/
+	mkdir -p etc/packaging/static/manifest/
+	go run etc/subsystem_manifest/main.go \
+		--binary-path etc/packaging/static/deploy/viam-server-${BUILD_CHANNEL}-darwin-aarch64 \
+		--upload-path "packages.viam.com/apps/viam-server/${PRERELEASE_PATH}viam-server-${BUILD_CHANNEL}-darwin-aarch64" \
+		--version ${BUILD_CHANNEL} \
+		--arch aarch64 \
+		--output-path etc/packaging/static/manifest/viam-server-${BUILD_CHANNEL}-darwin-aarch64.json

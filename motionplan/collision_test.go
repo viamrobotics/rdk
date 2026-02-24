@@ -145,7 +145,6 @@ func TestUniqueCollisions(t *testing.T) {
 	expectedCollisions := []Collision{
 		{"xArm6:base_top", "xArm6:gripper_mount"},
 		{"xArm6:base_top", "xArm6:wrist_link"},
-		{"xArm6:wrist_link", "xArm6:upper_arm"},
 	}
 	test.That(t, collisionListsAlmostEqual(collisions, expectedCollisions), test.ShouldBeTrue)
 

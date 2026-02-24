@@ -32,6 +32,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/fullstorydev/grpcurl v1.8.6
 	github.com/go-co-op/gocron/v2 v2.18.0
+	github.com/go-git/go-billy/v5 v5.6.2
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
@@ -185,6 +186,7 @@ require (
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
@@ -208,7 +210,6 @@ require (
 	github.com/gin-gonic/gin v1.9.1 // indirect
 	github.com/go-chi/chi/v5 v5.2.2 // indirect
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
-	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

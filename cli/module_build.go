@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -634,11 +635,13 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			if c.shouldIgnore(relPath, matcher, true) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		// Check if file matches gitignore patterns
-		if c.shouldIgnoreFile(relPath, matcher) {
+		if c.shouldIgnore(relPath, matcher, false) {
 			return nil
 		}
 
@@ -691,41 +694,24 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
 	}
 
-	// Load .gitignore file if it exists
-	gitignorePath := filepath.Join(repoPath, ".gitignore")
-	if _, err := os.Stat(gitignorePath); err == nil {
-		//nolint:gosec // gitignorePath is constructed from validated repoPath and constant filename
-		file, err := os.Open(gitignorePath)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open .gitignore file")
-		}
-		defer func() {
-			//nolint:errcheck // Ignore close error for read-only file
-			file.Close()
-		}()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			// Skip empty lines and comments
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			patterns = append(patterns, gitignore.ParsePattern(line, nil))
-		}
-
-		if err := scanner.Err(); err != nil {
-			return nil, errors.Wrap(err, "failed to read .gitignore file")
-		}
+	// Recursively read .gitignore files from the repo tree. ReadPatterns walks
+	// subdirectories, respects already-matched ignore rules (so it won't descend
+	// into e.g. node_modules), and attaches the correct domain to each pattern so
+	// that nested .gitignore rules are scoped to their directory.
+	// If no .git directory exists, ReadPatterns still reads .gitignore files.
+	fs := osfs.New(repoPath)
+	repoPatterns, err := gitignore.ReadPatterns(fs, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read gitignore patterns")
 	}
+	patterns = append(patterns, repoPatterns...)
 
 	return gitignore.NewMatcher(patterns), nil
 }
 
-func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher) bool {
-	// Convert to forward slashes for gitignore matching
+func (c *viamClient) shouldIgnore(relPath string, matcher gitignore.Matcher, isDir bool) bool {
 	normalizedPath := filepath.ToSlash(relPath)
-	return matcher.Match(strings.Split(normalizedPath, "/"), false)
+	return matcher.Match(strings.Split(normalizedPath, "/"), isDir)
 }
 
 func (c *viamClient) ensureModuleRegisteredInCloud(

@@ -39,14 +39,11 @@ func NewController(
 		return nil, err
 	}
 
-	ctxWithCancel, cancel := context.WithCancel(ctx)
 	m := mux{
-		Named:         conf.ResourceName().AsNamed(),
-		callbacks:     map[input.Control]map[input.EventType]input.ControlFunction{},
-		cancelFunc:    cancel,
-		ctxWithCancel: ctxWithCancel,
-		eventsChan:    make(chan input.Event, 1024),
-		logger:        logger,
+		Named:      conf.ResourceName().AsNamed(),
+		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
+		eventsChan: make(chan input.Event, 1024),
+		logger:     logger,
 	}
 
 	for _, s := range newConf.Sources {
@@ -57,14 +54,12 @@ func NewController(
 		m.sources = append(m.sources, c)
 	}
 
-	m.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer m.activeBackgroundWorkers.Done()
+	m.workers = utils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		for {
 			select {
 			case eventIn := <-m.eventsChan:
 				m.makeCallbacks(eventIn)
-			case <-ctxWithCancel.Done():
+			case <-ctx.Done():
 				return
 			}
 		}
@@ -78,14 +73,12 @@ type mux struct {
 	resource.Named
 	resource.AlwaysRebuild
 
-	sources                 []input.Controller
-	mu                      sync.RWMutex
-	activeBackgroundWorkers sync.WaitGroup
-	ctxWithCancel           context.Context
-	cancelFunc              func()
-	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
-	eventsChan              chan input.Event
-	logger                  logging.Logger
+	sources    []input.Controller
+	mu         sync.RWMutex
+	workers    *utils.StoppableWorkers
+	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
+	eventsChan chan input.Event
+	logger     logging.Logger
 }
 
 func (m *mux) makeCallbacks(eventOut input.Event) {
@@ -102,27 +95,22 @@ func (m *mux) makeCallbacks(eventOut input.Event) {
 
 	ctrlFunc, ok := m.callbacks[eventOut.Control][eventOut.Event]
 	if ok && ctrlFunc != nil {
-		m.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer m.activeBackgroundWorkers.Done()
-			ctrlFunc(m.ctxWithCancel, eventOut)
+		m.workers.Add(func(ctx context.Context) {
+			ctrlFunc(ctx, eventOut)
 		})
 	}
 
 	ctrlFuncAll, ok := m.callbacks[eventOut.Control][input.AllEvents]
 	if ok && ctrlFuncAll != nil {
-		m.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer m.activeBackgroundWorkers.Done()
-			ctrlFuncAll(m.ctxWithCancel, eventOut)
+		m.workers.Add(func(ctx context.Context) {
+			ctrlFuncAll(ctx, eventOut)
 		})
 	}
 }
 
 // Close terminates background worker threads.
 func (m *mux) Close(ctx context.Context) error {
-	m.cancelFunc()
-	m.activeBackgroundWorkers.Wait()
+	m.workers.Stop()
 	return nil
 }
 

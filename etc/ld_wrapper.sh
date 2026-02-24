@@ -12,6 +12,14 @@ fi
 
 ARGS=("$@")
 
+# Always dynamically link in C++ on MacOS. For a semi-static release, we build viam-server
+# for MacOS with static libnlopt, which dynamically links to libc++. libc++ is not
+# otherwise dynamically linked to viam-server, so make sure it is here. Dynamically
+# linking in C++ for non-semi-static-release builds doesn't hurt anything.
+if [[ `uname` == "Darwin" ]]; then
+	ARGS+=("-lc++")
+fi
+
 # add for 32-bit arm builds
 if [[ `uname -m` =~ armv[6,7]l ]]; then
 	ARGS+=("-Wl,--long-plt")

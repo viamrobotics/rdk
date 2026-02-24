@@ -135,6 +135,40 @@ jobs:
         path: json.log
         retention-days: 30
 
+  test_macos:
+    name: macOS
+    runs-on: macos-latest-xlarge # latest silicon MacOS runner
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - name: Install dependencies
+      run: |
+        brew update
+        brew tap viamrobotics/brews
+        brew install nlopt-static
+        brew install x264
+        # While it's not a requirement to actually run the viam-server binary, ffmpeg is
+        # required for a couple unit tests in CI.
+        brew install ffmpeg
+    - name: test
+      run: |
+        # Run all tests besides motion plannning, as they can take a long time on MacOS
+        # runners which are costly to use.
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $(go list ./... | grep -v motionplan)
+
+    - name: Upload test.json
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-macos-arm64.json
+        path: json.log
+        retention-days: 30
+
   test32:
     name: Go 32-bit Unit Tests
     runs-on: ubuntu-arm-16-core
@@ -167,7 +201,7 @@ jobs:
 
   test_passing:
     name: All Tests Passing
-    needs: [test_go, test32, motion_tests, test_win, lint]
+    needs: [test_go, test32, motion_tests, test_win, test_macos, lint]
     runs-on: [ubuntu-latest]
     if: always()
     steps:
@@ -176,11 +210,13 @@ jobs:
           echo Go Unit Tests: ${{ needs.test_go.result }}
           echo Go 32-bit Tests: ${{ needs.test32.result }}
           echo Windows Tests: ${{ needs.test_win.result }}
+          echo MacOS Tests: ${{ needs.test_macos.result }}
           echo Motion Tests: ${{ needs.motion_tests.result }}
           echo Lint: ${{ needs.lint.result }}
           [ "${{ needs.test_go.result }}" == "success" ] && \
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
+          [ "${{ needs.test_macos.result }}" == "success" ] && \
           [ "${{ needs.motion_tests.result }}" == "success" ] && \
           [ "${{ needs.lint.result }}" == "success" ]
 
