@@ -158,7 +158,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 	steps = simpleSmoothStep(ctx, psc, steps, 1)
 
 	steps = tryOnlyMovingComponentsThatNeedToMove(ctx, psc, steps)
-	
+
 	if len(steps) != originalSize {
 		psc.pc.logger.Debugf("simpleSmooth %d -> %d in %v", originalSize, len(steps), time.Since(start))
 	}
@@ -262,18 +262,17 @@ func findCloseObstacleWaypoints(
 	return closeWaypoints, nil
 }
 
-func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs) []*referenceframe.LinearInputs {
-
-	moving, nonMoving := psc.motionChains.framesFilteredByMovingAndNonmoving()
-	fmt.Printf("moving: %v\n", moving)
-	fmt.Printf("nonMoving: %v\n", nonMoving)
+func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegmentContext,
+	steps []*referenceframe.LinearInputs,
+) []*referenceframe.LinearInputs {
+	moving, _ := psc.motionChains.framesFilteredByMovingAndNonmoving()
 
 	for idx := 1; idx < len(steps); idx++ {
 		curr := steps[idx]
 		prev := steps[idx-1]
 
 		updated := curr.Copy()
-		
+
 		for component, currInputs := range curr.Items() {
 			if slices.Contains(moving, component) {
 				continue
@@ -285,10 +284,6 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegment
 
 			prevInputs := prev.Get(component)
 
-			fmt.Printf("%d %s\n", idx, component)
-			fmt.Printf("\t %v\n", currInputs)
-			fmt.Printf("\t %v\n", prevInputs)
-
 			updated.Put(component, prevInputs)
 		}
 
@@ -296,7 +291,6 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegment
 		if err == nil {
 			steps[idx] = updated
 		}
-		
 	}
 
 	return steps
