@@ -280,31 +280,34 @@ func CheckMockBufferWrites(
 	writes chan []*v1.SensorData,
 	expecteds []*v1.SensorData,
 ) {
-	select {
-	case <-ctx.Done():
-		t.Error("timeout")
-		t.FailNow()
-	case writes := <-writes:
-		end := time.Now()
-		test.That(t, len(writes), test.ShouldEqual, len(expecteds))
-		for i, expected := range expecteds {
-			write := writes[i]
-			requestedAt := write.Metadata.TimeRequested.AsTime()
-			receivedAt := write.Metadata.TimeReceived.AsTime()
-			test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
-			test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
-			test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
-			test.That(t, len(expecteds), test.ShouldEqual, len(writes))
-			// nil out to make comparable
-			// nil out to make comparable
-			write.Metadata.TimeRequested = nil
-			write.Metadata.TimeReceived = nil
-			test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
-			if isBinary(write) {
-				test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
-			} else {
-				test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
-			}
+	var allWrites []*v1.SensorData
+	for range expecteds {
+		select {
+		case <-ctx.Done():
+			t.Error("timeout")
+			t.FailNow()
+			return
+		case batch := <-writes:
+			allWrites = append(allWrites, batch...)
+		}
+	}
+	end := time.Now()
+	test.That(t, len(allWrites), test.ShouldEqual, len(expecteds))
+	for i, expected := range expecteds {
+		write := allWrites[i]
+		requestedAt := write.Metadata.TimeRequested.AsTime()
+		receivedAt := write.Metadata.TimeReceived.AsTime()
+		test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
+		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
+		test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
+		// nil out to make comparable
+		write.Metadata.TimeRequested = nil
+		write.Metadata.TimeReceived = nil
+		test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
+		if isBinary(write) {
+			test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
+		} else {
+			test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
 		}
 	}
 }
