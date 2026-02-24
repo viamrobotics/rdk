@@ -203,7 +203,7 @@ func TestShutdown(t *testing.T) {
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
 
-		// weird flake after remove reconfigure
+		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
 		gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
