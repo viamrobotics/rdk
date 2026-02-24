@@ -134,3 +134,75 @@ func TestBoxPC(t *testing.T) {
 		test.That(t, R3VectorAlmostEqual(v, checkAgainst2[i], 1e-2), test.ShouldBeTrue)
 	}
 }
+
+func collisionBenchCases() []struct {
+	name   string
+	a, b   *box
+	buffer float64
+} {
+	deg45 := math.Pi / 4.0
+	return []struct {
+		name   string
+		a, b   *box
+		buffer float64
+	}{
+		{
+			"far_apart",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{50, 60, 0}, r3.Vector{2, 2, 2}).(*box),
+			1,
+		},
+		{
+			"moderate_distance",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}).(*box),
+			1,
+		},
+		{
+			"near_miss_rotated",
+			makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}).(*box),
+			0,
+		},
+		{
+			"colliding",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{1, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			0,
+		},
+		{
+			"close_with_buffer",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{4, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			1, // bounding sphere gap 0.54 < buffer 1, true dist 2 > buffer 1
+		},
+		{
+			"rotated_close_with_buffer",
+			makeTestBox(&EulerAngles{0, 0, math.Pi / 4.0}, r3.Vector{}, r3.Vector{2, 2, 2}).(*box),
+			makeTestBox(&EulerAngles{0, math.Pi / 4.0, 0}, r3.Vector{4, 0, 0}, r3.Vector{2, 2, 2}).(*box),
+			0.5,
+		},
+		{
+			"elongated_far",
+			makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 100}).(*box),
+			makeTestBox(NewZeroOrientation(), r3.Vector{5, 0, 0}, r3.Vector{2, 2, 100}).(*box),
+			1,
+		},
+		{
+			"elongated_close",
+			makeTestBox(&EulerAngles{0.3, 0.5, 0}, r3.Vector{}, r3.Vector{2, 2, 50}).(*box),
+			makeTestBox(&EulerAngles{0.7, 0.1, 0}, r3.Vector{10, 5, 0}, r3.Vector{2, 2, 50}).(*box),
+			1,
+		},
+	}
+}
+
+func BenchmarkBoxCollisionSAT(b *testing.B) {
+	for _, tc := range collisionBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				boxVsBoxCollision(tc.a, tc.b, tc.buffer)
+			}
+		})
+	}
+}

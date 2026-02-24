@@ -295,10 +295,15 @@ func (c *collector) writeCaptureResults() {
 					return
 				}
 			case CaptureTypeBinary:
-				if err := c.target.WriteBinary(proto); err != nil {
-					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
-					return
+
+				for i, binary := range msg.Binaries {
+					mimeType := binary.MimeType.ToString()
+					if err := c.target.WriteBinary(proto[i], mimeType); err != nil {
+						c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
+						return
+					}
 				}
+
 			case CaptureTypeUnspecified:
 				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
 				return
