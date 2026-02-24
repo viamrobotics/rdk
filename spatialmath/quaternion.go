@@ -227,6 +227,19 @@ func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
 
+// TransformPoint applies a unit-quaternion rotation and translation to a point.
+// Uses the optimized Rodrigues' form: p' = p + 2w*t + 2*(q_vec x t), where t = q_vec x p.
+func TransformPoint(q quat.Number, translation, pt r3.Vector) r3.Vector {
+	tx := q.Jmag*pt.Z - q.Kmag*pt.Y
+	ty := q.Kmag*pt.X - q.Imag*pt.Z
+	tz := q.Imag*pt.Y - q.Jmag*pt.X
+	return r3.Vector{
+		X: pt.X + 2*(q.Real*tx+q.Jmag*tz-q.Kmag*ty) + translation.X,
+		Y: pt.Y + 2*(q.Real*ty+q.Kmag*tx-q.Imag*tz) + translation.Y,
+		Z: pt.Z + 2*(q.Real*tz+q.Imag*ty-q.Jmag*tx) + translation.Z,
+	}
+}
+
 // QuaternionAlmostEqual is an equality test for all the float components of a quaternion. Quaternions have double coverage, q == -q, and
 // this function will *not* account for this. Use OrientationAlmostEqual unless you're certain this is what you want.
 func QuaternionAlmostEqual(a, b quat.Number, tol float64) bool {

@@ -6,56 +6,26 @@ import (
 	"strconv"
 
 	"go.viam.com/rdk/referenceframe"
-	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const unnamedCollisionGeometryPrefix = "unnamedCollisionGeometry_"
 
-// Collision is a pair of strings corresponding to names of Geometry objects in collision, and a penetrationDepth describing the Euclidean
-// distance a Geometry would have to be moved to resolve the Collision.
+// Collision is a pair of strings corresponding to names of Geometry objects in collision.
 type Collision struct {
-	name1, name2     string
-	penetrationDepth float64
+	name1, name2 string
 }
 
-// collisionsAlmostEqual compares two Collisions and returns if they are almost equal.
-func collisionsAlmostEqual(c1, c2 Collision) bool {
-	return ((c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)) &&
-		utils.Float64AlmostEqual(c1.penetrationDepth, c2.penetrationDepth, 0.1)
-}
-
-// collisionListsAlmostEqual compares two lists of Collisions and returns if they are almost equal.
-func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
-	if len(cs1) != len(cs2) {
-		return false
-	}
-
-	// loop through list 1 and match with elements in list 2, mark on list of used indexes
-	used := make([]bool, len(cs1))
-	for _, c1 := range cs1 {
-		for i, c2 := range cs2 {
-			if collisionsAlmostEqual(c1, c2) {
-				used[i] = true
-				break
-			}
-		}
-	}
-
-	// loop through list of used indexes
-	for _, c := range used {
-		if !c {
-			return false
-		}
-	}
-	return true
+// collisionsEqual compares two Collisions and returns if they are equal (names can be in either order).
+func collisionsEqual(c1, c2 Collision) bool {
+	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
 }
 
 func collisionSpecifications(
 	pbConstraint []CollisionSpecification,
 	frameSystemGeometries map[string]*referenceframe.GeometriesInFrame,
 	frameNames, validGeoms map[string]bool,
-) (allowedCollisions []*Collision, err error) {
+) (allowedCollisions []Collision, err error) {
 	// Get names of all geometries in frame system
 	for frameName, geomsInFrame := range frameSystemGeometries {
 		if _, ok := validGeoms[frameName]; ok {
@@ -130,7 +100,7 @@ func collisionSpecifications(
 			}
 			for _, allowName1 := range allowNames1 {
 				for _, allowName2 := range allowNames2 {
-					allowedCollisions = append(allowedCollisions, &Collision{name1: allowName1, name2: allowName2})
+					allowedCollisions = append(allowedCollisions, Collision{name1: allowName1, name2: allowName2})
 				}
 			}
 		}
@@ -138,189 +108,90 @@ func collisionSpecifications(
 	return allowedCollisions, nil
 }
 
-// geometryGraph is a struct that stores distance relationships between sets of geometries.
-type geometryGraph struct {
-	// x and y are the two sets of geometries, each of which will be compared to the geometries in the other set
-	x, y map[string]spatial.Geometry
-
-	// distances is the data structure to store the distance relationships between two named geometries
-	// can be acessed as distances[name1][name2] to get the distance between name1 and name2
-	distances map[string]map[string]float64
-}
-
-// newGeometryGraph instantiates a geometryGraph with the x and y geometry sets.
-func newGeometryGraph(x, y map[string]spatial.Geometry) geometryGraph {
-	distances := make(map[string]map[string]float64)
-	for name := range x {
-		distances[name] = make(map[string]float64)
-	}
-	return geometryGraph{
-		x:         x,
-		y:         y,
-		distances: distances,
-	}
-}
-
-// setDistance takes two given geometry names and sets their distance in the distances table exactly once
-// since the relationship between the geometries is bidirectional, the order that the names are passed in is not important.
-func (gg *geometryGraph) setDistance(xName, yName string, distance float64) {
-	if _, ok := gg.distances[yName][xName]; ok {
-		gg.distances[yName][xName] = distance
-	} else {
-		if _, ok := gg.distances[xName]; !ok {
-			gg.distances[xName] = make(map[string]float64)
-		}
-		gg.distances[xName][yName] = distance
-	}
-}
-
-// getDistance finds the distance between the given geometry names by referencing the distances table
-// a secondary return value of type bool is also returned, indicating if the distance was found in the table
-// if the distance between the geometry names was never set, the return value will be (NaN, false).
-func (cg *collisionGraph) getDistance(name1, name2 string) (float64, bool) {
-	if distance, ok := cg.distances[name1][name2]; ok {
-		return distance, true
-	}
-	if distance, ok := cg.distances[name2][name1]; ok {
-		return distance, true
-	}
-	return math.NaN(), false
-}
-
-// collisionGraph utilizes the geometryGraph structure to make collision checks between geometries
-// a collision is defined as a negative penetration depth and is stored in the distances table.
-type collisionGraph struct {
-	geometryGraph
-
-	// reportDistances is a bool that determines how the collisionGraph will report collisions
-	//    - true:  all distances will be determined and numerically reported
-	//    - false: collisions will be reported as bools, not numerically. Upon finding a collision, will exit early
-	reportDistances bool
-
-	minDistance     float64
-	minDistancePair string
-}
-
-// newCollisionGraph instantiates a collisionGraph object and checks for collisions between the x and y sets of geometries
-// collisions that are reported in the reference CollisionSystem argument will be ignored and not stored as edges in the graph.
-// if the set y is nil, the graph will be instantiated with y = x.
-func newCollisionGraph(fs *referenceframe.FrameSystem,
-	x, y []spatial.Geometry,
-	reference *collisionGraph,
-	reportDistances bool,
+// CheckCollisions checks whether any geometries in one set collide with any geometries in another,
+// ignoring allowed collisions. It will return a lower-bound estimate of the closest distance between non-colliding geometries.
+// If collectAllCollisions is false it will return early after the first collision found. Otherwise it will return all found collisions.
+func CheckCollisions(
+	gg, other []spatialmath.Geometry,
+	allowedCollisions []Collision,
 	collisionBufferMM float64,
-) (cg *collisionGraph, err error) {
-	if y == nil {
-		y = x
-	}
-	xMap, err := createUniqueCollisionMap(x)
+	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
+) ([]Collision, float64, error) {
+	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
-		return nil, err
+		return nil, math.Inf(-1), err
 	}
-	yMap, err := createUniqueCollisionMap(y)
+	otherMap, err := createUniqueCollisionMap(other)
 	if err != nil {
-		return nil, err
+		return nil, math.Inf(-1), err
 	}
 
-	cg = &collisionGraph{
-		geometryGraph:   newGeometryGraph(xMap, yMap),
-		reportDistances: reportDistances,
-		minDistance:     math.Inf(1),
-	}
+	ignoreList := makeAllowedCollisionsLookup(allowedCollisions)
 
-	var distance float64
-	for xName, xGeometry := range cg.x {
-		for yName, yGeometry := range cg.y {
-			if skipCollisionCheck(fs, xName, yName) {
+	collisions := []Collision{}
+	minDistance := math.Inf(1)
+
+	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
+	for xName, xGeometry := range ggMap {
+		for yName, yGeometry := range otherMap {
+			// `skipCollisionCheck` can mutate the `ignoreList` in the event geometry labels are
+			// shared between the two input bags of geometries. Such that any pair of geometries are
+			// only checked once.
+			if skipCollisionCheck(ignoreList, xName, yName) {
 				continue
 			}
-			if _, ok := cg.getDistance(xName, yName); ok || xGeometry == yGeometry {
-				// geometry pair already has distance information associated with it, or is comparing with itself - skip to next pair
-				continue
-			}
-			if reference != nil && reference.collisionBetween(xName, yName, collisionBufferMM) {
-				// represent previously seen collisions as NaNs
-				// per IEE standards, any comparison with NaN will return false, so these will never be considered collisions
-				distance = math.NaN()
-			} else if distance, err = cg.checkCollision(xGeometry, yGeometry, collisionBufferMM); err != nil {
-				return nil, err
-			}
 
-			if !math.IsNaN(distance) && distance < cg.minDistance {
-				cg.minDistance = distance
-				cg.minDistancePair = fmt.Sprintf("%s with %s", xName, yName)
-			}
-
-			cg.setDistance(xName, yName, distance)
-			if !reportDistances && distance <= collisionBufferMM {
-				// collision found, can return early
-				return cg, nil
-			}
-		}
-	}
-
-	return cg, nil
-}
-
-// checkCollision takes a pair of geometries and returns the distance between them.
-// If this number is less than the CollisionBuffer they can be considered to be in collision.
-func (cg *collisionGraph) checkCollision(x, y spatial.Geometry, collisionBufferMM float64) (float64, error) {
-	// x is the robot geometries and therefore must use the primitives from spatialmath
-	// y is a geometry type that could potentially live outside spatialmath and therefore knows more so we defer to it for collisions
-	if cg.reportDistances {
-		dist, err := x.DistanceFrom(y)
-		if err != nil {
-			return y.DistanceFrom(x)
-		}
-		return dist, nil
-	}
-	col, d, err := x.CollidesWith(y, collisionBufferMM)
-	if err != nil {
-		col, d, err = y.CollidesWith(x, collisionBufferMM)
-		if err != nil {
-			return math.Inf(-1), err
-		}
-	}
-	if col {
-		return math.Inf(-1), err
-	}
-
-	return d, err
-}
-
-// collisionBetween returns a bool describing if the collisionGraph has a collision between the two entities that are specified by name.
-func (cg *collisionGraph) collisionBetween(name1, name2 string, collisionBufferMM float64) bool {
-	if distance, ok := cg.getDistance(name1, name2); ok {
-		return distance <= collisionBufferMM
-	}
-	return false
-}
-
-// collisions returns a list of all the collisions present in the collisionGraph.
-func (cg *collisionGraph) collisions(collisionBufferMM float64) []Collision {
-	var collisions []Collision
-	for xName, row := range cg.distances {
-		for yName, distance := range row {
-			if distance <= collisionBufferMM {
-				collisions = append(collisions, Collision{xName, yName, distance})
-				if !cg.reportDistances {
-					// collision found, can return early
-					return collisions
+			isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
+			if err != nil {
+				// Due to how Geometry is currently set up, each geometry must know how to collide with each other type. But this is not
+				// always possible with geometries that live in different packages, due to Go circular dependency issues. Thus if we have
+				// an error, we need to check to opposite direction.
+				isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
+				if err != nil {
+					return nil, distance, err
 				}
 			}
+
+			if isCollision {
+				// If there's a collision, add it to the return slice. And optionally early-return.
+				n1, n2 := xName, yName
+				if n1 > n2 {
+					// Deterministically order collisions to prevent noisy errors
+					n1, n2 = n2, n1
+				}
+				collisions = append(collisions, Collision{name1: n1, name2: n2})
+				if !collectAllCollisions {
+					return collisions, distance, nil
+				}
+			} else {
+				// If this pair does not collide, update the `minDistance`.
+				minDistance = min(minDistance, distance)
+			}
 		}
 	}
-	return collisions
+
+	return collisions, minDistance, nil
 }
 
-// addCollisionSpecification marks the two objects specified as colliding.
-func (cg *collisionGraph) addCollisionSpecification(specification *Collision) {
-	cg.setDistance(specification.name1, specification.name2, math.Inf(-1))
+// Process a []Collision into a map for easy lookups.
+func makeAllowedCollisionsLookup(allowedCollisions []Collision) map[string]map[string]bool {
+	ignoreList := map[string]map[string]bool{}
+	for _, collision := range allowedCollisions {
+		if _, ok := ignoreList[collision.name1]; !ok {
+			ignoreList[collision.name1] = map[string]bool{}
+		}
+		if _, ok := ignoreList[collision.name2]; !ok {
+			ignoreList[collision.name2] = map[string]bool{}
+		}
+		ignoreList[collision.name1][collision.name2] = true
+		ignoreList[collision.name2][collision.name1] = true
+	}
+	return ignoreList
 }
 
-func createUniqueCollisionMap(geoms []spatial.Geometry) (map[string]spatial.Geometry, error) {
+func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialmath.Geometry, error) {
 	unnamedCnt := 0
-	geomMap := map[string]spatial.Geometry{}
+	geomMap := map[string]spatialmath.Geometry{}
 
 	for _, geom := range geoms {
 		label := geom.Label()
@@ -351,17 +222,26 @@ func firstMovingParentOrself(fs *referenceframe.FrameSystem, f referenceframe.Fr
 	return f
 }
 
-func skipCollisionCheck(fs *referenceframe.FrameSystem, xName, yName string) bool {
-	x := fs.Frame(xName)
-	y := fs.Frame(yName)
-
-	if x == nil || y == nil {
-		// something is internal, skip
-		return false
+func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName string) bool {
+	// Skip comparing a geometry to itself
+	if xName == yName {
+		return true
 	}
 
-	xFirstMoving := firstMovingParentOrself(fs, x)
-	yFirstMoving := firstMovingParentOrself(fs, y)
+	if _, ok := ignoreList[yName]; ok && ignoreList[yName][xName] {
+		// Already checked this pair in the other order
+		return true
+	}
 
-	return xFirstMoving == yFirstMoving
+	// We're going to decide if x->y collides. We will not need to check if y->x collides. Mutate
+	// the ignoreList to (potentially) avoid that reverse computation.
+	for _, pair := range [][2]string{{xName, yName}, {yName, xName}} {
+		left, right := pair[0], pair[1]
+		if _, ok := ignoreList[left]; !ok {
+			ignoreList[left] = map[string]bool{}
+		}
+		ignoreList[left][right] = true
+	}
+
+	return false
 }
