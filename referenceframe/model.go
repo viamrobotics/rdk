@@ -394,13 +394,10 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				return &composedTransformation, err
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
-			pose := &spatialmath.DualQuaternion{
-				Number: dualquat.Number{
-					Real: orientation.Quaternion(),
-				},
-			}
 			composedTransformation = spatialmath.DualQuaternion{
-				Number: composedTransformation.Transformation(pose.Number),
+				Number: composedTransformation.Transformation(dualquat.Number{
+					Real: orientation.Quaternion(),
+				}),
 			}
 		default:
 			var pose spatialmath.Pose
@@ -420,6 +417,60 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	}
 
 	return &composedTransformation, nil
+}
+
+// TransformDQ returns the transformation as a DualQuaternion value, avoiding the heap
+// allocation of the Pose interface return in Transform. It is the same logic as Transform.
+func (m *SimpleModel) TransformDQ(inputs []Input) (spatialmath.DualQuaternion, error) {
+	if len(m.DoF()) != len(inputs) {
+		return spatialmath.DualQuaternion{}, NewIncorrectDoFError(len(inputs), len(m.DoF()))
+	}
+
+	composedTransformation := spatialmath.DualQuaternion{
+		Number: dualquat.Number{
+			Real: quat.Number{Real: 1},
+			Dual: quat.Number{},
+		},
+	}
+
+	for i, chainFrame := range m.transformChain {
+		dof := len(chainFrame.DoF())
+		offset := m.transformChainInputOffsets[i]
+
+		switch frame := chainFrame.(type) {
+		case *staticFrame:
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
+			}
+		case *rotationalFrame:
+			frameInputs := inputs[offset : offset+dof]
+			if err := frame.validInputs(frameInputs); err != nil {
+				return composedTransformation, err
+			}
+			orientation := frame.InputToOrientation(frameInputs[0])
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(dualquat.Number{
+					Real: orientation.Quaternion(),
+				}),
+			}
+		default:
+			var pose spatialmath.Pose
+			var err error
+			if dof == 0 {
+				pose, err = chainFrame.Transform(emptyInputs)
+			} else {
+				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
+			}
+			if err != nil {
+				return composedTransformation, err
+			}
+			composedTransformation = spatialmath.DualQuaternion{
+				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
+			}
+		}
+	}
+
+	return composedTransformation, nil
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.

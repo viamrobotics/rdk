@@ -484,28 +484,47 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 
 	numMoveableFrames := 0
 	for sfs.parents[frame.Name()] != "" { // stop once you reach world node
-		var pose spatial.Pose
 		var err error
 
-		if len(frame.DoF()) == 0 {
-			pose, err = frame.Transform([]Input{})
+		if dqTransformer, ok := frame.(interface {
+			TransformDQ([]Input) (spatial.DualQuaternion, error)
+		}); ok {
+			var dq spatial.DualQuaternion
+			if len(frame.DoF()) == 0 {
+				dq, err = dqTransformer.TransformDQ([]Input{})
+			} else {
+				frameInputs := linearInputs.Get(frame.Name())
+				numMoveableFrames++
+				if len(frame.DoF()) != len(frameInputs) {
+					return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+				}
+				dq, err = dqTransformer.TransformDQ(frameInputs)
+			}
 			if err != nil {
 				return ret, err
 			}
+			ret = dq.Transformation(ret)
 		} else {
-			frameInputs := linearInputs.Get(frame.Name())
-			numMoveableFrames++
-			if len(frame.DoF()) != len(frameInputs) {
-				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+			var pose spatial.Pose
+			if len(frame.DoF()) == 0 {
+				pose, err = frame.Transform([]Input{})
+				if err != nil {
+					return ret, err
+				}
+			} else {
+				frameInputs := linearInputs.Get(frame.Name())
+				numMoveableFrames++
+				if len(frame.DoF()) != len(frameInputs) {
+					return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
+				}
+				pose, err = frame.Transform(frameInputs)
+				if err != nil {
+					return ret, err
+				}
 			}
-
-			pose, err = frame.Transform(frameInputs)
-			if err != nil {
-				return ret, err
-			}
+			ret = pose.(*spatial.DualQuaternion).Transformation(ret)
 		}
 
-		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
 		frame = sfs.Frame(sfs.parents[frame.Name()])
 	}
 
