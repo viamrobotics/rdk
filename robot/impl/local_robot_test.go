@@ -3513,7 +3513,7 @@ func newMock(
 	logger logging.Logger,
 ) (resource.Resource, error) {
 	m := &mockResource{name: conf.Name}
-	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+	if err := m.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -3523,7 +3523,7 @@ func (m *mockResource) Name() resource.Name {
 	return mockNamed(m.name)
 }
 
-func (m *mockResource) Reconfigure(
+func (m *mockResource) reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

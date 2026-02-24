@@ -46,11 +46,6 @@ type counter struct {
 	total int64
 }
 
-func (c *counter) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	atomic.StoreInt64(&c.total, 0)
-	return nil
-}
-
 // DoCommand is the only method of this component. It looks up the "real" command from the map it's passed.
 // Because of this, any arbitrary commands can be received, and any data returned.
 func (c *counter) DoCommand(ctx context.Context, req map[string]interface{}) (map[string]interface{}, error) {
