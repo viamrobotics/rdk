@@ -123,6 +123,7 @@ func uploadMetadata(partID string, md *datasyncPB.DataCaptureMetadata) *datasync
 		MethodParameters: md.GetMethodParameters(),
 		Tags:             md.GetTags(),
 		FileExtension:    md.GetFileExtension(),
+		MimeType:         md.GetMimeType(),
 	}
 }
 
@@ -230,7 +231,7 @@ func uploadBinarySensorData(
 ) error {
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
-	fileExtensionFromMimeType := getFileExtFromMimeType(sd.GetMetadata().GetMimeType())
+	fileExtensionFromMimeType := getFileExtFromStringMimeType(md.GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
 	}
@@ -322,7 +323,7 @@ func uploadLargeBinarySensorData(
 	// if the binary sensor data has a mime type, set the file extension
 	// to match
 	smd := sd.GetMetadata()
-	fileExtensionFromMimeType := getFileExtFromMimeType(smd.GetMimeType())
+	fileExtensionFromMimeType := getFileExtFromStringMimeType(md.GetMimeType())
 	if fileExtensionFromMimeType != "" {
 		md.FileExtension = fileExtensionFromMimeType
 	}
@@ -421,6 +422,23 @@ func getFileExtFromMimeType(t datasyncPB.MimeType) string {
 	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
 		return data.ExtMP4
 	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
+		fallthrough
+	default:
+		return data.ExtDefault
+	}
+}
+
+func getFileExtFromStringMimeType(mimeType string) string {
+	fileExt := getFileExtFromImageMimeType(mimeType)
+	if fileExt != "" {
+		return fileExt
+	}
+	switch mimeType {
+	case utils.MimeTypePCD:
+		return data.ExtPcd
+	case utils.MimeTypeVideoMP4:
+		return data.ExtMP4
+	case utils.MimeTypeDefault:
 		fallthrough
 	default:
 		return data.ExtDefault
