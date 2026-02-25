@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -318,6 +319,25 @@ func TestBranchingModelGeometries(t *testing.T) {
 	// If cVal's input were incorrectly mapped, this position would be wrong.
 	branchPt := geoms.GeometryByName("branching:branchEnd").Pose().Point()
 	test.That(t, spatial.R3VectorAlmostEqual(branchPt, r3.Vector{X: aVal, Y: 0, Z: cVal}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+func TestSimpleModelProtoRoundTrip(t *testing.T) {
+	// A NewSimpleModel (no kinematics) should survive a protobuf round-trip.
+	// Previously, KinematicModelToProtobuf emitted KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	// and KinematicModelFromProtobuf then returned an error instead of an empty model.
+	// This also covers the backward-compatibility case where an older module returns
+	// GetKinematics with no format set (UNSPECIFIED + empty data).
+	m := NewSimpleModel("test")
+
+	proto := KinematicModelToProtobuf(m)
+	test.That(t, proto, test.ShouldNotBeNil)
+	test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
+
+	restored, err := KinematicModelFromProtobuf("test", proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored, test.ShouldNotBeNil)
+	test.That(t, restored.Name(), test.ShouldEqual, "test")
+	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {
