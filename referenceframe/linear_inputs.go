@@ -278,3 +278,13 @@ func (li *LinearInputs) CopyWithZeros() *LinearInputs {
 		inputs: make([]Input, len(li.inputs)),
 	}
 }
+
+// Copy makes a new copy
+func (li *LinearInputs) Copy() *LinearInputs {
+	n := &LinearInputs{
+		schema: li.schema,
+		inputs: make([]Input, len(li.inputs)),
+	}
+	copy(n.inputs, li.inputs)
+	return n
+}
