@@ -42,6 +42,11 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 		}
 		return modelconf.ParseConfig(name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		if len(data) == 0 {
+			// No kinematics data — treat as an empty model. This preserves backward
+			// compatibility with older modules that return GetKinematics without a format.
+			return NewSimpleModel(name), nil
+		}
 		fallthrough
 	default:
 		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
