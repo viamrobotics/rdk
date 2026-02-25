@@ -1615,16 +1615,24 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			}
 		}
 
-		// 2. Build resource options from the part config (components only).
+		// 2. Build resource options and subtype map from the part config (components only).
 		confMap := part.RobotConfig.AsMap()
 		var resourceOpts []huh.Option[string]
+		subtypeByName := make(map[string]string)
 		resources, err := resourcesFromPartConfig(confMap, "components")
 		if err != nil {
 			return err
 		}
 		for _, r := range resources {
-			if n, ok := r["name"].(string); ok && n != "" {
-				resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+			n, _ := r["name"].(string)
+			if n == "" {
+				continue
+			}
+			resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+			api, _ := r["api"].(string)
+			parts := strings.Split(api, ":")
+			if len(parts) == 3 && parts[2] != "" {
+				subtypeByName[n] = parts[2]
 			}
 		}
 
@@ -1682,7 +1690,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			if len(resourceOpts) == 0 {
 				return errors.New("this machine contains no components")
 			}
-			conditionalEvent, err := collectConditionalDataIngested(confMap, resourceOpts)
+			conditionalEvent, err := collectConditionalDataIngested(subtypeByName, resourceOpts)
 			if err != nil {
 				return err
 			}
@@ -1773,7 +1781,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 
 // collectConditionalDataIngested prompts for resource, method, operator, and value
 // to build the "conditional" portion of a conditional_data_ingested trigger event.
-func collectConditionalDataIngested(confMap map[string]any, resourceOpts []huh.Option[string]) (map[string]any, error) {
+func collectConditionalDataIngested(subtypeByName map[string]string, resourceOpts []huh.Option[string]) (map[string]any, error) {
 	// 1. Select a resource.
 	var resourceName string
 	if err := huh.NewForm(huh.NewGroup(
@@ -1783,10 +1791,9 @@ func collectConditionalDataIngested(confMap map[string]any, resourceOpts []huh.O
 		return nil, err
 	}
 
-	// Look up the subtype from the part config.
-	subtype, err := subtypeForResource(confMap, resourceName)
-	if err != nil {
-		return nil, err
+	subtype, ok := subtypeByName[resourceName]
+	if !ok {
+		return nil, fmt.Errorf("could not determine subtype for resource %q", resourceName)
 	}
 
 	// 2. Select a data capture method.
@@ -1882,27 +1889,6 @@ func parseValueString(s string) any {
 	return s
 }
 
-// subtypeForResource finds the API subtype for a named component/service in the part config.
-func subtypeForResource(confMap map[string]any, name string) (string, error) {
-	for _, key := range []string{"components", "services"} {
-		resources, err := resourcesFromPartConfig(confMap, key)
-		if err != nil {
-			continue
-		}
-		for _, r := range resources {
-			n, _ := r["name"].(string)
-			if n != name {
-				continue
-			}
-			api, _ := r["api"].(string)
-			parts := strings.Split(api, ":")
-			if len(parts) == 3 && parts[2] != "" {
-				return parts[2], nil
-			}
-		}
-	}
-	return "", fmt.Errorf("could not determine subtype for resource %q", name)
-}
 
 // collectNotifications prompts the user for webhook and email notification settings.
 func collectNotifications(eventType string) ([]any, error) {
