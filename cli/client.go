@@ -1584,7 +1584,7 @@ func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disab
 
 	config := part.RobotConfig.AsMap()
 	var updatedResources []string
-	for _, resourceType := range []string{"components", "services"} {
+	for _, resourceType := range []string{"components", "services", "modules"} {
 		resources, err := resourcesFromPartConfig(config, resourceType)
 		if err != nil {
 			return err
