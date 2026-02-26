@@ -225,7 +225,9 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	adjusted := []float64{}
 	for idx, r := range ratios {
 		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
-		minRatio = min(minRatio, r)
+		if r > 0 { // if a joint is part of a non-moving arm, don't consider it
+			minRatio = min(minRatio, r)
+		}
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
