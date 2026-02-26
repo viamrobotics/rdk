@@ -344,15 +344,20 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 
 	newPose := spatialmath.Compose(goalInWorld, delta)
 
-	/*
-		fmt.Printf("f2w1DQ: %v\n", &spatialmath.DualQuaternion{f2w1DQ})
-		fmt.Printf("f2w2DQ: %v\n", &spatialmath.DualQuaternion{f2w2DQ})
-		fmt.Printf("f2w3DQ: %v\n", &spatialmath.DualQuaternion{f2w3DQ})
-		fmt.Printf("goalFrame: %v\n", goalFrame)
-		fmt.Printf("goalInWorld: %v\n", goalInWorld)
-		fmt.Printf("delta: %v\n", delta)
-		fmt.Printf("eliot: %v -> %v\n", goalPIF, newPose)
-	*/
+	// The smart seed cache stores FK results from frame.Transform(), which are in the frame's
+	// parent coordinate system. Transform newPose from world coordinates to that system so the
+	// norm check and distance comparisons in findSeedsForFrame are correct.
+	parentFrame, err := ssc.fs.Parent(frame)
+	if err != nil {
+		return "", nil, err
+	}
+	if parentFrame != ssc.fs.World() {
+		parentWorldDQ, err := ssc.fs.GetFrameToWorldTransform(inputs, parentFrame)
+		if err != nil {
+			return "", nil, err
+		}
+		newPose = spatialmath.PoseBetween(&spatialmath.DualQuaternion{parentWorldDQ}, newPose)
+	}
 
 	return frame.Name(), newPose, nil
 }
