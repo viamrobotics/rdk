@@ -3562,9 +3562,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 	viam module reload --module-name part-id UUID --path /path/to/module/dir/`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:        generalFlagPartID,
-							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							Name:  generalFlagPartID,
+							Usage: "part ID of machine. get from 'Live/Offline' dropdown in the web app",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
