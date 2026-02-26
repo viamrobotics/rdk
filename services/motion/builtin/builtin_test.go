@@ -672,6 +672,8 @@ func TestWritePlanRequest(t *testing.T) {
 		time.Now(),
 		// No traceID here.
 		"",
+		// No planTag here.
+		"",
 		nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -700,6 +702,8 @@ func TestWritePlanRequest(t *testing.T) {
 		time.Now(),
 		// An explicit trace ID.
 		"1234-abc-56-no-78",
+		// No planTag here.
+		"",
 		nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -722,4 +726,27 @@ func TestWritePlanRequest(t *testing.T) {
 	planFile := planDirEntries[0]
 	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
 	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
+
+	// Clean up for third test
+	test.That(t, os.RemoveAll(traceIDDir), test.ShouldBeNil)
+
+	// Third case: include a custom plan tag in the filename
+	err = msBuiltin.writePlanRequest(
+		&armplanning.PlanRequest{},
+		&motionplan.SimplePlan{},
+		time.Now(),
+		"",
+		"custom-test-tag", // Custom plan tag
+		nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify the file was created with the custom tag in the filename
+	planDirEntries, err = os.ReadDir(planDir)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, planDirEntries, test.ShouldHaveLength, 1)
+	planFile = planDirEntries[0]
+	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
+	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
+	// Verify the filename contains the custom tag
+	test.That(t, planFile.Name(), test.ShouldContainSubstring, "custom-test-tag")
 }
