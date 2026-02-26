@@ -119,6 +119,8 @@ func TestWineCrazyTouch1(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
 
+	req.myTestOptions.doNotCloseObstacles = true
+
 	plan, _, err := PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -156,6 +158,23 @@ func TestWineCrazyTouch2(t *testing.T) {
 			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 		}
 
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
+	})
+
+	t.Run("regular-noclose", func(t *testing.T) {
+		req.myTestOptions.doNotCloseObstacles = true
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		req.myTestOptions.doNotCloseObstacles = false
+		test.That(t, err, test.ShouldBeNil)
+
+		orig := plan.Trajectory()[0]["arm-right"]
+		for _, tt := range plan.Trajectory() {
+			now := tt["arm-right"]
+			logger.Info(now)
+			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+		}
+
 		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 	})
 
@@ -165,7 +184,8 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
 	})
 }
 
@@ -465,6 +485,29 @@ func TestSandingWallCollision(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		}
 	})
+}
+
+func TestTeleOpTwoMove(t *testing.T) {
+	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for i := 0; i < 5; i++ {
+		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			logger := newChattyMotionPlanTestLogger(t)
+
+			req.PlannerOptions.RandomSeed = i
+			plan, _, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+
+			a := plan.Trajectory()[0]["right-arm"]
+			b := plan.Trajectory()[1]["right-arm"]
+
+			test.That(t, len(a), test.ShouldEqual, 6)
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .01)
+		})
+	}
 }
 
 func BenchmarkBigPlanRequest(b *testing.B) {

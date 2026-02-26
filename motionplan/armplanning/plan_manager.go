@@ -64,7 +64,11 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			return linearTraj, i, err
 		}
 
-		pm.logger.Info("planning step", i, "of", len(pm.request.Goals))
+		if i > 0 {
+			pm.logger.Infof("planning step %d of %d, current linearTraj size: %d",
+				i, len(pm.request.Goals), len(linearTraj))
+		}
+
 		for k, v := range to {
 			pm.logger.Debug(k, v)
 		}
@@ -82,7 +86,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			}
 
 			if len(subGoals) > 1 {
-				pm.logger.Infof("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
+				pm.logger.Debugf("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
 				pm.logger.Debugf("\t start: %v\n", start)
 				pm.logger.Debugf("\t to   : %v\n", to)
 				for _, sg := range subGoals {
@@ -94,9 +98,10 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 				singleGoalStart := time.Now()
 				newTraj, err := pm.planSingleGoal(ctx, linearTraj[len(linearTraj)-1], sg, cbirrtAllowed)
 				if err != nil {
+					pm.logger.Infof("\t subgoal %d failed after %v with: %v", subGoalIdx, time.Since(singleGoalStart), err)
 					return linearTraj, i, err
 				}
-				pm.logger.Infof("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
+				pm.logger.Debugf("\t subgoal %d took %v", subGoalIdx, time.Since(singleGoalStart))
 				linearTraj = append(linearTraj, newTraj...)
 			}
 		}
@@ -162,7 +167,11 @@ func (pm *planManager) planToDirectJoints(
 	if err != nil {
 		return nil, err
 	}
-	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	if err != nil {
+		return nil, err
+	}
+
 	return finalSteps.steps, nil
 }
 
@@ -194,7 +203,9 @@ func (pm *planManager) planSingleGoal(
 	if planSeed.steps != nil {
 		pm.logger.Debugf("found an ideal ik solution")
 		return planSeed.steps, nil
-	} else if !cbirrtAllowed {
+	}
+
+	if !cbirrtAllowed {
 		return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 	}
 
@@ -209,7 +220,11 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
-	finalSteps.steps = smoothPath(ctx, psc, finalSteps.steps)
+	finalSteps.steps, err = smoothPath(ctx, psc, finalSteps.steps)
+	if err != nil {
+		return nil, err
+	}
+
 	return finalSteps.steps, nil
 }
 

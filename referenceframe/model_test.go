@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -65,8 +66,8 @@ func TestModelGeometries(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frame3, err := NewStaticFrameWithGeometry("link2", offset, bc)
 	test.That(t, err, test.ShouldBeNil)
-	m := &SimpleModel{baseFrame: baseFrame{name: "test"}}
-	m.SetOrdTransforms([]Frame{frame1, frame2, frame3})
+	m, err := NewSerialModel("test", []Frame{frame1, frame2, frame3})
+	test.That(t, err, test.ShouldBeNil)
 
 	// test zero pose of model
 	inputs := make([]Input, len(m.DoF()))
@@ -111,6 +112,232 @@ func Test2DMobileModelFrame(t *testing.T) {
 	// gets the correct limits back
 	limit := frame.DoF()
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestNewModel(t *testing.T) {
+	x, err := NewTranslationalFrame("x", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	y, err := NewTranslationalFrame("y", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	model, err := NewSerialModel("gantry", []Frame{x, y})
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+
+	pose, err := model.Transform([]Input{10, 20})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{10, 20, 0}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+func TestHash(t *testing.T) {
+	t.Run("model from config", func(t *testing.T) {
+		m1, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
+		test.That(t, err, test.ShouldBeNil)
+
+		h1 := m1.Hash()
+		m1clone, err := clone(m1)
+		test.That(t, err, test.ShouldBeNil)
+		h2 := m1clone.Hash()
+		test.That(t, h1, test.ShouldEqual, h2)
+	})
+
+	t.Run("model from frames", func(t *testing.T) {
+		j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+		test.That(t, err, test.ShouldBeNil)
+		j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+		test.That(t, err, test.ShouldBeNil)
+
+		m1, err := NewSerialModel("arm", []Frame{j1, j2})
+		test.That(t, err, test.ShouldBeNil)
+
+		h1 := m1.Hash()
+		m1clone, err := clone(m1)
+		test.That(t, err, test.ShouldBeNil)
+		h2 := m1clone.Hash()
+		test.That(t, h1, test.ShouldEqual, h2)
+	})
+}
+
+func TestNewModelWithLimitOverrides(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	base, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Override the limit of j1
+	newLimit := Limit{Min: -0.5, Max: 0.5}
+	overridden, err := NewModelWithLimitOverrides(base, map[string]Limit{"j1": newLimit})
+	test.That(t, err, test.ShouldBeNil)
+
+	// The overridden model should reflect the new limit
+	test.That(t, overridden.DoF()[0], test.ShouldResemble, newLimit)
+	// j2 should be unchanged
+	test.That(t, overridden.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+	// Original model should be unchanged
+	test.That(t, base.DoF()[0], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+
+	// Override a nonexistent frame should error
+	_, err = NewModelWithLimitOverrides(base, map[string]Limit{"nonexistent": newLimit})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found or has no DoF")
+}
+
+func TestLimitOverrideRoundTrip(t *testing.T) {
+	j1, err := NewRotationalFrame("j1", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("j2", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	base, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, err, test.ShouldBeNil)
+
+	overriddenLimit := Limit{Min: -0.5, Max: 0.5}
+	overridden, err := NewModelWithLimitOverrides(base, map[string]Limit{"j1": overriddenLimit})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := overridden.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	restored := new(SimpleModel)
+	err = restored.UnmarshalJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, restored.DoF()[0], test.ShouldResemble, overriddenLimit)
+	test.That(t, restored.DoF()[1], test.ShouldResemble, Limit{Min: -math.Pi, Max: math.Pi})
+}
+
+func TestSerialModelDuplicateNames(t *testing.T) {
+	j1, err := NewRotationalFrame("joint", spatial.R4AA{RZ: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	j2, err := NewRotationalFrame("joint", spatial.R4AA{RY: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+
+	model, err := NewSerialModel("test", []Frame{j1, j2})
+	test.That(t, model, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, `duplicate frame name "joint" in serial model`)
+}
+
+// TestBranchingModelTransform verifies that Transform correctly uses schema offsets
+// rather than a sequential posIdx when the internal frame system has branches with
+// nonzero DoF.  Without the fix, D's input would be read from C's slot in the flat
+// input vector, producing the wrong pose.
+//
+// Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> D(Z,1DOF)  [primary output]
+//
+//	-> C(Z,1DOF)
+//
+// BFS/schema order (children sorted alphabetically): A(off=0), B(off=1), C(off=2), D(off=3)
+// transformChain: [A, B, D]; offsets must be [0, 1, 3] – not [0, 1, 2].
+func TestBranchingModelTransform(t *testing.T) {
+	a, err := NewTranslationalFrame("A", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	b, err := NewTranslationalFrame("B", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	c, err := NewTranslationalFrame("C", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	d, err := NewTranslationalFrame("D", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("internal")
+	test.That(t, fs.AddFrame(a, fs.World()), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(b, a), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(c, a), test.ShouldBeNil) // branch sibling of B with nonzero DoF
+	test.That(t, fs.AddFrame(d, b), test.ShouldBeNil) // primary output
+
+	model, err := NewModel("branching", fs, "D")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 4)
+
+	// Schema order (BFS, children alphabetical): A(0), B(1), C(2), D(3)
+	// inputs: [aVal, bVal, cVal, dVal]
+	aVal, bVal, cVal, dVal := 3.0, 5.0, 99.0, 7.0
+	_ = cVal // C is on the sibling branch; its value must NOT affect D's pose
+	pose, err := model.Transform([]Input{aVal, bVal, cVal, dVal})
+	test.That(t, err, test.ShouldBeNil)
+
+	// D's world pose should be (aVal, bVal, dVal) — X from A, Y from B, Z from D.
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: aVal, Y: bVal, Z: dVal}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+// TestBranchingModelGeometries verifies that Geometries() correctly places geometry
+// at the end of both the primary chain and non-primary branches when those branches
+// have nonzero DoF.
+//
+// Tree:  world -> A(X,1DOF) -> B(Y,1DOF) -> primaryEnd(static, geometry) [primary]
+//
+//	-> C(Z,1DOF) -> branchEnd(static, geometry)
+//
+// BFS/schema order: A(off=0,dof=1), B(off=1,dof=1), C(off=2,dof=1)
+// 0-DoF frames contribute no inputs → total DoF = 3.
+// inputs: [aVal, bVal, cVal]
+//
+// Expected world positions:
+//
+//	primaryEnd geometry: (aVal, bVal, 0) — path through A then B
+//	branchEnd  geometry: (aVal, 0,    cVal) — path through A then C (not B)
+func TestBranchingModelGeometries(t *testing.T) {
+	a, err := NewTranslationalFrame("A", r3.Vector{X: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	b, err := NewTranslationalFrame("B", r3.Vector{Y: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+	c, err := NewTranslationalFrame("C", r3.Vector{Z: 1}, Limit{Min: -100, Max: 100})
+	test.That(t, err, test.ShouldBeNil)
+
+	zp := spatial.NewZeroPose()
+	box, err := spatial.NewBox(zp, r3.Vector{X: 1, Y: 1, Z: 1}, "")
+	test.That(t, err, test.ShouldBeNil)
+	primaryEnd, err := NewStaticFrameWithGeometry("primaryEnd", zp, box)
+	test.That(t, err, test.ShouldBeNil)
+	branchEnd, err := NewStaticFrameWithGeometry("branchEnd", zp, box)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("internal")
+	test.That(t, fs.AddFrame(a, fs.World()), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(b, a), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(c, a), test.ShouldBeNil) // branch sibling of B with nonzero DoF
+	test.That(t, fs.AddFrame(primaryEnd, b), test.ShouldBeNil)
+	test.That(t, fs.AddFrame(branchEnd, c), test.ShouldBeNil)
+
+	model, err := NewModel("branching", fs, "primaryEnd")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 3)
+
+	aVal, bVal, cVal := 3.0, 5.0, 7.0
+	geoms, err := model.Geometries([]Input{aVal, bVal, cVal})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Primary chain end: goes through A(X) then B(Y), Z unchanged.
+	primaryPt := geoms.GeometryByName("branching:primaryEnd").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(primaryPt, r3.Vector{X: aVal, Y: bVal, Z: 0}, defaultFloatPrecision), test.ShouldBeTrue)
+
+	// Branch end: goes through A(X) then C(Z), Y unchanged.
+	// If cVal's input were incorrectly mapped, this position would be wrong.
+	branchPt := geoms.GeometryByName("branching:branchEnd").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(branchPt, r3.Vector{X: aVal, Y: 0, Z: cVal}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+func TestSimpleModelProtoRoundTrip(t *testing.T) {
+	// A NewSimpleModel (no kinematics) should survive a protobuf round-trip.
+	// Previously, KinematicModelToProtobuf emitted KINEMATICS_FILE_FORMAT_UNSPECIFIED
+	// and KinematicModelFromProtobuf then returned an error instead of an empty model.
+	// This also covers the backward-compatibility case where an older module returns
+	// GetKinematics with no format set (UNSPECIFIED + empty data).
+	m := NewSimpleModel("test")
+
+	proto := KinematicModelToProtobuf(m)
+	test.That(t, proto, test.ShouldNotBeNil)
+	test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED)
+
+	restored, err := KinematicModelFromProtobuf("test", proto)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, restored, test.ShouldNotBeNil)
+	test.That(t, restored.Name(), test.ShouldEqual, "test")
+	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

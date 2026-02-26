@@ -1,0 +1,43 @@
+name: Sync Release to Jira
+
+# Manual trigger - you run this from GitHub Actions UI when ready
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 0.42.0 or v0.42.0)'
+        required: true
+        type: string
+
+# Read-only permissions by default
+permissions:
+  contents: read
+
+jobs:
+  sync-jira:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # actions/checkout@v4.2.2
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      
+      # actions/setup-python@v5.3.0
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Jira sync
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          # Pass version via env var to prevent shell injection
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python sync_jira_release.py "$RELEASE_VERSION"

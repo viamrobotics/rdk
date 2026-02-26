@@ -850,3 +850,136 @@ func TestBVHNodeBounds(t *testing.T) {
 		}
 	})
 }
+
+func TestGeometryCentroid(t *testing.T) {
+	t.Run("triangle uses fast path", func(t *testing.T) {
+		tri := NewTriangle(
+			r3.Vector{X: 0, Y: 0, Z: 0},
+			r3.Vector{X: 3, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 6, Z: 0},
+		)
+		c := geometryCentroid(tri)
+		test.That(t, c.X, test.ShouldAlmostEqual, 1, 1e-10)
+		test.That(t, c.Y, test.ShouldAlmostEqual, 2, 1e-10)
+		test.That(t, c.Z, test.ShouldAlmostEqual, 0, 1e-10)
+	})
+
+	t.Run("non-triangle uses Pose().Point()", func(t *testing.T) {
+		s, err := NewSphere(NewPose(r3.Vector{X: 5, Y: 10, Z: 15}, NewZeroOrientation()), 3, "")
+		test.That(t, err, test.ShouldBeNil)
+		c := geometryCentroid(s)
+		test.That(t, c.X, test.ShouldEqual, 5)
+		test.That(t, c.Y, test.ShouldEqual, 10)
+		test.That(t, c.Z, test.ShouldEqual, 15)
+	})
+}
+
+func TestRotatedAABBExtents(t *testing.T) {
+	t.Run("identity rotation preserves extents", func(t *testing.T) {
+		rm := &RotationMatrix{mat: [9]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}}
+		extents := r3.Vector{X: 2, Y: 3, Z: 4}
+		result := rotatedAABBExtents(rm, extents)
+		test.That(t, result.X, test.ShouldAlmostEqual, 2, 1e-10)
+		test.That(t, result.Y, test.ShouldAlmostEqual, 3, 1e-10)
+		test.That(t, result.Z, test.ShouldAlmostEqual, 4, 1e-10)
+	})
+
+	t.Run("90 deg rotation around Z swaps X and Y extents", func(t *testing.T) {
+		// 90 deg around Z: [0 -1 0; 1 0 0; 0 0 1]
+		rm := &RotationMatrix{mat: [9]float64{0, -1, 0, 1, 0, 0, 0, 0, 1}}
+		extents := r3.Vector{X: 2, Y: 3, Z: 4}
+		result := rotatedAABBExtents(rm, extents)
+		// abs(R)*e: X = 0*2 + 1*3 + 0*4 = 3, Y = 1*2 + 0*3 + 0*4 = 2, Z = 4
+		test.That(t, result.X, test.ShouldAlmostEqual, 3, 1e-10)
+		test.That(t, result.Y, test.ShouldAlmostEqual, 2, 1e-10)
+		test.That(t, result.Z, test.ShouldAlmostEqual, 4, 1e-10)
+	})
+
+	t.Run("45 deg rotation around Z expands extents", func(t *testing.T) {
+		s := math.Sin(math.Pi / 4)
+		c := math.Cos(math.Pi / 4)
+		rm := &RotationMatrix{mat: [9]float64{c, -s, 0, s, c, 0, 0, 0, 1}}
+		extents := r3.Vector{X: 1, Y: 1, Z: 1}
+		result := rotatedAABBExtents(rm, extents)
+		// abs(R)*e: X = c+s = sqrt(2), Y = s+c = sqrt(2), Z = 1
+		test.That(t, result.X, test.ShouldAlmostEqual, math.Sqrt(2), 1e-10)
+		test.That(t, result.Y, test.ShouldAlmostEqual, math.Sqrt(2), 1e-10)
+		test.That(t, result.Z, test.ShouldAlmostEqual, 1, 1e-10)
+	})
+}
+
+func TestAABBFromCenterExtents(t *testing.T) {
+	center := r3.Vector{X: 5, Y: 10, Z: 15}
+	extents := r3.Vector{X: 2, Y: 3, Z: 4}
+	minPt, maxPt := aabbFromCenterExtents(center, extents)
+	test.That(t, minPt, test.ShouldResemble, r3.Vector{X: 3, Y: 7, Z: 11})
+	test.That(t, maxPt, test.ShouldResemble, r3.Vector{X: 7, Y: 13, Z: 19})
+}
+
+func TestComputeMeshAABB(t *testing.T) {
+	t.Run("identity pose", func(t *testing.T) {
+		triangles := []*Triangle{
+			NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 1, Y: 0, Z: 0},
+				r3.Vector{X: 0, Y: 1, Z: 0},
+			),
+			NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 0, Y: 0, Z: 3},
+				r3.Vector{X: 0, Y: 1, Z: 0},
+			),
+		}
+		mesh := NewMesh(NewZeroPose(), triangles, "test")
+		minPt, maxPt := computeMeshAABB(mesh)
+
+		test.That(t, minPt.X, test.ShouldAlmostEqual, 0, 1e-10)
+		test.That(t, minPt.Y, test.ShouldAlmostEqual, 0, 1e-10)
+		test.That(t, minPt.Z, test.ShouldAlmostEqual, 0, 1e-10)
+		test.That(t, maxPt.X, test.ShouldAlmostEqual, 1, 1e-10)
+		test.That(t, maxPt.Y, test.ShouldAlmostEqual, 1, 1e-10)
+		test.That(t, maxPt.Z, test.ShouldAlmostEqual, 3, 1e-10)
+	})
+
+	t.Run("with translation", func(t *testing.T) {
+		triangles := []*Triangle{
+			NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 1, Y: 0, Z: 0},
+				r3.Vector{X: 0, Y: 1, Z: 0},
+			),
+		}
+		pose := NewPose(r3.Vector{X: 10, Y: 20, Z: 30}, NewZeroOrientation())
+		mesh := NewMesh(pose, triangles, "test")
+		minPt, maxPt := computeMeshAABB(mesh)
+
+		test.That(t, minPt.X, test.ShouldAlmostEqual, 10, 1e-10)
+		test.That(t, minPt.Y, test.ShouldAlmostEqual, 20, 1e-10)
+		test.That(t, minPt.Z, test.ShouldAlmostEqual, 30, 1e-10)
+		test.That(t, maxPt.X, test.ShouldAlmostEqual, 11, 1e-10)
+		test.That(t, maxPt.Y, test.ShouldAlmostEqual, 21, 1e-10)
+		test.That(t, maxPt.Z, test.ShouldAlmostEqual, 30, 1e-10)
+	})
+
+	t.Run("with rotation", func(t *testing.T) {
+		// Single triangle in XY plane, rotated 90 deg around Z
+		triangles := []*Triangle{
+			NewTriangle(
+				r3.Vector{X: 0, Y: 0, Z: 0},
+				r3.Vector{X: 2, Y: 0, Z: 0},
+				r3.Vector{X: 0, Y: 1, Z: 0},
+			),
+		}
+		pose := NewPose(r3.Vector{}, &OrientationVector{OZ: 1, Theta: math.Pi / 2})
+		mesh := NewMesh(pose, triangles, "test")
+		minPt, maxPt := computeMeshAABB(mesh)
+
+		// After 90 deg around Z: (2,0,0)->(0,2,0), (0,1,0)->(-1,0,0)
+		test.That(t, minPt.X, test.ShouldAlmostEqual, -1, 1e-9)
+		test.That(t, minPt.Y, test.ShouldAlmostEqual, 0, 1e-9)
+		test.That(t, minPt.Z, test.ShouldAlmostEqual, 0, 1e-9)
+		test.That(t, maxPt.X, test.ShouldAlmostEqual, 0, 1e-9)
+		test.That(t, maxPt.Y, test.ShouldAlmostEqual, 2, 1e-9)
+		test.That(t, maxPt.Z, test.ShouldAlmostEqual, 0, 1e-9)
+	})
+}

@@ -1748,10 +1748,21 @@ func filterToProto(filter *Filter) *pb.Filter {
 }
 
 func captureIntervalToProto(interval CaptureInterval) *pb.CaptureInterval {
-	return &pb.CaptureInterval{
-		Start: timestamppb.New(interval.Start),
-		End:   timestamppb.New(interval.End),
+	// If both are zero, don't return an interval.
+	if interval.Start.IsZero() && interval.End.IsZero() {
+		return nil
 	}
+
+	// Allow partial intervals (only start or only end).
+	protoInterval := &pb.CaptureInterval{}
+	if !interval.Start.IsZero() {
+		protoInterval.Start = timestamppb.New(interval.Start)
+	}
+	if !interval.End.IsZero() {
+		protoInterval.End = timestamppb.New(interval.End)
+	}
+
+	return protoInterval
 }
 
 func tagsFilterToProto(tagsFilter TagsFilter) *pb.TagsFilter {
@@ -1877,7 +1888,6 @@ func sensorMetadataToProto(metadata SensorMetadata) *syncPb.SensorMetadata {
 	return &syncPb.SensorMetadata{
 		TimeRequested: timestamppb.New(metadata.TimeRequested),
 		TimeReceived:  timestamppb.New(metadata.TimeReceived),
-		MimeType:      syncPb.MimeType(metadata.MimeType),
 		Annotations:   annotationsToProto(metadata.Annotations),
 	}
 }

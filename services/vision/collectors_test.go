@@ -150,7 +150,6 @@ func TestCollectors(t *testing.T) {
 			collector: visionservice.NewCaptureAllFromCameraCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
 					Annotations: &datapb.Annotations{
 						Bboxes: []*datapb.BoundingBox{
 							{

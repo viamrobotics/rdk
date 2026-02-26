@@ -6,14 +6,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 )
-
-// ErrMimicSourceNotFound is returned when a mimic joint references a source joint that doesn't exist.
-var ErrMimicSourceNotFound = errors.New("mimic joint references non-existent source joint")
-
-// ErrCircularMimicReference is returned when mimic joint references form a cycle.
-var ErrCircularMimicReference = errors.New("circular mimic joint reference detected")
 
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
@@ -25,6 +18,7 @@ type ModelConfigJSON struct {
 	Links        []LinkConfig    `json:"links,omitempty"`
 	Joints       []JointConfig   `json:"joints,omitempty"`
 	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
+	OutputFrames []string        `json:"output_frames,omitempty"`
 	OriginalFile *ModelFile
 }
 
@@ -60,8 +54,6 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		modelName = cfg.Name
 	}
 
-	model := NewSimpleModel(modelName)
-	model.modelConfig = cfg
 	transforms := map[string]Frame{}
 
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
@@ -122,129 +114,33 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", cfg.KinParamType)
 	}
 
-	// Create an ordered list of transforms
-	ot, err := sortTransforms(transforms, parentMap)
+	// Build the internal frame system from the transforms and parent map.
+	// When no output_frames are specified, exactly one leaf (end effector)
+	// is required so we can determine the output unambiguously.
+	requireSingleLeaf := len(cfg.OutputFrames) == 0
+	fs, leaves, err := buildModelFrameSystem(transforms, parentMap, requireSingleLeaf)
 	if err != nil {
 		return nil, err
 	}
 
-	model.SetOrdTransforms(ot)
-
-	// Build mimic mappings if any joints have mimic configs
-	if cfg.KinParamType == "SVA" || cfg.KinParamType == "" {
-		mimicMappings, err := buildMimicMappings(cfg.Joints, model.ordTransforms)
-		if err != nil {
-			return nil, err
-		}
-		if len(mimicMappings) > 0 {
-			model.setMimicMappings(mimicMappings)
-		}
+	if len(cfg.OutputFrames) > 1 {
+		return nil, fmt.Errorf("multiple output frames are not yet supported, got %v", cfg.OutputFrames)
 	}
 
-	return model, nil
-}
-
-// buildMimicMappings identifies mimic joints, resolves chains, detects cycles, and computes
-// the sourceInputIdx for each mimic frame.
-func buildMimicMappings(joints []JointConfig, ordTransforms []Frame) (map[int]*mimicMapping, error) {
-	// Build a map of joint ID -> MimicConfig for joints that have mimic set
-	mimicConfigs := map[string]*MimicConfig{}
-	for i := range joints {
-		if joints[i].Mimic != nil {
-			mimicConfigs[joints[i].ID] = joints[i].Mimic
-		}
-	}
-	if len(mimicConfigs) == 0 {
-		return nil, nil
+	var primaryOutput string
+	if len(cfg.OutputFrames) == 0 {
+		primaryOutput = leaves[0]
+	} else {
+		primaryOutput = cfg.OutputFrames[0]
 	}
 
-	// Resolve mimic chains: if A mimics B and B mimics C, then A should mimic C
-	// with composed multiplier and offset.
-	resolvedMimics := map[string]*MimicConfig{}
-	for jointID, mc := range mimicConfigs {
-		// Walk the chain to find the ultimate source
-		visited := map[string]bool{jointID: true}
-		currentMC := mc
-		composedMultiplier := currentMC.EffectiveMultiplier()
-		composedOffset := currentMC.Offset
-
-		sourceJoint := currentMC.Joint
-		for {
-			nextMC, ok := mimicConfigs[sourceJoint]
-			if !ok {
-				// sourceJoint is not a mimic, it's the ultimate source
-				break
-			}
-			if visited[sourceJoint] {
-				return nil, fmt.Errorf("%w: joint %q", ErrCircularMimicReference, jointID)
-			}
-			visited[sourceJoint] = true
-
-			// Compose: if A = m1*B + o1, and B = m2*C + o2, then A = m1*(m2*C + o2) + o1 = m1*m2*C + m1*o2 + o1
-			composedOffset = composedMultiplier*nextMC.Offset + composedOffset
-			composedMultiplier *= nextMC.EffectiveMultiplier()
-			sourceJoint = nextMC.Joint
-		}
-
-		mult := composedMultiplier
-		resolvedMimics[jointID] = &MimicConfig{
-			Joint:      sourceJoint,
-			Multiplier: &mult,
-			Offset:     composedOffset,
-		}
+	builtModel, err := NewModel(modelName, fs, primaryOutput)
+	if err != nil {
+		return nil, err
 	}
+	builtModel.modelConfig = cfg
 
-	// Build a map of frame name -> ordTransforms index
-	frameNameToIdx := map[string]int{}
-	for i, f := range ordTransforms {
-		frameNameToIdx[f.Name()] = i
-	}
-
-	// Find the ordTransforms index of each source joint and compute its input index
-	// (counting only non-mimic DoF frames before it)
-	mimicFrameIndices := map[int]bool{}
-	for jointID := range resolvedMimics {
-		if idx, ok := frameNameToIdx[jointID]; ok {
-			mimicFrameIndices[idx] = true
-		}
-	}
-
-	// Compute the input index for each non-mimic DoF frame
-	frameIdxToInputIdx := map[int]int{}
-	inputIdx := 0
-	for i, f := range ordTransforms {
-		if len(f.DoF()) > 0 && !mimicFrameIndices[i] {
-			frameIdxToInputIdx[i] = inputIdx
-			inputIdx += len(f.DoF())
-		}
-	}
-
-	// Build the final mimic mappings
-	result := map[int]*mimicMapping{}
-	for jointID, mc := range resolvedMimics {
-		mimicIdx, ok := frameNameToIdx[jointID]
-		if !ok {
-			continue // joint not in ordTransforms (shouldn't happen)
-		}
-
-		sourceIdx, ok := frameNameToIdx[mc.Joint]
-		if !ok {
-			return nil, fmt.Errorf("%w: joint %q references source %q", ErrMimicSourceNotFound, jointID, mc.Joint)
-		}
-
-		sourceInputIdx, ok := frameIdxToInputIdx[sourceIdx]
-		if !ok {
-			return nil, fmt.Errorf("%w: joint %q references source %q which has no DoF", ErrMimicSourceNotFound, jointID, mc.Joint)
-		}
-
-		result[mimicIdx] = &mimicMapping{
-			sourceInputIdx: sourceInputIdx,
-			multiplier:     mc.EffectiveMultiplier(),
-			offset:         mc.Offset,
-		}
-	}
-
-	return result, nil
+	return builtModel, nil
 }
 
 // ParseModelJSONFile will read a given file and then parse the contained JSON data.
@@ -257,54 +153,79 @@ func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	return UnmarshalModelJSON(jsonData, modelName)
 }
 
-// Create an ordered list of transforms given a mapping of child to parent frames.
-func sortTransforms(transforms map[string]Frame, parents map[string]string) ([]Frame, error) {
-	// find the end effector first - determine which transforms have no children
-	// copy the map of children -> parents
-	ees := map[string]string{}
+// buildModelFrameSystem builds a FrameSystem from a map of frames and their parent relationships.
+// It performs BFS from the root (frames whose parent is "" or not in the map, i.e., world).
+// It returns the FrameSystem and the list of leaf frame names.
+// When requireSingleLeaf is true, the function errors if the model does not have exactly one leaf
+// (end effector). Pass false when output_frames is explicitly specified in the config, allowing
+// branching topologies with multiple leaves.
+func buildModelFrameSystem(transforms map[string]Frame, parents map[string]string, requireSingleLeaf bool) (*FrameSystem, []string, error) {
+	// Build children map
+	childrenOf := map[string][]string{}
 	for child, parent := range parents {
-		ees[child] = parent
-	}
-	// now remove all parents
-	for _, parent := range parents {
-		delete(ees, parent)
-	}
-	// ensure there is only on end effector
-	if len(ees) != 1 {
-		return nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, ees)
+		childrenOf[parent] = append(childrenOf[parent], child)
 	}
 
-	// start the search from the end effector
-	curr := maps.Keys(ees)[0]
-	seen := map[string]bool{curr: true}
-	orderedTransforms := []Frame{}
-	for i := 0; i < len(parents); i++ {
-		frame, ok := transforms[curr]
+	// Find leaves (frames with no children) before BFS. This must be checked first
+	// because cycles (e.g. worldDH.json) can prevent BFS from visiting any nodes,
+	// and we want to report the leaf-count error rather than a circular reference error.
+	var leaves []string
+	for name := range transforms {
+		if len(childrenOf[name]) == 0 {
+			leaves = append(leaves, name)
+		}
+	}
+	if requireSingleLeaf && len(leaves) != 1 {
+		return nil, nil, fmt.Errorf("%w, have %v", ErrNeedOneEndEffector, leaves)
+	}
+
+	fs := NewEmptyFrameSystem("internal")
+
+	// BFS from root frames (those whose parent is not in the transforms map, e.g. "world" or "")
+	seen := map[string]bool{}
+	queue := []string{}
+	for child, parent := range parents {
+		if _, inTransforms := transforms[parent]; !inTransforms {
+			queue = append(queue, child)
+		}
+	}
+
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if seen[cur] {
+			return nil, nil, ErrCircularReference
+		}
+		seen[cur] = true
+
+		frame, ok := transforms[cur]
 		if !ok {
-			return nil, NewFrameNotInListOfTransformsError(curr)
-		}
-		orderedTransforms = append(orderedTransforms, frame)
-
-		// find the parent of the current transform
-		parent, ok := parents[curr]
-		if !ok {
-			return nil, NewParentFrameNotInMapOfParentsError(curr)
+			return nil, nil, NewFrameNotInListOfTransformsError(cur)
 		}
 
-		// make sure it wasn't seen, mark it seen, then add it to the list
-		if seen[parent] {
-			return nil, ErrCircularReference
+		parentName := parents[cur]
+		var parentFrame Frame
+		if _, inTransforms := transforms[parentName]; !inTransforms {
+			// Parent is not a frame in the transforms map (e.g., "world" or ""), treat as world
+			parentFrame = fs.World()
+		} else {
+			parentFrame = fs.Frame(parentName)
+			if parentFrame == nil {
+				return nil, nil, NewParentFrameNotInMapOfParentsError(cur)
+			}
 		}
-		seen[parent] = true
 
-		// update the frame to add next
-		curr = parent
+		if err := fs.AddFrame(frame, parentFrame); err != nil {
+			return nil, nil, err
+		}
+
+		queue = append(queue, childrenOf[cur]...)
 	}
 
-	// After the above loop, the transforms are in reverse order, so we reverse the list.
-	for i, j := 0, len(orderedTransforms)-1; i < j; i, j = i+1, j-1 {
-		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
+	// Check all transforms were visited
+	if len(seen) != len(transforms) {
+		return nil, nil, ErrCircularReference
 	}
 
-	return orderedTransforms, nil
+	return fs, leaves, nil
 }

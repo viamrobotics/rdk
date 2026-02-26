@@ -1,11 +1,15 @@
 package cli
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -428,5 +432,189 @@ func TestGetOrgIDForPart(t *testing.T) {
 		_, err := vc.getOrgIDForPart(part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "location not found")
+	})
+}
+
+// archiveFiles returns the sorted list of file names inside a .tar.gz archive.
+func archiveFiles(t *testing.T, archivePath string) []string {
+	t.Helper()
+	f, err := os.Open(archivePath)
+	test.That(t, err, test.ShouldBeNil)
+	defer f.Close()
+	gr, err := gzip.NewReader(f)
+	test.That(t, err, test.ShouldBeNil)
+	defer gr.Close()
+	tr := tar.NewReader(gr)
+
+	var names []string
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		test.That(t, err, test.ShouldBeNil)
+		names = append(names, hdr.Name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// writeFile is a test helper that creates parent dirs and writes content.
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	test.That(t, os.MkdirAll(filepath.Dir(path), 0o755), test.ShouldBeNil)
+	test.That(t, os.WriteFile(path, []byte(content), 0o644), test.ShouldBeNil)
+}
+
+func TestCreateGitArchive(t *testing.T) {
+	newClient := func() *viamClient {
+		_, vc, _, _ := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{}, map[string]any{}, "token")
+		return vc
+	}
+
+	t.Run("basic inclusion", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, "lib", "util.go"), "package lib")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{"lib/util.go", "main.go"})
+	})
+
+	t.Run("root gitignore excludes files", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, ".gitignore"), "*.log\nbuild/\n")
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, "debug.log"), "log data")
+		writeFile(t, filepath.Join(root, "build", "output.bin"), "binary")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", "main.go"})
+	})
+
+	t.Run("nested gitignore excludes files", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, "web", ".gitignore"), "node_modules\ndist\n")
+		writeFile(t, filepath.Join(root, "web", "index.html"), "<html>")
+		writeFile(t, filepath.Join(root, "web", "node_modules", "pkg", "index.js"), "module.exports = {}")
+		writeFile(t, filepath.Join(root, "web", "dist", "bundle.js"), "bundled")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{
+			"main.go",
+			"web/.gitignore",
+			"web/index.html",
+		})
+	})
+
+	t.Run("default ignores are applied", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, ".DS_Store"), "junk")
+		writeFile(t, filepath.Join(root, "Thumbs.db"), "junk")
+
+		// .git directory should be excluded
+		writeFile(t, filepath.Join(root, ".git", "config"), "[core]")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{"main.go"})
+	})
+
+	t.Run("negation pattern re-includes file", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, ".gitignore"), "*.log\n!important.log\n")
+		writeFile(t, filepath.Join(root, "debug.log"), "debug")
+		writeFile(t, filepath.Join(root, "important.log"), "keep this")
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", "important.log", "main.go"})
+	})
+
+	t.Run("no gitignore includes everything", func(t *testing.T) {
+		root := t.TempDir()
+		writeFile(t, filepath.Join(root, "a.txt"), "a")
+		writeFile(t, filepath.Join(root, "sub", "b.txt"), "b")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{"a.txt", "sub/b.txt"})
+	})
+
+	t.Run("viamboat-style nested gitignore", func(t *testing.T) {
+		root := t.TempDir()
+
+		// Root .gitignore (like viamboat: no node_modules rule)
+		writeFile(t, filepath.Join(root, ".gitignore"), "bin\nmodule.tar.gz\n")
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, "bin", "module"), "binary")
+
+		// Nested web project with its own .gitignore
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", ".gitignore"), "node_modules\ndist\n")
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", "index.html"), "<html>")
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", "package.json"), "{}")
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", "node_modules", ".bin", "acorn"), "#!/bin/sh")
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", "node_modules", "acorn", "index.js"), "module")
+		writeFile(t, filepath.Join(root, "display", "onehelm-web", "dist", "bundle.js"), "bundled")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{
+			".gitignore",
+			"display/onehelm-web/.gitignore",
+			"display/onehelm-web/index.html",
+			"display/onehelm-web/package.json",
+			"main.go",
+		})
+	})
+
+	t.Run("directory-only pattern with trailing slash", func(t *testing.T) {
+		root := t.TempDir()
+		// "logs/" should only match the directory, not a file named "logs"
+		writeFile(t, filepath.Join(root, ".gitignore"), "logs/\n")
+		writeFile(t, filepath.Join(root, "main.go"), "package main")
+		writeFile(t, filepath.Join(root, "logs", "app.log"), "log data")
+
+		vc := newClient()
+		archivePath, err := vc.createGitArchive(root)
+		test.That(t, err, test.ShouldBeNil)
+		t.Cleanup(func() { os.Remove(archivePath) })
+
+		files := archiveFiles(t, archivePath)
+		test.That(t, files, test.ShouldResemble, []string{".gitignore", "main.go"})
 	})
 }

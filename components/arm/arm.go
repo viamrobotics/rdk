@@ -186,6 +186,13 @@ func CheckDesiredJointPositions(ctx context.Context, a Arm, desiredInputs []refe
 		return err
 	}
 	limits := model.DoF()
+
+	return checkDesiredJointPositions(limits, currentJointPos, desiredInputs)
+}
+
+func checkDesiredJointPositions(
+	limits []referenceframe.Limit, currentJointPos, desiredInputs []referenceframe.Input,
+) error {
 	for i, val := range desiredInputs {
 		//nolint: revive
 		max := limits[i].Max

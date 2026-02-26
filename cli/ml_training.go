@@ -108,7 +108,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	}
 
 	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
-		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path)
+		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
 		return err
 	}
@@ -447,6 +447,7 @@ type mlTrainingUploadArgs struct {
 	Type       string
 	Draft      bool
 	URL        string
+	Visibility string
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
@@ -461,7 +462,7 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 
 	_, err = client.uploadTrainingScript(args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
-		args.Version, args.Path,
+		args.Version, args.Path, args.Visibility,
 	)
 	if err != nil {
 		return err
@@ -478,10 +479,10 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path string) (
+func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
 	*packagespb.CreatePackageResponse, error,
 ) {
-	metadata, err := createMetadata(draft, modelType, framework, url)
+	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
 	if err != nil {
 		return nil, err
 	}
@@ -612,13 +613,14 @@ var modelFrameworks = []string{
 
 // MLMetadata struct stores package info for ML training packages.
 type MLMetadata struct {
-	Draft     bool
-	ModelType string
-	Framework string
-	URL       string
+	Draft      bool
+	ModelType  string
+	Framework  string
+	URL        string
+	Visibility string
 }
 
-func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, error) {
+func createMetadata(draft bool, modelType, framework, url, visibility string) (*MLMetadata, error) {
 	t, typeErr := findValueOrSetDefault(modelTypes, modelType, string(ModelTypeUnspecified))
 	f, frameWorkErr := findValueOrSetDefault(modelFrameworks, framework, string(ModelFrameworkUnspecified))
 
@@ -627,10 +629,11 @@ func createMetadata(draft bool, modelType, framework, url string) (*MLMetadata, 
 	}
 
 	return &MLMetadata{
-		Draft:     draft,
-		ModelType: t,
-		Framework: f,
-		URL:       url,
+		Draft:      draft,
+		ModelType:  t,
+		Framework:  f,
+		URL:        url,
+		Visibility: visibility,
 	}, nil
 }
 
@@ -653,6 +656,7 @@ var (
 	modelFrameworkKey = "model_framework"
 	draftKey          = "draft"
 	urlKey            = "url"
+	visibilityKey     = "visibility"
 )
 
 func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
@@ -661,6 +665,7 @@ func convertMetadataToStruct(metadata MLMetadata) (*structpb.Struct, error) {
 	metadataMap[modelFrameworkKey] = metadata.Framework
 	metadataMap[draftKey] = metadata.Draft
 	metadataMap[urlKey] = metadata.URL
+	metadataMap[visibilityKey] = metadata.Visibility
 	metadataStruct, err := structpb.NewStruct(metadataMap)
 	if err != nil {
 		return nil, err
