@@ -833,12 +833,13 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		if len(f1.mimicMappings) != len(f2.mimicMappings) {
 			return false, nil
 		}
-		for idx, mm1 := range f1.mimicMappings {
-			mm2, ok := f2.mimicMappings[idx]
+		for name, mm1 := range f1.mimicMappings {
+			mm2, ok := f2.mimicMappings[name]
 			if !ok {
 				return false, nil
 			}
-			if mm1.sourceInputIdx != mm2.sourceInputIdx ||
+			if mm1.sourceFrameName != mm2.sourceFrameName ||
+				mm1.sourceInputIdx != mm2.sourceInputIdx ||
 				math.Abs(mm1.multiplier-mm2.multiplier) > epsilon ||
 				math.Abs(mm1.offset-mm2.offset) > epsilon {
 				return false, nil
