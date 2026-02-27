@@ -695,7 +695,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 	for _, frameName := range ssc.fs.FrameNames() {
 		err := ssc.buildCacheForFrame(frameName, logger)
 		if err != nil {
-			return fmt.Errorf("cannot build cache for frame: %s", frameName)
+			return fmt.Errorf("cannot build cache for frame: %s %w", frameName, err)
 		}
 	}
 
