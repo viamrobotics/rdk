@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -118,6 +119,16 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 		return "", err
 	}
 
+	// Check if this is a Windows Python module by looking for src/main.py
+	if runtime.GOOS == osWindows && manifest.Build != nil {
+		manifestDir := filepath.Dir(args.Module)
+		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
+		if _, err := os.Stat(mainPyPath); err == nil {
+			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+				"Build locally with 'viam module build local' and upload with 'viam module upload'")
+		}
+	}
+
 	if manifest.URL == "" {
 		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
 			"Ex: 'https://github.com/your-username/your-repo'")
@@ -146,6 +157,14 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 	}
 	infof(cCtx.App.Writer, "Starting build")
 
+	// Use cmd.exe on Windows, bash on Unix-like systems
+	shellName := "bash"
+	shellFlag := "-c"
+	if runtime.GOOS == osWindows {
+		shellName = "cmd.exe"
+		shellFlag = "/C"
+	}
+
 	// Build environment slice from map, inheriting current environment
 	env := os.Environ()
 	for k, v := range environment {
@@ -155,7 +174,7 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
 		//nolint:gosec // user-provided build commands from meta.json are intentionally executed
-		cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Setup)
+		cmd := exec.CommandContext(cCtx.Context, shellName, shellFlag, manifest.Build.Setup)
 		cmd.Env = env
 		cmd.Stdout = cCtx.App.Writer
 		cmd.Stderr = cCtx.App.Writer
@@ -165,7 +184,7 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
 	//nolint:gosec // user-provided build commands from meta.json are intentionally executed
-	cmd := exec.CommandContext(cCtx.Context, "bash", "-c", manifest.Build.Build)
+	cmd := exec.CommandContext(cCtx.Context, shellName, shellFlag, manifest.Build.Build)
 	cmd.Env = env
 	cmd.Stdout = cCtx.App.Writer
 	cmd.Stderr = cCtx.App.Writer
