@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"text/template"
@@ -51,8 +53,8 @@ var (
 )
 
 var (
-	scriptsPath   = filepath.Join(basePath, "scripts")
-	templatesPath = filepath.Join(basePath, "_templates")
+	scriptsPath   = path.Join(basePath, "scripts")
+	templatesPath = path.Join(basePath, "_templates")
 )
 
 var unauthenticatedMode = false
@@ -223,6 +225,13 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	printf(cCtx.App.Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
 	if registryURL != "" {
 		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
+	}
+	if runtime.GOOS == osWindows && newModule.Language == "python" { //nolint:goconst
+		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
+			"You can test locally and then use `viam module upload` to manually upload,\n"+
+			"but the uploaded module will only work on Windows.\n"+
+			"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n"+
+			"and set your local module's executable path to run.bat")
 	}
 	return nil
 }
@@ -524,33 +533,33 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 		return errors.Wrap(err, "failed to create cloud build workflow")
 	}
 
-	workflowPath := filepath.Join(templatesPath, ".github")
+	workflowPath := path.Join(templatesPath, ".github")
 	workflowFS, err := fs.Sub(templates, workflowPath)
 	if err != nil {
 		return errors.Wrap(err, "failed to create cloud build workflow")
 	}
 
-	err = fs.WalkDir(workflowFS, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(workflowFS, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			if d.Name() != ".github" {
 				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(destWorkflowPath, path), 0o750)
+				err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
 				if err != nil {
 					return err
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", path)
-			srcFile, err := templates.Open(filepath.Join(workflowPath, path))
+			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
+			srcFile, err := templates.Open(path.Join(workflowPath, filePath))
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
 			}
 			defer utils.UncheckedErrorFunc(srcFile.Close)
 
-			destPath := filepath.Join(destWorkflowPath, path)
+			destPath := filepath.Join(destWorkflowPath, filePath)
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
@@ -574,32 +583,39 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
 func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Creating %s template files", language)
-	languagePath := filepath.Join(templatesPath, language)
+	languagePath := path.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
 		return err
 	}
-	err = fs.WalkDir(tempDir, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(c.App.Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, path), 0o750)
+				err = os.Mkdir(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
 					return err
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", path)
-			srcFile, err := templates.Open(filepath.Join(languagePath, path))
+			// Copy .bat files for windows and .sh files for everything else
+			if runtime.GOOS == osWindows && strings.HasSuffix(d.Name(), ".sh") {
+				return nil
+			}
+			if runtime.GOOS != osWindows && strings.HasSuffix(d.Name(), ".bat") {
+				return nil
+			}
+			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", filePath)
+			srcFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
 			}
 			defer utils.UncheckedErrorFunc(srcFile.Close)
 
-			destPath := filepath.Join(moduleName, path)
+			destPath := filepath.Join(moduleName, filePath)
 			//nolint:gosec
 			destFile, err := os.Create(destPath)
 			if err != nil {
@@ -611,7 +627,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			if err != nil {
 				return errors.Wrapf(err, "error executing template for %s", destPath)
 			}
-			if filepath.Ext(destPath) == ".sh" {
+			if filepath.Ext(destPath) == ".sh" && runtime.GOOS != osWindows {
 				//nolint:gosec
 				err = os.Chmod(destPath, 0o750)
 				if err != nil {
@@ -630,17 +646,17 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 // Render all the files in the new directory.
 func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
-	languagePath := filepath.Join(templatesPath, module.Language)
+	languagePath := path.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
 		return err
 	}
-	err = fs.WalkDir(tempDir, ".", func(path string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
-			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(path, templatePrefix, ""))
+			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(filePath, templatePrefix, ""))
 			debugf(c.App.Writer, globalArgs.Debug, "\tRendering file %s", destPath)
 
-			tFile, err := templates.Open(filepath.Join(languagePath, path))
+			tFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
 				return err
 			}
@@ -650,7 +666,7 @@ func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs gl
 				return err
 			}
 
-			tmpl, err := template.New(path).Parse(string(tBytes))
+			tmpl, err := template.New(filePath).Parse(string(tBytes))
 			if err != nil {
 				return err
 			}
@@ -752,24 +768,33 @@ func checkGoPath() (string, error) {
 
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
-	cmd := exec.Command("python3", "--version")
+	pythonCmd := "python3"
+	if runtime.GOOS == osWindows {
+		pythonCmd = "python"
+	}
+	cmd := exec.Command(pythonCmd, "--version")
 	_, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
 	}
-	cmd = exec.Command("python3", "-m", "venv", venvName)
+	cmd = exec.Command(pythonCmd, "-m", "venv", venvName)
 	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
 	defer utils.UncheckedErrorFunc(func() error { return os.RemoveAll(venvName) })
 
-	script, err := scripts.ReadFile(filepath.Join(scriptsPath, "generate_stubs.py"))
+	script, err := scripts.ReadFile(path.Join(scriptsPath, "generate_stubs.py"))
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to open generator script")
 	}
+
+	pythonVenvPath := filepath.Join(venvName, "bin", "python3")
+	if runtime.GOOS == osWindows {
+		pythonVenvPath = filepath.Join(venvName, "Scripts", "python.exe")
+	}
 	//nolint:gosec
-	cmd = exec.Command(filepath.Join(venvName, "bin", "python3"), "-c", string(script), module.ResourceType,
+	cmd = exec.Command(pythonVenvPath, "-c", string(script), module.ResourceType,
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := cmd.Output()
 	if err != nil {
@@ -860,7 +885,7 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 
 // Create the README.md file.
 func renderReadme(module modulegen.ModuleInputs) error {
-	readmeTemplatePath, err := templates.Open(filepath.Join(templatesPath, defaultReadmeFilename))
+	readmeTemplatePath, err := templates.Open(path.Join(templatesPath, defaultReadmeFilename))
 	readmeDest := filepath.Join(module.ModuleName, defaultReadmeFilename)
 	if err != nil {
 		return err
@@ -893,7 +918,7 @@ func renderReadme(module modulegen.ModuleInputs) error {
 // Create the model documentation file.
 func renderModelDoc(module modulegen.ModuleInputs) error {
 	const modelDocTemplate = "MODEL_DOC.md"
-	modelDocTemplatePath, err := templates.Open(filepath.Join(templatesPath, modelDocTemplate))
+	modelDocTemplatePath, err := templates.Open(path.Join(templatesPath, modelDocTemplate))
 	if err != nil {
 		return err
 	}
@@ -943,19 +968,39 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 	}
 	switch module.Language {
 	case python:
-		manifest.Build = &manifestBuildInfo{
-			Setup: "./setup.sh",
-			Build: "./build.sh",
-			Path:  "dist/archive.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+		if runtime.GOOS == osWindows {
+			manifest.Build = &manifestBuildInfo{
+				Setup: "setup.bat",
+				Build: "build.bat",
+				Path:  "dist/archive.tar.gz",
+				Arch:  []string{"windows/amd64"},
+			}
+		} else {
+			manifest.Build = &manifestBuildInfo{
+				Setup: "./setup.sh",
+				Build: "./build.sh",
+				Path:  "dist/archive.tar.gz",
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
+			}
 		}
 		manifest.Entrypoint = "dist/main"
 	case golang:
-		manifest.Build = &manifestBuildInfo{
-			Setup: "make setup",
-			Build: "make module.tar.gz",
-			Path:  "module.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+		if runtime.GOOS == osWindows {
+			manifest.Build = &manifestBuildInfo{
+				Setup: "go mod tidy",
+				Build: "go build -tags no_cgo -o bin/" + module.ModuleName +
+					" cmd/module/main.go && tar czf module.tar.gz meta.json bin/" +
+					module.ModuleName,
+				Path: "module.tar.gz",
+				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+			}
+		} else {
+			manifest.Build = &manifestBuildInfo{
+				Setup: "make setup",
+				Build: "make module.tar.gz",
+				Path:  "module.tar.gz",
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+			}
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
