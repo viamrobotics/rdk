@@ -318,6 +318,23 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 		}
 	}
 
+	{
+		p, err := ssc.fs.Parent(frame)
+		if err != nil {
+			return "", nil, err
+		}
+		for p != ssc.fs.World() {
+			if len(p.DoF()) > 0 {
+				return "", nil, fmt.Errorf("frame %s has a parent %s which moves, can't use smart seeds",
+					frame.Name(), p.Name())
+			}
+			p, err = ssc.fs.Parent(p)
+			if err != nil {
+				return "", nil, err
+			}
+		}
+	}
+
 	// there are 3 frames at play here
 	// 1) the frame the goal is specified in
 	// 2) the frame of the thing we want to move
@@ -511,7 +528,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	goalPoint := goalPose.Point()
 	n := goalPoint.Norm()
-	logger.Debugf("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
+	logger.Infof("findSeedsForFrame: %s goalPose: %v start: %v norm: %0.2f maxNorm: %0.2f",
 		frameName, goalPose, logging.FloatArrayFormat{"", start}, n, ssc.rawCache[frameName].maxNorm)
 
 	if n > ssc.rawCache[frameName].maxNorm {
