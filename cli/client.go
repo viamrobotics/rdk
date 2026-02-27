@@ -1889,7 +1889,6 @@ func parseValueString(s string) any {
 	return s
 }
 
-
 // collectNotifications prompts the user for webhook and email notification settings.
 func collectNotifications(eventType string) ([]any, error) {
 	validateSeconds := func(s string) error {
