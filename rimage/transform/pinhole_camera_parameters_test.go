@@ -222,11 +222,11 @@ func TestPointToPixelRoundTrip(t *testing.T) {
 	pixels := []struct {
 		x, y, z float64
 	}{
-		{0, 0, 1000},           // top-left corner
-		{1279, 719, 1000},      // bottom-right corner
-		{640, 360, 500},        // near center
+		{0, 0, 1000},      // top-left corner
+		{1279, 719, 1000}, // bottom-right corner
+		{640, 360, 500},   // near center
 		{math.Round(params.Ppx), math.Round(params.Ppy), 2000}, // near principal point
-		{100, 600, 300},        // arbitrary
+		{100, 600, 300}, // arbitrary
 	}
 
 	for _, px := range pixels {
