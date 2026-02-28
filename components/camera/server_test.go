@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	goprotoutils "go.viam.com/utils/protoutils"
@@ -22,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -78,10 +80,12 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	extrinsics := spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1})
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
+			ExtrinsicParams: extrinsics,
 			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
 			FrameRate:       float32(10.0),
 		}, nil
@@ -341,11 +345,19 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
 		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
 		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
+		test.That(t, resp.ExtrinsicParameters, test.ShouldNotBeNil)
+		test.That(t, resp.ExtrinsicParameters.Pose, test.ShouldNotBeNil)
+		test.That(t, resp.ExtrinsicParameters.Pose.X, test.ShouldAlmostEqual, 1)
+		test.That(t, resp.ExtrinsicParameters.Pose.Y, test.ShouldAlmostEqual, 2)
+		test.That(t, resp.ExtrinsicParameters.Pose.Z, test.ShouldAlmostEqual, 3)
+		test.That(t, resp.ExtrinsicParameters.Pose.OZ, test.ShouldAlmostEqual, 1)
+		test.That(t, resp.ExtrinsicParameters.Pose.Theta, test.ShouldAlmostEqual, 90)
 
 		// test property when we don't set frame rate
 		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp2.FrameRate, test.ShouldBeNil)
+		test.That(t, resp2.ExtrinsicParameters, test.ShouldBeNil)
 	})
 
 	t.Run("GetImages with extra", func(t *testing.T) {

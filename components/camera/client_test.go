@@ -566,6 +566,22 @@ func TestClientProperties(t *testing.T) {
 			},
 		},
 		{
+			name: "with extrinsic params",
+			props: camera.Properties{
+				SupportsPCD:     true,
+				IntrinsicParams: fakeIntrinsics,
+				ExtrinsicParams: spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1}),
+			},
+		},
+		{
+			name: "nil extrinsic params",
+			props: camera.Properties{
+				SupportsPCD:     true,
+				IntrinsicParams: fakeIntrinsics,
+				ExtrinsicParams: nil,
+			},
+		},
+		{
 			name:  "empty properties",
 			props: camera.Properties{},
 		},

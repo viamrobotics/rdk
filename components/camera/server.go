@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -203,6 +204,12 @@ func (s *serviceServer) GetProperties(
 
 	if props.FrameRate != 0 {
 		result.FrameRate = &props.FrameRate
+	}
+
+	if props.ExtrinsicParams != nil {
+		result.ExtrinsicParameters = &pb.ExtrinsicParameters{
+			Pose: spatialmath.PoseToProtobuf(props.ExtrinsicParams),
+		}
 	}
 
 	result.MimeTypes = props.MimeTypes

@@ -288,6 +288,10 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if resp.FrameRate != nil {
 		result.FrameRate = *resp.FrameRate
 	}
+	if ext := resp.ExtrinsicParameters; ext != nil && ext.Pose != nil {
+		result.ExtrinsicParams = spatialmath.NewPoseFromProtobuf(ext.Pose)
+	}
+
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {
 		return result, nil

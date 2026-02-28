@@ -3,6 +3,7 @@ package transform
 import (
 	"context"
 	"image"
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -204,6 +205,58 @@ func TestGetCameraMatrix(t *testing.T) {
 	test.That(t, intrinsicsK.At(0, 2), test.ShouldEqual, intrinsics.Ppx)
 	test.That(t, intrinsicsK.At(1, 2), test.ShouldEqual, intrinsics.Ppy)
 	test.That(t, intrinsicsK.At(2, 2), test.ShouldEqual, 1)
+}
+
+func TestPointToPixelRoundTrip(t *testing.T) {
+	// RealSense D435i at 1280x720
+	params := &PinholeCameraIntrinsics{
+		Width:  1280,
+		Height: 720,
+		Fx:     906.0663452148438,
+		Fy:     905.1234741210938,
+		Ppx:    646.94970703125,
+		Ppy:    374.4667663574219,
+	}
+
+	// pixel → point → pixel should round-trip exactly for integer pixel coordinates
+	pixels := []struct {
+		x, y, z float64
+	}{
+		{0, 0, 1000},           // top-left corner
+		{1279, 719, 1000},      // bottom-right corner
+		{640, 360, 500},        // near center
+		{math.Round(params.Ppx), math.Round(params.Ppy), 2000}, // near principal point
+		{100, 600, 300},        // arbitrary
+	}
+
+	for _, px := range pixels {
+		x3d, y3d, z3d := params.PixelToPoint(px.x, px.y, px.z)
+		test.That(t, z3d, test.ShouldEqual, px.z)
+
+		convergenceX, convergenceY := params.PointToPixel(x3d, y3d, z3d)
+		test.That(t, convergenceX, test.ShouldEqual, px.x)
+		test.That(t, convergenceY, test.ShouldEqual, px.y)
+	}
+
+	// point → pixel → point should be close but not exact due to math.Round in PointToPixel
+	points := []struct {
+		x, y, z float64
+	}{
+		{0.5, 0.3, 1000},
+		{-0.1, 0.2, 500},
+		{1.0, -0.5, 2000},
+	}
+
+	for _, pt := range points {
+		convergenceX, convergenceY := params.PointToPixel(pt.x, pt.y, pt.z)
+		x3d, y3d, z3d := params.PixelToPoint(convergenceX, convergenceY, pt.z)
+		test.That(t, z3d, test.ShouldEqual, pt.z)
+
+		// Re-projecting the recovered 3D point should land on the same pixel
+		finalPx, finalPy := params.PointToPixel(x3d, y3d, z3d)
+		test.That(t, finalPx, test.ShouldEqual, convergenceX)
+		test.That(t, finalPy, test.ShouldEqual, convergenceY)
+	}
 }
 
 func TestNilIntrinsics(t *testing.T) {
