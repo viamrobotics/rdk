@@ -441,13 +441,6 @@ func TestPropertiesPointToPixel(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "intrinsic")
 	})
 
-	t.Run("missing extrinsics", func(t *testing.T) {
-		props := &camera.Properties{IntrinsicParams: intrinsics}
-		_, _, err := props.PointToPixel(r3.Vector{})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "extrinsic")
-	})
-
 	t.Run("identity extrinsics behaves like raw intrinsics", func(t *testing.T) {
 		props := &camera.Properties{
 			IntrinsicParams: intrinsics,
@@ -464,10 +457,12 @@ func TestPropertiesPointToPixel(t *testing.T) {
 	})
 
 	t.Run("translated camera", func(t *testing.T) {
-		// Camera is at (100, 0, 0) in world frame, looking along +Z (no rotation)
+		// ExtrinsicParams is the transform applied to points before projection.
+		// Camera is at (100, 0, 0) in world frame, so the world-to-camera
+		// transform shifts points by (-100, 0, 0).
 		props := &camera.Properties{
 			IntrinsicParams: intrinsics,
-			ExtrinsicParams: spatialmath.NewPoseFromPoint(r3.Vector{X: 100, Y: 0, Z: 0}),
+			ExtrinsicParams: spatialmath.NewPoseFromPoint(r3.Vector{X: -100, Y: 0, Z: 0}),
 		}
 		// A world point at (100, 0, 1000) is at (0, 0, 1000) in camera frame
 		px, py, err := props.PointToPixel(r3.Vector{X: 100, Y: 0, Z: 1000})

@@ -88,20 +88,19 @@ type Properties struct {
 	FrameRate        float32
 }
 
-// PointToPixel projects a 3D point in the world/reference frame to a 2D pixel coordinate.
-// It uses the extrinsic parameters to transform the point from the reference frame into the
-// camera's coordinate frame, then uses the intrinsic parameters to project to a pixel.
+// PointToPixel projects a 3D point to a 2D pixel coordinate.
+// If extrinsic parameters are set, the point is first transformed from the depth/reference
+// frame into the camera's coordinate frame, then projected to a pixel using intrinsics.
 func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	if p.IntrinsicParams == nil {
 		return 0, 0, errors.New("camera properties has no intrinsic parameters")
 	}
-	if p.ExtrinsicParams == nil {
-		return 0, 0, errors.New("camera properties has no extrinsic parameters")
+
+	if p.ExtrinsicParams != nil {
+		pt = spatialmath.Compose(p.ExtrinsicParams, spatialmath.NewPoseFromPoint(pt)).Point()
 	}
-	// Transform the world point into the camera's coordinate frame.
-	cameraInverse := spatialmath.PoseInverse(p.ExtrinsicParams)
-	ptInCamera := spatialmath.Compose(cameraInverse, spatialmath.NewPoseFromPoint(pt)).Point()
-	px, py := p.IntrinsicParams.PointToPixel(ptInCamera.X, ptInCamera.Y, ptInCamera.Z)
+
+	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)
 	return px, py, nil
 }
 
