@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -435,36 +434,34 @@ func TestPropertiesPointToPixel(t *testing.T) {
 	}
 
 	t.Run("missing intrinsics", func(t *testing.T) {
-		props := &camera.Properties{ExtrinsicParams: spatialmath.NewZeroPose()}
+		props := &camera.Properties{ExtrinsicParams: &r3.Vector{}}
 		_, _, err := props.PointToPixel(r3.Vector{})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "intrinsic")
 	})
 
-	t.Run("identity extrinsics behaves like raw intrinsics", func(t *testing.T) {
+	t.Run("zero extrinsics behaves like raw intrinsics", func(t *testing.T) {
 		props := &camera.Properties{
 			IntrinsicParams: intrinsics,
-			ExtrinsicParams: spatialmath.NewZeroPose(),
+			ExtrinsicParams: &r3.Vector{},
 		}
 		// A point directly in front of the camera at z=1000
 		pt := r3.Vector{X: 0, Y: 0, Z: 1000}
 		px, py, err := props.PointToPixel(pt)
 		test.That(t, err, test.ShouldBeNil)
-		// With identity extrinsics, should match raw intrinsics
+		// With zero extrinsics, should match raw intrinsics
 		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
 		test.That(t, px, test.ShouldEqual, expectedPx)
 		test.That(t, py, test.ShouldEqual, expectedPy)
 	})
 
 	t.Run("translated camera", func(t *testing.T) {
-		// ExtrinsicParams is the transform applied to points before projection.
-		// Camera is at (100, 0, 0) in world frame, so the world-to-camera
-		// transform shifts points by (-100, 0, 0).
+		// ExtrinsicParams is the translation applied to points before projection.
 		props := &camera.Properties{
 			IntrinsicParams: intrinsics,
-			ExtrinsicParams: spatialmath.NewPoseFromPoint(r3.Vector{X: -100, Y: 0, Z: 0}),
+			ExtrinsicParams: &r3.Vector{X: -100, Y: 0, Z: 0},
 		}
-		// A world point at (100, 0, 1000) is at (0, 0, 1000) in camera frame
+		// A world point at (100, 0, 1000) becomes (0, 0, 1000) after adding (-100, 0, 0)
 		px, py, err := props.PointToPixel(r3.Vector{X: 100, Y: 0, Z: 1000})
 		test.That(t, err, test.ShouldBeNil)
 		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)

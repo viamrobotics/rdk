@@ -18,7 +18,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -208,7 +207,11 @@ func (s *serviceServer) GetProperties(
 
 	if props.ExtrinsicParams != nil {
 		result.ExtrinsicParameters = &pb.ExtrinsicParameters{
-			Pose: spatialmath.PoseToProtobuf(props.ExtrinsicParams),
+			Translation: &commonpb.Vector3{
+				X: props.ExtrinsicParams.X,
+				Y: props.ExtrinsicParams.Y,
+				Z: props.ExtrinsicParams.Z,
+			},
 		}
 	}
 

@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -80,7 +79,7 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	extrinsics := spatialmath.NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &spatialmath.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1})
+	extrinsics := &r3.Vector{X: 1, Y: 2, Z: 3}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
@@ -346,12 +345,10 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
 		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
 		test.That(t, resp.ExtrinsicParameters, test.ShouldNotBeNil)
-		test.That(t, resp.ExtrinsicParameters.Pose, test.ShouldNotBeNil)
-		test.That(t, resp.ExtrinsicParameters.Pose.X, test.ShouldAlmostEqual, 1)
-		test.That(t, resp.ExtrinsicParameters.Pose.Y, test.ShouldAlmostEqual, 2)
-		test.That(t, resp.ExtrinsicParameters.Pose.Z, test.ShouldAlmostEqual, 3)
-		test.That(t, resp.ExtrinsicParameters.Pose.OZ, test.ShouldAlmostEqual, 1)
-		test.That(t, resp.ExtrinsicParameters.Pose.Theta, test.ShouldAlmostEqual, 90)
+		test.That(t, resp.ExtrinsicParameters.Translation, test.ShouldNotBeNil)
+		test.That(t, resp.ExtrinsicParameters.Translation.X, test.ShouldEqual, 1)
+		test.That(t, resp.ExtrinsicParameters.Translation.Y, test.ShouldEqual, 2)
+		test.That(t, resp.ExtrinsicParameters.Translation.Z, test.ShouldEqual, 3)
 
 		// test property when we don't set frame rate
 		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})

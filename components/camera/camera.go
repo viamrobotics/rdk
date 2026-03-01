@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -83,7 +82,7 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
-	ExtrinsicParams  spatialmath.Pose
+	ExtrinsicParams  *r3.Vector
 	MimeTypes        []string
 	FrameRate        float32
 }
@@ -97,7 +96,7 @@ func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	}
 
 	if p.ExtrinsicParams != nil {
-		pt = spatialmath.Compose(p.ExtrinsicParams, spatialmath.NewPoseFromPoint(pt)).Point()
+		pt = pt.Add(*p.ExtrinsicParams)
 	}
 
 	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)
