@@ -367,10 +367,10 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 10
-		minMillis = 150
-	} else if sss.bestScoreWithProblem < sss.goodCost {
-		multiple = 50
 		minMillis = 250
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 20
+		minMillis = 500
 	}
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
