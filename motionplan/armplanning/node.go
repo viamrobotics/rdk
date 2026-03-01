@@ -364,6 +364,12 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 5
 		minMillis = 5 * speedMultiplier
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 1.5) {
+		multiple = 10
+		minMillis = 25 * speedMultiplier
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 2) {
+		multiple = 10
+		minMillis = 100 * speedMultiplier
 	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 10

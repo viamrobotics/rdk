@@ -21,7 +21,7 @@ var speedMultiplier = 2.0
 
 func init() {
 	logger := logging.NewLogger("startup-profile")
-	// logger.SetLevel(logging.WARN)
+	logger.SetLevel(logging.WARN)
 
 	avgTime, err := checkStartupPerf(logger)
 	if err != nil {
