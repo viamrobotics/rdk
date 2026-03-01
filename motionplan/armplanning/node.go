@@ -236,7 +236,6 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 			val = sss.psc.pc.lis.Jog(idx, val, minRatio)
 		}
 		adjusted = append(adjusted, val)
-		sss.logger.Infof("eliot %0.2f %0.2f %0.2f", r, sss.linearSeeds[0][idx], val)
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -368,10 +367,10 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 10
-		minMillis = 100
+		minMillis = 150
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		multiple = 50
-		minMillis = 200
+		minMillis = 250
 	}
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
