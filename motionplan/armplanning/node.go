@@ -358,18 +358,21 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		minMillis = 3
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
-		minMillis = 10
-	} else if sss.bestScoreNoProblem < sss.goodCost/5 { // .2
-		multiple = 2
-		minMillis = 10
+		minMillis = 5
+	} else if sss.bestScoreNoProblem < sss.goodCost/4 { // .25
+		multiple = 1
+		minMillis = 5
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 5
 		minMillis = 10
-	} else if sss.bestScoreWithProblem < sss.goodCost {
+	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
-		multiple = 100
+		multiple = 10
+		minMillis = 100
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 50
+		minMillis = 200
 	}
-
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
 	if sss.psc.pc.planOpts.Timeout > 0 && len(sss.solutions) > 0 {
