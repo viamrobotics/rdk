@@ -345,7 +345,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	multiple := 100.0
-	minMillis := 10000
+	minMillis := 10000.0
 	if !sss.doingSmartSeeds {
 		// if we're not doing small seeds, it means we're doing a very tiny motion
 		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
@@ -354,23 +354,23 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
-		minMillis = 3
+		minMillis = 2 * speedMultiplier
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
-		minMillis = 5
+		minMillis = 2 * speedMultiplier
 	} else if sss.bestScoreNoProblem < sss.goodCost/4 { // .25
 		multiple = 1
-		minMillis = 5
+		minMillis = 3 * speedMultiplier
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 5
-		minMillis = 10
+		minMillis = 5 * speedMultiplier
 	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 10
-		minMillis = 250
+		minMillis = 150 * speedMultiplier
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		multiple = 20
-		minMillis = 500
+		minMillis = 250 * speedMultiplier
 	}
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
