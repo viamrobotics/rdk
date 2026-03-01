@@ -510,6 +510,40 @@ func TestTeleOpTwoMove(t *testing.T) {
 	}
 }
 
+func TestWineBadBottleMoveGoodCost(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	req, err := ReadRequestFromFile("data/wine-bad-bottle-move.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	test.That(t, err, test.ShouldBeNil)
+
+	sss, err := newSolutionSolvingState(ctx, psc, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("goodCost: %0.4f", sss.goodCost)
+	test.That(t, sss.goodCost, test.ShouldBeLessThan, 3)
+
+	plan, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	a := plan.Trajectory()[0]["right-arm"]
+	b := plan.Trajectory()[1]["right-arm"]
+	dist := referenceframe.InputsL2Distance(a, b)
+	logger.Infof("L2 distance: %0.4f", dist)
+	test.That(t, dist, test.ShouldBeLessThan, 2)
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()
