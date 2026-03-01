@@ -107,8 +107,10 @@ func (c *viamClient) moduleBuildStartForRepo(
 	if err != nil {
 		return "", err
 	}
-	// Print to stderr so that the buildID is the only thing in stdout
-	printf(cCtx.App.ErrWriter, "Started build:")
+	// Print to stderr so that stdout only contains the buildID, which is parsed by the build-action.
+	// See https://github.com/viamrobotics/build-action/blob/main/src/index.js
+	printf(cCtx.App.ErrWriter, "Build started, follow the logs with:")
+	printf(cCtx.App.ErrWriter, "	viam module build logs --id %s", res.BuildId)
 	printf(cCtx.App.Writer, res.BuildId)
 	return res.BuildId, nil
 }
