@@ -221,12 +221,22 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	ratios := clampSensitivities(rawRatios, .03)
 	minRatio := 1.0
 
-	adjusted := []float64{}
-	for idx, r := range ratios {
-		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
+	for _, r := range ratios {
 		if r > 0 { // if a joint is part of a non-moving arm, don't consider it
 			minRatio = min(minRatio, r)
 		}
+	}
+
+	adjusted := []float64{}
+	for idx, r := range ratios {
+		val := sss.linearSeeds[0][idx]
+		if r > 0 {
+			// we use min ratio here because we're pretty sure that if we moved every joint minRatio amount
+			// we'd move plenty
+			val = sss.psc.pc.lis.Jog(idx, val, minRatio)
+		}
+		adjusted = append(adjusted, val)
+		sss.logger.Infof("eliot %0.2f %0.2f %0.2f", r, sss.linearSeeds[0][idx], val)
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -345,25 +355,16 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
-		minMillis = 5
-	} else if sss.bestScoreNoProblem < sss.goodCost/15 { // .06
+		minMillis = 3
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
 		minMillis = 10
-	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .1
-		multiple = 0
-		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/5 { // .2
 		multiple = 2
-		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
-		multiple = 4
-		minMillis = 20
-	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 20
-		minMillis = 50
+		minMillis = 10
 	} else if sss.bestScoreNoProblem < sss.goodCost {
-		multiple = 50
-		minMillis = 100
+		multiple = 5
+		minMillis = 10
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 100
