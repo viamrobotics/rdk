@@ -104,17 +104,15 @@ func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	}
 
 	if p.ExtrinsicParams != nil {
-		// Apply translation
-		pt = pt.Add(p.ExtrinsicParams.Translation)
-
-		// Apply orientation if present
 		if p.ExtrinsicParams.Orientation != nil {
-			// Create a pose from the point and apply the inverse rotation
-			// to transform from the reference frame to the camera frame
-			pose := spatialmath.NewPose(pt, nil)
-			invOrientation := spatialmath.NewPoseFromOrientation(p.ExtrinsicParams.Orientation)
-			transformed := spatialmath.Compose(invOrientation, pose)
+			// Combine translation and orientation into a pose, then compose
+			extrinsicPose := spatialmath.NewPose(p.ExtrinsicParams.Translation, p.ExtrinsicParams.Orientation)
+			pointPose := spatialmath.NewPoseFromPoint(pt)
+			transformed := spatialmath.Compose(extrinsicPose, pointPose)
 			pt = transformed.Point()
+		} else {
+			// Just translation
+			pt = pt.Add(p.ExtrinsicParams.Translation)
 		}
 	}
 
