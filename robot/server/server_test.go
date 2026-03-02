@@ -651,11 +651,13 @@ func TestModuleLogTimestamp(t *testing.T) {
 	_, err := srv.Log(context.Background(), &pb.LogRequest{
 		Logs: []*commonpb.LogEntry{{
 			Level:   "info",
-			Time:    timestamppb.New(time.Now().Add(-2 * time.Second)),
-			Message: "old log",
+			Time:    timestamppb.New(time.Now().Add(-2 * time.Hour)),
+			Message: "old log contains `log_ts`",
 		}},
 	})
 	test.That(t, err, test.ShouldBeNil)
+	// Dan: This half of the test works "in the favor" of a race. If this fails, there's a real
+	// bug/change in expected behavior.
 	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
 
 	logs.TakeAll() // clear logs
@@ -671,18 +673,6 @@ func TestModuleLogTimestamp(t *testing.T) {
 	// Dan: Technically a race given the web server calls `time.Now`. This test isn't critical, can
 	// remove if it becomes a problem.
 	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 0)
-
-	_, err = srv.Log(context.Background(), &pb.LogRequest{
-		Logs: []*commonpb.LogEntry{{
-			Level:   "info",
-			Time:    timestamppb.New(time.Now().Add(-time.Hour)),
-			Message: "old log contains `log_ts`",
-		}},
-	})
-	test.That(t, err, test.ShouldBeNil)
-	// Dan: This half of the test works "in the favor" of a race. If this fails, there's a real
-	// bug/change in expected behavior.
-	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {
