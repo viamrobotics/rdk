@@ -73,7 +73,7 @@ func TestEstimatePlaneNormalFromPoints(t *testing.T) {
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
 		points = append(points, p)
 	}
-	normalPlane := estimatePlaneNormalFromPoints(points)
+	normalPlane := EstimatePlaneNormalFromPoints(points)
 	test.ShouldAlmostEqual(normalPlane.X, 0.)
 	test.ShouldAlmostEqual(normalPlane.Y, 0.)
 	test.ShouldAlmostEqual(normalPlane.Z, 1.)

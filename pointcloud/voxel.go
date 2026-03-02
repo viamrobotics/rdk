@@ -1,16 +1,10 @@
 package pointcloud
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"image"
 	"math"
 
 	"github.com/golang/geo/r3"
-	"go-hep.org/x/hep/hbook"
-	"go-hep.org/x/hep/hplot"
-	vecg "gonum.org/v1/plot/vg"
 )
 
 /* In this file are functions to create a Voxel, a Voxel Grid from a point cloud
@@ -296,81 +290,6 @@ func (vg *VoxelGrid) Lambda() float64 {
 	return vg.lam
 }
 
-// VoxelHistogram creates useful plots for determining the parameters of the voxel grid when calibrating a new sensor.
-// Histograms of the number of points in each voxel, the weights of each voxel, and the plane residuals.
-func (vg *VoxelGrid) VoxelHistogram(w, h int, name string) (image.Image, error) {
-	var hist *hbook.H1D
-	p := hplot.New()
-	switch name {
-	case "points":
-		p.Title.Text = "Points in Voxel"
-		p.X.Label.Text = "Pts in Voxel"
-		p.Y.Label.Text = "NVoxels"
-		hist = hbook.NewH1D(25, 0, +25)
-		for _, vox := range vg.Voxels {
-			variable := float64(len(vox.Points))
-			hist.Fill(variable, 1)
-		}
-	case "weights":
-		hist = hbook.NewH1D(40, 0, +1)
-		p.Title.Text = "Weights of Voxel"
-		p.X.Label.Text = "Voxel Weight"
-		p.Y.Label.Text = "N Vox"
-		for _, vox := range vg.Voxels {
-			variable := -9.0
-			if len(vox.Points) > 5 {
-				vox.Center = GetVoxelCenter(vox.Positions())
-				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
-				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
-				variable = GetWeight(vox.Positions(), vg.lam, vox.Residual)
-			}
-			hist.Fill(variable, 1)
-		}
-	case "residuals":
-		hist = hbook.NewH1D(65, 0, +6.5)
-		p.Title.Text = "Residual of Voxel"
-		p.X.Label.Text = "Voxel Residuals"
-		p.Y.Label.Text = "N Voxels"
-		for _, vox := range vg.Voxels {
-			variable := -999.
-			if len(vox.Points) > 5 {
-				vox.Center = GetVoxelCenter(vox.Positions())
-				vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
-				vox.Offset = GetOffset(vox.Center, vox.Normal)
-				vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
-				variable = vox.Residual
-			}
-			hist.Fill(variable, 1)
-		}
-	default:
-		return nil, fmt.Errorf("%s not a plottable variable", name)
-	}
-
-	// Create a histogram of our values
-	hp := hplot.NewH1D(hist)
-	hp.Infos.Style = hplot.HInfoSummary
-	p.Add(hp)
-
-	width, err := vecg.ParseLength(fmt.Sprintf("%dpt", w))
-	if err != nil {
-		return nil, err
-	}
-	height, err := vecg.ParseLength(fmt.Sprintf("%dpt", h))
-	if err != nil {
-		return nil, err
-	}
-	imgByte, err := hplot.Show(p, width, height, "png")
-	if err != nil {
-		return nil, err
-	}
-	img, _, err := image.Decode(bytes.NewReader(imgByte))
-	if err != nil {
-		return nil, err
-	}
-	return img, nil
-}
-
 // GetVoxelFromKey returns a pointer to a voxel from a VoxelCoords key.
 func (vg *VoxelGrid) GetVoxelFromKey(coords VoxelCoords) *Voxel {
 	return vg.Voxels[coords]
@@ -505,7 +424,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 		// below 5 points, normal and center estimation are not relevant
 		if len(vox.Points) > 5 {
-			vox.Normal = estimatePlaneNormalFromPoints(vox.Positions())
+			vox.Normal = EstimatePlaneNormalFromPoints(vox.Positions())
 			vox.Offset = GetOffset(vox.Center, vox.Normal)
 			vox.Residual = GetResidual(vox.Positions(), vox.GetPlane())
 			vox.Weight = GetWeight(vox.Positions(), lam, vox.Residual)

@@ -123,7 +123,7 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 				positions[i] = p
 				i++
 			}
-			normalVector := estimatePlaneNormalFromPoints(positions)
+			normalVector := EstimatePlaneNormalFromPoints(positions)
 			center := GetVoxelCenter(positions)
 			offset := GetOffset(center, normalVector)
 			currentPlane := &voxelPlane{
