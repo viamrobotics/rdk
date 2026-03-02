@@ -161,7 +161,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 				}
 			}
 		}
-		nss.logger.Debugf("\n\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
+		nss.logger.Debugf("\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
 			nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		return dist
 	}
