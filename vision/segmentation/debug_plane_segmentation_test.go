@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	pc "go.viam.com/rdk/pointcloud"
+	pcviz "go.viam.com/rdk/pointcloud/visualize"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
@@ -93,13 +94,13 @@ func (h *segmentTestHelper) Process(
 	voxelSize := 20.
 	lam := 8.0
 	vg := pc.NewVoxelGridFromPointCloud(cloud, voxelSize, lam)
-	histPt, err := vg.VoxelHistogram(h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "points")
+	histPt, err := pcviz.VoxelHistogram(vg, h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "points")
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(histPt, "voxel-histograms")
-	histWt, err := vg.VoxelHistogram(h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "weights")
+	histWt, err := pcviz.VoxelHistogram(vg, h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "weights")
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(histWt, "weight-histograms")
-	histRes, err := vg.VoxelHistogram(h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "residuals")
+	histRes, err := pcviz.VoxelHistogram(vg, h.cameraParams.ColorCamera.Width, h.cameraParams.ColorCamera.Height, "residuals")
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(histRes, "residual-histograms")
 
