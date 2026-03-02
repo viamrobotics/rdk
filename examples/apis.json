@@ -62,6 +62,12 @@
     "packagePath": "go.viam.com/rdk/components",
     "args": ["context.Background()", "map[string]interface{}{}"]
   },
+  "switch": {
+    "func": "GetPosition",
+    "packagePath": "go.viam.com/rdk/components",
+    "args": ["context.Background()", "map[string]interface{}{}"],
+    "importName": "toggleswitch"
+  },
   "arm": {
     "func": "EndPosition",
     "packagePath": "go.viam.com/rdk/components",
