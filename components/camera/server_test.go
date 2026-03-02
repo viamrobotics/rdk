@@ -79,7 +79,7 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	extrinsics := &r3.Vector{X: 1, Y: 2, Z: 3}
+	extrinsics := &camera.ExtrinsicParams{Translation: r3.Vector{X: 1, Y: 2, Z: 3}}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,

@@ -290,8 +290,10 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		result.FrameRate = *resp.FrameRate
 	}
 	if ext := resp.ExtrinsicParameters; ext != nil && ext.Translation != nil {
-		v := r3.Vector{X: ext.Translation.X, Y: ext.Translation.Y, Z: ext.Translation.Z}
-		result.ExtrinsicParams = &v
+		result.ExtrinsicParams = &ExtrinsicParams{
+			Translation: r3.Vector{X: ext.Translation.X, Y: ext.Translation.Y, Z: ext.Translation.Z},
+			// TODO: Add orientation when API is updated
+		}
 	}
 
 	// if no distortion model present, return result with no model

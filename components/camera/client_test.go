@@ -570,7 +570,7 @@ func TestClientProperties(t *testing.T) {
 			props: camera.Properties{
 				SupportsPCD:     true,
 				IntrinsicParams: fakeIntrinsics,
-				ExtrinsicParams: &r3.Vector{X: 1, Y: 2, Z: 3},
+				ExtrinsicParams: &camera.ExtrinsicParams{Translation: r3.Vector{X: 1, Y: 2, Z: 3}},
 			},
 		},
 		{

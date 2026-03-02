@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -74,6 +75,13 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// ExtrinsicParams define the position and orientation of the camera
+// relative to a reference frame (the world or another sensor).
+type ExtrinsicParams struct {
+	Translation r3.Vector
+	Orientation spatialmath.Orientation
+}
+
 // Properties is a lookup for a camera's features and settings.
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
@@ -82,7 +90,7 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
-	ExtrinsicParams  *r3.Vector
+	ExtrinsicParams  *ExtrinsicParams
 	MimeTypes        []string
 	FrameRate        float32
 }
@@ -96,7 +104,18 @@ func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	}
 
 	if p.ExtrinsicParams != nil {
-		pt = pt.Add(*p.ExtrinsicParams)
+		// Apply translation
+		pt = pt.Add(p.ExtrinsicParams.Translation)
+
+		// Apply orientation if present
+		if p.ExtrinsicParams.Orientation != nil {
+			// Create a pose from the point and apply the inverse rotation
+			// to transform from the reference frame to the camera frame
+			pose := spatialmath.NewPose(pt, nil)
+			invOrientation := spatialmath.NewPoseFromOrientation(p.ExtrinsicParams.Orientation)
+			transformed := spatialmath.Compose(invOrientation, pose)
+			pt = transformed.Point()
+		}
 	}
 
 	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)

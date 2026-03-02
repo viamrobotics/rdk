@@ -208,11 +208,12 @@ func (s *serviceServer) GetProperties(
 	if props.ExtrinsicParams != nil {
 		result.ExtrinsicParameters = &pb.ExtrinsicParameters{
 			Translation: &commonpb.Vector3{
-				X: props.ExtrinsicParams.X,
-				Y: props.ExtrinsicParams.Y,
-				Z: props.ExtrinsicParams.Z,
+				X: props.ExtrinsicParams.Translation.X,
+				Y: props.ExtrinsicParams.Translation.Y,
+				Z: props.ExtrinsicParams.Translation.Z,
 			},
 		}
+		// TODO: Add orientation to proto when API is updated
 	}
 
 	result.MimeTypes = props.MimeTypes
