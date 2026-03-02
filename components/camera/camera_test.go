@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -467,6 +469,36 @@ func TestPropertiesPointToPixel(t *testing.T) {
 		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
 		test.That(t, px, test.ShouldEqual, expectedPx)
 		test.That(t, py, test.ShouldEqual, expectedPy)
+	})
+
+	t.Run("translated and rotated camera", func(t *testing.T) {
+		// 90 degree rotation around Z axis + translation
+		orientation := &spatialmath.OrientationVector{OX: 0, OY: 0, OZ: 1, Theta: math.Pi / 2}
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &camera.ExtrinsicParams{
+				Translation: r3.Vector{X: 100, Y: 200, Z: 0},
+				Orientation: orientation,
+			},
+		}
+
+		// Test point in world frame
+		worldPt := r3.Vector{X: 0, Y: 0, Z: 1000}
+
+		// Apply extrinsics manually to verify
+		extrinsicPose := spatialmath.NewPose(props.ExtrinsicParams.Translation, orientation)
+		pointPose := spatialmath.NewPoseFromPoint(worldPt)
+		transformed := spatialmath.Compose(extrinsicPose, pointPose)
+		expectedPt := transformed.Point()
+
+		// Get pixel coordinates
+		px, py, err := props.PointToPixel(worldPt)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Should match what we get from applying intrinsics to the transformed point
+		expectedPx, expectedPy := intrinsics.PointToPixel(expectedPt.X, expectedPt.Y, expectedPt.Z)
+		test.That(t, px, test.ShouldAlmostEqual, expectedPx, 1e-6)
+		test.That(t, py, test.ShouldAlmostEqual, expectedPy, 1e-6)
 	})
 }
 
