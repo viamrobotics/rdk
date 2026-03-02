@@ -41,6 +41,14 @@ const (
 // Default maximum size in bytes of a data capture file.
 var defaultMaxCaptureSize = int64(256 * 1024)
 
+// CaptureControlSensorConfig describes a sensor that provides dynamic capture controls.
+type CaptureControlSensorConfig struct {
+	// Name is the resource name of the sensor.
+	Name string `json:"name"`
+	// Key is the key in the sensor's Readings map that contains the controls array.
+	Key string `json:"key"`
+}
+
 // Config describes how to configure the service.
 // See sync.Config and capture.Config for docs on what each field does
 // to both sync & capture respectively.
@@ -63,6 +71,9 @@ type Config struct {
 	ScheduledSyncDisabled  bool     `json:"sync_disabled"`
 	SelectiveSyncerName    string   `json:"selective_syncer_name"`
 	SyncIntervalMins       float64  `json:"sync_interval_mins"`
+	// CaptureControlSensor when set specifies a sensor to poll for dynamic
+	// capture configurations.
+	CaptureControlSensor *CaptureControlSensorConfig `json:"capture_control_sensor,omitempty"`
 }
 
 // Validate returns components which will be depended upon weakly due to the above matcher.
