@@ -510,6 +510,16 @@ func TestTeleOpTwoMove(t *testing.T) {
 	}
 }
 
+func TestSandingMoveOutOfCollision(t *testing.T) {
+	req, err := ReadRequestFromFile("data/sanding-move-out-of-collision.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := newChattyMotionPlanTestLogger(t)
+
+	_, _, err = PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()
