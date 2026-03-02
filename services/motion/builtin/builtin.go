@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
-	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -35,6 +34,7 @@ import (
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/utils"
+	goutils "go.viam.com/utils"
 )
 
 func init() {
@@ -82,8 +82,9 @@ type inputEnabledActuator interface {
 
 // Config describes how to configure the service; currently only used for specifying dependency on framesystem service.
 type Config struct {
-	LogFilePath string `json:"log_file_path"`
-	NumThreads  int    `json:"num_threads"`
+	LogFilePath   string `json:"log_file_path"`
+	NumThreads    int    `json:"num_threads"`
+	ExecBatchSize int    `json:"exec_batch_size"`
 
 	PlanFilePath                string `json:"plan_file_path"`
 	PlanDirectoryIncludeTraceID bool   `json:"plan_directory_include_trace_id"`
@@ -135,21 +136,47 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+
+	execCh  chan func()
+	endPos  []referenceframe.Input
+	workers *goutils.StoppableWorkers
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
 func NewBuiltIn(
 	ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
 ) (motion.Service, error) {
+	config, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		panic(err)
+	}
+
 	ms := &builtIn{
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
 		configuredDefaultExtras: make(map[string]any),
+		execCh:                  make(chan func(), config.ExecBatchSize),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
+
+	ms.workers = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				ms.logger.Info("Worker ctx stopped")
+				return
+			case fn := <-ms.execCh:
+				start := time.Now()
+				ms.logger.Info("Executing function. Start:", start)
+				fn()
+				ms.logger.Info("Executing function. Time:", time.Since(start))
+			}
+		}
+	})
+
 	return ms, nil
 }
 
@@ -180,6 +207,7 @@ func (ms *builtIn) Reconfigure(
 	slamServices := make(map[string]slam.Service)
 	visionServices := make(map[string]vision.Service)
 	componentMap := make(map[string]resource.Resource)
+	ms.logger.Infof("All deps: %+v", deps)
 	for name, dep := range deps {
 		switch dep := dep.(type) {
 		case framesystem.Service:
@@ -203,20 +231,79 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
+	ms.workers.Stop()
 	return nil
 }
 
 func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	operation.CancelOtherWithLabel(ctx, builtinOpLabel)
 
 	ms.applyDefaultExtras(req.Extra)
+	start := time.Now()
 	plan, err := ms.plan(ctx, req, ms.logger)
 	if err != nil {
+		ms.mu.RUnlock()
 		return false, err
 	}
-	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
+	spent := time.Since(start)
+	ensureDur := time.Duration(0)
+	if mapDur, ok := req.Extra["ensureMPTimeSpentMS"]; ok {
+		ensureDur = time.Duration(mapDur.(int64)) * time.Millisecond
+	}
+	if ensureDur > spent {
+		ms.logger.Info("Extra mp sleep:", (ensureDur - spent))
+		time.Sleep(ensureDur - spent)
+	}
+
+	var inputs [][]referenceframe.Input
+	for _, fInputs := range plan.Trajectory() {
+		nonTrivialInputs := 0
+		for _, inp := range fInputs {
+			if len(inp) == 0 {
+				continue
+			}
+
+			nonTrivialInputs++
+			if nonTrivialInputs > 1 {
+				panic(fmt.Sprintln("expected one moveable thing:", fInputs, "Size:", len(fInputs)))
+			}
+			inputs = append(inputs, inp)
+		}
+	}
+
+	first, last := inputs[0], inputs[len(inputs)-1]
+	distances := make([]referenceframe.Input, len(first))
+	for idx, firstInp := range first {
+		distances[idx] = last[idx] - firstInp
+	}
+
+	traj := plan.Trajectory()
+	exec := func() {
+		noInterrupt := context.Background()
+		ms.logger.Info("DBG. Executing:", inputs, "Distance:", distances)
+		execStart := time.Now()
+		execErr := ms.execute(noInterrupt, traj, math.MaxFloat64)
+		execSpent := time.Since(execStart)
+
+		speed := make([]float64, len(distances))
+		for idx, distance := range distances {
+			speed[idx] = distance / execSpent.Seconds()
+		}
+
+		ms.logger.Info("DBG. Goal:", req.Destination.Pose(), "Execution spent:", execSpent, "Speeds:", speed, "ExecErr:", execErr)
+	}
+
+	if true {
+		ms.mu.RUnlock()
+		ms.execCh <- exec
+		ms.mu.Lock()
+		ms.endPos = traj[len(traj)-1][req.ComponentName]
+		ms.mu.Unlock()
+	} else {
+		ms.mu.RUnlock()
+		exec()
+	}
+
 	return err == nil, err
 }
 
@@ -419,6 +506,10 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		return nil, err
 	}
 	logger.CDebugf(ctx, "frame system inputs: %v", fsInputs)
+	if ms.endPos != nil {
+		ms.logger.Info("Overriding end position. Current:", fsInputs[req.ComponentName], "End:", ms.endPos)
+		fsInputs[req.ComponentName] = ms.endPos
+	}
 
 	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {

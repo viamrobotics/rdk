@@ -74,7 +74,7 @@ func buildModel(resName string, conf *Config) (referenceframe.Model, error) {
 	}
 }
 
-func (sa *simulatedArm) Get3DModels(
+func (sa *SimulatedArm) Get3DModels(
 	ctx context.Context, extra map[string]interface{},
 ) (map[string]*commonpb.Mesh, error) {
 	models := make(map[string]*commonpb.Mesh)
@@ -97,14 +97,14 @@ func (sa *simulatedArm) Get3DModels(
 	return models, nil
 }
 
-func (sa *simulatedArm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
+func (sa *SimulatedArm) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
 
 	return sa.model, nil
 }
 
-func (sa *simulatedArm) Geometries(
+func (sa *SimulatedArm) Geometries(
 	ctx context.Context, extra map[string]interface{},
 ) ([]spatialmath.Geometry, error) {
 	inputs, err := sa.CurrentInputs(ctx)

@@ -94,6 +94,23 @@ func NewBox(pose Pose, dims r3.Vector, label string) (Geometry, error) {
 	}, nil
 }
 
+// NewBoxGoodInput instantiates a new box Geometry and panics if the inputs are bad.
+func NewBoxGoodInput(pose Pose, dims r3.Vector, label string) Geometry {
+	// Negative dimensions not allowed. Zero dimensions are allowed for bounding boxes, etc.
+	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
+		panic("you promised good input")
+	}
+
+	halfSize := dims.Mul(0.5)
+	return &box{
+		center:          pose,
+		centerPt:        pose.Point(),
+		halfSize:        [3]float64{halfSize.X, halfSize.Y, halfSize.Z},
+		boundingSphereR: halfSize.Norm(),
+		label:           label,
+	}
+}
+
 func (b *box) Hash() int {
 	return HashPose(b.center) + int((111*b.halfSize[0])+(222*b.halfSize[1])+(333*b.halfSize[2]))
 }
