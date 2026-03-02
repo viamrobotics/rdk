@@ -117,7 +117,7 @@ func NewBuiltIn(
 		events:    make(chan struct{}, 1),
 	}
 	remoteSvc.state.init()
-	if err := remoteSvc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := remoteSvc.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	remoteSvc.eventProcessor()
@@ -125,7 +125,7 @@ func NewBuiltIn(
 	return remoteSvc, nil
 }
 
-func (svc *builtIn) Reconfigure(
+func (svc *builtIn) BuiltInReconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

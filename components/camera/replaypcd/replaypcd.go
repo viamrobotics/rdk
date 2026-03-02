@@ -159,7 +159,7 @@ func newPCDCamera(
 		logger: logger,
 	}
 
-	if err := cam.Reconfigure(ctx, deps, conf); err != nil {
+	if err := cam.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
@@ -370,9 +370,9 @@ func (replay *pcdCamera) Close(ctx context.Context) error {
 	return nil
 }
 
-// Reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
+// reconfigure finishes the bring up of the replay camera by evaluating given arguments and setting up the required cloud
 // connection.
-func (replay *pcdCamera) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (replay *pcdCamera) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	replay.mu.Lock()
 	defer replay.mu.Unlock()
 	if replay.closed {

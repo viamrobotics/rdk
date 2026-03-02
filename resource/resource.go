@@ -71,11 +71,6 @@ type Resource interface {
 	// Get the Name of the resource.
 	Name() Name
 
-	// Reconfigure must reconfigure the resource atomically and in place. If this
-	// cannot be guaranteed, then usage of AlwaysRebuild or TriviallyReconfigurable
-	// is permissible.
-	Reconfigure(ctx context.Context, deps Dependencies, conf Config) error
-
 	// DoCommand sends/receives arbitrary data
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
@@ -83,6 +78,12 @@ type Resource interface {
 	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
 	Close(ctx context.Context) error
+}
+
+// BuiltInResource represents a non-modular resource build into viam-server.
+type BuiltInResource interface {
+	// BuiltInReconfigure is used to allow existing resources temporarily continue using the now-deprecated Resource.Reconfigure.
+	BuiltInReconfigure(ctx context.Context, deps Dependencies, conf Config) error
 }
 
 // Dependencies are a set of resources that a resource requires for reconfiguration.
@@ -245,11 +246,6 @@ var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 // changes to its config or dependencies.
 type TriviallyReconfigurable struct{}
 
-// Reconfigure always succeeds.
-func (t TriviallyReconfigurable) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
-	return nil
-}
-
 // TriviallyCloseable is to be embedded by any resource that does not care about
 // handling Closes. When is used, it is assumed that the resource does not need
 // to return errors when future non-Close methods are called.
@@ -279,11 +275,6 @@ type NoNativeConfig struct {
 // AlwaysRebuild is to be embedded by any resource that must always rebuild
 // and not reconfigure.
 type AlwaysRebuild struct{}
-
-// Reconfigure always returns a must rebuild error.
-func (a AlwaysRebuild) Reconfigure(ctx context.Context, deps Dependencies, conf Config) error {
-	return NewMustRebuildError(conf.ResourceName())
-}
 
 // Named is to be embedded by any resource that just needs to return a name.
 type Named interface {

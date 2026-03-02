@@ -128,7 +128,7 @@ func New(ctx context.Context, deps resource.Dependencies, logger logging.Logger)
 		components: make(map[string]resource.Resource),
 		logger:     logger,
 	}
-	if err := fs.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
+	if err := fs.BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: &Config{}}); err != nil {
 		return nil, err
 	}
 	return fs, nil
@@ -195,7 +195,7 @@ type frameSystemService struct {
 }
 
 // Reconfigure will rebuild the frame system from the newly updated robot.
-func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (svc *frameSystemService) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	svc.partsMu.Lock()
 	defer svc.partsMu.Unlock()
 

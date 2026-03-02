@@ -1,9 +1,6 @@
 package grpc
 
 import (
-	"context"
-	"errors"
-
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -27,11 +24,6 @@ type ForeignResource struct {
 // connection serving it.
 func NewForeignResource(name resource.Name, conn rpc.ClientConn) *ForeignResource {
 	return &ForeignResource{Named: name.AsNamed(), conn: conn}
-}
-
-// Reconfigure always fails.
-func (res *ForeignResource) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	return errors.New("this resource cannot be reconfigured")
 }
 
 // NewStub returns a new gRPC client stub used to communicate with the resource.

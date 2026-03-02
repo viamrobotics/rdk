@@ -156,7 +156,7 @@ func TestReconfigure(t *testing.T) {
 		},
 	}
 
-	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	err = od.reconfigure(ctx, newDeps, newconf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 500)
 	props, err := od.base.Properties(ctx, nil)
@@ -179,7 +179,7 @@ func TestReconfigure(t *testing.T) {
 		},
 	}
 
-	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	err = od.reconfigure(ctx, newDeps, newconf)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 200)
 	props, err = od.base.Properties(ctx, nil)

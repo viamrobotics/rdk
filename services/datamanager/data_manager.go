@@ -64,6 +64,9 @@ const SubtypeName = "data_manager"
 // API is a variable that identifies the data manager service resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
+// InternalServiceName is used to refer to/depend on this service internally.
+var InternalServiceName = resource.NewName(API, "builtin")
+
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
