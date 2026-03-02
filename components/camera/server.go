@@ -29,7 +29,7 @@ type serviceServer struct {
 func NewRPCServiceServer(coll resource.APIResourceGetter[Camera], logger logging.Logger) interface{} {
 	return &serviceServer{
 		coll:   coll,
-		logger: logger,
+		logger: logger.Sublogger("cam_server"),
 	}
 }
 
