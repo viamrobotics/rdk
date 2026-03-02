@@ -44,6 +44,34 @@ func (l *Limit) Hash() int {
 
 const rangeLimit = 999
 
+func isMultipleOfPi(v float64) bool {
+	v = math.Abs(v)
+	v -= math.Floor(v/math.Pi) * math.Pi
+	for v > 0 {
+		v -= math.Pi
+	}
+	return v > -.02
+}
+
+// Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
+// (`percentJog`) of the total range of the input.
+// Unless it's rotational, then the range is 2 * math.Pi
+func (l *Limit) Jog(val, percentJog float64) float64 {
+	_, mm, r := l.GoodLimits()
+	if r > 2*math.Pi && isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) {
+		r = 2 * math.Pi
+	}
+	x := r * percentJog
+
+	val += x
+	if val > mm {
+		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
+		val -= (2 * x)
+	}
+
+	return val
+}
+
 // GoodLimits gives min, max, range, but capped to -999,999.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min

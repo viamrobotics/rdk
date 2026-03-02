@@ -154,7 +154,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
+	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
@@ -162,11 +162,11 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		return nil, err
 	}
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:1
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:2
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
 
@@ -219,13 +219,23 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	ratios := clampSensitivities(rawRatios, .03)
-
 	minRatio := 1.0
+
+	for _, r := range ratios {
+		if r > 0 { // if a joint is part of a non-moving arm, don't consider it
+			minRatio = min(minRatio, r)
+		}
+	}
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
-		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
-		minRatio = min(minRatio, r)
+		val := sss.linearSeeds[0][idx]
+		if r > 0 {
+			// we use min ratio here because we're pretty sure that if we moved every joint minRatio amount
+			// we'd move plenty
+			val = sss.psc.pc.lis.Jog(idx, val, minRatio)
+		}
+		adjusted = append(adjusted, val)
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -335,39 +345,39 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	multiple := 100.0
-	minMillis := 10000
+	minMillis := 10000.0
 	if !sss.doingSmartSeeds {
 		// if we're not doing small seeds, it means we're doing a very tiny motion
 		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
 		minMillis = 100
 	}
 
-	if sss.bestScoreNoProblem < sss.goodCost/20 {
+	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
-		minMillis = 5
-	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
+		minMillis = 2 * speedMultiplier
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
-		minMillis = 10
-	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
-		multiple = 0
-		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
-		multiple = 2
-		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
-		multiple = 4
-		minMillis = 20
-	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 20
-		minMillis = 50
+		minMillis = 2 * speedMultiplier
+	} else if sss.bestScoreNoProblem < sss.goodCost/4 { // .25
+		multiple = 1
+		minMillis = 3 * speedMultiplier
 	} else if sss.bestScoreNoProblem < sss.goodCost {
-		multiple = 50
-		minMillis = 100
-	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 5
+		minMillis = 5 * speedMultiplier
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 1.5) {
+		multiple = 10
+		minMillis = 25 * speedMultiplier
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 2) {
+		multiple = 10
+		minMillis = 100 * speedMultiplier
+	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
-		multiple = 100
+		multiple = 10
+		minMillis = 150 * speedMultiplier
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 20
+		minMillis = 250 * speedMultiplier
 	}
-
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
 	if sss.psc.pc.planOpts.Timeout > 0 && len(sss.solutions) > 0 {

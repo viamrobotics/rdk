@@ -471,7 +471,12 @@ func TestArmOOBSolve(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
+
+	if IsTooSmallForCache() {
+		test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
+	} else {
+		test.That(t, err.Error(), test.ShouldContainSubstring, "too far")
+	}
 }
 
 func TestArmObstacleSolve(t *testing.T) {
