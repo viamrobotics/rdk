@@ -994,8 +994,24 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			_, err := c.dataClient.AddBinaryDataToDatasetByIDs(c.c.Context,
-				&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
+			var err error
+			for attempt := 0; attempt < maxRetryCount; attempt++ {
+				if attempt > 0 {
+					select {
+					case <-time.After(time.Duration(2^attempt) * time.Second):
+					case <-c.c.Context.Done():
+						return c.c.Context.Err()
+					}
+				}
+				ctx, cancel := context.WithTimeout(c.c.Context, 10*time.Second)
+				_, err = c.dataClient.AddBinaryDataToDatasetByIDs(ctx,
+					&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
+				cancel()
+				if err == nil || (status.Code(err) != codes.Unavailable && status.Code(err) != codes.DeadlineExceeded) {
+					return err
+				}
+				printf(c.c.App.Writer, "Retrying add data to dataset ID %s: attempt %d/%d, error: %v", datasetID, attempt+1, maxRetryCount, err)
+			}
 			return err
 		},
 		filter, parallelActions,
