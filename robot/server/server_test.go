@@ -639,7 +639,6 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetVersion(), test.ShouldEqual, "dev-unknown")
 		test.That(t, resp.GetApiVersion(), test.ShouldEqual, "?")
 	})
-
 }
 
 func TestModuleLogTimestamp(t *testing.T) {
