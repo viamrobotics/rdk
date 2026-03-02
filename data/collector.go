@@ -297,7 +297,7 @@ func (c *collector) writeCaptureResults() {
 			case CaptureTypeBinary:
 
 				for i, binary := range msg.Binaries {
-					mimeType := binary.MimeType.ToString()
+					mimeType := binary.MimeType
 					if err := c.target.WriteBinary(proto[i], mimeType); err != nil {
 						c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
 						return

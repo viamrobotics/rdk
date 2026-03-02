@@ -146,11 +146,13 @@ func assertAudioIn(resource interface{}) (AudioIn, error) {
 func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, error) {
 	var binary data.Binary
 	var payload []byte
+	binary.MimeType = rutils.MimeTypeAudioMPEG
 
 	switch codec {
 	case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
 		var err error
 		payload, err = CreateWAVFile(audioData, sr, ch, codec)
+		binary.MimeType = rutils.MimeTypeAudioWAV
 		if err != nil {
 			return data.Binary{}, fmt.Errorf("error writing wav file: %w", err)
 		}
@@ -159,7 +161,6 @@ func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, er
 	}
 
 	binary.Payload = payload
-	binary.MimeType = data.MimeTypeUnspecified
 	return binary, nil
 }
 
