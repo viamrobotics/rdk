@@ -120,6 +120,22 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
 
+// TestMimicURDF loads a serial arm URDF where joint3 mimics joint1 with multiplier=-1
+// and verifies that the mimic relationship is correctly parsed and applied.
+func TestMimicURDF(t *testing.T) {
+	model, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.urdf"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, model.Name(), test.ShouldEqual, "test_mimic_serial_urdf")
+
+	// joint3 mimics joint1 → 2 DoF (joint1 + joint2)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+
+	// At zero inputs, tip should be at (0, 0, 300) — three 100mm links stacked
+	pose, err := model.Transform([]Input{0, 0})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatialmath.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: 0, Y: 0, Z: 300}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
 func TestWorldStateConversion(t *testing.T) {
 	foo, err := spatialmath.NewSphere(spatialmath.NewZeroPose(), 10, "foo")
 	test.That(t, err, test.ShouldBeNil)

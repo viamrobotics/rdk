@@ -1,0 +1,39 @@
+<?xml version="1.0" ?>
+<robot name="test_mimic_serial_urdf">
+  <link name="world"/>
+
+  <link name="link0"/>
+  <joint name="base_joint" type="fixed">
+    <parent link="world"/>
+    <child link="link0"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="link1"/>
+  <joint name="joint1" type="revolute">
+    <parent link="link0"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159"/>
+  </joint>
+
+  <link name="link2"/>
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159"/>
+  </joint>
+
+  <link name="link3"/>
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="0 0 0.1" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14159" upper="3.14159"/>
+    <mimic joint="joint1" multiplier="-1" offset="0"/>
+  </joint>
+</robot>

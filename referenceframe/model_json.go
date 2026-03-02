@@ -8,6 +8,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrMimicSourceNotFound is returned when a mimic joint references a source joint that doesn't exist.
+var ErrMimicSourceNotFound = errors.New("mimic joint references non-existent source joint")
+
+// ErrCircularMimicReference is returned when mimic joint references form a cycle.
+var ErrCircularMimicReference = errors.New("circular mimic joint reference detected")
+
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
 
@@ -134,13 +140,98 @@ func (cfg *ModelConfigJSON) ParseConfig(modelName string) (Model, error) {
 		primaryOutput = cfg.OutputFrames[0]
 	}
 
-	builtModel, err := NewModel(modelName, fs, primaryOutput)
+	// Build mimic mappings if any SVA joints have mimic configs.
+	var builtModel *SimpleModel
+	if cfg.KinParamType == "SVA" || cfg.KinParamType == "" {
+		mimicMappings, mimicErr := buildMimicMappings(cfg.Joints, fs)
+		if mimicErr != nil {
+			return nil, mimicErr
+		}
+		if len(mimicMappings) > 0 {
+			builtModel, err = NewModelWithMimics(modelName, fs, primaryOutput, mimicMappings)
+		} else {
+			builtModel, err = NewModel(modelName, fs, primaryOutput)
+		}
+	} else {
+		builtModel, err = NewModel(modelName, fs, primaryOutput)
+	}
 	if err != nil {
 		return nil, err
 	}
 	builtModel.modelConfig = cfg
 
 	return builtModel, nil
+}
+
+// buildMimicMappings identifies mimic joints from the config, resolves chains (A mimics B mimics C),
+// detects cycles, validates that source frames exist in the FrameSystem and have DoF, and returns
+// a map of frame name -> mimicMapping. The sourceInputIdx is set to -1 as a placeholder;
+// it is resolved in NewModelWithMimics after the input schema is built.
+func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimicMapping, error) {
+	// Collect joints with mimic config.
+	mimicConfigs := map[string]*MimicConfig{}
+	for i := range joints {
+		if joints[i].Mimic != nil {
+			mimicConfigs[joints[i].ID] = joints[i].Mimic
+		}
+	}
+	if len(mimicConfigs) == 0 {
+		return nil, nil
+	}
+
+	// Resolve mimic chains: if A mimics B and B mimics C, then A should mimic C
+	// with composed multiplier and offset.
+	resolvedMimics := map[string]*MimicConfig{}
+	for jointID, mc := range mimicConfigs {
+		visited := map[string]bool{jointID: true}
+		composedMultiplier := mc.EffectiveMultiplier()
+		composedOffset := mc.Offset
+
+		sourceJoint := mc.Joint
+		for {
+			nextMC, ok := mimicConfigs[sourceJoint]
+			if !ok {
+				break // sourceJoint is not a mimic, it's the ultimate source
+			}
+			if visited[sourceJoint] {
+				return nil, fmt.Errorf("%w: joint %q", ErrCircularMimicReference, jointID)
+			}
+			visited[sourceJoint] = true
+
+			// Compose: if A = m1*B + o1, and B = m2*C + o2, then A = m1*(m2*C + o2) + o1 = m1*m2*C + m1*o2 + o1
+			composedOffset = composedMultiplier*nextMC.Offset + composedOffset
+			composedMultiplier *= nextMC.EffectiveMultiplier()
+			sourceJoint = nextMC.Joint
+		}
+
+		mult := composedMultiplier
+		resolvedMimics[jointID] = &MimicConfig{
+			Joint:      sourceJoint,
+			Multiplier: &mult,
+			Offset:     composedOffset,
+		}
+	}
+
+	// Validate source frames exist in FS and have DoF, then build the mapping.
+	result := map[string]*mimicMapping{}
+	for jointID, mc := range resolvedMimics {
+		sourceFrame := fs.Frame(mc.Joint)
+		if sourceFrame == nil {
+			return nil, fmt.Errorf("%w: joint %q references source %q", ErrMimicSourceNotFound, jointID, mc.Joint)
+		}
+		if len(sourceFrame.DoF()) == 0 {
+			return nil, fmt.Errorf("%w: joint %q references source %q which has no DoF", ErrMimicSourceNotFound, jointID, mc.Joint)
+		}
+
+		result[jointID] = &mimicMapping{
+			sourceFrameName: mc.Joint,
+			sourceInputIdx:  -1, // placeholder, resolved in NewModelWithMimics
+			multiplier:      mc.EffectiveMultiplier(),
+			offset:          mc.Offset,
+		}
+	}
+
+	return result, nil
 }
 
 // ParseModelJSONFile will read a given file and then parse the contained JSON data.
