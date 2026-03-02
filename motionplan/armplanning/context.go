@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"strings"
+	"time"
 
 	"go.viam.com/utils/trace"
 
@@ -84,6 +85,8 @@ type planSegmentContext struct {
 
 	motionChains *motionChains
 	checker      *motionplan.ConstraintChecker
+
+	ikSearchTimeMax time.Duration
 }
 
 func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenceframe.LinearInputs,
@@ -95,6 +98,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		pc:       pc,
 		start:    start,
 		origGoal: goal,
+		ikSearchTimeMax: time.Second,
 	}
 
 	var err error
