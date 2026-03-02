@@ -11,15 +11,19 @@ import (
 	"os/exec"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	ffmpeg "github.com/u2takey/ffmpeg-go"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/components/camera"
-	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Config is the attribute struct for ffmpeg cameras.
@@ -63,21 +67,20 @@ func init() {
 				return nil, err
 			}
 
-			src, err := NewFFMPEGCamera(ctx, newConf, logger)
-			if err != nil {
-				return nil, err
-			}
-			return camera.FromVideoSource(conf.ResourceName(), src), nil
+			return NewFFMPEGCamera(ctx, conf.ResourceName(), newConf, logger)
 		},
 	})
 }
 
 type ffmpegCamera struct {
-	gostream.VideoReader
+	resource.Named
+	resource.AlwaysRebuild
+	readFunc                func(ctx context.Context) (image.Image, func(), error)
 	cancelFunc              context.CancelFunc
 	activeBackgroundWorkers sync.WaitGroup
 	inClose                 func() error
 	outClose                func() error
+	intrinsics              *transform.PinholeCameraIntrinsics
 	logger                  logging.Logger
 }
 
@@ -91,7 +94,7 @@ func (writer stderrWriter) Write(p []byte) (n int, err error) {
 }
 
 // NewFFMPEGCamera instantiates a new camera which leverages ffmpeg to handle a variety of potential video types.
-func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (camera.VideoSource, error) {
+func NewFFMPEGCamera(ctx context.Context, name resource.Name, conf *Config, logger logging.Logger) (camera.Camera, error) {
 	// make sure ffmpeg is in the path before doing anything else
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
 		return nil, err
@@ -106,7 +109,12 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 
 	// instantiate camera with cancellable context that will be applied to all spawned processes
 	cancelableCtx, cancel := context.WithCancel(context.Background())
-	ffCam := &ffmpegCamera{cancelFunc: cancel, logger: logger}
+	ffCam := &ffmpegCamera{
+		Named:      name.AsNamed(),
+		cancelFunc: cancel,
+		intrinsics: conf.CameraParameters,
+		logger:     logger,
+	}
 
 	// We configure ffmpeg to output images to stdout. A goroutine will read those images via the
 	// `in` end of the pipe.
@@ -188,7 +196,7 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 	}, ffCam.activeBackgroundWorkers.Done)
 
 	// when next image is requested simply load the image from where it is stored in shared memory
-	reader := gostream.VideoReaderFunc(func(ctx context.Context) (image.Image, func(), error) {
+	ffCam.readFunc = func(ctx context.Context) (image.Image, func(), error) {
 		select {
 		case <-cancelableCtx.Done():
 			return nil, nil, cancelableCtx.Err()
@@ -201,15 +209,46 @@ func NewFFMPEGCamera(ctx context.Context, conf *Config, logger logging.Logger) (
 			return nil, func() {}, errors.New("no frame yet")
 		}
 		return *latest, func() {}, nil
-	})
+	}
 
-	ffCam.VideoReader = reader
-	return camera.NewVideoSourceFromReader(
-		ctx,
-		ffCam,
-		&transform.PinholeCameraModel{PinholeCameraIntrinsics: conf.CameraParameters},
-		camera.ColorStream,
-	)
+	return ffCam, nil
+}
+
+// Images returns the latest frame as a NamedImage slice.
+func (fc *ffmpegCamera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	img, release, err := fc.readFunc(ctx)
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	defer release()
+	namedImg, err := camera.NamedImageFromImage(img, "", rdkutils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, resource.ResponseMetadata{}, err
+	}
+	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
+}
+
+// NextPointCloud is not supported for ffmpeg cameras.
+func (fc *ffmpegCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	return nil, errors.New("NextPointCloud unimplemented")
+}
+
+// Properties returns the camera properties.
+func (fc *ffmpegCamera) Properties(ctx context.Context) (camera.Properties, error) {
+	return camera.Properties{
+		SupportsPCD:     false,
+		ImageType:       camera.ColorStream,
+		IntrinsicParams: fc.intrinsics,
+	}, nil
+}
+
+// Geometries returns the geometries associated with this camera.
+func (fc *ffmpegCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{}, nil
 }
 
 func (fc *ffmpegCamera) Close(ctx context.Context) error {

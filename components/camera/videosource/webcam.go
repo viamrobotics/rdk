@@ -151,7 +151,10 @@ func NewWebcam(
 		return nil, err
 	}
 
-	c.cameraModel = camera.NewPinholeModelWithBrownConradyDistortion(nativeConf.CameraParameters, nativeConf.DistortionParameters)
+	c.cameraModel = transform.PinholeCameraModel{
+		PinholeCameraIntrinsics: nativeConf.CameraParameters,
+		Distortion:              nativeConf.DistortionParameters,
+	}
 
 	c.targetPath = nativeConf.Path
 	reader, driver, label, err := findReaderAndDriver(nativeConf, c.targetPath, c.logger)
@@ -383,14 +386,6 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 	}
 
 	return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
-}
-
-func (c *webcam) Image(ctx context.Context, _ string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	imgBytes, resMetadata, err := camera.GetImageFromGetImages(ctx, nil, c, extra, nil)
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	return imgBytes, resMetadata, nil
 }
 
 func (c *webcam) Properties(ctx context.Context) (camera.Properties, error) {

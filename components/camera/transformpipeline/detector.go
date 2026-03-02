@@ -26,7 +26,7 @@ type detectorConfig struct {
 
 // detectorSource takes an image from the camera, and overlays the detections from the detector.
 type detectorSource struct {
-	src          camera.VideoSource
+	src          camera.Camera
 	detectorName string
 	labelFilter  objectdetection.Postprocessor // must build from ValidLabels
 	confFilter   objectdetection.Postprocessor
@@ -35,16 +35,16 @@ type detectorSource struct {
 
 func newDetectionsTransform(
 	ctx context.Context,
-	source camera.VideoSource,
+	source camera.Camera,
 	r robot.Robot,
 	am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+) (camera.Camera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*detectorConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
 
-	props, err := propsFromVideoSource(ctx, source)
+	props, err := propsFromCamera(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -67,11 +67,7 @@ func newDetectionsTransform(
 		confFilter,
 		r,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, detector, &cameraModel, camera.ColorStream)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	return src, camera.ColorStream, err
+	return newTransformCamera(detector.Read, camera.ColorStream, &cameraModel), camera.ColorStream, nil
 }
 
 // Read returns the image overlaid with the detection bounding boxes.
@@ -84,7 +80,7 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 		return nil, nil, fmt.Errorf("source_detector cant find vision service: %w", err)
 	}
 	// get image from source camera
-	img, release, err := camera.ReadImage(ctx, ds.src)
+	img, err := camera.DecodeImageFromCamera(ctx, ds.src, nil, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
@@ -100,9 +96,5 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not overlay bounding boxes: %w", err)
 	}
-	return res, release, nil
-}
-
-func (ds *detectorSource) Close(ctx context.Context) error {
-	return nil
+	return res, func() {}, nil
 }

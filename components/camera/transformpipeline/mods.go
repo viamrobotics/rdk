@@ -26,14 +26,14 @@ type rotateConfig struct {
 
 // rotateSource is the source to be rotated and the kind of image type.
 type rotateSource struct {
-	src    camera.VideoSource
+	src    camera.Camera
 	stream camera.ImageType
 	angle  float64
 }
 
 // newRotateTransform creates a new rotation transform.
-func newRotateTransform(ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+func newRotateTransform(ctx context.Context, source camera.Camera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.Camera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*rotateConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, errors.Wrap(err, "cannot parse rotate attribute map")
@@ -43,7 +43,7 @@ func newRotateTransform(ctx context.Context, source camera.VideoSource, stream c
 		conf.Angle = 180 // Default to 180 for backwards-compatibility
 	}
 
-	props, err := propsFromVideoSource(ctx, source)
+	props, err := propsFromCamera(ctx, source)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
 	}
@@ -54,21 +54,18 @@ func newRotateTransform(ctx context.Context, source camera.VideoSource, stream c
 		cameraModel.Distortion = props.DistortionParams
 	}
 	reader := &rotateSource{source, stream, conf.Angle}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, &cameraModel, stream)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	return src, stream, err
+	return newTransformCamera(reader.Read, stream, &cameraModel), stream, nil
 }
 
 // Read rotates the 2D image depending on the stream type.
 func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::rotate::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, rs.src)
+	orig, err := camera.DecodeImageFromCamera(ctx, rs.src, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+	release := func() {}
 	switch rs.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		// imaging.Rotate rotates an image counter-clockwise but our rotate function rotates in the
@@ -85,10 +82,6 @@ func (rs *rotateSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-func (rs *rotateSource) Close(ctx context.Context) error {
-	return nil
-}
-
 // resizeConfig are the attributes for a resize transform.
 type resizeConfig struct {
 	Height int `json:"height_px"`
@@ -96,7 +89,7 @@ type resizeConfig struct {
 }
 
 type resizeSource struct {
-	src    camera.VideoSource
+	src    camera.Camera
 	stream camera.ImageType
 	height int
 	width  int
@@ -104,8 +97,8 @@ type resizeSource struct {
 
 // newResizeTransform creates a new resize transform.
 func newResizeTransform(
-	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.Camera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.Camera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*resizeConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -118,21 +111,18 @@ func newResizeTransform(
 	}
 
 	reader := &resizeSource{source, stream, conf.Height, conf.Width}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	return src, stream, err
+	return newTransformCamera(reader.Read, stream, nil), stream, nil
 }
 
 // Read resizes the 2D image depending on the stream type.
 func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::resize::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, rs.src)
+	orig, err := camera.DecodeImageFromCamera(ctx, rs.src, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
+	release := func() {}
 	switch rs.stream {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		dst := image.NewRGBA(image.Rect(0, 0, rs.width, rs.height))
@@ -151,10 +141,6 @@ func (rs *resizeSource) Read(ctx context.Context) (image.Image, func(), error) {
 	}
 }
 
-func (rs *resizeSource) Close(ctx context.Context) error {
-	return nil
-}
-
 // cropConfig are the attributes for a crop transform.
 type cropConfig struct {
 	XMin        float64 `json:"x_min_px"`
@@ -165,7 +151,7 @@ type cropConfig struct {
 }
 
 type cropSource struct {
-	src         camera.VideoSource
+	src         camera.Camera
 	imgType     camera.ImageType
 	cropWindow  image.Rectangle
 	cropRel     []float64
@@ -175,8 +161,8 @@ type cropSource struct {
 
 // newCropTransform creates a new crop transform.
 func newCropTransform(
-	ctx context.Context, source camera.VideoSource, stream camera.ImageType, am utils.AttributeMap,
-) (camera.VideoSource, camera.ImageType, error) {
+	ctx context.Context, source camera.Camera, stream camera.ImageType, am utils.AttributeMap,
+) (camera.Camera, camera.ImageType, error) {
 	conf, err := resource.TransformAttributeMap[*cropConfig](am)
 	if err != nil {
 		return nil, camera.UnspecifiedStream, err
@@ -216,11 +202,7 @@ func newCropTransform(
 		cropRel:     cropRel,
 		showCropBox: conf.ShowCropBox,
 	}
-	src, err := camera.NewVideoSourceFromReader(ctx, reader, nil, stream)
-	if err != nil {
-		return nil, camera.UnspecifiedStream, err
-	}
-	return src, stream, err
+	return newTransformCamera(reader.Read, stream, nil), stream, nil
 }
 
 func (cs *cropSource) relToAbsCrop(img image.Image) image.Rectangle {
@@ -245,7 +227,7 @@ func (cs *cropSource) relToAbsCrop(img image.Image) image.Rectangle {
 func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	ctx, span := trace.StartSpan(ctx, "camera::transformpipeline::crop::Read")
 	defer span.End()
-	orig, release, err := camera.ReadImage(ctx, cs.src)
+	orig, err := camera.DecodeImageFromCamera(ctx, cs.src, nil, nil)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -259,6 +241,7 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	if cs.cropWindow.Empty() && len(cs.cropRel) != 0 {
 		cs.cropWindow = cs.relToAbsCrop(orig)
 	}
+	release := func() {}
 	switch cs.imgType {
 	case camera.ColorStream, camera.UnspecifiedStream:
 		if cs.showCropBox {
@@ -292,8 +275,4 @@ func (cs *cropSource) Read(ctx context.Context) (image.Image, func(), error) {
 	default:
 		return nil, nil, camera.NewUnsupportedImageTypeError(cs.imgType)
 	}
-}
-
-func (cs *cropSource) Close(ctx context.Context) error {
-	return nil
 }
