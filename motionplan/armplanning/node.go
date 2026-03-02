@@ -378,7 +378,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		minMillis = 150 * speedMultiplier
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		multiple = 20
-		minMillis = 250 * speedMultiplier
+		minMillis = 500 * speedMultiplier
 	}
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
