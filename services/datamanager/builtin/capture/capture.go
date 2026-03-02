@@ -65,8 +65,8 @@ type Capture struct {
 	mongoMU            sync.Mutex
 	mongo              captureMongo
 
-	// baseCollectorConfigs and baseTags are stored after each Reconfigure so
-	// that SetCaptureConfigs can compute effective configs without requiring callers to pass them.
+	// baseCollectorConfigs and baseTags are the default as specified in the machine config.
+	// These are stored in order to be compared to any capture override readings.
 	baseCollectorConfigs CollectorConfigsByResource
 	baseTags             []string
 }
@@ -314,8 +314,8 @@ func (c *Capture) initializeOrUpdateCollector(
 	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
 }
 
-// buildCollector constructs and starts a new collector.
-// The override path (SetCaptureConfigs) calls this directly since the base config was already validated.
+// buildCollector constructs and starts a new collector, assuming the base conrfig was already validated.
+// The override path (SetCaptureConfigs) calls this directly.
 func (c *Capture) buildCollector(
 	res resource.Resource,
 	md collectorMetadata,

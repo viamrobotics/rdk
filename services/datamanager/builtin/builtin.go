@@ -87,10 +87,7 @@ type builtIn struct {
 	sync               *datasync.Sync
 	diskSummaryTracker *diskSummaryTracker
 
-	// capture control sensor fields
-	controlPoller    *goutils.StoppableWorkers
-	controlSensor    sensor.Sensor
-	controlSensorKey string
+	controlPoller *goutils.StoppableWorkers
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -233,8 +230,6 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.controlSensor = controlSensor
-	b.controlSensorKey = controlSensorKey
 
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
@@ -245,7 +240,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
 		b.controlPoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
-			b.runCaptureControlPoller(ctx)
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
 		})
 	}
 
@@ -294,10 +289,9 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	return result, nil
 }
 
-// runCaptureControlPoller polls the capture control sensor at 10 Hz and calls capture.SetCaptureConfigs
-// whenever the parsed configs change. On invalid or missing readings, it reverts to
-// the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
+// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
+// it reverts to the machine config by passing nil configs.
+func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -307,17 +301,6 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 		case <-ticker.C:
 		}
 
-		// Read the sensor reference under a brief lock.
-		b.mu.Lock()
-		s := b.controlSensor
-		key := b.controlSensorKey
-		b.mu.Unlock()
-
-		if s == nil {
-			return
-		}
-
-		// Call Readings without holding b.mu to avoid blocking Reconfigure.
 		readings, err := s.Readings(ctx, nil)
 		if ctx.Err() != nil {
 			return
@@ -338,7 +321,6 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context) {
 			}
 		}
 
-		// Apply under lock; SetCaptureConfigs is a no-op if configs haven't changed.
 		b.mu.Lock()
 		if ctx.Err() != nil {
 			b.mu.Unlock()
