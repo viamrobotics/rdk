@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
@@ -81,8 +82,25 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
+	ExtrinsicParams  *r3.Vector
 	MimeTypes        []string
 	FrameRate        float32
+}
+
+// PointToPixel projects a 3D point to a 2D pixel coordinate.
+// If extrinsic parameters are set, the point is first transformed from the depth/reference
+// frame into the camera's coordinate frame, then projected to a pixel using intrinsics.
+func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
+	if p.IntrinsicParams == nil {
+		return 0, 0, errors.New("camera properties has no intrinsic parameters")
+	}
+
+	if p.ExtrinsicParams != nil {
+		pt = pt.Add(*p.ExtrinsicParams)
+	}
+
+	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)
+	return px, py, nil
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.

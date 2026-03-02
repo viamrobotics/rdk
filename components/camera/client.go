@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
 	commonpb "go.viam.com/api/common/v1"
@@ -288,6 +289,11 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if resp.FrameRate != nil {
 		result.FrameRate = *resp.FrameRate
 	}
+	if ext := resp.ExtrinsicParameters; ext != nil && ext.Translation != nil {
+		v := r3.Vector{X: ext.Translation.X, Y: ext.Translation.Y, Z: ext.Translation.Z}
+		result.ExtrinsicParams = &v
+	}
+
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {
 		return result, nil

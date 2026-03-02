@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -419,6 +420,53 @@ func TestImages(t *testing.T) {
 			test.That(t, err, test.ShouldBeError)
 			test.That(t, err.Error(), test.ShouldEqual, "requested source name not found: invalid_source")
 		})
+	})
+}
+
+func TestPropertiesPointToPixel(t *testing.T) {
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:  1280,
+		Height: 720,
+		Fx:     906.0663452148438,
+		Fy:     905.1234741210938,
+		Ppx:    646.94970703125,
+		Ppy:    374.4667663574219,
+	}
+
+	t.Run("missing intrinsics", func(t *testing.T) {
+		props := &camera.Properties{ExtrinsicParams: &r3.Vector{}}
+		_, _, err := props.PointToPixel(r3.Vector{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "intrinsic")
+	})
+
+	t.Run("zero extrinsics behaves like raw intrinsics", func(t *testing.T) {
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &r3.Vector{},
+		}
+		// A point directly in front of the camera at z=1000
+		pt := r3.Vector{X: 0, Y: 0, Z: 1000}
+		px, py, err := props.PointToPixel(pt)
+		test.That(t, err, test.ShouldBeNil)
+		// With zero extrinsics, should match raw intrinsics
+		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
+		test.That(t, px, test.ShouldEqual, expectedPx)
+		test.That(t, py, test.ShouldEqual, expectedPy)
+	})
+
+	t.Run("translated camera", func(t *testing.T) {
+		// ExtrinsicParams is the translation applied to points before projection.
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &r3.Vector{X: -100, Y: 0, Z: 0},
+		}
+		// A world point at (100, 0, 1000) becomes (0, 0, 1000) after adding (-100, 0, 0)
+		px, py, err := props.PointToPixel(r3.Vector{X: 100, Y: 0, Z: 1000})
+		test.That(t, err, test.ShouldBeNil)
+		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
+		test.That(t, px, test.ShouldEqual, expectedPx)
+		test.That(t, py, test.ShouldEqual, expectedPy)
 	})
 }
 
