@@ -57,7 +57,6 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -68,7 +67,6 @@ func TestConstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
-			t.Parallel()
 			testPlanner(t, ctx, tcCopy.config)
 		})
 	}

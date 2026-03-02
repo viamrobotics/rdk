@@ -60,6 +60,7 @@ func realMain() error {
 	forceMotion := flag.Bool("force-move", false, "")
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
+	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 
 	flag.Parse()
 
@@ -180,6 +181,34 @@ func realMain() error {
 			return err
 		}
 		mylog.Printf("extra plan took %v", time.Since(ss))
+	}
+
+	if *tryManySeeds > 1 {
+		minDistance := 10000.0
+		maxDistance := 0.0
+
+		for i := 1; i < *tryManySeeds; i++ {
+			req.PlannerOptions.RandomSeed = i
+			seedPlan, _, err := armplanning.PlanMotion(ctx, logger, req)
+			if err != nil {
+				return fmt.Errorf("planning for seed %d failed %w", i, err)
+			}
+
+			seedTotalL2 := 0.0
+			t := seedPlan.Trajectory()
+			for idx := 1; idx < len(t); idx++ {
+				for k := range t[idx] {
+					myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+					seedTotalL2 += myl2n
+				}
+			}
+
+			minDistance = min(minDistance, seedTotalL2)
+			maxDistance = max(maxDistance, seedTotalL2)
+
+			mylog.Printf("tryManySeeds seed %4d: traj_len=%d l2=%0.4f", i, len(t), seedTotalL2)
+		}
+		mylog.Printf("tryManySeeds result min: %0.2f max:%0.2f", minDistance, maxDistance)
 	}
 
 	relevantParts := []string{}
