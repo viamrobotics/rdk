@@ -7,6 +7,7 @@ import (
 
 	goutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/diskusage"
 )
@@ -18,6 +19,11 @@ type diskSummaryTracker struct {
 	logger      logging.Logger
 	mu          sync.Mutex
 	worker      *goutils.StoppableWorkers
+
+	// Sync config fields used for stale data warnings.
+	syncIntervalMins float64
+	shouldSync       func(context.Context) bool
+	lastStaleWarning time.Time
 }
 
 type diskSummary struct {
@@ -37,7 +43,13 @@ type syncPathsSummary struct {
 	TotalSizeBytes int64
 }
 
-const diskSummaryTrackerInterval = 1 * time.Minute
+const (
+	diskSummaryTrackerInterval = 1 * time.Minute
+	// minStaleThreshold is the minimum age of the oldest file before we consider data stale.
+	minStaleThreshold = 3 * time.Minute
+	// staleWarningInterval is the minimum time between consecutive stale data warnings.
+	staleWarningInterval = 5 * time.Minute
+)
 
 func newDiskSummaryTracker(logger logging.Logger) *diskSummaryTracker {
 	return &diskSummaryTracker{
@@ -45,10 +57,14 @@ func newDiskSummaryTracker(logger logging.Logger) *diskSummaryTracker {
 	}
 }
 
-func (poller *diskSummaryTracker) reconfigure(dirs []string) {
+func (poller *diskSummaryTracker) reconfigure(dirs []string, syncIntervalMins float64, shouldSync func(context.Context) bool) {
 	if poller.worker != nil {
 		poller.worker.Stop()
 	}
+
+	poller.syncIntervalMins = syncIntervalMins
+	poller.shouldSync = shouldSync
+	poller.lastStaleWarning = time.Time{}
 
 	poller.logger.Debug("datamanager disk state summary tracker running...")
 	// Calculate and set the initial summary.
@@ -117,7 +133,50 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 	diskSummary.SyncPaths.TotalSizeBytes = totalBytes
 	diskSummary.OldestCaptureFileTime = earliestTime
 
+	poller.checkAndLogStaleData(ctx, earliestTime, totalFiles, totalBytes)
 	poller.setSummary(diskSummary)
+}
+
+// checkAndLogStaleData logs a rate-limited message if the oldest file in the capture directory
+// is significantly older than expected given the sync interval. Logs at WARN if sync should be
+// actively happening (scheduler enabled and sync sensor allows it), or at DEBUG if sync is
+// paused (e.g. selective sync sensor returned false).
+func (poller *diskSummaryTracker) checkAndLogStaleData(ctx context.Context, earliestTime *time.Time, totalFiles, totalBytes int64) {
+	if earliestTime == nil || poller.shouldSync == nil {
+		return
+	}
+
+	staleThreshold := time.Duration(10 * poller.syncIntervalMins * float64(time.Minute))
+	if staleThreshold < minStaleThreshold {
+		staleThreshold = minStaleThreshold
+	}
+
+	age := time.Since(*earliestTime)
+	if age <= staleThreshold {
+		return
+	}
+
+	now := time.Now()
+	if !poller.lastStaleWarning.IsZero() && now.Sub(poller.lastStaleWarning) < staleWarningInterval {
+		return
+	}
+	poller.lastStaleWarning = now
+
+	msg := "Capture data may not be syncing: oldest file is %s old, expected less than %s. " +
+		"There are %d files (%s) waiting to sync. " +
+		"Data may be generating faster than it can be uploaded, or uploads may be failing."
+
+	if poller.shouldSync(ctx) {
+		poller.logger.Warnf(msg,
+			age.Round(time.Second), staleThreshold.Round(time.Second),
+			totalFiles, data.FormatBytesI64(totalBytes),
+		)
+	} else {
+		poller.logger.Debugf(msg,
+			age.Round(time.Second), staleThreshold.Round(time.Second),
+			totalFiles, data.FormatBytesI64(totalBytes),
+		)
+	}
 }
 
 func (poller *diskSummaryTracker) getSummary() diskSummary {

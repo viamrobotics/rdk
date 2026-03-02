@@ -173,7 +173,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 	// config changed... stop workers
 	s.config.logDiff(config, s.logger)
 
-	if s.config.schedulerEnabled() && !s.config.Equal(Config{}) {
+	if s.config.SchedulerEnabled() && !s.config.Equal(Config{}) {
 		// only log if the pool was previously started
 		s.logger.Info("stopping sync worker pool")
 	}
@@ -193,7 +193,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 
 	// start workers
 	s.startWorkers(config)
-	if config.schedulerEnabled() {
+	if config.SchedulerEnabled() {
 		// time.Duration loses precision at low floating point values, so turn intervalMins to milliseconds.
 		intervalMillis := 60000.0 * config.SyncIntervalMins
 		// The ticker must be created before uploadData returns to prevent race conditions between clock.Ticker and
@@ -646,7 +646,7 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 		case <-ctx.Done():
 			return
 		case <-tkr.C:
-			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
+			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			online := state == connectivity.Ready
 			if !online {
@@ -758,9 +758,9 @@ func (s *Sync) sendToSync(ctx context.Context, path string) {
 	}
 }
 
-// readyToSyncDirectories is a method for getting the bool reading from the selective sync sensor
-// for determining whether the key is present and what its value is.
-func readyToSyncDirectories(ctx context.Context, config Config, logger logging.Logger) bool {
+// ReadyToSyncDirectories checks the selective sync sensor to determine if we should sync.
+// Returns true if no selective sync sensor is configured, or if the sensor indicates syncing should occur.
+func ReadyToSyncDirectories(ctx context.Context, config Config, logger logging.Logger) bool {
 	// If selective sync is disabled, sync. If it is enabled, check the condition below.
 	if !config.SelectiveSyncSensorEnabled {
 		return true
