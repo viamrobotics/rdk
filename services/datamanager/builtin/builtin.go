@@ -309,7 +309,7 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 		var newConfigs map[string]datamanager.CaptureConfigReading
 		if err != nil {
 			b.logger.Debugw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
-		} else {
+		} else { // successfully read from sensor, create override config
 			var parseErr error
 			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
 			if parseErr != nil {
