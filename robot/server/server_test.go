@@ -640,36 +640,49 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetApiVersion(), test.ShouldEqual, "?")
 	})
 
-	t.Run("Log", func(t *testing.T) {
-		t.Run("log_ts is omitted when recent", func(t *testing.T) {
-			logger, logs := logging.NewObservedTestLogger(t)
-			injectRobot := &inject.Robot{}
-			injectRobot.LoggerFunc = func() logging.Logger { return logger }
-			srv := server.New(injectRobot)
+}
 
-			_, err := srv.Log(context.Background(), &pb.LogRequest{
-				Logs: []*commonpb.LogEntry{{
-					Level:   "info",
-					Time:    timestamppb.New(time.Now().Add(-2 * time.Second)),
-					Message: "old log",
-				}},
-			})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+func TestModuleLogTimestamp(t *testing.T) {
+	logger, logs := logging.NewObservedTestLogger(t)
+	injectRobot := &inject.Robot{}
+	injectRobot.LoggerFunc = func() logging.Logger { return logger }
+	srv := server.New(injectRobot)
 
-			logs.TakeAll() // clear logs
-
-			_, err = srv.Log(context.Background(), &pb.LogRequest{
-				Logs: []*commonpb.LogEntry{{
-					Level:   "info",
-					Time:    timestamppb.New(time.Now()),
-					Message: "recent log",
-				}},
-			})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 0)
-		})
+	_, err := srv.Log(context.Background(), &pb.LogRequest{
+		Logs: []*commonpb.LogEntry{{
+			Level:   "info",
+			Time:    timestamppb.New(time.Now().Add(-2 * time.Second)),
+			Message: "old log",
+		}},
 	})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+
+	logs.TakeAll() // clear logs
+
+	_, err = srv.Log(context.Background(), &pb.LogRequest{
+		Logs: []*commonpb.LogEntry{{
+			Level:   "info",
+			Time:    timestamppb.New(time.Now()),
+			Message: "recent log does not contain `log_ts`",
+		}},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// Dan: Technically a race given the web server calls `time.Now`. This test isn't critical, can
+	// remove if it becomes a problem.
+	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 0)
+
+	_, err = srv.Log(context.Background(), &pb.LogRequest{
+		Logs: []*commonpb.LogEntry{{
+			Level:   "info",
+			Time:    timestamppb.New(time.Now().Add(-time.Hour)),
+			Message: "old log contains `log_ts`",
+		}},
+	})
+	test.That(t, err, test.ShouldBeNil)
+	// Dan: This half of the test works "in the favor" of a race. If this fails, there's a real
+	// bug/change in expected behavior.
+	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
 }
 
 func TestServerFrameSystemConfig(t *testing.T) {
