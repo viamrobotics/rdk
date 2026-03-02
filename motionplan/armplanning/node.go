@@ -154,7 +154,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
+	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
@@ -162,11 +162,11 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		return nil, err
 	}
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:1
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:2
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
 
@@ -219,13 +219,14 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	ratios := clampSensitivities(rawRatios, .03)
-
 	minRatio := 1.0
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
 		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
-		minRatio = min(minRatio, r)
+		if r > 0 { // if a joint is part of a non-moving arm, don't consider it
+			minRatio = min(minRatio, r)
+		}
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -342,16 +343,16 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		minMillis = 100
 	}
 
-	if sss.bestScoreNoProblem < sss.goodCost/20 {
+	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
 		minMillis = 5
-	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
+	} else if sss.bestScoreNoProblem < sss.goodCost/15 { // .06
 		multiple = 1
 		minMillis = 10
-	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .1
 		multiple = 0
 		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
+	} else if sss.bestScoreNoProblem < sss.goodCost/5 { // .2
 		multiple = 2
 		minMillis = 15
 	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
