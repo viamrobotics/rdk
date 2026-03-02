@@ -775,7 +775,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfigur"
+						verb = "rebuild"
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 

@@ -1440,9 +1440,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		nextMotor2, err := robot.ResourceByName(mockNamed("m2"))
 		test.That(t, err, test.ShouldBeNil)
-		// m2 lost its dependency on arm2 after looking conf6
-		// but only relies on base1 so it should never have been
-		// removed but only reconfigured.
 		test.That(t, nextMotor2, test.ShouldNotPointTo, motor2)
 
 		_, err = robot.ResourceByName(mockNamed("m1"))
@@ -2413,7 +2410,8 @@ func TestRobotReconfigure(t *testing.T) {
 				},
 			},
 		})
-		conf9 := processConfig(t, &config.Config{
+		// 4 & 6 have should_fail_reconfigure, 1 & 5 depends_on 4, armFake depends_on 5, 6
+		conf4615armFail := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
 					Name:  "board2",
@@ -2621,8 +2619,9 @@ func TestRobotReconfigure(t *testing.T) {
 		))
 
 		reconfigurableTrue = false
-		robot.Reconfigure(context.Background(), conf9)
+		robot.Reconfigure(context.Background(), conf4615armFail)
 
+		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		mockNames = []resource.Name{
 			mockNamed("mock1"),
 			mockNamed("mock2"),
@@ -2631,7 +2630,7 @@ func TestRobotReconfigure(t *testing.T) {
 			mockNamed("mock5"),
 			mockNamed("mock6"),
 		}
-		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
+		// since we completely rebuild instead of intentionally failing reconfigure, no issues
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
 			resource.DefaultServices(),
@@ -2666,13 +2665,13 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("mock5"))
 		test.That(t, err, test.ShouldBeNil)
 
-		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
 
-		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "reason=resource build error: unknown resource type: "+
+			"API rdk:component:mock with model rdk:builtin:fake not registered")
 
 		sorted = robot.(*localRobot).manager.resources.TopologicalSort()
 		sorted = rdktestutils.SubtractNames(sorted, robot.(*localRobot).manager.internalResourceNames()...)
@@ -2687,7 +2686,6 @@ func TestRobotReconfigure(t *testing.T) {
 			},
 		))
 
-		// This configuration will put `mock6` into a good state after two calls to "reconfigure".
 		conf9good := processConfig(t, &config.Config{
 			Components: []resource.Config{
 				{
@@ -2811,11 +2809,11 @@ func TestRobotReconfigure(t *testing.T) {
 		})
 		robot.Reconfigure(context.Background(), conf9good)
 
+		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 		mockNames = []resource.Name{
 			mockNamed("armFake"), mockNamed("mock2"), mockNamed("mock1"), mockNamed("mock3"),
 			mockNamed("mock4"), mockNamed("mock5"), mockNamed("mock6"),
 		}
-		test.That(t, robot.RemoteNames(), test.ShouldBeEmpty)
 
 		rdktestutils.VerifySameResourceNames(t, robot.ResourceNames(), rdktestutils.ConcatResourceNames(
 			boardNames,
@@ -2834,9 +2832,6 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = robot.ResourceByName(mockNamed("board2"))
 		test.That(t, err, test.ShouldBeNil)
 
-		// resources which failed previous reconfiguration attempts because of missing dependencies will be rebuilt,
-		// so reconfCount should be 0. resources which failed previous reconfiguration attempts because of an error
-		// during reconfiguration would not have its reconfCount reset, so reconfCount for mock4 should be 1.
 		mock1, err = robot.ResourceByName(mockNamed("mock1"))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
@@ -2857,11 +2852,9 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock5.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		// `mock6` is configured to be in a "failing" state.
 		_, err = robot.ResourceByName(mockNamed("mock6"))
 		test.That(t, err, test.ShouldBeNil)
 
-		// `armFake` depends on `mock6` and is therefore also in an error state.
 		_, err = robot.ResourceByName(mockNamed("armFake"))
 		test.That(t, err, test.ShouldBeNil)
 
@@ -2870,9 +2863,6 @@ func TestRobotReconfigure(t *testing.T) {
 		rr, ok := robot.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
 
-		// The newly set configuration fixes the `mock6` component. A (second) reconfig should pick
-		// that up and consequently bubble up the working `mock6` change to anything that depended
-		// on `mock6`, notably `armFake`.
 		rr.triggerConfig <- "TestRobotReconfigure"
 
 		testutils.WaitForAssertionWithSleep(t, time.Millisecond*100, 30, func(tb testing.TB) {
@@ -2895,7 +2885,6 @@ func TestRobotReconfigure(t *testing.T) {
 			boardNames,
 			mockNames,
 			encoderNames,
-			[]resource.Name{},
 		))
 	})
 	t.Run("complex diff", func(t *testing.T) {

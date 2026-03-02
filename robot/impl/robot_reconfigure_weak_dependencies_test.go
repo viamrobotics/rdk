@@ -407,19 +407,14 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    Both conditions below have to be met for `updateWeakDependents` to be called:
 	//    - At least one resource that needs to reconfigure in this level (base2)
 	//      depends on at least one resource with weak dependencies
-	//    - The logical clock (5) is higher than the `lastWeakDependentsRound` (5) value
+	//    - The logical clock (8) is higher than the `lastWeakDependentsRound` (7) value
 	//
-	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
-	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
-	//    the current level.
+	//    Both conditions are true. `updateWeakAndOptionalDependents` will be called.
 	//
-	//    base2 is reconfigured and the logical clock is bumped to 6.
-	// 3) weak1 will be processed in a separate reconfiguration level but it will not reconfigure because
-	//    weak1's config does not have a diff and its "explicit" dependents did not reconfigure. Because weak1
-	//    will not reconfigure, the check for whether to call `updateWeakDependents` will also fail.
+	//    base2 is reconfigured and the logical clock is bumped to 11.
+	// 3) weak1 will be processed in a separate reconfiguration level.
 	// 4) After returning from the "levels" part of reconfiguration, `updateWeakDependents` will be called.
-	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 3) and `lastWeakDependentsRound`
-	//    will be updated to 6.
+	//    weak1 will be reconfigured and `lastWeakAndOptionalDependentsRound` will be updated to 10.
 	t.Log("Reconfigure base2")
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
@@ -497,12 +492,11 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    there is a need to call `updateWeakDependents`. For the second level, the logical clock (3) has changed
 	//    since the `lastWeakDependentsRound` (0) value and resources (base1) in the reconfiguration level do
 	//    depend on resources with weak dependencies (weak1). Therefore, there will be a call to `updateWeakDependents`.
-	//    lastWeakDependentsRound will be updated to 3 and weak1.reconfigCount will increase to 1.
+	//    lastWeakDependentsRound will be updated to 4.
 	//
-	//    After that, base1 will be configured and logical clock is bumped to 4.
+	//    After that, base1 will be configured and logical clock is bumped to 5.
 	// 4) After returning from the "levels" part of reconfiguration, `updateWeakDependents` will be called.
-	//    weak1 will now be reconfigured (to increase weak1.reconfigCount to 2) and `lastWeakDependentsRound`
-	//    will be updated to 4.
+	//    weak1 will now be reconfigured and `lastWeakDependentsRound` will be updated to 4.
 	t.Log("Robot startup")
 	base1Name := base.Named("base1")
 	base2Name := base.Named("base2")
@@ -545,26 +539,24 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	// Introduce a config diff for base1. This test serves to ensure that updating the configuration of
 	// a resource with a dependency on a resource with weak dependencies functions as expected.
 	// The following scenario is expected:
-	// 1) base2, weak1, and motion will be processed in the first reconfiguration level and none of them
-	//    will reconfigure as their configs did not change.
+	// 1) weak1 will be processed in the first reconfiguration level and will not
+	//    reconfigure as their configs did not change.
 	//
-	//    Because none of the resources will reconfigure, the check for whether to call `updateWeakDependents`
+	//    Because none of the resources will reconfigure, the check for whether to call `updateWeakAndOptionalDependents`
 	//    will fail. The logical clock will not advance.
-	// 2) base1 needs to reconfigure as its config has a diff. Prior to calling `base1.Reconfigure` and
+	// 2) In level 2, base1 needs to reconfigure as its config has a diff. Prior to calling `base1.Reconfigure` and
 	//    subsequently `SwapResource` (which bumps the logical clock), `completeConfig` checks to see if
-	//    there is a need to call `updateWeakDependents`.
-	//    Both conditions below have to be met for `updateWeakDependents` to be called:
+	//    there is a need to call `updateWeakAndOptionalDependents`.
+	//    Both conditions below have to be met for `updateWeakAndOptionalDependents` to be called:
 	//    - At least one resource that needs to reconfigure in this level (base1)
 	//      depends on at least one resource with weak dependencies
-	//    - The logical clock (4) is higher than the `lastWeakDependentsRound` (4) value
+	//    - The logical clock (5) is higher than the `lastWeakDependentsRound` (4) value
 	//
-	//    The first condition is true while the second is false. There will be no call to `updateWeakDependents`,
-	//    because the logical clock has not changed.
+	//    Both conditions are true. `updateWeakAndOptionalDependents` will be called.
 	//
-	//    base1 is reconfigured and the logical clock is bumped to 5.
+	//    base1 is reconfigured and the logical clock is bumped to 8.
 	// 3) After returning from the "levels" part of reconfiguration, `updateWeakDependents` will be called.
-	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 3) and `lastWeakDependentsRound`
-	//    will be updated to 5.
+	//    weak1 will be reconfigured and `lastWeakDependentsRound` will be updated to 7.
 
 	t.Log("Reconfigure base1")
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
@@ -580,26 +572,19 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 
 	// Introduce a config diff for base2. The test serves to ensure that updating the configuration of
 	// a weak dependency functions as expected. The following scenario is expected:
-	// 1) base2 needs to reconfigure, and will be processed in the first reconfiguration level, alongside
-	//    weak1 and motion (neither of which needs to be reconfigured because their configs did not change).
+	// 1) base2 needs to reconfigure, and will be processed in the 2nd reconfiguration level.
 	// 2) Prior to calling `base2.Reconfigure` and subsequently `SwapResource` (which bumps the
 	//    logical clock), `completeConfig` checks to see if there is a need to call `updateWeakDependents`.
 	//    Both conditions below have to be met for `updateWeakDependents` to be called:
 	//    - At least one resource that needs to reconfigure in this level (base2)
 	//      depends on at least one resource with weak dependencies
-	//    - The logical clock (5) is higher than the `lastWeakDependentsRound` (5) value
+	//    - The logical clock (8) is higher than the `lastWeakDependentsRound` (7) value
 	//
-	//    Both conditions are false. There will be no call to `updateWeakDependents`. because the logical
-	//    clock has not changed and there is nothing that depends on weak dependents, e.g., weak1 in
-	//    the current level.
+	//    Both conditions are true, so there will be a call to `updateWeakAndOptionalDependents`.
 	//
-	//    base2 is reconfigured and the logical clock is bumped to 6.
-	// 3) base1 will be processed in a separate reconfiguration level but it will not reconfigure because
-	//    base1's config does not have a diff and its "explicit" dependents did not reconfigure. Because base1
-	//    will not reconfigure, the check for whether to call `updateWeakDependents` will also fail.
-	// 4) After returning from the "levels" part of reconfiguration, `updateWeakDependents` will be called.
-	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 4) and `lastWeakDependentsRound`
-	//    will be updated to 6.
+	//    base2 is reconfigured and the logical clock is bumped to 10.
+	// 3) `updateWeakAndOptionalDependents` will be called.
+	//    weak1 will be reconfigured and `lastWeakDependentsRound` will be updated to 10 (& LC to 11).
 	t.Log("Reconfigure base2")
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
