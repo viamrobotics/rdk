@@ -1523,6 +1523,193 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+// parseJSONOrFile tries json.Unmarshal first; if that fails and s is a file path, reads and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
+	var result map[string]any
+	jsonErr := json.Unmarshal([]byte(s), &result)
+	if jsonErr == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err)
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
+	}
+	return result, nil
+}
+
+type resourceEnableDisableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Resource     []string
+}
+
+func resourceEnableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, false)
+}
+
+func resourceDisableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, true)
+}
+
+func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disable bool) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	for _, name := range args.Resource {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("--resource value must not be empty")
+		}
+	}
+
+	// warn on duplicate resources and create a set of unique ones
+	uniqueResources := make(map[string]bool, len(args.Resource))
+	for _, name := range args.Resource {
+		if uniqueResources[name] {
+			warningf(c.App.Writer, "duplicate resource %q ignored\n", name)
+			continue
+		}
+		uniqueResources[name] = true
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	var updatedResources []string
+	for _, resourceType := range []string{"components", "services", "modules"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			name, ok := resource["name"].(string)
+			if !ok || !uniqueResources[name] {
+				continue
+			}
+			if disable {
+				resource["disabled"] = true
+			} else {
+				delete(resource, "disabled")
+			}
+			updatedResources = append(updatedResources, name)
+			delete(uniqueResources, name)
+		}
+		config[resourceType] = resources
+	}
+	for name := range uniqueResources {
+		warningf(c.App.Writer, "resource %q not found in part config\n", name)
+	}
+
+	if len(updatedResources) == 0 {
+		return errors.New("no matching resources found in part config")
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	action := "enabled"
+	if disable {
+		action = "disabled"
+	}
+	printf(c.App.Writer, "successfully %s resource(s): %s", action, strings.Join(updatedResources, ", "))
+	return nil
+}
+
+type machinesPartUpdateResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
+	updates, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return err
+	}
+
+	if len(updates) == 0 {
+		warningf(c.App.Writer, "no fields provided to update\n")
+		return nil
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			if resource["name"] == args.Name {
+				resourceFound = true
+				attrs, _ := resource["attributes"].(map[string]any)
+				if attrs == nil {
+					attrs = make(map[string]any)
+				}
+				for k, v := range updates {
+					if rutils.IsEmptyJSONValue(v) {
+						delete(attrs, k)
+						infof(c.App.Writer, "successfully deleted field %q from resource %q", k, args.Name)
+					} else {
+						attrs[k] = v
+					}
+				}
+				resource["attributes"] = attrs
+				break
+			}
+		}
+		config[resourceType] = resources
+	}
+
+	if !resourceFound {
+		return fmt.Errorf("resource %q not found in part config", args.Name)
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully updated resource %q", args.Name)
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string
