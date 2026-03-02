@@ -45,7 +45,8 @@ var defaultMaxCaptureSize = int64(256 * 1024)
 type CaptureControlSensorConfig struct {
 	// Name is the resource name of the sensor.
 	Name string `json:"name"`
-	// Key is the key in the sensor's Readings map that contains the controls array.
+	// Key is the key in the sensor's Readings map that contains the controls array, a list
+	// of `CaptureConfigReading` values.
 	Key string `json:"key"`
 }
 
