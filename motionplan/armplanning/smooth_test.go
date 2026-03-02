@@ -77,6 +77,7 @@ var testSmoothNodes = []*node{
 }
 
 func TestSmoothPlans1(t *testing.T) {
+	t.Parallel()
 	test.That(t, len(testSmoothNodes), test.ShouldEqual, 62)
 
 	ctx := context.Background()
