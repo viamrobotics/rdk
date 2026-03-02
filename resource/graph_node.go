@@ -265,6 +265,9 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 
 	if w.graphLogicalClock != nil {
 		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil && w.logger.GetLevel() < 0 {
+			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
+		}
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
@@ -286,6 +289,9 @@ func (w *GraphNode) MarkForRemoval() {
 	w.transitionTo(NodeStateRemoving)
 	if w.graphLogicalClock != nil {
 		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil && w.logger.GetLevel() < 0 {
+			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
+		}
 	}
 }
 
@@ -309,6 +315,9 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	w.transitionTo(NodeStateUnhealthy)
 	if wasUsable && w.graphLogicalClock != nil {
 		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil && w.logger.GetLevel() < 0 {
+			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
+		}
 	}
 	w.mu.Unlock()
 

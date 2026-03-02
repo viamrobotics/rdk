@@ -700,7 +700,7 @@ func (manager *resourceManager) completeConfig(
 	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resourceNames := range levels {
+	for i, resourceNames := range levels {
 		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
 		// value.
 		//
@@ -717,6 +717,11 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 			gNode, ok := manager.resources.Node(resName)
+			if manager.logger != nil && manager.logger.GetLevel() < 0 {
+				manager.logger.Debugw("CompleteConfig", "level", i, "resName", resName,
+					"lastWeakAndOptionalDependentsRound", lr.lastWeakAndOptionalDependentsRound.Load(),
+					"CurrLogicalClockValue", manager.resources.CurrLogicalClockValue(), "NeedsReconfigure", gNode.NeedsReconfigure())
+			}
 			if !ok || !gNode.NeedsReconfigure() {
 				continue
 			}
