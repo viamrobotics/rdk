@@ -998,7 +998,7 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 			for attempt := 0; attempt < maxRetryCount; attempt++ {
 				if attempt > 0 {
 					select {
-					case <-time.After(time.Duration(2^attempt) * time.Second):
+					case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
 					case <-c.c.Context.Done():
 						return c.c.Context.Err()
 					}
