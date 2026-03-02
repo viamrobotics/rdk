@@ -1124,7 +1124,7 @@ func (manager *resourceManager) processResource(
 			return newRes, false, nil
 		}
 	} else {
-		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
+		manager.logger.CInfow(ctx, "resource models differ from old",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 
