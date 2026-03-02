@@ -213,7 +213,15 @@ func (s *serviceServer) GetProperties(
 				Z: props.ExtrinsicParams.Translation.Z,
 			},
 		}
-		// TODO: Add orientation to proto when API is updated
+		if props.ExtrinsicParams.Orientation != nil {
+			ov := props.ExtrinsicParams.Orientation.AxisAngles()
+			result.ExtrinsicParameters.Orientation = &commonpb.Orientation{
+				OX:    ov.RX,
+				OY:    ov.RY,
+				OZ:    ov.RZ,
+				Theta: ov.Theta,
+			}
+		}
 	}
 
 	result.MimeTypes = props.MimeTypes

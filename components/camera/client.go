@@ -292,7 +292,14 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if ext := resp.ExtrinsicParameters; ext != nil && ext.Translation != nil {
 		result.ExtrinsicParams = &ExtrinsicParams{
 			Translation: r3.Vector{X: ext.Translation.X, Y: ext.Translation.Y, Z: ext.Translation.Z},
-			// TODO: Add orientation when API is updated
+		}
+		if ext.Orientation != nil {
+			result.ExtrinsicParams.Orientation = &spatialmath.OrientationVector{
+				OX:    ext.Orientation.OX,
+				OY:    ext.Orientation.OY,
+				OZ:    ext.Orientation.OZ,
+				Theta: ext.Orientation.Theta,
+			}
 		}
 	}
 
