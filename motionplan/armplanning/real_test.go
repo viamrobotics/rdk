@@ -25,7 +25,6 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -55,7 +54,6 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -86,7 +84,6 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -112,7 +109,6 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -141,7 +137,6 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -195,7 +190,6 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
-	t.Parallel()
 	name := "ur20-modular"
 
 	if IsTooSmallForCache() {
@@ -288,7 +282,6 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -323,7 +316,6 @@ func TestBadSpray1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -412,7 +404,6 @@ func TestPirouette(t *testing.T) {
 }
 
 func TestBadPlanNoCrash(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -421,7 +412,6 @@ func TestBadPlanNoCrash(t *testing.T) {
 }
 
 func TestOrbPlanTooManySteps(t *testing.T) {
-	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -442,7 +432,6 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 }
 
 func TestSandingWallCollision(t *testing.T) {
-	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -499,7 +488,6 @@ func TestSandingWallCollision(t *testing.T) {
 }
 
 func TestTeleOpTwoMove(t *testing.T) {
-	t.Parallel()
 	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
 	test.That(t, err, test.ShouldBeNil)
 

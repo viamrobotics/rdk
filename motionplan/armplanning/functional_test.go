@@ -57,6 +57,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 }
 
 func TestConstrainedMotion(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -67,6 +68,7 @@ func TestConstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
+			t.Parallel()
 			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
@@ -469,12 +471,7 @@ func TestArmOOBSolve(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
-
-	if IsTooSmallForCache() {
-		test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
-	} else {
-		test.That(t, err.Error(), test.ShouldContainSubstring, "too far")
-	}
+	test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
 }
 
 func TestArmObstacleSolve(t *testing.T) {
