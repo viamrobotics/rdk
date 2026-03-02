@@ -79,6 +79,7 @@ const (
 	generalFlagNoProgress        = "no-progress"
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
+	generalFlagAttributes        = "attributes"
 	generalFlagDryRun            = "dry-run"
 
 	moduleFlagLanguage        = "language"
@@ -175,33 +176,39 @@ const (
 	xacroFlagROSDistro         = "ros-distro"
 )
 
-var commonPartFlags = []cli.Flag{
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:     generalFlagPart,
-			Aliases:  []string{generalFlagPartID, generalFlagPartName},
-			Required: true,
+// partFlags builds the standard part/org/location/machine flag set.
+// partRequired controls whether --part is mandatory.
+func partFlags(partRequired bool) []cli.Flag {
+	return []cli.Flag{
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:     generalFlagPart,
+				Aliases:  []string{generalFlagPartID, generalFlagPartName},
+				Required: partRequired,
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagOrganization,
-			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagOrganization,
+				Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagLocation,
-			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagLocation,
+				Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
+			},
 		},
-	},
-	&AliasStringFlag{
-		cli.StringFlag{
-			Name:    generalFlagMachine,
-			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+		&AliasStringFlag{
+			cli.StringFlag{
+				Name:    generalFlagMachine,
+				Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+			},
 		},
-	},
+	}
 }
+
+var commonPartFlags = partFlags(true)
 
 var commonOtlpFlags = []cli.Flag{
 	&cli.StringFlag{
@@ -2792,6 +2799,84 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
+						},
+						{
+							Name:  "add-job",
+							Usage: "add a scheduled job to a machine part",
+							Description: `Add a scheduled job that runs a method on a resource at a given interval.
+
+With --attributes, pass a single JSON object (inline or path to a JSON file) with:
+  name       (required)  unique name for this job
+  schedule   (required)  must be one of:
+                           "continuous"    run in a loop without stopping
+                           a Go duration   e.g. "5s", "1h30m", "500ms"
+                           a cron expr     e.g. "0 0 * * *" (5-field) or "*/5 * * * * *" (6-field with seconds)
+  resource   (required)  name of the component or service to run the method on
+  method     (required)  gRPC method name, e.g. "DoCommand", "GetReadings"
+  command    (optional)  JSON object passed as the argument to DoCommand
+  log_configuration (optional)  e.g. {"level":"debug"}. Level must be one of: debug, info, warn, error
+
+Example (interactive prompt):
+  viam machines part add-job
+
+Example with inline JSON:
+  viam machines part add-job --part=<part-id> \
+    --attributes '{"name":"my-job","schedule":"1h","resource":"my-sensor","method":"GetReadings"}'
+
+Example with a JSON file:
+  viam machines part add-job --part=<part-id> --attributes ./job.json`,
+							UsageText: createUsageText("machines part add-job", []string{generalFlagPart, generalFlagAttributes}, true, false),
+							Flags: append(partFlags(false), &cli.StringFlag{
+								Name:     generalFlagAttributes,
+								Required: false,
+								Usage:    "JSON job config or path to JSON file; omit to use the interactive form",
+							}),
+							Action: createCommandWithT(machinesPartAddJobAction),
+						},
+						{
+							Name:  "update-job",
+							Usage: "update a scheduled job on a machine part",
+							Description: `Update an existing job's configuration by name. The --attributes flag accepts a single JSON
+object (inline or a path to a JSON file) with the fields to change. Only the fields provided will
+be updated; all other fields remain unchanged. The job name cannot be changed.
+
+Example changing the schedule:
+  viam machines part update-job --part=<part-id> --name=my-job --attributes '{"schedule":"30m"}'
+
+Example changing multiple fields:
+  viam machines part update-job --part=<part-id> --name=my-job \
+    --attributes '{"schedule":"0 0 * * *","method":"DoCommand","command":{"action":"reset"}}'`,
+							UsageText: createUsageText(
+								"machines part update-job",
+								[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
+							Flags: append(commonPartFlags, []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagName,
+									Required: true,
+									Usage:    "name of the job to update",
+								},
+								&cli.StringFlag{
+									Name:     generalFlagAttributes,
+									Required: true,
+									Usage:    "JSON job config or path to JSON file with fields to update",
+								},
+							}...),
+							Action: createCommandWithT(machinesPartUpdateJobAction),
+						},
+						{
+							Name:  "delete-job",
+							Usage: "delete a scheduled job from a machine part",
+							Description: `Delete an existing job by name.
+
+Example:
+  viam machines part delete-job --part=<part-id> --name=my-job`,
+							UsageText: createUsageText("machines part delete-job", []string{generalFlagPart, generalFlagName}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:     generalFlagName,
+								Required: true,
+								Usage:    "name of the job to delete",
+							}),
+							Action: createCommandWithT(machinesPartDeleteJobAction),
 						},
 						{
 							Name:  "shell",

@@ -32,6 +32,7 @@ import (
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
+	cron "github.com/robfig/cron/v3"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -1520,6 +1521,509 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	}
 
 	printf(c.App.Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
+	return nil
+}
+
+// parseJSONOrFile tries to read input as a file, falls back to parsing as inline JSON
+func parseJSONOrFile(input string) (map[string]any, error) {
+	var data []byte
+	//nolint:gosec
+	if fileData, err := os.ReadFile(input); err == nil {
+		data = fileData
+	} else {
+		data = []byte(input)
+	}
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// validateJobConfig validates the fields of a job config map. When isUpdate is true,
+// this is an update-job so not all fields are required.
+func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) error {
+	// validate schedule
+	if schedule, ok := jobConfig["schedule"].(string); ok {
+		if err := validateJobSchedule(schedule); err != nil {
+			return err
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'schedule' field (string)")
+	}
+
+	// validate resource
+	if resource, ok := jobConfig["resource"].(string); ok {
+		if resource == "" {
+			return errors.New("'resource' field must be a non-empty string")
+		}
+		if !resourceExistsInConfig(partConfig, resource) {
+			return fmt.Errorf("resource %q not found in part config", resource)
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'resource' field (string)")
+	}
+
+	// validate method
+	if method, ok := jobConfig["method"].(string); ok {
+		if method == "" {
+			return errors.New("'method' field must be a non-empty string")
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'method' field (string)")
+	}
+
+	// Validate command is a JSON object (map) if provided.
+	if command, ok := jobConfig["command"]; ok {
+		if _, ok := command.(map[string]any); !ok {
+			return errors.New("'command' field must be a JSON object")
+		}
+	}
+
+	// validate log configuration
+	if logConfig, ok := jobConfig["log_configuration"].(map[string]any); ok {
+		if level, ok := logConfig["level"].(string); ok {
+			validLevels := map[string]bool{
+				"debug": true, "info": true, "warn": true, "warning": true, "error": true,
+			}
+			if !validLevels[strings.ToLower(level)] {
+				return fmt.Errorf("log_configuration level must be one of: debug, info, warn, warning, error; got %q", level)
+			}
+		}
+	}
+
+	return nil
+}
+
+// resourceExistsInConfig checks if a resource name exists in the part's components or services.
+func resourceExistsInConfig(config map[string]any, name string) bool {
+	for _, key := range []string{"components", "services"} {
+		if arr, ok := config[key].([]any); ok {
+			for _, item := range arr {
+				if m, ok := item.(map[string]any); ok {
+					if m["name"] == name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func validateJobSchedule(schedule string) error {
+	if strings.ToLower(schedule) == "continuous" {
+		return nil
+	}
+
+	intErr := validateInterval(schedule)
+	if intErr == nil {
+		return nil
+	}
+
+	cronErr := validateCronExpression(schedule)
+	if cronErr == nil {
+		return nil
+	}
+
+	return errors.Errorf(
+		"invalid schedule %q: not a valid interval (%v) or cron expression (%v)",
+		schedule, intErr, cronErr,
+	)
+}
+
+func validateInterval(interval string) error {
+	d, err := time.ParseDuration(interval)
+	if err != nil {
+		return err
+	}
+	if d <= 0 {
+		return errors.New("interval must be a positive duration")
+	}
+	return nil
+}
+
+func validateCronExpression(schedule string) error {
+	withSeconds := len(strings.Fields(schedule)) >= 6
+	if withSeconds {
+		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+		if _, err := p.Parse(schedule); err != nil {
+			return err
+		}
+	} else {
+		if _, err := cron.ParseStandard(schedule); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type machinesPartAddJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Attributes   string
+}
+
+func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	var jobConfig map[string]any
+	var part *apppb.RobotPart
+
+	// If no attributes are provided, run the interactive huh flow.
+	if args.Attributes == "" {
+		// first, get part id through flag or prompt
+		if args.Part == "" {
+			var partID string
+			partForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Part ID:").
+						Description("Run 'viam machines list --all --organization=<org-id>' to see all machines with their part-ids").
+						Validate(func(s string) error {
+							if strings.TrimSpace(s) == "" {
+								return errors.New("part ID cannot be empty")
+							}
+							return nil
+						}).
+						Value(&partID),
+				),
+			)
+			if err := partForm.Run(); err != nil {
+				return err
+			}
+			partID = strings.TrimSpace(partID)
+			if partID == "" {
+				return errors.New("part ID cannot be empty")
+			}
+
+			// Look up the part by ID and store it so we can use its config below.
+			resp, err := client.getRobotPart(partID)
+			if err != nil {
+				return errors.Wrapf(err, "part ID %q not found", partID)
+			}
+			part = resp.Part
+			args.Part = partID
+		} else {
+			var err error
+			part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+			if err != nil {
+				return err
+			}
+		}
+
+		// 2. Build interactive form from the part config.
+		confMap := part.RobotConfig.AsMap()
+		var resourceOpts []huh.Option[string]
+		for _, key := range []string{"components", "services"} {
+			resources, err := resourcesFromPartConfig(confMap, key)
+			if err != nil {
+				return err
+			}
+			for _, r := range resources {
+				if n, ok := r["name"].(string); ok && n != "" {
+					resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+				}
+			}
+		}
+		if len(resourceOpts) == 0 {
+			return errors.New("This machine contains no components or services")
+		}
+
+		// 3. Create the form and run it
+		var name, resource, method, commandStr, logLevel, scheduleType string
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewNote().Title("Add a job to a part"),
+			huh.NewInput().Title("Set a job name:").Value(&name).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("job name cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
+			huh.NewInput().Title("Set a method:").Value(&method).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("method cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewInput().
+				Title("If using DoCommand, set a command in JSON format (leave empty otherwise):").
+				Placeholder("{}").
+				Value(&commandStr).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return nil
+					}
+					var cmd map[string]any
+					if err := json.Unmarshal([]byte(s), &cmd); err != nil {
+						return errors.Wrap(err, "invalid JSON object")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().
+				Title("Set the log threshold:").
+				Options(
+					huh.NewOption("Debug", "debug"),
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warn", "warn"),
+					huh.NewOption("Error", "error"),
+				).
+				Value(&logLevel),
+			huh.NewSelect[string]().
+				Title("Set the schedule type:").
+				Options(
+					huh.NewOption("Interval", "interval"),
+					huh.NewOption("Cron", "cron"),
+					huh.NewOption("Continuous", "continuous"),
+				).
+				Value(&scheduleType),
+		))
+		if err := form.Run(); err != nil {
+			return err
+		}
+
+		// 4. last page form loads based on what type of schedule is selected
+		var schedule string
+		switch scheduleType {
+		case "interval":
+			var intervalStr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Set the interval:").
+						Description("Valid intervals look like 10s, 1m, 1h1m, etc. (Go duration format).").
+						Validate(validateInterval).
+						Value(&intervalStr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = intervalStr
+		case "cron":
+			var cronExpr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Cron expression:").
+						Description("Valid cron expressions look like 0 0 * * * for daily, */5 * * * * * for every 5 seconds, etc...").
+						Validate(validateCronExpression).
+						Value(&cronExpr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = cronExpr
+		default:
+			schedule = "continuous"
+		}
+
+		// 5. Build the jobConfig map from the interactive inputs.
+		jobConfig = map[string]any{
+			"name": name, "schedule": schedule, "resource": resource, "method": method,
+		}
+
+		if method == "DoCommand" {
+			if strings.TrimSpace(commandStr) == "" {
+				jobConfig["command"] = map[string]any{}
+			} else {
+				var cmd map[string]any
+				if err := json.Unmarshal([]byte(commandStr), &cmd); err != nil {
+					return errors.Wrapf(err, "invalid command JSON")
+				}
+				jobConfig["command"] = cmd
+			}
+		}
+		if logLevel != "" {
+			jobConfig["log_configuration"] = map[string]any{"level": logLevel}
+		}
+	} else {
+		// Non-interactive path: attributes and part are required flags.
+		jobConfig, err = parseJSONOrFile(args.Attributes)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse job config")
+		}
+
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --attributes; specify --part (or --part-id/--part-name)")
+		}
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Validate required fields and format
+	name, ok := jobConfig["name"].(string)
+	if !ok || name == "" {
+		return errors.New("job config must include 'name' field (string)")
+	}
+
+	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(jobConfig, config, false); err != nil {
+		return err
+	}
+
+	// Get existing jobs array or create new one
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Check if job with same name exists
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == name {
+				return fmt.Errorf("job with name %s already exists on part %s", name, part.Name)
+			}
+		}
+	}
+
+	jobs = append(jobs, jobConfig)
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added job %s to part %s", name, part.Name)
+	return nil
+}
+
+type machinesPartUpdateJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Attributes   string
+}
+
+func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	newJobConfig, err := parseJSONOrFile(args.Attributes)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(newJobConfig, config, true); err != nil {
+		return err
+	}
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Find and update the job
+	found := false
+	for i, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == args.Name {
+				found = true
+				// Merge the new config into existing job, keeping the name
+				for k, v := range newJobConfig {
+					jobMap[k] = v
+				}
+				jobMap["name"] = args.Name // Ensure name doesn't change
+				jobs[i] = jobMap
+				break
+			}
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully updated job %s on part %s", args.Name, part.Name)
+	return nil
+}
+
+type machinesPartDeleteJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func machinesPartDeleteJobAction(c *cli.Context, args machinesPartDeleteJobArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Filter out the job
+	var newJobs []any
+	found := false
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] != args.Name {
+				newJobs = append(newJobs, j)
+			} else {
+				found = true
+			}
+		} else {
+			newJobs = append(newJobs, j)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = newJobs
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully deleted job %s from part %s", args.Name, part.Name)
 	return nil
 }
 
