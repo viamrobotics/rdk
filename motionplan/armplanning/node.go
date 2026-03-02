@@ -157,6 +157,8 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
+	// For multi-arm systems, `rawRatios` elements will be -1 for non-moving arms. `minRatio` will
+	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
