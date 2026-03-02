@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/depthadapter"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -39,6 +40,15 @@ func init() {
 		})
 }
 
+// imageFileCamera wraps a fileSource and implements the camera.Camera interface directly.
+type imageFileCamera struct {
+	resource.Named
+	resource.AlwaysRebuild
+	src       *fileSource
+	model     transform.PinholeCameraModel
+	imageType camera.ImageType
+}
+
 func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfig, logger logging.Logger) (camera.Camera, error) {
 	videoSrc := &fileSource{
 		ColorFN:        newConf.Color,
@@ -54,16 +64,49 @@ func newCamera(ctx context.Context, name resource.Name, newConf *fileSourceConfi
 		imgType = camera.DepthStream
 	}
 	cameraModel := camera.NewPinholeModelWithBrownConradyDistortion(newConf.CameraParameters, newConf.DistortionParameters)
-	src, err := camera.NewVideoSourceFromReader(
-		ctx,
-		videoSrc,
-		&cameraModel,
-		imgType,
-	)
-	if err != nil {
-		return nil, err
+	return &imageFileCamera{
+		Named:     name.AsNamed(),
+		src:       videoSrc,
+		model:     cameraModel,
+		imageType: imgType,
+	}, nil
+}
+
+// Images returns the saved color and depth image if they are present.
+func (c *imageFileCamera) Images(
+	ctx context.Context,
+	filterSourceNames []string,
+	extra map[string]interface{},
+) ([]camera.NamedImage, resource.ResponseMetadata, error) {
+	return c.src.Images(ctx, filterSourceNames, extra)
+}
+
+// NextPointCloud returns the next point cloud.
+func (c *imageFileCamera) NextPointCloud(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
+	return c.src.NextPointCloud(ctx, extra)
+}
+
+// Properties returns the camera properties.
+func (c *imageFileCamera) Properties(ctx context.Context) (camera.Properties, error) {
+	props := camera.Properties{
+		SupportsPCD:     true,
+		ImageType:       c.imageType,
+		IntrinsicParams: c.model.PinholeCameraIntrinsics,
 	}
-	return camera.FromVideoSource(name, src), nil
+	if c.model.Distortion != nil {
+		props.DistortionParams = c.model.Distortion
+	}
+	return props, nil
+}
+
+// Geometries returns the geometries associated with this camera.
+func (c *imageFileCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return []spatialmath.Geometry{}, nil
+}
+
+// Close closes the underlying file source.
+func (c *imageFileCamera) Close(ctx context.Context) error {
+	return c.src.Close(ctx)
 }
 
 // fileSource stores the paths to a color and depth image and a pointcloud.

@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"strings"
-
-	camerapb "go.viam.com/api/component/camera/v1"
 )
 
 // Make sure that all mime types are registered in rimage/image_file.go with the appropriate
@@ -66,26 +64,6 @@ func CheckLazyMIMEType(mimeType string) (string, bool) {
 		return strings.TrimSuffix(mimeType, lazyMIMESuffixCheck), true
 	}
 	return mimeType, false
-}
-
-// MimeTypeToFormat maps Mimetype to Format.
-// Deprecated: This will be removed when the Format field is removed from the proto.
-var MimeTypeToFormat = map[string]camerapb.Format{
-	MimeTypeJPEG:     camerapb.Format_FORMAT_JPEG,
-	MimeTypePNG:      camerapb.Format_FORMAT_PNG,
-	MimeTypeRawDepth: camerapb.Format_FORMAT_RAW_DEPTH,
-	MimeTypeRawRGBA:  camerapb.Format_FORMAT_RAW_RGBA,
-	"":               camerapb.Format_FORMAT_UNSPECIFIED,
-}
-
-// FormatToMimeType maps Format to Mimetype.
-// Deprecated: This will be removed when the Format field is removed from the proto.
-var FormatToMimeType = map[camerapb.Format]string{
-	camerapb.Format_FORMAT_JPEG:        MimeTypeJPEG,
-	camerapb.Format_FORMAT_PNG:         MimeTypePNG,
-	camerapb.Format_FORMAT_RAW_DEPTH:   MimeTypeRawDepth,
-	camerapb.Format_FORMAT_RAW_RGBA:    MimeTypeRawRGBA,
-	camerapb.Format_FORMAT_UNSPECIFIED: "",
 }
 
 // FormatStringToMimeType takes a format string returned from image.DecodeConfig and converts

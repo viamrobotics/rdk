@@ -34,6 +34,7 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -1204,16 +1205,8 @@ func populateFileContents(fileContents []byte) []byte {
 	return fileContents
 }
 
-func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([]byte, camera.ImageMetadata, error) {
-	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-}
-
-// newMockCameraWithImages creates a mock camera that implements both ImageFunc and ImagesFunc
-// ImageFunc will fail the test if called, ImagesFunc returns a single JPEG image.
+// newMockCameraWithImages creates a mock camera that implements ImagesFunc.
+// ImagesFunc returns a single JPEG image.
 func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 	return &inject.Camera{
 		ImagesFunc: func(
@@ -1222,9 +1215,9 @@ func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			t.Helper()
-			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+			imgBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 			test.That(t, err, test.ShouldBeNil)
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		},
