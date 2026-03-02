@@ -1520,7 +1520,6 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// during completeConfig, and then updateWeakAndOptionalDependents.
 	for i := 1; i < 6; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
-		// The clock should NOT increment - m_unrelated is still unusable.
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 			test.ShouldEqual, clockAfterFirstError+int64(i*2))
 	}
