@@ -714,9 +714,6 @@ func (svc *webService) initAuthHandlers(listenerTCPAddr *net.TCPAddr, options we
 				authEntities = addIfNotFound(weboptions.LocalHostWithPort(listenerTCPAddr))
 			}
 		}
-		if options.Secure && len(options.Auth.TLSAuthEntities) != 0 {
-			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities))
-		}
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:

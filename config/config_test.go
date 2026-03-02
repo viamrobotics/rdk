@@ -865,16 +865,8 @@ ph2C/7IgjA==
 	expectedRemoteAuthNoCloud := remoteAuth
 	expectedRemoteAuthNoCloud.SignalingCreds = expectedRemoteAuthNoCloud.Credentials
 
-	expectedRemoteAuthCloud := remoteAuth
-	expectedRemoteAuthCloud.Managed = true
-	expectedRemoteAuthCloud.SignalingServerAddress = cloud.SignalingAddress
-	expectedRemoteAuthCloud.SignalingAuthEntity = cloud.ID
-	expectedRemoteAuthCloud.SignalingCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, cloud.Secret}
-
 	expectedRemoteNoCloud := remote
 	expectedRemoteNoCloud.Auth = expectedRemoteAuthNoCloud
-	expectedRemoteCloud := remote
-	expectedRemoteCloud.Auth = expectedRemoteAuthCloud
 
 	expectedRemoteDiffManagerNoCloud := remoteDiffManager
 	expectedRemoteDiffManagerNoCloud.Auth = expectedRemoteAuthNoCloud
@@ -885,7 +877,7 @@ ph2C/7IgjA==
 	expectedCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{}}
 	expectedCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
-	expectedRemotesCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}}
+	expectedRemotesCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{remote, remoteDiffManager}}
 	expectedRemotesCloudWTLSCfg.Network.TLSConfig = tlsCfg
 
 	for _, tc := range []struct {
@@ -904,7 +896,7 @@ ph2C/7IgjA==
 		{
 			TestName: "remotes cloud but no cert",
 			Config:   remotesCloudCfg,
-			Expected: &config.Config{Cloud: cloud, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}},
+			Expected: &config.Config{Cloud: cloud, Remotes: []config.Remote{remote, remoteDiffManager}},
 		},
 		{TestName: "remotes cloud and cert", Config: remotesCloudWTLSCfg, Expected: expectedRemotesCloudWTLSCfg},
 	} {

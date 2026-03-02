@@ -707,8 +707,7 @@ func AuthConfigToProto(auth *AuthConfig) (*pb.AuthConfig, error) {
 	}
 
 	proto := pb.AuthConfig{
-		Handlers:        handlers,
-		TlsAuthEntities: auth.TLSAuthEntities,
+		Handlers: handlers,
 	}
 
 	if auth.ExternalAuthConfig != nil {
@@ -733,8 +732,7 @@ func AuthConfigFromProto(proto *pb.AuthConfig, _ logging.Logger) (*AuthConfig, e
 	}
 
 	auth := AuthConfig{
-		Handlers:        handlers,
-		TLSAuthEntities: proto.GetTlsAuthEntities(),
+		Handlers: handlers,
 	}
 
 	if proto.ExternalAuthConfig != nil {

@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -459,7 +458,7 @@ func TestWebWithAuth(t *testing.T) {
 	}
 }
 
-func TestWebWithTLSAuth(t *testing.T) {
+func TestWebWithTLSCredentialAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
@@ -473,18 +472,12 @@ func TestWebWithTLSAuth(t *testing.T) {
 		os.Remove(keyFile)
 	})
 
-	leaf, err := x509.ParseCertificate(cert.Certificate[0])
-	test.That(t, err, test.ShouldBeNil)
-
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Network.TLSConfig = &tls.Config{
 		RootCAs:      certPool,
-		ClientCAs:    certPool,
 		Certificates: []tls.Certificate{cert},
 		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.VerifyClientCertIfGiven,
 	}
-	options.Auth.TLSAuthEntities = leaf.DNSNames
 	options.Managed = true
 	options.FQDN = altName
 	options.LocalFQDN = "localhost" // this will allow authentication to work in unmanaged, default host
@@ -541,36 +534,6 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
-	// use cert
-	clientTLSConfig.Certificates = []tls.Certificate{cert}
-	conn, err = rgrpc.Dial(context.Background(), addr, logger,
-		rpc.WithTLSConfig(clientTLSConfig),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
-	// use cert with mDNS
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
-	test.That(t, conn.Close(), test.ShouldBeNil)
-
 	// use signaling creds
 	conn, err = rgrpc.Dial(context.Background(), addr, logger,
 		rpc.WithDialDebug(),
@@ -592,31 +555,6 @@ func TestWebWithTLSAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1Position, test.ShouldResemble, pos)
 	test.That(t, conn.Close(), test.ShouldBeNil)
-
-	// use cert with mDNS while signaling present
-	conn, err = rgrpc.Dial(context.Background(), options.FQDN, logger,
-		rpc.WithDialDebug(),
-		rpc.WithTLSConfig(clientTLSConfig),
-		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-			SignalingServerAddress: addr,
-			SignalingAuthEntity:    options.FQDN,
-			SignalingCreds: rpc.Credentials{
-				Type:    rutils.CredentialsTypeRobotLocationSecret,
-				Payload: locationSecret + "bad",
-			},
-		}),
-		rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
-			RemoveAuthCredentials: true,
-		}),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1, err = arm.NewClientFromConn(context.Background(), conn, "", arm.Named(arm1String), logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	arm1Position, err = arm1.EndPosition(ctx, nil)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, arm1Position, test.ShouldResemble, pos)
 
 	err = svc.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
