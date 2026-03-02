@@ -77,7 +77,6 @@ func (s *serviceServer) GetJointPositions(ctx context.Context, req *pb.GetJointP
 
 // MoveToPosition returns the position of the arm specified.
 func (s *serviceServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositionRequest) (*pb.MoveToPositionResponse, error) {
-	operation.CancelOtherWithLabel(ctx, req.Name)
 	arm, err := s.coll.Resource(req.Name)
 	if err != nil {
 		return nil, err
