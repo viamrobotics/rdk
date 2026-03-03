@@ -28,6 +28,22 @@ type LinkConfig struct {
 	Parent      string                     `json:"parent,omitempty"`
 }
 
+// MimicConfig describes a mimic joint relationship where this joint's position is derived
+// from another joint: position = multiplier * source_position + offset.
+type MimicConfig struct {
+	Joint      string   `json:"joint"`
+	Multiplier *float64 `json:"multiplier,omitempty"` // default 1.0 if nil
+	Offset     float64  `json:"offset,omitempty"`
+}
+
+// EffectiveMultiplier returns the multiplier value, defaulting to 1.0 if not set.
+func (mc *MimicConfig) EffectiveMultiplier() float64 {
+	if mc.Multiplier != nil {
+		return *mc.Multiplier
+	}
+	return 1.0
+}
+
 // JointConfig is a frame with nonzero DOF. Supports rotational or translational.
 type JointConfig struct {
 	ID       string                  `json:"id"`
@@ -37,6 +53,7 @@ type JointConfig struct {
 	Max      float64                 `json:"max"`                // in mm or degs
 	Min      float64                 `json:"min"`                // in mm or degs
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"` // only valid for prismatic/translational joints
+	Mimic    *MimicConfig            `json:"mimic,omitempty"`
 }
 
 // DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.

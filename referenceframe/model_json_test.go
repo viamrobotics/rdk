@@ -153,3 +153,30 @@ func TestParseJSONFile(t *testing.T) {
 		})
 	}
 }
+
+func TestMimicJSONRoundTrip(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	smodel, ok := model.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// Marshal and unmarshal
+	data, err := smodel.MarshalJSON()
+	test.That(t, err, test.ShouldBeNil)
+
+	restored := new(SimpleModel)
+	err = restored.UnmarshalJSON(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Verify the round-tripped model is equivalent
+	equal, err := framesAlmostEqual(smodel, restored, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, equal, test.ShouldBeTrue)
+
+	// Verify the mimic model still works after round-trip
+	test.That(t, len(restored.DoF()), test.ShouldEqual, 1)
+	pose, err := restored.Transform([]Input{25})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: 0, Y: 0, Z: 30}, defaultFloatPrecision), test.ShouldBeTrue)
+}

@@ -33,14 +33,15 @@ type linkXML struct {
 
 // jointXML is a struct which details the XML used in a URDF jointXML element.
 type jointXML struct {
-	XMLName xml.Name `xml:"joint"`
-	Name    string   `xml:"name,attr"`
-	Type    string   `xml:"type,attr"`
-	Parent  frame    `xml:"parent"`
-	Child   frame    `xml:"child"`
-	Origin  *pose    `xml:"origin,omitempty"`
-	Axis    *axis    `xml:"axis,omitempty"`
-	Limit   *limit   `xml:"limit,omitempty"`
+	XMLName xml.Name  `xml:"joint"`
+	Name    string    `xml:"name,attr"`
+	Type    string    `xml:"type,attr"`
+	Parent  frame     `xml:"parent"`
+	Child   frame     `xml:"child"`
+	Origin  *pose     `xml:"origin,omitempty"`
+	Axis    *axis     `xml:"axis,omitempty"`
+	Limit   *limit    `xml:"limit,omitempty"`
+	Mimic   *mimicXML `xml:"mimic,omitempty"`
 }
 
 // NewModelFromWorldState creates a ModelConfigURDF struct which can be marshalled into xml and will be a
@@ -157,6 +158,13 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			default:
 				return nil, err
+			}
+			if jointElem.Mimic != nil {
+				thisJoint.Mimic = &MimicConfig{
+					Joint:      jointElem.Mimic.Joint,
+					Multiplier: jointElem.Mimic.Multiplier,
+					Offset:     jointElem.Mimic.Offset,
+				}
 			}
 			joints = append(joints, thisJoint)
 

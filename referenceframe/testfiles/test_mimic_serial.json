@@ -1,0 +1,57 @@
+{
+    "name": "test_mimic_serial",
+    "kinematic_param_type": "SVA",
+    "links": [
+        {
+            "id": "link0",
+            "parent": "world",
+            "translation": {"x": 0, "y": 0, "z": 0}
+        },
+        {
+            "id": "link1",
+            "parent": "joint1",
+            "translation": {"x": 0, "y": 0, "z": 100}
+        },
+        {
+            "id": "link2",
+            "parent": "joint2",
+            "translation": {"x": 0, "y": 0, "z": 100}
+        },
+        {
+            "id": "link3",
+            "parent": "joint3",
+            "translation": {"x": 0, "y": 0, "z": 100}
+        }
+    ],
+    "joints": [
+        {
+            "id": "joint1",
+            "type": "revolute",
+            "parent": "link0",
+            "axis": {"x": 0, "y": 1, "z": 0},
+            "min": -180,
+            "max": 180
+        },
+        {
+            "id": "joint2",
+            "type": "revolute",
+            "parent": "link1",
+            "axis": {"x": 0, "y": 1, "z": 0},
+            "min": -180,
+            "max": 180
+        },
+        {
+            "id": "joint3",
+            "type": "revolute",
+            "parent": "link2",
+            "axis": {"x": 0, "y": 1, "z": 0},
+            "min": -180,
+            "max": 180,
+            "mimic": {
+                "joint": "joint1",
+                "multiplier": -1,
+                "offset": 0
+            }
+        }
+    ]
+}
