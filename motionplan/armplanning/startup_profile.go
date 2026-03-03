@@ -5,6 +5,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"flag"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -20,6 +21,11 @@ var wineAdjustJSON []byte
 var speedMultiplier = 2.0
 
 func init() {
+	// Skip expensive profiling during tests to avoid CI timeouts
+	if flag.Lookup("test.v") != nil {
+		return
+	}
+
 	logger := logging.NewLogger("startup-profile")
 	logger.SetLevel(logging.WARN)
 
