@@ -30,7 +30,7 @@ import (
 	"go.viam.com/rdk/testutils/robottestutils"
 )
 
-// Connect creates a new grpc.ClientConn server running on localhost:port. This does not wait for
+// unsafeConnect creates a new grpc.ClientConn server running on localhost:port. This does not wait for
 // the robot to get out of initializing.
 func unsafeConnect(port int) (*grpc.ClientConn, error) {
 	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
