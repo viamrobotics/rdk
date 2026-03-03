@@ -134,6 +134,11 @@ jobs:
             echo "skip_motion_tests=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Print skip decisions
+        run: |
+          echo "skip_robot_impl=${{ steps.check.outputs.skip_robot_impl }}"
+          echo "skip_motion_tests=${{ steps.check.outputs.skip_motion_tests }}"
+
   test_go:
     needs: [check-changes]
     # note: we have automations that match on platform_name. be careful changing this.
