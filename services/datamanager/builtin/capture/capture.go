@@ -65,10 +65,9 @@ type Capture struct {
 	mongoMU            sync.Mutex
 	mongo              captureMongo
 
-	// baseCollectorConfigs and baseTags are the default as specified in the machine config.
+	// defaultCollectorConfigs are the default as specified in the machine config.
 	// These are stored in order to be compared to any capture override readings.
-	baseCollectorConfigs CollectorConfigsByResource
-	baseTags             []string
+	defaultCollectorConfigs CollectorConfigsByResource
 }
 
 type captureMongo struct {
@@ -243,8 +242,7 @@ func (c *Capture) Reconfigure(
 	}
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
-	c.baseCollectorConfigs = collectorConfigsByResource
-	c.baseTags = config.Tags
+	c.defaultCollectorConfigs = collectorConfigsByResource
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }

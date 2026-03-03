@@ -286,7 +286,7 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, reading := range controlList {
-		result[capture.CaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
 	}
 	return result, nil
 }
