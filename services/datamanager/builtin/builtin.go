@@ -47,6 +47,8 @@ var (
 	clk = clock.New()
 )
 
+const capturePollFrequency = 100 * time.Millisecond
+
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
 	constructor := func(
@@ -265,7 +267,7 @@ func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource
 	return s, cfg.Key
 }
 
-// parseOverridesFromReadings extracts capture config overrides from sensor readings.
+// parseOverridesFromReadings extracts capture config overrides from sensor readings into a map.
 func parseOverridesFromReadings(readings map[string]interface{}, key string) (map[string]datamanager.CaptureConfigReading, error) {
 	raw, ok := readings[key]
 	if !ok {
@@ -283,8 +285,8 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 		return nil, nil
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
-	for _, o := range controlList {
-		result[fmt.Sprintf("%s/%s", o.ResourceName, o.Method)] = o
+	for _, reading := range controlList {
+		result[capture.CaptureConfigKey(reading.ResourceName, reading.Method)] = reading
 	}
 	return result, nil
 }
@@ -292,7 +294,12 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 // runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
 // it reverts to the machine config by passing nil configs.
 func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
-	ticker := time.NewTicker(100 * time.Millisecond)
+	if b.controlPoller != nil {
+		b.logger.Warn("capture poller already running")
+		return
+	}
+
+	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
 	for {
 		select {
@@ -301,12 +308,12 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 		case <-ticker.C:
 		}
 
+		var newConfigs map[string]datamanager.CaptureConfigReading
+
 		readings, err := s.Readings(ctx, nil)
 		if ctx.Err() != nil {
 			return
 		}
-
-		var newConfigs map[string]datamanager.CaptureConfigReading
 		if err != nil {
 			b.logger.Debugw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
 		} else { // successfully read from sensor, create override config

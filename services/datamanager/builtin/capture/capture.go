@@ -314,7 +314,7 @@ func (c *Capture) initializeOrUpdateCollector(
 	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
 }
 
-// buildCollector constructs and starts a new collector, assuming the base conrfig was already validated.
+// buildCollector constructs and starts a new collector, assuming the base config was already validated.
 // The override path (SetCaptureConfigs) calls this directly.
 func (c *Capture) buildCollector(
 	res resource.Resource,
