@@ -324,7 +324,7 @@ jobs:
   motion_tests:
     needs: [check-changes]
     name: Test Longer-running Motion Plans if affected
-    uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
+    uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@APP-14315
     with:
       skip: ${{ needs.check-changes.outputs.skip_motion_tests == 'true' }}
 
