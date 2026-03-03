@@ -1,9 +1,16 @@
 #!/bin/bash
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-TEST_TARGET=${TEST_TARGET:-./...}
 ROOT_DIR="$DIR/../"
 cd $ROOT_DIR
+
+# If SKIP_ROBOT_IMPL is set (e.g. by CI when robot/impl deps are unchanged),
+# build the test target as all packages except robot/impl.
+if [[ -n "$SKIP_ROBOT_IMPL" && -z "$TEST_TARGET" ]]; then
+	echo "SKIP_ROBOT_IMPL is set; excluding go.viam.com/rdk/robot/impl from test run"
+	TEST_TARGET=$(go list ./... | grep -v '^go.viam.com/rdk/robot/impl$')
+fi
+TEST_TARGET=${TEST_TARGET:-./...}
 
 # Race is unsupported on some linux/arm64 hosts. See https://github.com/golang/go/issues/29948.
 # To run without race, use `make test-no-race` or `make test-go-no-race`.

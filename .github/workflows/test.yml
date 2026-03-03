@@ -13,7 +13,64 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
+  check-changes:
+    name: Check Changed Packages
+    runs-on: ubuntu-latest
+    outputs:
+      skip_robot_impl: ${{ steps.check.outputs.skip_robot_impl }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Determine if robot/impl tests can be skipped
+        id: check
+        run: |
+          # Always run full suite on non-PR events or when the 'full-test' label is present.
+          if [ "${{ github.event_name }}" != "pull_request_target" ]; then
+            echo "Not a PR run; will run robot/impl tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
+            echo "'full-test' label present; will run robot/impl tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ ! -f etc/robot_impl_deps.txt ]; then
+            echo "etc/robot_impl_deps.txt not found; will run robot/impl tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get directories of changed non-test Go source files vs base branch.
+          CHANGED=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}..." \
+            | grep '\.go$' \
+            | grep -v '_test\.go$' \
+            | sed 's|/[^/]*\.go$||' \
+            | sort -u || true)
+
+          if [ -z "$CHANGED" ]; then
+            echo "No non-test Go source files changed; skipping robot/impl tests"
+            echo "skip_robot_impl=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Skip robot/impl only if none of the changed directories are in its dependency tree.
+          SKIP=true
+          while IFS= read -r dir; do
+            if grep -qx "$dir" etc/robot_impl_deps.txt; then
+              echo "Changed dep found in robot/impl tree: $dir — will run robot/impl tests"
+              SKIP=false
+              break
+            fi
+          done <<< "$CHANGED"
+
+          echo "skip_robot_impl=$SKIP" >> "$GITHUB_OUTPUT"
+
   test_go:
+    needs: [check-changes]
     # note: we have automations that match on platform_name. be careful changing this.
     name: ${{ matrix.platform_name }} Go Unit Tests
     strategy:
@@ -58,11 +115,15 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
+      - name: Set SKIP_ROBOT_IMPL if robot/impl deps are unchanged
+        if: needs.check-changes.outputs.skip_robot_impl == 'true'
+        run: echo "SKIP_ROBOT_IMPL=true" >> $GITHUB_ENV
+
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
