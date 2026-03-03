@@ -317,7 +317,7 @@ func capsuleInSphere(c *capsule, s *sphere) bool {
 	return c.segA.Sub(s.pose.Point()).Norm()+c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm()+c.radius <= s.radius
 }
 
-// capsuleVsBoxCollision returns immediately as soon as any result is found indicating that the two objects are not in collision.
+// capsuleVsBoxCollision checks capsule-box collision using the precomputed Ericson SAT formulation.
 func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) (bool, float64) {
 	centerDist := b.centerPt.Sub(c.center)
 
@@ -326,36 +326,8 @@ func capsuleVsBoxCollision(c *capsule, b *box, collisionBufferMM float64) (bool,
 	if dist > collisionBufferMM {
 		return false, dist
 	}
-	rmA := c.rotationMatrix()
-	rmB := b.rotationMatrix()
-
-	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
-	// This allows us to check separating axes on a reduced set of projections.
-
-	cutoff := collisionBufferMM + c.radius
-
-	for i := 0; i < 3; i++ {
-		dist = separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB)
-		if dist > cutoff {
-			return false, dist
-		}
-		dist = separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB)
-		if dist > cutoff {
-			return false, dist
-		}
-		for j := 0; j < 3; j++ {
-			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
-
-			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				dist = separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB)
-				if dist > cutoff {
-					return false, dist
-				}
-			}
-		}
-	}
-	return true, -1
+	dist = capsuleVsBoxSATDistance(c, b, centerDist)
+	return dist <= collisionBufferMM, dist
 }
 
 func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
@@ -365,45 +337,21 @@ func capsuleBoxSeparatingAxisDistance(c *capsule, b *box) float64 {
 	if boundingSphereDist := centerDist.Norm() - ((c.length / 2) + b.boundingSphereR); boundingSphereDist > defaultCollisionBufferMM {
 		return boundingSphereDist
 	}
-	rmA := c.rotationMatrix()
-	rmB := b.rotationMatrix()
-
-	// Capsule is modeled as a 0x0xN box, where N = (length/2)-radius.
-	// This allows us to check separating axes on a reduced set of projections.
-
-	//nolint: revive
-	max := math.Inf(-1)
-	for i := 0; i < 3; i++ {
-		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmA.Row(i), b.halfSize, rmB); separation > max {
-			//nolint: revive
-			max = separation
-		}
-		if separation := separatingAxisTest1D(&centerDist, &c.capVec, rmB.Row(i), b.halfSize, rmB); separation > max {
-			//nolint: revive
-			max = separation
-		}
-		for j := 0; j < 3; j++ {
-			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
-
-			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				if separation := separatingAxisTest1D(&centerDist, &c.capVec, crossProductPlane, b.halfSize, rmB); separation > max {
-					//nolint: revive
-					max = separation
-				}
-			}
-		}
-	}
-	return max - c.radius
+	return capsuleVsBoxSATDistance(c, b, centerDist)
 }
 
-func separatingAxisTest1D(positionDelta, capVec *r3.Vector, plane r3.Vector, halfSizeB [3]float64, rmB *RotationMatrix) float64 {
-	sum := math.Abs(positionDelta.Dot(plane))
-	for i := 0; i < 3; i++ {
-		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
-	}
-	sum -= math.Abs(capVec.Dot(plane))
-	return sum
+// capsuleVsBoxSATDistance packs capsule and box parameters into the flat input array
+// and calls the specialized capsuleBoxSATMaxGap.
+func capsuleVsBoxSATDistance(c *capsule, b *box, centerDist r3.Vector) float64 {
+	rmA := c.rotationMatrix()
+	rmB := b.rotationMatrix()
+	var input [25]float64
+	copy(input[0:9], rmA.mat[:])
+	copy(input[9:18], rmB.mat[:])
+	input[18] = c.length/2 - c.radius
+	copy(input[19:22], b.halfSize[:])
+	input[22], input[23], input[24] = centerDist.X, centerDist.Y, centerDist.Z
+	return capsuleBoxSATMaxGap(&input) - c.radius
 }
 
 // CapsuleIntersectionWithPlane calculates the intersection of a geometry with a plane and returns

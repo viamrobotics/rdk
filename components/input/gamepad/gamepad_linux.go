@@ -40,25 +40,21 @@ func init() {
 }
 
 func createController(_ context.Context, name resource.Name, logger logging.Logger, devFile string, reconnect bool) input.Controller {
-	ctxWithCancel, cancel := context.WithCancel(context.Background())
 	g := gamepad{
 		Named:      name.AsNamed(),
 		logger:     logger,
 		reconnect:  reconnect,
 		devFile:    devFile,
-		cancelFunc: cancel,
 		callbacks:  map[input.Control]map[input.EventType]input.ControlFunction{},
 		lastEvents: map[input.Control]input.Event{},
 	}
 
-	g.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
-		defer g.activeBackgroundWorkers.Done()
+	g.workers = utils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 		for {
-			if !utils.SelectContextOrWait(ctxWithCancel, 250*time.Millisecond) {
+			if !utils.SelectContextOrWait(ctx, 250*time.Millisecond) {
 				return
 			}
-			err := g.connectDev(ctxWithCancel)
+			err := g.connectDev(ctx)
 			if err != nil {
 				if g.reconnect {
 					if !strings.Contains(err.Error(), "no gamepad found") {
@@ -69,7 +65,7 @@ func createController(_ context.Context, name resource.Name, logger logging.Logg
 				g.logger.Error(err)
 				return
 			}
-			g.eventDispatcher(ctxWithCancel)
+			g.eventDispatcher(ctx)
 		}
 	})
 	return &g
@@ -92,18 +88,17 @@ func NewController(
 type gamepad struct {
 	resource.Named
 	resource.AlwaysRebuild
-	dev                     *evdev.Evdev
-	Model                   string
-	Mapping                 Mapping
-	controls                []input.Control
-	lastEvents              map[input.Control]input.Event
-	logger                  logging.Logger
-	mu                      sync.RWMutex
-	activeBackgroundWorkers sync.WaitGroup
-	cancelFunc              func()
-	callbacks               map[input.Control]map[input.EventType]input.ControlFunction
-	devFile                 string
-	reconnect               bool
+	dev        *evdev.Evdev
+	Model      string
+	Mapping    Mapping
+	controls   []input.Control
+	lastEvents map[input.Control]input.Event
+	logger     logging.Logger
+	mu         sync.RWMutex
+	workers    *utils.StoppableWorkers
+	callbacks  map[input.Control]map[input.EventType]input.ControlFunction
+	devFile    string
+	reconnect  bool
 }
 
 // Mapping represents the evdev code to input.Control mapping for a given gamepad model.
@@ -145,7 +140,7 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 			switch eventIn.Event.Type {
 			case evdev.EventSync:
 				if evdev.SyncType(eventIn.Event.Code) == 4 {
-					g.sendConnectionStatus(ctx, false)
+					g.sendConnectionStatus(false)
 					err := g.dev.Close()
 					if err != nil {
 						g.logger.CError(ctx, err)
@@ -221,12 +216,12 @@ func (g *gamepad) eventDispatcher(ctx context.Context) {
 				g.logger.CDebugf(ctx, "unhandled event: %+v", eventIn)
 			}
 
-			g.makeCallbacks(ctx, eventOut)
+			g.makeCallbacks(eventOut)
 		}
 	}
 }
 
-func (g *gamepad) sendConnectionStatus(ctx context.Context, connected bool) {
+func (g *gamepad) sendConnectionStatus(connected bool) {
 	evType := input.Disconnect
 	now := time.Now()
 	if connected {
@@ -241,12 +236,12 @@ func (g *gamepad) sendConnectionStatus(ctx context.Context, connected bool) {
 				Control: control,
 				Value:   0,
 			}
-			g.makeCallbacks(ctx, eventOut)
+			g.makeCallbacks(eventOut)
 		}
 	}
 }
 
-func (g *gamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
+func (g *gamepad) makeCallbacks(eventOut input.Event) {
 	g.mu.Lock()
 	g.lastEvents[eventOut.Control] = eventOut
 	g.mu.Unlock()
@@ -264,18 +259,14 @@ func (g *gamepad) makeCallbacks(ctx context.Context, eventOut input.Event) {
 
 	ctrlFunc, ok := g.callbacks[eventOut.Control][eventOut.Event]
 	if ok && ctrlFunc != nil {
-		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer g.activeBackgroundWorkers.Done()
+		g.workers.Add(func(ctx context.Context) {
 			ctrlFunc(ctx, eventOut)
 		})
 	}
 
 	ctrlFuncAll, ok := g.callbacks[eventOut.Control][input.AllEvents]
 	if ok && ctrlFuncAll != nil {
-		g.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer g.activeBackgroundWorkers.Done()
+		g.workers.Add(func(ctx context.Context) {
 			ctrlFuncAll(ctx, eventOut)
 		})
 	}
@@ -350,15 +341,14 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 	}
 
 	g.mu.Unlock()
-	g.sendConnectionStatus(ctx, true)
+	g.sendConnectionStatus(true)
 
 	return nil
 }
 
 // Close terminates background worker threads.
 func (g *gamepad) Close(ctx context.Context) error {
-	g.cancelFunc()
-	g.activeBackgroundWorkers.Wait()
+	g.workers.Stop()
 	if g.dev != nil {
 		if err := g.dev.Close(); err != nil {
 			g.logger.CError(ctx, err)

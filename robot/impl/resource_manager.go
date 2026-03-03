@@ -701,9 +701,8 @@ func (manager *resourceManager) completeConfig(
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
 	for _, resourceNames := range levels {
-		// At the start of every reconfiguration level, check if
-		// updateWeakAndOptionalDependents should be run by checking if the logical clock is
-		// higher than the `lastWeakAndOptionalDependentsRound` value.
+		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
+		// value.
 		//
 		// This will make sure that weak and optional dependents are updated before they are
 		// passed into constructors or reconfigure methods.
@@ -725,9 +724,8 @@ func (manager *resourceManager) completeConfig(
 				continue
 			}
 
-			if lr.lastWeakAndOptionalDependentsRound.Load() < manager.resources.CurrLogicalClockValue() {
-				lr.updateWeakAndOptionalDependents(ctx)
-			}
+			lr.updateWeakAndOptionalDependents(ctx)
+			break
 		}
 		// we use an errgroup here instead of a normal waitgroup to conveniently bubble
 		// up errors in resource processing goroutinues that warrant an early exit.

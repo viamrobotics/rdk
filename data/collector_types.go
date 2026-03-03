@@ -127,7 +127,6 @@ func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 				Metadata: &datasyncPB.SensorMetadata{
 					TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
 					TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
-					MimeType:      b.MimeType.ToProto(),
 					Annotations:   b.Annotations.ToProto(),
 				},
 				Data: &datasyncPB.SensorData_Binary{
@@ -244,6 +243,24 @@ const (
 	// MimeTypeVideoMP4 is video/mp4.
 	MimeTypeVideoMP4
 )
+
+// ToString converts the MimeType enum to the mime type string it represents.
+func (mt MimeType) ToString() string {
+	switch mt {
+	case MimeTypeImageJpeg:
+		return rutils.MimeTypeJPEG
+	case MimeTypeImagePng:
+		return rutils.MimeTypePNG
+	case MimeTypeApplicationPcd:
+		return rutils.MimeTypePCD
+	case MimeTypeVideoMP4:
+		return rutils.MimeTypeVideoMP4
+	case MimeTypeUnspecified:
+		fallthrough
+	default:
+		return ""
+	}
+}
 
 // ToProto converts MimeType to datasyncPB.
 func (mt MimeType) ToProto() datasyncPB.MimeType {

@@ -205,6 +205,25 @@ func (s *serviceServer) GetProperties(
 		result.FrameRate = &props.FrameRate
 	}
 
+	if props.ExtrinsicParams != nil {
+		result.ExtrinsicParameters = &pb.ExtrinsicParameters{
+			Translation: &commonpb.Vector3{
+				X: props.ExtrinsicParams.Translation.X,
+				Y: props.ExtrinsicParams.Translation.Y,
+				Z: props.ExtrinsicParams.Translation.Z,
+			},
+		}
+		if props.ExtrinsicParams.Orientation != nil {
+			ov := props.ExtrinsicParams.Orientation.AxisAngles()
+			result.ExtrinsicParameters.Orientation = &commonpb.Orientation{
+				OX:    ov.RX,
+				OY:    ov.RY,
+				OZ:    ov.RZ,
+				Theta: ov.Theta,
+			}
+		}
+	}
+
 	result.MimeTypes = props.MimeTypes
 	return result, nil
 }

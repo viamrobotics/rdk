@@ -40,6 +40,22 @@ var boxTriangles = [12][3]int{
 	{7, 4, 6},
 }
 
+// The 12 edges of a box, as pairs of vertex indices (vertices differing in exactly one coordinate).
+var boxEdgeIndices = [12][2]int{
+	{0, 1},
+	{0, 2},
+	{0, 4},
+	{1, 3},
+	{1, 5},
+	{2, 3},
+	{2, 6},
+	{3, 7},
+	{4, 5},
+	{4, 6},
+	{5, 7},
+	{6, 7},
+}
+
 // Ordered list of box face normals.
 var boxNormals = [6]r3.Vector{
 	{1, 0, 0},
@@ -221,7 +237,7 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 	result := b.centerPt
 	direction := pt.Sub(result)
-	rm := b.center.Orientation().RotationMatrix()
+	rm := b.rotationMatrix()
 	for i := 0; i < 3; i++ {
 		axis := rm.Row(i)
 		distance := direction.Dot(axis)
@@ -238,7 +254,7 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
 func (b *box) pointPenetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.centerPt)
-	rm := b.center.Orientation().RotationMatrix()
+	rm := b.rotationMatrix()
 	//nolint: revive
 	min := math.Inf(1)
 	for i := 0; i < 3; i++ {
@@ -291,11 +307,21 @@ func (b *box) rotationMatrix() *RotationMatrix {
 
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
 // true == collision / false == no collision.
-// Since the separating axis test can exit early if no collision is found, it is efficient to avoid calling boxVsBoxDistance.
+// It will also return a lower bound estimate of the separation distance.
+// Note: this uses the Separating Axis Theorum. This will return the minimum *horizontal* distance between two boxes, where horizontal is
+// defined as in the same plane as a major axis.
+// This means that if two boxes are separated by 1 unit in X and 1 unit in Z, this will report 1 as the distance, though the true
+// corner-corner distance is sqrt(2).
+// https://dyn4j.org/2010/01/sat/#sat-nointer
+//
+// Performance note: If this needs to be faster, we could early-exit obbSATMaxGap once we are below collisionBufferMM at the cost of
+// separation distance accuracy. If we early exit, the returned value may be arbitrarily small (though still > collisionBufferMM)
+// compared to the true value.
 func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	centerDist := b.centerPt.Sub(a.centerPt)
 
 	// check if there is a distance between bounding spheres to potentially exit early
+	// Important: This is very fast but may return a significant underestimate of the actual separation distance.
 	dist := centerDist.Norm() - (a.boundingSphereR + b.boundingSphereR)
 	if dist > collisionBufferMM {
 		return false, dist
@@ -304,84 +330,52 @@ func boxVsBoxCollision(a, b *box, collisionBufferMM float64) (bool, float64) {
 	rmA := a.rotationMatrix()
 	rmB := b.rotationMatrix()
 
-	for i := 0; i < 3; i++ {
-		dist = separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if dist > collisionBufferMM {
-			return false, dist
-		}
-		dist = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if dist > collisionBufferMM {
-			return false, dist
-		}
-		for j := 0; j < 3; j++ {
-			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
-
-			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				dist = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
-				if dist > collisionBufferMM {
-					return false, dist
-				}
-			}
-		}
-	}
-	return true, -1
+	// Runnning the SAT this way is approximately 3x faster than the previous version that iterated over the axes in a loop.
+	var input [27]float64
+	copy(input[0:9], rmA.mat[:])
+	copy(input[9:18], rmB.mat[:])
+	copy(input[18:21], a.halfSize[:])
+	copy(input[21:24], b.halfSize[:])
+	input[24], input[25], input[26] = centerDist.X, centerDist.Y, centerDist.Z
+	dist = obbSATMaxGap(&input)
+	return dist < collisionBufferMM, dist
 }
 
-// boxVsBoxDistance takes two boxes as arguments and returns a floating point number.  If this number is nonpositive it represents
-// the penetration depth for the two boxes, which are in collision.  If the returned float is positive it represents
-// a lower bound on the separation distance for the two boxes, which are not in collision.
-// NOTES: calculating the true separation distance is a computationally infeasible problem
-//
-//	the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
-//
-// references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
-//
-//	https://dyn4j.org/2010/01/sat/#sat-nointer
+// boxVsBoxDistance computes the signed distance between two boxes.
+// Positive values are exact separation distance. Negative values indicate
+// penetration depth when the boxes are in colision.
+// This is much slower than the distance estimate returned by boxVsBoxCollision but will return the precise correct value.
 func boxVsBoxDistance(a, b *box) float64 {
-	centerDist := b.centerPt.Sub(a.centerPt)
-
-	// check if there is a distance between bounding spheres to potentially exit early
-	if boundingSphereDist := centerDist.Norm() - a.boundingSphereR - b.boundingSphereR; boundingSphereDist > defaultCollisionBufferMM {
-		return boundingSphereDist
+	if collision, dist := boxVsBoxCollision(a, b, 0); collision {
+		return dist
 	}
 
-	rmA := a.rotationMatrix()
-	rmB := b.rotationMatrix()
+	aVerts := a.vertices()
+	bVerts := b.vertices()
+	best := math.Inf(1)
 
-	// iterate over axes of box
-	//nolint: revive
-	max := math.Inf(-1)
-	for i := 0; i < 3; i++ {
-		// project onto face of box A
-		separation := separatingAxisTest(centerDist, rmA.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if separation > max {
-			//nolint: revive
-			max = separation
+	// Vertex of A vs B: covers vertex-face and vertex-edge pairs, and
+	// returns negative penetration depth when A's vertex is inside B.
+	for i := range aVerts {
+		if d := pointVsBoxDistance(aVerts[i], b); d < best {
+			best = d
 		}
-
-		// project onto face of box B
-		separation = separatingAxisTest(centerDist, rmB.Row(i), a.halfSize, b.halfSize, rmA, rmB)
-		if separation > max {
-			//nolint: revive
-			max = separation
+	}
+	// Vertex of B vs A.
+	for i := range bVerts {
+		if d := pointVsBoxDistance(bVerts[i], a); d < best {
+			best = d
 		}
-
-		// project onto a plane created by cross product of two edges from boxes
-		for j := 0; j < 3; j++ {
-			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
-
-			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
-			if !utils.Float64AlmostEqual(crossProductPlane.Norm(), 0, floatEpsilon) {
-				separation = separatingAxisTest(centerDist, crossProductPlane, a.halfSize, b.halfSize, rmA, rmB)
-				if separation > max {
-					//nolint: revive
-					max = separation
-				}
+	}
+	// Edge of A vs edge of B: covers edge-edge separation pairs.
+	for _, ae := range boxEdgeIndices {
+		for _, be := range boxEdgeIndices {
+			if d := SegmentDistanceToSegment(aVerts[ae[0]], aVerts[ae[1]], bVerts[be[0]], bVerts[be[1]]); d < best {
+				best = d
 			}
 		}
 	}
-	return max
+	return best
 }
 
 // boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
@@ -413,23 +407,6 @@ func boxInCapsule(b *box, c *capsule) bool {
 		}
 	}
 	return true
-}
-
-// separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
-// this plane.  Per the separating hyperplane theorem, if such a plane exists (and a positive number is returned)
-// this proves that there is no collision between the boxes
-// references:  https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-//
-//	https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
-//	https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
-//	https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-func separatingAxisTest(positionDelta, plane r3.Vector, halfSizeA, halfSizeB [3]float64, rmA, rmB *RotationMatrix) float64 {
-	sum := math.Abs(positionDelta.Dot(plane))
-	for i := 0; i < 3; i++ {
-		sum -= math.Abs(rmA.Row(i).Mul(halfSizeA[i]).Dot(plane))
-		sum -= math.Abs(rmB.Row(i).Mul(halfSizeB[i]).Dot(plane))
-	}
-	return sum
 }
 
 // ToPointCloud converts a box geometry into a []r3.Vector. This method takes one argument which
