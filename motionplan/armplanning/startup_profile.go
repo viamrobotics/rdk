@@ -5,7 +5,8 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"flag"
+	"os"
+	"strings"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -22,8 +23,11 @@ var speedMultiplier = 2.0
 
 func init() {
 	// Skip expensive profiling during tests to avoid CI timeouts
-	if flag.Lookup("test.v") != nil {
-		return
+	// Check os.Args because flags aren't registered yet during init()
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "-test.") {
+			return
+		}
 	}
 
 	logger := logging.NewLogger("startup-profile")
