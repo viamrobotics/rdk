@@ -59,7 +59,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 				continue
 			}
 
-			// rebuild or close collector to reflect override changes.
+			// Rebuild collectors to reflect override changes.
 			c.logCaptureConfigChange(key, existing, effectiveCfg)
 			coll, err := c.buildCollector(res, md, effectiveCfg, c.maxCaptureFileSize, c.mongo.collection)
 			if err != nil {
@@ -77,7 +77,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 		return
 	}
 
-	// Update the collectors map atomically
+	// Close old collectors and update the collectors map atomically.
 	c.collectorsMu.Lock()
 	for _, old := range toClose {
 		old.Collector.Close()

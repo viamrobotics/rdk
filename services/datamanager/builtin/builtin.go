@@ -89,7 +89,7 @@ type builtIn struct {
 	sync               *datasync.Sync
 	diskSummaryTracker *diskSummaryTracker
 
-	controlPoller *goutils.StoppableWorkers
+	captureControlPoller *goutils.StoppableWorkers
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -136,7 +136,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 	b.logger.Info("Close START")
 	defer b.logger.Info("Close END")
 
-	b.stopControlPoller()
+	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryTracker.close()
@@ -211,7 +211,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
 
-	b.stopControlPoller()
+	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -223,7 +223,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
-		b.controlPoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
 		})
 	}
@@ -231,12 +231,12 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	return nil
 }
 
-// Stop the control poller before acquiring b.mu to avoid deadlock:
-// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
-func (b *builtIn) stopControlPoller() {
+// stopCaptureControlPoller should be called before other calls to acquire b.mu to avoid deadlock
+// as the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
+func (b *builtIn) stopCaptureControlPoller() {
 	b.mu.Lock()
-	oldPoller := b.controlPoller
-	b.controlPoller = nil
+	oldPoller := b.captureControlPoller
+	b.captureControlPoller = nil
 	b.mu.Unlock()
 	if oldPoller != nil {
 		oldPoller.Stop()
@@ -288,7 +288,7 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 // runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
 // it reverts to the machine config by passing nil configs.
 func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
-	if b.controlPoller != nil {
+	if b.captureControlPoller != nil {
 		b.logger.Warn("capture poller already running")
 		return
 	}
