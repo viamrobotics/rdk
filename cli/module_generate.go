@@ -322,7 +322,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
-				Title("Visibiity:").
+				Title("Visibility:").
 				Options(
 					huh.NewOption("Public", moduleVisibilityPublic),
 					huh.NewOption("Private", moduleVisibilityPrivate),
