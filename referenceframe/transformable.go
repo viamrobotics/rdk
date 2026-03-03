@@ -42,6 +42,14 @@ func NewZeroPoseInFrame(frame string) *PoseInFrame {
 	}
 }
 
+func NewPoseInFrameWithGoalCloud(frame string, pose spatialmath.Pose, goalCloud *PoseCloud) *PoseInFrame {
+	return &PoseInFrame{
+		parent:    frame,
+		pose:      pose,
+		GoalCloud: goalCloud,
+	}
+}
+
 // Parent returns the name of the frame in which the pose was observed. Needed for Transformable interface.
 func (pF *PoseInFrame) Parent() string {
 	return pF.parent
