@@ -16,6 +16,7 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -28,6 +29,25 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 )
+
+// Connect creates a new grpc.ClientConn server running on localhost:port. This does not wait for
+// the robot to get out of initializing.
+func unsafeConnect(port int) (*grpc.ClientConn, error) {
+	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
+	defer cancelFunc()
+
+	var conn *grpc.ClientConn
+	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
+		fmt.Sprintf("dns:///localhost:%d", port),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(), //nolint:staticcheck
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
 
 func TestOpID(t *testing.T) {
 	ctx := context.Background()
@@ -64,7 +84,7 @@ func TestOpID(t *testing.T) {
 	}
 	test.That(t, success, test.ShouldBeTrue)
 
-	conn, err := robottestutils.Connect(port)
+	conn, err := unsafeConnect(port)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, conn.Close(), test.ShouldBeNil)
