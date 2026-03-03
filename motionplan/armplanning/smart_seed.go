@@ -720,6 +720,9 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 }
 
 func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
+	if fs == nil {
+		return nil, fmt.Errorf("cannot build smart seed cache with nil FrameSystem")
+	}
 	c := &smartSeedCache{
 		fs: fs,
 	}
