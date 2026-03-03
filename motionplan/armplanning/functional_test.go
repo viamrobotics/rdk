@@ -511,7 +511,6 @@ func TestArmAndGantrySolve(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger(t)
-	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.NewZeroLinearInputs(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
