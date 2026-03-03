@@ -38,7 +38,6 @@ type planConfig struct {
 type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
-	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -50,7 +49,6 @@ func TestUnconstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
-			t.Parallel()
 			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
