@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	gotestutils "go.viam.com/utils/testutils"
@@ -1626,9 +1627,10 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	firstErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, firstErrorLogs, test.ShouldEqual, 1)
 
-	// Verify the foo component was reconfigured once due to the first error.
-	reconfigLogsAfterFirstError := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterFirstError, test.ShouldEqual, 0)
+	// Verify the foo component was reconfigured due to the first error.
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 2)
 
 	// Clear logs again to isolate just the retry attempts.
 	logs.TakeAll()
@@ -1642,10 +1644,10 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 			test.ShouldEqual, clockAfterFirstError+int64(i*2))
 	}
 
-	// Verify the foo component did not reconfigure during the retry attempts. The repeated
-	// retry calls should NOT have caused additional reconfigurations.
-	reconfigLogsAfterAllUpdates := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterAllUpdates, test.ShouldEqual, 0)
+	// Verify the foo component reconfigured during the retry attempts.
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 10)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
 	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1897,8 +1899,9 @@ func TestModularOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 
 	// Verify the foo component reconfigured once (triggered by clock change from removal).
 	// This is the current behavior - any clock change triggers updateWeakAndOptionalDependents.
-	reconfigLogsAfterRemoval := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterRemoval, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 1)
 
 	// Verify both motors are still accessible through the foo component after reconfiguration.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -2055,8 +2058,9 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 	// Verify the foo component reconfigured twice: once when the old module was removed,
 	// and once when the new module's resources were added. Each removal/addition increments
 	// the clock, triggering updateWeakAndOptionalDependents.
-	reconfigLogsAfterModuleChange := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterModuleChange, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 2)
 
 	// Verify both motors are still accessible through the foo component after reconfiguration.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -2198,8 +2202,9 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	finalClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, finalClockValue, test.ShouldEqual, initialClockValue)
 
-	newReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, newReconfigCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 0)
 
 	// --- Recovery phase ---
 
@@ -2224,9 +2229,10 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	recoveredClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, recoveredClockValue, test.ShouldBeGreaterThan, initialClockValue)
 
-	// The clock increment triggers one reconfiguration of foo.
-	recoveryReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, recoveryReconfigCount, test.ShouldEqual, 0)
+	// The clock increment triggers reconfiguration of foo.
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 3)
 
 	// Both motors remain accessible through foo after the full crash-recovery cycle.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})

@@ -1562,7 +1562,6 @@ func TestReconfigure(t *testing.T) {
 	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, mockRe, test.ShouldNotBeNil)
-	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 0)
 
 	defer func() {
 		test.That(t, local.Close(ctx), test.ShouldBeNil)
@@ -1817,7 +1816,6 @@ func TestResourceCreationPanic(t *testing.T) {
 type mock struct {
 	resource.Named
 	resource.TriviallyCloseable
-	reconfigCount int
 }
 
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
