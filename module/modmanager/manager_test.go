@@ -340,19 +340,6 @@ func TestModManagerFunctions(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, deps, test.ShouldBeNil)
 
-			t.Log("test ReconfigureResource")
-			// Reconfigure should replace the proxied object, resetting the counter
-			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "add", "value": 73})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ret["total"], test.ShouldEqual, 73)
-
-			err = mgr.ReconfigureResource(ctx, cfgCounter1, nil)
-			test.That(t, err, test.ShouldBeNil)
-
-			ret, err = counter.DoCommand(ctx, map[string]interface{}{"command": "get"})
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, ret["total"], test.ShouldEqual, 0)
-
 			t.Log("test RemoveResource")
 			err = mgr.RemoveResource(ctx, rNameCounter1)
 			test.That(t, err, test.ShouldBeNil)
@@ -1488,21 +1475,6 @@ func TestRTPPassthrough(t *testing.T) {
 
 	passSource, ok = passCam.(rtppassthrough.Source)
 	test.That(t, ok, test.ShouldBeTrue)
-
-	// NOTE: This test relies on the model's Close() method hanlding terminating all subscriptions
-	greenLog(t, "ReconfigureResource eventually terminates all subscriptions when the new model doesn't impelement Reconfigure")
-	// create a sub
-	sub, err = passSource.SubscribeRTP(subCtx, 512, func(pkts []*rtp.Packet) {})
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, sub.Terminated.Err(), test.ShouldBeNil)
-
-	// reconfigure
-	err = mgr.ReconfigureResource(ctx, passConf, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, utils.SelectContextOrWait(sub.Terminated, time.Second), test.ShouldBeFalse)
-	test.That(t, sub.Terminated.Err(), test.ShouldBeError, context.Canceled)
 
 	greenLog(t, "replacing a module binary eventually cancels subscriptions")
 	// add a subscription

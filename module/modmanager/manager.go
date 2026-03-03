@@ -582,31 +582,6 @@ func (mgr *Manager) addResource(ctx context.Context, conf resource.Config, deps 
 	return apiInfo.RPCClient(ctx, &mod.sharedConn, "", conf.ResourceName(), mgr.logger)
 }
 
-// ReconfigureResource updates/reconfigures a modular component with a new configuration.
-func (mgr *Manager) ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error {
-	mod, ok := mgr.getModule(conf)
-	if !ok {
-		return errors.Errorf("no module registered to serve resource api %s and model %s", conf.API, conf.Model)
-	}
-
-	mod.logger.CInfow(ctx, "Reconfiguring resource for module", "resource", conf.Name, "module", mod.cfg.Name)
-
-	confProto, err := config.ComponentConfigToProto(&conf)
-	if err != nil {
-		return err
-	}
-	_, err = mod.client.ReconfigureResource(ctx, &pb.ReconfigureResourceRequest{Config: confProto, Dependencies: deps})
-	if err != nil {
-		return err
-	}
-
-	mod.resourcesMu.Lock()
-	defer mod.resourcesMu.Unlock()
-	mod.resources[conf.ResourceName()] = &addedResource{conf, deps}
-
-	return nil
-}
-
 // Configs returns a slice of config.Module representing the currently managed
 // modules.
 func (mgr *Manager) Configs() []config.Module {
