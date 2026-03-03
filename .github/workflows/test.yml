@@ -23,6 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip_robot_impl: ${{ steps.check.outputs.skip_robot_impl }}
+      skip_armplanning: ${{ steps.check.outputs.skip_armplanning }}
       skip_motion_tests: ${{ steps.check.outputs.skip_motion_tests }}
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +48,7 @@ jobs:
           else
             echo "Not a PR or dispatch run; will run all tests"
             echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_armplanning=false" >> "$GITHUB_OUTPUT"
             echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -56,6 +58,7 @@ jobs:
           if [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
             echo "'full-test' label present; will run all tests"
             echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_armplanning=false" >> "$GITHUB_OUTPUT"
             echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -106,6 +109,32 @@ jobs:
 
           echo "skip_robot_impl=$SKIP_ROBOT_IMPL" >> "$GITHUB_OUTPUT"
 
+          # --- motionplan/armplanning skip check ---
+          # Same dep-tree approach as robot/impl. armplanning is the single slowest
+          # package in the test suite (~400s) and is independent of robot/impl.
+          SKIP_ARMPLANNING=true
+
+          if [ -n "$CHANGED_GO_DIRS" ]; then
+            ARMPLANNING_DEPS=$(go list -deps go.viam.com/rdk/motionplan/armplanning \
+              | grep '^go.viam.com/rdk/' \
+              | sed 's|go.viam.com/rdk/||')
+
+            while IFS= read -r dir; do
+              if echo "$ARMPLANNING_DEPS" | grep -qx "$dir"; then
+                echo "Changed dep found in armplanning tree: $dir — will run armplanning tests"
+                SKIP_ARMPLANNING=false
+                break
+              fi
+            done <<< "$CHANGED_GO_DIRS"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q 'motionplan/armplanning/.*_test\.go'; then
+            echo "armplanning test files changed; will run armplanning tests"
+            SKIP_ARMPLANNING=false
+          fi
+
+          echo "skip_armplanning=$SKIP_ARMPLANNING" >> "$GITHUB_OUTPUT"
+
           # --- motion extended tests skip check ---
           # We use a hand-curated list of path patterns rather than a computed dep list.
           # The extended tests live in viamrobotics/motion-testing (an external repo) and
@@ -137,6 +166,7 @@ jobs:
       - name: Print skip decisions
         run: |
           echo "skip_robot_impl=${{ steps.check.outputs.skip_robot_impl }}"
+          echo "skip_armplanning=${{ steps.check.outputs.skip_armplanning }}"
           echo "skip_motion_tests=${{ steps.check.outputs.skip_motion_tests }}"
 
   test_go:
@@ -189,11 +219,15 @@ jobs:
         if: needs.check-changes.outputs.skip_robot_impl == 'true'
         run: echo "SKIP_ROBOT_IMPL=true" >> $GITHUB_ENV
 
+      - name: Set SKIP_ARMPLANNING if armplanning deps are unchanged
+        if: needs.check-changes.outputs.skip_armplanning == 'true'
+        run: echo "SKIP_ARMPLANNING=true" >> $GITHUB_ENV
+
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL -Hu testbot bash -lc 'make test-go'
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
