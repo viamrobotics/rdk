@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils"
@@ -119,8 +120,9 @@ type solutionSolvingState struct {
 	goodCost        float64
 	doingSmartSeeds bool
 
-	processCalls int
-	failures     *IkConstraintError
+	totalIkAttempts atomic.Int32
+	processCalls    int
+	failures        *IkConstraintError
 
 	solutions         []*node
 	startTime         time.Time
@@ -387,10 +389,11 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	if elapsed > timeToSearch {
-		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n"+
+			"\t timeToSearch: %v firstSolutionTime: %v totalIkAttempts: %d",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
-			elapsed, timeToSearch, sss.firstSolutionTime)
+			elapsed, timeToSearch, sss.firstSolutionTime, sss.totalIkAttempts.Load())
 		return true
 	}
 
@@ -454,8 +457,8 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		nSol, m, err := solver.Solve(ctxWithCancel,
-			solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
+		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
+			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
 		solvingState.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
 
 		solveErrorLock.Lock()

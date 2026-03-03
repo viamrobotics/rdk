@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -170,6 +171,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
@@ -218,6 +220,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		seedNumberRanged := seedNumber % len(seedStates)
 		ss := seedStates[seedNumberRanged]
 		meta[seedNumberRanged].Attempts++
+		if totalAttempts != nil {
+			totalAttempts.Add(1)
+		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
 		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
