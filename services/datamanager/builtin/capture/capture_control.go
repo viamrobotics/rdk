@@ -16,7 +16,6 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // SetCaptureConfigs applies dynamic per-resource capture configs without triggering a full Reconfigure.
 // Only collectors whose effective config (default + override) has changed are restarted.
 // Passing nil or an empty map reverts all collectors to their default machine configs.
-// configs is keyed by "resourceName/method" (e.g. "camera-1/GetImages").
 func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	type collectorUpdate struct {
 		md  collectorMetadata
@@ -48,7 +47,7 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 
 			if effectiveCfg.Disabled {
 				if existing != nil {
-					c.logger.Infof("capture config disabling capture for %s", key)
+					c.logger.Infof("capture control sensor disabling capture for %s", key)
 					toClose = append(toClose, existing)
 					updates = append(updates, collectorUpdate{md, nil})
 				}
@@ -60,13 +59,11 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 				continue
 			}
 
-			// Log any changes.
+			// rebuild or close collector to reflect override changes.
 			c.logCaptureConfigChange(key, existing, effectiveCfg)
-
-			// rebuild or close collector to reflect override changes
 			coll, err := c.buildCollector(res, md, effectiveCfg, c.maxCaptureFileSize, c.mongo.collection)
 			if err != nil {
-				c.logger.Warnw("failed to build collector for capture config", "error", err, "key", key)
+				c.logger.Warnw("failed to build collector", "error", err, "key", key)
 				continue
 			}
 			if existing != nil {
@@ -96,32 +93,28 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 	c.collectorsMu.Unlock()
 }
 
-// captureConfigUnchanged returns true when the only fields SetCaptureConfigs can modify —
-// CaptureFrequencyHz, Disabled, and Tags — are identical between the existing collector's
-// config and the newly computed effective config.
+// captureConfigUnchanged returns true when CaptureFrequencyHz, Disabled, and Tags (the only fields that can be changed
+// via the capture_control_sensor) are identical between an existing and new collector config.
 func captureConfigUnchanged(existing, effective datamanager.DataCaptureConfig) bool {
 	return existing.CaptureFrequencyHz == effective.CaptureFrequencyHz &&
 		existing.Disabled == effective.Disabled &&
 		slices.Equal(existing.Tags, effective.Tags)
 }
 
-// logCaptureConfigChange logs what changed between the existing collector's config
-// and the newly computed effectiveCfg. existing may be nil when creating a new collector.
+// logCaptureConfigChange logs changes between an existing collector's config
+// and the newly computed config.
 func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfig, effectiveCfg datamanager.DataCaptureConfig) {
 	if existing == nil {
-		c.logger.Infof("capture config enabling capture for %s: capture_frequency_hz=%f tags=%v",
+		c.logger.Infof("capture control sensor enabling capture for %s: capture_frequency_hz=%f tags=%v",
 			key, effectiveCfg.CaptureFrequencyHz, effectiveCfg.Tags)
 		return
 	}
 	prev := existing.Config
 	if prev.CaptureFrequencyHz != effectiveCfg.CaptureFrequencyHz {
-		c.logger.Infof("capture config changing capture_frequency_hz for %s: %f -> %f",
+		c.logger.Infof("capture control sensor changing capture_frequency_hz for %s: %f -> %f",
 			key, prev.CaptureFrequencyHz, effectiveCfg.CaptureFrequencyHz)
 	}
-	if prev.Disabled && !effectiveCfg.Disabled {
-		c.logger.Infof("capture config enabling previously disabled collector for %s", key)
-	}
 	if !slices.Equal(prev.Tags, effectiveCfg.Tags) {
-		c.logger.Infof("capture config changing tags for %s: %v -> %v", key, prev.Tags, effectiveCfg.Tags)
+		c.logger.Infof("capture control sensor changing tags for %s: %v -> %v", key, prev.Tags, effectiveCfg.Tags)
 	}
 }
