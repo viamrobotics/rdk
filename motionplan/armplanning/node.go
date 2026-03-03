@@ -464,6 +464,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		solveErrorLock.Unlock()
 	})
 
+	sss.startTime = time.Now() // do this after we check the cache, etc.
 solutionLoop:
 	for {
 		select {
