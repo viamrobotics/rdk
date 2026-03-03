@@ -2,6 +2,11 @@ name: Test
 
 on:
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base branch to diff against for skip checks (used to test check-changes logic)'
+        default: 'main'
+        type: string
   workflow_call:
     secrets:
       MONGODB_TEST_OUTPUT_URI:
@@ -18,56 +23,116 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip_robot_impl: ${{ steps.check.outputs.skip_robot_impl }}
+      skip_motion_tests: ${{ steps.check.outputs.skip_motion_tests }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 0
 
-      - name: Determine if robot/impl tests can be skipped
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Determine which test suites can be skipped
         id: check
         run: |
-          # Always run full suite on non-PR events or when the 'full-test' label is present.
-          if [ "${{ github.event_name }}" != "pull_request_target" ]; then
-            echo "Not a PR run; will run robot/impl tests"
+          # Determine the base ref to diff against. Only pull_request_target and
+          # workflow_dispatch runs the skip logic; all other events (e.g. push to main)
+          # always run the full suite.
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            BASE_REF="${{ github.event.pull_request.base.ref }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            BASE_REF="${{ inputs.base_ref }}"
+          else
+            echo "Not a PR or dispatch run; will run all tests"
             echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
-            echo "'full-test' label present; will run robot/impl tests"
-            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [ ! -f etc/robot_impl_deps.txt ]; then
-            echo "etc/robot_impl_deps.txt not found; will run robot/impl tests"
-            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Get directories of changed non-test Go source files vs base branch.
-          CHANGED=$(git diff --name-only "origin/${{ github.event.pull_request.base.ref }}..." \
+          # The 'full-test' label forces a complete run regardless of what changed.
+          # (Evaluates to false on workflow_dispatch where there is no PR label.)
+          if [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
+            echo "'full-test' label present; will run all tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE="origin/${BASE_REF}"
+
+          # All files changed in this PR vs base — used for the motion test check.
+          CHANGED_FILES=$(git diff --name-only "${BASE}..." || true)
+
+          # Directories of changed non-test Go source files — used for the robot/impl
+          # dep-tree check. We exclude test files here because a test file changing in
+          # a dependency (e.g. components/arm/arm_test.go) doesn't affect robot/impl's
+          # behavior. robot/impl's own test files are handled separately below.
+          CHANGED_GO_DIRS=$(echo "$CHANGED_FILES" \
             | grep '\.go$' \
             | grep -v '_test\.go$' \
             | sed 's|/[^/]*\.go$||' \
             | sort -u || true)
 
-          if [ -z "$CHANGED" ]; then
-            echo "No non-test Go source files changed; skipping robot/impl tests"
-            echo "skip_robot_impl=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          # --- robot/impl skip check ---
+          # We compute robot/impl's transitive dependency tree dynamically via 'go list
+          # -deps' rather than maintaining a static file. This ensures the check never
+          # goes stale as imports change over time.
+          SKIP_ROBOT_IMPL=true
+
+          if [ -n "$CHANGED_GO_DIRS" ]; then
+            ROBOT_IMPL_DEPS=$(go list -deps go.viam.com/rdk/robot/impl \
+              | grep '^go.viam.com/rdk/' \
+              | sed 's|go.viam.com/rdk/||')
+
+            while IFS= read -r dir; do
+              if echo "$ROBOT_IMPL_DEPS" | grep -qx "$dir"; then
+                echo "Changed dep found in robot/impl tree: $dir — will run robot/impl tests"
+                SKIP_ROBOT_IMPL=false
+                break
+              fi
+            done <<< "$CHANGED_GO_DIRS"
           fi
 
-          # Skip robot/impl only if none of the changed directories are in its dependency tree.
-          SKIP=true
-          while IFS= read -r dir; do
-            if grep -qx "$dir" etc/robot_impl_deps.txt; then
-              echo "Changed dep found in robot/impl tree: $dir — will run robot/impl tests"
-              SKIP=false
-              break
-            fi
-          done <<< "$CHANGED"
+          # Also run if robot/impl's own test files changed. A dep-tree check on
+          # non-test files won't catch this: the tests we'd be skipping were directly
+          # modified. Test files in robot/impl's *dependencies* don't apply here —
+          # those are the deps' own tests and don't affect robot/impl's test run.
+          if echo "$CHANGED_FILES" | grep -q 'robot/impl/.*_test\.go'; then
+            echo "robot/impl test files changed; will run robot/impl tests"
+            SKIP_ROBOT_IMPL=false
+          fi
 
-          echo "skip_robot_impl=$SKIP" >> "$GITHUB_OUTPUT"
+          echo "skip_robot_impl=$SKIP_ROBOT_IMPL" >> "$GITHUB_OUTPUT"
+
+          # --- motion extended tests skip check ---
+          # We use a hand-curated list of path patterns rather than a computed dep list.
+          # The extended tests live in viamrobotics/motion-testing (an external repo) and
+          # exercise specific runtime behavior using concrete hardware implementations
+          # (wheeled base, fake encoder/motor) that are not direct imports of
+          # services/motion/builtin. A dep-list would miss those triggers.
+          #
+          # We also check ALL changed files (not just Go) because non-Go assets like
+          # kinematic model JSON files in these directories can affect motion behavior.
+          MOTION_PATTERNS=(
+            motionplan
+            referenceframe
+            spatialmath
+            components/base/wheeled
+            components/base/kinematicbase
+            components/encoder/fake
+            components/motor/fake
+            services/motion/builtin
+          )
+          MOTION_PATTERN=$(IFS='|'; echo "${MOTION_PATTERNS[*]}")
+          if echo "$CHANGED_FILES" | grep -qE "$MOTION_PATTERN"; then
+            echo "Motion-related files changed; will run extended motion tests"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No motion-related files changed; skipping extended motion tests"
+            echo "skip_motion_tests=true" >> "$GITHUB_OUTPUT"
+          fi
 
   test_go:
     needs: [check-changes]
@@ -257,8 +322,11 @@ jobs:
             sudo -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && go test ./...'
 
   motion_tests:
+    needs: [check-changes]
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
+    with:
+      skip: ${{ needs.check-changes.outputs.skip_motion_tests == 'true' }}
 
   test_passing:
     name: All Tests Passing
@@ -278,7 +346,7 @@ jobs:
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
           [ "${{ needs.test_macos.result }}" == "success" ] && \
-          [ "${{ needs.motion_tests.result }}" == "success" ] && \
+          [[ "${{ needs.motion_tests.result }}" =~ ^(success|skipped)$ ]] && \
           [ "${{ needs.lint.result }}" == "success" ]
 
       - name: Mark appimage label

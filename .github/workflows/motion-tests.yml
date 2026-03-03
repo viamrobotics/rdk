@@ -3,38 +3,18 @@ name: Motion Extended Tests
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      skip:
+        description: 'Skip motion tests. Set by check-changes in test.yml when no motion-related files are detected in the diff.'
+        type: boolean
+        default: false
 
 jobs:
-  check-files:
-    name: Check files
-    runs-on: ubuntu-latest
-    outputs:
-      EXTENDED_MOTION_TEST: ${{ steps.file_checker.outputs.EXTENDED_MOTION_TEST }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
-          fetch-depth: 0
-      - name: check modified files
-        id: file_checker
-        run: |
-          ( git diff --name-only origin/${{github.base_ref}}... | grep -e "motionplan" \
-            -e "referenceframe" \
-            -e "spatialmath" \
-            -e "components/base/wheeled" \
-            -e "components/base/kinematicbase" \
-            -e "components/encoder/fake" \
-            -e "components/motor/fake" \
-            -e "services/motion/builtin" && echo "EXTENDED_MOTION_TEST=true" >> "$GITHUB_OUTPUT" ) || \
-            ( echo "EXTENDED_MOTION_TEST=false" >> "$GITHUB_OUTPUT" )
-
   motion-tests-extended:
     name:  Motion Extended Tests
-    needs: check-files
     runs-on: ubuntu-16-core
     container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
-    if: ${{ needs.check-files.outputs.EXTENDED_MOTION_TEST == 'true' }}
+    if: ${{ !inputs.skip }}
     timeout-minutes: 30
     steps:
 
