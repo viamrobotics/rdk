@@ -6,7 +6,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"os"
-	"strings"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -22,12 +21,10 @@ var wineAdjustJSON []byte
 var speedMultiplier = 2.0
 
 func init() {
-	// Skip expensive profiling during tests to avoid CI timeouts
-	// Check os.Args because flags aren't registered yet during init()
-	for _, arg := range os.Args {
-		if strings.HasPrefix(arg, "-test.") {
-			return
-		}
+	// Startup profiling disabled by default to avoid issues during tests and package initialization
+	// Set environment variable VIAM_ARMPLANNING_PROFILE=1 to enable profiling
+	if os.Getenv("VIAM_ARMPLANNING_PROFILE") != "1" {
+		return
 	}
 
 	logger := logging.NewLogger("startup-profile")
