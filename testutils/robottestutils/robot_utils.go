@@ -15,8 +15,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -60,24 +58,6 @@ func NewRobotClient(
 		test.That(tb, robotClient.Close(ctx), test.ShouldBeNil)
 	})
 	return robotClient
-}
-
-// Connect creates a new grpc.ClientConn server running on localhost:port.
-func Connect(port int) (*grpc.ClientConn, error) {
-	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
-	defer cancelFunc()
-
-	var conn *grpc.ClientConn
-	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
-		fmt.Sprintf("dns:///localhost:%d", port),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(), //nolint:staticcheck
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return conn, nil
 }
 
 // MakeTempConfig writes a config.Config object to a temporary file for testing.

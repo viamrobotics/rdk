@@ -18,7 +18,6 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"go.uber.org/zap/zapcore"
-	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -39,6 +38,7 @@ import (
 )
 
 func TestEntrypoint(t *testing.T) {
+	ctx := context.Background()
 	t.Run("number of resources", func(t *testing.T) {
 		logger, logObserver := logging.NewObservedTestLogger(t)
 		cfgFilename := utils.ResolveFile("/etc/configs/fake.json")
@@ -73,15 +73,13 @@ func TestEntrypoint(t *testing.T) {
 		}
 		test.That(t, success, test.ShouldBeTrue)
 
-		conn, err := robottestutils.Connect(port)
+		rc, err := client.New(ctx, fmt.Sprintf("localhost:%d", port), logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
-			test.That(t, conn.Close(), test.ShouldBeNil)
+			test.That(t, rc.Close(ctx), test.ShouldBeNil)
 		}()
-		rc := robotpb.NewRobotServiceClient(conn)
 
-		resourceNames, err := rc.ResourceNames(context.Background(), &robotpb.ResourceNamesRequest{})
-		test.That(t, err, test.ShouldBeNil)
+		resourceNames := rc.ResourceNames()
 
 		// numResources is the # of resources in /etc/configs/fake.json + the 1
 		// expected builtin resources.
@@ -92,7 +90,7 @@ func TestEntrypoint(t *testing.T) {
 			numResources = 18
 		}
 
-		test.That(t, len(resourceNames.Resources), test.ShouldEqual, numResources)
+		test.That(t, len(resourceNames), test.ShouldEqual, numResources)
 	})
 	t.Run("dump resource registrations", func(t *testing.T) {
 		tempDir := t.TempDir()
