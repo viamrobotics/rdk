@@ -223,9 +223,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
-		b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
-			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
-		})
+		b.startCaptureControlPoller(controlSensor, controlSensorKey)
 	}
 
 	return nil
@@ -258,6 +256,10 @@ func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource
 			"error", err.Error())
 		return nil, ""
 	}
+	if cfg.Key == "" {
+		logger.Error("missing key for capture_control_sensor readings")
+		return nil, ""
+	}
 	return s, cfg.Key
 }
 
@@ -285,14 +287,25 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	return result, nil
 }
 
-// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
-// it reverts to the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+func (b *builtIn) startCaptureControlPoller(
+	controlSensor sensor.Sensor,
+	controlSensorKey string,
+) {
 	if b.captureControlPoller != nil {
 		b.logger.Warn("capture poller already running")
 		return
 	}
 
+	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
+		func(ctx context.Context) {
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
+		},
+	)
+}
+
+// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
+// it reverts to the machine config by passing nil configs.
+func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
 	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
 	for {
