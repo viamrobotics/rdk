@@ -22,6 +22,8 @@ type PoseInFrame struct {
 	parent string
 	pose   spatialmath.Pose
 	name   string
+
+	GoalCloud *PoseCloud
 }
 
 // NewPoseInFrame generates a new PoseInFrame.
@@ -156,6 +158,7 @@ func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 	return &commonpb.PoseInFrame{
 		ReferenceFrame: framedPose.parent,
 		Pose:           poseProto,
+		GoalCloud:      framedPose.GoalCloud.ToProto(),
 	}
 }
 
