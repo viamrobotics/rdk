@@ -136,16 +136,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 	b.logger.Info("Close START")
 	defer b.logger.Info("Close END")
 
-	// Stop the control poller before acquiring b.mu to avoid deadlock:
-	// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
-	b.mu.Lock()
-	poller := b.controlPoller
-	b.controlPoller = nil
-	b.mu.Unlock()
-	if poller != nil {
-		poller.Stop()
-	}
-
+	b.stopControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryTracker.close()
@@ -220,16 +211,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
 
-	// Stop the old control poller before acquiring b.mu to avoid deadlock:
-	// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
-	b.mu.Lock()
-	oldPoller := b.controlPoller
-	b.controlPoller = nil
-	b.mu.Unlock()
-	if oldPoller != nil {
-		oldPoller.Stop()
-	}
-
+	b.stopControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -247,6 +229,18 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	}
 
 	return nil
+}
+
+// Stop the control poller before acquiring b.mu to avoid deadlock:
+// the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
+func (b *builtIn) stopControlPoller() {
+	b.mu.Lock()
+	oldPoller := b.controlPoller
+	b.controlPoller = nil
+	b.mu.Unlock()
+	if oldPoller != nil {
+		oldPoller.Stop()
+	}
 }
 
 // captureControlSensorFromDeps resolves the control sensor from dependencies.
@@ -315,8 +309,8 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			return
 		}
 		if err != nil {
-			b.logger.Debugw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
-		} else { // successfully read from sensor, create override config
+			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+		} else {
 			var parseErr error
 			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
 			if parseErr != nil {
