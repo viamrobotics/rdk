@@ -63,8 +63,8 @@ func IsDefaultOrientation(o Orientation) bool {
 	switch oo := o.(type) {
 	case *OrientationVectorDegrees:
 		return oo.OX == 0 && oo.OY == 0 && oo.OZ == 1 && oo.Theta == 0
-	case *OrientationVectorRadians:
-		return oo.OX == 0 && oo.OY == 0 && oo.OZ == 1 && oo.Theta == 0
+	case *R4AA:
+		return oo.RX == 0 && oo.RY == 0 && oo.RZ == 1 && oo.Theta == 0
 	}
 
 	return false

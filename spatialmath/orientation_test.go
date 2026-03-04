@@ -168,6 +168,6 @@ func TestOrientationVectorPoleRadius(t *testing.T) {
 func TestIsDefaultOrientation(t *testing.T) {
 	test.That(t, IsDefaultOrientation(nil), test.ShouldBeTrue)
 	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{1, 1, 1, 1}), test.ShouldBeFalse)
-	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeFalse)
-
+	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeTrue)
+	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 1, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeFalse)
 }
