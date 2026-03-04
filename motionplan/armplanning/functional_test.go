@@ -38,6 +38,7 @@ type planConfig struct {
 type planConfigConstructor func(logger logging.Logger) (*planConfig, error)
 
 func TestUnconstrainedMotion(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	testCases := []struct {
 		name   string
@@ -49,6 +50,7 @@ func TestUnconstrainedMotion(t *testing.T) {
 	for _, testCase := range testCases {
 		tcCopy := testCase
 		t.Run(tcCopy.name, func(t *testing.T) {
+			t.Parallel()
 			testPlanner(t, ctx, tcCopy.config)
 		})
 	}
@@ -467,6 +469,7 @@ func TestArmOOBSolve(t *testing.T) {
 		PlannerOptions: NewBasicPlannerOptions(),
 	})
 	test.That(t, err, test.ShouldNotBeNil)
+
 	if IsTooSmallForCache() {
 		test.That(t, err.Error(), test.ShouldEqual, errIKSolve.Error())
 	} else {
@@ -509,6 +512,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger(t)
+	t.Parallel()
 	fs := makeTestFS(t)
 	positions := frame.NewZeroLinearInputs(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
