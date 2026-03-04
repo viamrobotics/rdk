@@ -314,10 +314,16 @@ func (sa *SimulatedArm) MoveToJointPositions(
 		select {
 		case <-ctx.Done():
 			// Command cancelation.
+			sa.mu.Lock()
+			sa.operation.stopped = true
+			sa.mu.Unlock()
 			return ctx.Err()
 
 		case <-sa.ctx.Done():
 			// `simulatedArm.Close` was called or robot shutdown.
+			sa.mu.Lock()
+			sa.operation.stopped = true
+			sa.mu.Unlock()
 			return sa.ctx.Err()
 
 		default:
