@@ -181,6 +181,10 @@ jobs:
             image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
             platform: linux/amd64
             platform_name: linux-amd64
+          - arch: ubuntu-32-core
+            image: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+            platform: linux/amd64
+            platform_name: linux-amd64-32core
           - arch: ubuntu-arm-16-core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64-cache
             platform: linux/arm64
