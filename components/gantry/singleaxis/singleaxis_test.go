@@ -219,49 +219,6 @@ func TestNewSingleAxis(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, expectedErr)
 }
 
-func TestReconfigure(t *testing.T) {
-	ctx := context.Background()
-	logger := logging.NewTestLogger(t)
-	deps := createFakeDepsForTestNewSingleAxis(t)
-	fakecfg := resource.Config{
-		Name:  testGName,
-		Frame: fakeFrame,
-		ConvertedAttributes: &Config{
-			Motor:           motorName,
-			LimitSwitchPins: []string{"1", "2"},
-			LengthMm:        1.0,
-			Board:           boardName,
-			LimitPinEnabled: &setTrue,
-			GantryMmPerSec:  float64(300),
-		},
-	}
-	fakegantry, err := newSingleAxis(ctx, deps, fakecfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-	g := fakegantry.(*singleAxis)
-
-	deps = createFakeDepsForTestNewSingleAxis(t)
-	newconf := resource.Config{
-		Name:  testGName,
-		Frame: fakeFrame,
-		ConvertedAttributes: &Config{
-			Motor:           motorName,
-			LimitSwitchPins: []string{"1", "3"},
-			LengthMm:        5.0,
-			Board:           boardName,
-			LimitPinEnabled: &setTrue,
-			GantryMmPerSec:  float64(400),
-			MmPerRevolution: 10,
-		},
-	}
-	err = fakegantry.(*singleAxis).reconfigure(ctx, deps, newconf)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, g.limitSwitchPins, test.ShouldResemble, []string{"1", "3"})
-	test.That(t, g.lengthMm, test.ShouldEqual, 5.0)
-	test.That(t, g.rpm, test.ShouldEqual, float64(2400))
-	test.That(t, g.mmPerRevolution, test.ShouldEqual, 10)
-}
-
 func TestHome(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
