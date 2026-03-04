@@ -271,6 +271,7 @@ jobs:
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
       - name: Select race detector mode
+        shell: bash
         run: |
           # Race is enabled when:
           #   - this is a push to main (not a PR or dispatch), OR
