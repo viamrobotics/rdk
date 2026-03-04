@@ -237,6 +237,9 @@ func (c *webcam) startMonitorWorker() {
 
 				c.mu.Lock()
 				c.disconnected = true
+				// Clear stale frame so disconnected camera never returns outdated data
+				c.buffer.frame = nil
+				c.buffer.err = errDisconnected
 				c.mu.Unlock()
 
 				logger.Error("camera no longer connected; reconnecting")
