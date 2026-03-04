@@ -407,7 +407,7 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
+	if len(sss.solutions) == 0 && sss.totalIkAttempts.Load() > minAttempts && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
 		sss.logger.Debugf("stopping early after: %v (%d)because nothing has been found, probably won't", elapsed, sss.totalIkAttempts.Load())
