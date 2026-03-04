@@ -108,7 +108,15 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 		// If the plan is no longer safe, the `executeCtx` will be canceled. Stopping the
 		// arm/actuator and allowing us to replan with the new information.
 		obstacleAvoidance, executeCtx := errgroup.WithContext(ctx)
+		// Dan: Calling `errgroup.Wait` will first wait on goroutines and _then_ cancel the
+		// `executeCtx`. Which feels backwards. I would expect this use-case, the happy path for
+		// some background goroutines are determined by context cancelation.
 		executeCtx, executeDone := context.WithCancel(executeCtx)
+
+		// Deferring this wait inside an outer loop looks wrong, but it's argued to be safe here. In
+		// the error case where the loop tries again from the top, the errgroup will have already
+		// been emptied. If the execution succeeds without a problem, the code will return, in which
+		// case this `Wait` becomes meaningful.
 		defer func() {
 			executeDone()
 			obstacleAvoidance.Wait()
