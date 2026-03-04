@@ -25,6 +25,7 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -54,6 +55,7 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -68,6 +70,7 @@ func TestOrbManySeeds(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
+				t.Parallel()
 				logger := newChattyMotionPlanTestLogger(t)
 
 				req.PlannerOptions.RandomSeed = i
@@ -84,6 +87,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -94,6 +98,7 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			t.Parallel()
 			logger := newChattyMotionPlanTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
@@ -109,6 +114,7 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -137,6 +143,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -190,6 +197,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	t.Parallel()
 	name := "ur20-modular"
 
 	if IsTooSmallForCache() {
@@ -282,6 +290,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -316,6 +325,7 @@ func TestBadSpray1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -358,6 +368,7 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
+				t.Parallel()
 				testLogger := logging.NewTestLogger(t)
 				mpLogger := newChattyMotionPlanTestLogger(t)
 
@@ -412,6 +423,7 @@ func TestBadPlanNoCrash(t *testing.T) {
 }
 
 func TestOrbPlanTooManySteps(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
 	test.That(t, err, test.ShouldBeNil)

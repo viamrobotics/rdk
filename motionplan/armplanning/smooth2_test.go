@@ -11,6 +11,7 @@ import (
 )
 
 func TestWineCrazyTouch3(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	if IsTooSmallForCache() {
