@@ -321,6 +321,7 @@ jobs:
 
   test_win:
     name: windows
+    needs: [check-changes]
     runs-on: windows-2025
     steps:
     - uses: actions/checkout@v4
@@ -330,11 +331,43 @@ jobs:
       with:
         go-version-file: go.mod
     - name: test
+      shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
-      run:
-        # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
+        SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
+        SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
+        SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+      run: |
+        # Start from the full package list and apply the same SKIP_* filters as
+        # every other platform, so skip logic stays consistent as coverage grows.
+        TEST_TARGET=$(go list ./...)
+
+        if [[ -n "$SKIP_ROBOT_IMPL" ]]; then
+          echo "SKIP_ROBOT_IMPL set; excluding go.viam.com/rdk/robot/impl"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/robot/impl$')
+        fi
+        if [[ -n "$SKIP_ARMPLANNING" ]]; then
+          echo "SKIP_ARMPLANNING set; excluding go.viam.com/rdk/motionplan/armplanning"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/motionplan/armplanning$')
+        fi
+        if [[ -n "$SKIP_MODULE" ]]; then
+          echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
+        fi
+
+        # Intersect with the set of packages known to pass on Windows.
+        # As Windows compatibility improves, add packages here. When all packages
+        # pass, this filter can be removed entirely.
+        WORKING_WINDOWS_TESTS=(
+          go.viam.com/rdk/web/server
+          go.viam.com/rdk/module
+          go.viam.com/rdk/logging
+        )
+        WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
+        TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
+
+        echo "Running Windows tests: $(echo "$TEST_TARGET" | wc -l) packages"
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
 
     - name: Upload test.json
       if: always()
