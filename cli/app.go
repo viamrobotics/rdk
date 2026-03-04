@@ -2795,8 +2795,9 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "add-job",
 							Usage: "add a scheduled job to a machine part",
 							Description: `Add a scheduled job that runs a method on a resource at a given interval.
+This can be run without any arguments which will launch an interactive builder to help create a job, or with --attributes:
 
-With --attributes, pass a single JSON object (inline or path to a JSON file) with:
+With --attributes, pass a single JSON object (inline JSON or path to a JSON file) with:
   name       (required)  unique name for this job
   schedule   (required)  must be one of:
                            "continuous"    run in a loop without stopping

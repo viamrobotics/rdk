@@ -1697,9 +1697,6 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 				return err
 			}
 			partID = strings.TrimSpace(partID)
-			if partID == "" {
-				return errors.New("part ID cannot be empty")
-			}
 
 			// Look up the part by ID and store it so we can use its config below.
 			resp, err := client.getRobotPart(partID)
@@ -1754,8 +1751,18 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 					return nil
 				}),
 			huh.NewInput().
-				Title("If using DoCommand, set a command in JSON format (leave empty otherwise):").
-				Placeholder("{}").
+				TitleFunc(func() string {
+					if strings.ToLower(strings.TrimSpace(method)) != "docommand" {
+						return "(Optional) Add a JSON argument to your method"
+					}
+					return "Set a command in JSON format:"
+				}, &method).
+				PlaceholderFunc(func() string {
+					if strings.ToLower(strings.TrimSpace(method)) != "docommand" {
+						return "Unless you are using DoCommand, you will most likely leave this empty"
+					}
+					return "{}"
+				}, &method).
 				Value(&commandStr).
 				Validate(func(s string) error {
 					if strings.TrimSpace(s) == "" {
