@@ -320,13 +320,6 @@ func TestCaptureTypeToProto(t *testing.T) {
 	test.That(t, invalidCaptureType.ToProto(), test.ShouldEqual, datasyncPB.DataType_DATA_TYPE_UNSPECIFIED)
 }
 
-// func TestMimeTypeToProto(t *testing.T) {
-// 	test.That(t, rutils.MimeTypeJPEG, test.ShouldEqual, datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG)
-// 	test.That(t, MimeTypeImagePng.ToProto(), test.ShouldEqual, datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG)
-// 	test.That(t, MimeTypeApplicationPcd.ToProto(), test.ShouldEqual, datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD)
-// 	test.That(t, MimeTypeUnspecified.ToProto(), test.ShouldEqual, datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED)
-// }
-
 func TestMethodToCaptureType(t *testing.T) {
 	test.That(t, MethodToCaptureType(nextPointCloud), test.ShouldEqual, CaptureTypeBinary)
 	test.That(t, MethodToCaptureType(readImage), test.ShouldEqual, CaptureTypeBinary)
@@ -334,22 +327,6 @@ func TestMethodToCaptureType(t *testing.T) {
 	test.That(t, MethodToCaptureType(GetImages), test.ShouldEqual, CaptureTypeBinary)
 	test.That(t, MethodToCaptureType("anything else"), test.ShouldEqual, CaptureTypeTabular)
 }
-
-// func TestMimeTypeFromProto(t *testing.T) {
-// 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG), test.ShouldEqual, rutils.MimeTypeJPEG)
-// 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG), test.ShouldEqual, MimeTypeImagePng)
-// 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD), test.ShouldEqual, MimeTypeApplicationPcd)
-// 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED), test.ShouldEqual, MimeTypeUnspecified)
-// 	test.That(t, MimeTypeFromProto(datasyncPB.MimeType(20)), test.ShouldEqual, MimeTypeUnspecified)
-// }
-
-// func TestMimeTypeStringToMimeType(t *testing.T) {
-// 	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeJPEG), test.ShouldEqual, rutils.MimeTypeJPEG)
-// 	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypePNG), test.ShouldEqual, MimeTypeImagePng)
-// 	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawRGBA), test.ShouldEqual, MimeTypeUnspecified)
-// 	test.That(t, MimeTypeStringToMimeType(rutils.MimeTypeRawDepth), test.ShouldEqual, MimeTypeUnspecified)
-// 	test.That(t, MimeTypeStringToMimeType(""), test.ShouldEqual, MimeTypeUnspecified)
-// }
 
 func TestAnnotationsToProto(t *testing.T) {
 	conf := 0.2
