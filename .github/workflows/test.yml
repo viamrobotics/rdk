@@ -346,6 +346,7 @@ jobs:
 
   test_macos:
     name: macOS
+    needs: [check-changes]
     runs-on: macos-latest-xlarge # latest silicon MacOS runner
     timeout-minutes: 30
     steps:
@@ -365,10 +366,23 @@ jobs:
         # required for a couple unit tests in CI.
         brew install ffmpeg
     - name: test
+      env:
+        SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
+        SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
       run: |
-        # Run all tests besides motion plannning, as they can take a long time on MacOS
-        # runners which are costly to use.
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $(go list ./... | grep -v motionplan)
+        # Run all tests besides motionplan — already slow/costly on macOS runners.
+        # armplanning is a subpackage of motionplan so it is excluded by the grep below.
+        # SKIP_ROBOT_IMPL and SKIP_MODULE are applied via etc/test.sh when set.
+        TEST_TARGET=$(go list ./... | grep -v motionplan)
+        if [[ -n "$SKIP_ROBOT_IMPL" ]]; then
+          echo "SKIP_ROBOT_IMPL set; excluding go.viam.com/rdk/robot/impl"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/robot/impl$')
+        fi
+        if [[ -n "$SKIP_MODULE" ]]; then
+          echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
+        fi
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
 
     - name: Upload test.json
       if: always()
