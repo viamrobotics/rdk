@@ -368,7 +368,6 @@ func TestPirouette(t *testing.T) {
 		// iterate through pifs and create a plan which gets the arm there
 		for i, p := range pifs {
 			t.Run(fmt.Sprintf("iteration-%d-%d", iter, i), func(t *testing.T) {
-				t.Parallel()
 				testLogger := logging.NewTestLogger(t)
 				mpLogger := newChattyMotionPlanTestLogger(t)
 
@@ -415,6 +414,7 @@ func TestPirouette(t *testing.T) {
 }
 
 func TestBadPlanNoCrash(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -444,6 +444,7 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 }
 
 func TestSandingWallCollision(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -500,11 +501,13 @@ func TestSandingWallCollision(t *testing.T) {
 }
 
 func TestTeleOpTwoMove(t *testing.T) {
+	t.Parallel()
 	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
 	test.That(t, err, test.ShouldBeNil)
 
 	for i := 0; i < 5; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			t.Parallel()
 			logger := newChattyMotionPlanTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
