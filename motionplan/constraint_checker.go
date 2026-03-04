@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/logging"
@@ -289,7 +288,7 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		d, err := pair.fn(state)
 		closest = min(closest, d)
 		if err != nil {
-			return -1, errors.Wrap(err, pair.name)
+			return -1, fmt.Errorf("Violation: %v Err: %w", pair.name, err)
 		}
 	}
 
