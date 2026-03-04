@@ -456,6 +456,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	}
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
+		close(solutionGen)
 		return nil, err
 	}
 
