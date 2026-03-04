@@ -5,7 +5,6 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
-	"os"
 	"time"
 
 	"go.viam.com/rdk/logging"
