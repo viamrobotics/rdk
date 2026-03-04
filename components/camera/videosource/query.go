@@ -313,7 +313,9 @@ func selectBestDriver(
 			labels = append(labels, d.Info().Label)
 		}
 		return nil, prop.Media{}, errors.Errorf(
-			"failed to find a queryable driver that matches the config constraints. Devices tried: %s",
+			"failed to find a queryable driver that matches the config constraints. "+
+				"You can try tweaking or relaxing the constraints, e.g. removing or changing the height/width, "+
+				"changing to a valid frame format, etc. Devices tried: %s",
 			strings.Join(labels, ", "))
 	}
 
