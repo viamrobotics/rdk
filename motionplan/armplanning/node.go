@@ -350,37 +350,47 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 
 	multiple := 100.0
 	minMillis := 10000.0
+	minAttempts := int32(2000)
 	if !sss.doingSmartSeeds {
 		// if we're not doing small seeds, it means we're doing a very tiny motion
 		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
 		minMillis = 100
+		minAttempts = 100
 	}
 
 	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
 		minMillis = 2 * speedMultiplier
+		minAttempts = 4
 	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
 		minMillis = 2 * speedMultiplier
+		minAttempts = 4
 	} else if sss.bestScoreNoProblem < sss.goodCost/4 { // .25
 		multiple = 1
 		minMillis = 3 * speedMultiplier
+		minAttempts = 10
 	} else if sss.bestScoreNoProblem < sss.goodCost {
 		multiple = 5
 		minMillis = 5 * speedMultiplier
+		minAttempts = 20
 	} else if sss.bestScoreNoProblem < (sss.goodCost * 1.5) {
 		multiple = 10
 		minMillis = 25 * speedMultiplier
+		minAttempts = 50
 	} else if sss.bestScoreNoProblem < (sss.goodCost * 2) {
 		multiple = 10
 		minMillis = 100 * speedMultiplier
+		minAttempts = 200
 	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
 		multiple = 10
 		minMillis = 150 * speedMultiplier
+		minAttempts = 300
 	} else if sss.bestScoreWithProblem < sss.goodCost {
 		multiple = 20
 		minMillis = 500 * speedMultiplier
+		minAttempts = 1000
 	}
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
@@ -388,12 +398,12 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		timeToSearch = min(timeToSearch, sss.psc.pc.planOpts.timeoutDuration()/2)
 	}
 
-	if elapsed > timeToSearch {
-		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n"+
-			"\t timeToSearch: %v firstSolutionTime: %v totalIkAttempts: %d",
+	if elapsed > timeToSearch && sss.totalIkAttempts.Load() > minAttempts {
+		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v attempts: %v \n"+
+			"\t timeToSearch: %v minAttempts: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
-			elapsed, timeToSearch, sss.firstSolutionTime, sss.totalIkAttempts.Load())
+			elapsed, sss.totalIkAttempts.Load(), timeToSearch, minAttempts, sss.firstSolutionTime)
 		return true
 	}
 
