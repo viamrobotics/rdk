@@ -46,9 +46,9 @@ type PoseCloud struct {
 
 	// The X leeway where any X (with respect to the reference frame's orientation).
 	X float64 `json:"x"`
-	// The Y leeway where any X (with respect to the reference frame's orientation).
+	// The Y leeway where any Y (with respect to the reference frame's orientation).
 	Y float64 `json:"y"`
-	// The Z leeway where any X (with respect to the reference frame's orientation).
+	// The Z leeway where any Z (with respect to the reference frame's orientation).
 	Z float64 `json:"z"`
 
 	// The following orientation leeway values represents a leeway in the range of [-Value,
@@ -69,7 +69,7 @@ type PoseCloud struct {
 }
 
 func (pc *PoseCloud) ToProto() *commonpb.PoseCloud {
-	return *commonpb.PoseCloud{
+	return &commonpb.PoseCloud{
 		ReferenceFrame: pc.ReferenceFrame,
 		X:              pc.X,
 		Y:              pc.Y,

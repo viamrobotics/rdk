@@ -23,6 +23,8 @@ type PoseInFrame struct {
 	pose   spatialmath.Pose
 	name   string
 
+	// GoalCloud represents a "cloud" of poses that can be considered equivalent to this one. This
+	// is only used for motion requests that can accept a range of goal poses.
 	GoalCloud *PoseCloud
 }
 
