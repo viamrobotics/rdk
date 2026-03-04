@@ -70,7 +70,6 @@ func TestOrbManySeeds(t *testing.T) {
 
 		for i := 0; i < 100; i++ {
 			t.Run(fmt.Sprintf("%s-%d", fp, i), func(t *testing.T) {
-				t.Parallel()
 				logger := newChattyMotionPlanTestLogger(t)
 
 				req.PlannerOptions.RandomSeed = i
@@ -98,7 +97,6 @@ func TestPourManySeeds(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
-			t.Parallel()
 			logger := newChattyMotionPlanTestLogger(t)
 
 			req.PlannerOptions.RandomSeed = i
