@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -515,6 +516,11 @@ func computeInitialCollisionsToIgnore(
 		return nil, err
 	}
 
+	// For each initial collision, also ignore collisions between descendant geometries
+	// and the same obstacle. E.g. if ur20:forearm_link collides with mesh_guard at start,
+	// then sander_origin (a child frame of ur20) should also be allowed to collide with mesh_guard.
+	initialCollisions = append(initialCollisions, descendantCollisions(fs, group1, group2, initialCollisions)...)
+
 	// Add collision specifications
 	initialCollisions = append(initialCollisions, collisionSpecifications...)
 
@@ -522,6 +528,115 @@ func computeInitialCollisionsToIgnore(
 	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
 
 	return initialCollisions, nil
+}
+
+// descendantCollisions expands the initial collision ignore list: if a geometry from group1 is in
+// collision with a geometry from group2 at the start, then all group1 geometries belonging to
+// descendant frames of the colliding frame should also be allowed to collide with that group2
+// geometry. This lets the robot move out of an initial collision without blocking child frames
+// (e.g. tool attachments) that pass through the same obstacle zone.
+func descendantCollisions(
+	fs *referenceframe.FrameSystem,
+	group1, group2 []spatialmath.Geometry,
+	initialCollisions []Collision,
+) []Collision {
+	if len(initialCollisions) == 0 {
+		return nil
+	}
+
+	// Build geometry label → frame name mapping for group1.
+	// Geometry labels are either the frame name itself (e.g. "sander_origin")
+	// or "frameName:subPart" (e.g. "ur20-modular:forearm_link").
+	geomToFrame := map[string]string{}
+	for _, frameName := range fs.FrameNames() {
+		for _, g := range group1 {
+			label := g.Label()
+			if label == frameName || strings.HasPrefix(label, frameName+":") {
+				geomToFrame[label] = frameName
+			}
+		}
+	}
+
+	// Collect all group2 geometry labels for quick lookup.
+	group2Labels := map[string]bool{}
+	for _, g := range group2 {
+		group2Labels[g.Label()] = true
+	}
+
+	// For each initial collision, find the group1 frame and collect all descendant frames.
+	// Then add all group1 geometries on those descendant frames paired with the same group2 geometry.
+	alreadyIgnored := map[[2]string]bool{}
+	for _, c := range initialCollisions {
+		alreadyIgnored[[2]string{c.name1, c.name2}] = true
+		alreadyIgnored[[2]string{c.name2, c.name1}] = true
+	}
+
+	var extra []Collision
+	for _, c := range initialCollisions {
+		// Determine which name is from group1 and which from group2.
+		var g1Frame, g2Name string
+		if f, ok := geomToFrame[c.name1]; ok && group2Labels[c.name2] {
+			g1Frame = f
+			g2Name = c.name2
+		} else if f, ok := geomToFrame[c.name2]; ok && group2Labels[c.name1] {
+			g1Frame = f
+			g2Name = c.name1
+		} else {
+			continue
+		}
+
+		// Find all descendant frames of g1Frame.
+		descendants := findDescendantFrames(fs, g1Frame)
+
+		// Add all group1 geometries belonging to descendant frames.
+		for _, g := range group1 {
+			gFrame, ok := geomToFrame[g.Label()]
+			if !ok {
+				continue
+			}
+			if !descendants[gFrame] {
+				continue
+			}
+			n1, n2 := g.Label(), g2Name
+			if n1 > n2 {
+				n1, n2 = n2, n1
+			}
+			if alreadyIgnored[[2]string{n1, n2}] {
+				continue
+			}
+			alreadyIgnored[[2]string{n1, n2}] = true
+			extra = append(extra, Collision{name1: n1, name2: n2})
+		}
+	}
+	return extra
+}
+
+// findDescendantFrames returns a set of all frame names that are descendants of the given frame
+// (not including the frame itself).
+func findDescendantFrames(fs *referenceframe.FrameSystem, frameName string) map[string]bool {
+	descendants := map[string]bool{}
+	for _, name := range fs.FrameNames() {
+		if name == frameName {
+			continue
+		}
+		f := fs.Frame(name)
+		if f == nil {
+			continue
+		}
+		// Walk up the parent chain to see if frameName is an ancestor.
+		for cur := f; cur != nil; {
+			parent, err := fs.Parent(cur)
+			if err != nil || parent == nil {
+				break
+			}
+			if parent.Name() == frameName {
+				descendants[name] = true
+				break
+			}
+			cur = parent
+		}
+	}
+	return descendants
 }
 
 func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
