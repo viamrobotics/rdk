@@ -305,13 +305,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-24.04
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64
-            platform: linux/amd64
           - runner: ubuntu-large
-            image: ghcr.io/viamrobotics/rdk-devenv:amd64
-            platform: linux/amd64
-          - runner: ubuntu-16-core
             image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
           - runner: github-linux-arm64-4core
