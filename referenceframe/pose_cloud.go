@@ -1,5 +1,9 @@
 package referenceframe
 
+import (
+	commonpb "go.viam.com/api/common/v1"
+)
+
 // PoseCloud can express leeway in individual dimensions with respect to a goal pose. Combined,
 // these leeways describe a cloud where arriving at any destination within that cloud are considered
 // equivalent.
