@@ -2667,6 +2667,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 					"To add manually, run the following in PowerShell:\n"+
 					`  [Environment]::SetEnvironmentVariable("Path", `+
 					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+					"\nThen restart your terminal for the change to take effect."+
 					"\nError: %v", directoryPath, err)
 			}
 		}
