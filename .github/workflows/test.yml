@@ -311,9 +311,6 @@ jobs:
           - runner: github-linux-arm64-4core
             image: ghcr.io/viamrobotics/rdk-devenv:arm64
             platform: linux/arm64
-          - runner: ubuntu-arm-16-core
-            image: ghcr.io/viamrobotics/rdk-devenv:arm64
-            platform: linux/arm64
     runs-on: ${{ matrix.runner }}
     container:
       image: ${{ matrix.image }}
