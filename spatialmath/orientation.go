@@ -65,7 +65,6 @@ func IsDefaultOrientation(o Orientation) bool {
 		return oo.OX == 0 && oo.OY == 0 && oo.OZ == 1 && oo.Theta == 0
 	case *OrientationVectorRadians:
 		return oo.OX == 0 && oo.OY == 0 && oo.OZ == 1 && oo.Theta == 0
-
 	}
 
 	return false
