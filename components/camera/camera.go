@@ -104,7 +104,7 @@ func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
 	}
 
 	if p.ExtrinsicParams != nil {
-		if p.ExtrinsicParams.Orientation != nil {
+		if !spatialmath.IsDefaultOrientation(p.ExtrinsicParams.Orientation) {
 			// Extrinsics represent the camera's pose in the reference frame.
 			// To transform a point from the reference frame to the camera frame,
 			// we apply the inverse of the extrinsic pose.
