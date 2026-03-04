@@ -12,7 +12,8 @@ import (
 )
 
 // PlanState is a struct which holds both a referenceframe.FrameSystemPoses and a configuration.
-// This is intended to be used as start or goal states for plans. Either field may be nil.
+// This is intended to be used as start or goal states for plans. Either field may be nil. Except
+// that start states must not use `FrameSystemPoses`, only `FrameSystemInputs`.
 type PlanState struct {
 	poses                   referenceframe.FrameSystemPoses
 	structuredConfiguration referenceframe.FrameSystemInputs
