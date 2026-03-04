@@ -21,12 +21,6 @@ var wineAdjustJSON []byte
 var speedMultiplier = 2.0
 
 func init() {
-	// Startup profiling disabled by default to avoid issues during tests and package initialization
-	// Set environment variable VIAM_ARMPLANNING_PROFILE=1 to enable profiling
-	if os.Getenv("VIAM_ARMPLANNING_PROFILE") != "1" {
-		return
-	}
-
 	logger := logging.NewLogger("startup-profile")
 	logger.SetLevel(logging.WARN)
 
