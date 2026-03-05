@@ -2667,6 +2667,7 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 					"To add manually, run the following in PowerShell:\n"+
 					`  [Environment]::SetEnvironmentVariable("Path", `+
 					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+					"\nThen restart your terminal for the change to take effect."+
 					"\nError: %v", directoryPath, err)
 			}
 		}
@@ -2766,6 +2767,18 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 }
 
 func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	// On Windows, the running executable is locked and cannot be overwritten.
+	// However, it can be renamed, so move it out of the way first.
+	if runtime.GOOS == osWindows {
+		oldPath := localBinaryPath + ".old"
+		_ = os.Remove(oldPath)
+		if err := os.Rename(localBinaryPath, oldPath); err != nil && !os.IsNotExist(err) {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to rename old binary: %v", err)
+		}
+	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
 			if runtime.GOOS == osWindows {
