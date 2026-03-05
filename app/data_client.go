@@ -756,11 +756,14 @@ func (d *DataClient) CreateBinaryDataSignedURL(ctx context.Context, binaryDataID
 }
 
 // DeleteTabularData deletes tabular data older than a number of days, based on the given organization ID.
+// Optionally, a filter can be provided to further constrain which data is deleted.
+// When provided, the filter applies as an AND constraint with the organization and time parameters.
 // It returns the number of tabular datapoints deleted.
-func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int) (int, error) {
+func (d *DataClient) DeleteTabularData(ctx context.Context, organizationID string, deleteOlderThanDays int, filter *pb.TabularFilter) (int, error) {
 	resp, err := d.dataClient.DeleteTabularData(ctx, &pb.DeleteTabularDataRequest{
 		OrganizationId:      organizationID,
 		DeleteOlderThanDays: uint32(deleteOlderThanDays),
+		Filter:              filter,
 	})
 	if err != nil {
 		return 0, err
