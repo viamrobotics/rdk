@@ -2805,6 +2805,7 @@ func addToWindowsUserPATH(c *cli.Context, binaryDir string) error {
 	}
 	newPath += cleanDir
 
+	//nolint:gosec
 	if err := exec.Command("powershell", "-Command",
 		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
 			strings.ReplaceAll(newPath, `"`, `\"`)),
