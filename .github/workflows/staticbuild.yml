@@ -28,15 +28,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: ubuntu-latest
+          - arch: ubuntu-large
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release
-          - arch: ubuntu-small-arm
+          - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
             target: static-release
-          - arch: ubuntu-latest
+          - arch: ubuntu-large
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release-win
