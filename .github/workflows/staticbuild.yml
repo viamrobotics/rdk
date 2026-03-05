@@ -5,8 +5,9 @@ on:
     inputs:
       release_type:
         required: true
-        default: latest
-        type: string
+        default: pr
+        type: choice
+        options: [pr, latest, stable, rc]
       no-upload:
         type: boolean
         default: true
@@ -84,6 +85,11 @@ jobs:
       uses: google-github-actions/auth@v2
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target }}'
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -172,6 +178,11 @@ jobs:
         brew tap viamrobotics/brews
         brew install nlopt-static
         brew install x264
+
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      run: |
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" static-release-macos
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
