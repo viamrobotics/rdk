@@ -80,7 +80,7 @@ const (
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
-	generalFlagAttributes        = "attributes"
+	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 
 	moduleFlagLanguage        = "language"
@@ -3008,26 +3008,26 @@ Examples:
 					Name:  "update",
 					Usage: "update a resource on a machine part",
 					UsageText: createUsageText("resource update",
-						[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
-					Description: `Update the attributes of an existing resource. The --attributes flag accepts inline JSON
+						[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false),
+					Description: `Update the attributes of an existing resource. The --config flag accepts inline JSON
 or a path to a JSON file. Your new attributes will completely replace the existing attributes
 An empty json will delete all attributes.
 
 Examples:
   # Set an attribute
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --resource-name my-sensor --attributes '{"pin": "38"}'
+    --resource-name my-sensor --config '{"pin": "38"}'
 
   # Update from a JSON file
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --resource-name my-sensor --attributes /path/to/updates.json
+    --resource-name my-sensor --config /path/to/updates.json
 
   # Delete an attribute by passing an empty value
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --resource-name my-sensor --attributes '{"pin": ""}'`,
+    --resource-name my-sensor --config '{"pin": ""}'`,
 					Flags: append(commonPartFlags,
 						&cli.StringFlag{Name: generalFlagResourceName, Required: true},
-						&cli.StringFlag{Name: generalFlagAttributes, Required: true},
+						&cli.StringFlag{Name: generalFlagConfig, Required: true},
 					),
 					Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),
 				},

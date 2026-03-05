@@ -1637,11 +1637,11 @@ type machinesPartUpdateResourceArgs struct {
 	Location     string
 	Organization string
 	ResourceName string
-	Attributes   string
+	Config   string
 }
 
 func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
-	updates, err := parseJSONOrFile(args.Attributes)
+	updates, err := parseJSONOrFile(args.Config)
 	if err != nil {
 		return err
 	}
