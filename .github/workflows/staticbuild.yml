@@ -9,6 +9,7 @@ on:
         type: string
       no-upload:
         type: boolean
+        default: true
         description: "no-upload: if checked, don't upload"
   workflow_call:
     inputs:
