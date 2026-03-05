@@ -7,16 +7,7 @@ on:
         description: 'Base branch to diff against for skip checks (used to test check-changes logic)'
         default: 'main'
         type: string
-      race:
-        description: 'Enable race detector'
-        default: false
-        type: boolean
   workflow_call:
-    inputs:
-      race:
-        description: 'Enable race detector'
-        default: false
-        type: boolean
     secrets:
       MONGODB_TEST_OUTPUT_URI:
         required: true
@@ -270,29 +261,11 @@ jobs:
         if: needs.check-changes.outputs.skip_module == 'true'
         run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
 
-      - name: Select race detector mode
-        shell: bash
-        run: |
-          # Race is enabled when:
-          #   - this is a push to main (not a PR or dispatch), OR
-          #   - the 'full-test' label is present on the PR, OR
-          #   - inputs.race was explicitly set to true
-          # Otherwise (default for PRs) we skip race detection for speed.
-          if [[ "${{ github.event_name != 'pull_request_target' && github.event_name != 'workflow_dispatch' }}" == "true" ]] || \
-             [[ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]] || \
-             [[ "${{ inputs.race }}" == "true" ]]; then
-            echo "MAKE_TEST_TARGET=test-go" >> $GITHUB_ENV
-            echo "Race detector: enabled"
-          else
-            echo "MAKE_TEST_TARGET=test-go-no-race" >> $GITHUB_ENV
-            echo "Race detector: disabled"
-          fi
-
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE,MAKE_TEST_TARGET -Hu testbot bash -lc 'make $MAKE_TEST_TARGET'
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
@@ -478,7 +451,7 @@ jobs:
             -e SKIP_ARMPLANNING \
             -e SKIP_MODULE \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo --preserve-env=SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && make test-go-no-race'
+            sudo --preserve-env=SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && make test-go'
 
   motion_tests:
     needs: [check-changes]

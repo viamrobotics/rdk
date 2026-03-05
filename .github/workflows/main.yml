@@ -16,23 +16,38 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@APP-14315
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
-  appimage:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+  appimage-build:
+    uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@APP-14315
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  staticbuild:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+  appimage-deploy:
+    needs: [test, appimage-build]
+    uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@APP-14315
     with:
+      date: ${{ needs.appimage-build.outputs.date }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  staticbuild-build:
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@APP-14315
+    with:
+      release_type: 'latest'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  staticbuild-deploy:
+    needs: [test, staticbuild-build]
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-deploy.yml@APP-14315
+    with:
+      date: ${{ needs.staticbuild-build.outputs.date }}
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
@@ -40,7 +55,7 @@ jobs:
 
   full-static:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
+    uses: viamrobotics/rdk/.github/workflows/full-static.yml@APP-14315
     with:
       channel: latest
     secrets:
@@ -48,29 +63,29 @@ jobs:
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@APP-14315
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   cli:
-    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@APP-14315
     with:
       release_type: 'latest'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   license_finder:
-    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
+    uses: viamrobotics/rdk/.github/workflows/license_finder.yml@APP-14315
 
   slack-workflow-status:
     if: ${{ !success() }}
     name: Post Workflow Status To Slack
     needs:
       - test
-      - appimage
-      - staticbuild
+      - appimage-deploy
+      - staticbuild-deploy
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'
