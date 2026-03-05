@@ -103,7 +103,7 @@ func (wrapper *Arm) EndPosition(ctx context.Context, extra map[string]interface{
 	if err != nil {
 		return nil, err
 	}
-	return referenceframe.ComputeOOBPosition(wrapper.model, joints)
+	return wrapper.model.Transform(joints)
 }
 
 // MoveToPosition sets the position.

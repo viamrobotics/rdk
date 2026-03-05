@@ -42,12 +42,6 @@ func TestOOBArmMotion(t *testing.T) {
 		},
 	}
 
-	t.Run("EndPosition works when OOB", func(t *testing.T) {
-		pose, err := injectedArm.EndPosition(context.Background(), nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldNotBeNil)
-	})
-
 	t.Run("MoveArm fails when OOB", func(t *testing.T) {
 		pose := spatialmath.NewPoseFromPoint(r3.Vector{200, 200, 200})
 		err := armplanning.MoveArm(context.Background(), logger, injectedArm, pose)

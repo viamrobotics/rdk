@@ -6,9 +6,9 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// DuplicateResourceShortNameError returns an error if mutiple components are attempted to be registered in the frame system which
-// share a short name.
-func DuplicateResourceShortNameError(name string) error {
+// DuplicateResourceNameError returns an error if multiple components are attempted to be registered in the frame system which
+// share a name.
+func DuplicateResourceNameError(name string) error {
 	return errors.Errorf("got multiple resources with name: %v", name)
 }
 

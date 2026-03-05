@@ -1,6 +1,7 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -951,6 +952,10 @@ func TestResourceGraphMarkForRemoval(t *testing.T) {
 }
 
 func TestResourceGraphClock(t *testing.T) {
+	// This test verifies that the logical clock is incremented correctly for:
+	// 1. Basic SwapResource operations
+	// 2. Multiple independent nodes
+	// 3. All resource state transitions: removal, usable→unusable, and unusable→usable
 	logger := logging.NewTestLogger(t)
 	g := NewGraph(logger)
 
@@ -970,6 +975,7 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, n, test.ShouldNotEqual, node2) // see docs of AddNode/GraphNode.replace
 	test.That(t, n, test.ShouldEqual, node1)    // see docs of AddNode/GraphNode.replace
 
+	// Test basic SwapResource behavior.
 	res1 := &someResource{Named: name1.AsNamed()}
 	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 1)
@@ -979,12 +985,56 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
+	// Test multiple independent nodes.
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
 	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
+
+	// Test state transitions on node1.
+	// Mark node for removal (should increment clock).
+	node1.MarkForRemoval()
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 4)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 4)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Swap resource to bring node1 back to usable state (increments clock).
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 5)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 5)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Set error to transition from usable to unusable (should increment clock).
+	node1.LogAndSetLastError(errors.New("first error"))
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 6)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 6)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Set another error while already unusable (should NOT increment clock).
+	node1.LogAndSetLastError(errors.New("second error"))
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 6)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 6)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Set yet another error while already unusable (should still NOT increment clock).
+	node1.LogAndSetLastError(errors.New("third error"))
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 6)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 6)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Swap resource to transition back to usable (should increment clock).
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 7)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 7)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
+
+	// Set error again to verify the transition still works (should increment clock).
+	node1.LogAndSetLastError(errors.New("fourth error"))
+	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 8)
+	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 8)
+	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
 }
 
 func TestResourceGraphLastReconfigured(t *testing.T) {

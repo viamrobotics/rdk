@@ -3,6 +3,7 @@ package ik
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/multierr"
@@ -45,6 +46,7 @@ func CreateCombinedIKSolver(
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
 	costFunc CostFunc,
@@ -67,7 +69,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, m, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
+			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()

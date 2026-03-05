@@ -2,6 +2,7 @@ package ik
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,7 +31,8 @@ func TestCreateNloptSolver(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		var totalAttempts atomic.Int32
+		_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -38,7 +40,8 @@ func TestCreateNloptSolver(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, true, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, meta, err := DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		var totalAttempts atomic.Int32
+		_, meta, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 		for idx, m := range meta {
 			logger.Debugf("seed: %d %#v", idx, m)
@@ -57,7 +60,8 @@ func TestCreateNloptSolver(t *testing.T) {
 		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
-		_, _, err = DoSolve(context.Background(), ik, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		var totalAttempts atomic.Int32
+		_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

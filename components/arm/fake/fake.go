@@ -4,7 +4,6 @@ package fake
 import (
 	"context"
 	_ "embed"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -38,7 +37,6 @@ var (
 	xArm6Model = "xarm6"
 	xArm7Model = "xarm7"
 	lite6Model = "lite6"
-	so101Model = "so101"
 )
 
 //go:embed kinematics/fake.json
@@ -58,9 +56,6 @@ var xarm7JSON []byte
 
 //go:embed kinematics/lite6.json
 var lite6JSON []byte
-
-//go:embed kinematics/so101.json
-var so101JSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -166,7 +161,7 @@ func (a *Arm) EndPosition(ctx context.Context, extra map[string]interface{}) (sp
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	return referenceframe.ComputeOOBPosition(a.model, joints)
+	return a.model.Transform(joints)
 }
 
 // MoveToPosition sets the position.
@@ -175,10 +170,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pose spatialmath.Pose, extra m
 	defer a.mu.Unlock()
 
 	model := a.model
-	_, err := model.Transform(a.joints)
-	if err != nil && strings.Contains(err.Error(), referenceframe.OOBErrString) {
-		return errors.New("cannot move arm: " + err.Error())
-	} else if err != nil {
+	if _, err := model.Transform(a.joints); err != nil {
 		return err
 	}
 
@@ -323,8 +315,6 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
 	case lite6Model:
 		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
-	case so101Model:
-		return referenceframe.UnmarshalModelJSON(so101JSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:

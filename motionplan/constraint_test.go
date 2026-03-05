@@ -433,6 +433,104 @@ func TestSegmentStepCount(t *testing.T) {
 	})
 }
 
+func TestComputeInitialCollisionsToIgnore(t *testing.T) {
+	fs := referenceframe.NewEmptyFrameSystem("")
+
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("combines initial collisions with specifications", func(t *testing.T) {
+		// Create colliding geometries
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
+
+		// Test that initial collisions are detected and combined with specifications
+		collisionSpecs := []Collision{{"box1", "box3"}}
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static,
+			collisionSpecs, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ignoreList), test.ShouldEqual, 2)
+
+		// Verify the specification collision is included
+		found := false
+		for _, c := range ignoreList {
+			if c.name1 == "box1" && c.name2 == "box3" {
+				found = true
+				break
+			}
+		}
+		test.That(t, found, test.ShouldBeTrue)
+	})
+
+	t.Run("empty when no collisions or specs", func(t *testing.T) {
+		// Create non-colliding geometries
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
+		geom2.SetLabel("box2")
+
+		moving := []spatial.Geometry{geom1}
+		static := []spatial.Geometry{geom2}
+
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(ignoreList), test.ShouldEqual, 0)
+	})
+}
+
+func TestCollisionDistance(t *testing.T) {
+	bc1, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("collision returns -1 and error", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
+			defaultCollisionBufferMM, false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldNotBeEmpty)
+		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
+		test.That(t, collisions[0].name2, test.ShouldBeIn, "box1", "box2")
+	})
+
+	t.Run("no collision returns positive distance", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewPoseFromPoint(r3.Vector{10, 0, 0}))
+		geom2.SetLabel("box2")
+
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
+	})
+
+	t.Run("ignored collision returns positive distance", func(t *testing.T) {
+		geom1 := bc1.Transform(spatial.NewZeroPose())
+		geom1.SetLabel("box1")
+		geom2 := bc1.Transform(spatial.NewZeroPose())
+		geom2.SetLabel("box2")
+
+		ignoreList := []Collision{{"box1", "box2"}}
+		collisions, minDist, err := CheckCollisions(
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false,
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collisions, test.ShouldBeEmpty)
+		test.That(t, minDist, test.ShouldBeGreaterThan, 0)
+	})
+}
+
 func BenchmarkCollisionConstraints(b *testing.B) {
 	// define external obstacles
 	bc, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{2, 2, 2}, "")

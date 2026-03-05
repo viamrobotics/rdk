@@ -52,3 +52,20 @@ func OrientationInverse(o Orientation) Orientation {
 	q := Quaternion(quat.Inv(o.Quaternion()))
 	return &q
 }
+
+// IsDefaultOrientation return true if there is no orientation or if it's the default
+// only works for OrientationVectorDegrees right now
+func IsDefaultOrientation(o Orientation) bool {
+	if o == nil {
+		return true
+	}
+
+	switch oo := o.(type) {
+	case *OrientationVectorDegrees:
+		return oo.OX == 0 && oo.OY == 0 && oo.OZ == 1 && oo.Theta == 0
+	case *R4AA:
+		return oo.RX == 0 && oo.RY == 0 && oo.RZ == 1 && oo.Theta == 0
+	}
+
+	return false
+}

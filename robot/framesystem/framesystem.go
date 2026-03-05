@@ -204,11 +204,10 @@ func (svc *frameSystemService) Reconfigure(ctx context.Context, deps resource.De
 
 	components := make(map[string]resource.Resource)
 	for name, r := range deps {
-		short := name.ShortName()
-		if _, present := components[short]; present {
-			return DuplicateResourceShortNameError(short)
+		if _, present := components[name.Name]; present {
+			return DuplicateResourceNameError(name.Name)
 		}
-		components[short] = r
+		components[name.Name] = r
 	}
 	svc.components = components
 	svc.logger.Info("Reconfigured. Known components:", components)

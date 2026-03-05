@@ -102,7 +102,14 @@ func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
 			fooConfig.RequiredMotor)
 	}
 
-	f.optionalMotor, err = motor.FromProvider(deps, fooConfig.OptionalMotor)
+	// Resolve the optional motor by name. If the config value is a fully qualified
+	// resource name (e.g. "rdk:component:motor/m"), parse it directly to get the
+	// correct lookup key; otherwise fall back to motor.Named for short/remote names.
+	optMotorName := motor.Named(fooConfig.OptionalMotor)
+	if parsed, parseErr := resource.NewFromString(fooConfig.OptionalMotor); parseErr == nil {
+		optMotorName = parsed
+	}
+	f.optionalMotor, err = resource.FromProvider[motor.Motor](deps, optMotorName)
 	if err != nil {
 		f.logger.Infof("could not get optional motor %s from dependencies; continuing",
 			fooConfig.OptionalMotor)

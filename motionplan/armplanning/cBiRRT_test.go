@@ -113,7 +113,8 @@ func TestSimpleLinearMotion(t *testing.T) {
 	for i, step := range inputSteps {
 		inputSlice[i] = step.inputs
 	}
-	finalSteps := smoothPath(ctx, psc, inputSlice)
+	finalSteps, err := smoothPath(ctx, psc, inputSlice)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(finalSteps), test.ShouldBeLessThanOrEqualTo, unsmoothLen)
 	// Test that path has changed after smoothing was applied
 	test.That(t, finalSteps, test.ShouldNotResemble, inputSteps)

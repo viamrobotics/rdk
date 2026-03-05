@@ -355,3 +355,40 @@ func TestFrameToJSONAndBack(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eq, test.ShouldBeTrue)
 }
+
+func TestLimitMethods(t *testing.T) {
+	// test basic
+	l := Limit{0, 10}
+	a, b, c := l.GoodLimits()
+	test.That(t, a, test.ShouldEqual, 0)
+	test.That(t, b, test.ShouldEqual, 10)
+	test.That(t, c, test.ShouldEqual, 10)
+
+	d := l.Jog(5, .25)
+	test.That(t, d, test.ShouldEqual, 7.5)
+
+	// test rotational magic
+
+	test.That(t, isMultipleOfPi(0), test.ShouldBeTrue)
+	test.That(t, isMultipleOfPi(-2*math.Pi), test.ShouldBeTrue)
+	test.That(t, isMultipleOfPi(math.Pi), test.ShouldBeTrue)
+	test.That(t, isMultipleOfPi(4*math.Pi), test.ShouldBeTrue)
+	test.That(t, isMultipleOfPi(.1), test.ShouldBeFalse)
+	test.That(t, isMultipleOfPi(10), test.ShouldBeFalse)
+
+	l = Limit{-4 * math.Pi, 4 * math.Pi}
+	_, _, c = l.GoodLimits()
+	test.That(t, c, test.ShouldEqual, 8*math.Pi)
+
+	d = l.Jog(0, .25)
+	test.That(t, d, test.ShouldEqual, math.Pi/2)
+
+	l = Limit{-6.265732014659642, 6.26573201465964} // from xarm
+	d = l.Jog(0, .25)
+	test.That(t, d, test.ShouldEqual, math.Pi/2)
+
+	// sanity
+	l = Limit{math.Inf(-1), math.Inf(1)}
+	d = l.Jog(0, .25)
+	test.That(t, d, test.ShouldAlmostEqual, rangeLimit/2, 1)
+}

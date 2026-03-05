@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 type method int64
@@ -77,7 +78,7 @@ func newPointCloudMapCollector(resource interface{}, params data.CollectorParams
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			Payload:  pcd,
-			MimeType: data.MimeTypeApplicationPcd,
+			MimeType: utils.MimeTypePCD,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)

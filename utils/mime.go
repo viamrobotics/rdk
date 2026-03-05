@@ -48,6 +48,12 @@ const (
 
 	// MimeTypeVideoMp4 is used to indicate .mp4 video files.
 	MimeTypeVideoMP4 = "video/mp4"
+
+	// MimeTypeAudioMPEG is used to indicate .mp3 audio files.
+	MimeTypeAudioMPEG = "audio/mpeg"
+
+	// MimeTypeAudioWAV is used to indicate .wav audio files.
+	MimeTypeAudioWAV = "audio/wav"
 )
 
 // WithLazyMIMEType attaches the lazy suffix to a MIME.

@@ -88,7 +88,7 @@ func TestCaptureQueue(t *testing.T) {
 			for i := 0; i < tc.pushCount; i++ {
 				switch {
 				case tc.dataType == CaptureTypeBinary.ToProto():
-					err := sut.WriteBinary([]*v1.SensorData{binarySensorData})
+					err := sut.WriteBinary(binarySensorData, rutils.MimeTypeDefault)
 					test.That(t, err, test.ShouldBeNil)
 				case tc.dataType == CaptureTypeTabular.ToProto():
 					err := sut.WriteTabular(structSensorData)
@@ -417,6 +417,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			tags              []string
 			methodName        string
 			expectedExtension string
+			mimeType          string
 		}
 		testCases := []testCase{
 			{
@@ -425,6 +426,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       readImage,
+				mimeType:         rutils.MimeTypeJPEG,
 			},
 			{
 				name:              readImage + " with jpeg mime type in additional params",
@@ -433,6 +435,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				tags:              []string{"", "tags"},
 				expectedExtension: ".jpeg",
 				methodName:        readImage,
+				mimeType:          rutils.MimeTypeJPEG,
 			},
 			{
 				name:              readImage + " with png mime type in additional params",
@@ -441,6 +444,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				tags:              []string{"", "tags"},
 				expectedExtension: ".png",
 				methodName:        readImage,
+				mimeType:          rutils.MimeTypePNG,
 			},
 			{
 				name:              readImage + " with pcd mime type in additional params",
@@ -449,6 +453,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				tags:              []string{"", "tags"},
 				expectedExtension: ".pcd",
 				methodName:        readImage,
+				mimeType:          rutils.MimeTypePCD,
 			},
 			{
 				name:              nextPointCloud,
@@ -457,6 +462,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				tags:              []string{"my", "tags"},
 				methodName:        nextPointCloud,
 				expectedExtension: ".pcd",
+				mimeType:          rutils.MimeTypePCD,
 			},
 			{
 				name:             GetImages,
@@ -464,6 +470,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				additionalParams: map[string]interface{}{"some": "params"},
 				tags:             []string{"my", "tags"},
 				methodName:       GetImages,
+				mimeType:         rutils.MimeTypeDefault,
 			},
 			{
 				name:             pointCloudMap,
@@ -473,6 +480,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				// NOTE: The fact that this doesn't get a .pcd extension is inconsistent with
 				// how camera.NextPointCloud is handled
 				methodName: pointCloudMap,
+				mimeType:   rutils.MimeTypePCD,
 			},
 		}
 
@@ -531,7 +539,7 @@ func TestCaptureBufferReader(t *testing.T) {
 						Binary: []byte("this is fake binary data"),
 					},
 				}}
-				test.That(t, b.WriteBinary(msg), test.ShouldBeNil)
+				test.That(t, b.WriteBinary(msg[0], tc.mimeType), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				secondDirEntries, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
@@ -566,7 +574,7 @@ func TestCaptureBufferReader(t *testing.T) {
 					},
 				}}
 
-				test.That(t, b.WriteBinary(msg3), test.ShouldBeNil)
+				test.That(t, b.WriteBinary(msg3[0], tc.mimeType), test.ShouldBeNil)
 
 				timeRequested = timestamppb.New(now.UTC())
 				timeReceived = timestamppb.New(now.Add(time.Millisecond).UTC())
@@ -580,7 +588,7 @@ func TestCaptureBufferReader(t *testing.T) {
 					},
 				}}
 				// Every binary data written becomes a new data capture file
-				test.That(t, b.WriteBinary(msg4), test.ShouldBeNil)
+				test.That(t, b.WriteBinary(msg4[0], tc.mimeType), test.ShouldBeNil)
 				test.That(t, b.Flush(), test.ShouldBeNil)
 				thirdDirEntries, err := os.ReadDir(b.Path())
 				test.That(t, err, test.ShouldBeNil)
@@ -669,7 +677,7 @@ func TestCaptureBufferReader(t *testing.T) {
 				Binary: []byte("this is a fake image"),
 			},
 		}}
-		test.That(t, b.WriteBinary(msg), test.ShouldBeNil)
+		test.That(t, b.WriteBinary(msg[0], rutils.MimeTypeJPEG), test.ShouldBeNil)
 		test.That(t, b.Flush(), test.ShouldBeNil)
 		dirEntries, err := os.ReadDir(b.Path())
 		test.That(t, err, test.ShouldBeNil)
@@ -746,7 +754,7 @@ func TestCaptureBufferReader(t *testing.T) {
 			},
 		}}
 
-		test.That(t, b.WriteBinary(msg), test.ShouldBeError, errInvalidBinarySensorData)
+		test.That(t, b.WriteBinary(msg[0], "application/octet-stream"), test.ShouldBeError, errInvalidBinarySensorData)
 		test.That(t, b.Flush(), test.ShouldBeNil)
 		dirEntries, err := os.ReadDir(b.Path())
 		test.That(t, err, test.ShouldBeNil)

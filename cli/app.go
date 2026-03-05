@@ -2662,6 +2662,15 @@ Note: There is no progress meter while copying is in progress.
 									Aliases: []string{"f"},
 									Usage:   "follow logs",
 								},
+								&cli.StringFlag{
+									Name:        generalFlagStart,
+									Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+									DefaultText: "12 hours ago",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+								},
 								&cli.IntFlag{
 									Name:        generalFlagCount,
 									Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
@@ -3485,7 +3494,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
@@ -3564,7 +3573,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,

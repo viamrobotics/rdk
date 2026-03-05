@@ -64,12 +64,12 @@ func TestUploadDataCaptureFile(t *testing.T) {
 
 	ts2 := data.Timestamps{TimeRequested: now, TimeReceived: now.Add(time.Second)}
 	smallBinaryJpegResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
-		{Payload: []byte("I'm a small binary result"), MimeType: data.MimeTypeImageJpeg},
+		{Payload: []byte("I'm a small binary result"), MimeType: utils.MimeTypeJPEG},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
 	smallBinaryPngResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
-		{Payload: []byte("I'm a small binary result"), MimeType: data.MimeTypeImagePng},
+		{Payload: []byte("I'm a small binary result"), MimeType: utils.MimeTypePNG},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -80,7 +80,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 
 	largeBinaryPayload := slices.Repeat([]byte{1, 2}, units.MB)
 	largeBinaryResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
-		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImagePng},
+		{Payload: largeBinaryPayload, MimeType: utils.MimeTypePNG},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
@@ -90,19 +90,19 @@ func TestUploadDataCaptureFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	smallGetImagesResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
-		{Payload: []byte("I'm a small binary jpeg result"), MimeType: data.MimeTypeImageJpeg},
-		{Payload: []byte("I'm a small binary png result"), MimeType: data.MimeTypeImagePng},
+		{Payload: []byte("I'm a small binary jpeg result"), MimeType: utils.MimeTypeJPEG},
+		{Payload: []byte("I'm a small binary png result"), MimeType: utils.MimeTypePNG},
 	})
 
 	largeGetImagesResult := data.NewBinaryCaptureResult(ts2, []data.Binary{
-		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImageJpeg},
-		{Payload: largeBinaryPayload, MimeType: data.MimeTypeImagePng},
+		{Payload: largeBinaryPayload, MimeType: utils.MimeTypeJPEG},
+		{Payload: largeBinaryPayload, MimeType: utils.MimeTypePNG},
 	})
 	conf := 0.888
 	smallVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{
 			Payload:  []byte("I'm a small binary jpeg result"),
-			MimeType: data.MimeTypeImageJpeg,
+			MimeType: utils.MimeTypeJPEG,
 			Annotations: data.Annotations{
 				BoundingBoxes: []data.BoundingBox{
 					{
@@ -132,7 +132,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 	largeVisionCaptureAllFromCamera := data.NewBinaryCaptureResult(ts2, []data.Binary{
 		{
 			Payload:  largeBinaryPayload,
-			MimeType: data.MimeTypeImagePng,
+			MimeType: utils.MimeTypePNG,
 			Annotations: data.Annotations{
 				BoundingBoxes: []data.BoundingBox{
 					{
@@ -306,6 +306,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: smallBinaryJpegResult.ToProto(),
 				},
@@ -351,6 +352,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: smallBinaryPngResult.ToProto(),
 				},
@@ -404,6 +406,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: largeBinaryResult.ToProto(),
 				},
@@ -552,6 +555,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: largeBinaryResult.ToProto(),
 				},
@@ -593,6 +597,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: []*v1.SensorData{smallGetImagesResult.ToProto()[0]},
 				},
@@ -605,6 +610,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: []*v1.SensorData{smallGetImagesResult.ToProto()[1]},
 				},
@@ -660,6 +666,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: []*v1.SensorData{largeGetImagesResult.ToProto()[0]},
 				},
@@ -672,6 +679,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: []*v1.SensorData{largeGetImagesResult.ToProto()[1]},
 				},
@@ -713,6 +721,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypeJPEG,
 					},
 					sd: smallVisionCaptureAllFromCamera.ToProto(),
 				},
@@ -768,6 +777,7 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						PartId:        partID,
 						Tags:          []string{"tag1", "tag2"},
 						Type:          v1.DataType_DATA_TYPE_BINARY_SENSOR,
+						MimeType:      utils.MimeTypePNG,
 					},
 					sd: largeVisionCaptureAllFromCamera.ToProto(),
 				},
@@ -784,28 +794,52 @@ func TestUploadDataCaptureFile(t *testing.T) {
 			md, ct := data.BuildCaptureMetadata(tc.api, tc.name, tc.method, tc.additionalParams, methodParams, tc.tags)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, ct, test.ShouldEqual, tc.captureType)
-			w, err := data.NewCaptureFile(tempDir, md)
-			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(tc.expectedUploads), test.ShouldBeGreaterThan, 0)
-			for _, sd := range tc.captureResults.ToProto() {
-				test.That(t, w.WriteNext(sd), test.ShouldBeNil)
+
+			protoData := tc.captureResults.ToProto()
+
+			var files [][]*v1.SensorData
+
+			if ct == data.CaptureTypeBinary {
+				// one binary data per capture file
+				for i := range protoData {
+					files = append(files, []*v1.SensorData{protoData[i]})
+				}
+			} else {
+				files = append(files, protoData)
 			}
-			w.Flush()
-			w.Close()
+			for i, fileData := range files {
+				mdCopy := md
 
-			f, err := os.Open(strings.Replace(w.GetPath(), data.InProgressCaptureFileExt, data.CompletedCaptureFileExt, 1))
-			test.That(t, err, test.ShouldBeNil)
+				if ct == data.CaptureTypeBinary && len(tc.captureResults.Binaries) > 0 {
+					mdCopy.MimeType = tc.captureResults.Binaries[i].MimeType
+				}
 
-			stat, err := f.Stat()
-			test.That(t, err, test.ShouldBeNil)
+				w, err := data.NewCaptureFile(tempDir, mdCopy)
+				test.That(t, err, test.ShouldBeNil)
 
-			test.That(t, data.IsDataCaptureFile(f), test.ShouldBeTrue)
-			cf, err := data.ReadCaptureFile(f)
-			test.That(t, err, test.ShouldBeNil)
-			cc := cloudConn{partID: partID, client: tc.client}
-			bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, bytesUploaded, test.ShouldEqual, stat.Size())
+				for _, sd := range fileData {
+					test.That(t, w.WriteNext(sd), test.ShouldBeNil)
+				}
+
+				w.Flush()
+				w.Close()
+
+				// Upload file
+				f, err := os.Open(strings.Replace(w.GetPath(), data.InProgressCaptureFileExt, data.CompletedCaptureFileExt, 1))
+				test.That(t, err, test.ShouldBeNil)
+				stat, err := f.Stat()
+				test.That(t, err, test.ShouldBeNil)
+
+				test.That(t, data.IsDataCaptureFile(f), test.ShouldBeTrue)
+				cf, err := data.ReadCaptureFile(f)
+				test.That(t, err, test.ShouldBeNil)
+				cc := cloudConn{partID: partID, client: tc.client}
+				bytesUploaded, err := uploadDataCaptureFile(testCtx, cf, cc, logger, nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, bytesUploaded, test.ShouldEqual, stat.Size())
+			}
+
 			if tc.unaryReqs != nil {
 				for i := 0; i < len(tc.expectedUploads); i++ {
 					t.Logf("unaryReqs: i: %d", i)
@@ -816,8 +850,6 @@ func TestUploadDataCaptureFile(t *testing.T) {
 						t.FailNow()
 					case req := <-tc.unaryReqs:
 						t.Logf("got req\n")
-						test.That(t, len(tc.expectedUploads[i].sd), test.ShouldEqual, 1)
-						test.That(t, req.Metadata.FileExtension, test.ShouldResemble, tc.expectedUploads[i].md.FileExtension)
 						test.That(t, req.Metadata, test.ShouldResemble, tc.expectedUploads[i].md)
 						compareSensorData(t, tc.captureType.ToProto(), req.SensorContents, tc.expectedUploads[i].sd)
 					}

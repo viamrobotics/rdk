@@ -68,12 +68,6 @@ var (
 	// defaultResourcesTimeout is the default timeout for getting resources.
 	defaultResourcesTimeout = 5 * time.Second
 
-	// DoNotWaitForRunning should be set only in tests to allow connecting to
-	// still-initializing machines. Note that robot clients in production (not in
-	// a testing environment) will already allow connecting to still-initializing
-	// machines.
-	DoNotWaitForRunning = atomic.Bool{}
-
 	// latencyPingNum controls the amount of times a gRPC request will be sent to the server
 	// to measure the latency of the connection. The latency is only measured in case
 	// WithNetworkStats option is specified by the client.
@@ -365,8 +359,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	//
 	// Allow this behavior to be turned off in some tests that specifically want
 	// to examine the behavior of a machine in an initializing state through the
-	// use of a global variable.
-	if testing.Testing() && !DoNotWaitForRunning.Load() {
+	// use of a per-client option.
+	if testing.Testing() && !rOpts.doNotWaitForRunning {
 		for {
 			if ctx.Err() != nil {
 				return nil, multierr.Combine(ctx.Err(), rc.conn.Close())

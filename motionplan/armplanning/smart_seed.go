@@ -318,6 +318,23 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 		}
 	}
 
+	{
+		p, err := ssc.fs.Parent(frame)
+		if err != nil {
+			return "", nil, err
+		}
+		for p != ssc.fs.World() {
+			if len(p.DoF()) > 0 {
+				return "", nil, fmt.Errorf("frame %s has a parent %s which moves, can't use smart seeds",
+					frame.Name(), p.Name())
+			}
+			p, err = ssc.fs.Parent(p)
+			if err != nil {
+				return "", nil, err
+			}
+		}
+	}
+
 	// there are 3 frames at play here
 	// 1) the frame the goal is specified in
 	// 2) the frame of the thing we want to move
@@ -344,15 +361,20 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 
 	newPose := spatialmath.Compose(goalInWorld, delta)
 
-	/*
-		fmt.Printf("f2w1DQ: %v\n", &spatialmath.DualQuaternion{f2w1DQ})
-		fmt.Printf("f2w2DQ: %v\n", &spatialmath.DualQuaternion{f2w2DQ})
-		fmt.Printf("f2w3DQ: %v\n", &spatialmath.DualQuaternion{f2w3DQ})
-		fmt.Printf("goalFrame: %v\n", goalFrame)
-		fmt.Printf("goalInWorld: %v\n", goalInWorld)
-		fmt.Printf("delta: %v\n", delta)
-		fmt.Printf("eliot: %v -> %v\n", goalPIF, newPose)
-	*/
+	// The smart seed cache stores FK results from frame.Transform(), which are in the frame's
+	// parent coordinate system. Transform newPose from world coordinates to that system so the
+	// norm check and distance comparisons in findSeedsForFrame are correct.
+	parentFrame, err := ssc.fs.Parent(frame)
+	if err != nil {
+		return "", nil, err
+	}
+	if parentFrame != ssc.fs.World() {
+		parentWorldDQ, err := ssc.fs.GetFrameToWorldTransform(inputs, parentFrame)
+		if err != nil {
+			return "", nil, err
+		}
+		newPose = spatialmath.PoseBetween(&spatialmath.DualQuaternion{parentWorldDQ}, newPose)
+	}
 
 	return frame.Name(), newPose, nil
 }
@@ -404,7 +426,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, err
 	}
 
-	logger.Infof("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
+	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
@@ -524,7 +546,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 
 	boxes := ssc.rawCache[frameName].findBoxes(goalPose)
 
-	logger.Infof("startDistance: %v num boxes: %d", startDistance, len(boxes))
+	logger.Debugf("startDistance: %v num boxes: %d", startDistance, len(boxes))
 
 	for _, b := range boxes {
 		for _, c := range b.entries {
@@ -558,7 +580,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Infof("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
+	logger.Debugf("\t len(best): %d cutIdx: %d best distance: %0.2f cutDistance: %0.2f", len(best), cutIdx, best[0].distance, cutDistance)
 
 	best = best[0:cutIdx]
 
@@ -576,7 +598,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 		cutIdx++
 	}
 
-	logger.Infof("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
+	logger.Debugf("\t len(best): %d cutIdx: %d best cost: %0.2f costCut: %0.2f", len(best), cutIdx, best[0].cost, costCut)
 
 	best = best[0:cutIdx]
 
@@ -690,7 +712,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 	for _, frameName := range ssc.fs.FrameNames() {
 		err := ssc.buildCacheForFrame(frameName, logger)
 		if err != nil {
-			return fmt.Errorf("cannot build cache for frame: %s", frameName)
+			return fmt.Errorf("cannot build cache for frame: %s %w", frameName, err)
 		}
 	}
 
@@ -698,6 +720,9 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 }
 
 func smartSeed(fs *referenceframe.FrameSystem, logger logging.Logger) (*smartSeedCache, error) {
+	if fs == nil {
+		return nil, fmt.Errorf("cannot build smart seed cache with nil FrameSystem")
+	}
 	c := &smartSeedCache{
 		fs: fs,
 	}

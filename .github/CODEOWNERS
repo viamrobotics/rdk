@@ -1,7 +1,9 @@
 # Team SDK is responsible for CLI best practices and wishes to maintain insight into any
 # changes currently being made to the CLI codebase.
-/cli/app.go @viamrobotics/sdk-netcode
-/cli/CONTRIBUTING.md @viamrobotics/sdk-netcode
-/cli/STYLEGUIDE.md @viamrobotics/sdk-netcode
-/cli/internal/ @viamrobotics/sdk-netcode
-
+/cli/app.go @viamrobotics/sdk
+/cli/CONTRIBUTING.md @viamrobotics/sdk
+/cli/STYLEGUIDE.md @viamrobotics/sdk
+/cli/internal/ @viamrobotics/sdk
+/components/**/client.go @viamrobotics/sdk
+/services/**/client.go @viamrobotics/sdk
+/app/ @viamrobotics/sdk

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils/trace"
@@ -320,7 +321,8 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 
 		linearSeed := target.GetLinearizedInputs()
-		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent,
+		var totalAttempts atomic.Int32
+		solutions, _, err := ik.DoSolve(ctx, mp.fastGradDescent, &totalAttempts,
 			mp.psc.pc.linearizeFSmetric(myFunc),
 			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
 		if err != nil {

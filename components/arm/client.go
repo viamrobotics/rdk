@@ -3,6 +3,7 @@ package arm
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -116,17 +117,26 @@ func (c *client) MoveThroughJointPositions(
 		c.logger.Warnf("%s MoveThroughJointPositions: position argument is nil", c.name)
 	}
 	allJPs := make([]*pb.JointPositions, 0, len(positions))
-	hasKinematics := true
+
+	var limits []referenceframe.Limit
+	var prevPosition []referenceframe.Input
 	m, err := c.Kinematics(ctx)
 	if err != nil {
-		hasKinematics = false
 		warnKinematicsUnsafe(ctx, c.logger, err)
+	} else {
+		limits = m.DoF()
+		prevPosition, err = c.JointPositions(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("cannot get JointPositions: %w", err)
+		}
 	}
+
 	for _, position := range positions {
-		if hasKinematics {
-			if err := CheckDesiredJointPositions(ctx, c, position); err != nil {
+		if len(limits) > 0 {
+			if err := checkDesiredJointPositions(limits, prevPosition, position); err != nil {
 				return err
 			}
+			prevPosition = position
 		}
 		jp, err := referenceframe.JointPositionsFromInputs(m, position)
 		if err != nil {
