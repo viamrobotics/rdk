@@ -638,7 +638,7 @@ func TestDataClient(t *testing.T) {
 	t.Run("DeleteTabularDataWithFilter", func(t *testing.T) {
 		deleteOlderThanDays := 1
 		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
-		expectedFilter := &pb.TabularFilter{
+		expectedFilter := &pb.DeleteTabularFilter{
 			LocationIds:   []string{locationID},
 			ComponentName: componentName,
 		}
@@ -661,7 +661,7 @@ func TestDataClient(t *testing.T) {
 	t.Run("DeleteTabularDataWithEmptyFilter", func(t *testing.T) {
 		deleteOlderThanDays := 1
 		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
-		emptyFilter := &pb.TabularFilter{}
+		emptyFilter := &pb.DeleteTabularFilter{}
 		grpcClient.DeleteTabularDataFunc = func(ctx context.Context, in *pb.DeleteTabularDataRequest,
 			opts ...grpc.CallOption,
 		) (*pb.DeleteTabularDataResponse, error) {
