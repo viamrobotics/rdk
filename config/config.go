@@ -1086,13 +1086,6 @@ func ProcessConfig(in *Config) (*Config, error) {
 
 	out.Remotes = make([]Remote, len(in.Remotes))
 	copy(out.Remotes, in.Remotes)
-	for idx, remote := range out.Remotes {
-		remoteCopy := remote
-		if in.Cloud == nil {
-			remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
-		}
-		out.Remotes[idx] = remoteCopy
-	}
 	return &out, nil
 }
 

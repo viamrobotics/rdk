@@ -862,14 +862,8 @@ ph2C/7IgjA==
 	remotesCloudCfg := &config.Config{Cloud: cloud, Remotes: []config.Remote{remote, remoteDiffManager}}
 	remotesCloudWTLSCfg := &config.Config{Cloud: cloudWTLS, Remotes: []config.Remote{remote, remoteDiffManager}}
 
-	expectedRemoteAuthNoCloud := remoteAuth
-	expectedRemoteAuthNoCloud.SignalingCreds = expectedRemoteAuthNoCloud.Credentials
-
 	expectedRemoteNoCloud := remote
-	expectedRemoteNoCloud.Auth = expectedRemoteAuthNoCloud
-
 	expectedRemoteDiffManagerNoCloud := remoteDiffManager
-	expectedRemoteDiffManagerNoCloud.Auth = expectedRemoteAuthNoCloud
 
 	tlsCfg, err := config.CreateTLSWithCert(cloudWTLSCfg)
 	test.That(t, err, test.ShouldBeNil)
