@@ -1637,7 +1637,7 @@ type machinesPartUpdateResourceArgs struct {
 	Location     string
 	Organization string
 	ResourceName string
-	Config   string
+	Config       string
 }
 
 func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
