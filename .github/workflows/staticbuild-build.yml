@@ -240,6 +240,84 @@ jobs:
         parent: false
         gzip: false
 
+  static_test:
+    name: Static Test
+    needs: static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [[ubuntu-latest], [ubuntu-small-arm], [pi4], [pi5]]
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
+
+    steps:
+    - name: Clean Workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R `whoami` ./
+        rm -rf ./*
+
+    - name: Test Static Binary
+      run: |
+        channel="${{ github.ref_name }}"
+        # we call our main branch releases "latest"
+        if [ "$channel" = "main" ]; then
+          channel="latest"
+        fi
+
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
+  mac_test:
+    name: Mac Test
+    needs: mac
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Test MacOS Binary
+      run: |
+        channel="${{ github.ref_name }}"
+        # we call our main branch releases "latest"
+        if [ "$channel" = "main" ]; then
+          channel="latest"
+        fi
+
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/viam-server-${channel}-darwin-aarch64
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
   output_summary:
     name: Output Summary
     runs-on: ubuntu-latest
