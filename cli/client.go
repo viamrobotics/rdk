@@ -1636,7 +1636,7 @@ type machinesPartUpdateResourceArgs struct {
 	Machine      string
 	Location     string
 	Organization string
-	Name         string
+	ResourceName string
 	Attributes   string
 }
 
@@ -1644,11 +1644,6 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 	updates, err := parseJSONOrFile(args.Attributes)
 	if err != nil {
 		return err
-	}
-
-	if len(updates) == 0 {
-		warningf(c.App.Writer, "no fields provided to update\n")
-		return nil
 	}
 
 	client, err := newViamClient(c)
@@ -1669,21 +1664,14 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 			return err
 		}
 		for _, resource := range resources {
-			if resource["name"] == args.Name {
+			if resource["name"] == args.ResourceName {
 				resourceFound = true
-				attrs, _ := resource["attributes"].(map[string]any)
-				if attrs == nil {
-					attrs = make(map[string]any)
+				if rutils.IsEmptyJSONValue(updates) {
+					delete(resource, "attributes")
+					infof(c.App.Writer, "empty JSON detected, deleting attributes from resource %q...", args.ResourceName)
+				} else {
+					resource["attributes"] = updates
 				}
-				for k, v := range updates {
-					if rutils.IsEmptyJSONValue(v) {
-						delete(attrs, k)
-						infof(c.App.Writer, "successfully deleted field %q from resource %q", k, args.Name)
-					} else {
-						attrs[k] = v
-					}
-				}
-				resource["attributes"] = attrs
 				break
 			}
 		}
@@ -1691,7 +1679,7 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 	}
 
 	if !resourceFound {
-		return fmt.Errorf("resource %q not found in part config", args.Name)
+		return fmt.Errorf("resource %q not found in part config", args.ResourceName)
 	}
 
 	pbConfig, err := protoutils.StructToStructPb(config)
@@ -1705,7 +1693,7 @@ func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateRes
 		return err
 	}
 
-	printf(c.App.Writer, "successfully updated resource %q", args.Name)
+	printf(c.App.Writer, "Successfully updated resource %q", args.ResourceName)
 	return nil
 }
 

@@ -81,7 +81,7 @@ const (
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
 	generalFlagAttributes        = "attributes"
-	generalFlagResource          = "resource"
+	generalFlagResourceName      = "resource-name"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -125,7 +125,6 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagComponentType                  = "component-type"
 	dataFlagComponentName                  = "component-name"
-	dataFlagResourceName                   = "resource-name"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -1287,7 +1286,7 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data export tabular", []string{
 								generalFlagDestination,
 								generalFlagPartID,
-								dataFlagResourceName,
+								generalFlagResourceName,
 								generalFlagResourceSubtype,
 								generalFlagMethod,
 							}, true, false),
@@ -1303,7 +1302,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "part id",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagResourceName,
+									Name:     generalFlagResourceName,
 									Required: true,
 									Usage:    "resource name (sometimes called 'component name')",
 								},
@@ -2966,7 +2965,7 @@ Note: There is no progress meter while copying is in progress.
 					Name:  "enable",
 					Usage: "enable resources on a machine part",
 					UsageText: createUsageText("resource enable",
-						[]string{generalFlagPart, generalFlagResource}, true, false),
+						[]string{generalFlagPart, generalFlagResourceName}, true, false),
 					Description: `Enable one or more resources (components or services) on a machine part.
 
 Examples:
@@ -2977,7 +2976,7 @@ Examples:
   viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
 					Flags: append(commonPartFlags,
 						&cli.StringSliceFlag{
-							Name:     generalFlagResource,
+							Name:     generalFlagResourceName,
 							Required: true,
 						},
 					),
@@ -2987,7 +2986,7 @@ Examples:
 					Name:  "disable",
 					Usage: "disable resources on a machine part",
 					UsageText: createUsageText("resource disable",
-						[]string{generalFlagPart, generalFlagResource}, true, false),
+						[]string{generalFlagPart, generalFlagResourceName}, true, false),
 					Description: `Disable one or more resources (components or services) on a machine part.
 Disabled resources will not start on the machine.
 
@@ -2999,7 +2998,7 @@ Examples:
   viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
 					Flags: append(commonPartFlags,
 						&cli.StringSliceFlag{
-							Name:     generalFlagResource,
+							Name:     generalFlagResourceName,
 							Required: true,
 						},
 					),
@@ -3011,23 +3010,23 @@ Examples:
 					UsageText: createUsageText("resource update",
 						[]string{generalFlagPart, generalFlagName, generalFlagAttributes}, true, false),
 					Description: `Update the attributes of an existing resource. The --attributes flag accepts inline JSON
-or a path to a JSON file. Each field you provide will be set in the resource's attributes map.
-Fields with empty values will be deleted from attributes.
+or a path to a JSON file. Your new attributes will completely replace the existing attributes
+An empty json will delete all attributes.
 
 Examples:
   # Set an attribute
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes '{"pin": "38"}'
+    --resource-name my-sensor --attributes '{"pin": "38"}'
 
   # Update from a JSON file
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes /path/to/updates.json
+    --resource-name my-sensor --attributes /path/to/updates.json
 
   # Delete an attribute by passing an empty value
   viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
-    --name my-sensor --attributes '{"pin": ""}'`,
+    --resource-name my-sensor --attributes '{"pin": ""}'`,
 					Flags: append(commonPartFlags,
-						&cli.StringFlag{Name: generalFlagName, Required: true},
+						&cli.StringFlag{Name: generalFlagResourceName, Required: true},
 						&cli.StringFlag{Name: generalFlagAttributes, Required: true},
 					),
 					Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),
@@ -3613,7 +3612,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        dataFlagResourceName,
+							Name:        generalFlagResourceName,
 							Usage:       "Use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
@@ -3680,7 +3679,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        dataFlagResourceName,
+							Name:        generalFlagResourceName,
 							Usage:       "Use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
