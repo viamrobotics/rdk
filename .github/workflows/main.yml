@@ -66,11 +66,19 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-  full-static:
-    if: ${{ inputs.release_type != 'pr' }}
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@APP-14315
+  full-static-build:
+    uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@APP-14315
     with:
+      channel: ${{ inputs.release_type || 'latest' }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  full-static-deploy:
+    if: ${{ inputs.release_type != 'pr' }}
+    needs: [test, full-static-build]
+    uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@APP-14315
+    with:
+      date: ${{ needs.full-static-build.outputs.date }}
       channel: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}

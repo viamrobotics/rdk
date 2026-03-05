@@ -50,10 +50,19 @@ jobs:
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  full-static:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@APP-14315
+  full-static-build:
+    uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@APP-14315
     with:
+      channel: stable
+      version: ${{ github.ref_name }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  full-static-deploy:
+    needs: [test, full-static-build]
+    uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@APP-14315
+    with:
+      date: ${{ needs.full-static-build.outputs.date }}
       channel: stable
       version: ${{ github.ref_name }}
     secrets:
