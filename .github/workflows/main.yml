@@ -11,10 +11,6 @@ on:
         type: choice
         options: [pr, latest]
         default: pr
-      no-upload:
-        description: 'Skip GCS uploads in build jobs'
-        type: boolean
-        default: true
   push:
     branches: [ main ]
     paths-ignore:
@@ -51,7 +47,6 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@APP-14315
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
-      no-upload: ${{ inputs.no-upload || false }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 

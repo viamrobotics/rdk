@@ -8,18 +8,11 @@ on:
         default: pr
         type: choice
         options: [pr, latest, stable, rc]
-      no-upload:
-        type: boolean
-        default: true
-        description: "no-upload: if checked, don't upload"
   workflow_call:
     inputs:
       release_type:
         required: true
         type: string
-      no-upload:
-        type: boolean
-        default: false
     secrets:
       GCP_CREDENTIALS:
         required: true
@@ -56,6 +49,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       date: ${{ steps.build_date.outputs.date }}
+      channel: ${{ steps.build_date.outputs.channel }}
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
 
@@ -121,12 +115,16 @@ jobs:
       run: |
         sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target }}'
 
-    - name: Set Date
+    - name: Set Date and Channel
       id: build_date
-      run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        # extract channel from built filename for use by smoke tests
+        f=$(ls etc/packaging/static/deploy/viam-server-* | grep -v windows | head -1)
+        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-[^-]*$//')" >> $GITHUB_OUTPUT
 
     - name: Upload Files (Testing)
-      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
@@ -137,7 +135,7 @@ jobs:
         gzip: false
 
     - name: Upload Manifest (Testing)
-      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
@@ -153,6 +151,7 @@ jobs:
     timeout-minutes: 15
     outputs:
       date: ${{ steps.build_date.outputs.date }}
+      channel: ${{ steps.build_date.outputs.channel }}
 
     steps:
     - name: Check out code
@@ -214,12 +213,16 @@ jobs:
       run: |
         make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release-macos
 
-    - name: Set Date
+    - name: Set Date and Channel
       id: build_date
-      run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        # extract channel from built filename for use by smoke tests
+        f=$(ls etc/packaging/static/deploy/viam-server-*-darwin-* | head -1)
+        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-darwin-.*$//')" >> $GITHUB_OUTPUT
 
     - name: Upload Files (Testing)
-      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
@@ -230,7 +233,7 @@ jobs:
         gzip: false
 
     - name: Upload Manifest (Testing)
-      if: ${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'push') && !inputs.no-upload }}
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
       uses: google-github-actions/upload-cloud-storage@v2
       with:
         headers: "cache-control: no-cache"
@@ -260,16 +263,10 @@ jobs:
 
     - name: Test Static Binary
       run: |
-        channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" = "main" ]; then
-          channel="latest"
-        fi
-
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${channel}-`uname -m`
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.static.outputs.channel }}-`uname -m`
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
@@ -294,16 +291,10 @@ jobs:
     steps:
     - name: Test MacOS Binary
       run: |
-        channel="${{ github.ref_name }}"
-        # we call our main branch releases "latest"
-        if [ "$channel" = "main" ]; then
-          channel="latest"
-        fi
-
         export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
         cd $TEST_DIR
 
-        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/viam-server-${channel}-darwin-aarch64
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.mac.outputs.channel }}-darwin-aarch64
         chmod 755 viam-server
 
         export RAND_PORT=$((30000 + $RANDOM))
