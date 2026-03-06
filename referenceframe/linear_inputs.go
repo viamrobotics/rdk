@@ -11,6 +11,16 @@ type LinearInputsSchema struct {
 	metas []linearInputMeta
 }
 
+func NewLinearInputsSchemaUnsafe() *LinearInputsSchema {
+	return &LinearInputsSchema{
+		metas: []linearInputMeta{
+			{
+				"arm", 0, 6, nil,
+			},
+		},
+	}
+}
+
 // GetSchema returns the underlying `LinearInputsSchema` associated with this LinearInputs. When
 // using this LinearInputs to create inputs for IK/nlopt, this returned `LinearInputsSchema` is how
 // to turn the IK/nlopt output back into frames inputs. The `FrameSystem` is an additional input
@@ -152,6 +162,13 @@ func NewLinearInputs() *LinearInputs {
 	return &LinearInputs{
 		schema: &LinearInputsSchema{},
 		inputs: make([]Input, 0, 8),
+	}
+}
+
+func NewUnsafeLinearInputs(inps []Input) *LinearInputs {
+	return &LinearInputs{
+		schema: NewLinearInputsSchemaUnsafe(),
+		inputs: inps,
 	}
 }
 

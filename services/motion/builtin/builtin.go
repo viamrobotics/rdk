@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/slam"
 	"go.viam.com/rdk/services/vision"
@@ -136,6 +137,7 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+	trajexService           mlmodel.Service
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -168,6 +170,11 @@ func (ms *builtIn) Reconfigure(
 		return err
 	}
 	ms.conf = config
+
+	ms.trajexService, err = mlmodel.FromProvider(deps, "trajex-service")
+	if err != nil {
+		panic(err)
+	}
 
 	if config.LogFilePath != "" {
 		fileAppender, _ := logging.NewFileAppender(config.LogFilePath)

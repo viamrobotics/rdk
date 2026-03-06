@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"go.viam.com/rdk/components/arm/sim"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot/framesystem"
@@ -13,6 +15,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"golang.org/x/sync/errgroup"
+	"gorgonia.org/tensor"
 )
 
 func getExtraObstacles(ctx context.Context, vs vision.Service) (*referenceframe.GeometriesInFrame, error) {
@@ -100,6 +103,70 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 			return nil, err
 		}
 
+		trajTensors := map[string]*tensor.Dense{
+			"waypoints_rads": plan.Trajectory().ToTrajectoryWaypointTensor("arm"),
+			"velocity_limits_rads_per_sec": tensor.New(
+				tensor.Of(tensor.Float64),
+				tensor.WithShape(6),
+				tensor.WithBacking([]float64{0.2, 0.2, 0.2, 0.2, 0.2, 0.2}),
+			),
+			"acceleration_limits_rads_per_sec2": tensor.New(
+				tensor.Of(tensor.Float64),
+				tensor.WithShape(6),
+				// tensor.WithBacking([]float64{0.2, 0.2, 0.2, 0.2, 0.2, 0.2}),
+				tensor.WithBacking([]float64{1, 1, 1, 1, 1, 1}),
+			),
+			"waypoint_deduplication_tolerance_rads": tensor.New(
+				tensor.Of(tensor.Float64),
+				tensor.WithShape(1),
+				tensor.WithBacking([]float64{0}),
+			),
+			"path_tolerance_delta_rads": tensor.New(
+				tensor.Of(tensor.Float64),
+				tensor.WithShape(1),
+				tensor.WithBacking([]float64{0}),
+			),
+			"path_colinearization_ratio": tensor.New(
+				tensor.Of(tensor.Float64),
+				tensor.WithShape(1),
+				tensor.WithBacking([]float64{0}),
+			),
+			"trajectory_sampling_freq_hz": tensor.New(
+				tensor.Of(tensor.Int64),
+				tensor.WithShape(1),
+				tensor.WithBacking([]int64{10}),
+			),
+		}
+
+		trajRaw, err := ms.trajexService.Infer(ctx, trajTensors)
+		if err != nil {
+			ms.logger.Error("Panicing:", err)
+			panic(err)
+		}
+		// ms.logger.Info("Map:", trajRaw)
+
+		nSamples := trajRaw["sample_times_sec"].Shape()[0]
+		times := trajRaw["sample_times_sec"].Data().([]float64)
+		configsFlat := trajRaw["configurations_rads"].Data().([]float64)
+		configsHydrated := make([][]referenceframe.Input, nSamples)
+		for idx := range nSamples {
+			step := make([]referenceframe.Input, 6)
+			for jointIdx := range 6 {
+				step[jointIdx] = configsFlat[idx*6+jointIdx]
+			}
+			configsHydrated[idx] = step
+		}
+
+		modifiedTrajectory := motionplan.Trajectory([]referenceframe.FrameSystemInputs{})
+		for _, traj := range configsHydrated {
+			modifiedTrajectory = append(modifiedTrajectory, referenceframe.FrameSystemInputs{
+				"arm": traj,
+			})
+		}
+
+		// ms.logger.Info("Samples:", nSamples, "Times:", times)
+		// ms.logger.Info("Inputs:", configsHydrated)
+
 		// While executing, the world state might change (an obstacle later comes into existence
 		// that must be avoided). If an `obstacleVisionService` exists, set up a background
 		// goroutine for polling the vision service for new obstacles. And validate if the executing
@@ -122,6 +189,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 			obstacleAvoidance.Wait()
 		}()
 
+		executeStart := time.Now()
 		if obstacleVisionService != nil {
 			obstacleAvoidance.Go(func() error {
 				for executeCtx.Err() == nil {
@@ -141,7 +209,8 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 					// If the `motionPlanRequest` used `PlannerOptions.MeshesAsOctrees`, make sure
 					// validation uses an octree representation. With the exception of new obstacles
 					// found in the `mergedWorldState`.
-					validateErr := armplanning.ValidatePlan(ctx, plan, motionPlanRequest, ms.logger)
+					validateErr := armplanning.ValidatePlan(
+						ctx, plan, time.Since(executeStart), times, configsHydrated, motionPlanRequest, ms.logger)
 					if validateErr != nil {
 						ms.logger.Infow("Validate plan returned error. Canceling execution.", "err", validateErr)
 						return validateErr
@@ -155,7 +224,7 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 		}
 
 	executeLoop:
-		for _, traj := range plan.Trajectory() {
+		for trajIdx, traj := range plan.Trajectory() {
 			for actuatorName, inputs := range traj {
 				if len(inputs) == 0 {
 					continue
@@ -172,12 +241,22 @@ func (ms *builtIn) doReplannable(ctx context.Context, reqI any) (map[string]any,
 				}
 
 				ms.logger.CDebugf(ctx, "Issuing GoToInputs. Actuator: %v Inputs: %v", actuatorName, inputs)
-				if err = ie.GoToInputs(executeCtx, inputs); err != nil {
-					ms.logger.Debug("DBG. GoToInputs error:", err, "Ctx:", ctx.Err(), "ExecuteCtx:", executeCtx.Err())
-					if errors.Is(err, context.Canceled) {
+				var moveErr error
+				if simArm, ok := ie.(*sim.SimulatedArm); ok {
+					if trajIdx == 0 {
+						moveErr = simArm.OptimizedTrajectory(executeCtx, times, configsHydrated)
+					} else {
+						ms.logger.Info("Dan hack, already did full movement.")
+					}
+				} else {
+					moveErr = ie.GoToInputs(executeCtx, inputs)
+				}
+
+				if moveErr != nil {
+					if errors.Is(moveErr, context.Canceled) {
 						break executeLoop
 					} else {
-						return nil, err
+						return nil, moveErr
 					}
 				}
 			}

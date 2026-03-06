@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
+	"go.viam.com/rdk/services/mlmodel"
 	"go.viam.com/rdk/services/motion"
 	motionservice "go.viam.com/rdk/services/motion"
 	_ "go.viam.com/rdk/services/motion/builtin"
@@ -125,15 +126,29 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 		},
 		Services: []resource.Config{
 			{
-				Name:  "motionService",
-				API:   motionservice.API,
-				Model: resource.DefaultServiceModel,
+				Name:      "builtin",
+				API:       motionservice.API,
+				Model:     resource.DefaultServiceModel,
+				DependsOn: []string{"trajex-service"},
+			},
+			{
+				Name:  "trajex-service",
+				API:   mlmodel.API,
+				Model: resource.NewModel("viam", "trajex", "mlmodel"),
 			},
 			{
 				Name:      "obstacleService",
 				API:       visionservice.API,
 				Model:     replanningTestObstacleServiceModel,
 				DependsOn: []string{"camera"},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:     "trajex",
+				ExePath:  "/home/dgottlieb/bin/viam-trajex-service",
+				LogLevel: "debug",
+				Type:     config.ModuleTypeLocal,
 			},
 		},
 	}
@@ -149,7 +164,7 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_ = camera
 
-	motion, err := motionservice.FromProvider(robot, "motionService")
+	motion, err := motionservice.FromProvider(robot, "builtin")
 	test.That(t, err, test.ShouldBeNil)
 	_ = motion
 
@@ -187,7 +202,7 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 
 	// Turn that request into the "map" that the motion service `DoCommand` accepts. Yes, it is this
 	// many steps.
-	moveRequestProto, err := moveRequest.ToProto("motionService")
+	moveRequestProto, err := moveRequest.ToProto("builtin")
 	test.That(t, err, test.ShouldBeNil)
 
 	moveRequestProtoBytes, err := protojson.Marshal(moveRequestProto)
@@ -206,6 +221,225 @@ func TestMotionServiceReplanningOnObstacle(t *testing.T) {
 			// Introduce an obstacle just after the beginning of the simulation. The obstacle is
 			// halfway between the start and endpoint.
 			if time.Since(start) > 1000*time.Millisecond {
+				segmenter.mu.Lock()
+				if len(segmenter.objects) == 0 {
+					// Add a 10x10x10 cube obstacle centered between the arm's start position and the goal. Assert
+					// the vision service `GetObjectPointClouds` returns this obstacle.
+					logger.Info("Adding object")
+					segmenter.objects = []*vision.Object{
+						&vision.Object{
+							PointCloud: pointcloud.NewBasicPointCloud(10),
+							Geometry: spatialmath.NewBoxGoodInput(
+								spatialmath.Compose(startArmPose, spatialmath.NewPoseFromPoint(r3.Vector{X: -150, Y: 0, Z: 0})),
+								r3.Vector{X: 50, Y: 50, Z: 50},
+								"box1"),
+						},
+					}
+
+				}
+				segmenter.mu.Unlock()
+
+				// `GetObjectPointClouds` acquires the `segmenter.mu`. Assert after releasing lock
+				// held for modification.
+				objects, err = obstacleService.GetObjectPointClouds(ctx, "", nil)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, objects, test.ShouldHaveLength, 1)
+			}
+
+			time.Sleep(time.Millisecond)
+		}
+
+		logger.Info("Exiting at:", time.Since(start))
+		return nil
+	})
+
+	testClock.Go(func() error {
+		fs, err := framesystem.NewFromService(doneMovingCtx, robotFs, nil)
+		if err != nil {
+			fmt.Println("Err:", err)
+			return err
+		}
+
+		return visualize(doneMovingCtx, fs, moveRequest, obstacleService, armI, armGoal, logger)
+	})
+
+	moveCmdProto, err := protoutils.StructToStructPb(map[string]any{
+		"replannable": string(moveRequestProtoBytes),
+		//"plan": string(moveRequestProtoBytes),
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	resMap, err := motion.DoCommand(ctx, moveCmdProto.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+
+	var trajectory motionplan.Trajectory
+	err = mapstructure.Decode(resMap["plan"], &trajectory)
+	test.That(t, err, test.ShouldBeNil)
+	logger.Infof("Num waypoints: %v Traj: %v", len(trajectory), trajectory)
+
+	doneMoving()
+	test.That(t, testClock.Wait(), test.ShouldBeNil)
+}
+
+func TestMotionServiceNotReplanningObstacleBehind(t *testing.T) {
+	// TODO: Test currently requires the motion-tools visualization webserver to be running with a
+	// connected client.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// Create a "mocked" segmenter. This will back the `GetObjectPointClouds` method of the vision
+	// service that a motion service request can use. The motion service will poll
+	// `GetObjectPointClouds` and potentially halt a plan that is currently executing because a new
+	// obstacle appeared, invalidating assumptions the plan had made.
+	segmenter := &customSegmenter{}
+	replanningTestObstacleServiceModel := resource.ModelNamespaceRDK.WithFamily("testing").WithModel("replanning")
+	resource.RegisterService(
+		visionservice.API,
+		replanningTestObstacleServiceModel,
+		resource.Registration[visionservice.Service, *replanningTestObstacleServiceConfig]{
+			Constructor: func(
+				ctx context.Context, deps resource.Dependencies, conf resource.Config, logger logging.Logger,
+			) (visionservice.Service, error) {
+				return newObstacleVisionService(ctx, deps, conf, logger, segmenter, "camera")
+			},
+		})
+
+	// Create a robot with the minimal components for replanning. An arm, a camera, a motion service
+	// and a vision detector.
+	cfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "arm",
+				API:   arm.API,
+				Model: sim.Model,
+				Frame: &referenceframe.LinkConfig{
+					Translation: r3.Vector{X: 0, Y: 0, Z: 0},
+					Parent:      "world",
+				},
+				ConvertedAttributes: &sim.Config{
+					Model: "lite6",
+					// At a `Speed` of 1.0, the test takes about two simulated seconds to complete.
+					Speed: 0.2,
+				},
+			},
+			{
+				Name:  "camera",
+				API:   camera.API,
+				Model: fakecamera.Model,
+				Frame: &referenceframe.LinkConfig{
+					Geometry: &spatialmath.GeometryConfig{
+						Type: spatialmath.BoxType,
+						X:    10, Y: 20, Z: 10,
+						Label: "cameraBox",
+					},
+					// The arm's `wrist_link` has an X length of 75 and the camera's center is 5
+					// away from the X border.
+					Translation: r3.Vector{X: (-75 / 2) - 5, Y: 0, Z: 0},
+					Parent:      "arm",
+				},
+				ConvertedAttributes: &fakecamera.Config{
+					Width:  100,
+					Height: 100,
+				},
+			},
+		},
+		Services: []resource.Config{
+			{
+				Name:      "builtin",
+				API:       motionservice.API,
+				Model:     resource.DefaultServiceModel,
+				DependsOn: []string{"trajex-service"},
+			},
+			{
+				Name:  "trajex-service",
+				API:   mlmodel.API,
+				Model: resource.NewModel("viam", "trajex", "mlmodel"),
+			},
+			{
+				Name:      "obstacleService",
+				API:       visionservice.API,
+				Model:     replanningTestObstacleServiceModel,
+				DependsOn: []string{"camera"},
+			},
+		},
+		Modules: []config.Module{
+			{
+				Name:     "trajex",
+				ExePath:  "/home/dgottlieb/bin/viam-trajex-service",
+				LogLevel: "debug",
+				Type:     config.ModuleTypeLocal,
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, cfg, logger)
+
+	// Assert all of the components/services are properly instantiated.
+	armI, err := arm.FromProvider(robot, "arm")
+	test.That(t, err, test.ShouldBeNil)
+	simArm := armI.(*sim.SimulatedArm)
+
+	camera, err := camera.FromProvider(robot, "camera")
+	test.That(t, err, test.ShouldBeNil)
+	_ = camera
+
+	motion, err := motionservice.FromProvider(robot, "builtin")
+	test.That(t, err, test.ShouldBeNil)
+	_ = motion
+
+	obstacleService, err := visionservice.FromProvider(robot, "obstacleService")
+	test.That(t, err, test.ShouldBeNil)
+	_ = obstacleService
+
+	robotFsI, err := robot.GetResource(framesystem.InternalServiceName)
+	test.That(t, err, test.ShouldBeNil)
+	robotFs := robotFsI.(framesystem.Service)
+
+	// Assert the vision service `GetObjectPointClouds` does not return any obstacles.
+	objects, err := obstacleService.GetObjectPointClouds(ctx, "", nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, objects, test.ShouldHaveLength, 0)
+
+	startArmPose, err := armI.EndPosition(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create a goal 200 points away on the Z-coordinate.
+	armGoal := spatialmath.Compose(startArmPose, spatialmath.NewPoseFromPoint(r3.Vector{X: -300, Y: 0, Z: 0}))
+	logger.Info("Start arm pose:", startArmPose, "Goal:", armGoal)
+
+	emptyWorldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{}, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	moveRequest := &motionservice.MoveReq{
+		ComponentName: "arm",
+		Destination:   referenceframe.NewPoseInFrame("world", armGoal),
+		WorldState:    emptyWorldState,
+		Extra: map[string]any{
+			"obstacleVisionService": "obstacleService",
+		},
+	}
+
+	// Turn that request into the "map" that the motion service `DoCommand` accepts. Yes, it is this
+	// many steps.
+	moveRequestProto, err := moveRequest.ToProto("builtin")
+	test.That(t, err, test.ShouldBeNil)
+
+	moveRequestProtoBytes, err := protojson.Marshal(moveRequestProto)
+	test.That(t, err, test.ShouldBeNil)
+
+	testClock, ctx := errgroup.WithContext(ctx)
+	defer testClock.Wait()
+
+	doneMovingCtx, doneMoving := context.WithCancel(ctx)
+	start := time.Now()
+	testClock.Go(func() error {
+		for doneMovingCtx.Err() == nil {
+			now := time.Now()
+			simArm.UpdateForTime(now)
+
+			// Introduce an obstacle just after the beginning of the simulation. The obstacle is
+			// halfway between the start and endpoint.
+			if time.Since(start) > 6000*time.Millisecond {
 				segmenter.mu.Lock()
 				if len(segmenter.objects) == 0 {
 					// Add a 10x10x10 cube obstacle centered between the arm's start position and the goal. Assert

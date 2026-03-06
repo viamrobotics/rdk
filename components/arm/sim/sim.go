@@ -29,6 +29,12 @@ type operation struct {
 	targetInputs []float64
 	done         bool
 	stopped      bool
+
+	optimizedInputs struct {
+		startTime time.Time
+		times     []float64
+		inputs    [][]float64
+	}
 }
 
 // Re-Documenting each public arm API is zero value and onerous. This applies for the whole file.
@@ -181,6 +187,12 @@ func (sa *SimulatedArm) UpdateForTime(now time.Time) {
 		return
 	}
 
+	if len(sa.operation.optimizedInputs.times) > 0 {
+		sa.updateForTimeOptimized(now)
+		sa.lastUpdated = now
+		return
+	}
+
 	// This will track if we need to set `done` to true. So long as even one joint is moving, this
 	// operation is not "done".
 	anyJointStillMoving := false
@@ -262,6 +274,25 @@ func (sa *SimulatedArm) UpdateForTime(now time.Time) {
 	}
 }
 
+// updateForTimeOptimized assumes the caller is holding the `SimulatedArm.mu`.
+func (sa *SimulatedArm) updateForTimeOptimized(now time.Time) {
+	traj := sa.operation.optimizedInputs
+	sinceBeginning := now.Sub(traj.startTime)
+
+	// Do a lookup in the times array to find the corresponding index into the inputs array.
+	for timeIdx, sampledTime := range traj.times {
+		if sinceBeginning.Seconds() < sampledTime {
+			sa.currInputs = traj.inputs[timeIdx]
+			return
+		}
+	}
+
+	// If the time since starting is larger than any sampled time, we've hit the end, set to the
+	// target inputs.
+	sa.currInputs = sa.operation.targetInputs
+	sa.operation.done = true
+}
+
 func (sa *SimulatedArm) EndPosition(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.Pose, error) {
@@ -293,6 +324,22 @@ func (sa *SimulatedArm) JointPositions(
 	return ret, nil
 }
 
+func (sa *SimulatedArm) OptimizedTrajectory(ctx context.Context, times []float64, inputs [][]referenceframe.Input) error {
+	sa.mu.Lock()
+	sa.operation = operation{
+		targetInputs: inputs[len(inputs)-1],
+		done:         false,
+		stopped:      false,
+	}
+
+	sa.operation.optimizedInputs.startTime = sa.lastUpdated
+	sa.operation.optimizedInputs.times = times
+	sa.operation.optimizedInputs.inputs = inputs
+	sa.mu.Unlock()
+
+	return sa.executeOp(ctx)
+}
+
 func (sa *SimulatedArm) MoveToJointPositions(
 	ctx context.Context, target []referenceframe.Input, extra map[string]interface{},
 ) error {
@@ -308,6 +355,11 @@ func (sa *SimulatedArm) MoveToJointPositions(
 	}
 	sa.mu.Unlock()
 
+	return sa.executeOp(ctx)
+}
+
+// executeOp assumes the `sa.operation` value was initialized.
+func (sa *SimulatedArm) executeOp(ctx context.Context) error {
 	// An operation was "started". `MoveToJointPositions` blocks until the movement completes or is
 	// canceled.
 	for {

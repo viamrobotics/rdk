@@ -70,9 +70,9 @@ func (e *mustRebuildError) Error() string {
 }
 
 // DependencyNotFoundError is used when a resource is not found in a dependencies.
-func DependencyNotFoundError(name Name) error {
+func DependencyNotFoundError(missingDep Name) error {
 	// This error represents a logical configuration error. No need to include a stack trace.
-	return fmt.Errorf("Resource missing from dependencies. Resource: %v", name)
+	return fmt.Errorf("Resource missing from dependencies. Missing dependency: %v", missingDep)
 }
 
 // DependencyTypeError is used when a resource doesn't implement the expected interface.

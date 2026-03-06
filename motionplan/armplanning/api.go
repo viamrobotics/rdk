@@ -244,6 +244,9 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 func ValidatePlan(
 	ctx context.Context,
 	priorPlan motionplan.Plan,
+	timeSinceStart time.Duration,
+	times []float64,
+	configs [][]referenceframe.Input,
 	request *PlanRequest,
 	parentLogger logging.Logger,
 ) error {
@@ -264,27 +267,62 @@ func ValidatePlan(
 		panic(fmt.Sprintf("Programmer error? %v", err))
 	}
 
-	trajectory := priorPlan.Trajectory()
-	for idx, inputs := range trajectory {
-		// Prune inputs we've already executed. Somehow. We're not privy to when execution moved
-		// through a waypoint. Yet.
-		if idx+1 == len(trajectory) {
-			break
+	if false {
+		trajectory := priorPlan.Trajectory()
+		for idx, inputs := range trajectory {
+			// Prune inputs we've already executed. Somehow. We're not privy to when execution moved
+			// through a waypoint. Yet.
+			if idx+1 == len(trajectory) {
+				break
+			}
+
+			start, end := inputs.ToLinearInputs(), trajectory[idx+1].ToLinearInputs()
+			segmentToCheck := motionplan.SegmentFS{
+				StartConfiguration: start,
+				EndConfiguration:   end,
+				FS:                 request.FrameSystem,
+			}
+
+			// Dan: Unclear what exactly this does.
+			const checkFinal = true
+			_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, &segmentToCheck, 0, checkFinal)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		startIdx := 0
+		for idx, time := range times {
+			// Prune inputs we've already executed.
+			if time >= timeSinceStart.Seconds() {
+				startIdx = idx
+				break
+			}
 		}
 
-		start, end := inputs.ToLinearInputs(), trajectory[idx+1].ToLinearInputs()
-		segmentToCheck := motionplan.SegmentFS{
-			StartConfiguration: start,
-			EndConfiguration:   end,
-			FS:                 request.FrameSystem,
-		}
+		// parentLogger.Infof("Now: %.2fs Starting from idx: %v (%.2fs)",
+		//  	timeSinceStart.Seconds(), startIdx, times[startIdx])
+		for idx := range times[startIdx:] {
+			if idx+1 == len(configs) {
+				break
+			}
 
-		// Dan: Unclear what exactly this does.
-		const checkFinal = true
-		_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, &segmentToCheck, 0, checkFinal)
+			segmentToCheck := motionplan.SegmentFS{
+				StartConfiguration: referenceframe.NewUnsafeLinearInputs(configs[idx]),
+				EndConfiguration:   referenceframe.NewUnsafeLinearInputs(configs[idx+1]),
+				FS:                 request.FrameSystem,
+			}
+
+			// Dan: Unclear what exactly this does.
+			const checkFinal = true
+			_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, &segmentToCheck, 0, checkFinal)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	return err
+	return nil
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{
