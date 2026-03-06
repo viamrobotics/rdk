@@ -1523,6 +1523,919 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
+// Trigger event type constants.
+const (
+	triggerEventPartOnline              = "part_online"
+	triggerEventPartOffline             = "part_offline"
+	triggerEventPartDataSynced          = "part_data_ingested"
+	triggerEventConditionalDataIngested = "conditional_data_ingested"
+	triggerEventConditionalLogsIngested = "conditional_logs_ingested"
+)
+
+// Notification type constants.
+const (
+	notifTypeEmail   = "email"
+	notifTypeWebhook = "webhook"
+)
+
+type machinesPartAddTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Attributes   string
+}
+
+type machinesPartDeleteTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+// parseJSONOrFile tries to parse s as JSON; if that fails and s is a valid file path, reads the file and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
+	var result map[string]any
+	if err := json.Unmarshal([]byte(s), &result); err == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("input is neither valid JSON nor a readable file path: %w", err)
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("file %s does not contain valid JSON: %w", s, err)
+	}
+	return result, nil
+}
+
+func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	var triggerConfig map[string]any
+	var part *apppb.RobotPart
+
+	// If no attributes provided, run the interactive huh flow.
+	if args.Attributes == "" {
+		// 1. Get part ID through flag or prompt.
+		if args.Part == "" {
+			var partID string
+			partForm := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Part ID:").
+						Description("Run 'viam machines list --all --organization=<org-id>' to see all machines with their part-ids").
+						Validate(func(s string) error {
+							if strings.TrimSpace(s) == "" {
+								return errors.New("part ID cannot be empty")
+							}
+							return nil
+						}).
+						Value(&partID),
+				),
+			)
+			if err := partForm.Run(); err != nil {
+				return err
+			}
+			partID = strings.TrimSpace(partID)
+
+			resp, err := client.getRobotPart(partID)
+			if err != nil {
+				return errors.Wrapf(err, "part ID %q not found", partID)
+			}
+			part = resp.Part
+			args.Part = partID
+		} else {
+			part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+			if err != nil {
+				return err
+			}
+		}
+
+		// 2. Build resource options and subtype map from the part config (components only).
+		confMap := part.RobotConfig.AsMap()
+		var resourceOpts []huh.Option[string]
+		subtypeByName := make(map[string]string)
+		resources, err := resourcesFromPartConfig(confMap, "components")
+		if err != nil {
+			return err
+		}
+		for _, r := range resources {
+			n, _ := r["name"].(string)
+			if n == "" {
+				continue
+			}
+			resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+			api, _ := r["api"].(string)
+			parts := strings.Split(api, ":")
+			if len(parts) == 3 && parts[2] != "" {
+				subtypeByName[n] = parts[2]
+			}
+		}
+
+		// 3. Core trigger fields form.
+		var triggerName, eventType string
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewNote().Title("Add a trigger to a part"),
+			huh.NewInput().Title("Set a trigger name:").Value(&triggerName).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("trigger name cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().Title("Select an event type:").
+				Options(
+					huh.NewOption("Part is online", triggerEventPartOnline),
+					huh.NewOption("Part is offline", triggerEventPartOffline),
+					huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
+					huh.NewOption("Conditional data ingested", triggerEventConditionalDataIngested),
+					huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
+				).
+				Value(&eventType),
+		))
+		if err := form.Run(); err != nil {
+			return err
+		}
+
+		// 4. Event-type-specific follow-up form.
+		event := map[string]any{"type": eventType}
+		switch eventType {
+		case triggerEventPartDataSynced:
+			var dataTypes []string
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewMultiSelect[string]().Title("Select data types:").
+					Options(
+						huh.NewOption("Unspecified", "unspecified"),
+						huh.NewOption("Binary(image)", "binary"),
+						huh.NewOption("Tabular(sensor)", "tabular"),
+						huh.NewOption("File", "file"),
+					).
+					Value(&dataTypes).
+					Validate(func(s []string) error {
+						if len(s) == 0 {
+							return errors.New("select at least one data type")
+						}
+						return nil
+					}),
+			)).Run(); err != nil {
+				return err
+			}
+			event["data_ingested"] = map[string]any{"data_types": toAnySlice(dataTypes)}
+
+		case triggerEventConditionalDataIngested:
+			if len(resourceOpts) == 0 {
+				return errors.New("this machine contains no components")
+			}
+			conditionalEvent, err := collectConditionalDataIngested(subtypeByName, resourceOpts)
+			if err != nil {
+				return err
+			}
+			event["conditional"] = conditionalEvent
+
+		case triggerEventConditionalLogsIngested:
+			var logLevels []string
+			if err := huh.NewForm(huh.NewGroup(
+				huh.NewMultiSelect[string]().Title("Select log levels:").
+					Options(
+						huh.NewOption("Info", "info"),
+						huh.NewOption("Warn", "warn"),
+						huh.NewOption("Error", "error"),
+					).
+					Value(&logLevels).
+					Validate(func(s []string) error {
+						if len(s) == 0 {
+							return errors.New("select at least one log level")
+						}
+						return nil
+					}),
+			)).Run(); err != nil {
+				return err
+			}
+			event["log_levels"] = toAnySlice(logLevels)
+		}
+
+		// 5. Collect notifications.
+		notifications, err := collectNotifications(eventType)
+		if err != nil {
+			return err
+		}
+
+		// 6. Build the triggerConfig map.
+		triggerConfig = map[string]any{
+			"name": triggerName, "event": event, "notifications": notifications,
+		}
+	} else {
+		// Non-interactive path: attributes and part are required flags.
+		triggerConfig, err = parseJSONOrFile(args.Attributes)
+		if err != nil {
+			return err
+		}
+
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --attributes; specify --part (or --part-id/--part-name)")
+		}
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	if err := validateTriggerConfig(c.App.ErrWriter, config, triggerConfig); err != nil {
+		return err
+	}
+
+	name, _ := triggerConfig["name"].(string)
+
+	// Use []any (not []map[string]any from resourcesFromPartConfig) so structpb.NewStruct can serialize it.
+	var triggers []any
+	if existing, ok := config["triggers"]; ok {
+		if arr, ok := existing.([]any); ok {
+			triggers = arr
+		}
+	}
+	for _, t := range triggers {
+		if tMap, ok := t.(map[string]any); ok {
+			if tMap["name"] == name {
+				return fmt.Errorf("trigger with name %q already exists", name)
+			}
+		}
+	}
+
+	triggers = append(triggers, triggerConfig)
+	config["triggers"] = triggers
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added trigger %q to part %s", name, part.Name)
+	return nil
+}
+
+// collectConditionalDataIngested prompts for resource, method, operator, and value
+// to build the "conditional" portion of a conditional_data_ingested trigger event.
+func collectConditionalDataIngested(subtypeByName map[string]string, resourceOpts []huh.Option[string]) (map[string]any, error) {
+	// 1. Select a resource.
+	var resourceName string
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().Title("Select a resource:").
+			Options(resourceOpts...).Value(&resourceName),
+	)).Run(); err != nil {
+		return nil, err
+	}
+
+	subtype, ok := subtypeByName[resourceName]
+	if !ok {
+		return nil, fmt.Errorf("could not determine subtype for resource %q", resourceName)
+	}
+
+	// 2. Select a data capture method.
+	var method string
+	if methods, ok := validDataCaptureMethods[subtype]; ok {
+		methodOpts := make([]huh.Option[string], 0, len(methods))
+		for _, m := range methods {
+			methodOpts = append(methodOpts, huh.NewOption(m, m))
+		}
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewSelect[string]().Title("Select a data capture method:").
+				Options(methodOpts...).Value(&method),
+		)).Run(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Data capture method:").
+				Description("e.g., Readings, ReadImage").
+				Value(&method).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("method cannot be empty")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+	}
+
+	dcm := subtype + ":" + resourceName + ":" + method
+
+	// 3. Key, operator, and value.
+	var conditionKey, operator, conditionValue string
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title("Condition key:").
+			Description("The field to evaluate, e.g. x, y, readings").
+			Value(&conditionKey).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("key cannot be empty")
+				}
+				return nil
+			}),
+		huh.NewSelect[string]().Title("Select a condition operator:").
+			Options(
+				huh.NewOption("gt (greater than)", "gt"),
+				huh.NewOption("gte (greater than or equal)", "gte"),
+				huh.NewOption("lt (less than)", "lt"),
+				huh.NewOption("lte (less than or equal)", "lte"),
+				huh.NewOption("eq (equal)", "eq"),
+				huh.NewOption("neq (not equal)", "neq"),
+				huh.NewOption("regex", "regex"),
+			).
+			Value(&operator),
+		huh.NewInput().Title("Condition value:").
+			Description("The threshold value, e.g. 4, 80.5, true, hello").
+			Value(&conditionValue).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("value cannot be empty")
+				}
+				return nil
+			}),
+	)).Run(); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"data_capture_method": dcm,
+		"condition": map[string]any{
+			"evals": []any{
+				map[string]any{
+					"operator": operator,
+					"value":    map[string]any{conditionKey: parseValueString(conditionValue)},
+				},
+			},
+		},
+	}, nil
+}
+
+// parseValueString attempts to interpret a string as a number or boolean,
+// falling back to the raw string if neither applies.
+func parseValueString(s string) any {
+	s = strings.TrimSpace(s)
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	if b, err := strconv.ParseBool(s); err == nil {
+		return b
+	}
+	return s
+}
+
+// collectNotifications prompts the user for webhook and email notification settings.
+func collectNotifications(eventType string) ([]any, error) {
+	validateSeconds := func(s string) error {
+		if strings.TrimSpace(s) == "" {
+			return errors.New("value cannot be empty")
+		}
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return errors.New("must be a number")
+		}
+		switch eventType {
+		case triggerEventPartOnline, triggerEventPartOffline:
+			if v <= 0 {
+				return errors.New("must be over 0 for liveness triggers")
+			}
+		default:
+			if v < 0 {
+				return errors.New("must be >= 0")
+			}
+		}
+		return nil
+	}
+
+	var notifications []any
+
+	// Section 1: Webhooks.
+	var addWebhook bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Webhook notifications"),
+		huh.NewConfirm().Title("Add a webhook notification?").Value(&addWebhook),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	for addWebhook {
+		var webhookURL, secondsStr string
+		var addAnother bool
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().Title("Webhook URL:").Value(&webhookURL).
+					Validate(func(s string) error {
+						u, parseErr := url.Parse(strings.TrimSpace(s))
+						if parseErr != nil || u.Scheme == "" || u.Host == "" {
+							return errors.New("not a valid url")
+						}
+						return nil
+					}),
+				huh.NewInput().Title("Seconds between notifications:").Value(&secondsStr).
+					Validate(validateSeconds),
+			),
+			huh.NewGroup(
+				huh.NewConfirm().Title("Add another webhook?").Value(&addAnother),
+			),
+		).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeWebhook, "value": webhookURL, "seconds_between_notifications": seconds,
+		})
+		addWebhook = addAnother
+	}
+
+	// Section 2: Email alerts — email all machine owners.
+	var emailAll bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Email alerts"),
+		huh.NewConfirm().Title("Email all machine owners?").Value(&emailAll),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	if emailAll {
+		var secondsStr string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Seconds between alerts (all machine owners):").
+				Value(&secondsStr).
+				Validate(validateSeconds),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeEmail, "value": "all_machine_owners", "seconds_between_notifications": seconds,
+		})
+	}
+
+	// Section 3: Email alerts — specific email addresses.
+	var addSpecific bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().Title("Email a specific email address?").Value(&addSpecific),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	for addSpecific {
+		var email, secondsStr string
+		var addAnother bool
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().Title("Email address:").Value(&email).
+					Validate(func(s string) error {
+						if !strings.Contains(strings.TrimSpace(s), "@") {
+							return errors.New("must be a valid email address")
+						}
+						return nil
+					}),
+				huh.NewInput().Title("Seconds between alerts (this email):").
+					Value(&secondsStr).
+					Validate(validateSeconds),
+			),
+			huh.NewGroup(
+				huh.NewConfirm().Title("Add another email?").Value(&addAnother),
+			),
+		).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeEmail, "value": strings.TrimSpace(email), "seconds_between_notifications": seconds,
+		})
+		addSpecific = addAnother
+	}
+
+	if len(notifications) == 0 {
+		return nil, errors.New("at least one notification (webhook or email) is required")
+	}
+
+	return notifications, nil
+}
+
+func toAnySlice(ss []string) []any {
+	result := make([]any, len(ss))
+	for i, s := range ss {
+		result[i] = s
+	}
+	return result
+}
+
+func machinesPartDeleteTriggerAction(c *cli.Context, args machinesPartDeleteTriggerArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	triggers, err := resourcesFromPartConfig(config, "triggers")
+	if err != nil {
+		return err
+	}
+
+	var updatedTriggers []map[string]any
+	found := false
+	for _, t := range triggers {
+		if t["name"] == args.Name {
+			found = true
+		} else {
+			updatedTriggers = append(updatedTriggers, t)
+		}
+	}
+
+	if !found {
+		printf(c.App.Writer, "trigger %q not found", args.Name)
+		return nil
+	}
+
+	config["triggers"] = updatedTriggers
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully deleted trigger %q", args.Name)
+	return nil
+}
+
+// validDataCaptureMethods maps component/service subtypes to their valid data capture method names.
+var validDataCaptureMethods = map[string][]string{
+	"arm":     {"EndPosition", "JointPositions", "DoCommand"},
+	"audioin": {"GetAudio", "DoCommand"},
+	"base":    {"DoCommand"},
+	"board":   {"Analogs", "Gpios", "DoCommand"},
+	"button":  {"DoCommand"},
+	"camera":  {"NextPointCloud", "ReadImage", "GetImages", "DoCommand"},
+	"encoder": {"TicksCount", "DoCommand"},
+	"gantry":  {"Position", "Lengths", "DoCommand"},
+	"generic": {"DoCommand"},
+	"gripper": {"DoCommand"},
+	"input":   {"DoCommand"},
+	"motor":   {"Position", "IsPowered", "DoCommand"},
+	"movement_sensor": {
+		"Position", "LinearVelocity", "AngularVelocity", "CompassHeading",
+		"LinearAcceleration", "Orientation", "Readings", "DoCommand",
+	},
+	"pose_tracker": {"DoCommand"},
+	"power_sensor": {"Voltage", "Current", "Power", "Readings", "DoCommand"},
+	"sensor":       {"Readings", "DoCommand"},
+	"servo":        {"Position", "DoCommand"},
+	"switch":       {"DoCommand"},
+}
+
+// warnUnknownKeys warns about any keys in m that are not in validKeys.
+func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys map[string]bool) {
+	for k := range m {
+		if !validKeys[k] {
+			warningf(w, "unknown field %q in %s", k, context)
+		}
+	}
+}
+
+// validateTriggerConfig validates the trigger configuration and returns an error for invalid configs.
+func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) error {
+	// warn about unknown top-level keys
+	warnUnknownKeys(w, "trigger config", triggerConfig, map[string]bool{
+		"name": true, "event": true, "notifications": true, "disabled": true,
+	})
+
+	// 1. name: required non-empty string
+	nameRaw, ok := triggerConfig["name"]
+	if !ok {
+		return errors.New("trigger config missing required field \"name\"")
+	}
+	name, ok := nameRaw.(string)
+	if !ok || name == "" {
+		return errors.New("trigger \"name\" must be a non-empty string")
+	}
+
+	// 2. event: required map
+	eventRaw, ok := triggerConfig["event"]
+	if !ok {
+		return errors.New("trigger config missing required field \"event\"")
+	}
+	event, ok := eventRaw.(map[string]any)
+	if !ok {
+		return errors.New("trigger \"event\" must be an object")
+	}
+
+	// 3. event.type: must be one of the valid types
+	validEventTypes := map[string]bool{
+		triggerEventPartOnline:              true,
+		triggerEventPartOffline:             true,
+		triggerEventPartDataSynced:          true,
+		triggerEventConditionalDataIngested: true,
+		triggerEventConditionalLogsIngested: true,
+	}
+	eventTypeRaw, ok := event["type"]
+	if !ok {
+		return errors.New("trigger event missing required field \"type\"")
+	}
+	eventType, ok := eventTypeRaw.(string)
+	if !ok || !validEventTypes[eventType] {
+		return fmt.Errorf(
+			"trigger event type must be one of: part_online, part_offline, "+
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+	}
+
+	// warn about unknown event keys
+	validEventKeys := map[string]bool{"type": true}
+	switch eventType {
+	case triggerEventPartDataSynced:
+		validEventKeys["data_ingested"] = true
+	case triggerEventConditionalDataIngested:
+		validEventKeys["conditional"] = true
+	case triggerEventConditionalLogsIngested:
+		validEventKeys["log_levels"] = true
+	}
+	warnUnknownKeys(w, "event", event, validEventKeys)
+
+	// 4. event-type-specific validation
+	switch eventType {
+	case triggerEventPartDataSynced:
+		if err := validateDataSynced(event); err != nil {
+			return err
+		}
+	case triggerEventConditionalDataIngested:
+		if err := validateConditionalDataIngested(w, event, config); err != nil {
+			return err
+		}
+	case triggerEventConditionalLogsIngested:
+		if err := validateConditionalLogsIngested(event); err != nil {
+			return err
+		}
+	}
+
+	// 5. notifications: required non-empty array
+	notificationsRaw, ok := triggerConfig["notifications"]
+	if !ok {
+		return errors.New("trigger config missing required field \"notifications\"")
+	}
+	notifications, ok := notificationsRaw.([]any)
+	if !ok || len(notifications) == 0 {
+		return errors.New("trigger \"notifications\" must be a non-empty array")
+	}
+
+	// 6. validate each notification
+	for i, nRaw := range notifications {
+		n, ok := nRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("notification at index %d must be an object", i)
+		}
+		if err := validateNotification(w, n, i, eventType); err != nil {
+			return err
+		}
+	}
+
+	// 7. warnings
+	if disabled, ok := triggerConfig["disabled"].(bool); ok && disabled {
+		warningf(w, "trigger will be created in disabled state")
+	}
+
+	return nil
+}
+
+func validateDataSynced(event map[string]any) error {
+	diRaw, ok := event["data_ingested"]
+	if !ok {
+		return errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field")
+	}
+	di, ok := diRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"data_ingested\" must be an object")
+	}
+	dtRaw, ok := di["data_types"]
+	if !ok {
+		return errors.New("\"data_ingested\" requires \"data_types\" field")
+	}
+	dataTypes, ok := dtRaw.([]any)
+	if !ok || len(dataTypes) == 0 {
+		return errors.New("\"data_types\" must be a non-empty array")
+	}
+	validDataTypes := map[string]bool{"binary": true, "tabular": true, "file": true, "unspecified": true}
+	for _, dt := range dataTypes {
+		s, ok := dt.(string)
+		if !ok || !validDataTypes[s] {
+			return fmt.Errorf("invalid data type %q; must be one of: binary, tabular, file, unspecified", dt)
+		}
+	}
+	return nil
+}
+
+func validateConditionalDataIngested(w io.Writer, event, config map[string]any) error {
+	condRaw, ok := event["conditional"]
+	if !ok {
+		return errors.New("event type \"conditional_data_ingested\" requires \"conditional\" field")
+	}
+	cond, ok := condRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"conditional\" must be an object")
+	}
+	dcmRaw, ok := cond["data_capture_method"]
+	if !ok {
+		return errors.New("\"conditional\" requires \"data_capture_method\" field")
+	}
+	dcm, ok := dcmRaw.(string)
+	if !ok || dcm == "" {
+		return errors.New("\"data_capture_method\" must be a non-empty string")
+	}
+	parts := strings.Split(dcm, ":")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return fmt.Errorf("\"data_capture_method\" must have format subtype:name:method (e.g., sensor:my-sensor:Readings); got %q", dcm)
+	}
+	subtype := parts[0]
+	componentName := parts[1]
+	methodName := parts[2]
+
+	// cross-reference against components and services in the part config
+	if err := validateComponentExists(config, subtype, componentName); err != nil {
+		return err
+	}
+
+	// validate method name against known methods for this subtype
+	if methods, known := validDataCaptureMethods[subtype]; known {
+		valid := false
+		for _, m := range methods {
+			if m == methodName {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("method %q is not a valid data capture method for %q; valid methods: %s",
+				methodName, subtype, strings.Join(methods, ", "))
+		}
+	} else {
+		warningf(w, "unknown subtype %q; cannot validate method %q. "+
+			"If this is a custom component, ensure the method name is correct", subtype, methodName)
+	}
+
+	// validate condition.evals if present
+	if conditionRaw, ok := cond["condition"]; ok {
+		condition, ok := conditionRaw.(map[string]any)
+		if !ok {
+			return errors.New("\"condition\" must be an object")
+		}
+		if evalsRaw, ok := condition["evals"]; ok {
+			evals, ok := evalsRaw.([]any)
+			if !ok {
+				return errors.New("\"condition.evals\" must be an array")
+			}
+			if err := validateEvals(evals); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateComponentExists checks that a component/service with the given name exists in the config
+// and its API subtype matches the expected subtype.
+func validateComponentExists(config map[string]any, subtype, componentName string) error {
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			continue
+		}
+		for _, r := range resources {
+			name, _ := r["name"].(string)
+			if name != componentName {
+				continue
+			}
+			// found it — verify the API subtype matches
+			api, _ := r["api"].(string)
+			apiParts := strings.Split(api, ":")
+			if len(apiParts) == 3 && apiParts[2] != subtype {
+				return fmt.Errorf("component %q has subtype %q (api: %s), but data_capture_method specifies subtype %q",
+					componentName, apiParts[2], api, subtype)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no component or service named %q found in the part config; "+
+		"data_capture_method must reference an existing component", componentName)
+}
+
+func validateEvals(evals []any) error {
+	validOperators := map[string]bool{
+		"lt": true, "lte": true, "gt": true, "gte": true,
+		"eq": true, "neq": true, "regex": true,
+	}
+	for i, eRaw := range evals {
+		e, ok := eRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("eval at index %d must be an object", i)
+		}
+		opRaw, ok := e["operator"]
+		if !ok {
+			return fmt.Errorf("eval at index %d missing required field \"operator\"", i)
+		}
+		op, ok := opRaw.(string)
+		if !ok || !validOperators[op] {
+			return fmt.Errorf("eval at index %d has invalid operator %q; must be one of: lt, lte, gt, gte, eq, neq, regex", i, opRaw)
+		}
+		if _, ok := e["value"]; !ok {
+			return fmt.Errorf("eval at index %d missing required field \"value\"", i)
+		}
+	}
+	return nil
+}
+
+func validateConditionalLogsIngested(event map[string]any) error {
+	llRaw, ok := event["log_levels"]
+	if !ok {
+		return errors.New("event type \"conditional_logs_ingested\" requires \"log_levels\" field")
+	}
+	logLevels, ok := llRaw.([]any)
+	if !ok || len(logLevels) == 0 {
+		return errors.New("\"log_levels\" must be a non-empty array")
+	}
+	validLevels := map[string]bool{"info": true, "warn": true, "error": true}
+	for _, ll := range logLevels {
+		s, ok := ll.(string)
+		if !ok || !validLevels[s] {
+			return fmt.Errorf("invalid log level %q; must be one of: info, warn, error", ll)
+		}
+	}
+	return nil
+}
+
+func validateNotification(w io.Writer, n map[string]any, index int, eventType string) error {
+	warnUnknownKeys(w, fmt.Sprintf("notification at index %d", index), n, map[string]bool{
+		"type": true, "value": true, "seconds_between_notifications": true,
+	})
+
+	// type
+	ntRaw, ok := n["type"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"type\"", index)
+	}
+	nt, ok := ntRaw.(string)
+	if !ok || (nt != notifTypeWebhook && nt != notifTypeEmail) {
+		return fmt.Errorf("notification at index %d has invalid type %q; must be \"webhook\" or \"email\"", index, ntRaw)
+	}
+
+	// value
+	valRaw, ok := n["value"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"value\"", index)
+	}
+	val, ok := valRaw.(string)
+	if !ok || val == "" {
+		return fmt.Errorf("notification at index %d \"value\" must be a non-empty string", index)
+	}
+
+	if nt == notifTypeWebhook {
+		u, err := url.Parse(val)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("notification at index %d has invalid webhook URL %q (must have scheme and host)", index, val)
+		}
+	}
+	if nt == notifTypeEmail {
+		if val != "all_machine_owners" && !strings.Contains(val, "@") {
+			return fmt.Errorf("notification at index %d has invalid email %q (must contain '@' or be \"all_machine_owners\")", index, val)
+		}
+	}
+
+	// seconds_between_notifications
+	if sbnRaw, ok := n["seconds_between_notifications"]; ok {
+		sbn, ok := sbnRaw.(float64)
+		if !ok {
+			return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be a number", index)
+		}
+		switch eventType {
+		case triggerEventPartOnline, triggerEventPartOffline:
+			if sbn <= 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be over 0 for liveness triggers; got %v", index, sbn)
+			}
+		case triggerEventPartDataSynced, triggerEventConditionalDataIngested:
+			if sbn < 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn)
+			}
+		}
+	}
+
+	return nil
+}
+
 type robotsPartStatusArgs struct {
 	Organization string
 	Location     string
