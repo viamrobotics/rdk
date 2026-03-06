@@ -29,14 +29,24 @@ type operation struct {
 	targetInputs []float64
 	done         bool
 	stopped      bool
+
+	optimizedInputs struct {
+		startTime time.Time
+		times     []float64
+		inputs    [][]float64
+	}
 }
 
+// Re-Documenting each public arm API is zero value and onerous. This applies for the whole file.
+// revive:disable:exported
 func (op operation) isMoving() bool {
 	// If we have `targetInputs` and we are not done and not stopped
-	return op.targetInputs != nil && !op.done && !op.stopped
+	return !op.done && !op.stopped
 }
 
-type simulatedArm struct {
+// SimulatedArm is a fake arm and exposes an `UpdateForTime` method that can be used to explicitly
+// control the arm position in tests as Move* API calls are made.
+type SimulatedArm struct {
 	resource.Named
 
 	// logical properties
@@ -91,10 +101,8 @@ func init() {
 	})
 }
 
-// Model is the name used to refer to the simulated arm model.
 var Model = resource.DefaultModelFamily.WithModel("simulated")
 
-// Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
 	var err error
 	switch {
@@ -133,9 +141,9 @@ func NewArm(ctx context.Context, deps resource.Dependencies, resConf resource.Co
 func newArm(
 	namedArm resource.Named, modelName string, model referenceframe.Model, speed float64, simulateTime bool,
 	logger logging.Logger,
-) *simulatedArm {
+) *SimulatedArm {
 	ctx, cancel := context.WithCancel(context.Background())
-	ret := &simulatedArm{
+	ret := &SimulatedArm{
 		Named:  namedArm,
 		logger: logger,
 
@@ -147,6 +155,9 @@ func newArm(
 		cancel: cancel,
 
 		currInputs: make([]float64, len(model.DoF())),
+		operation: operation{
+			done: true,
+		},
 	}
 
 	if simulateTime {
@@ -154,23 +165,30 @@ func newArm(
 		// movement be unpredictable.
 		ret.lastUpdated = time.Now()
 		ret.timeSimulation = utils.NewStoppableWorkerWithTicker(10*time.Millisecond, func(_ context.Context) {
-			ret.updateForTime(time.Now())
+			ret.UpdateForTime(time.Now())
 		})
 	}
 
 	return ret
 }
 
-// Simulated arms only update their position when `updateForTime` is called. This can be used by
-// tests for deterministic passage of time. Or can be called by a background goroutine to follow a
-// realtime clock.
+// UpdateForTime updates the simulated joint positions as a function of the input time, configured
+// speed and target joint positions from a running `Move*` API call. Simulated arms only update
+// their position when `UpdateForTime` is called. This can be used by tests for deterministic
+// passage of time. Or can be called by a background goroutine to follow a realtime clock.
 //
-// But direct `arm.Arm` API calls will _not_ update the position under the hood.
-func (sa *simulatedArm) updateForTime(now time.Time) {
+// Direct `arm.Arm` API calls will _not_ update the position under the hood.
+func (sa *SimulatedArm) UpdateForTime(now time.Time) {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
 
 	if !sa.operation.isMoving() {
+		sa.lastUpdated = now
+		return
+	}
+
+	if len(sa.operation.optimizedInputs.times) > 0 {
+		sa.updateForTimeOptimized(now)
 		sa.lastUpdated = now
 		return
 	}
@@ -256,7 +274,26 @@ func (sa *simulatedArm) updateForTime(now time.Time) {
 	}
 }
 
-func (sa *simulatedArm) EndPosition(
+// updateForTimeOptimized assumes the caller is holding the `SimulatedArm.mu`.
+func (sa *SimulatedArm) updateForTimeOptimized(now time.Time) {
+	traj := sa.operation.optimizedInputs
+	sinceBeginning := now.Sub(traj.startTime)
+
+	// Do a lookup in the times array to find the corresponding index into the inputs array.
+	for timeIdx, sampledTime := range traj.times {
+		if sinceBeginning.Seconds() < sampledTime {
+			sa.currInputs = traj.inputs[timeIdx]
+			return
+		}
+	}
+
+	// If the time since starting is larger than any sampled time, we've hit the end, set to the
+	// target inputs.
+	sa.currInputs = sa.operation.targetInputs
+	sa.operation.done = true
+}
+
+func (sa *SimulatedArm) EndPosition(
 	ctx context.Context, extra map[string]interface{},
 ) (spatialmath.Pose, error) {
 	sa.mu.Lock()
@@ -265,17 +302,17 @@ func (sa *simulatedArm) EndPosition(
 	return sa.model.Transform(sa.currInputs)
 }
 
-func (sa *simulatedArm) MoveToPosition(
+func (sa *SimulatedArm) MoveToPosition(
 	ctx context.Context, pose spatialmath.Pose, extra map[string]interface{},
 ) error {
 	return errors.New("unimplemented -- must call with explicit joint positions")
 }
 
-func (sa *simulatedArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+func (sa *SimulatedArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	return sa.JointPositions(ctx, nil)
 }
 
-func (sa *simulatedArm) JointPositions(
+func (sa *SimulatedArm) JointPositions(
 	ctx context.Context, extra map[string]interface{},
 ) ([]referenceframe.Input, error) {
 	sa.mu.Lock()
@@ -287,7 +324,23 @@ func (sa *simulatedArm) JointPositions(
 	return ret, nil
 }
 
-func (sa *simulatedArm) MoveToJointPositions(
+func (sa *SimulatedArm) OptimizedTrajectory(ctx context.Context, times []float64, inputs [][]referenceframe.Input) error {
+	sa.mu.Lock()
+	sa.operation = operation{
+		targetInputs: inputs[len(inputs)-1],
+		done:         false,
+		stopped:      false,
+	}
+
+	sa.operation.optimizedInputs.startTime = sa.lastUpdated
+	sa.operation.optimizedInputs.times = times
+	sa.operation.optimizedInputs.inputs = inputs
+	sa.mu.Unlock()
+
+	return sa.executeOp(ctx)
+}
+
+func (sa *SimulatedArm) MoveToJointPositions(
 	ctx context.Context, target []referenceframe.Input, extra map[string]interface{},
 ) error {
 	if err := arm.CheckDesiredJointPositions(ctx, sa, target); err != nil {
@@ -302,22 +355,32 @@ func (sa *simulatedArm) MoveToJointPositions(
 	}
 	sa.mu.Unlock()
 
+	return sa.executeOp(ctx)
+}
+
+// executeOp assumes the `sa.operation` value was initialized.
+func (sa *SimulatedArm) executeOp(ctx context.Context) error {
 	// An operation was "started". `MoveToJointPositions` blocks until the movement completes or is
 	// canceled.
 	for {
 		select {
 		case <-ctx.Done():
 			// Command cancelation.
+			sa.mu.Lock()
+			sa.operation.stopped = true
+			sa.mu.Unlock()
 			return ctx.Err()
 
 		case <-sa.ctx.Done():
 			// `simulatedArm.Close` was called or robot shutdown.
+			sa.mu.Lock()
+			sa.operation.stopped = true
+			sa.mu.Unlock()
 			return sa.ctx.Err()
 
 		default:
 			// Poll for completion:
 			sa.mu.Lock()
-			// Calls to `updateForTime` will nil out `targetInputs` when a movement is completed.
 			done, stopped := sa.operation.done, sa.operation.stopped
 			sa.mu.Unlock()
 
@@ -338,7 +401,7 @@ func (sa *simulatedArm) MoveToJointPositions(
 	}
 }
 
-func (sa *simulatedArm) MoveThroughJointPositions(
+func (sa *SimulatedArm) MoveThroughJointPositions(
 	ctx context.Context,
 	positions [][]referenceframe.Input,
 	_ *arm.MoveOptions,
@@ -353,18 +416,18 @@ func (sa *simulatedArm) MoveThroughJointPositions(
 	return nil
 }
 
-func (sa *simulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+func (sa *SimulatedArm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	return sa.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
 }
 
-func (sa *simulatedArm) IsMoving(ctx context.Context) (bool, error) {
+func (sa *SimulatedArm) IsMoving(ctx context.Context) (bool, error) {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
 
 	return sa.operation.isMoving(), nil
 }
 
-func (sa *simulatedArm) Stop(ctx context.Context, extra map[string]any) error {
+func (sa *SimulatedArm) Stop(ctx context.Context, extra map[string]any) error {
 	sa.mu.Lock()
 	defer sa.mu.Unlock()
 
@@ -379,7 +442,7 @@ func (sa *simulatedArm) Stop(ctx context.Context, extra map[string]any) error {
 	return nil
 }
 
-func (sa *simulatedArm) Close(ctx context.Context) error {
+func (sa *SimulatedArm) Close(ctx context.Context) error {
 	sa.closed.Store(true)
 	sa.cancel()
 	if sa.timeSimulation != nil {

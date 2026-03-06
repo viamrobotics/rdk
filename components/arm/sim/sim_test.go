@@ -28,7 +28,7 @@ func TestBasic(t *testing.T) {
 
 	simArmI, err := NewArm(ctx, nil, resConf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	simArm := simArmI.(*simulatedArm)
+	simArm := simArmI.(*SimulatedArm)
 
 	// Assert the starting joint position is all zeroes.
 	currInputs, err := simArm.CurrentInputs(ctx)
@@ -60,7 +60,7 @@ func TestBasic(t *testing.T) {
 	// Advance time by one second.
 	clock := simArm.lastUpdated
 	clock = clock.Add(time.Second)
-	simArm.updateForTime(clock)
+	simArm.UpdateForTime(clock)
 
 	// Assert the joint position for first two joints changed. Because the simulated arm slows down
 	// movement such that all joints finish at the same time:
@@ -80,7 +80,7 @@ func TestBasic(t *testing.T) {
 	// Advance time by another second. Assert the joint position matches the target. Assert the
 	// operation is considered done.
 	clock = clock.Add(time.Second)
-	simArm.updateForTime(clock)
+	simArm.UpdateForTime(clock)
 
 	currInputs, err = simArm.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -108,7 +108,7 @@ func TestStop(t *testing.T) {
 
 	simArmI, err := NewArm(ctx, nil, resConf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	simArm := simArmI.(*simulatedArm)
+	simArm := simArmI.(*SimulatedArm)
 
 	// Set up a move that will take "2 seconds" to complete. `MoveToJointPositions` is blocking and
 	// time must be advanced manually. Hence the goroutine.
@@ -162,7 +162,7 @@ func TestTimeSimulation(t *testing.T) {
 
 	simArmI, err := NewArm(ctx, nil, resConf, logger)
 	test.That(t, err, test.ShouldBeNil)
-	simArm := simArmI.(*simulatedArm)
+	simArm := simArmI.(*SimulatedArm)
 	defer func() {
 		// When `SimulateTime` is true, we must call `Close` to wait on background goroutines.
 		err = simArm.Close(ctx)
