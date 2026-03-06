@@ -624,12 +624,56 @@ func TestDataClient(t *testing.T) {
 		) (*pb.DeleteTabularDataResponse, error) {
 			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
 			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, pbDeleteOlderThanDays)
+			test.That(t, in.Filter, test.ShouldBeNil)
 
 			return &pb.DeleteTabularDataResponse{
 				DeletedCount: pbCount,
 			}, nil
 		}
-		resp, err := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays)
+		resp, err := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays, nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, count)
+	})
+
+	t.Run("DeleteTabularDataWithFilter", func(t *testing.T) {
+		deleteOlderThanDays := 1
+		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
+		expectedFilter := &pb.DeleteTabularFilter{
+			LocationIds:   []string{locationID},
+			ComponentName: componentName,
+		}
+		grpcClient.DeleteTabularDataFunc = func(ctx context.Context, in *pb.DeleteTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (*pb.DeleteTabularDataResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, pbDeleteOlderThanDays)
+			test.That(t, in.Filter, test.ShouldResemble, expectedFilter)
+
+			return &pb.DeleteTabularDataResponse{
+				DeletedCount: pbCount,
+			}, nil
+		}
+		resp, err := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays, expectedFilter)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldEqual, count)
+	})
+
+	t.Run("DeleteTabularDataWithEmptyFilter", func(t *testing.T) {
+		deleteOlderThanDays := 1
+		pbDeleteOlderThanDays := uint32(deleteOlderThanDays)
+		emptyFilter := &pb.DeleteTabularFilter{}
+		grpcClient.DeleteTabularDataFunc = func(ctx context.Context, in *pb.DeleteTabularDataRequest,
+			opts ...grpc.CallOption,
+		) (*pb.DeleteTabularDataResponse, error) {
+			test.That(t, in.OrganizationId, test.ShouldEqual, organizationID)
+			test.That(t, in.DeleteOlderThanDays, test.ShouldEqual, pbDeleteOlderThanDays)
+			test.That(t, in.Filter, test.ShouldResemble, emptyFilter)
+
+			return &pb.DeleteTabularDataResponse{
+				DeletedCount: pbCount,
+			}, nil
+		}
+		resp, err := client.DeleteTabularData(context.Background(), organizationID, deleteOlderThanDays, emptyFilter)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldEqual, count)
 	})
