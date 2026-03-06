@@ -26,7 +26,7 @@ const (
 // reloadUser returns the identity string to stamp on reload configs.
 // For token-based auth this is the user's email; for API keys it's the key ID.
 func reloadUser(conf *Config) string {
-    // let reload succeed even if the auth is nil, lets monitor to see if this case ever happens.
+	// let reload succeed even if the auth is nil, lets monitor to see if this case ever happens.
 	if conf == nil || conf.Auth == nil {
 		return ""
 	}
@@ -130,15 +130,15 @@ func (c *viamClient) addResourceFromModule(
 		if refetchErr != nil {
 			return errors.Wrap(err, "update failed and could not re-fetch part config")
 		}
-		*part = *partResp.Part
-		retryMap := part.RobotConfig.AsMap()
+		retryPart := partResp.Part
+		retryMap := retryPart.RobotConfig.AsMap()
 		if _, retryErr := applyResourceToPartMap(retryMap, manifest, modelName, resourceName); retryErr != nil {
 			return retryErr
 		}
-		if retryErr := writeBackConfig(part, retryMap); retryErr != nil {
+		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
 			return retryErr
 		}
-		if retryErr := c.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
+		if retryErr := c.updateRobotPart(retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
 			return errors.Wrap(retryErr, "retry of addResourceFromModule also failed")
 		}
 	}
@@ -199,16 +199,16 @@ func addShellService(c *cli.Context, vc *viamClient, logger logging.Logger, part
 		if refetchErr != nil {
 			return false, errors.Wrap(err, "update failed and could not re-fetch part config")
 		}
-		*part = *partResp.Part
-		retryMap := part.RobotConfig.AsMap()
+		retryPart := partResp.Part
+		retryMap := retryPart.RobotConfig.AsMap()
 		if !applyShellServiceToPartMap(retryMap) {
 			debugf(c.App.Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
 		}
-		if retryErr := writeBackConfig(part, retryMap); retryErr != nil {
+		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
 			return false, retryErr
 		}
-		if retryErr := vc.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
+		if retryErr := vc.updateRobotPart(retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
 			return false, errors.Wrap(retryErr, "retry of addShellService also failed")
 		}
 	}
@@ -300,16 +300,16 @@ func configureModule(
 			if refetchErr != nil {
 				return part, false, errors.Wrap(err, "update failed and could not re-fetch part config")
 			}
-			*part = *partResp.Part
-			retryMap := part.RobotConfig.AsMap()
+			retryPart := partResp.Part
+			retryMap := retryPart.RobotConfig.AsMap()
 			_, _, retryErr := applyModuleConfigToPartMap(c, retryMap, *manifest, local, reloadUser)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
-			if retryErr = writeBackConfig(part, retryMap); retryErr != nil {
+			if retryErr = writeBackConfig(retryPart, retryMap); retryErr != nil {
 				return part, false, retryErr
 			}
-			if retryErr = vc.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
+			if retryErr = vc.updateRobotPart(retryPart, retryMap, retryPart.LastUpdated); retryErr != nil {
 				return part, false, errors.Wrap(retryErr, "retry of configureModule also failed")
 			}
 		}
