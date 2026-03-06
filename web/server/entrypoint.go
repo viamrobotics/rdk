@@ -41,7 +41,6 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=machine configuration file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
-	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
@@ -330,7 +329,6 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 		return weboptions.Options{}, err
 	}
 	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
-	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
