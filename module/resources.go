@@ -103,7 +103,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 			"resource", conf.Name, "level", logLevelStr)
 	}
 
-	if _, err = m.reconfigureResource(ctx, deps, conf, logLevel); err != nil {
+	if _, err = m.rebuildResource(ctx, deps, conf, logLevel); err != nil {
 		return nil, err
 	}
 
@@ -433,9 +433,9 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	return coll.Remove(resName)
 }
 
-// reconfigureResource will reconfigure a resource and, if successful, return the new resource
+// rebuildResource will rebuild resource and, if successful, return the new resource
 // pointer/interface object.
-func (m *Module) reconfigureResource(
+func (m *Module) rebuildResource(
 	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
 ) (resource.Resource, error) {
 	m.registerMu.Lock()
@@ -455,15 +455,6 @@ func (m *Module) reconfigureResource(
 	m.registerMu.Unlock()
 	if hasLogger && logLevel != nil {
 		resLogger.SetLevel(*logLevel)
-	}
-
-	err = res.Reconfigure(ctx, deps, *conf)
-	if err == nil {
-		return res, nil
-	}
-
-	if !resource.IsMustRebuildError(err) {
-		return nil, err
 	}
 
 	if err := res.Close(ctx); err != nil {
@@ -502,10 +493,10 @@ func (m *Module) reconfigureResource(
 		m.streamSourceByName[res.Name()] = p
 	}
 
-	depsToReconfigure := m.internalDeps[res]
+	depsToRebuild := m.internalDeps[res]
 	// Build up a new slice to map `m.internalDeps[newRes]` to.
-	newDepsToReconfigure := make([]resConfigureArgs, 0, len(depsToReconfigure))
-	for _, depToReconfig := range depsToReconfigure {
+	newDepsToRebuild := make([]resConfigureArgs, 0, len(depsToRebuild))
+	for _, depToReconfig := range depsToRebuild {
 		// We are going to modify `toReconfig` at the end. Make sure changes to `dependentResConfigureArgs`
 		// get reflected in the slice.
 		deps, err := m.getDependenciesForConstruction(ctx, depToReconfig.depStrings)
@@ -519,14 +510,14 @@ func (m *Module) reconfigureResource(
 		}
 
 		// We release the `registerMu` to let other resource query/acquisition methods make
-		// progress. We do not assume `reconfigureResource` is fast.
+		// progress. We do not assume `rebuildResource` is fast.
 		//
-		// We also release the mutex as the recursive call to `reconfigureResource` will reacquire
+		// We also release the mutex as the recursive call to `rebuildResource` will reacquire
 		// it. And the mutex is not reentrant.
 		m.registerMu.Unlock()
 
 		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
-		rebuiltRes, err := m.reconfigureResource(ctx, deps, depToReconfig.conf, nilLogLevel)
+		rebuiltRes, err := m.rebuildResource(ctx, deps, depToReconfig.conf, nilLogLevel)
 		if err != nil {
 			m.logger.Warn("Failed to cascade dependent reconfigure",
 				"changedResource", conf.Name,
@@ -535,14 +526,14 @@ func (m *Module) reconfigureResource(
 		}
 		m.registerMu.Lock()
 
-		newDepsToReconfigure = append(newDepsToReconfigure, resConfigureArgs{
+		newDepsToRebuild = append(newDepsToRebuild, resConfigureArgs{
 			toReconfig: rebuiltRes,
 			conf:       depToReconfig.conf,
 			depStrings: depToReconfig.depStrings,
 		})
 	}
 
-	m.internalDeps[newRes] = newDepsToReconfigure
+	m.internalDeps[newRes] = newDepsToRebuild
 	delete(m.internalDeps, res)
 	m.registerMu.Unlock()
 

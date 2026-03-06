@@ -214,7 +214,7 @@ func TestReconfigure(t *testing.T) {
 
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
-		err := b.Reconfigure(ctx, mockDeps(nil, nil), resource.Config{})
+		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, mockDeps(nil, nil), resource.Config{})
 		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
 			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
 		test.That(t, err, test.ShouldBeError, expErr)
@@ -227,13 +227,13 @@ func TestReconfigure(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
 			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
-			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
+			err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
 		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
 			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
-			err := b.Reconfigure(ctx, nil, config)
+			err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, config)
 			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
 		})
 	})
@@ -242,7 +242,7 @@ func TestReconfigure(t *testing.T) {
 		ctx := context.Background()
 		deps := resource.Dependencies{}
 		config := resource.Config{ConvertedAttributes: &Config{}}
-		err := b.Reconfigure(ctx, deps, config)
+		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
 		errExp := errors.New("Resource missing from dependencies. Resource: " +
 			"rdk-internal:service:cloud_connection/builtin")
 		test.That(t, err, test.ShouldBeError, errExp)
@@ -254,7 +254,7 @@ func TestReconfigure(t *testing.T) {
 		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
 		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
 		deps := mockDeps(nil, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
-		err := b.Reconfigure(ctx, deps, config)
+		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
 	})
 
@@ -271,7 +271,7 @@ func TestReconfigure(t *testing.T) {
 			},
 		})
 		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		err := b.Reconfigure(ctx, deps, config)
+		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldNotBeNil)
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)

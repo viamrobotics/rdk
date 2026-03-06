@@ -1557,12 +1557,11 @@ func TestReconfigure(t *testing.T) {
 	manager.resources.AddNode(svc1.ResourceName(), svcNode)
 	newService, newlyBuilt, err = manager.processResource(ctx, svc1, svcNode, local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeFalse)
+	test.That(t, newlyBuilt, test.ShouldBeTrue)
 
 	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, mockRe, test.ShouldNotBeNil)
-	test.That(t, mockRe.reconfigCount, test.ShouldEqual, 1)
 
 	defer func() {
 		test.That(t, local.Close(ctx), test.ShouldBeNil)
@@ -1817,12 +1816,6 @@ func TestResourceCreationPanic(t *testing.T) {
 type mock struct {
 	resource.Named
 	resource.TriviallyCloseable
-	reconfigCount int
-}
-
-func (m *mock) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	m.reconfigCount++
-	return nil
 }
 
 // A dummyRobot implements wraps an robot.Robot. It's only use for testing purposes.
@@ -1859,15 +1852,6 @@ func (rr *dummyRobot) SetOffline(offline bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	rr.offline = offline
-}
-
-func (rr *dummyRobot) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	if rr.offline {
-		return errors.New("offline")
-	}
-	return errors.New("unsupported")
 }
 
 func (rr *dummyRobot) GetModelsFromModules(ctx context.Context) ([]resource.ModuleModel, error) {

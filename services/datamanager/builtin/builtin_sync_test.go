@@ -197,7 +197,7 @@ func TestSyncEnabled(t *testing.T) {
 
 			// Set up service end config.
 			c.ScheduledSyncDisabled = tc.syncEndDisabled
-			err = b.Reconfigure(context.Background(), deps, config)
+			err = b.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
 			secondReconfigure.Store(true)
 
@@ -1075,7 +1075,7 @@ func TestSyncConfigUpdateBehavior(t *testing.T) {
 			c.SyncIntervalMins = tc.newSyncIntervalMins
 			c.MaximumNumSyncThreads = tc.newMaxSyncThreads
 
-			err = b.Reconfigure(context.Background(), deps, config)
+			err = b.BuiltInReconfigure(context.Background(), deps, config)
 			test.That(t, err, test.ShouldBeNil)
 
 			newTicker := b.sync.ScheduledTicker

@@ -117,7 +117,7 @@ func New(
 		diskSummaryTracker: diskSummaryTracker,
 	}
 
-	if err := svc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := svc.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return svc, nil
@@ -165,7 +165,7 @@ func (b *builtIn) Sync(ctx context.Context, extra map[string]interface{}) error 
 // when errors occur.
 // If an error occurs after the first Reconfigure call, data capture & data sync will continue to function using the old config
 // until a successful Reconfigure call is made or Close is called.
-func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	b.logger.Info("Reconfigure START")
 	defer b.logger.Info("Reconfigure END")
 	c, err := resource.NativeConfig[*Config](conf)

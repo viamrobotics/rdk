@@ -788,7 +788,7 @@ func TestWebWithStreams(t *testing.T) {
 	rs[cam2.Name()] = cam2
 	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(context.Background(), rs, resource.Config{})
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(context.Background(), rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test that new streams are available
@@ -844,7 +844,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	rs[cam1.Name()] = cam1
 	robot.Mu.Unlock()
 	robot.MockResourcesFromMap(rs)
-	err = svc.Reconfigure(ctx, rs, resource.Config{})
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, rs, resource.Config{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test that new streams are available

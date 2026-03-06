@@ -147,14 +147,14 @@ func NewBuiltIn(
 		configuredDefaultExtras: make(map[string]any),
 	}
 
-	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
+	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return ms, nil
 }
 
 // Reconfigure updates the motion service when the config has changed.
-func (ms *builtIn) Reconfigure(
+func (ms *builtIn) BuiltInReconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

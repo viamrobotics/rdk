@@ -125,14 +125,14 @@ func newGPIOServo(
 	}
 
 	// reconfigure
-	if err := servo.Reconfigure(ctx, deps, conf); err != nil {
+	if err := servo.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return servo, nil
 }
 
-func (s *servoGPIO) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+func (s *servoGPIO) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
