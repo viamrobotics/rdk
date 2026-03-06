@@ -3142,15 +3142,16 @@ func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, e
 	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
-func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp) error {
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return errors.Wrap(err, "in NewStruct")
 	}
 	req := apppb.UpdateRobotPartRequest{
-		Id:          part.Id,
-		Name:        part.Name,
-		RobotConfig: confStruct,
+		Id:              part.Id,
+		Name:            part.Name,
+		RobotConfig:     confStruct,
+		LastKnownUpdate: lastKnownUpdate,
 	}
 	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
 	return err
