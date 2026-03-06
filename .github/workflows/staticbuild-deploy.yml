@@ -1,0 +1,96 @@
+name: Build Semi-Static Binary (Deploy)
+
+on:
+  workflow_call:
+    inputs:
+      date:
+        required: true
+        type: string
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+      SLACK_BOT_TOKEN:
+        required: false
+
+jobs:
+  static_deploy:
+    name: Static Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Authorize GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Publish Static Binary
+      if: inputs.release_type != 'latest'
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-server/"
+
+    - name: Publish Static Binary (Latest)
+      if: inputs.release_type == 'latest'
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-v*" "gs://packages.viam.com/apps/viam-server/prerelease/"
+        gsutil mv "gs://packages.viam.com/apps/viam-server/testing/static/${{ inputs.date }}/${{ github.sha }}/viam-server-latest*" "gs://packages.viam.com/apps/viam-server/"
+
+    - name: Publish Subsystem Metadata
+      run: |
+        gsutil mv "gs://packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ inputs.date }}/${{ github.sha }}/*" "gs://packages.viam.com/apps/viam-subsystems/"
+
+    - name: Output Summary
+      run: |
+        channel="${{ github.ref_name }}"
+        # we call our main branch releases "latest"
+        if [ "$channel" == "main" ]; then
+          channel="latest"
+        fi
+        echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
+        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-windows-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-darwin-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+
+  send-slack-msg:
+    name: 'Send Slack Message'
+    needs: static_deploy
+    runs-on: ubuntu-latest
+    if: ${{ inputs.release_type == 'latest' && needs.static_deploy.result == 'success' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get dev version
+        id: dev-version
+        run: |
+          echo "version=$(./etc/dev-version.sh)" >> $GITHUB_OUTPUT
+
+      - name: Send slack message
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          method: chat.postMessage
+          token: ${{ secrets.SLACK_BOT_TOKEN }}
+          payload: |
+            {
+              "channel": "${{ vars.SLACK_CHANNEL_ID }}",
+              "text": "Dev RDK release *published* :white_check_mark:",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Dev RDK release *published* :white_check_mark:\n\n• Dev version: `${{ steps.dev-version.outputs.version }}`\n\n*Versioned Binaries (${{ steps.dev-version.outputs.version }}):*\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-aarch64|Linux ARM64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-x86_64|Linux x86_64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-windows-x86_64|Windows x86_64>\n• <https://storage.googleapis.com/packages.viam.com/apps/viam-server/prerelease/viam-server-${{ steps.dev-version.outputs.version }}-darwin-aarch64|MacOS arm64>\nYou can use this dev release by setting your agent config viam-server version to one of the URLs above.\n\n*Build Info:*\n• <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Workflow run>\n• Commit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                  }
+                }
+              ]
+            }
