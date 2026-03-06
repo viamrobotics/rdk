@@ -2659,6 +2659,18 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
 			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 		}
+
+		// 6. on Windows, ensure the CLI directory is in the user's PATH
+		if runtime.GOOS == osWindows {
+			if err := addToWindowsUserPATH(c, directoryPath); err != nil {
+				warningf(c.App.ErrWriter, "Failed to add CLI to user PATH. "+
+					"To add manually, run the following in PowerShell:\n"+
+					`  [Environment]::SetEnvironmentVariable("Path", `+
+					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+					"\nThen restart your terminal for the change to take effect."+
+					"\nError: %v", directoryPath, err)
+			}
+		}
 	}
 	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
@@ -2755,6 +2767,18 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 }
 
 func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	// On Windows, the running executable is locked and cannot be overwritten.
+	// However, it can be renamed, so move it out of the way first.
+	if runtime.GOOS == osWindows {
+		oldPath := localBinaryPath + ".old"
+		_ = os.Remove(oldPath) //nolint:errcheck
+		if err := os.Rename(localBinaryPath, oldPath); err != nil && !os.IsNotExist(err) {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to rename old binary: %v", err)
+		}
+	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
 			if runtime.GOOS == osWindows {
@@ -2764,6 +2788,45 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 		}
 		return errors.Errorf("failed to replace binary: %v", err)
 	}
+	return nil
+}
+
+// addToWindowsUserPATH reads the current user-level PATH from the Windows registry via PowerShell,
+// checks if binaryDir is already present, and appends it if not.
+func addToWindowsUserPATH(c *cli.Context, binaryDir string) error {
+	cleanDir := filepath.Clean(binaryDir)
+
+	// Read the current user-level PATH from the registry.
+	out, err := exec.Command("powershell", "-Command",
+		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
+	if err != nil {
+		return errors.Errorf("failed to read user PATH: %v", err)
+	}
+	currentPath := strings.TrimSpace(string(out))
+
+	// Check if directory is already in PATH (case-insensitive on Windows).
+	for _, p := range strings.Split(currentPath, ";") {
+		if strings.EqualFold(filepath.Clean(strings.TrimSpace(p)), cleanDir) {
+			return nil
+		}
+	}
+
+	// Append our directory to PATH and write it back.
+	newPath := currentPath
+	if newPath != "" && !strings.HasSuffix(newPath, ";") {
+		newPath += ";"
+	}
+	newPath += cleanDir
+
+	//nolint:gosec
+	if err := exec.Command("powershell", "-Command",
+		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
+			strings.ReplaceAll(newPath, `"`, `\"`)),
+	).Run(); err != nil {
+		return errors.Errorf("failed to update user PATH: %v", err)
+	}
+
+	infof(c.App.Writer, "Added %s to your user PATH. Restart your terminal to use 'viam' from anywhere.", cleanDir)
 	return nil
 }
 
