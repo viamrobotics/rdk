@@ -124,7 +124,7 @@ func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Mode
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel, nil)
+	node.SwapResource(res, resModel, nil, true)
 	node.setPrefix(prefix)
 	return node
 }
@@ -259,7 +259,7 @@ func (w *GraphNode) incrementLogicalClock() {
 // The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
 // communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
 // on a potentially different underlying `Model`.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC, incrementClock bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -272,7 +272,9 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
 
-	w.incrementLogicalClock()
+	if incrementClock {
+		w.incrementLogicalClock()
+	}
 	now := time.Now()
 	w.lastReconfigured = &now
 

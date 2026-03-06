@@ -1102,13 +1102,13 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			if err != nil {
 				r.manager.logger.Warnw("Unable to add resource. Not swapping.", "resourceName", conf.ResourceName(), "err", err)
 			} else if newRes != nil {
-				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc)
+				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
 			}
 		} else {
 			if internalResource, ok := res.(resource.BuiltInResource); ok {
 				err = internalResource.BuiltInReconfigure(ctx, deps, conf)
 			} else {
-				// copied from robot/impl/resource_manager.go processResource
+				// copied from resource_manager's processResource
 				if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
 					r.manager.logger.CError(ctx, err)
 				}
@@ -1122,7 +1122,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 					)
 				} else if newRes != nil {
 					// will NPE if newRes is nil
-					resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc)
+					resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
 				}
 			}
 		}

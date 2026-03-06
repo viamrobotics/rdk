@@ -977,18 +977,18 @@ func TestResourceGraphClock(t *testing.T) {
 
 	// Test basic SwapResource behavior.
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 1)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 1)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 0)
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 2)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 
 	// Test multiple independent nodes.
 	node2 = &GraphNode{}
 	test.That(t, g.AddNode(name2, node2), test.ShouldBeNil)
-	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node2.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 3)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 2)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3)
@@ -1001,7 +1001,7 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
 
 	// Swap resource to bring node1 back to usable state (increments clock).
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 5)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 5)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
@@ -1025,7 +1025,7 @@ func TestResourceGraphClock(t *testing.T) {
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
 
 	// Swap resource to transition back to usable (should increment clock).
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	test.That(t, g.CurrLogicalClockValue(), test.ShouldEqual, 7)
 	test.That(t, node1.UpdatedAt(), test.ShouldEqual, 7)
 	test.That(t, node2.UpdatedAt(), test.ShouldEqual, 3) // node2 unchanged
@@ -1048,7 +1048,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 	test.That(t, node1.LastReconfigured(), test.ShouldBeNil)
 
 	res1 := &someResource{Named: name1.AsNamed()}
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	lr := node1.LastReconfigured()
 	test.That(t, lr, test.ShouldNotBeNil)
 	// Assert that after SwapResource, node's lastReconfigured time is between
@@ -1058,7 +1058,7 @@ func TestResourceGraphLastReconfigured(t *testing.T) {
 
 	// Mock a mutation with another SwapResource. Assert that lastReconfigured
 	// value changed.
-	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil)
+	node1.SwapResource(res1, DefaultModelFamily.WithModel("foo"), nil, true)
 	newLR := node1.LastReconfigured()
 	test.That(t, newLR, test.ShouldNotBeNil)
 	// Assert that after another SwapResource, node's lastReconfigured time is

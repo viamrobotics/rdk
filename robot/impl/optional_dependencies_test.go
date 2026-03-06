@@ -197,7 +197,7 @@ func TestOptionalDependencies(t *testing.T) {
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 2)
 
 		// Assert that, on the component itself, `requiredMotor` and `optionalMotor` are now
 		// both set.
@@ -241,7 +241,7 @@ func TestOptionalDependencies(t *testing.T) {
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 4)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the component itself, `requiredMotor` is still set but
 		// `optionalMotor` is not.
@@ -324,7 +324,7 @@ func TestOptionalDependencies(t *testing.T) {
 		// no influence on build order. 3 logs would mean the order was m -> m1 -> oc or m1 ->
 		// m -> oc. 4 logs would mean the order was m -> oc -> m1.
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldBeIn, []int{4, 5})
+		test.That(t, msgNum, test.ShouldBeIn, []int{3, 4})
 
 		// Assert that, on the component itself, `requiredMotor` and `optionalMotor` are now
 		// set.
@@ -444,10 +444,10 @@ func TestModularOptionalDependencies(t *testing.T) {
 		fooRes, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there were no more logs (still 3) about failures to "get optional
+		// Assert that there were no more logs (still 2) about failures to "get optional
 		// motor."
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 2)
 
 		// Assert that 'm' is still accessible through the foo component and not moving.
 		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -497,7 +497,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 		// Assert that there was another log (now 4) about a failure to "get optional
 		// motor."
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
-		test.That(t, msgNum, test.ShouldEqual, 4)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that 'm' is still accessible through the foo component and not moving.
 		doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -1203,7 +1203,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 2)
 
 		// Assert that, on the 'moc' component itself, `otherMOC` is now set.
 		test.That(t, moc.otherMOC, test.ShouldNotBeNil)
@@ -1246,15 +1246,15 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the second optional child 'moc2' has reconfigured four times. Two from
+		// Assert that the second optional child 'moc2' has reconfigured three times. Two from
 		// the previous construction and reconfigure, and one from the most recent reconfigure
-		// to remove 'moc1' as a dependency. Assert that there was another log (now 4) about
+		// to remove 'moc1' as a dependency. Assert that there was another log (now 3) about
 		// failures to "get other MOC."
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, moc2.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 4)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
 		test.That(t, moc2.otherMOC, test.ShouldBeNil)
@@ -1357,9 +1357,9 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 		mocRes, err := lr.ResourceByName(mocName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there was another log (now 3) about failures to "get other MOC."
+		// Assert that there was another log (now 2) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 3)
+		test.That(t, msgNum, test.ShouldEqual, 2)
 
 		// Assert that, on the 'moc' component itself, `otherMOC` is now usable.
 		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
@@ -1410,9 +1410,9 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there was another log (now 4) about failures to "get other MOC."
+		// Assert that there was another log (now 3) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
-		test.That(t, msgNum, test.ShouldEqual, 4)
+		test.That(t, msgNum, test.ShouldEqual, 3)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is no longer set.
 		doCommandResp, err := mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
@@ -1503,10 +1503,9 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// rebuild oc (LC->6 via SwapResource), m_unrelated (LC->7 via LogAndSetLastError), oc (LC->8, via SwapResource)
 	clockAfterFirstError := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, clockAfterFirstError,
-		test.ShouldEqual, initialClockValue+3)
+		test.ShouldEqual, initialClockValue+1)
 
 	// Verify the first error logged a build failure.
 	firstErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1517,12 +1516,13 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 
 	// Call updateRemotesAndRetryResourceConfigure multiple times.
 	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
-	// invalid model. These repeated errors will each increment the clock by 2, as oc will be rebuilt
-	// during completeConfig, and then updateWeakAndOptionalDependents.
+	// invalid model. These repeated errors should NOT increment the clock (self-transitions
+	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
+	// should return early without additional reconfigurations of the optional child.
 	for i := 1; i < 6; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
-			test.ShouldEqual, clockAfterFirstError+int64(i*2))
+			test.ShouldEqual, clockAfterFirstError)
 	}
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
@@ -1534,9 +1534,11 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 	test.That(t, msgNum, test.ShouldEqual, 0)
 
-	// Verify the key property:  each call to updateRemotesAndRetryResourceConfigure reconfigured oc twice.
+	// Verify the key property: Clock incremented only once (for the first error),
+	// not for each of the 5 retry attempts. Multiple calls to updateRemotesAndRetryResourceConfigure
+	// with unchanged clock resulted in no additional reconfigurations.
 	test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
-		test.ShouldEqual, clockAfterFirstError+10)
+		test.ShouldEqual, clockAfterFirstError)
 }
 
 func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
@@ -1618,9 +1620,8 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	}
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
-	// rebuilds f, m_unrelated, f
 	test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
-		test.ShouldEqual, initialClockValue+3)
+		test.ShouldEqual, initialClockValue+1)
 	clockAfterFirstError := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 
 	// Verify the first error logged a build failure.
@@ -1630,24 +1631,28 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// Verify the foo component was reconfigured due to the first error.
 	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
-		test.ShouldEqual, 2)
+		test.ShouldEqual, 1)
 
 	// Clear logs again to isolate just the retry attempts.
 	logs.TakeAll()
 
 	// Call updateRemotesAndRetryResourceConfigure multiple times.
-	// Each call will rebuild f, m_unrelated (fail), and f, thus increasing the clock by 2.
+	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
+	// invalid model. These repeated errors should NOT increment the clock (self-transitions
+	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
+	// should return early without additional reconfigurations of the foo component.
 	for i := 1; i < 6; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		// The clock should NOT increment - m_unrelated is still unusable.
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
-			test.ShouldEqual, clockAfterFirstError+int64(i*2))
+			test.ShouldEqual, clockAfterFirstError)
 	}
 
-	// Verify the foo component reconfigured during the retry attempts.
+	// Verify the foo component did not reconfigure during the retry attempts. The repeated
+	// retry calls should NOT have caused additional reconfigurations.
 	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
-		test.ShouldEqual, 10)
+		test.ShouldEqual, 0)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
 	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1659,9 +1664,11 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 	test.That(t, msgNum, test.ShouldEqual, 0)
 
-	// Verify the key property: Clock incremented only twice for each of the 5 rebuild attempts.
+	// Verify the key property: Clock incremented only once (for the first error),
+	// not for each of the 5 retry attempts. Multiple calls to updateRemotesAndRetryResourceConfigure
+	// with unchanged clock resulted in no additional reconfigurations.
 	test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
-		test.ShouldEqual, clockAfterFirstError+10)
+		test.ShouldEqual, clockAfterFirstError)
 
 	// Verify that the foo component is still functional.
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -2232,7 +2239,7 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	// The clock increment triggers reconfiguration of foo.
 	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
-		test.ShouldEqual, 3)
+		test.ShouldEqual, 1)
 
 	// Both motors remain accessible through foo after the full crash-recovery cycle.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})

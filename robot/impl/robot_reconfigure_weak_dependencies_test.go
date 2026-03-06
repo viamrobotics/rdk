@@ -410,7 +410,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
 		test.ShouldEqual, 1)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 7)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
 	// Introduce a config diff for base2. The test serves to ensure that updating the configuration of
 	// a weak dependency functions as expected. The following scenario is expected:
@@ -441,7 +441,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
 		test.ShouldEqual, 1)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 10)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount
@@ -556,7 +556,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 		test.ShouldEqual, 1)
 
 	lRobot := robot.(*localRobot)
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
 
 	// Introduce a config diff for base1. This test serves to ensure that updating the configuration of
 	// a resource with a dependency on a resource with weak dependencies functions as expected.
@@ -592,7 +592,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
 		test.ShouldEqual, 1)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 7)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
 	// Introduce a config diff for base2. The test serves to ensure that updating the configuration of
 	// a weak dependency functions as expected. The following scenario is expected:
@@ -621,7 +621,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
 		test.ShouldEqual, 1)
 
-	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 10)
+	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount

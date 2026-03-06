@@ -167,7 +167,7 @@ func (manager *resourceManager) addRemote(
 			return
 		}
 	} else {
-		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc)
+		gNode.SwapResource(rr, builtinModel, manager.opts.ftdc, true)
 	}
 	manager.updateRemoteResourceNames(ctx, rName, rr, c.Prefix, true)
 }
@@ -303,7 +303,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 		}
 
 		if nodeAlreadyExists {
-			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
+			gNode.SwapResource(res, unknownModel, manager.opts.ftdc, true)
 		} else {
 			// Check for a full resource name collision and log an error if there is one.
 			prefixedSimpleName := prefix + resName.Name
@@ -828,7 +828,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger.CErrorw(
 								ctx, "error building resource", "resource", conf.ResourceName(), "model", conf.Model, "error", ctxWithTimeout.Err())
 						} else {
-							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc)
+							gNode.SwapResource(newRes, conf.Model, manager.opts.ftdc, true)
 							manager.logger.CInfow(ctx, fmt.Sprintf("Successfully %ved resource", verb), "resource", resName, "model", conf.Model)
 						}
 
