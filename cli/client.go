@@ -2771,7 +2771,7 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 	// However, it can be renamed, so move it out of the way first.
 	if runtime.GOOS == osWindows {
 		oldPath := localBinaryPath + ".old"
-		_ = os.Remove(oldPath)
+		_ = os.Remove(oldPath) //nolint:errcheck
 		if err := os.Rename(localBinaryPath, oldPath); err != nil && !os.IsNotExist(err) {
 			if os.IsPermission(err) {
 				return errors.New("permission denied: run PowerShell as Administrator")
