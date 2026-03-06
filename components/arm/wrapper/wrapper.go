@@ -64,14 +64,14 @@ func NewWrapperArm(
 		logger: logger,
 		opMgr:  operation.NewSingleOperationManager(),
 	}
-	if err := a.Reconfigure(ctx, deps, conf); err != nil {
+	if err := a.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-// Reconfigure atomically reconfigures this arm in place based on the new config.
-func (wrapper *Arm) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure atomically reconfigures this arm in place based on the new config.
+func (wrapper *Arm) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	newConf, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err

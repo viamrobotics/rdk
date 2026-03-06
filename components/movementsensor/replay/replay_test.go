@@ -900,7 +900,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Reconfigure with a new batch size
 	cfg = &Config{Source: validSource, BatchSize: &batchSize4}
-	replay.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+	replay.(*replayMovementSensor).reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Call the default movement sensor function a couple more times, ensuring that we start over from
 	// the beginning of the dataset after calling Reconfigure
@@ -910,7 +910,7 @@ func TestReplayMovementSensorReconfigure(t *testing.T) {
 
 	// Reconfigure again, batch size 1
 	cfg = &Config{Source: validSource, BatchSize: &batchSizeNonZero}
-	replay.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+	replay.(*replayMovementSensor).reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 
 	// Again verify dataset starts from beginning
 	for i := 0; i < allMethodsMaxDataLength[defaultReplayMovementSensorFunction]; i++ {

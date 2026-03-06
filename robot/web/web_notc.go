@@ -5,15 +5,8 @@ package web
 import (
 	"context"
 
-	"go.viam.com/rdk/resource"
 	"go.viam.com/utils/rpc"
 )
-
-// Update updates the web service when the robot has changed. Without cgo (and
-// therefore without video streams) it is a noop.
-func (svc *webService) Reconfigure(ctx context.Context, _ resource.Dependencies, _ resource.Config) error {
-	return nil
-}
 
 // stub implementation when gostream not available
 func (svc *webService) closeStreamServer() {}

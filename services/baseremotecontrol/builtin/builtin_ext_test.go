@@ -215,7 +215,7 @@ func TestReconfigure(t *testing.T) {
 	}, nil), test.ShouldBeNil)
 	test.That(t, <-setPowerVal, test.ShouldResemble, r3.Vector{0, 0, -1})
 
-	err = svc.Reconfigure(ctx, nil, resource.Config{
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, resource.Config{
 		ConvertedAttributes: &builtin.Config{},
 	})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -228,7 +228,7 @@ func TestReconfigure(t *testing.T) {
 	}, nil), test.ShouldBeNil)
 	test.That(t, <-setPowerVal, test.ShouldResemble, r3.Vector{0, 0, -2})
 
-	err = svc.Reconfigure(ctx, resource.Dependencies{
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, resource.Dependencies{
 		gamepadName: gamepad,
 		myBaseName:  injectBase,
 	}, resource.Config{
@@ -250,7 +250,7 @@ func TestReconfigure(t *testing.T) {
 	gamepad2, err := webgamepad.NewController(ctx, nil, resource.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = svc.Reconfigure(ctx, resource.Dependencies{
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, resource.Dependencies{
 		gamepadName2: gamepad2,
 		myBaseName:   injectBase,
 	}, resource.Config{
@@ -285,7 +285,7 @@ func TestReconfigure(t *testing.T) {
 		return nil
 	}
 
-	err = svc.Reconfigure(ctx, resource.Dependencies{
+	err = svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, resource.Dependencies{
 		gamepadName2: gamepad2,
 		myBaseName2:  injectBase2,
 	}, resource.Config{

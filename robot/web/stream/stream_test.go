@@ -167,7 +167,7 @@ func TestAudioTrackIsNotCreatedForVideoStream(t *testing.T) {
 	//
 	// Dan: It's unclear to me if this is the intended way to do this. As signified by the nil/empty
 	//      inputs.
-	webSvc.Reconfigure(ctx, nil, resource.Config{})
+	webSvc.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, resource.Config{})
 
 	// Listing the streams now should return both `origCamera` and `newCamera`.
 	listResp, err = livestreamClient.ListStreams(ctx, &streampb.ListStreamsRequest{})

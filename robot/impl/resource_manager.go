@@ -58,7 +58,6 @@ type moduleManager interface {
 	Kill()
 	Provides(conf resource.Config) bool
 	Reconfigure(ctx context.Context, conf config.Module) ([]resource.Name, error)
-	ReconfigureResource(ctx context.Context, conf resource.Config, deps []string) error
 	Remove(modName string) ([]resource.Name, error)
 	RemoveResource(ctx context.Context, name resource.Name) error
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
@@ -700,7 +699,7 @@ func (manager *resourceManager) completeConfig(
 	// order.
 	levels := manager.resources.ReverseTopologicalSortInLevels()
 	timeout := rutils.GetResourceConfigurationTimeout(manager.logger)
-	for _, resourceNames := range levels {
+	for i, resourceNames := range levels {
 		// At the start of every reconfiguration level, run updateWeakAndOptionalDependents.
 		// value.
 		//
@@ -717,6 +716,11 @@ func (manager *resourceManager) completeConfig(
 			default:
 			}
 			gNode, ok := manager.resources.Node(resName)
+			if manager.logger != nil && manager.logger.GetLevel() < 0 {
+				manager.logger.Debugw("CompleteConfig", "level", i, "resName", resName,
+					"lastWeakAndOptionalDependentsRound", lr.lastWeakAndOptionalDependentsRound.Load(),
+					"CurrLogicalClockValue", manager.resources.CurrLogicalClockValue(), "NeedsReconfigure", gNode.NeedsReconfigure())
+			}
 			if !ok || !gNode.NeedsReconfigure() {
 				continue
 			}
@@ -775,7 +779,7 @@ func (manager *resourceManager) completeConfig(
 							manager.logger, resName.String(),
 						)
 					} else {
-						verb = "reconfigur"
+						verb = "rebuild"
 					}
 					manager.logger.CInfow(ctx, fmt.Sprintf("Now %ving resource", verb), "resource", resName, "model", conf.Model)
 
@@ -800,15 +804,12 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-
-						newRes, newlyBuilt, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
-						if newlyBuilt || err != nil {
-							if err := manager.markChildrenForUpdate(resName); err != nil {
-								manager.logger.CErrorw(ctx,
-									"failed to mark children of resource for update",
-									"resource", resName,
-									"reason", err)
-							}
+						newRes, _, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						if err := manager.markChildrenForUpdate(resName); err != nil {
+							manager.logger.CErrorw(ctx,
+								"failed to mark children of resource for update",
+								"resource", resName,
+								"reason", err)
 						}
 
 						if err != nil {
@@ -1100,11 +1101,6 @@ func (manager *resourceManager) processResource(
 		return newRes, true, nil
 	}
 
-	currentRes, err := gNode.UnsafeResource()
-	if err != nil {
-		return nil, false, err
-	}
-
 	resName := conf.ResourceName()
 	deps, err := lr.getDependencies(resName, gNode)
 	if err != nil {
@@ -1120,22 +1116,19 @@ func (manager *resourceManager) processResource(
 	isModular := manager.moduleManager.Provides(conf)
 	if gNode.ResourceModel() == conf.Model {
 		if isModular {
-			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
+			err = manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
+			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
+				manager.logger.Warnw("Unable to remove resource.", "resourceName", conf.ResourceName(), "err", err)
 				return nil, false, err
 			}
-			return currentRes, false, nil
-		}
-
-		err = currentRes.Reconfigure(ctx, deps, conf)
-		if err == nil {
-			return currentRes, false, nil
-		}
-
-		if !resource.IsMustRebuildError(err) {
-			return nil, false, err
+			newRes, err := manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			if err != nil {
+				return nil, false, err
+			}
+			return newRes, false, nil
 		}
 	} else {
-		manager.logger.CInfow(ctx, "Resource models differ so resource must be rebuilt",
+		manager.logger.CInfow(ctx, "resource models differ from old",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
 

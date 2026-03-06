@@ -150,11 +150,6 @@ func (b *Board) processConfig(conf resource.Config) error {
 	return nil
 }
 
-// Reconfigure atomically reconfigures this board in place based on the new config.
-func (b *Board) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	return b.processConfig(conf)
-}
-
 // A Board provides dummy data from fake parts in order to implement a Board.
 type Board struct {
 	resource.Named
