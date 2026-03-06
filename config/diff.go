@@ -478,17 +478,6 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 	if !reflect.DeepEqual(leftCert, rightCert) {
 		return true
 	}
-	leftClientCert, err := leftTLS.GetClientCertificate(nil)
-	if err != nil {
-		return true
-	}
-	rightClientCert, err := rightTLS.GetClientCertificate(nil)
-	if err != nil {
-		return true
-	}
-	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
-		return true
-	}
 	return false
 }
 
