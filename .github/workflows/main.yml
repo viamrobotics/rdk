@@ -11,6 +11,10 @@ on:
         type: choice
         options: [pr, latest]
         default: pr
+      full_test:
+        description: 'Run full test suite (disable skip logic)'
+        type: boolean
+        default: false
   push:
     branches: [ main ]
     paths-ignore:
@@ -23,6 +27,8 @@ on:
 jobs:
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@APP-14315
+    with:
+      full_test: ${{ inputs.full_test || false }}
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}

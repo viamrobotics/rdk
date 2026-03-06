@@ -8,6 +8,11 @@ on:
         default: 'main'
         type: string
   workflow_call:
+    inputs:
+      full_test:
+        description: 'Run full test suite (disable skip logic)'
+        type: boolean
+        default: false
     secrets:
       MONGODB_TEST_OUTPUT_URI:
         required: true
@@ -55,10 +60,9 @@ jobs:
             exit 0
           fi
 
-          # The 'full-test' label forces a complete run regardless of what changed.
-          # (Evaluates to false on workflow_dispatch where there is no PR label.)
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
-            echo "'full-test' label present; will run all tests"
+          # The 'full-test' label or full_test input forces a complete run.
+          if [ "${{ inputs.full_test }}" == "true" ] || [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
+            echo "'full-test' flag set; will run all tests"
             echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
             echo "skip_armplanning=false" >> "$GITHUB_OUTPUT"
             echo "skip_module=false" >> "$GITHUB_OUTPUT"
