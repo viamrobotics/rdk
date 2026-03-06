@@ -240,6 +240,15 @@ func (w *GraphNode) UnsetResource() {
 	w.current = nil
 }
 
+func (w *GraphNode) incrementLogicalClock() {
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+		if w.logger != nil {
+			w.logger.Debugw("graph node logical clock updated", "updated_to", w.updatedAt)
+		}
+	}
+}
+
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
@@ -263,12 +272,7 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
 
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-		if w.logger != nil && w.logger.GetLevel() < 0 {
-			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
-		}
-	}
+	w.incrementLogicalClock()
 	now := time.Now()
 	w.lastReconfigured = &now
 
@@ -287,12 +291,7 @@ func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.transitionTo(NodeStateRemoving)
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-		if w.logger != nil && w.logger.GetLevel() < 0 {
-			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
-		}
-	}
+	w.incrementLogicalClock()
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
@@ -313,11 +312,8 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	wasUsable := w.lastErr == nil
 	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
-	if wasUsable && w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-		if w.logger != nil && w.logger.GetLevel() < 0 {
-			w.logger.Debugf("graph node logical clock set to %v", w.graphLogicalClock.Load())
-		}
+	if wasUsable {
+		w.incrementLogicalClock()
 	}
 	w.mu.Unlock()
 
