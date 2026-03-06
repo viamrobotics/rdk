@@ -340,6 +340,21 @@ func (w *attrWalker) walkStruct(data interface{}) (interface{}, error) {
 	return res, nil
 }
 
+// IsEmptyJSONValue returns true if a JSON-deserialized value is empty
+// (null, empty string, empty array, or empty object).
+func IsEmptyJSONValue(v any) bool {
+	if v == nil {
+		return true
+	} else if s, ok := v.(string); ok && s == "" {
+		return true
+	} else if arr, ok := v.([]any); ok && len(arr) == 0 {
+		return true
+	} else if obj, ok := v.(map[string]any); ok && len(obj) == 0 {
+		return true
+	}
+	return false
+}
+
 func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
