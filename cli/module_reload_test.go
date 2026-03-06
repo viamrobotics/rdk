@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/build/v1"
@@ -12,6 +13,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -47,6 +49,7 @@ func mockAppServiceClientWithRobotPart(
 				RobotConfig:      robotConfig,
 				Fqdn:             "test-robot.local",
 				UserSuppliedInfo: userSuppliedInfo,
+				LastUpdated:      timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
 			}, ConfigJson: ``}, nil
 		},
 	}
@@ -74,11 +77,11 @@ func mockFullAppServiceClient(robotConfig, userSuppliedInfo *structpb.Struct, up
 }
 
 // mockFullAppServiceClientWithLastKnownUpdate is like mockFullAppServiceClient but also
-// tracks whether last_known_update was set in UpdateRobotPart requests.
+// captures the last_known_update sent in UpdateRobotPart requests.
 func mockFullAppServiceClientWithLastKnownUpdate(
 	robotConfig, userSuppliedInfo *structpb.Struct,
 	updateCount *int,
-	lastKnownUpdateSet *bool,
+	capturedLastKnownUpdate **timestamppb.Timestamp,
 ) *inject.AppServiceClient {
 	client := mockAppServiceClientWithRobotPart(robotConfig, userSuppliedInfo)
 	client.UpdateRobotPartFunc = func(ctx context.Context, req *apppb.UpdateRobotPartRequest,
@@ -87,8 +90,8 @@ func mockFullAppServiceClientWithLastKnownUpdate(
 		if updateCount != nil {
 			(*updateCount)++
 		}
-		if lastKnownUpdateSet != nil {
-			*lastKnownUpdateSet = req.LastKnownUpdate != nil
+		if capturedLastKnownUpdate != nil {
+			*capturedLastKnownUpdate = req.LastKnownUpdate
 		}
 		return &apppb.UpdateRobotPartResponse{Part: &apppb.RobotPart{}}, nil
 	}
@@ -616,9 +619,10 @@ func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	updateCount := 0
-	lastKnownUpdateSet := false
+	var capturedTimestamp *timestamppb.Timestamp
+	expectedTimestamp := timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 	cCtx, vc, _, _ := setup(
-		mockFullAppServiceClientWithLastKnownUpdate(confStruct, nil, &updateCount, &lastKnownUpdateSet),
+		mockFullAppServiceClientWithLastKnownUpdate(confStruct, nil, &updateCount, &capturedTimestamp),
 		nil,
 		&inject.BuildServiceClient{},
 		map[string]any{
@@ -632,7 +636,8 @@ func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
 	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
-	test.That(t, lastKnownUpdateSet, test.ShouldBeTrue)
+	test.That(t, capturedTimestamp, test.ShouldNotBeNil)
+	test.That(t, capturedTimestamp.AsTime().Equal(expectedTimestamp.AsTime()), test.ShouldBeTrue)
 }
 
 func TestUpdateRobotPartRetryOnConflict(t *testing.T) {

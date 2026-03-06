@@ -12,7 +12,6 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	goutils "go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -126,8 +125,7 @@ func (c *viamClient) addResourceFromModule(
 	}
 	infof(ctx.App.Writer, "installing %s model with name %s on target machine", modelName, resolvedName)
 
-	now := timestamppb.Now()
-	if err := c.updateRobotPart(part, partMap, now); err != nil {
+	if err := c.updateRobotPart(part, partMap, part.LastUpdated); err != nil {
 		partResp, refetchErr := c.getRobotPart(part.Id)
 		if refetchErr != nil {
 			return errors.Wrap(err, "update failed and could not re-fetch part config")
@@ -140,8 +138,7 @@ func (c *viamClient) addResourceFromModule(
 		if retryErr := writeBackConfig(part, retryMap); retryErr != nil {
 			return retryErr
 		}
-		retryNow := timestamppb.Now()
-		if retryErr := c.updateRobotPart(part, retryMap, retryNow); retryErr != nil {
+		if retryErr := c.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
 			return errors.Wrap(retryErr, "retry of addResourceFromModule also failed")
 		}
 	}
@@ -197,8 +194,7 @@ func addShellService(c *cli.Context, vc *viamClient, logger logging.Logger, part
 	if err := writeBackConfig(part, partMap); err != nil {
 		return false, err
 	}
-	now := timestamppb.Now()
-	if err := vc.updateRobotPart(part, partMap, now); err != nil {
+	if err := vc.updateRobotPart(part, partMap, part.LastUpdated); err != nil {
 		partResp, refetchErr := vc.getRobotPart(part.Id)
 		if refetchErr != nil {
 			return false, errors.Wrap(err, "update failed and could not re-fetch part config")
@@ -212,8 +208,7 @@ func addShellService(c *cli.Context, vc *viamClient, logger logging.Logger, part
 		if retryErr := writeBackConfig(part, retryMap); retryErr != nil {
 			return false, retryErr
 		}
-		retryNow := timestamppb.Now()
-		if retryErr := vc.updateRobotPart(part, retryMap, retryNow); retryErr != nil {
+		if retryErr := vc.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
 			return false, errors.Wrap(retryErr, "retry of addShellService also failed")
 		}
 	}
@@ -300,8 +295,7 @@ func configureModule(
 			return part, false, err
 		}
 		debugf(c.App.Writer, args.Debug, "writing back config changes")
-		now := timestamppb.Now()
-		if err := vc.updateRobotPart(part, partMap, now); err != nil {
+		if err := vc.updateRobotPart(part, partMap, part.LastUpdated); err != nil {
 			partResp, refetchErr := vc.getRobotPart(part.Id)
 			if refetchErr != nil {
 				return part, false, errors.Wrap(err, "update failed and could not re-fetch part config")
@@ -315,8 +309,7 @@ func configureModule(
 			if retryErr = writeBackConfig(part, retryMap); retryErr != nil {
 				return part, false, retryErr
 			}
-			retryNow := timestamppb.Now()
-			if retryErr = vc.updateRobotPart(part, retryMap, retryNow); retryErr != nil {
+			if retryErr = vc.updateRobotPart(part, retryMap, part.LastUpdated); retryErr != nil {
 				return part, false, errors.Wrap(retryErr, "retry of configureModule also failed")
 			}
 		}
