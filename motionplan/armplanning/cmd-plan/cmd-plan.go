@@ -61,11 +61,18 @@ func realMain() error {
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
+	vizOrder := flag.String("viz-order", "simultaneous", "component animation order: simultaneous, ascending, or descending")
 
 	flag.Parse()
 
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
+	}
+
+	switch *vizOrder {
+	case "simultaneous", "ascending", "descending":
+	default:
+		return fmt.Errorf("invalid --viz-order %q: must be simultaneous, ascending, or descending", *vizOrder)
 	}
 
 	if *cpu != "" {
@@ -89,6 +96,8 @@ func realMain() error {
 	}
 
 	_ = reg
+
+	// *interactive = true
 
 	// The default logger keeps `mp` at the default INFO level. But all loggers underneath only emit
 	// WARN+ logs. Let's start with DEBUG everywhere and:
@@ -158,7 +167,7 @@ func realMain() error {
 	}
 	metricsExporter.Stop()
 	if *interactive {
-		if interactiveErr := doInteractive(req, plan, err, mylog, *showPoses); interactiveErr != nil {
+		if interactiveErr := doInteractive(req, plan, err, mylog, *showPoses, *vizOrder); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
 		}
 		return nil
@@ -283,7 +292,7 @@ func realMain() error {
 	}
 
 	for i := 0; i < *loop; i++ {
-		err = visualize(req, plan, mylog, *showPoses)
+		err = visualize(req, plan, mylog, *showPoses, *vizOrder)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
@@ -307,7 +316,21 @@ func realMain() error {
 	return nil
 }
 
-func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
+// componentNames returns the names of components in the step sorted by vizOrder.
+// vizOrder must be "ascending" or "descending".
+func componentNames(step map[string][][]referenceframe.Input, vizOrder string) []string {
+	names := make([]string, 0, len(step))
+	for name := range step {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	if vizOrder == "descending" {
+		slices.Reverse(names)
+	}
+	return names
+}
+
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool, vizOrder string) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -391,41 +414,158 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		}
 	}
 
-	// Now animate through the path
-	for idx := range plan.Path() {
-		if idx > 0 {
-			midPoints, err := motionplan.InterpolateSegmentFS(
-				&motionplan.SegmentFS{
-					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
-					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
-					FS:                 req.FrameSystem,
-				}, 2)
-			if err != nil {
-				return err
-			}
-
-			for _, mp := range midPoints {
-				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
+	if vizOrder == "simultaneous" {
+		mylog.Println("Rendering motion plan. Num steps:", len(plan.Path()))
+		for idx := range plan.Path() {
+			if idx > 0 {
+				midPoints, err := motionplan.InterpolateSegmentFS(
+					&motionplan.SegmentFS{
+						StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
+						EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+						FS:                 req.FrameSystem,
+					}, 2)
+				if err != nil {
 					return err
 				}
+				for _, mp := range midPoints {
+					if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
+						return err
+					}
+					time.Sleep(renderFramePeriod)
+				}
+			}
+			if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
+				return err
+			}
+			time.Sleep(renderFramePeriod)
+		}
+		return nil
+	}
 
-				time.Sleep(renderFramePeriod)
+	combinedSteps := []map[string][][]referenceframe.Input{}
+	currStep := map[string][][]referenceframe.Input{}
+
+	for i, step := range plan.Trajectory() {
+		if i == 0 {
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				currStep[name] = append(currStep[name], inputs)
+			}
+			continue
+		}
+		changed := ""
+		if len(currStep) > 0 {
+			reset := false
+			// Check if the current step moves only the same components as the previous step
+			// If so, batch the inputs
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				if priorInputs, ok := currStep[name]; ok {
+					for i, input := range inputs {
+						if input != priorInputs[len(priorInputs)-1][i] {
+							if changed == "" {
+								changed = name
+							}
+							if changed != "" && changed != name {
+								// If the current step moves different components than the previous step, reset the batch
+								reset = true
+								break
+							}
+						}
+					}
+				} else {
+					// Previously moved components are no longer moving
+					reset = true
+				}
+				if reset {
+					break
+				}
+			}
+			if reset {
+				combinedSteps = append(combinedSteps, currStep)
+				// Seed the new step with the last inputs of the previous step so the
+				// render loop has a start point and the transition segment gets drawn.
+				newCurrStep := map[string][][]referenceframe.Input{}
+				for cName, cInputs := range currStep {
+					if len(cInputs) > 0 {
+						newCurrStep[cName] = [][]referenceframe.Input{cInputs[len(cInputs)-1]}
+					}
+				}
+				currStep = newCurrStep
+			}
+			for name, inputs := range step {
+				if len(inputs) == 0 {
+					continue
+				}
+				currStep[name] = append(currStep[name], inputs)
 			}
 		}
+	}
 
-		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
-			return err
+	combinedSteps = append(combinedSteps, currStep)
+	mylog.Println("numsteps: ", len(combinedSteps))
+
+	for stepIdx, step := range combinedSteps {
+		order := componentNames(step, vizOrder)
+		mylog.Printf("Rendering step %d/%d. component order: %v", stepIdx+1, len(combinedSteps), order)
+
+		doneNames := []string{}
+		for _, name := range order {
+			inputs := step[name]
+			if len(inputs) == 0 {
+				continue
+			}
+			prev := referenceframe.FrameSystemInputs{}
+			drawMe := referenceframe.FrameSystemInputs{}
+			for otherNames := range step {
+				if otherNames == name {
+					continue
+				}
+				if slices.Contains(doneNames, otherNames) {
+					// already animated: hold at its final position
+					last := step[otherNames][len(step[otherNames])-1]
+					drawMe[otherNames] = last
+					prev[otherNames] = last
+				} else {
+					drawMe[otherNames] = step[otherNames][0]
+					prev[otherNames] = step[otherNames][0]
+				}
+			}
+
+			for index, in := range inputs {
+				if index > 0 {
+					drawMe[name] = in
+					midPoints, err := motionplan.InterpolateSegmentFS(
+						&motionplan.SegmentFS{
+							StartConfiguration: prev.ToLinearInputs(),
+							EndConfiguration:   drawMe.ToLinearInputs(),
+							FS:                 req.FrameSystem,
+						}, 2)
+					if err != nil {
+						return err
+					}
+					for _, mp := range midPoints {
+						if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
+							return err
+						}
+
+						time.Sleep(renderFramePeriod)
+					}
+				}
+				prev[name] = in
+			}
+			doneNames = append(doneNames, name)
 		}
-
-		if idx == 0 {
-			mylog.Println("Rendering motion plan. Num steps:", len(plan.Path()))
-		}
-
-		time.Sleep(renderFramePeriod)
 	}
 
 	return nil
 }
+
+// func makeFrameSystemInsDraw()
 
 func drawGoalPoses(req *armplanning.PlanRequest) error {
 	var goalPoses []spatialmath.Pose
@@ -456,7 +596,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	return nil
 }
 
-func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool) error {
+func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool, vizOrder string) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
@@ -490,7 +630,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	for {
 		if render {
 			if planErr == nil {
-				if err := visualize(req, plan, logger, showPoses); err != nil {
+				if err := visualize(req, plan, logger, showPoses, vizOrder); err != nil {
 					return err
 				}
 			} else {
