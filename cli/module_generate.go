@@ -232,7 +232,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	if registryURL != "" {
 		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
 	}
-	if runtime.GOOS == osWindows && newModule.Language == "python" { //nolint:goconst
+	if runtime.GOOS == osWindows && newModule.Language == "python" { 
 		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
 			"You can test locally and then use `viam module upload` to manually upload,\n"+
 			"but the uploaded module will only work on Windows.\n"+
