@@ -799,28 +799,29 @@ func checkVersionCompatible(versionOutput, languageName, minVersion string) erro
 // checkLanguageVersion checks that the system has a compatible version of the
 // selected language runtime before proceeding with module generation.
 func checkLanguageVersion(language string) error {
+	var cmd, versionFlag, displayName, minVersion string
 	switch language {
 	case python:
-		pythonCmd := findPythonCommand()
-		if pythonCmd == "" {
-			return errors.New("python runtime not found. Please install Python >= " + minPythonVersion)
-		}
-		cmd := exec.Command(pythonCmd, "--version")
-		versionOutput, err := cmd.Output()
-		if err != nil {
-			return errors.Wrap(err, "python runtime not found")
-		}
-		return checkVersionCompatible(string(versionOutput), "Python", minPythonVersion)
+		cmd = findPythonCommand()
+		versionFlag = "--version"
+		displayName = "Python"
+		minVersion = minPythonVersion
 	case golang:
-		cmd := exec.Command("go", "version")
-		versionOutput, err := cmd.Output()
-		if err != nil {
-			return errors.Wrap(err, "go runtime not found")
-		}
-		return checkVersionCompatible(string(versionOutput), "Go", minGoVersion)
+		cmd = "go"
+		versionFlag = "version"
+		displayName = "Go"
+		minVersion = minGoVersion
 	default:
 		return nil
 	}
+	if cmd == "" {
+		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
+	}
+	versionOutput, err := exec.Command(cmd, versionFlag).Output()
+	if err != nil {
+		return errors.Wrapf(err, "%s runtime not found", displayName)
+	}
+	return checkVersionCompatible(string(versionOutput), displayName, minVersion)
 }
 
 // findPythonCommand returns the python command to use, checking "python3" then "python".
