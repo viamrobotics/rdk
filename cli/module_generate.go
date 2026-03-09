@@ -18,6 +18,7 @@ import (
 	"text/template"
 	"time"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/pkg/errors"
@@ -45,6 +46,8 @@ const (
 	moduleVisibilityPrivate        = "private"
 	moduleVisibilityPublic         = "public"
 	moduleVisibilityPublicUnlisted = "public_unlisted"
+	minPythonVersion               = "3.9"
+	minGoVersion                   = "1.23"
 )
 
 var (
@@ -132,6 +135,9 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		if err != nil {
 			return err
 		}
+	}
+	if err := checkLanguageVersion(newModule.Language); err != nil {
+		return err
 	}
 	if !args.DryRun {
 		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
@@ -770,19 +776,76 @@ func checkGoPath() (string, error) {
 	return goPath, err
 }
 
+func checkVersionCompatible(versionOutput, languageName, minVersion string) error {
+	re := regexp.MustCompile(`(\d+\.\d+[\.\d]*)`)
+	match := re.FindString(versionOutput)
+	if match == "" {
+		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+	}
+	detected, err := semver.NewVersion(match)
+	if err != nil {
+		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+	}
+	minimum := semver.MustParse(minVersion)
+	if detected.LessThan(minimum) {
+		return fmt.Errorf(
+			"detected %s version %s, which is not supported by the module generator. Please upgrade to %s >= %s",
+			languageName, detected, languageName, minVersion,
+		)
+	}
+	return nil
+}
+
+// checkLanguageVersion checks that the system has a compatible version of the
+// selected language runtime before proceeding with module generation.
+func checkLanguageVersion(language string) error {
+	switch language {
+	case python:
+		pythonCmd := findPythonCommand()
+		if pythonCmd == "" {
+			return errors.New("python runtime not found. Please install Python >= " + minPythonVersion)
+		}
+		cmd := exec.Command(pythonCmd, "--version")
+		versionOutput, err := cmd.Output()
+		if err != nil {
+			return errors.Wrap(err, "python runtime not found")
+		}
+		return checkVersionCompatible(string(versionOutput), "Python", minPythonVersion)
+	case golang:
+		cmd := exec.Command("go", "version")
+		versionOutput, err := cmd.Output()
+		if err != nil {
+			return errors.Wrap(err, "go runtime not found")
+		}
+		return checkVersionCompatible(string(versionOutput), "Go", minGoVersion)
+	default:
+		return nil
+	}
+}
+
+// findPythonCommand returns the python command to use, checking "python3" then "python".
+// On Windows, only "python" is checked.
+func findPythonCommand() string {
+	candidates := []string{"python3", "python"}
+	if runtime.GOOS == osWindows {
+		candidates = []string{"python"}
+	}
+	for _, cmd := range candidates {
+		if _, err := exec.LookPath(cmd); err == nil {
+			return cmd
+		}
+	}
+	return ""
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
-	pythonCmd := "python3"
-	if runtime.GOOS == osWindows {
-		pythonCmd = "python"
+	pythonCmd := findPythonCommand()
+	if pythonCmd == "" {
+		return errors.New("cannot generate python stubs -- python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "--version")
+	cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
 	_, err := cmd.Output()
-	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
-	}
-	cmd = exec.Command(pythonCmd, "-m", "venv", venvName)
-	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
