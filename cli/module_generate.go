@@ -46,7 +46,7 @@ const (
 	moduleVisibilityPrivate        = "private"
 	moduleVisibilityPublic         = "public"
 	moduleVisibilityPublicUnlisted = "public_unlisted"
-	minPythonVersion               = "3.9"
+	minPythonVersion               = "3.10"
 	minGoVersion                   = "1.23"
 )
 
