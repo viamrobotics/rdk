@@ -229,6 +229,22 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	return nil
 }
 
+func (b *builtIn) startCaptureControlPoller(
+	controlSensor sensor.Sensor,
+	controlSensorKey string,
+) {
+	if b.captureControlPoller != nil {
+		b.logger.Warn("capture poller already running")
+		return
+	}
+
+	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
+		func(ctx context.Context) {
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
+		},
+	)
+}
+
 // stopCaptureControlPoller should be called before other calls to acquire b.mu to avoid deadlock
 // as the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
 func (b *builtIn) stopCaptureControlPoller() {
@@ -238,6 +254,48 @@ func (b *builtIn) stopCaptureControlPoller() {
 	b.mu.Unlock()
 	if oldPoller != nil {
 		oldPoller.Stop()
+	}
+}
+
+// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
+// it reverts to the machine config by passing nil configs.
+func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+	ticker := time.NewTicker(capturePollFrequency)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		var newConfigs map[string]datamanager.CaptureConfigReading
+
+		readings, err := s.Readings(ctx, nil)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+		} else {
+			var parseErr error
+			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
+			if parseErr != nil {
+				b.logger.Warnw("failed to parse capture config from sensor reading, reverting to machine config", "error", parseErr)
+			} else if newConfigs == nil {
+				b.logger.Debugw("capture control sensor returned no configs", "key", key, "readings", readings)
+			} else {
+				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
+			}
+		}
+
+		b.mu.Lock()
+		if ctx.Err() != nil {
+			b.mu.Unlock()
+			return
+		}
+		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.mu.Unlock()
 	}
 }
 
@@ -285,64 +343,6 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
 	}
 	return result, nil
-}
-
-func (b *builtIn) startCaptureControlPoller(
-	controlSensor sensor.Sensor,
-	controlSensorKey string,
-) {
-	if b.captureControlPoller != nil {
-		b.logger.Warn("capture poller already running")
-		return
-	}
-
-	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
-		func(ctx context.Context) {
-			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
-		},
-	)
-}
-
-// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
-// it reverts to the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
-	ticker := time.NewTicker(capturePollFrequency)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
-
-		var newConfigs map[string]datamanager.CaptureConfigReading
-
-		readings, err := s.Readings(ctx, nil)
-		if ctx.Err() != nil {
-			return
-		}
-		if err != nil {
-			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
-		} else {
-			var parseErr error
-			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
-			if parseErr != nil {
-				b.logger.Warnw("failed to parse capture config from sensor reading, reverting to machine config", "error", parseErr)
-			} else if newConfigs == nil {
-				b.logger.Debugw("capture control sensor returned no configs", "key", key, "readings", readings)
-			} else {
-				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
-			}
-		}
-
-		b.mu.Lock()
-		if ctx.Err() != nil {
-			b.mu.Unlock()
-			return
-		}
-		b.capture.SetCaptureConfigs(ctx, newConfigs)
-		b.mu.Unlock()
-	}
 }
 
 func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, bool) {

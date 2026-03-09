@@ -24,8 +24,8 @@ func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings m
 	var toClose []*collectorAndConfig
 	var updates []collectorUpdate
 
-	for res, defaultCollectorConfigs := range c.defaultCollectorConfigs {
-		for _, defaultCfg := range defaultCollectorConfigs {
+	for res, defaultCollectorConfigsByResource := range c.defaultCollectorConfigs {
+		for _, defaultCfg := range defaultCollectorConfigsByResource {
 			key := DataCaptureConfigKey(defaultCfg.Name.ShortName(), defaultCfg.Method)
 
 			// Start from a copy of default config.
