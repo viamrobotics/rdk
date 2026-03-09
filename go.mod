@@ -18,10 +18,10 @@ require (
 	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
 	github.com/bufbuild/buf v1.30.0
-	github.com/charmbracelet/huh v0.6.0
+	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
 	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
-	github.com/creack/pty v1.1.20
+	github.com/creack/pty v1.1.24
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
@@ -99,9 +99,9 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.522
+	go.viam.com/api v0.1.523
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.4.3
+	go.viam.com/utils v0.4.13
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
@@ -145,6 +145,7 @@ require (
 	codeberg.org/go-pdf/fpdf v0.10.0 // indirect
 	connectrpc.com/connect v1.15.0 // indirect
 	connectrpc.com/otelconnect v0.7.0 // indirect
+	contrib.go.opencensus.io/exporter/jaeger v0.2.1 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.4 // indirect
 	git.sr.ht/~sbinet/gg v0.6.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
@@ -164,18 +165,18 @@ require (
 	github.com/bufbuild/protoyaml-go v0.1.8 // indirect
 	github.com/bytedance/sonic v1.13.1 // indirect
 	github.com/campoy/embedmd v1.0.0 // indirect
-	github.com/catppuccin/go v0.2.0 // indirect
+	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/charmbracelet/bubbles v0.20.0 // indirect
-	github.com/charmbracelet/bubbletea v1.1.1 // indirect
+	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 // indirect
+	github.com/charmbracelet/bubbletea v1.3.6 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
-	github.com/charmbracelet/x/ansi v0.8.0 // indirect
-	github.com/charmbracelet/x/cellbuf v0.0.13-0.20250311204145-2c3ea96c31dd // indirect
+	github.com/charmbracelet/x/ansi v0.9.3 // indirect
+	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/chewxy/hm v1.0.0 // indirect
@@ -304,6 +305,7 @@ require (
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/u2takey/go-utils v0.3.1 // indirect
+	github.com/uber/jaeger-client-go v2.25.0+incompatible // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
 	github.com/viamrobotics/ice/v2 v2.3.40 // indirect

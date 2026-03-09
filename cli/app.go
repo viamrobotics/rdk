@@ -3494,7 +3494,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
@@ -3573,7 +3573,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,

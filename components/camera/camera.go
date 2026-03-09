@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
@@ -23,6 +24,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -73,6 +75,13 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// ExtrinsicParams define the position and orientation of the camera
+// relative to a reference frame (the world or another sensor).
+type ExtrinsicParams struct {
+	Translation r3.Vector
+	Orientation spatialmath.Orientation
+}
+
 // Properties is a lookup for a camera's features and settings.
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
@@ -81,8 +90,37 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
+	ExtrinsicParams  *ExtrinsicParams
 	MimeTypes        []string
 	FrameRate        float32
+}
+
+// PointToPixel projects a 3D point to a 2D pixel coordinate.
+// If extrinsic parameters are set, the point is first transformed from the depth/reference
+// frame into the camera's coordinate frame, then projected to a pixel using intrinsics.
+func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
+	if p.IntrinsicParams == nil {
+		return 0, 0, errors.New("camera properties has no intrinsic parameters")
+	}
+
+	if p.ExtrinsicParams != nil {
+		if !spatialmath.IsDefaultOrientation(p.ExtrinsicParams.Orientation) {
+			// Extrinsics represent the camera's pose in the reference frame.
+			// To transform a point from the reference frame to the camera frame,
+			// we apply the inverse of the extrinsic pose.
+			extrinsicPose := spatialmath.NewPose(p.ExtrinsicParams.Translation, p.ExtrinsicParams.Orientation)
+			extrinsicInverse := spatialmath.PoseInverse(extrinsicPose)
+			pointPose := spatialmath.NewPoseFromPoint(pt)
+			transformed := spatialmath.Compose(extrinsicInverse, pointPose)
+			pt = transformed.Point()
+		} else {
+			// Just translation - subtract the camera's position to transform point to camera frame
+			pt = pt.Sub(p.ExtrinsicParams.Translation)
+		}
+	}
+
+	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)
+	return px, py, nil
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.

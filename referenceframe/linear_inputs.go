@@ -112,17 +112,7 @@ func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float
 		metas = metas[1:]
 	}
 
-	//nolint: revive
-	_, max, r := metas[0].frame.DoF()[linearizedInputIdx].GoodLimits()
-	x := r * percentJog
-
-	val += x
-	if val > max {
-		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
-		val -= (2 * x)
-	}
-
-	return val
+	return metas[0].frame.DoF()[linearizedInputIdx].Jog(val, percentJog)
 }
 
 type linearInputMeta struct {
