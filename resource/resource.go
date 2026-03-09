@@ -245,8 +245,10 @@ type Shaped interface {
 // ErrDoUnimplemented is returned if the DoCommand methods is not implemented.
 var ErrDoUnimplemented = errors.New("DoCommand unimplemented")
 
-// TriviallyReconfigurable is to be embedded by any resource that does not care about
+// Deprecated: TriviallyReconfigurable is to be embedded by any resource that does not care about
 // changes to its config or dependencies.
+//
+//nolint:revive,stylecheck // ignore exported comment check.
 type TriviallyReconfigurable struct{}
 
 // TriviallyCloseable is to be embedded by any resource that does not care about
@@ -275,8 +277,10 @@ type NoNativeConfig struct {
 	TriviallyValidateConfig
 }
 
-// AlwaysRebuild is to be embedded by any resource that must always rebuild
+// Deprecated: AlwaysRebuild is to be embedded by any resource that must always rebuild
 // and not reconfigure.
+//
+//nolint:revive,stylecheck // ignore exported comment check.
 type AlwaysRebuild struct{}
 
 // Named is to be embedded by any resource that just needs to return a name.
