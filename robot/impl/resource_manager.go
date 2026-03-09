@@ -804,7 +804,7 @@ func (manager *resourceManager) completeConfig(
 
 					switch {
 					case resName.API.IsComponent(), resName.API.IsService():
-						newRes, _, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
+						newRes, err := manager.processResource(ctxWithTimeout, conf, gNode, lr)
 						if err := manager.markChildrenForUpdate(resName); err != nil {
 							manager.logger.CErrorw(ctx,
 								"failed to mark children of resource for update",
@@ -1092,13 +1092,13 @@ func (manager *resourceManager) processResource(
 	conf resource.Config,
 	gNode *resource.GraphNode,
 	lr *localRobot,
-) (resource.Resource, bool, error) {
+) (resource.Resource, error) {
 	if gNode.IsUninitialized() {
 		newRes, err := lr.newResource(ctx, gNode, conf)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
-		return newRes, true, nil
+		return newRes, nil
 	}
 
 	resName := conf.ResourceName()
@@ -1110,7 +1110,7 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
+		return nil, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
 	isModular := manager.moduleManager.Provides(conf)
@@ -1119,13 +1119,13 @@ func (manager *resourceManager) processResource(
 			err = manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
 			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
 				manager.logger.Warnw("Unable to remove resource.", "resourceName", conf.ResourceName(), "err", err)
-				return nil, false, err
+				return nil, err
 			}
 			newRes, err := manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			if err != nil {
-				return nil, false, err
+				return nil, err
 			}
-			return newRes, false, nil
+			return newRes, nil
 		}
 	} else {
 		manager.logger.CInfow(ctx, "resource models differ from old",
@@ -1150,9 +1150,9 @@ func (manager *resourceManager) processResource(
 			"old_model", gNode.ResourceModel(),
 			"new_model", conf.Model,
 		)
-		return nil, false, err
+		return nil, err
 	}
-	return newRes, true, nil
+	return newRes, nil
 }
 
 // addToBeConstructedResource adds a new, unconfigured graph node for a resource to the

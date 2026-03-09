@@ -1550,14 +1550,12 @@ func TestReconfigure(t *testing.T) {
 
 	local, ok := r.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
-	newService, newlyBuilt, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+	newService, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeTrue)
 	svcNode := resource.NewConfiguredGraphNode(svc1, newService, svc1.Model)
 	manager.resources.AddNode(svc1.ResourceName(), svcNode)
-	newService, newlyBuilt, err = manager.processResource(ctx, svc1, svcNode, local)
+	newService, err = manager.processResource(ctx, svc1, svcNode, local)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newlyBuilt, test.ShouldBeTrue)
 
 	mockRe, ok := newService.(*mock)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -1773,7 +1771,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 
@@ -1808,7 +1806,7 @@ func TestResourceCreationPanic(t *testing.T) {
 
 		local, ok := r.(*localRobot)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, _, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
+		_, err := manager.processResource(ctx, svc1, resource.NewUninitializedNode(), local)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "hello")
 	})
 }
