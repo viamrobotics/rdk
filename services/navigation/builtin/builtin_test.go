@@ -234,7 +234,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -256,7 +256,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -289,7 +289,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -323,7 +323,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -337,7 +337,7 @@ func TestNew(t *testing.T) {
 		cfg := &Config{}
 		deps := resource.Dependencies{}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -350,7 +350,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(base.API, "base"): &inject.Base{},
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -364,7 +364,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -386,7 +386,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -408,7 +408,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -431,7 +431,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		err := svc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
+		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 

@@ -83,7 +83,7 @@ type Resource interface {
 	Close(ctx context.Context) error
 }
 
-// BuiltInResource represents a non-modular resource build into viam-server.
+// BuiltInResource represents a non-modular resource built into viam-server.
 type BuiltInResource interface {
 	// BuiltInReconfigure is used to allow existing resources temporarily continue using the now-deprecated Resource.Reconfigure.
 	BuiltInReconfigure(ctx context.Context, deps Dependencies, conf Config) error
