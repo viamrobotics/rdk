@@ -817,7 +817,7 @@ func checkLanguageVersion(language string) error {
 	if cmd == "" {
 		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
 	}
-	versionOutput, err := exec.Command(cmd, versionFlag).Output()
+	versionOutput, err := exec.Command(cmd, versionFlag).Output() //nolint:gosec
 	if err != nil {
 		return errors.Wrapf(err, "%s runtime not found", displayName)
 	}
@@ -845,7 +845,7 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	if pythonCmd == "" {
 		return errors.New("cannot generate python stubs -- python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "-m", "venv", venvName)
+	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
 	_, err := cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
