@@ -1095,10 +1095,11 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		isModular := r.manager.moduleManager.Provides(conf)
 		if isModular {
 			err = r.manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
-			if err != nil && !errors.Is(modmanager.ErrResourceNotFoundInResourceModuleMap, err) {
+			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
 				r.manager.logger.Warnw("Unable to remove resource. Continuing with add", "resourceName", conf.ResourceName(), "err", err)
 			}
-			newRes, err := r.manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			var newRes resource.Resource
+			newRes, err = r.manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
 			if err != nil {
 				r.manager.logger.Warnw("Unable to add resource. Not swapping.", "resourceName", conf.ResourceName(), "err", err)
 			} else if newRes != nil {
@@ -1112,7 +1113,8 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 				if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
 					r.manager.logger.CError(ctx, err)
 				}
-				newRes, err := r.newResource(ctx, resNode, conf)
+				var newRes resource.Resource
+				newRes, err = r.newResource(ctx, resNode, conf)
 				if err != nil {
 					r.manager.logger.CDebugw(ctx,
 						"failed to build resource of new model",
