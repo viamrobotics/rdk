@@ -311,7 +311,7 @@ func TestOptionalDependencies(t *testing.T) {
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there are either 4 (no new) _or_ 5 logs about an inability to "get
+		// Assert that there are either 3 (no new) _or_ 4 logs about an inability to "get
 		// optional motor."
 		//
 		// The optional child _might_ get 'm1' as a dependency as part of its initial
@@ -1357,7 +1357,7 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 		mocRes, err := lr.ResourceByName(mocName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there was another log (now 2) about failures to "get other MOC."
+		// Assert that there were no more logs (still 2) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -1519,7 +1519,7 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// invalid model. These repeated errors should NOT increment the clock (self-transitions
 	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
 	// should return early without additional reconfigurations of the optional child.
-	for i := 1; i < 6; i++ {
+	for i := 0; i < 5; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 			test.ShouldEqual, clockAfterFirstError)
@@ -1628,7 +1628,7 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	firstErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
 	test.That(t, firstErrorLogs, test.ShouldEqual, 1)
 
-	// Verify the foo component was reconfigured due to the first error.
+	// Verify the foo component was reconfigured once due to the first error.
 	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
 		test.ShouldEqual, 1)
@@ -1641,7 +1641,7 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// invalid model. These repeated errors should NOT increment the clock (self-transitions
 	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
 	// should return early without additional reconfigurations of the foo component.
-	for i := 1; i < 6; i++ {
+	for i := 0; i < 5; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		// The clock should NOT increment - m_unrelated is still unusable.
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),

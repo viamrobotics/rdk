@@ -1702,10 +1702,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	// Fifth we attempt to complete the config (see function for details) and
 	// update weak and optional dependents.
 	r.manager.completeConfig(ctx, r, forceSync)
-	// note: we may we create a new resource in completeConfig, then immediately rebuild it in updateWeakAndOptionalDependents if it
-	// contains weak or optional dependencies. This has another negative effect of bumping the logical clock n times more than really
-	// necessary, where n is the number of resources containing weak or optional dependencies, which will cause the next robot reconfigure
-	// to immediately trigger another uWAOD call.
 	r.updateWeakAndOptionalDependents(ctx)
 
 	// Finally we actually remove marked resources and Close any that are
