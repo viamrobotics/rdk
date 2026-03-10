@@ -436,7 +436,7 @@ func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context)
 // is true, "<command> [command options]" if subcommand is true, and all passed-in
 // arguments in that order.
 func createUsageText(command string, requiredFlags []string, unrequiredOptions, subcommand bool, arguments ...string) string {
-	formatted := []string{"viam", command}
+	formatted := []string{"viam", "[global options]", command}
 	for _, flag := range requiredFlags {
 		formatted = append(formatted, fmt.Sprintf("--%s=<%s>", flag, flag))
 	}
@@ -615,7 +615,7 @@ Note: There is no progress meter while copying is in progress.
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
 			Aliases:         []string{"auth"},
 			Usage:           "login to app.viam.com",
-			UsageText:       "viam login [options] [command] [command options]",
+			UsageText:       "viam [global options] login [options] [command] [command options]",
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -1091,7 +1091,7 @@ Note: There is no progress meter while copying is in progress.
 					Name:  "list",
 					Usage: "list locations for the current user",
 					// use custom usage text to show default organization flag usage even if it isn't required
-					UsageText: "viam locations list [--organization=<organization>]",
+					UsageText: "viam [global options] locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							cli.StringFlag{
@@ -1650,7 +1650,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:  "list",
 					Usage: "list dataset information from specified IDs or for an org ID",
-					UsageText: fmt.Sprintf("viam dataset list [--%s=<%s> | --%s=<%s>]",
+					UsageText: fmt.Sprintf("viam [global options] dataset list [--%s=<%s> | --%s=<%s>]",
 						datasetFlagDatasetIDs, datasetFlagDatasetIDs, generalFlagOrgID, generalFlagOrgID),
 					Description: "In order to list datasets, an org ID or a list of dataset IDs is required",
 					Flags: []cli.Flag{
