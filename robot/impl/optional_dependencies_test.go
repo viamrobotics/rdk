@@ -494,7 +494,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 		fooRes, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there was another log (now 4) about a failure to "get optional
+		// Assert that there was another log (still 3) about a failure to "get optional
 		// motor."
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 3)
