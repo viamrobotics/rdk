@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        default: latest
+        default: pr
         required: true
         type: choice
-        options: [latest, stable, pr]
+        options: [pr, latest, stable]
   workflow_call:
     inputs:
       release_type:
@@ -19,7 +19,7 @@ on:
 
 jobs:
   viam-cli:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-large
     steps:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
@@ -49,25 +49,31 @@ jobs:
         rm meta.json meta2.json
 
     - name: build
+      shell: bash
       env:
         CI_RELEASE: ${{ inputs.release_type }}
       run: |
-        GOOS=linux GOARCH=amd64 make cli-ci
-        GOOS=linux GOARCH=arm64 make cli-ci
-        GOOS=darwin GOARCH=amd64 make cli-ci
-        GOOS=darwin GOARCH=arm64 make cli-ci
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
+        pids=()
+        GOOS=linux   GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=linux   GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe   make cli-ci & pids+=($!)
+        for pid in "${pids[@]}"; do wait "$pid" || exit 1; done
 
     - name: tagged alias
+      shell: bash
       env:
          CI_RELEASE: ${{ github.ref_name }}
       if: inputs.release_type == 'stable'
       run: |
-        GOOS=linux GOARCH=amd64 make cli-ci
-        GOOS=linux GOARCH=arm64 make cli-ci
-        GOOS=darwin GOARCH=amd64 make cli-ci
-        GOOS=darwin GOARCH=arm64 make cli-ci
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
+        pids=()
+        GOOS=linux   GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=linux   GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe   make cli-ci & pids+=($!)
+        for pid in "${pids[@]}"; do wait "$pid" || exit 1; done
 
     - name: Authorize GCP Upload
       if: inputs.release_type != 'pr'
