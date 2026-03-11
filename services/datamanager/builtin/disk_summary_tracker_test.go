@@ -10,8 +10,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
-func alwaysSync(_ context.Context) bool  { return true }
-func neverSync(_ context.Context) bool   { return false }
+func alwaysSync(_ context.Context) bool { return true }
+func neverSync(_ context.Context) bool  { return false }
 
 func TestCheckAndLogStaleData(t *testing.T) {
 	ctx := context.Background()
