@@ -648,13 +648,15 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 		case <-tkr.C:
 			shouldSync := ReadyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
-			online := state == connectivity.Ready
-			if !online {
-				s.logger.Infof("data manager: NOT syncing data to the cloud as it's cloud connection is in state: %s"+
-					"; waiting for it to be in state: %s", state, connectivity.Ready)
+			if state != connectivity.Ready {
+				logf := s.logger.Debugf
+				if state == connectivity.TransientFailure || state == connectivity.Shutdown {
+					logf = s.logger.Infof
+				}
+				logf("data manager: cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
+
 				continue
 			}
-
 			if !shouldSync {
 				s.logger.Info("data manager: NOT syncing data to the cloud as it's selective sync sensor is not ready to sync")
 				continue

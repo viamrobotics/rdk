@@ -227,10 +227,8 @@ func TestGetAudioCollector(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			}
 			expected := []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_UNSPECIFIED,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: expectedBinary},
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data:     &datasyncpb.SensorData_Binary{Binary: expectedBinary},
 			}}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -320,11 +318,15 @@ func TestGetAudioCollectorFormatChanges(t *testing.T) {
 
 			// Read from the buffer
 			var writes []*datasyncpb.SensorData
-			select {
-			case <-ctx.Done():
-				t.Error("timeout waiting for data")
-				t.FailNow()
-			case writes = <-buf.Writes:
+			for range tc.expectedBinaries {
+				select {
+				case <-ctx.Done():
+					t.Error("timeout waiting for data")
+					t.FailNow()
+					return
+				case sd := <-buf.Writes:
+					writes = append(writes, sd...)
+				}
 			}
 
 			// Assert correct number of binaries were made

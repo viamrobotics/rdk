@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"sync/atomic"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -39,7 +40,7 @@ type SeedSolveMetaData struct {
 type Solver interface {
 	// Solve receives a context, a channel to which solutions will be provided, a function whose output should be minimized, and a
 	// number of iterations to run.
-	Solve(ctx context.Context, solutions chan<- *Solution,
+	Solve(ctx context.Context, solutions chan<- *Solution, totalAttempts *atomic.Int32,
 		seeds [][]float64, limits [][]referenceframe.Limit,
 		minFunc CostFunc, rseed int) (int, []SeedSolveMetaData, error)
 }
@@ -91,7 +92,7 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 // rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
 //
 //	but will fail if you have to move. 1 means search the entire range.
-func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
+func DoSolve(ctx context.Context, solver Solver, totalAttempts *atomic.Int32, solveFunc CostFunc,
 	seeds [][]float64, limits [][]referenceframe.Limit,
 ) ([][]float64, []SeedSolveMetaData, error) {
 	limits, err := fixLimits(len(seeds), limits)
@@ -106,7 +107,7 @@ func DoSolve(ctx context.Context, solver Solver, solveFunc CostFunc,
 
 	go func() {
 		defer close(solutionGen)
-		_, m, err := solver.Solve(ctx, solutionGen, seeds, limits, solveFunc, 1)
+		_, m, err := solver.Solve(ctx, solutionGen, totalAttempts, seeds, limits, solveFunc, 1)
 		solveErrors = err
 		meta = m
 	}()
