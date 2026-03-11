@@ -146,10 +146,7 @@ func (poller *diskSummaryTracker) checkAndLogStaleData(ctx context.Context, earl
 		return
 	}
 
-	staleThreshold := time.Duration(10 * poller.syncIntervalMins * float64(time.Minute))
-	if staleThreshold < minStaleThreshold {
-		staleThreshold = minStaleThreshold
-	}
+	staleThreshold := max(time.Duration(10*poller.syncIntervalMins*float64(time.Minute)), minStaleThreshold)
 
 	age := time.Since(*earliestTime)
 	if age <= staleThreshold {
@@ -162,21 +159,16 @@ func (poller *diskSummaryTracker) checkAndLogStaleData(ctx context.Context, earl
 	}
 	poller.lastStaleWarning = now
 
-	msg := "Capture data may not be syncing: oldest file is %s old, expected less than %s. " +
-		"There are %d files (%s) waiting to sync. " +
-		"Data may be generating faster than it can be uploaded, or uploads may be failing."
-
+	logf := poller.logger.Debugf
 	if poller.shouldSync(ctx) {
-		poller.logger.Warnf(msg,
-			age.Round(time.Second), staleThreshold.Round(time.Second),
-			totalFiles, data.FormatBytesI64(totalBytes),
-		)
-	} else {
-		poller.logger.Debugf(msg,
-			age.Round(time.Second), staleThreshold.Round(time.Second),
-			totalFiles, data.FormatBytesI64(totalBytes),
-		)
+		logf = poller.logger.Warnf
 	}
+	logf("Capture data may not be syncing: oldest file is %s old, expected less than %s. "+
+		"There are %d files (%s) waiting to sync. "+
+		"Data may be generating faster than it can be uploaded, or uploads may be failing.",
+		age.Round(time.Second), staleThreshold.Round(time.Second),
+		totalFiles, data.FormatBytesI64(totalBytes),
+	)
 }
 
 func (poller *diskSummaryTracker) getSummary() diskSummary {
