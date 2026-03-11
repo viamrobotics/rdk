@@ -649,12 +649,11 @@ func (s *Sync) runScheduler(ctx context.Context, tkr *clock.Ticker, config Confi
 			shouldSync := readyToSyncDirectories(ctx, config, s.logger)
 			state := s.cloudConn.conn.GetState()
 			if state != connectivity.Ready {
-				msg := "data manager: cloud connection is in state %s, waiting for %s"
+				logf := s.logger.Debugf
 				if state == connectivity.TransientFailure || state == connectivity.Shutdown {
-					s.logger.Infof(msg, state, connectivity.Ready)
-				} else {
-					s.logger.Debugf(msg, state, connectivity.Ready)
+					logf = s.logger.Infof
 				}
+				logf("data manager: cloud connection is in state %s, waiting for %s", state, connectivity.Ready)
 
 				continue
 			}
