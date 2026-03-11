@@ -46,7 +46,6 @@ import (
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -1090,42 +1089,26 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Use the module manager to reconfigure the resource if it's a modular resource. This
-		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
-		if isModular {
-			err = r.manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
-			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
-				r.manager.logger.Warnw("Unable to remove resource. Continuing with add", "resourceName", conf.ResourceName(), "err", err)
+		if internalResource, ok := res.(resource.BuiltInResource); !isModular && ok {
+			err = internalResource.BuiltInReconfigure(ctx, deps, conf)
+		} else {
+			// copied from resource_manager's processResource
+			if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
+				r.manager.logger.CError(ctx, err)
 			}
 			var newRes resource.Resource
-			newRes, err = r.manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
+			newRes, err = r.newResource(ctx, resNode, conf)
 			if err != nil {
-				r.manager.logger.Warnw("Unable to add resource. Not swapping.", "resourceName", conf.ResourceName(), "err", err)
+				r.manager.logger.CDebugw(ctx,
+					"failed to build resource of new model",
+					"name", resName,
+					"old_model", resNode.ResourceModel(),
+					"new_model", conf.Model,
+				)
 			} else if newRes != nil {
+				// will NPE if newRes is nil
 				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
-			}
-		} else {
-			if internalResource, ok := res.(resource.BuiltInResource); ok {
-				err = internalResource.BuiltInReconfigure(ctx, deps, conf)
-			} else {
-				// copied from resource_manager's processResource
-				if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
-					r.manager.logger.CError(ctx, err)
-				}
-				var newRes resource.Resource
-				newRes, err = r.newResource(ctx, resNode, conf)
-				if err != nil {
-					r.manager.logger.CDebugw(ctx,
-						"failed to build resource of new model",
-						"name", resName,
-						"old_model", resNode.ResourceModel(),
-						"new_model", conf.Model,
-					)
-				} else if newRes != nil {
-					// will NPE if newRes is nil
-					resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
-				}
 			}
 		}
 		if err != nil {

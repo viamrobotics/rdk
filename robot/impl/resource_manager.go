@@ -1102,7 +1102,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(resName, gNode)
+	_, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1113,21 +1113,7 @@ func (manager *resourceManager) processResource(
 		return nil, multierr.Combine(err, manager.closeAndUnsetResource(ctx, gNode))
 	}
 
-	isModular := manager.moduleManager.Provides(conf)
-	if gNode.ResourceModel() == conf.Model {
-		if isModular {
-			err = manager.moduleManager.RemoveResource(ctx, conf.ResourceName())
-			if err != nil && !errors.Is(err, modmanager.ErrResourceNotFoundInResourceModuleMap) {
-				manager.logger.Warnw("Unable to remove resource.", "resourceName", conf.ResourceName(), "err", err)
-				return nil, err
-			}
-			newRes, err := manager.moduleManager.AddResource(ctx, conf, modmanager.DepsToNames(deps))
-			if err != nil {
-				return nil, err
-			}
-			return newRes, nil
-		}
-	} else {
+	if gNode.ResourceModel() != conf.Model {
 		manager.logger.CInfow(ctx, "resource models differ from old",
 			"name", resName, "old_model", gNode.ResourceModel(), "new_model", conf.Model)
 	}
