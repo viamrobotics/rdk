@@ -522,6 +522,71 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
+// planTeleop is a low-latency variant of plan() for the teleop pipeline.
+// It uses a pre-built frame system and caller-provided fsInputs (merged from
+// live CurrentInputs + planning head) to avoid per-call overhead.
+func (ms *builtIn) planTeleop(
+	ctx context.Context,
+	req motion.MoveReq,
+	frameSys *referenceframe.FrameSystem,
+	fsInputs referenceframe.FrameSystemInputs,
+	logger logging.Logger,
+) (motionplan.Plan, error) {
+	movingFrame := frameSys.Frame(req.ComponentName)
+	if movingFrame == nil {
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
+	}
+
+	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
+
+	if req.Extra != nil {
+		req.Extra["waypoints"] = nil
+	}
+
+	// Re-evaluate goal poses to be in the frame of World.
+	worldWaypoints := []*armplanning.PlanState{}
+	solvingFrame := referenceframe.World
+	for _, wp := range waypoints {
+		if wp.Poses() != nil {
+			step := referenceframe.FrameSystemPoses{}
+			for fName, destination := range wp.Poses() {
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
+				if err != nil {
+					return nil, err
+				}
+				goalPose, _ := tf.(*referenceframe.PoseInFrame)
+				step[fName] = goalPose
+			}
+			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
+		} else {
+			worldWaypoints = append(worldWaypoints, wp)
+		}
+	}
+
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	planRequest := &armplanning.PlanRequest{
+		FrameSystem:    frameSys,
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	return plan, err
+}
+
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}

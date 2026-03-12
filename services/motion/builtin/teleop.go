@@ -31,6 +31,7 @@ type teleopPipeline struct {
 	// Immutable after creation.
 	componentName string
 	moveReqBase   motion.MoveReq
+	cachedFrameSys *referenceframe.FrameSystem // built once at pipeline start
 
 	// Channels.
 	poseCh chan *referenceframe.PoseInFrame // buffer 1, latest-value semantics
@@ -73,17 +74,37 @@ func (tp *teleopPipeline) runPlanner(ctx context.Context, ms *builtIn) {
 }
 
 func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *referenceframe.PoseInFrame) {
-	// Read the current planning head.
+	// Read the current planning head for the teleop'd arm.
 	tp.planningHeadMu.RLock()
-	startConfig := tp.planningHead
+	planningHead := tp.planningHead
 	tp.planningHeadMu.RUnlock()
 
-	// Build a MoveReq with start_state set to the planning head.
-	req := tp.buildMoveReq(pose, startConfig)
-
-	// Call ms.plan under ms.mu.RLock.
+	// Merge live inputs with the planning head: use fresh CurrentInputs for
+	// all components (including the other arm in bimanual setups), then overlay
+	// the planning head for the teleop'd component so trajectory chaining works.
 	ms.mu.RLock()
-	plan, err := ms.plan(ctx, req, tp.logger)
+	liveInputs, err := ms.fsService.CurrentInputs(ctx)
+	ms.mu.RUnlock()
+	if err != nil {
+		tp.storeError(err)
+		tp.logger.CWarnf(ctx, "teleop planner: failed to get current inputs: %v", err)
+		return
+	}
+	mergedInputs := make(referenceframe.FrameSystemInputs, len(liveInputs))
+	for k, v := range liveInputs {
+		mergedInputs[k] = v
+	}
+	// Overlay planning head entries for the teleop'd arm's frames.
+	for k, v := range planningHead {
+		mergedInputs[k] = v
+	}
+
+	// Build a MoveReq with start_state set to the merged config.
+	req := tp.buildMoveReq(pose, mergedInputs)
+
+	// Call ms.planTeleop with cached frame system and merged inputs.
+	ms.mu.RLock()
+	plan, err := ms.planTeleop(ctx, req, tp.cachedFrameSys, mergedInputs, tp.logger)
 	ms.mu.RUnlock()
 
 	if err != nil {
@@ -140,6 +161,21 @@ func (tp *teleopPipeline) buildMoveReq(
 		confMap[fName] = iArr
 	}
 	extra["start_state"] = map[string]interface{}{"configuration": confMap}
+
+	// Apply teleop-optimized planner defaults. These only set values not
+	// already present so callers can override via teleop_start extra.
+	teleopDefaults := map[string]interface{}{
+		"timeout":          5.0,  // seconds; default is 300
+		"max_ik_solutions": 20,   // default is 100
+		"min_ik_score":     0.05, // default is 0.01
+		"frame_step":       0.05, // default is 0.01; reduces trajectory steps from ~14 to ~3-4
+	}
+	for k, v := range teleopDefaults {
+		if _, ok := extra[k]; !ok {
+			extra[k] = v
+		}
+	}
+
 	req.Extra = extra
 
 	return req
@@ -241,15 +277,25 @@ func (ms *builtIn) startTeleopPipeline(ctx context.Context, req motion.MoveReq) 
 		ms.mu.RUnlock()
 		return fmt.Errorf("component %s not found", req.ComponentName)
 	}
+
+	// Build and cache the frame system once for the lifetime of this pipeline.
+	// The kinematic structure doesn't change during teleop; Reconfigure() stops
+	// the pipeline before any config changes.
+	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
+	if err != nil {
+		ms.mu.RUnlock()
+		return err
+	}
 	ms.mu.RUnlock()
 
 	tp := &teleopPipeline{
-		logger:        ms.logger.Sublogger("teleop"),
-		componentName: req.ComponentName,
-		moveReqBase:   req,
-		poseCh:        make(chan *referenceframe.PoseInFrame, 1),
-		trajCh:        make(chan motionplan.Trajectory, 1),
-		planningHead:  fsInputs,
+		logger:         ms.logger.Sublogger("teleop"),
+		componentName:  req.ComponentName,
+		moveReqBase:    req,
+		cachedFrameSys: frameSys,
+		poseCh:         make(chan *referenceframe.PoseInFrame, 1),
+		trajCh:         make(chan motionplan.Trajectory, 1),
+		planningHead:   fsInputs,
 	}
 
 	// If the initial request has a destination, enqueue it.
