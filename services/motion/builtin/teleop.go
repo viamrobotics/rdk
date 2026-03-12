@@ -343,6 +343,7 @@ func (ms *builtIn) handleTeleopCommand(
 			"running": tp != nil,
 		}
 		if tp != nil {
+			status["queued_plans"] = len(tp.trajCh)
 			if lastErr := tp.loadError(); lastErr != nil {
 				status["error"] = lastErr.Error()
 			}
