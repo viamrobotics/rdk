@@ -93,6 +93,7 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	}
 
 	traj := plan.Trajectory()
+	tp.logger.Info("Trajectory Size:", len(traj))
 	if len(traj) == 0 {
 		return
 	}
