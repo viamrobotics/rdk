@@ -3001,7 +3001,7 @@ Example trigger for conditional_logs_ingested:
     "event": {"type": "conditional_logs_ingested", "log_levels": ["error", "warn"]},
     "notifications": [{"type": "email", "value": "all_machine_owners"}]
   }`,
-							Flags: append(partFlags(false), &cli.StringFlag{
+							Flags: append(partFlags(true), &cli.StringFlag{
 								Name:  generalFlagAttributes,
 								Usage: "JSON trigger config or path to JSON file (omit to use interactive form)",
 							}),

@@ -1579,156 +1579,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 	var part *apppb.RobotPart
 
 	// If no attributes provided, run the interactive huh flow.
-	if args.Attributes == "" {
-		// 1. Get part ID through flag or prompt.
-		if args.Part == "" {
-			var partID string
-			partForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Part ID:").
-						Description("Run 'viam machines list --all --organization=<org-id>' to see all machines with their part-ids").
-						Validate(func(s string) error {
-							if strings.TrimSpace(s) == "" {
-								return errors.New("part ID cannot be empty")
-							}
-							return nil
-						}).
-						Value(&partID),
-				),
-			)
-			if err := partForm.Run(); err != nil {
-				return err
-			}
-			partID = strings.TrimSpace(partID)
-
-			resp, err := client.getRobotPart(partID)
-			if err != nil {
-				return errors.Wrapf(err, "part ID %q not found", partID)
-			}
-			part = resp.Part
-			args.Part = partID
-		} else {
-			part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
-			if err != nil {
-				return err
-			}
-		}
-
-		// 2. Build resource options and subtype map from the part config (components only).
-		confMap := part.RobotConfig.AsMap()
-		var resourceOpts []huh.Option[string]
-		subtypeByName := make(map[string]string)
-		resources, err := resourcesFromPartConfig(confMap, "components")
-		if err != nil {
-			return err
-		}
-		for _, r := range resources {
-			n, _ := r["name"].(string)
-			if n == "" {
-				continue
-			}
-			resourceOpts = append(resourceOpts, huh.NewOption(n, n))
-			api, _ := r["api"].(string)
-			parts := strings.Split(api, ":")
-			if len(parts) == 3 && parts[2] != "" {
-				subtypeByName[n] = parts[2]
-			}
-		}
-
-		// 3. Core trigger fields form.
-		var triggerName, eventType string
-		form := huh.NewForm(huh.NewGroup(
-			huh.NewNote().Title("Add a trigger to a part"),
-			huh.NewInput().Title("Set a trigger name:").Value(&triggerName).
-				Validate(func(s string) error {
-					if strings.TrimSpace(s) == "" {
-						return errors.New("trigger name cannot be empty")
-					}
-					return nil
-				}),
-			huh.NewSelect[string]().Title("Select an event type:").
-				Options(
-					huh.NewOption("Part is online", triggerEventPartOnline),
-					huh.NewOption("Part is offline", triggerEventPartOffline),
-					huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
-					huh.NewOption("Conditional data ingested", triggerEventConditionalDataIngested),
-					huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
-				).
-				Value(&eventType),
-		))
-		if err := form.Run(); err != nil {
-			return err
-		}
-
-		// 4. Event-type-specific follow-up form.
-		event := map[string]any{"type": eventType}
-		switch eventType {
-		case triggerEventPartDataSynced:
-			var dataTypes []string
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewMultiSelect[string]().Title("Select data types:").
-					Options(
-						huh.NewOption("Unspecified", "unspecified"),
-						huh.NewOption("Binary(image)", "binary"),
-						huh.NewOption("Tabular(sensor)", "tabular"),
-						huh.NewOption("File", "file"),
-					).
-					Value(&dataTypes).
-					Validate(func(s []string) error {
-						if len(s) == 0 {
-							return errors.New("select at least one data type")
-						}
-						return nil
-					}),
-			)).Run(); err != nil {
-				return err
-			}
-			event["data_ingested"] = map[string]any{"data_types": toAnySlice(dataTypes)}
-
-		case triggerEventConditionalDataIngested:
-			if len(resourceOpts) == 0 {
-				return errors.New("this machine contains no components")
-			}
-			conditionalEvent, err := collectConditionalDataIngested(subtypeByName, resourceOpts)
-			if err != nil {
-				return err
-			}
-			event["conditional"] = conditionalEvent
-
-		case triggerEventConditionalLogsIngested:
-			var logLevels []string
-			if err := huh.NewForm(huh.NewGroup(
-				huh.NewMultiSelect[string]().Title("Select log levels:").
-					Options(
-						huh.NewOption("Info", "info"),
-						huh.NewOption("Warn", "warn"),
-						huh.NewOption("Error", "error"),
-					).
-					Value(&logLevels).
-					Validate(func(s []string) error {
-						if len(s) == 0 {
-							return errors.New("select at least one log level")
-						}
-						return nil
-					}),
-			)).Run(); err != nil {
-				return err
-			}
-			event["log_levels"] = toAnySlice(logLevels)
-		}
-
-		// 5. Collect notifications.
-		notifications, err := collectNotifications(eventType)
-		if err != nil {
-			return err
-		}
-
-		// 6. Build the triggerConfig map.
-		triggerConfig = map[string]any{
-			"name": triggerName, "event": event, "notifications": notifications,
-		}
-	} else {
+	if args.Attributes != "" {
 		// Non-interactive path: attributes and part are required flags.
 		triggerConfig, err = parseJSONOrFile(args.Attributes)
 		if err != nil {
@@ -1743,6 +1594,18 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 		if err != nil {
 			return err
 		}
+	} else {
+		// Interactive path: prompt for part ID.
+		// Get part ID
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+		if err != nil {
+			return err
+		}
+
+		triggerConfig, err = collectTriggerForm(part)
+		if err != nil {
+			return err
+		}
 	}
 
 	config := part.RobotConfig.AsMap()
@@ -1753,7 +1616,110 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 
 	name, _ := triggerConfig["name"].(string)
 
-	// Use []any (not []map[string]any from resourcesFromPartConfig) so structpb.NewStruct can serialize it.
+	if err := combineTriggers(config, triggerConfig, name); err != nil {
+		return err
+	}
+
+	if err := client.updateRobotPart(part, config); err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "successfully added trigger %q to part %s", name, part.Name)
+	return nil
+}
+
+// collectTriggerForm runs the interactive form to build a trigger config.
+func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
+	var triggerName, eventType string
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Add a trigger to a part"),
+		huh.NewInput().Title("Set a trigger name:").Value(&triggerName).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("trigger name cannot be empty")
+				}
+				return nil
+			}),
+		huh.NewSelect[string]().Title("Select an event type:").
+			Options(
+				huh.NewOption("Part is online", triggerEventPartOnline),
+				huh.NewOption("Part is offline", triggerEventPartOffline),
+				huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
+				huh.NewOption("Conditional data ingested", triggerEventConditionalDataIngested),
+				huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
+			).
+			Value(&eventType),
+	))
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+
+	event := map[string]any{"type": eventType}
+	switch eventType {
+	case triggerEventPartDataSynced:
+		var dataTypes []string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewMultiSelect[string]().Title("Select data types:").
+				Options(
+					huh.NewOption("Unspecified", "unspecified"),
+					huh.NewOption("Binary(image)", "binary"),
+					huh.NewOption("Tabular(sensor)", "tabular"),
+					huh.NewOption("File", "file"),
+				).
+				Value(&dataTypes).
+				Validate(func(s []string) error {
+					if len(s) == 0 {
+						return errors.New("select at least one data type")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		event["data_ingested"] = map[string]any{"data_types": toAnySlice(dataTypes)}
+
+	case triggerEventConditionalDataIngested:
+		conditionalEvent, err := collectConditionalDataIngested(part)
+		if err != nil {
+			return nil, err
+		}
+		event["conditional"] = conditionalEvent
+
+	case triggerEventConditionalLogsIngested:
+		var logLevels []string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewMultiSelect[string]().Title("Select log levels:").
+				Options(
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warn", "warn"),
+					huh.NewOption("Error", "error"),
+				).
+				Value(&logLevels).
+				Validate(func(s []string) error {
+					if len(s) == 0 {
+						return errors.New("select at least one log level")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		event["log_levels"] = toAnySlice(logLevels)
+	}
+
+	notifications, err := collectNotifications(eventType)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"name": triggerName, "event": event, "notifications": notifications,
+	}, nil
+}
+
+// combineTriggers combines new triggers with the existing trigger config, erroring for repeat triggers.
+func combineTriggers(config, triggerConfig map[string]any, name string) error {
+	// Use []any (not []map[string]any) so structpb.NewStruct can serialize it.
 	var triggers []any
 	if existing, ok := config["triggers"]; ok {
 		if arr, ok := existing.([]any); ok {
@@ -1767,22 +1733,38 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			}
 		}
 	}
-
 	triggers = append(triggers, triggerConfig)
 	config["triggers"] = triggers
-
-	if err := client.updateRobotPart(part, config); err != nil {
-		return err
-	}
-
-	printf(c.App.Writer, "successfully added trigger %q to part %s", name, part.Name)
 	return nil
 }
 
 // collectConditionalDataIngested prompts for resource, method, operator, and value
 // to build the "conditional" portion of a conditional_data_ingested trigger event.
-func collectConditionalDataIngested(subtypeByName map[string]string, resourceOpts []huh.Option[string]) (map[string]any, error) {
-	// 1. Select a resource.
+func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, error) {
+	// Build resource options and subtype map from the part config (components only).
+	confMap := part.RobotConfig.AsMap()
+	var resourceOpts []huh.Option[string]
+	subtypeByName := make(map[string]string)
+	resources, err := resourcesFromPartConfig(confMap, "components")
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range resources {
+		n, _ := r["name"].(string)
+		if n == "" {
+			continue
+		}
+		resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+		api, _ := r["api"].(string)
+		parts := strings.Split(api, ":")
+		if len(parts) == 3 && parts[2] != "" {
+			subtypeByName[n] = parts[2]
+		}
+	}
+	if len(resourceOpts) == 0 {
+		return nil, errors.New("this machine contains no components")
+	}
+	// Select a resource.
 	var resourceName string
 	if err := huh.NewForm(huh.NewGroup(
 		huh.NewSelect[string]().Title("Select a resource:").
@@ -1796,7 +1778,7 @@ func collectConditionalDataIngested(subtypeByName map[string]string, resourceOpt
 		return nil, fmt.Errorf("could not determine subtype for resource %q", resourceName)
 	}
 
-	// 2. Select a data capture method.
+	// Select a data capture method.
 	var method string
 	if methods, ok := validDataCaptureMethods[subtype]; ok {
 		methodOpts := make([]huh.Option[string], 0, len(methods))
@@ -2129,7 +2111,7 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 		"name": {}, "event": {}, "notifications": {}, "disabled": {},
 	})
 
-	// 1. name: required non-empty string
+	// name: required non-empty string
 	nameRaw, ok := triggerConfig["name"]
 	if !ok {
 		return errors.New("trigger config missing required field \"name\"")
