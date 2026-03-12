@@ -184,22 +184,33 @@ func (tp *teleopPipeline) buildMoveReq(
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
 // and executes them on the arm via ms.execute.
 func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
-	var lastExec time.Time
+	var lastExecEnd time.Time
+	var totalCycle time.Duration
+	var moveCount int64
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case traj := <-tp.trajCh:
-			now := time.Now()
-			if !lastExec.IsZero() {
-				tp.logger.CInfof(ctx, "teleop executor: time since last arm move: %s", now.Sub(lastExec))
-			}
+			execStart := time.Now()
 			// Skip start-position check (math.MaxFloat64) because the arm
 			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
 			err := ms.execute(ctx, traj, math.MaxFloat64)
 			ms.mu.RUnlock()
-			lastExec = time.Now()
+			execDur := time.Since(execStart)
+
+			if !lastExecEnd.IsZero() {
+				cycle := time.Since(lastExecEnd)
+				totalCycle += cycle
+				moveCount++
+				avg := totalCycle / time.Duration(moveCount)
+				tp.logger.CInfof(ctx, "teleop executor: execute took: %s, cycle: %s, avg cycle: %s (n=%d)",
+					execDur, cycle, avg, moveCount)
+			} else {
+				tp.logger.CInfof(ctx, "teleop executor: execute took: %s (first move)", execDur)
+			}
+			lastExecEnd = time.Now()
 
 			if err != nil {
 				tp.storeError(err)
