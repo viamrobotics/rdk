@@ -1737,7 +1737,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 
 		partStr := strings.TrimSpace(args.Part)
 		if partStr == "" {
-			return errors.New("part is required when using --attributes; specify --part (or --part-id/--part-name)")
+			return errors.New("part is required when using --attributes; specify --part")
 		}
 		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
 		if err != nil {
@@ -2042,7 +2042,21 @@ func machinesPartDeleteTriggerAction(c *cli.Context, args machinesPartDeleteTrig
 	if err != nil {
 		return err
 	}
+	if len(triggers) == 0 {
+		printf(c.App.Writer, "no triggers found on part %s", part.Name)
+		return nil
+	}
 
+	if args.Name == "" {
+		idx, err := fuzzyfinder.Find(triggers, func(i int) string {
+			name, _ := triggers[i]["name"].(string)
+			return name
+		})
+		if err != nil {
+			return err
+		}
+		args.Name, _ = triggers[idx]["name"].(string)
+	}
 	var updatedTriggers []map[string]any
 	found := false
 	for _, t := range triggers {
@@ -2052,7 +2066,6 @@ func machinesPartDeleteTriggerAction(c *cli.Context, args machinesPartDeleteTrig
 			updatedTriggers = append(updatedTriggers, t)
 		}
 	}
-
 	if !found {
 		printf(c.App.Writer, "trigger %q not found", args.Name)
 		return nil
@@ -2101,9 +2114,9 @@ var validDataCaptureMethods = map[string][]string{
 }
 
 // warnUnknownKeys warns about any keys in m that are not in validKeys.
-func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys map[string]bool) {
+func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys map[string]struct{}) {
 	for k := range m {
-		if !validKeys[k] {
+		if _, ok := validKeys[k]; !ok {
 			warningf(w, "unknown field %q in %s", k, context)
 		}
 	}
@@ -2112,8 +2125,8 @@ func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys ma
 // validateTriggerConfig validates the trigger configuration and returns an error for invalid configs.
 func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) error {
 	// warn about unknown top-level keys
-	warnUnknownKeys(w, "trigger config", triggerConfig, map[string]bool{
-		"name": true, "event": true, "notifications": true, "disabled": true,
+	warnUnknownKeys(w, "trigger config", triggerConfig, map[string]struct{}{
+		"name": {}, "event": {}, "notifications": {}, "disabled": {},
 	})
 
 	// 1. name: required non-empty string
@@ -2137,33 +2150,34 @@ func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) er
 	}
 
 	// 3. event.type: must be one of the valid types
-	validEventTypes := map[string]bool{
-		triggerEventPartOnline:              true,
-		triggerEventPartOffline:             true,
-		triggerEventPartDataSynced:          true,
-		triggerEventConditionalDataIngested: true,
-		triggerEventConditionalLogsIngested: true,
+	validEventTypes := map[string]struct{}{
+		triggerEventPartOnline:              {},
+		triggerEventPartOffline:             {},
+		triggerEventPartDataSynced:          {},
+		triggerEventConditionalDataIngested: {},
+		triggerEventConditionalLogsIngested: {},
 	}
 	eventTypeRaw, ok := event["type"]
 	if !ok {
 		return errors.New("trigger event missing required field \"type\"")
 	}
 	eventType, ok := eventTypeRaw.(string)
-	if !ok || !validEventTypes[eventType] {
+	_, validType := validEventTypes[eventType]
+	if !ok || !validType {
 		return fmt.Errorf(
 			"trigger event type must be one of: part_online, part_offline, "+
 				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
 	}
 
 	// warn about unknown event keys
-	validEventKeys := map[string]bool{"type": true}
+	validEventKeys := map[string]struct{}{"type": {}}
 	switch eventType {
 	case triggerEventPartDataSynced:
-		validEventKeys["data_ingested"] = true
+		validEventKeys["data_ingested"] = struct{}{}
 	case triggerEventConditionalDataIngested:
-		validEventKeys["conditional"] = true
+		validEventKeys["conditional"] = struct{}{}
 	case triggerEventConditionalLogsIngested:
-		validEventKeys["log_levels"] = true
+		validEventKeys["log_levels"] = struct{}{}
 	}
 	warnUnknownKeys(w, "event", event, validEventKeys)
 
@@ -2378,8 +2392,8 @@ func validateConditionalLogsIngested(event map[string]any) error {
 }
 
 func validateNotification(w io.Writer, n map[string]any, index int, eventType string) error {
-	warnUnknownKeys(w, fmt.Sprintf("notification at index %d", index), n, map[string]bool{
-		"type": true, "value": true, "seconds_between_notifications": true,
+	warnUnknownKeys(w, fmt.Sprintf("notification at index %d", index), n, map[string]struct{}{
+		"type": {}, "value": {}, "seconds_between_notifications": {},
 	})
 
 	// type

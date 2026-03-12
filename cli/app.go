@@ -3011,7 +3011,7 @@ Example trigger for conditional_logs_ingested:
 							Name:      "delete-trigger",
 							Usage:     "delete a trigger from a machine part",
 							UsageText: createUsageText("machines part delete-trigger", []string{generalFlagPart, generalFlagName}, true, false),
-							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: true}),
+							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: false}),
 							Action:    createCommandWithT[machinesPartDeleteTriggerArgs](machinesPartDeleteTriggerAction),
 						},
 					},
