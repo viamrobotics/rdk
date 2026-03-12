@@ -57,6 +57,11 @@ const (
 	DoPlan              = "plan"
 	DoExecute           = "execute"
 	DoExecuteCheckStart = "executeCheckStart"
+
+	DoTeleopStart  = "teleop_start"
+	DoTeleopMove   = "teleop_move"
+	DoTeleopStop   = "teleop_stop"
+	DoTeleopStatus = "teleop_status"
 )
 
 const (
@@ -135,6 +140,10 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+
+	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
+	teleopMu       sync.Mutex
+	teleopPipeline *teleopPipeline
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -159,6 +168,9 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
+	ms.stopTeleopPipeline(ctx)
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
@@ -203,6 +215,7 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
+	ms.stopTeleopPipeline(ctx)
 	return nil
 }
 
@@ -273,6 +286,11 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	// Handle teleop commands first (they manage their own locking).
+	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
