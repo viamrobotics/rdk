@@ -92,6 +92,7 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 		return
 	}
 
+	tp.clearError()
 	traj := plan.Trajectory()
 	tp.logger.Info("Trajectory Size:", len(traj))
 	if len(traj) == 0 {
@@ -168,6 +169,8 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 				tp.storeError(err)
 				tp.logger.CWarnf(ctx, "teleop executor error: %v", err)
 				tp.resetPlanningHead(ctx, ms)
+			} else {
+				tp.clearError()
 			}
 		}
 	}
@@ -208,6 +211,10 @@ func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 
 func (tp *teleopPipeline) storeError(err error) {
 	tp.lastErr.Store(&err)
+}
+
+func (tp *teleopPipeline) clearError() {
+	tp.lastErr.Store(nil)
 }
 
 func (tp *teleopPipeline) loadError() error {
