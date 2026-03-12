@@ -1329,6 +1329,7 @@ func TestCreateOAuthAppAction(t *testing.T) {
 		flags[oauthAppFlagPKCE] = "not_required"
 		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
 		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagInviteRedirectURI] = "https://woof.com/home"
 		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
 		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
@@ -1376,6 +1377,7 @@ func TestReadOAuthApp(t *testing.T) {
 				ClientAuthentication: apppb.ClientAuthentication_CLIENT_AUTHENTICATION_REQUIRED,
 				Pkce:                 apppb.PKCE_PKCE_REQUIRED,
 				UrlValidation:        apppb.URLValidation_URL_VALIDATION_ALLOW_WILDCARDS,
+				InviteRedirectUri:    "https://my-invite-redirect-uri.com",
 				LogoutUri:            "https://my-logout-uri.com",
 				OriginUris:           []string{"https://my-origin-uri.com", "https://second-origin-uri.com"},
 				RedirectUris:         []string{"https://my-redirect-uri.com"},
@@ -1399,9 +1401,10 @@ func TestReadOAuthApp(t *testing.T) {
 	test.That(t, out.messages[4], test.ShouldContainSubstring, "PKCE (Proof Key for Code Exchange): required")
 	test.That(t, out.messages[5], test.ShouldContainSubstring, "URL Validation Policy: allow_wildcards")
 	test.That(t, out.messages[6], test.ShouldContainSubstring, "Logout URL: https://my-logout-uri.com")
-	test.That(t, out.messages[7], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
-	test.That(t, out.messages[8], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
-	test.That(t, out.messages[9], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
+	test.That(t, out.messages[7], test.ShouldContainSubstring, "Invite Redirect URL: https://my-invite-redirect-uri.com")
+	test.That(t, out.messages[8], test.ShouldContainSubstring, "Redirect URLs: https://my-redirect-uri.com")
+	test.That(t, out.messages[9], test.ShouldContainSubstring, "Origin URLs: https://my-origin-uri.com, https://second-origin-uri.com")
+	test.That(t, out.messages[10], test.ShouldContainSubstring, "Enabled Grants: implicit, password")
 }
 
 func TestUpdateOAuthAppAction(t *testing.T) {
@@ -1424,6 +1427,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 		flags[oauthAppFlagPKCE] = "not_required"
 		flags[oauthAppFlagOriginURIs] = []string{"https://woof.com/login", "https://arf.com/"}
 		flags[oauthAppFlagRedirectURIs] = []string{"https://woof.com/home", "https://arf.com/home"}
+		flags[oauthAppFlagInviteRedirectURI] = "https://woof.com/home"
 		flags[oauthAppFlagLogoutURI] = "https://woof.com/logout"
 		flags[oauthAppFlagEnabledGrants] = []string{"implicit", "password"}
 		cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
