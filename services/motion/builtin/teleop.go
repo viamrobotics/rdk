@@ -15,7 +15,6 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
@@ -126,8 +125,18 @@ func (tp *teleopPipeline) buildMoveReq(
 	for k, v := range tp.moveReqBase.Extra {
 		extra[k] = v
 	}
-	startState := armplanning.NewPlanState(nil, startConfig)
-	extra["start_state"] = startState.Serialize()
+	// Build start_state in the format DeserializePlanState expects ([]interface{}
+	// values, not native []float64) since this path doesn't go through a proto
+	// round-trip that would convert the types.
+	confMap := make(map[string]interface{}, len(startConfig))
+	for fName, inputs := range startConfig {
+		iArr := make([]interface{}, len(inputs))
+		for i, v := range inputs {
+			iArr[i] = v
+		}
+		confMap[fName] = iArr
+	}
+	extra["start_state"] = map[string]interface{}{"configuration": confMap}
 	req.Extra = extra
 
 	return req
