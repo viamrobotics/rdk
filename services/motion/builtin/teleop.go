@@ -6,6 +6,7 @@ import (
 	"math"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/motion/v1"
@@ -145,16 +146,22 @@ func (tp *teleopPipeline) buildMoveReq(
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
 // and executes them on the arm via ms.execute.
 func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
+	var lastExec time.Time
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case traj := <-tp.trajCh:
+			now := time.Now()
+			if !lastExec.IsZero() {
+				tp.logger.CInfof(ctx, "teleop executor: time since last arm move: %s", now.Sub(lastExec))
+			}
 			// Skip start-position check (math.MaxFloat64) because the arm
 			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
 			err := ms.execute(ctx, traj, math.MaxFloat64)
 			ms.mu.RUnlock()
+			lastExec = time.Now()
 
 			if err != nil {
 				tp.storeError(err)
