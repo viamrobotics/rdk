@@ -39,6 +39,7 @@ const (
 	basePath                       = "module_generate"
 	templatePrefix                 = "tmpl-"
 	python                         = "python"
+	cpp                            = "cpp"
 	golang                         = "go"
 	moduleVisibilityPrivate        = "private"
 	moduleVisibilityPublic         = "public"
@@ -319,6 +320,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Options(
 					huh.NewOption("Python", python),
 					huh.NewOption("Go", golang),
+					huh.NewOption("C++", cpp),
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
@@ -680,9 +682,32 @@ func generateStubs(c *cli.Context, module modulegen.ModuleInputs, globalArgs glo
 		return generatePythonStubs(module)
 	case golang:
 		return generateGolangStubs(module)
+	case cpp:
+		return generateCppStubs(module)
 	default:
 		return errors.Errorf("cannot generate stubs for language %s", module.Language)
 	}
+}
+
+func generateCppStubs(module modulegen.ModuleInputs) error {
+	println("generating Cpp stubs!")
+	out, err := gen.RenderCppTemplates(module)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
+	}
+	modulePath := filepath.Join(module.ModuleName, "module.cpp")
+	//nolint:gosec
+	moduleFile, err := os.Create(modulePath)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- unable to open file")
+	}
+	defer utils.UncheckedErrorFunc(moduleFile.Close)
+	_, err = moduleFile.Write(out)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- unable to write to file")
+	}
+
+	return nil
 }
 
 func generateGolangStubs(module modulegen.ModuleInputs) error {
@@ -798,6 +823,8 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 		repo = "viam-python-sdk"
 	case golang:
 		repo = "rdk"
+	case cpp:
+		repo = "viam-cpp-sdk"
 	default:
 		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}

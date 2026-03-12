@@ -39,6 +39,31 @@ var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Requ
 	return req, nil
 }
 
+func getCppTemplate() (string, error) {
+	println("getting Cpp template!")
+	url := "https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/heads/main/res/module_generator/_templates/main.cpp.in"
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot get cpp module template")
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot get cpp module template")
+	}
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return req.URL.String(), errors.Wrapf(err, "error reading response body")
+	}
+	template := string(body)
+	return template, nil
+}
+
 // getClientCode grabs client.go code of component type.
 func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	req, err := CreateGetClientCodeRequest(module)
@@ -473,6 +498,48 @@ func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []
 	}
 
 	return fmt.Sprintf("%sfunc (s *%s) %s(%s)%s {\n%s\n}\n\n", docComment, receiver, funcName, args, returnDef, body)
+}
+
+// RenderCppTemplates outputs the method stubs for created module.
+func RenderCppTemplates(module modulegen.ModuleInputs) ([]byte, error) {
+	println("rendering Cpp template!")
+	//goModule, err := setGoModuleTemplate(clientCode, module, docMap)
+	//if err != nil {
+	//return empty, err
+	//}
+
+	var empty []byte
+	cppTmpl, err := getCppTemplate()
+	if err != nil {
+		return nil, err
+	}
+	println(cppTmpl)
+	var output bytes.Buffer
+	tmpl, err := template.New("module").Parse(cppTmpl)
+
+	if err != nil {
+		return empty, err
+	}
+
+	println("camel and pascal", module.ModuleCamel)
+	println("camel and pascal", module.ModelPascal)
+
+	cppModule := modulegen.CppModuleTmpl{
+		Module:     module,
+		ModelType:  module.ModuleCamel + module.ModelPascal,
+		Imports:    "test",
+		Functions:  "test2",
+		ModuleName: module.ModuleName,
+	}
+
+	println("executing")
+	err = tmpl.Execute(&output, cppModule.Module)
+	if err != nil {
+		return empty, err
+	}
+	print("we are here!")
+
+	return output.Bytes(), nil
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
