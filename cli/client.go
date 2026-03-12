@@ -4059,6 +4059,9 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
 	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
+	if (config.InviteRedirectUri != "") {
+		printf(cCtx.App.Writer, "Invite Redirect URL: %s", config.InviteRedirectUri)
+	}
 	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
 	if len(config.OriginUris) > 0 {
 		printf(cCtx.App.Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
@@ -4247,6 +4250,7 @@ type createOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4269,7 +4273,7 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 
 func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return err
 	}
@@ -4297,6 +4301,7 @@ type updateOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4328,8 +4333,8 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 	return nil
 }
 
-func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
-	originURIs, redirectURIs, enabledGrants []string,
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI,
+	inviteRedirectURI string, originURIs, redirectURIs, enabledGrants []string,
 ) (*apppb.OAuthConfig, error) {
 	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
@@ -4356,6 +4361,7 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI st
 		UrlValidation:        urlValidationProto,
 		OriginUris:           originURIs,
 		RedirectUris:         redirectURIs,
+		InviteRedirectUri:    inviteRedirectURI,
 		LogoutUri:            logoutURI,
 		EnabledGrants:        egProto,
 	}, nil
@@ -4370,7 +4376,7 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	clientName := args.ClientName
 
 	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return nil, err
 	}

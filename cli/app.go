@@ -153,6 +153,7 @@ const (
 	oauthAppFlagURLValidation        = "url-validation"
 	oauthAppFlagOriginURIs           = "origin-uris"
 	oauthAppFlagRedirectURIs         = "redirect-uris"
+	oauthAppFlagInviteRedirectURI    = "invite-redirect-uri"
 	oauthAppFlagLogoutURI            = "logout-uri"
 	unspecified                      = "unspecified"
 
@@ -813,6 +814,11 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "updated comma separated redirect uris for the OAuth application",
 										},
 										&cli.StringFlag{
+											Name:     oauthAppFlagInviteRedirectURI,
+											Usage:    "redirect uri to send users after they accept an org invite",
+											Required: false,
+										},
+										&cli.StringFlag{
 											Name:  oauthAppFlagLogoutURI,
 											Usage: "updated logout uri for the OAuth application",
 										},
@@ -878,6 +884,11 @@ Note: There is no progress meter while copying is in progress.
 											Name:     oauthAppFlagRedirectURIs,
 											Usage:    "comma-separated redirect uris for the OAuth application, requires at least one.",
 											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagInviteRedirectURI,
+											Usage:    "redirect uri to send users after they accept an org invite",
+											Required: false,
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagLogoutURI,
