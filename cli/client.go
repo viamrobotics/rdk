@@ -4059,7 +4059,7 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
 	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
-	if (config.InviteRedirectUri != "") {
+	if config.InviteRedirectUri != "" {
 		printf(cCtx.App.Writer, "Invite Redirect URL: %s", config.InviteRedirectUri)
 	}
 	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
