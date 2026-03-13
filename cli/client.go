@@ -1756,7 +1756,6 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 			return err
 		}
 	} else {
-		// Interactive path: prompt for part ID.
 		// Get part ID
 		part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
 		if err != nil {
@@ -2715,7 +2714,7 @@ type machinesPartAddJobArgs struct {
 	Machine      string
 	Location     string
 	Organization string
-	Attributes   string
+	Config       string
 }
 
 func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error {
@@ -2727,43 +2726,27 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 	var jobConfig map[string]any
 	var part *apppb.RobotPart
 
-	// If no attributes are provided, run the interactive huh flow.
-	if args.Attributes == "" {
-		// first, get part id through flag or prompt
-		if args.Part == "" {
-			var partID string
-			partForm := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Part ID:").
-						Description("Run 'viam machines list --all --organization=<org-id>' to see all machines with their part-ids").
-						Validate(func(s string) error {
-							if strings.TrimSpace(s) == "" {
-								return errors.New("part ID cannot be empty")
-							}
-							return nil
-						}).
-						Value(&partID),
-				),
-			)
-			if err := partForm.Run(); err != nil {
-				return err
-			}
-			partID = strings.TrimSpace(partID)
+	// If no config is provided, run the interactive huh flow.
+	if args.Config != "" {
+		// Non-interactive path: config and part are required flags.
+		jobConfig, err = parseJSONOrFile(args.Config)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse job config")
+		}
 
-			// Look up the part by ID and store it so we can use its config below.
-			resp, err := client.getRobotPart(partID)
-			if err != nil {
-				return errors.Wrapf(err, "part ID %q not found", partID)
-			}
-			part = resp.Part
-			args.Part = partID
-		} else {
-			var err error
-			part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
-			if err != nil {
-				return err
-			}
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --config; specify --part")
+		}
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Get part ID
+		part, err = client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+		if err != nil {
+			return err
 		}
 
 		// 2. Build interactive form from the part config.
@@ -2905,21 +2888,6 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 		if logLevel != "" {
 			jobConfig["log_configuration"] = map[string]any{"level": logLevel}
 		}
-	} else {
-		// Non-interactive path: attributes and part are required flags.
-		jobConfig, err = parseJSONOrFile(args.Attributes)
-		if err != nil {
-			return errors.Wrap(err, "failed to parse job config")
-		}
-
-		partStr := strings.TrimSpace(args.Part)
-		if partStr == "" {
-			return errors.New("part is required when using --attributes; specify --part (or --part-id/--part-name)")
-		}
-		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
-		if err != nil {
-			return err
-		}
 	}
 
 	// Validate required fields and format
@@ -2967,7 +2935,7 @@ type machinesPartUpdateJobArgs struct {
 	Location     string
 	Organization string
 	Name         string
-	Attributes   string
+	Config       string
 }
 
 func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs) error {
@@ -2981,7 +2949,7 @@ func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs)
 		return err
 	}
 
-	newJobConfig, err := parseJSONOrFile(args.Attributes)
+	newJobConfig, err := parseJSONOrFile(args.Config)
 	if err != nil {
 		return errors.Wrap(err, "failed to parse job config")
 	}
