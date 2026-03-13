@@ -82,6 +82,7 @@ const (
 	generalFlagDryRun            = "dry-run"
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
+	generalFlagAliasResource	 = "resource"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -2970,14 +2971,17 @@ Note: There is no progress meter while copying is in progress.
 
 Examples:
   # Enable a single resource
-  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor
+  viam resource enable --part UUID --resource-name my-sensor
 
   # Enable multiple resources at once
-  viam resource enable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
+  viam resource enable --part UUID --resource-name my-sensor --resource-name arm-1`,
 					Flags: append(commonPartFlags,
-						&cli.StringSliceFlag{
-							Name:     generalFlagResourceName,
-							Required: true,
+						&AliasStringSliceFlag{
+							cli.StringSliceFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
 						},
 					),
 					Action: createCommandWithT[resourceEnableDisableArgs](resourceEnableAction),
@@ -2992,14 +2996,17 @@ Disabled resources will not start on the machine.
 
 Examples:
   # Disable a single resource
-  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor
+  viam resource disable --part UUID --resource-name my-sensor
 
   # Disable multiple resources at once
-  viam resource disable --part 1f877dde-7a6f-47e2-b520-69619d4ce60c --resource my-sensor --resource arm-1`,
+  viam resource disable --part UUID --resource-name my-sensor --resource-name arm-1`,
 					Flags: append(commonPartFlags,
-						&cli.StringSliceFlag{
-							Name:     generalFlagResourceName,
-							Required: true,
+						&AliasStringSliceFlag{
+							cli.StringSliceFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
 						},
 					),
 					Action: createCommandWithT[resourceEnableDisableArgs](resourceDisableAction),
@@ -3008,25 +3015,31 @@ Examples:
 					Name:  "update",
 					Usage: "update a resource on a machine part",
 					UsageText: createUsageText("resource update",
-						[]string{generalFlagPart, generalFlagName, generalFlagConfig}, true, false),
+						[]string{generalFlagPart, generalFlagResourceName, generalFlagConfig}, true, false),
 					Description: `Update the attributes of an existing resource. The --config flag accepts inline JSON
 or a path to a JSON file. Your new attributes will completely replace the existing attributes
 An empty json will delete all attributes.
 
 Examples:
   # Set an attribute
-  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+  viam resource update --part UUID \
     --resource-name my-sensor --config '{"pin": "38"}'
 
   # Update from a JSON file
-  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+  viam resource update --part UUID \
     --resource-name my-sensor --config /path/to/updates.json
 
   # Delete an attribute by passing an empty value
-  viam resource update --part 1f877dde-7a6f-47e2-b520-69619d4ce60c \
+  viam resource update --part UUID \
     --resource-name my-sensor --config '{"pin": ""}'`,
 					Flags: append(commonPartFlags,
-						&cli.StringFlag{Name: generalFlagResourceName, Required: true},
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
+						},
 						&cli.StringFlag{Name: generalFlagConfig, Required: true},
 					),
 					Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),

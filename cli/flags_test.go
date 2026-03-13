@@ -35,3 +35,32 @@ func TestAliasStringFlag(t *testing.T) {
 	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "world", "foo"})
 	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
 }
+
+func TestAliasStringSliceFlag(t *testing.T) {
+	f := AliasStringSliceFlag{
+		cli.StringSliceFlag{
+			Name: "foo",
+		},
+	}
+	stringRepresentationWithoutAliases := f.StringSliceFlag.String()
+	test.That(t, f.Names(), test.ShouldResemble, []string{"foo"})
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
+
+	f = AliasStringSliceFlag{
+		cli.StringSliceFlag{
+			Name:    "foo",
+			Aliases: []string{"hello"},
+		},
+	}
+	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "foo"})
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
+
+	f = AliasStringSliceFlag{
+		cli.StringSliceFlag{
+			Name:    "foo",
+			Aliases: []string{"hello", "world"},
+		},
+	}
+	test.That(t, f.Names(), test.ShouldResemble, []string{"hello", "world", "foo"})
+	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
+}

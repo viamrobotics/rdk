@@ -1544,7 +1544,7 @@ type resourceEnableDisableArgs struct {
 	Machine      string
 	Location     string
 	Organization string
-	Resource     []string
+	ResourceName []string
 }
 
 func resourceEnableAction(c *cli.Context, args resourceEnableDisableArgs) error {
@@ -1561,15 +1561,15 @@ func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disab
 		return err
 	}
 
-	for _, name := range args.Resource {
+	for _, name := range args.ResourceName {
 		if strings.TrimSpace(name) == "" {
 			return errors.New("--resource value must not be empty")
 		}
 	}
 
 	// warn on duplicate resources and create a set of unique ones
-	uniqueResources := make(map[string]bool, len(args.Resource))
-	for _, name := range args.Resource {
+	uniqueResources := make(map[string]bool)
+	for _, name := range args.ResourceName {
 		if uniqueResources[name] {
 			warningf(c.App.Writer, "duplicate resource %q ignored\n", name)
 			continue
