@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 )
 
+//nolint:dupl
 func TestAliasStringFlag(t *testing.T) {
 	f := AliasStringFlag{
 		cli.StringFlag{
@@ -36,6 +37,7 @@ func TestAliasStringFlag(t *testing.T) {
 	test.That(t, f.String(), test.ShouldEqual, stringRepresentationWithoutAliases)
 }
 
+//nolint:dupl
 func TestAliasStringSliceFlag(t *testing.T) {
 	f := AliasStringSliceFlag{
 		cli.StringSliceFlag{

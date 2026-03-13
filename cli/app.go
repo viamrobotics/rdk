@@ -82,7 +82,7 @@ const (
 	generalFlagDryRun            = "dry-run"
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
-	generalFlagAliasResource	 = "resource"
+	generalFlagAliasResource     = "resource"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
