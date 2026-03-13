@@ -40,6 +40,7 @@ const (
 	version                        = "0.1.0"
 	basePath                       = "module_generate"
 	templatePrefix                 = "tmpl-"
+	cpp                            = "cpp"
 	python                         = "python"
 	golang                         = "go"
 	moduleVisibilityPrivate        = "private"
