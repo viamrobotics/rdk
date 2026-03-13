@@ -80,7 +80,6 @@ const (
 	generalFlagAPI               = "api"
 	generalFlagArgs              = "args"
 	generalFlagDryRun            = "dry-run"
-	generalFlagAttributes        = "attributes"
 	generalFlagConfig            = "config"
 	generalFlagResourceName      = "resource-name"
 	generalFlagAliasResource     = "resource"
@@ -2977,10 +2976,10 @@ Note: There is no progress meter while copying is in progress.
 							Name:  "add-trigger",
 							Usage: "add a trigger to a machine part",
 							UsageText: createUsageText(
-								"machines part add-trigger", []string{generalFlagPart, generalFlagAttributes}, true, false,
+								"machines part add-trigger", []string{generalFlagPart, generalFlagConfig}, true, false,
 							),
-							Description: `Add a trigger to a machine part. Run without --attributes to use an interactive form,
-or provide --attributes with inline JSON or a path to a JSON file.
+							Description: `Add a trigger to a machine part. Run without --config to use an interactive form,
+or provide --config with inline JSON or a path to a JSON file.
 
 Example trigger for part_online (liveness):
   {
@@ -3018,7 +3017,7 @@ Example trigger for conditional_logs_ingested:
     "notifications": [{"type": "email", "value": "all_machine_owners"}]
   }`,
 							Flags: append(commonPartFlags, &cli.StringFlag{
-								Name:  generalFlagAttributes,
+								Name:  generalFlagConfig,
 								Usage: "JSON trigger config or path to JSON file (omit to use interactive form)",
 							}),
 							Action: createCommandWithT[machinesPartAddTriggerArgs](machinesPartAddTriggerAction),

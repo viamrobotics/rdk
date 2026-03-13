@@ -1718,7 +1718,7 @@ type machinesPartAddTriggerArgs struct {
 	Machine      string
 	Location     string
 	Organization string
-	Attributes   string
+	Config       string
 }
 
 type machinesPartDeleteTriggerArgs struct {
@@ -1738,17 +1738,17 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 	var triggerConfig map[string]any
 	var part *apppb.RobotPart
 
-	// If no attributes provided, run the interactive huh flow.
-	if args.Attributes != "" {
-		// Non-interactive path: attributes and part are required flags.
-		triggerConfig, err = parseJSONOrFile(args.Attributes)
+	// If no config provided, run the interactive huh flow.
+	if args.Config != "" {
+		// Non-interactive path: config and part are required flags.
+		triggerConfig, err = parseJSONOrFile(args.Config)
 		if err != nil {
 			return err
 		}
 
 		partStr := strings.TrimSpace(args.Part)
 		if partStr == "" {
-			return errors.New("part is required when using --attributes; specify --part")
+			return errors.New("part is required when using --config; specify --part")
 		}
 		part, err = client.robotPart(args.Organization, args.Location, args.Machine, partStr)
 		if err != nil {
@@ -1780,7 +1780,7 @@ func machinesPartAddTriggerAction(c *cli.Context, args machinesPartAddTriggerArg
 		return err
 	}
 
-	if err := client.updateRobotPart(part, config); err != nil {
+	if err := client.updateRobotPart(part, config, nil); err != nil {
 		return err
 	}
 
