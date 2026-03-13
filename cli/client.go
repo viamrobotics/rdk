@@ -1805,7 +1805,7 @@ func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
 				huh.NewOption("Part is online", triggerEventPartOnline),
 				huh.NewOption("Part is offline", triggerEventPartOffline),
 				huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
-				huh.NewOption("Conditional data ingested", triggerEventConditionalDataIngested),
+				huh.NewOption("Conditional data ingestion", triggerEventConditionalDataIngested),
 				huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
 			).
 			Value(&eventType),
