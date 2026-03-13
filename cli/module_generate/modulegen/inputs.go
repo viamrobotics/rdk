@@ -89,18 +89,11 @@ type GoModuleTmpl struct {
 	Functions string
 }
 
-// CR erodkin: this is wrong probably
-// CppModuleTmpl contains necessary information to fill out the cpp method stubs.
-type CppModuleTmpl struct {
-	Module    ModuleInputs
-	ModelType string
-	ObjName   string
-	Imports   string
-	Functions string
-
-	// added after the fact
-	ModuleName string
-	orgID      string
+// CppRenderedFiles holds the rendered output for each C++ file produced during module generation.
+type CppRenderedFiles struct {
+	Main   []byte
+	Type   []byte
+	Header []byte
 }
 
 // HasEmptyInput checks to see if any required inputs were not filled in.

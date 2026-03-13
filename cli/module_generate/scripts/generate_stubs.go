@@ -39,29 +39,41 @@ var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Requ
 	return req, nil
 }
 
-func getCppTemplate() (string, error) {
-	println("getting Cpp template!")
-	url := "https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/heads/main/res/module_generator/_templates/main.cpp.in"
+// CR erodkin: make sure to replace this with grabbing from latest release once things are in releases
+const cppSDKTemplateBase = "https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/heads/update-templates/res/module_generator/_templates"
 
+func fetchRawTemplate(url string) (string, error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get cpp module template")
+		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
 	}
-
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", errors.Wrapf(err, "cannot get cpp module template")
+		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
 	}
 	defer utils.UncheckedErrorFunc(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
-		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, req.URL.String())
+		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return req.URL.String(), errors.Wrapf(err, "error reading response body")
+		return "", errors.Wrapf(err, "error reading response body from %s", url)
 	}
-	template := string(body)
-	return template, nil
+	return string(body), nil
+}
+
+func getCppTemplate() (string, error) {
+	return fetchRawTemplate(cppSDKTemplateBase + "/main.cpp.in")
+}
+
+func getCppTypeTemplate(module modulegen.ModuleInputs) (string, error) {
+	url := fmt.Sprintf("%s/%ss/%s.cpp.in", cppSDKTemplateBase, module.ResourceType, module.ResourceSubtypeSnake)
+	return fetchRawTemplate(url)
+}
+
+func getCppTypeHeaderTemplate(module modulegen.ModuleInputs) (string, error) {
+	url := fmt.Sprintf("%s/%ss/%s.hpp.in", cppSDKTemplateBase, module.ResourceType, module.ResourceSubtypeSnake)
+	return fetchRawTemplate(url)
 }
 
 // getClientCode grabs client.go code of component type.
@@ -500,46 +512,49 @@ func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []
 	return fmt.Sprintf("%sfunc (s *%s) %s(%s)%s {\n%s\n}\n\n", docComment, receiver, funcName, args, returnDef, body)
 }
 
-// RenderCppTemplates outputs the method stubs for created module.
-func RenderCppTemplates(module modulegen.ModuleInputs) ([]byte, error) {
-	println("rendering Cpp template!")
-	//goModule, err := setGoModuleTemplate(clientCode, module, docMap)
-	//if err != nil {
-	//return empty, err
-	//}
-
-	var empty []byte
-	cppTmpl, err := getCppTemplate()
+// renderCppTemplate fetches and executes a single C++ template, returning the rendered bytes.
+func renderCppTemplate(name, rawTmpl string, module modulegen.ModuleInputs) ([]byte, error) {
+	tmpl, err := template.New(name).Parse(rawTmpl)
 	if err != nil {
 		return nil, err
 	}
-	println(cppTmpl)
 	var output bytes.Buffer
-	tmpl, err := template.New("module").Parse(cppTmpl)
-
-	if err != nil {
-		return empty, err
+	if err = tmpl.Execute(&output, module); err != nil {
+		return nil, err
 	}
-
-	println("camel and pascal", module.ModuleCamel)
-	println("camel and pascal", module.ModelPascal)
-
-	cppModule := modulegen.CppModuleTmpl{
-		Module:     module,
-		ModelType:  module.ModuleCamel + module.ModelPascal,
-		Imports:    "test",
-		Functions:  "test2",
-		ModuleName: module.ModuleName,
-	}
-
-	println("executing")
-	err = tmpl.Execute(&output, cppModule.Module)
-	if err != nil {
-		return empty, err
-	}
-	print("we are here!")
-
 	return output.Bytes(), nil
+}
+
+// RenderCppTemplates outputs the rendered C++ files for the created module.
+func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFiles, error) {
+	mainRaw, err := getCppTemplate()
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	main, err := renderCppTemplate("main", mainRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	typeRaw, err := getCppTypeTemplate(module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	typeCpp, err := renderCppTemplate("type", typeRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	headerRaw, err := getCppTypeHeaderTemplate(module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	header, err := renderCppTemplate("header", headerRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	return modulegen.CppRenderedFiles{Main: main, Type: typeCpp, Header: header}, nil
 }
 
 // RenderGoTemplates outputs the method stubs for created module.

@@ -575,6 +575,11 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
 func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArgs globalArgs) error {
+
+	// templates are stored elsewhere for C++
+	if language == "cpp" {
+		return nil
+	}
 	debugf(c.App.Writer, globalArgs.Debug, "Creating %s template files", language)
 	languagePath := filepath.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -631,6 +636,10 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 
 // Render all the files in the new directory.
 func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	// templates are stored in separate repo for C++
+	if module.Language == "cpp" {
+		return nil
+	}
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
 	languagePath := filepath.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -690,21 +699,29 @@ func generateStubs(c *cli.Context, module modulegen.ModuleInputs, globalArgs glo
 }
 
 func generateCppStubs(module modulegen.ModuleInputs) error {
-	println("generating Cpp stubs!")
-	out, err := gen.RenderCppTemplates(module)
+	rendered, err := gen.RenderCppTemplates(module)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
 	}
-	modulePath := filepath.Join(module.ModuleName, "module.cpp")
-	//nolint:gosec
-	moduleFile, err := os.Create(modulePath)
-	if err != nil {
-		return errors.Wrap(err, "cannot generate cpp stubs -- unable to open file")
+
+	filesToWrite := []struct {
+		path string
+		data []byte
+	}{
+		{filepath.Join(module.ModuleName, "main.cpp"), rendered.Main},
+		{filepath.Join(module.ModuleName, fmt.Sprintf("%s.cpp", module.ModelSnake)), rendered.Type},
+		{filepath.Join(module.ModuleName, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
 	}
-	defer utils.UncheckedErrorFunc(moduleFile.Close)
-	_, err = moduleFile.Write(out)
-	if err != nil {
-		return errors.Wrap(err, "cannot generate cpp stubs -- unable to write to file")
+	for _, f := range filesToWrite {
+		//nolint:gosec
+		file, err := os.Create(f.path)
+		if err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path)
+		}
+		defer utils.UncheckedErrorFunc(file.Close)
+		if _, err = file.Write(f.data); err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to write to %s", f.path)
+		}
 	}
 
 	return nil
