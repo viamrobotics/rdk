@@ -84,7 +84,9 @@ func TestStartBuild(t *testing.T) {
 	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
 	test.That(t, out.messages[0], test.ShouldEqual, "xyz123\n")
-	test.That(t, errOut.messages, test.ShouldHaveLength, 1)
+	test.That(t, errOut.messages, test.ShouldHaveLength, 2)
+	test.That(t, errOut.messages[0], test.ShouldEqual, "Build started, follow the logs with:\n")
+	test.That(t, errOut.messages[1], test.ShouldEqual, "\tviam module build logs --id xyz123\n")
 
 	// Modify manifest to set url to empty string
 	createTestManifest(t, manifest, map[string]any{"url": ""})

@@ -11,13 +11,17 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"image"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/benbjohnson/clock"
 	v1 "go.viam.com/api/app/datasync/v1"
+	goutils "go.viam.com/utils"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
@@ -42,6 +46,8 @@ var (
 	// We should endevor to not add more tests that depend on it unless absolutiely necessary.
 	clk = clock.New()
 )
+
+const capturePollFrequency = 100 * time.Millisecond
 
 // In order for a collector to be captured by Data Capture, it must be included as a weak dependency.
 func init() {
@@ -82,6 +88,8 @@ type builtIn struct {
 	capture            *capture.Capture
 	sync               *datasync.Sync
 	diskSummaryTracker *diskSummaryTracker
+
+	captureControlPoller *goutils.StoppableWorkers
 }
 
 // New returns a new builtin data manager service for the given robot.
@@ -127,6 +135,8 @@ func New(
 func (b *builtIn) Close(ctx context.Context) error {
 	b.logger.Info("Close START")
 	defer b.logger.Info("Close END")
+
+	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.diskSummaryTracker.close()
@@ -199,16 +209,143 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
+	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
+
+	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
 	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
-	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths())
+	shouldSync := func(ctx context.Context) bool {
+		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
+	}
+	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
+	if controlSensor != nil && !captureConfig.CaptureDisabled {
+		b.startCaptureControlPoller(controlSensor, controlSensorKey)
+	}
+
 	return nil
+}
+
+func (b *builtIn) startCaptureControlPoller(
+	controlSensor sensor.Sensor,
+	controlSensorKey string,
+) {
+	if b.captureControlPoller != nil {
+		b.logger.Warn("capture poller already running")
+		return
+	}
+
+	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
+		func(ctx context.Context) {
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
+		},
+	)
+}
+
+// stopCaptureControlPoller should be called before other calls to acquire b.mu to avoid deadlock
+// as the poller goroutine holds b.mu while calling capture.SetCaptureConfigs.
+func (b *builtIn) stopCaptureControlPoller() {
+	b.mu.Lock()
+	oldPoller := b.captureControlPoller
+	b.captureControlPoller = nil
+	b.mu.Unlock()
+	if oldPoller != nil {
+		oldPoller.Stop()
+	}
+}
+
+// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
+// it reverts to the machine config by passing nil configs.
+func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+	ticker := time.NewTicker(capturePollFrequency)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+
+		var newConfigs map[string]datamanager.CaptureConfigReading
+
+		readings, err := s.Readings(ctx, nil)
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+		} else {
+			var parseErr error
+			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
+			if parseErr != nil {
+				b.logger.Warnw("failed to parse capture config from sensor reading, reverting to machine config", "error", parseErr)
+			} else if newConfigs == nil {
+				b.logger.Debugw("capture control sensor returned no configs", "key", key, "readings", readings)
+			} else {
+				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
+			}
+		}
+
+		b.mu.Lock()
+		if ctx.Err() != nil {
+			b.mu.Unlock()
+			return
+		}
+		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.mu.Unlock()
+	}
+}
+
+// captureControlSensorFromDeps resolves the control sensor from dependencies.
+// Returns nil if no sensor is configured or the sensor cannot be found.
+func captureControlSensorFromDeps(cfg *CaptureControlSensorConfig, deps resource.Dependencies,
+	logger logging.Logger,
+) (sensor.Sensor, string) {
+	if cfg == nil || cfg.Name == "" {
+		return nil, ""
+	}
+	s, err := sensor.FromProvider(deps, cfg.Name)
+	if err != nil {
+		logger.Errorw(
+			"unable to initialize capture control sensor; controls will not apply until fixed or removed from config",
+			"error", err.Error())
+		return nil, ""
+	}
+	if cfg.Key == "" {
+		logger.Error("missing key for capture_control_sensor readings")
+		return nil, ""
+	}
+	return s, cfg.Key
+}
+
+// parseOverridesFromReadings extracts capture config overrides from sensor readings into a map.
+func parseOverridesFromReadings(readings map[string]interface{}, key string) (map[string]datamanager.CaptureConfigReading, error) {
+	raw, ok := readings[key]
+	if !ok {
+		return nil, nil
+	}
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal reading: %w", err)
+	}
+	var controlList []datamanager.CaptureConfigReading
+	if err := json.Unmarshal(jsonBytes, &controlList); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal reading: %w", err)
+	}
+	if len(controlList) == 0 {
+		return nil, nil
+	}
+	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
+	for _, reading := range controlList {
+		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+	}
+	return result, nil
 }
 
 func syncSensorFromDeps(name string, deps resource.Dependencies, logger logging.Logger) (sensor.Sensor, bool) {

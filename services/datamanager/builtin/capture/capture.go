@@ -64,6 +64,10 @@ type Capture struct {
 	maxCaptureFileSize int64
 	mongoMU            sync.Mutex
 	mongo              captureMongo
+
+	// defaultCollectorConfigs are the default as specified in the machine config.
+	// These are stored in order to be compared to any capture override readings.
+	defaultCollectorConfigs CollectorConfigsByResource
 }
 
 type captureMongo struct {
@@ -238,6 +242,7 @@ func (c *Capture) Reconfigure(
 	}
 	c.collectors = newCollectors
 	c.collectorsMu.Unlock()
+	c.defaultCollectorConfigs = collectorConfigsByResource
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
@@ -276,12 +281,6 @@ func (c *Capture) initializeOrUpdateCollector(
 	config Config,
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
-	// TODO(DATA-451): validate method params
-	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
-	if err != nil {
-		return nil, err
-	}
-
 	maxFileSizeChanged := c.maxCaptureFileSize != config.MaximumCaptureFileSizeBytes
 	if storedCollectorAndConfig, ok := c.collectors[md]; ok {
 		if storedCollectorAndConfig.Config.Equals(&collectorConfig) &&
@@ -294,13 +293,6 @@ func (c *Capture) initializeOrUpdateCollector(
 		c.logger.Debugf("%s closing collector as config changed", md)
 		storedCollectorAndConfig.Collector.Close()
 	}
-
-	// Get collector constructor for the component API and method.
-	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
-	if collectorConstructor == nil {
-		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
-	}
-
 	if collectorConfig.CaptureQueueSize < 0 {
 		return nil, errors.Errorf("capture_queue_size can't be less than 0, current value: %d", collectorConfig.CaptureQueueSize)
 	}
@@ -310,15 +302,38 @@ func (c *Capture) initializeOrUpdateCollector(
 	}
 
 	metadataKey := generateMetadataKey(md.MethodMetadata.API.String(), md.MethodMetadata.MethodName)
-	additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]
-	if ok {
+	if additionalParamKey, ok := metadataToAdditionalParamFields[metadataKey]; ok {
 		if _, ok := collectorConfig.AdditionalParams[additionalParamKey]; !ok {
 			return nil, errors.Errorf("failed to validate additional_params for %s, must supply %s",
 				md.MethodMetadata.API, additionalParamKey)
 		}
 	}
 
-	targetDir := targetDir(config.CaptureDir, collectorConfig)
+	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
+}
+
+// buildCollector constructs and starts a new collector, assuming the base config was already validated.
+// The override path (SetCaptureConfigs) calls this directly.
+func (c *Capture) buildCollector(
+	res resource.Resource,
+	md collectorMetadata,
+	collectorConfig datamanager.DataCaptureConfig,
+	maxCaptureFileSize int64,
+	collection *mongo.Collection,
+) (*collectorAndConfig, error) {
+	// TODO(DATA-451): validate method params
+	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get collector constructor for the component API and method.
+	collectorConstructor := data.CollectorLookup(md.MethodMetadata)
+	if collectorConstructor == nil {
+		return nil, errors.Errorf("failed to find collector constructor for %s", md.MethodMetadata)
+	}
+
+	targetDir := targetDir(collectorConfig.CaptureDirectory, collectorConfig)
 	// Create a collector for this resource and method.
 	if err := os.MkdirAll(targetDir, 0o700); err != nil {
 		return nil, errors.Wrapf(err, "failed to create target directory %s with 700 file permissions", targetDir)
@@ -343,7 +358,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		MethodName:      collectorConfig.Method,
 		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
 		MethodParams:    methodParams,
-		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, config.MaximumCaptureFileSizeBytes),
+		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, maxCaptureFileSize),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.
 		QueueSize:  queueSize,
 		BufferSize: bufferSize,
@@ -352,11 +367,11 @@ func (c *Capture) initializeOrUpdateCollector(
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "constructor for collector %s failed with config: %s",
-			md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
+			md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize))
 	}
 
 	c.logger.Infof("collector initialized; collector: %s, config: %s",
-		md, collectorConfigDescription(collectorConfig, targetDir, config.MaximumCaptureFileSizeBytes, queueSize, bufferSize))
+		md, collectorConfigDescription(collectorConfig, targetDir, maxCaptureFileSize, queueSize, bufferSize))
 	collector.Collect()
 
 	return &collectorAndConfig{res, collector, collectorConfig}, nil

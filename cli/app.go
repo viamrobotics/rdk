@@ -81,6 +81,9 @@ const (
 	generalFlagArgs              = "args"
 	generalFlagAttributes        = "attributes"
 	generalFlagDryRun            = "dry-run"
+	generalFlagConfig            = "config"
+	generalFlagResourceName      = "resource-name"
+	generalFlagAliasResource     = "resource"
 
 	moduleFlagLanguage        = "language"
 	moduleFlagPublicNamespace = "public-namespace"
@@ -124,7 +127,6 @@ const (
 	dataFlagAliasRobotName                 = "robot-name"
 	dataFlagComponentType                  = "component-type"
 	dataFlagComponentName                  = "component-name"
-	dataFlagResourceName                   = "resource-name"
 	dataFlagMimeTypes                      = "mime-types"
 	dataFlagParallelDownloads              = "parallel"
 	dataFlagBboxLabels                     = "bbox-labels"
@@ -154,6 +156,7 @@ const (
 	oauthAppFlagURLValidation        = "url-validation"
 	oauthAppFlagOriginURIs           = "origin-uris"
 	oauthAppFlagRedirectURIs         = "redirect-uris"
+	oauthAppFlagInviteRedirectURI    = "invite-redirect-uri"
 	oauthAppFlagLogoutURI            = "logout-uri"
 	unspecified                      = "unspecified"
 
@@ -443,7 +446,7 @@ func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context)
 // is true, "<command> [command options]" if subcommand is true, and all passed-in
 // arguments in that order.
 func createUsageText(command string, requiredFlags []string, unrequiredOptions, subcommand bool, arguments ...string) string {
-	formatted := []string{"viam", command}
+	formatted := []string{"viam", "[global options]", command}
 	for _, flag := range requiredFlags {
 		formatted = append(formatted, fmt.Sprintf("--%s=<%s>", flag, flag))
 	}
@@ -622,7 +625,7 @@ Note: There is no progress meter while copying is in progress.
 			// NOTE(benjirewis): maintain `auth` as an alias for backward compatibility.
 			Aliases:         []string{"auth"},
 			Usage:           "login to app.viam.com",
-			UsageText:       "viam login [options] [command] [command options]",
+			UsageText:       "viam [global options] login [options] [command] [command options]",
 			HideHelpCommand: true,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -820,6 +823,11 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "updated comma separated redirect uris for the OAuth application",
 										},
 										&cli.StringFlag{
+											Name:     oauthAppFlagInviteRedirectURI,
+											Usage:    "redirect uri to send users after they accept an org invite",
+											Required: false,
+										},
+										&cli.StringFlag{
 											Name:  oauthAppFlagLogoutURI,
 											Usage: "updated logout uri for the OAuth application",
 										},
@@ -885,6 +893,11 @@ Note: There is no progress meter while copying is in progress.
 											Name:     oauthAppFlagRedirectURIs,
 											Usage:    "comma-separated redirect uris for the OAuth application, requires at least one.",
 											Required: true,
+										},
+										&cli.StringFlag{
+											Name:     oauthAppFlagInviteRedirectURI,
+											Usage:    "redirect uri to send users after they accept an org invite",
+											Required: false,
 										},
 										&cli.StringFlag{
 											Name:     oauthAppFlagLogoutURI,
@@ -1098,7 +1111,7 @@ Note: There is no progress meter while copying is in progress.
 					Name:  "list",
 					Usage: "list locations for the current user",
 					// use custom usage text to show default organization flag usage even if it isn't required
-					UsageText: "viam locations list [--organization=<organization>]",
+					UsageText: "viam [global options] locations list [--organization=<organization>]",
 					Flags: []cli.Flag{
 						&AliasStringFlag{
 							cli.StringFlag{
@@ -1292,7 +1305,7 @@ Note: There is no progress meter while copying is in progress.
 							UsageText: createUsageText("data export tabular", []string{
 								generalFlagDestination,
 								generalFlagPartID,
-								dataFlagResourceName,
+								generalFlagResourceName,
 								generalFlagResourceSubtype,
 								generalFlagMethod,
 							}, true, false),
@@ -1308,7 +1321,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "part id",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagResourceName,
+									Name:     generalFlagResourceName,
 									Required: true,
 									Usage:    "resource name (sometimes called 'component name')",
 								},
@@ -1657,7 +1670,7 @@ Note: There is no progress meter while copying is in progress.
 				{
 					Name:  "list",
 					Usage: "list dataset information from specified IDs or for an org ID",
-					UsageText: fmt.Sprintf("viam dataset list [--%s=<%s> | --%s=<%s>]",
+					UsageText: fmt.Sprintf("viam [global options] dataset list [--%s=<%s> | --%s=<%s>]",
 						datasetFlagDatasetIDs, datasetFlagDatasetIDs, generalFlagOrgID, generalFlagOrgID),
 					Description: "In order to list datasets, an org ID or a list of dataset IDs is required",
 					Flags: []cli.Flag{
@@ -2669,6 +2682,15 @@ Note: There is no progress meter while copying is in progress.
 									Aliases: []string{"f"},
 									Usage:   "follow logs",
 								},
+								&cli.StringFlag{
+									Name:        generalFlagStart,
+									Usage:       "ISO-8601 timestamp in RFC3339 format indicating the start of the interval filter (e.g., 2025-01-15T14:00:00Z)",
+									DefaultText: "12 hours ago",
+								},
+								&cli.StringFlag{
+									Name:  generalFlagEnd,
+									Usage: "ISO-8601 timestamp in RFC3339 format indicating the end of the interval filter (e.g., 2025-01-15T15:00:00Z)",
+								},
 								&cli.IntFlag{
 									Name:        generalFlagCount,
 									Usage:       fmt.Sprintf("number of logs to fetch (max %v)", maxNumLogs),
@@ -3037,6 +3059,96 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:            "resource",
+			Usage:           "work with resources on a machine",
+			UsageText:       createUsageText("resource", nil, false, true),
+			HideHelpCommand: true,
+			Subcommands: []*cli.Command{
+				{
+					Name:  "enable",
+					Usage: "enable resources on a machine part",
+					UsageText: createUsageText("resource enable",
+						[]string{generalFlagPart, generalFlagResourceName}, true, false),
+					Description: `Enable one or more resources (components or services) on a machine part.
+
+Examples:
+  # Enable a single resource
+  viam resource enable --part UUID --resource-name my-sensor
+
+  # Enable multiple resources at once
+  viam resource enable --part UUID --resource-name my-sensor --resource-name arm-1`,
+					Flags: append(commonPartFlags,
+						&AliasStringSliceFlag{
+							cli.StringSliceFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
+						},
+					),
+					Action: createCommandWithT[resourceEnableDisableArgs](resourceEnableAction),
+				},
+				{
+					Name:  "disable",
+					Usage: "disable resources on a machine part",
+					UsageText: createUsageText("resource disable",
+						[]string{generalFlagPart, generalFlagResourceName}, true, false),
+					Description: `Disable one or more resources (components or services) on a machine part.
+Disabled resources will not start on the machine.
+
+Examples:
+  # Disable a single resource
+  viam resource disable --part UUID --resource-name my-sensor
+
+  # Disable multiple resources at once
+  viam resource disable --part UUID --resource-name my-sensor --resource-name arm-1`,
+					Flags: append(commonPartFlags,
+						&AliasStringSliceFlag{
+							cli.StringSliceFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
+						},
+					),
+					Action: createCommandWithT[resourceEnableDisableArgs](resourceDisableAction),
+				},
+				{
+					Name:  "update",
+					Usage: "update a resource on a machine part",
+					UsageText: createUsageText("resource update",
+						[]string{generalFlagPart, generalFlagResourceName, generalFlagConfig}, true, false),
+					Description: `Update the attributes of an existing resource. The --config flag accepts inline JSON
+or a path to a JSON file. Your new attributes will completely replace the existing attributes
+An empty json will delete all attributes.
+
+Examples:
+  # Set an attribute
+  viam resource update --part UUID \
+    --resource-name my-sensor --config '{"pin": "38"}'
+
+  # Update from a JSON file
+  viam resource update --part UUID \
+    --resource-name my-sensor --config /path/to/updates.json
+
+  # Delete an attribute by passing an empty value
+  viam resource update --part UUID \
+    --resource-name my-sensor --config '{"pin": ""}'`,
+					Flags: append(commonPartFlags,
+						&AliasStringFlag{
+							cli.StringFlag{
+								Name:     generalFlagResourceName,
+								Aliases:  []string{generalFlagAliasResource},
+								Required: true,
+							},
+						},
+						&cli.StringFlag{Name: generalFlagConfig, Required: true},
+					),
+					Action: createCommandWithT[machinesPartUpdateResourceArgs](machinesPartUpdateResourceAction),
 				},
 			},
 		},
@@ -3571,7 +3683,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
@@ -3619,7 +3731,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        dataFlagResourceName,
+							Name:        generalFlagResourceName,
 							Usage:       "Use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},
@@ -3650,7 +3762,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:        generalFlagPartID,
 							Usage:       "part ID of machine. get from 'Live/Offline' dropdown in the web app",
-							DefaultText: "/etc/viam.json",
+							DefaultText: "The part ID present in the cloud credentials at /etc/viam.json",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagPath,
@@ -3686,7 +3798,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Value: ".",
 						},
 						&cli.StringFlag{
-							Name:        dataFlagResourceName,
+							Name:        generalFlagResourceName,
 							Usage:       "Use with model-name to name the newly added resource",
 							DefaultText: "resource type with a unique numerical suffix",
 						},

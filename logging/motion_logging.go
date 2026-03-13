@@ -63,4 +63,14 @@ func applyMotionRegistryOptions(registry *Registry) {
 			},
 		}, warnLogger)
 	}
+
+	// The `startup-profile` logger is used for some startup motion plan requests. Avoid logging
+	// those the progress of those requests. Assume if there's a computational problem, there's
+	// better suited motion planning test that will surface appropriate details.
+	registry.Update([]LoggerPatternConfig{
+		{
+			Pattern: "startup-profile.*",
+			Level:   "WARN",
+		},
+	}, warnLogger)
 }

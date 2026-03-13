@@ -53,6 +53,7 @@ import (
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	rconfig "go.viam.com/rdk/config"
@@ -1523,20 +1524,179 @@ func robotsPartRemoveResourceAction(c *cli.Context, args robotsPartRemoveResourc
 	return nil
 }
 
-// parseJSONOrFile tries to read input as a file, falls back to parsing as inline JSON
-func parseJSONOrFile(input string) (map[string]any, error) {
-	var data []byte
-	//nolint:gosec
-	if fileData, err := os.ReadFile(input); err == nil {
-		data = fileData
-	} else {
-		data = []byte(input)
-	}
+// parseJSONOrFile tries json.Unmarshal first; if that fails and s is a file path, reads and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
 	var result map[string]any
+	jsonErr := json.Unmarshal([]byte(s), &result)
+	if jsonErr == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err)
+	}
 	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
 	}
 	return result, nil
+}
+
+type resourceEnableDisableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	ResourceName []string
+}
+
+func resourceEnableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, false)
+}
+
+func resourceDisableAction(c *cli.Context, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(c, args, true)
+}
+
+func resourceEnableDisable(c *cli.Context, args resourceEnableDisableArgs, disable bool) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	for _, name := range args.ResourceName {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("--resource value must not be empty")
+		}
+	}
+
+	// warn on duplicate resources and create a set of unique ones
+	uniqueResources := make(map[string]bool)
+	for _, name := range args.ResourceName {
+		if uniqueResources[name] {
+			warningf(c.App.Writer, "duplicate resource %q ignored\n", name)
+			continue
+		}
+		uniqueResources[name] = true
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	var updatedResources []string
+	for _, resourceType := range []string{"components", "services", "modules"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			name, ok := resource["name"].(string)
+			if !ok || !uniqueResources[name] {
+				continue
+			}
+			if disable {
+				resource["disabled"] = true
+			} else {
+				delete(resource, "disabled")
+			}
+			updatedResources = append(updatedResources, name)
+			delete(uniqueResources, name)
+		}
+		config[resourceType] = resources
+	}
+	for name := range uniqueResources {
+		warningf(c.App.Writer, "resource %q not found in part config\n", name)
+	}
+
+	if len(updatedResources) == 0 {
+		return errors.New("no matching resources found in part config")
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	action := "enabled"
+	if disable {
+		action = "disabled"
+	}
+	printf(c.App.Writer, "successfully %s resource(s): %s", action, strings.Join(updatedResources, ", "))
+	return nil
+}
+
+type machinesPartUpdateResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	ResourceName string
+	Config       string
+}
+
+func machinesPartUpdateResourceAction(c *cli.Context, args machinesPartUpdateResourceArgs) error {
+	updates, err := parseJSONOrFile(args.Config)
+	if err != nil {
+		return err
+	}
+
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			if resource["name"] == args.ResourceName {
+				resourceFound = true
+				if rutils.IsEmptyJSONValue(updates) {
+					delete(resource, "attributes")
+					infof(c.App.Writer, "empty JSON detected, deleting attributes from resource %q...", args.ResourceName)
+				} else {
+					resource["attributes"] = updates
+				}
+				break
+			}
+		}
+		config[resourceType] = resources
+	}
+
+	if !resourceFound {
+		return fmt.Errorf("resource %q not found in part config", args.ResourceName)
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(c.Context, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.App.Writer, "Successfully updated resource %q", args.ResourceName)
+	return nil
 }
 
 // validateJobConfig validates the fields of a job config map. When isUpdate is true,
@@ -1900,7 +2060,7 @@ func machinesPartAddJobAction(c *cli.Context, args machinesPartAddJobArgs) error
 	jobs = append(jobs, jobConfig)
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(part, config); err != nil {
+	if err := client.updateRobotPart(part, config, nil); err != nil {
 		return err
 	}
 
@@ -1968,7 +2128,7 @@ func machinesPartUpdateJobAction(c *cli.Context, args machinesPartUpdateJobArgs)
 
 	config["jobs"] = jobs
 
-	if err := client.updateRobotPart(part, config); err != nil {
+	if err := client.updateRobotPart(part, config, nil); err != nil {
 		return err
 	}
 
@@ -2025,7 +2185,7 @@ func machinesPartDeleteJobAction(c *cli.Context, args machinesPartDeleteJobArgs)
 
 	config["jobs"] = newJobs
 
-	if err := client.updateRobotPart(part, config); err != nil {
+	if err := client.updateRobotPart(part, config, nil); err != nil {
 		return err
 	}
 
@@ -2301,6 +2461,8 @@ type robotsPartLogsArgs struct {
 	Part         string
 	Errors       bool
 	Tail         bool
+	Start        string
+	End          string
 	Count        int
 }
 
@@ -2315,6 +2477,18 @@ func RobotsPartLogsAction(c *cli.Context, args robotsPartLogsArgs) error {
 }
 
 func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogsArgs) error {
+	// Check if both start time and count are provided
+	// TODO: [APP-7415] Enhance LogsForPart API to Support Sorting Options for Log Display Order
+	// TODO: [APP-7450] Implement "Start Time with Count without End Time" Functionality in LogsForPart
+	if args.Start != "" && args.Count > 0 && args.End == "" {
+		return errors.New("unsupported functionality: specifying both a start time and a count without an end time is not supported. " +
+			"This behavior can be counterintuitive because logs are currently only sorted in descending order. " +
+			"For example, if there are 200 logs after the specified start time and you request 10 logs, it will return the 10 most recent logs, " +
+			"rather than the 10 logs closest to the start time. " +
+			"Please provide either a start time and an end time to define a clear range, or a count without a start time for recent logs",
+		)
+	}
+
 	orgStr := args.Organization
 	locStr := args.Location
 	robotStr := args.Machine
@@ -2339,6 +2513,16 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		}
 		header = fmt.Sprintf("%s -> %s -> %s", orgName, locName, robot.Name)
 	}
+
+	startTime, err := parseTimeString(args.Start)
+	if err != nil {
+		return errors.Wrap(err, "invalid start time format")
+	}
+	endTime, err := parseTimeString(args.End)
+	if err != nil {
+		return errors.Wrap(err, "invalid end time format")
+	}
+
 	if args.Tail {
 		return c.tailRobotPartLogs(
 			orgStr, locStr, robotStr, partStr,
@@ -2357,6 +2541,7 @@ func (c *viamClient) robotsPartLogsAction(cCtx *cli.Context, args robotsPartLogs
 		"",
 		header,
 		numLogs,
+		startTime, endTime,
 	)
 }
 
@@ -3144,6 +3329,18 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
 			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 		}
+
+		// 6. on Windows, ensure the CLI directory is in the user's PATH
+		if runtime.GOOS == osWindows {
+			if err := addToWindowsUserPATH(c, directoryPath); err != nil {
+				warningf(c.App.ErrWriter, "Failed to add CLI to user PATH. "+
+					"To add manually, run the following in PowerShell:\n"+
+					`  [Environment]::SetEnvironmentVariable("Path", `+
+					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+					"\nThen restart your terminal for the change to take effect."+
+					"\nError: %v", directoryPath, err)
+			}
+		}
 	}
 	infof(c.App.Writer, "Your CLI has been successfully updated")
 	return nil
@@ -3240,6 +3437,18 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 }
 
 func replaceBinary(localBinaryPath, latestBinaryPath string) error {
+	// On Windows, the running executable is locked and cannot be overwritten.
+	// However, it can be renamed, so move it out of the way first.
+	if runtime.GOOS == osWindows {
+		oldPath := localBinaryPath + ".old"
+		_ = os.Remove(oldPath) //nolint:errcheck
+		if err := os.Rename(localBinaryPath, oldPath); err != nil && !os.IsNotExist(err) {
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to rename old binary: %v", err)
+		}
+	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
 			if runtime.GOOS == osWindows {
@@ -3249,6 +3458,45 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 		}
 		return errors.Errorf("failed to replace binary: %v", err)
 	}
+	return nil
+}
+
+// addToWindowsUserPATH reads the current user-level PATH from the Windows registry via PowerShell,
+// checks if binaryDir is already present, and appends it if not.
+func addToWindowsUserPATH(c *cli.Context, binaryDir string) error {
+	cleanDir := filepath.Clean(binaryDir)
+
+	// Read the current user-level PATH from the registry.
+	out, err := exec.Command("powershell", "-Command",
+		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
+	if err != nil {
+		return errors.Errorf("failed to read user PATH: %v", err)
+	}
+	currentPath := strings.TrimSpace(string(out))
+
+	// Check if directory is already in PATH (case-insensitive on Windows).
+	for _, p := range strings.Split(currentPath, ";") {
+		if strings.EqualFold(filepath.Clean(strings.TrimSpace(p)), cleanDir) {
+			return nil
+		}
+	}
+
+	// Append our directory to PATH and write it back.
+	newPath := currentPath
+	if newPath != "" && !strings.HasSuffix(newPath, ";") {
+		newPath += ";"
+	}
+	newPath += cleanDir
+
+	//nolint:gosec
+	if err := exec.Command("powershell", "-Command",
+		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
+			strings.ReplaceAll(newPath, `"`, `\"`)),
+	).Run(); err != nil {
+		return errors.Errorf("failed to update user PATH: %v", err)
+	}
+
+	infof(c.App.Writer, "Added %s to your user PATH. Restart your terminal to use 'viam' from anywhere.", cleanDir)
 	return nil
 }
 
@@ -3627,22 +3875,23 @@ func (c *viamClient) getRobotPart(partID string) (*apppb.GetRobotPartResponse, e
 	return c.client.GetRobotPart(c.c.Context, &apppb.GetRobotPartRequest{Id: partID})
 }
 
-func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any) error {
+func (c *viamClient) updateRobotPart(part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp) error {
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return errors.Wrap(err, "in NewStruct")
 	}
 	req := apppb.UpdateRobotPartRequest{
-		Id:          part.Id,
-		Name:        part.Name,
-		RobotConfig: confStruct,
+		Id:              part.Id,
+		Name:            part.Name,
+		RobotConfig:     confStruct,
+		LastKnownUpdate: lastKnownUpdate,
 	}
 	_, err = c.client.UpdateRobotPart(c.c.Context, &req)
 	return err
 }
 
 func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, errorsOnly bool,
-	numLogs int,
+	numLogs int, start, end *timestamppb.Timestamp,
 ) ([]*commonpb.LogEntry, error) {
 	part, err := c.robotPart(orgStr, locStr, robotStr, partStr)
 	if err != nil {
@@ -3658,6 +3907,8 @@ func (c *viamClient) robotPartLogs(orgStr, locStr, robotStr, partStr string, err
 			Id:         part.Id,
 			ErrorsOnly: errorsOnly,
 			PageToken:  &pageToken,
+			Start:      start,
+			End:        end,
 		})
 		if err != nil {
 			return nil, err
@@ -3723,8 +3974,9 @@ func (c *viamClient) printRobotPartLogsInner(logs []*commonpb.LogEntry, indent s
 
 func (c *viamClient) printRobotPartLogs(orgStr, locStr, robotStr, partStr string,
 	errorsOnly bool, indent, header string, numLogs int,
+	start, end *timestamppb.Timestamp,
 ) error {
-	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs)
+	logs, err := c.robotPartLogs(orgStr, locStr, robotStr, partStr, errorsOnly, numLogs, start, end)
 	if err != nil {
 		return err
 	}
@@ -4477,6 +4729,9 @@ func (c *viamClient) readOAuthAppAction(cCtx *cli.Context, orgID, clientID strin
 	printf(cCtx.App.Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
 	printf(cCtx.App.Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.App.Writer, "Logout URL: %s", config.LogoutUri)
+	if config.InviteRedirectUri != "" {
+		printf(cCtx.App.Writer, "Invite Redirect URL: %s", config.InviteRedirectUri)
+	}
 	printf(cCtx.App.Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
 	if len(config.OriginUris) > 0 {
 		printf(cCtx.App.Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
@@ -4665,6 +4920,7 @@ type createOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4687,7 +4943,7 @@ func CreateOAuthAppAction(c *cli.Context, args createOAuthAppArgs) error {
 
 func (c *viamClient) createOAuthAppAction(cCtx *cli.Context, args createOAuthAppArgs) error {
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return err
 	}
@@ -4715,6 +4971,7 @@ type updateOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4746,8 +5003,8 @@ func (c *viamClient) updateOAuthAppAction(cCtx *cli.Context, args updateOAuthApp
 	return nil
 }
 
-func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
-	originURIs, redirectURIs, enabledGrants []string,
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI,
+	inviteRedirectURI string, originURIs, redirectURIs, enabledGrants []string,
 ) (*apppb.OAuthConfig, error) {
 	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
@@ -4774,6 +5031,7 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI st
 		UrlValidation:        urlValidationProto,
 		OriginUris:           originURIs,
 		RedirectUris:         redirectURIs,
+		InviteRedirectUri:    inviteRedirectURI,
 		LogoutUri:            logoutURI,
 		EnabledGrants:        egProto,
 	}, nil
@@ -4788,7 +5046,7 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	clientName := args.ClientName
 
 	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return nil, err
 	}
