@@ -70,7 +70,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
 			Payload:  bytes,
-			MimeType: data.MimeTypeApplicationPcd,
+			MimeType: utils.MimeTypePCD,
 		}}), nil
 	})
 	return data.NewCollector(cFunc, params)
@@ -150,7 +150,7 @@ func newReadImageCollector(resource interface{}, params data.CollectorParams) (d
 			return res, data.NewFailedToReadError(params.ComponentName, readImage.String(), err)
 		}
 
-		mimeType := data.MimeTypeStringToMimeType(img.MimeType())
+		mimeType := img.mimeType
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
 			TimeReceived:  resMetadata.CapturedAt,
@@ -217,7 +217,7 @@ func newGetImagesCollector(resource interface{}, params data.CollectorParams) (d
 			binaries = append(binaries, data.Binary{
 				Annotations: annotations,
 				Payload:     imgBytes,
-				MimeType:    data.MimeTypeStringToMimeType(img.MimeType()),
+				MimeType:    img.mimeType,
 			})
 		}
 		ts := data.Timestamps{

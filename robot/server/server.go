@@ -457,14 +457,18 @@ func (s *Server) Log(ctx context.Context, req *pb.LogRequest) (*pb.LogResponse, 
 		}
 		fields = append(fields, field)
 	}
-	// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
-	// log.
-	tsField := zapcore.Field{
-		Key:    logTSKey,
-		Type:   zapcore.StringType,
-		String: log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+
+	if time.Since(log.Time.AsTime()) > time.Second {
+		// Insert field of `{"log_ts": log.Time}` to encode the timestamp of this
+		// log.
+		tsField := zapcore.Field{
+			Key:    logTSKey,
+			Type:   zapcore.StringType,
+			String: log.Time.AsTime().Format(logging.DefaultTimeFormatStr),
+		}
+		fields = append(fields, tsField)
 	}
-	fields = append(fields, tsField)
+
 	entry := logging.LogEntry{
 		Entry:  zEntry,
 		Fields: fields,
