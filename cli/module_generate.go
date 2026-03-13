@@ -718,6 +718,7 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 		{filepath.Join(srcDir, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
 		{filepath.Join(module.ModuleName, "CMakeLists.txt"), rendered.CMakeLists},
 		{filepath.Join(module.ModuleName, "conanfile.py"), rendered.ConanFile},
+		{filepath.Join(module.ModuleName, "conan.lock"), rendered.ConanLock},
 	}
 	for _, f := range filesToWrite {
 		//nolint:gosec

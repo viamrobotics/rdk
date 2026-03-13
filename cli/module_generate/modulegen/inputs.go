@@ -91,11 +91,12 @@ type GoModuleTmpl struct {
 
 // CppRenderedFiles holds the rendered output for each C++ file produced during module generation.
 type CppRenderedFiles struct {
-	Main        []byte
-	Type        []byte
-	Header      []byte
-	CMakeLists  []byte
-	ConanFile   []byte
+	Main       []byte
+	Type       []byte
+	Header     []byte
+	CMakeLists []byte
+	ConanFile  []byte
+	ConanLock  []byte
 }
 
 // HasEmptyInput checks to see if any required inputs were not filled in.
