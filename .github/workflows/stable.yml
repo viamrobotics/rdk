@@ -14,63 +14,58 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    uses: viamrobotics/rdk/.github/workflows/test.yml@cm/build-matrix-prototype
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
-  appimage-build:
-    uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - type: appimage
+            release_type: 'stable'
+          - type: staticbuild
+            release_type: 'stable'
+          - type: full-static
+            channel: stable
+            version: ${{ github.ref_name }}
+    uses: viamrobotics/rdk/.github/workflows/build-dispatcher.yml@cm/build-matrix-prototype
     with:
-      release_type: 'stable'
+      type: ${{ matrix.type }}
+      release_type: ${{ matrix.release_type }}
+      channel: ${{ matrix.channel }}
+      version: ${{ matrix.version }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  appimage-deploy:
-    needs: [test, appimage-build]
-    uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@main
+  deploy:
+    needs: [test, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - type: appimage
+          - type: staticbuild
+            release_type: 'stable'
+          - type: full-static
+            channel: stable
+            version: ${{ github.ref_name }}
+    uses: viamrobotics/rdk/.github/workflows/deploy-dispatcher.yml@cm/build-matrix-prototype
     with:
-      date: ${{ needs.appimage-build.outputs.date }}
+      type: ${{ matrix.type }}
+      date: ${{ needs.build.outputs.date }}
+      release_type: ${{ matrix.release_type }}
+      channel: ${{ matrix.channel }}
+      version: ${{ matrix.version }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  staticbuild-build:
-    uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
-    with:
-      release_type: 'stable'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  staticbuild-deploy:
-    needs: [test, staticbuild-build]
-    uses: viamrobotics/rdk/.github/workflows/staticbuild-deploy.yml@main
-    with:
-      date: ${{ needs.staticbuild-build.outputs.date }}
-      release_type: 'stable'
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  full-static-build:
-    uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@main
-    with:
-      channel: stable
-      version: ${{ github.ref_name }}
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
-
-  full-static-deploy:
-    needs: [test, full-static-build]
-    uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@main
-    with:
-      date: ${{ needs.full-static-build.outputs.date }}
-      channel: stable
-      version: ${{ github.ref_name }}
-    secrets:
-      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   droid:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/droid.yml@main
+    uses: viamrobotics/rdk/.github/workflows/droid.yml@cm/build-matrix-prototype
     with:
       release_type: 'stable'
     secrets:
@@ -78,7 +73,7 @@ jobs:
 
   cli:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/cli.yml@main
+    uses: viamrobotics/rdk/.github/workflows/cli.yml@cm/build-matrix-prototype
     with:
       release_type: 'stable'
     secrets:
@@ -89,8 +84,7 @@ jobs:
     name: Post Workflow Status To Slack
     needs:
       - test
-      - appimage-deploy
-      - staticbuild-deploy
+      - deploy
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'
