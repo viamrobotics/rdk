@@ -1,34 +1,33 @@
-name: Build Dispatcher
+name: Unified Build
 
 on:
   workflow_call:
     inputs:
-      type:
+      release_type:
         required: true
         type: string
-        description: "Build type: appimage, staticbuild, or full-static"
-      release_type:
-        required: false
-        type: string
-        description: "Release type (appimage, staticbuild)"
+        description: "Release type for appimage and staticbuild (pr, latest, stable, rc)"
       channel:
         required: false
         type: string
-        description: "Channel for file naming (full-static)"
+        description: "Channel for full-static file naming"
       version:
         required: false
         type: string
-        description: "Version string (full-static stable)"
+        description: "Version string for full-static stable releases"
+      include_full_static:
+        required: false
+        type: boolean
+        default: true
     secrets:
       GCP_CREDENTIALS:
         required: true
     outputs:
       date:
-        value: ${{ jobs.appimage.outputs.date || jobs.staticbuild.outputs.date || jobs.full-static.outputs.date }}
+        value: ${{ jobs.appimage.outputs.date }}
 
 jobs:
   appimage:
-    if: inputs.type == 'appimage'
     uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@cm/build-matrix-prototype
     with:
       release_type: ${{ inputs.release_type }}
@@ -36,7 +35,6 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
-    if: inputs.type == 'staticbuild'
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@cm/build-matrix-prototype
     with:
       release_type: ${{ inputs.release_type }}
@@ -44,7 +42,7 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   full-static:
-    if: inputs.type == 'full-static'
+    if: inputs.include_full_static
     uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@cm/build-matrix-prototype
     with:
       channel: ${{ inputs.channel }}

@@ -20,45 +20,22 @@ jobs:
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - type: appimage
-            release_type: 'stable'
-          - type: staticbuild
-            release_type: 'stable'
-          - type: full-static
-            channel: stable
-            version: ${{ github.ref_name }}
-    uses: viamrobotics/rdk/.github/workflows/build-dispatcher.yml@cm/build-matrix-prototype
+    uses: viamrobotics/rdk/.github/workflows/unified-build.yml@cm/build-matrix-prototype
     with:
-      type: ${{ matrix.type }}
-      release_type: ${{ matrix.release_type }}
-      channel: ${{ matrix.channel }}
-      version: ${{ matrix.version }}
+      release_type: 'stable'
+      channel: stable
+      version: ${{ github.ref_name }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   deploy:
     needs: [test, build]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - type: appimage
-          - type: staticbuild
-            release_type: 'stable'
-          - type: full-static
-            channel: stable
-            version: ${{ github.ref_name }}
-    uses: viamrobotics/rdk/.github/workflows/deploy-dispatcher.yml@cm/build-matrix-prototype
+    uses: viamrobotics/rdk/.github/workflows/unified-deploy.yml@cm/build-matrix-prototype
     with:
-      type: ${{ matrix.type }}
       date: ${{ needs.build.outputs.date }}
-      release_type: ${{ matrix.release_type }}
-      channel: ${{ matrix.channel }}
-      version: ${{ matrix.version }}
+      release_type: 'stable'
+      channel: stable
+      version: ${{ github.ref_name }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

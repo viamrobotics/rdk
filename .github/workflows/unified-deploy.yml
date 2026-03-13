@@ -1,27 +1,27 @@
-name: Deploy Dispatcher
+name: Unified Deploy
 
 on:
   workflow_call:
     inputs:
-      type:
-        required: true
-        type: string
-        description: "Deploy type: appimage, staticbuild, or full-static"
       date:
         required: true
         type: string
       release_type:
-        required: false
+        required: true
         type: string
-        description: "Release type (staticbuild)"
+        description: "Release type for staticbuild deploy"
       channel:
         required: false
         type: string
-        description: "Channel for file naming (full-static)"
+        description: "Channel for full-static deploy"
       version:
         required: false
         type: string
-        description: "Version string (full-static stable)"
+        description: "Version string for full-static stable releases"
+      include_full_static:
+        required: false
+        type: boolean
+        default: true
     secrets:
       GCP_CREDENTIALS:
         required: true
@@ -30,7 +30,6 @@ on:
 
 jobs:
   appimage:
-    if: inputs.type == 'appimage'
     uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@cm/build-matrix-prototype
     with:
       date: ${{ inputs.date }}
@@ -38,7 +37,6 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild:
-    if: inputs.type == 'staticbuild'
     uses: viamrobotics/rdk/.github/workflows/staticbuild-deploy.yml@cm/build-matrix-prototype
     with:
       date: ${{ inputs.date }}
@@ -48,7 +46,7 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   full-static:
-    if: inputs.type == 'full-static'
+    if: inputs.include_full_static
     uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@cm/build-matrix-prototype
     with:
       date: ${{ inputs.date }}
