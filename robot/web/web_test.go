@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"github.com/lestrrat-go/jwx/jwk"
+	"github.com/viamrobotics/webrtc/v3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -1857,5 +1858,139 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		// Release the original call and wait for it to complete
 		close(blockCall)
 		clientCallsWg.Wait()
+	})
+	t.Run("offending client disconnects", func(t *testing.T) {
+		// Primarily a regression test for RSDK-13482.
+		//
+		// Ensures that if the offending client (the one triggering the rate limit error)
+		// disconnects before "Request limit exceeded" is actually logged, the log is still
+		// emitted correctly (no NPE).
+
+		logger, logs := logging.NewObservedTestLogger(t)
+
+		// Lower resource requests limit for test.
+		t.Setenv(rutils.ViamResourceRequestsLimitEnvVar, "1")
+
+		// Create and start web service of injected robot.
+		callBlocking := make(chan struct{})
+		blockCall := make(chan struct{})
+		ctx, injectRobot := setupRobotCtx(
+			t,
+			withArmEndPosition(func(ctx context.Context, extra map[string]any) (spatialmath.Pose, error) {
+				close(callBlocking)
+				<-blockCall
+				return pos, nil
+			}))
+		defer injectRobot.Close(ctx)
+		svc := web.New(injectRobot, logger)
+		defer svc.Stop()
+		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+		err := svc.Start(ctx, options)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Create the first client and invoke EndPosition in a goroutine. This call blocks,
+		// occupying the one available in-flight slot.
+		conn1, err := rgrpc.Dial(context.Background(), addr, logger)
+		t.Cleanup(func() { utils.UncheckedErrorFunc(conn1.Close) })
+		test.That(t, err, test.ShouldBeNil)
+		armClient1, err := arm.NewClientFromConn(context.Background(), conn1, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+		blockingCallWg := sync.WaitGroup{}
+		blockingCallWg.Go(func() {
+			_, err = armClient1.EndPosition(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+		})
+
+		// Wait for the blocking call to reach our function so we know the in-flight slot is taken.
+		<-callBlocking
+
+		// Create the second client (the offending client that will hit the rate limit).
+		conn2, err := rgrpc.Dial(context.Background(), addr, logger)
+		test.That(t, err, test.ShouldBeNil)
+		armClient2, err := arm.NewClientFromConn(context.Background(), conn2, "", arm.Named(arm1String), logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Install a BeforeLogHook on the RequestCounter. It fires at the start of
+		// logRequestLimitExceeded. The hook closes conn2 and then polls the server-side PC
+		// state until the disconnect has propagated, so that createClientInformationFromPC
+		// sees the PC as closed when it runs.
+		svc.RequestCounter().BeforeLogHook = func(serverSidePC *webrtc.PeerConnection) {
+			utils.UncheckedErrorFunc(func() error { return armClient2.Close(ctx) })
+			utils.UncheckedErrorFunc(conn2.Close)
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				test.That(tb, web.PCIsClosed(serverSidePC), test.ShouldBeTrue)
+			})
+		}
+
+		// Invoke EndPosition from the second client in a goroutine. The rate limit will be
+		// exceeded, triggering the hook. The client will receive an error once conn2 is
+		// closed inside the hook.
+		rateLimitedCallWg := sync.WaitGroup{}
+		rateLimitedCallWg.Go(func() {
+			_, err = armClient2.EndPosition(ctx, nil)
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		// Wait for the rate-limited call to complete (conn2 is closed by the hook, causing
+		// the client RPC to fail). Then wait for the server to emit the warning log (the
+		// server goroutine continues after the hook returns and emits the log).
+		rateLimitedCallWg.Wait()
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			test.That(tb, logs.FilterMessageSnippet("Request limit exceeded").Len(), test.ShouldEqual, 1)
+		})
+
+		// Assert that the warning log was still emitted despite the offending client having
+		// disconnected before the log was written.
+		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
+		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
+		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
+		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
+		var fields map[string]any
+		err = json.Unmarshal(
+			[]byte(strings.TrimPrefix(reqLimitExceededLogs[0].Message, expectedMsg)),
+			&fields,
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		// The method and resource should be present in the log.
+		test.That(t, fields["method"], test.ShouldEqual, "/viam.component.arm.v1.ArmService/GetEndPosition")
+		test.That(t, fields["resource"], test.ShouldEqual, "arm1.viam.component.arm.v1.ArmService")
+		// The offending client should be referred to as "just_disconnected".
+		offendingClientInformation := fields["offending_client_information"]
+		offendingClientInformationString, ok := offendingClientInformation.(string)
+		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, offendingClientInformationString, test.ShouldEqual, "just_disconnected")
+		{
+			// "all_other_client_information" should contain the earlier client that is still
+			// blocked.
+			allOtherClientInformation := fields["all_other_client_information"]
+			allOtherClientInformationA, ok := allOtherClientInformation.([]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(allOtherClientInformationA), test.ShouldEqual, 1)
+
+			// Assert exact values on inflight_requests and rejected_requests (empty) and assert the rest
+			// of the fields simply exist.
+			otherClientInformationM, ok := allOtherClientInformationA[0].(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			inFlightRequests := otherClientInformationM["inflight_requests"]
+			inFlightRequestsM, ok := inFlightRequests.(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, inFlightRequestsM["arm1.viam.component.arm.v1.ArmService"], test.ShouldEqual, 1)
+			rejectedRequests := otherClientInformationM["rejected_requests"]
+			rejectedRequestsM, ok := rejectedRequests.(map[string]any)
+			test.That(t, ok, test.ShouldBeTrue)
+			test.That(t, len(rejectedRequestsM), test.ShouldEqual, 0)
+			test.That(t, otherClientInformationM["client_metadata"], test.ShouldNotBeNil)
+			test.That(t, otherClientInformationM["connection_id"], test.ShouldNotBeNil)
+			test.That(t, otherClientInformationM["connect_time"], test.ShouldNotBeNil)
+			test.That(t, otherClientInformationM["time_since_connect"], test.ShouldNotBeNil)
+			test.That(t, otherClientInformationM["server_ip"], test.ShouldNotBeNil)
+			test.That(t, otherClientInformationM["client_ip"], test.ShouldNotBeNil)
+		}
+
+		// Release the blocking call and wait for it to complete.
+		close(blockCall)
+		blockingCallWg.Wait()
 	})
 }

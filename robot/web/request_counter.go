@@ -117,6 +117,12 @@ type RequestCounter struct {
 	// potentially prefixed with "module-[name-of-module]-" to represent a module's
 	// connection back to the RDK.
 	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
+
+	// BeforeLogHook, if set, is called at the start of logRequestLimitExceeded before any
+	// client connection state is inspected. For testing purposes only. The peer connection
+	// associated with the offending client is passed so tests can observe or wait on its
+	// state.
+	BeforeLogHook func(pc *webrtc.PeerConnection)
 }
 
 // decrInFlight decrements the in-flight request counters for a given resource and pc.
@@ -205,9 +211,9 @@ type ClientInformation struct {
 	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
 
-// Returns whether the passed in peer connection has a connection state indicating that it
-// has closed.
-func pcIsClosed(pc *webrtc.PeerConnection) bool {
+// PCIsClosed returns whether the passed in peer connection has a connection state
+// indicating that it has closed.
+func PCIsClosed(pc *webrtc.PeerConnection) bool {
 	cs := pc.ConnectionState()
 	if cs == webrtc.PeerConnectionStateClosed || cs == webrtc.PeerConnectionStateDisconnected ||
 		cs == webrtc.PeerConnectionStateFailed {
@@ -225,7 +231,7 @@ func (rc *RequestCounter) createClientInformationFromPC(
 	if pc == nil {
 		return nil
 	}
-	if pcIsClosed(pc) {
+	if PCIsClosed(pc) {
 		rc.requestsPerPC.Delete(pc)
 		rc.pcToClientMetadata.Delete(pc)
 		return nil
@@ -320,16 +326,24 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
 ) int64 {
+	// BeforeLogHook is only used for testing.
+	if rc.BeforeLogHook != nil {
+		rc.BeforeLogHook(pc)
+	}
+
 	var offendingClientInformationJSON []byte
 	offendingClientInformation := rc.createClientInformationFromPC(pc)
 	// offendingClientInformation will be nil if offending client's pc has already been
-	// closed. Leave offendingClientInformationJSON empty in that case.
+	// closed. Use the string "just_disconnected" for offendingClientInformationJSON in that
+	// case.
 	if offendingClientInformation != nil {
 		var err error
 		offendingClientInformationJSON, err = json.Marshal(offendingClientInformation)
 		if err != nil {
 			rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
 		}
+	} else {
+		offendingClientInformationJSON = []byte("\"just_disconnected\"")
 	}
 
 	var allOtherClientInformationStrs []string
@@ -366,6 +380,11 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	)
 	rc.logger.Warnw(msg)
 
+	// If offending client _just_ disconnected, return 0 with the assumption that they will
+	// not have any in-flight requests for this resource until re-connecting.
+	if offendingClientInformation == nil {
+		return 0
+	}
 	return offendingClientInformation.InFlightRequests[resource]
 }
 
