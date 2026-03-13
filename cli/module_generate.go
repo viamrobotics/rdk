@@ -704,13 +704,20 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
 	}
 
+	srcDir := filepath.Join(module.ModuleName, "src")
+	if err = os.Mkdir(srcDir, 0o750); err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory")
+	}
+
 	filesToWrite := []struct {
 		path string
 		data []byte
 	}{
 		{filepath.Join(module.ModuleName, "main.cpp"), rendered.Main},
-		{filepath.Join(module.ModuleName, fmt.Sprintf("%s.cpp", module.ModelSnake)), rendered.Type},
-		{filepath.Join(module.ModuleName, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.cpp", module.ModelSnake)), rendered.Type},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
+		{filepath.Join(module.ModuleName, "CMakeLists.txt"), rendered.CMakeLists},
+		{filepath.Join(module.ModuleName, "conanfile.py"), rendered.ConanFile},
 	}
 	for _, f := range filesToWrite {
 		//nolint:gosec

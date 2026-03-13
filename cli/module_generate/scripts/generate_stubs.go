@@ -66,6 +66,14 @@ func getCppTemplate() (string, error) {
 	return fetchRawTemplate(cppSDKTemplateBase + "/main.cpp.in")
 }
 
+func getCppCMakeTemplate() (string, error) {
+	return fetchRawTemplate(cppSDKTemplateBase + "/CMakeLists.txt.in")
+}
+
+func getCppConanTemplate() (string, error) {
+	return fetchRawTemplate(cppSDKTemplateBase + "/conanfile.py.in")
+}
+
 func getCppTypeTemplate(module modulegen.ModuleInputs) (string, error) {
 	url := fmt.Sprintf("%s/%ss/%s.cpp.in", cppSDKTemplateBase, module.ResourceType, module.ResourceSubtypeSnake)
 	return fetchRawTemplate(url)
@@ -554,7 +562,25 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 		return modulegen.CppRenderedFiles{}, err
 	}
 
-	return modulegen.CppRenderedFiles{Main: main, Type: typeCpp, Header: header}, nil
+	cmakeRaw, err := getCppCMakeTemplate()
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	cmake, err := renderCppTemplate("cmake", cmakeRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	conanRaw, err := getCppConanTemplate()
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	conan, err := renderCppTemplate("conan", conanRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	return modulegen.CppRenderedFiles{Main: main, Type: typeCpp, Header: header, CMakeLists: cmake, ConanFile: conan}, nil
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
