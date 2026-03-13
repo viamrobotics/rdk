@@ -1833,7 +1833,7 @@ func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, erro
 			).
 			Value(&operator),
 		huh.NewInput().Title("Condition value:").
-			Description("The threshold value, e.g. 4, 80.5, true, hello").
+			Description("The threshold or regex value, e.g. 4, 80.5, true, a.*c").
 			Value(&conditionValue).
 			Validate(func(s string) error {
 				if strings.TrimSpace(s) == "" {

@@ -176,39 +176,33 @@ const (
 	xacroFlagROSDistro         = "ros-distro"
 )
 
-// partFlags builds the standard part/org/location/machine flag set.
-// partRequired controls whether --part is mandatory.
-func partFlags(partRequired bool) []cli.Flag {
-	return []cli.Flag{
-		&AliasStringFlag{
-			cli.StringFlag{
-				Name:     generalFlagPart,
-				Aliases:  []string{generalFlagPartID, generalFlagPartName},
-				Required: partRequired,
-			},
+var commonPartFlags = []cli.Flag{
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:     generalFlagPart,
+			Aliases:  []string{generalFlagPartID, generalFlagPartName},
+			Required: true,
 		},
-		&AliasStringFlag{
-			cli.StringFlag{
-				Name:    generalFlagOrganization,
-				Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
-			},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagOrganization,
+			Aliases: []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
 		},
-		&AliasStringFlag{
-			cli.StringFlag{
-				Name:    generalFlagLocation,
-				Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
-			},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagLocation,
+			Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
 		},
-		&AliasStringFlag{
-			cli.StringFlag{
-				Name:    generalFlagMachine,
-				Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
-			},
+	},
+	&AliasStringFlag{
+		cli.StringFlag{
+			Name:    generalFlagMachine,
+			Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
 		},
-	}
+	},
 }
-
-var commonPartFlags = partFlags(true)
 
 var commonOtlpFlags = []cli.Flag{
 	&cli.StringFlag{
@@ -3001,7 +2995,7 @@ Example trigger for conditional_logs_ingested:
     "event": {"type": "conditional_logs_ingested", "log_levels": ["error", "warn"]},
     "notifications": [{"type": "email", "value": "all_machine_owners"}]
   }`,
-							Flags: append(partFlags(true), &cli.StringFlag{
+							Flags: append(commonPartFlags, &cli.StringFlag{
 								Name:  generalFlagAttributes,
 								Usage: "JSON trigger config or path to JSON file (omit to use interactive form)",
 							}),
