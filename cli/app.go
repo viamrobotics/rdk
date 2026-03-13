@@ -1078,6 +1078,68 @@ Note: There is no progress meter while copying is in progress.
 						},
 					},
 				},
+				{
+					Name:            "firebase-config",
+					Usage:           "manage Firebase configurations for push notifications",
+					UsageText:       createUsageText("organizations firebase-config", nil, false, true),
+					HideHelpCommand: true,
+					Subcommands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "upload a Firebase config JSON for a specific app bundle ID",
+							UsageText: createUsageText("organizations firebase-config set",
+								[]string{generalFlagOrgID, "bundle-id", firebaseConfigFlagPath}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+								&cli.StringFlag{
+									Name:     "bundle-id",
+									Required: true,
+									Usage:    "app bundle ID (e.g., com.example.myapp)",
+								},
+								&cli.StringFlag{
+									Name:     firebaseConfigFlagPath,
+									Required: true,
+									Usage:    "path to the Firebase config JSON file",
+								},
+							},
+							Action: createCommandWithT[setFirebaseConfigArgs](SetFirebaseConfigAction),
+						},
+						{
+							Name:  "read",
+							Usage: "read Firebase config metadata for an organization",
+							UsageText: createUsageText("organizations firebase-config read",
+								[]string{generalFlagOrgID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+							},
+							Action: createCommandWithT[readFirebaseConfigArgs](ReadFirebaseConfigAction),
+						},
+						{
+							Name:  "delete",
+							Usage: "delete a Firebase config for a specific app bundle ID",
+							UsageText: createUsageText("organizations firebase-config delete",
+								[]string{generalFlagOrgID, "bundle-id"}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+								&cli.StringFlag{
+									Name:     "bundle-id",
+									Required: true,
+									Usage:    "app bundle ID (e.g., com.example.myapp)",
+								},
+							},
+							Action: createCommandWithT[deleteFirebaseConfigArgs](DeleteFirebaseConfigAction),
+						},
+					},
+				},
 			},
 		},
 		{
