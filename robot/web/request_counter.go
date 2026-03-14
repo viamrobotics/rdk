@@ -211,8 +211,8 @@ type ClientInformation struct {
 	RejectedRequests map[string]int64 `json:"rejected_requests"`
 }
 
-// pcIsClosed returns whether the passed in peer connection has a connection state
-// indicating that it has closed.
+// Returns whether the passed in peer connection has a connection state indicating that it
+// has closed.
 func pcIsClosed(pc *webrtc.PeerConnection) bool {
 	cs := pc.ConnectionState()
 	if cs == webrtc.PeerConnectionStateClosed || cs == webrtc.PeerConnectionStateDisconnected ||
