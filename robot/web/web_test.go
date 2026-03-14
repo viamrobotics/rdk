@@ -1,4 +1,4 @@
-package web_test
+package web
 
 import (
 	"context"
@@ -50,7 +50,6 @@ import (
 	"go.viam.com/rdk/robot"
 	rclient "go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
-	"go.viam.com/rdk/robot/web"
 	weboptions "go.viam.com/rdk/robot/web/options"
 	genericservice "go.viam.com/rdk/services/generic"
 	"go.viam.com/rdk/spatialmath"
@@ -69,7 +68,7 @@ func TestWebStart(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -98,7 +97,7 @@ func TestModule(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	err := svc.StartModule(ctx)
 	test.That(t, err, test.ShouldBeNil)
@@ -153,7 +152,7 @@ func TestWebStartOptions(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -195,7 +194,7 @@ func TestWebWithAuth(t *testing.T) {
 		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
-			svc := web.New(injectRobot, logger)
+			svc := New(injectRobot, logger)
 
 			keyset := jwk.NewSet()
 			privKeyForWebAuth, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -464,7 +463,7 @@ func TestWebWithTLSAuth(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	altName := primitive.NewObjectID().Hex()
 	cert, certFile, keyFile, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
@@ -628,7 +627,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -643,7 +642,7 @@ func TestWebWithBadAuthHandlers(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
 	test.That(t, svc.Close(context.Background()), test.ShouldBeNil)
 
-	svc = web.New(injectRobot, logger)
+	svc = New(injectRobot, logger)
 
 	options, _, _ = robottestutils.CreateBaseOptionsAndListener(t)
 	options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -663,7 +662,7 @@ func TestWebWithOnlyNewAPIKeyAuthHandlers(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, injectRobot := setupRobotCtx(t)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	apiKeyID1 := uuid.New().String()
@@ -763,7 +762,7 @@ func TestWebWithStreams(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
+	svc := New(robot, logger, WithStreamConfig(gostream.StreamConfig{
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err := svc.Start(ctx, options)
@@ -822,7 +821,7 @@ func TestWebAddFirstStream(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := New(robot, logger, WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -880,7 +879,7 @@ func TestWebStreamImmediateClose(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	robot.LoggerFunc = func() logging.Logger { return logger }
 	options, _, _ := robottestutils.CreateBaseOptionsAndListener(t)
-	svc := web.New(robot, logger, web.WithStreamConfig(x264.DefaultStreamConfig))
+	svc := New(robot, logger, WithStreamConfig(x264.DefaultStreamConfig))
 	err := svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -954,7 +953,7 @@ func TestForeignResource(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, robot := setupRobotCtx(t)
 
-	svc := web.New(robot, logger)
+	svc := New(robot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1016,7 +1015,7 @@ func TestForeignResource(t *testing.T) {
 	listener := testutils.ReserveRandomListener(t)
 	addr = listener.Addr().String()
 	options.Network.Listener = listener
-	svc = web.New(injectRobot, logger)
+	svc = New(injectRobot, logger)
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -1082,7 +1081,7 @@ func TestRawClientOperation(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
-	svc := web.New(iRobot, logger)
+	svc := New(iRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1150,7 +1149,7 @@ func TestUnaryRequestCounter(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
-	svc := web.New(iRobot, logger)
+	svc := New(iRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1233,7 +1232,7 @@ func TestStreamingRequestCounter(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx, iRobot := setupRobotCtx(t)
 
-	svc := web.New(iRobot, logger)
+	svc := New(iRobot, logger)
 
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 	err := svc.Start(ctx, options)
@@ -1302,7 +1301,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 
 	t.Run("web start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(iRobot, logger)
+			svc := New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1334,7 +1333,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(iRobot, logger)
+			svc := New(iRobot, logger)
 			options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
 			err := svc.Start(ctx, options)
@@ -1370,7 +1369,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 	})
 	t.Run("module start", func(t *testing.T) {
 		t.Run("default timeout", func(t *testing.T) {
-			svc := web.New(iRobot, logger)
+			svc := New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -1402,7 +1401,7 @@ func TestInboundMethodTimeout(t *testing.T) {
 			test.That(t, svc.Close(ctx), test.ShouldBeNil)
 		})
 		t.Run("overridden timeout", func(t *testing.T) {
-			svc := web.New(iRobot, logger)
+			svc := New(iRobot, logger)
 
 			err := svc.StartModule(ctx)
 			test.That(t, err, test.ShouldBeNil)
@@ -1504,7 +1503,7 @@ func TestPerRequestFTDC(t *testing.T) {
 	ctx, injectRobot := setupRobotCtx(t)
 	defer injectRobot.Close(ctx)
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 	defer svc.Stop()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -1589,7 +1588,7 @@ func testResourceLimitsAndFTDC(
 		os.Setenv(rutils.ViamResourceRequestsLimitEnvVar, originalRequestLimit)
 	})
 
-	svc := web.New(injectRobot, logger)
+	svc := New(injectRobot, logger)
 	defer svc.Stop()
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 
@@ -1630,7 +1629,7 @@ func testResourceLimitsAndFTDC(
 			"exceeded request limit 1 on resource %v (your client is responsible for 1). "+
 				"See %v for troubleshooting steps",
 			keyPrefix,
-			web.ReqLimitExceededURL,
+			ReqLimitExceededURL,
 		),
 	)
 
@@ -1638,7 +1637,7 @@ func testResourceLimitsAndFTDC(
 	reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 	test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 	test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+	expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
 	test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
 
 	var fields map[string]any
@@ -1774,7 +1773,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				return pos, nil
 			}))
 		defer injectRobot.Close(ctx)
-		svc := web.New(injectRobot, logger)
+		svc := New(injectRobot, logger)
 		defer svc.Stop()
 		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 		err := svc.Start(ctx, options)
@@ -1832,7 +1831,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 			fmt.Sprintf(
 				"exceeded request limit 1 on resource arm1.viam.component.arm.v1.ArmService (your client is responsible for 1). "+
 					"See %v for troubleshooting steps",
-				web.ReqLimitExceededURL,
+				ReqLimitExceededURL,
 			),
 		)
 
@@ -1842,7 +1841,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
 		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
 		var fields map[string]any
 		err = json.Unmarshal(
@@ -1882,7 +1881,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 				return pos, nil
 			}))
 		defer injectRobot.Close(ctx)
-		svc := web.New(injectRobot, logger)
+		svc := New(injectRobot, logger)
 		defer svc.Stop()
 		options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
 		err := svc.Start(ctx, options)
@@ -1914,11 +1913,11 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		// logRequestLimitExceeded. The hook closes conn2 and then polls the server-side PC
 		// state until the disconnect has propagated, so that createClientInformationFromPC
 		// sees the PC as closed when it runs.
-		svc.RequestCounter().BeforeLogHook = func(serverSidePC *webrtc.PeerConnection) {
+		svc.RequestCounter().beforeLogHook = func(serverSidePC *webrtc.PeerConnection) {
 			utils.UncheckedErrorFunc(func() error { return armClient2.Close(ctx) })
 			utils.UncheckedErrorFunc(conn2.Close)
 			testutils.WaitForAssertion(t, func(tb testing.TB) {
-				test.That(tb, web.PCIsClosed(serverSidePC), test.ShouldBeTrue)
+				test.That(tb, pcIsClosed(serverSidePC), test.ShouldBeTrue)
 			})
 		}
 
@@ -1944,7 +1943,7 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		reqLimitExceededLogs := logs.FilterMessageSnippet("Request limit exceeded").All()
 		test.That(t, reqLimitExceededLogs, test.ShouldHaveLength, 1)
 		test.That(t, reqLimitExceededLogs[0].Level, test.ShouldEqual, zapcore.WarnLevel)
-		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", web.ReqLimitExceededURL)
+		expectedMsg := fmt.Sprintf("Request limit exceeded for resource. See %v for troubleshooting steps. ", ReqLimitExceededURL)
 		test.That(t, reqLimitExceededLogs[0].Message, test.ShouldStartWith, expectedMsg)
 		var fields map[string]any
 		err = json.Unmarshal(
@@ -1956,11 +1955,11 @@ func TestPerResourceLimitsAndFTDC(t *testing.T) {
 		// The method and resource should be present in the log.
 		test.That(t, fields["method"], test.ShouldEqual, "/viam.component.arm.v1.ArmService/GetEndPosition")
 		test.That(t, fields["resource"], test.ShouldEqual, "arm1.viam.component.arm.v1.ArmService")
-		// The offending client should be referred to as "just_disconnected".
+		// The offending client should be referred to as "already_disconnected".
 		offendingClientInformation := fields["offending_client_information"]
 		offendingClientInformationString, ok := offendingClientInformation.(string)
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, offendingClientInformationString, test.ShouldEqual, "just_disconnected")
+		test.That(t, offendingClientInformationString, test.ShouldEqual, "already_disconnected")
 		{
 			// "all_other_client_information" should contain the earlier client that is still
 			// blocked.
