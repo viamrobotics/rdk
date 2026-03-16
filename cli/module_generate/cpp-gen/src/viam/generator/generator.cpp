@@ -421,7 +421,7 @@ class {0}Recipe(ConanFile):
     settings = "os", "compiler", "build_type", "arch"
 
     # Sources are located in the same place as this recipe, copy them to the recipe
-    exports_sources = "CMakeLists.txt", "src/*"
+    exports_sources = "CMakeLists.txt", "src/*", "main.cpp", "meta.json"
 
     def layout(self):
         cmake_layout(self)
@@ -445,9 +445,10 @@ class {0}Recipe(ConanFile):
         cmake.install()
 
     def requirements(self):
-        self.requires("viam-cpp-sdk/0.32.0")
+        self.requires("viam-cpp-sdk/{1}")
 )--",
-                             fmt_str::moduleName);
+                             fmt_str::moduleName,
+                             fmt_str::sdkVersion);
 }
 
 void Generator::run() {

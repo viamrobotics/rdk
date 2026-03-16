@@ -10,4 +10,6 @@ constexpr auto modelSnake = "{{ .ModelSnake }}";
 constexpr auto resourceSubtypePascal = "{{ .ResourceSubtypePascal }}";
 constexpr auto resourceSubtypeSnake = "{{ .ResourceSubtypeSnake }}";
 
+constexpr auto sdkVersion = "{{ .SDKVersion }}";
+
 }  // namespace viam::gen::fmt_str
