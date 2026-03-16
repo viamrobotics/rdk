@@ -585,6 +585,9 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 		return modulegen.CppRenderedFiles{}, err
 	}
 
+	// TODO(RSDK-13622) currently the lockfile is generated immediately after a release,
+	// not as part of it. Thus, we have to pull from latest main. once that is fixed
+	// on the C++ side, we should update here to also point to the latest release.
 	const cppSDKMain = "https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/heads/main"
 	conanLockRaw, err := FetchRawTemplate(cppSDKMain + "/etc/conan/conan.lock")
 	if err != nil {
