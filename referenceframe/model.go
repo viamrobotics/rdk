@@ -112,8 +112,8 @@ func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Me
 
 // mimicMapping describes how a mimic frame's input is derived from a source frame's input.
 type mimicMapping struct {
-	sourceFrameName string  // name of the source frame
-	sourceInputIdx  int     // offset in flat input vector (resolved after schema is built)
+	sourceFrameName string // name of the source frame
+	sourceInputIdx  int    // offset in flat input vector (resolved after schema is built)
 	multiplier      float64
 	offset          float64
 }
