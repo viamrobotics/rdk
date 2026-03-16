@@ -438,7 +438,7 @@ class {0}Recipe(ConanFile):
     def build(self):
         cmake = CMake(self)
         cmake.configure()
-        cmake.build()
+        cmake.build(target="package")
 
     def package(self):
         cmake = CMake(self)
