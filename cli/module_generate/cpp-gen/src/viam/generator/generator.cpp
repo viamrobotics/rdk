@@ -382,6 +382,19 @@ target_link_libraries({0}
     viam-cpp-sdk::viamsdk
 )
 
+install(
+    FILES meta.json
+    DESTINATION .
+)
+
+install(TARGETS {0})
+
+set(CPACK_PACKAGE_NAME "{0}")
+set(CPACK_PACKAGE_FILE_NAME "module")
+set(CPACK_GENERATOR "TGZ")
+set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY 0)
+include(CPack)
+
 )--",
                              fmt_str::moduleName,
                              fmt_str::modelSnake);
