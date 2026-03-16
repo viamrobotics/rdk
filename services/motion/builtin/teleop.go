@@ -51,13 +51,24 @@ type teleopPipeline struct {
 
 // trySendLatest sends pose on ch using latest-value semantics:
 // if a stale value is buffered, it is drained first so the new value replaces it.
+// Safe for concurrent callers: never blocks.
 func trySendLatest(ch chan *referenceframe.PoseInFrame, pose *referenceframe.PoseInFrame) {
-	// Drain any stale value.
+	// Fast path: channel is empty, send directly.
+	select {
+	case ch <- pose:
+		return
+	default:
+	}
+	// Channel full — drain stale value and retry.
 	select {
 	case <-ch:
 	default:
 	}
-	ch <- pose
+	select {
+	case ch <- pose:
+	default:
+		// Another writer beat us; their pose is equally fresh.
+	}
 }
 
 // runPlanner is the planner goroutine. It reads poses from poseCh,
