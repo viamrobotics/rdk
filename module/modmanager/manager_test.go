@@ -104,9 +104,6 @@ func setupModManager(
 
 // Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
 // in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
-<<<<<<< RSDK-13432-cpp-module-gen
-func TestCrashedModCheckReadyShortCircuit(t *testing.T) {
-=======
 func TestCrashShortCircuit(t *testing.T) {
 >>>>>>> main
 	modPath := filepath.Join(t.TempDir(), "run.sh")
