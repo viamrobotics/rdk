@@ -579,9 +579,8 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
 func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArgs globalArgs) error {
-
 	// templates are stored elsewhere for C++
-	if language == "cpp" {
+	if language == cpp {
 		return nil
 	}
 	debugf(c.App.Writer, globalArgs.Debug, "Creating %s template files", language)
@@ -641,7 +640,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 // Render all the files in the new directory.
 func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
 	// templates are stored in separate repo for C++
-	if module.Language == "cpp" {
+	if module.Language == cpp {
 		return nil
 	}
 	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
@@ -725,7 +724,6 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 		{filepath.Join(module.ModuleName, "conan.lock"), rendered.ConanLock},
 	}
 	for _, f := range filesToWrite {
-		//nolint:gosec
 		file, err := os.Create(f.path)
 		if err != nil {
 			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path)
