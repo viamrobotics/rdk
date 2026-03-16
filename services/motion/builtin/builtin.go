@@ -142,7 +142,7 @@ type builtIn struct {
 	configuredDefaultExtras map[string]any
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
-	teleopMu       sync.Mutex
+	teleopMu       sync.RWMutex
 	teleopPipeline *teleopPipeline
 }
 

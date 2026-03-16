@@ -390,9 +390,9 @@ func (ms *builtIn) handleTeleopCommand(
 
 	if req, ok := cmd[DoTeleopMove]; ok {
 		handled = true
-		ms.teleopMu.Lock()
+		ms.teleopMu.RLock()
 		tp := ms.teleopPipeline
-		ms.teleopMu.Unlock()
+		ms.teleopMu.RUnlock()
 		if tp == nil {
 			return nil, true, fmt.Errorf("teleop pipeline is not running; call %s first", DoTeleopStart)
 		}
@@ -418,9 +418,9 @@ func (ms *builtIn) handleTeleopCommand(
 
 	if _, ok := cmd[DoTeleopStatus]; ok {
 		handled = true
-		ms.teleopMu.Lock()
+		ms.teleopMu.RLock()
 		tp := ms.teleopPipeline
-		ms.teleopMu.Unlock()
+		ms.teleopMu.RUnlock()
 
 		status := map[string]interface{}{
 			"running": tp != nil,
