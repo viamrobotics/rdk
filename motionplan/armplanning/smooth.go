@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -156,6 +157,8 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 	steps = simpleSmoothStep(ctx, psc, steps, 3)
 	steps = simpleSmoothStep(ctx, psc, steps, 1)
 
+	steps = tryOnlyMovingComponentsThatNeedToMove(ctx, psc, steps)
+
 	if len(steps) != originalSize {
 		psc.pc.logger.Debugf("simpleSmooth %d -> %d in %v", originalSize, len(steps), time.Since(start))
 	}
@@ -257,4 +260,38 @@ func findCloseObstacleWaypoints(
 	}
 
 	return closeWaypoints, nil
+}
+
+func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegmentContext,
+	steps []*referenceframe.LinearInputs,
+) []*referenceframe.LinearInputs {
+	moving, _ := psc.motionChains.framesFilteredByMovingAndNonmoving()
+
+	for idx := 1; idx < len(steps); idx++ {
+		curr := steps[idx]
+		prev := steps[idx-1]
+
+		updated := curr.Copy()
+
+		for component, currInputs := range curr.Items() {
+			if slices.Contains(moving, component) {
+				continue
+			}
+
+			if len(currInputs) == 0 {
+				continue
+			}
+
+			prevInputs := prev.Get(component)
+
+			updated.Put(component, prevInputs)
+		}
+
+		err := psc.checkPath(ctx, prev, updated, false)
+		if err == nil {
+			steps[idx] = updated
+		}
+	}
+
+	return steps
 }

@@ -44,6 +44,34 @@ func (l *Limit) Hash() int {
 
 const rangeLimit = 999
 
+func isMultipleOfPi(v float64) bool {
+	v = math.Abs(v)
+	v -= math.Floor(v/math.Pi) * math.Pi
+	for v > 0 {
+		v -= math.Pi
+	}
+	return v > -.02
+}
+
+// Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
+// (`percentJog`) of the total range of the input.
+// Unless it's rotational, then the range is 2 * math.Pi
+func (l *Limit) Jog(val, percentJog float64) float64 {
+	_, mm, r := l.GoodLimits()
+	if r > 2*math.Pi && isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) {
+		r = 2 * math.Pi
+	}
+	x := r * percentJog
+
+	val += x
+	if val > mm {
+		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
+		val -= (2 * x)
+	}
+
+	return val
+}
+
 // GoodLimits gives min, max, range, but capped to -999,999.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min
@@ -815,19 +843,18 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
-		ordTransforms1 := f1.ordTransforms
-		ordTransforms2 := f2.ordTransforms
-		if len(ordTransforms1) != len(ordTransforms2) {
+		frames1 := f1.framesInOrder()
+		frames2 := f2.framesInOrder()
+		if len(frames1) != len(frames2) {
 			return false, nil
-		} else {
-			for i, f := range ordTransforms1 {
-				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
-				if err != nil {
-					return false, err
-				}
-				if !frameEquality {
-					return false, nil
-				}
+		}
+		for i, f := range frames1 {
+			frameEquality, err := framesAlmostEqual(f, frames2[i], epsilon)
+			if err != nil {
+				return false, err
+			}
+			if !frameEquality {
+				return false, nil
 			}
 		}
 	default:

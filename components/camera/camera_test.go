@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"math"
 	"reflect"
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -18,6 +20,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -419,6 +422,85 @@ func TestImages(t *testing.T) {
 			test.That(t, err, test.ShouldBeError)
 			test.That(t, err.Error(), test.ShouldEqual, "requested source name not found: invalid_source")
 		})
+	})
+}
+
+func TestPropertiesPointToPixel(t *testing.T) {
+	intrinsics := &transform.PinholeCameraIntrinsics{
+		Width:  1280,
+		Height: 720,
+		Fx:     906.0663452148438,
+		Fy:     905.1234741210938,
+		Ppx:    646.94970703125,
+		Ppy:    374.4667663574219,
+	}
+
+	t.Run("missing intrinsics", func(t *testing.T) {
+		props := &camera.Properties{ExtrinsicParams: &camera.ExtrinsicParams{}}
+		_, _, err := props.PointToPixel(r3.Vector{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "intrinsic")
+	})
+
+	t.Run("zero extrinsics behaves like raw intrinsics", func(t *testing.T) {
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &camera.ExtrinsicParams{},
+		}
+		// A point directly in front of the camera at z=1000
+		pt := r3.Vector{X: 0, Y: 0, Z: 1000}
+		px, py, err := props.PointToPixel(pt)
+		test.That(t, err, test.ShouldBeNil)
+		// With zero extrinsics, should match raw intrinsics
+		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
+		test.That(t, px, test.ShouldEqual, expectedPx)
+		test.That(t, py, test.ShouldEqual, expectedPy)
+	})
+
+	t.Run("translated camera", func(t *testing.T) {
+		// ExtrinsicParams represents the camera's position in the reference frame.
+		// To transform a point to camera coordinates, we subtract the camera's position.
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &camera.ExtrinsicParams{Translation: r3.Vector{X: 100, Y: 0, Z: 0}},
+		}
+		// Camera at (100, 0, 0): world point at (100, 0, 1000) becomes (0, 0, 1000) after subtracting camera position
+		px, py, err := props.PointToPixel(r3.Vector{X: 100, Y: 0, Z: 1000})
+		test.That(t, err, test.ShouldBeNil)
+		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
+		test.That(t, px, test.ShouldEqual, expectedPx)
+		test.That(t, py, test.ShouldEqual, expectedPy)
+	})
+
+	t.Run("translated and rotated camera", func(t *testing.T) {
+		// 90 degree rotation around Z axis + translation
+		orientation := &spatialmath.OrientationVector{OX: 0, OY: 0, OZ: 1, Theta: math.Pi / 2}
+		props := &camera.Properties{
+			IntrinsicParams: intrinsics,
+			ExtrinsicParams: &camera.ExtrinsicParams{
+				Translation: r3.Vector{X: 100, Y: 200, Z: 0},
+				Orientation: orientation,
+			},
+		}
+
+		// Test point in world frame
+		worldPt := r3.Vector{X: 0, Y: 0, Z: 1000}
+
+		// Apply inverse of extrinsics manually to verify (point from world to camera frame)
+		extrinsicPose := spatialmath.NewPose(props.ExtrinsicParams.Translation, orientation)
+		extrinsicInverse := spatialmath.PoseInverse(extrinsicPose)
+		pointPose := spatialmath.NewPoseFromPoint(worldPt)
+		transformed := spatialmath.Compose(extrinsicInverse, pointPose)
+		expectedPt := transformed.Point()
+
+		// Get pixel coordinates
+		px, py, err := props.PointToPixel(worldPt)
+		test.That(t, err, test.ShouldBeNil)
+
+		// Should match what we get from applying intrinsics to the transformed point
+		expectedPx, expectedPy := intrinsics.PointToPixel(expectedPt.X, expectedPt.Y, expectedPt.Z)
+		test.That(t, px, test.ShouldAlmostEqual, expectedPx, 1e-6)
+		test.That(t, py, test.ShouldAlmostEqual, expectedPy, 1e-6)
 	})
 }
 

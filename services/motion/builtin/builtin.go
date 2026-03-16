@@ -488,7 +488,15 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			traceID = span.SpanContext().TraceID().String()
 		}
 
-		err := ms.writePlanRequest(planRequest, plan, start, traceID, err)
+		// Extract plan tag from extra if provided
+		var planTag string
+		if req.Extra != nil {
+			if tag, ok := req.Extra["plan_tag"].(string); ok {
+				planTag = tag
+			}
+		}
+
+		err := ms.writePlanRequest(planRequest, plan, start, traceID, planTag, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -672,7 +680,7 @@ func waypointsFromRequest(
 }
 
 func (ms *builtIn) writePlanRequest(
-	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID string, planError error,
+	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID, planTag string, planError error,
 ) error {
 	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
@@ -694,10 +702,15 @@ func (ms *builtIn) writePlanRequest(
 		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
 	}
 
+	// Add plan tag to filename if provided
+	if planTag != "" {
+		planExtra += fmt.Sprintf("-%s", planTag)
+	}
+
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+		fn = filepath.Join(ms.conf.PlanFilePath, fmt.Sprint("tag=", traceID), fn)
 	} else {
 		fn = filepath.Join(ms.conf.PlanFilePath, fn)
 	}

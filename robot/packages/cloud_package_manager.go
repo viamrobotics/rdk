@@ -203,8 +203,14 @@ func (m *cloudManager) Sync(ctx context.Context, packages []config.PackageConfig
 			},
 		)
 		if err != nil {
-			m.logger.Errorf("Failed downloading package %s:%s from %s, %s", p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err)
-			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading package %s:%s from %s %w",
+			m.logger.Errorf(
+				"Failed downloading/unzipping package %s:%s from %s, %s",
+				p.Package,
+				p.Version,
+				sanitizeURLForLogs(resp.Package.Url),
+				err,
+			)
+			outErr = multierr.Append(outErr, fmt.Errorf("failed downloading/unzipping package %s:%s from %s %w",
 				p.Package, p.Version, sanitizeURLForLogs(resp.Package.Url), err))
 			continue
 		}
@@ -521,7 +527,7 @@ func crc32Hash() hash.Hash32 {
 
 func safeLink(parent, link string) (string, error) {
 	if filepath.IsAbs(link) {
-		return link, fmt.Errorf("unsafe path link: '%s' with '%s', cannot be absolute path", parent, link)
+		return link, fmt.Errorf("cannot link '%s' to '%s', symlink target '%s' cannot be an absolute path", link, parent, link)
 	}
 
 	_, err := rutils.SafeJoinDir(parent, link)
