@@ -156,6 +156,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			return
 		}
 		newModule.SDKVersion = version[1:]
+		// C++ SDK tags are of the form "release/vx.y.z"; strip the prefix so SDKVersion is always "x.y.z".
+		if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
+			newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
+		}
 
 		s.Title("Setting up module directory...")
 		if err = setupDirectories(cCtx, newModule.ModuleName, globalArgs); err != nil {
@@ -475,6 +479,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	modelDocFilename := fmt.Sprintf("%s_%s_%s.md", newModule.Namespace, newModule.ModuleName, newModule.ModelName)
 	newModule.ModelReadmeLink = modelDocFilename
 	newModule.ModuleReadmeLink = defaultReadmeFilename
+
 }
 
 // Creates a new directory with moduleName.
@@ -705,7 +710,7 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 	}
 
 	srcDir := filepath.Join(module.ModuleName, "src")
-	if err = os.Mkdir(srcDir, 0o750); err != nil {
+	if err = os.MkdirAll(srcDir, 0o750); err != nil {
 		return errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory")
 	}
 

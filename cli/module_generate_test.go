@@ -232,7 +232,6 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test generate cpp stubs", func(t *testing.T) {
 		cppModule := testModule
-		cppModule.ModuleName = "my-module-cpp"
 		cppModule.Language = "cpp"
 		cppModule.ResourceType = "component"
 		cppModule.ResourceSubtype = "camera"
