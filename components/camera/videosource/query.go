@@ -315,7 +315,9 @@ func selectBestDriver(
 		return nil, prop.Media{}, errors.Errorf(
 			"failed to find a queryable driver that matches the config constraints. "+
 				"You can try tweaking or relaxing the constraints, e.g. removing or changing the height/width, "+
-				"frame format, etc. Devices tried: %s",
+				"frame format, etc. "+
+				"Use the find-webcams discovery service to find valid constraints for your device. "+
+				"Devices tried: %s",
 			strings.Join(labels, ", "))
 	}
 
