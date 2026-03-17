@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"go.viam.com/rdk/logging"
 )
@@ -330,7 +331,7 @@ func camelFormatName(name string) string {
 	return strings.ToLower(camelFormattedName)
 }
 
-func getValFromContext(name string, ctx *cli.Context) any {
+func getValFromContext(name string, ctx *cli.Command) any {
 	// some fuzzy searching is required here, because flags are typically in kebab case, but
 	// params are typically in snake or camel case
 	replacer := strings.NewReplacer("_", "-")
@@ -349,40 +350,18 @@ func getValFromContext(name string, ctx *cli.Context) any {
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
 // be a pointer to that default value.
-func parseStructFromCtx[T any](ctx *cli.Context) T {
+func parseStructFromCtx[T any](ctx *cli.Command) T {
 	var t T
-	var s cli.StringSlice
-	s.Value()
 	tValue := reflect.ValueOf(&t).Elem()
 	tType := tValue.Type()
 	for i := 0; i < tType.NumField(); i++ {
 		field := tType.Field(i)
 		if value := getValFromContext(field.Name, ctx); value != nil {
-			reflectVal := reflect.ValueOf(&value)
-			// (erodkin) Unfortunately, the value we get out of the context when dealing with a
-			// slice is not, e.g., a `[]string`, but rather a `cli.StringSlice` that has a
-			// `Value` method that returns a `[]string`. Some short attempts to use reflection
-			// to access that `Value` method proved unproductive, so instead we match on all
-			// currently existing `cli.FooSlice` types. This should be relatively stable
-			// (currently we only use a `StringSlice` in the CLI), but in theory it would be
-			// sad if urfave introduced a new slice type and someone tried to use it in our
-			// CLI. The default warning message should hopefully provide some clarity if
-			// such a case should ever arise.
+			// In urfave/cli v3, slice flag values (e.g. StringSliceFlag) are returned as
+			// their native Go types ([]string, []int, etc.) directly from Command.Value(),
+			// so no special unwrapping is needed.
 			if field.Type.Kind() == reflect.Slice {
-				switch v := value.(type) {
-				case cli.StringSlice:
-					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
-				case cli.IntSlice:
-					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
-				case cli.Int64Slice:
-					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
-				case cli.Float64Slice:
-					tValue.Field(i).Set(reflect.ValueOf(v.Value()))
-				default:
-					warningf(ctx.App.Writer,
-						"Attempted to set flag with unsupported slice type %s, this value may not be set correctly. consider filing a ticket to add support",
-						reflectVal.Type().Name())
-				}
+				tValue.Field(i).Set(reflect.ValueOf(value))
 			} else {
 				// we're looking at an org flag, so supply default if none is passed
 				if slices.Contains(
@@ -412,7 +391,7 @@ func parseStructFromCtx[T any](ctx *cli.Context) T {
 	return t
 }
 
-func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
+func getGlobalArgs(ctx *cli.Command) (*globalArgs, error) {
 	gArgs := parseStructFromCtx[globalArgs](ctx)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
@@ -424,10 +403,19 @@ func getGlobalArgs(ctx *cli.Context) (*globalArgs, error) {
 	return &gArgs, nil
 }
 
-func createCommandWithT[T any](f func(*cli.Context, T) error) func(*cli.Context) error {
-	return func(ctx *cli.Context) error {
-		t := parseStructFromCtx[T](ctx)
-		return f(ctx, t)
+func createActionCommandWithT[T any](f func(context.Context, *cli.Command, T) error) func(context.Context, *cli.Command) error {
+	return func(ctx context.Context, cmd *cli.Command) error {
+		t := parseStructFromCtx[T](cmd)
+		return f(ctx, cmd, t)
+	}
+}
+
+// createBeforeCommandWithT is like Action but returns a BeforeFunc-compatible
+// signature (context.Context, error) instead of just error.
+func createBeforeCommandWithT[T any](f func(context.Context, *cli.Command, T) error) func(context.Context, *cli.Command) (context.Context, error) {
+	return func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+		t := parseStructFromCtx[T](cmd)
+		return ctx, f(ctx, cmd, t)
 	}
 }
 
@@ -460,7 +448,7 @@ func formatAcceptedValues(description string, values ...string) string {
 	return fmt.Sprintf("%s. value(s) can be: [%s]", description, joined)
 }
 
-var app = &cli.App{
+var app = &cli.Command{
 	Name:            "viam",
 	Usage:           "interact with your Viam machines",
 	UsageText:       "viam [global options] <command> [command options]",
@@ -504,7 +492,7 @@ var app = &cli.App{
 			Name:      "defaults",
 			Usage:     "Set or clear default argument values",
 			UsageText: createUsageText("defaults", nil, false, false),
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:  "set-org",
 					Usage: "Set default organization argument",
@@ -518,12 +506,12 @@ var app = &cli.App{
 							},
 						},
 					},
-					Action: createCommandWithT(defaultsSetOrgAction),
+					Action: createActionCommandWithT(defaultsSetOrgAction),
 				},
 				{
 					Name:   "clear-org",
 					Usage:  "Clear default organization argument",
-					Action: createCommandWithT(defaultsClearOrgAction),
+					Action: createActionCommandWithT(defaultsClearOrgAction),
 				},
 				{
 					Name:  "set-location",
@@ -538,12 +526,12 @@ var app = &cli.App{
 							},
 						},
 					},
-					Action: createCommandWithT(defaultsSetLocationAction),
+					Action: createActionCommandWithT(defaultsSetLocationAction),
 				},
 				{
 					Name:   "clear-location",
 					Usage:  "Clear default location argument",
-					Action: createCommandWithT(defaultsClearLocationAction),
+					Action: createActionCommandWithT(defaultsClearLocationAction),
 				},
 			},
 		},
@@ -551,14 +539,14 @@ var app = &cli.App{
 			Name:      "traces",
 			Usage:     "Work with viam-server traces",
 			UsageText: createUsageText("traces", nil, false, true),
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "import-local",
 					Usage:     "Import traces from a local viam server trace file to an OTLP endpoint.",
 					UsageText: createUsageText("traces import-local", nil, true, false, "<path>"),
 					ArgsUsage: "<traces file>",
 					Flags:     commonOtlpFlags,
-					Action:    createCommandWithT(traceImportLocalAction),
+					Action:    createActionCommandWithT(traceImportLocalAction),
 				},
 				{
 					Name: "import-remote",
@@ -573,14 +561,14 @@ Note: There is no progress meter while copying is in progress.
 						commonOtlpFlags,
 						commonPartFlags,
 					}),
-					Action: createCommandWithT(traceImportRemoteAction),
+					Action: createActionCommandWithT(traceImportRemoteAction),
 				},
 				{
 					Name:      "print-local",
 					Usage:     "Print traces in a local file to the console",
 					UsageText: createUsageText("traces print-local", nil, true, false, "<path>"),
 					ArgsUsage: "<traces file>",
-					Action:    createCommandWithT(tracePrintLocalAction),
+					Action:    createActionCommandWithT(tracePrintLocalAction),
 				},
 				{
 					Name:      "print-remote",
@@ -592,7 +580,7 @@ Organization and location are required flags if using name (rather than ID) for 
 Note: There is no progress meter while copying is in progress.
 `,
 					Flags:  commonPartFlags,
-					Action: createCommandWithT(tracePrintRemoteAction),
+					Action: createActionCommandWithT(tracePrintRemoteAction),
 				},
 				{
 					Name:      "get-remote",
@@ -606,7 +594,7 @@ If [target] is not specified then the traces file will be saved to the current w
 Note: There is no progress meter while copying is in progress.
 `,
 					Flags:  commonPartFlags,
-					Action: createCommandWithT(traceGetRemoteAction),
+					Action: createActionCommandWithT(traceGetRemoteAction),
 				},
 			},
 		},
@@ -624,13 +612,13 @@ Note: There is no progress meter while copying is in progress.
 					Usage:   "prevent opening the default browser during login",
 				},
 			},
-			Action: createCommandWithT[loginActionArgs](LoginAction),
-			Subcommands: []*cli.Command{
+			Action: createActionCommandWithT[loginActionArgs](LoginAction),
+			Commands: []*cli.Command{
 				{
 					Name:      "print-access-token",
 					Usage:     "print the access token associated with current credentials",
 					UsageText: createUsageText("login print-access-token", nil, false, false),
-					Action:    createCommandWithT[emptyArgs](PrintAccessTokenAction),
+					Action:    createActionCommandWithT[emptyArgs](PrintAccessTokenAction),
 				},
 				{
 					Name:      "api-key",
@@ -648,7 +636,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "key to authenticate with",
 						},
 					},
-					Action: createCommandWithT[loginWithAPIKeyArgs](LoginWithAPIKeyAction),
+					Action: createActionCommandWithT[loginWithAPIKeyArgs](LoginWithAPIKeyAction),
 				},
 			},
 		},
@@ -656,13 +644,13 @@ Note: There is no progress meter while copying is in progress.
 			Name:      "logout",
 			Usage:     "logout from current session",
 			UsageText: createUsageText("logout", nil, false, false),
-			Action:    createCommandWithT[emptyArgs](LogoutAction),
+			Action:    createActionCommandWithT[emptyArgs](LogoutAction),
 		},
 		{
 			Name:      "whoami",
 			Usage:     "get currently logged-in user",
 			UsageText: createUsageText("whoami", nil, false, false),
-			Action:    createCommandWithT[emptyArgs](WhoAmIAction),
+			Action:    createActionCommandWithT[emptyArgs](WhoAmIAction),
 		},
 		{
 			Name:            "organizations",
@@ -670,13 +658,13 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with organizations",
 			UsageText:       createUsageText("organizations", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:            "auth-service",
 					Usage:           "manage auth-service",
 					UsageText:       createUsageText("organizations auth-service", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "enable",
 							Usage:     "enable auth-service for OAuth applications",
@@ -687,7 +675,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "organization ID tied to OAuth applications",
 								},
 							},
-							Action: createCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
+							Action: createActionCommandWithT[enableAuthServiceArgs](EnableAuthServiceAction),
 						},
 						{
 							Name:      "disable",
@@ -699,15 +687,15 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "organization ID tied to OAuth applications",
 								},
 							},
-							Before: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceConfirmation),
-							Action: createCommandWithT[disableAuthServiceArgs](DisableAuthServiceAction),
+							Before: createBeforeCommandWithT[disableAuthServiceArgs](DisableAuthServiceConfirmation),
+							Action: createActionCommandWithT[disableAuthServiceArgs](DisableAuthServiceAction),
 						},
 						{
 							Name:            "oauth-app",
 							Usage:           "manage the OAuth applications for an organization",
 							UsageText:       createUsageText("organizations auth-service oauth-app", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:  "delete",
 									Usage: "delete an OAuth application",
@@ -725,8 +713,8 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    "client ID of the OAuth application to delete",
 										},
 									},
-									Before: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppConfirmation),
-									Action: createCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
+									Before: createBeforeCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppConfirmation),
+									Action: createActionCommandWithT[deleteOAuthAppArgs](DeleteOAuthAppAction),
 								},
 								{
 									Name:      "list",
@@ -738,7 +726,7 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "the org to get applications for",
 										},
 									},
-									Action: createCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
+									Action: createActionCommandWithT[listOAuthAppsArgs](ListOAuthAppsAction),
 								},
 								{
 									Name:  "read",
@@ -757,7 +745,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 									},
-									Action: createCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
+									Action: createActionCommandWithT[readOAuthAppArgs](ReadOAuthAppAction),
 								},
 								{
 									Name:  "update",
@@ -825,7 +813,7 @@ Note: There is no progress meter while copying is in progress.
 											),
 										},
 									},
-									Action: createCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
+									Action: createActionCommandWithT[updateOAuthAppArgs](UpdateOAuthAppAction),
 								},
 								{
 									Name:  "create",
@@ -894,7 +882,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 									},
-									Action: createCommandWithT[createOAuthAppArgs](CreateOAuthAppAction),
+									Action: createActionCommandWithT[createOAuthAppArgs](CreateOAuthAppAction),
 								},
 							},
 						},
@@ -904,14 +892,14 @@ Note: There is no progress meter while copying is in progress.
 					Name:      "list",
 					Usage:     "list organizations for the current user",
 					UsageText: createUsageText("organizations list", nil, false, false),
-					Action:    createCommandWithT[emptyArgs](ListOrganizationsAction),
+					Action:    createActionCommandWithT[emptyArgs](ListOrganizationsAction),
 				},
 				{
 					Name:            "logo",
 					Usage:           "manage the logo for an organization",
 					UsageText:       createUsageText("organizations logo", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "set",
 							Usage:     "set the logo for an organization from a local file",
@@ -927,7 +915,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "the file path of the logo to set for the organization. This must be a png file.",
 								},
 							},
-							Action: createCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
+							Action: createActionCommandWithT[organizationsLogoSetArgs](OrganizationLogoSetAction),
 						},
 						{
 							Name:      "get",
@@ -939,7 +927,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to get the logo for",
 								},
 							},
-							Action: createCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
+							Action: createActionCommandWithT[organizationsLogoGetArgs](OrganizationsLogoGetAction),
 						},
 					},
 				},
@@ -948,7 +936,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "manage the support email for an organization",
 					UsageText:       createUsageText("organizations support-email", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:  "set",
 							Usage: "set the support email for an organization",
@@ -966,7 +954,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "the support email to set for the organization",
 								},
 							},
-							Action: createCommandWithT[organizationsSupportEmailSetArgs](OrganizationsSupportEmailSetAction),
+							Action: createActionCommandWithT[organizationsSupportEmailSetArgs](OrganizationsSupportEmailSetAction),
 						},
 						{
 							Name:      "get",
@@ -978,7 +966,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to get the support email for",
 								},
 							},
-							Action: createCommandWithT[organizationsSupportEmailGetArgs](OrganizationsSupportEmailGetAction),
+							Action: createActionCommandWithT[organizationsSupportEmailGetArgs](OrganizationsSupportEmailGetAction),
 						},
 					},
 				},
@@ -987,7 +975,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "manage the organizations billing service",
 					UsageText:       createUsageText("organizations billing-service", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "get-config",
 							Usage:     "get the billing service config for an organization",
@@ -998,7 +986,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to get the billing config for",
 								},
 							},
-							Action: createCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
+							Action: createActionCommandWithT[getBillingConfigArgs](GetBillingConfigAction),
 						},
 						{
 							Name:      "disable",
@@ -1010,7 +998,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "the org to disable the billing service for",
 								},
 							},
-							Action: createCommandWithT[organizationDisableBillingServiceArgs](OrganizationDisableBillingServiceAction),
+							Action: createActionCommandWithT[organizationDisableBillingServiceArgs](OrganizationDisableBillingServiceAction),
 						},
 						{
 							Name:  "update",
@@ -1029,7 +1017,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
 							},
-							Action: createCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
+							Action: createActionCommandWithT[updateBillingServiceArgs](UpdateBillingServiceAction),
 						},
 						{
 							Name:  "enable",
@@ -1048,7 +1036,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "the stringified address that follows the pattern: line1, line2 (optional), city, state, zipcode",
 								},
 							},
-							Action: createCommandWithT[organizationEnableBillingServiceArgs](OrganizationEnableBillingServiceAction),
+							Action: createActionCommandWithT[organizationEnableBillingServiceArgs](OrganizationEnableBillingServiceAction),
 						},
 					},
 				},
@@ -1057,7 +1045,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "work with an organization's api keys",
 					UsageText:       createUsageText("organizations api-key", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "create",
 							Usage:     "create an api key for your organization",
@@ -1074,7 +1062,7 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: "login info with current time",
 								},
 							},
-							Action: createCommandWithT[organizationsAPIKeyCreateArgs](OrganizationsAPIKeyCreateAction),
+							Action: createActionCommandWithT[organizationsAPIKeyCreateArgs](OrganizationsAPIKeyCreateAction),
 						},
 					},
 				},
@@ -1086,7 +1074,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with locations",
 			UsageText:       createUsageText("locations", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:  "list",
 					Usage: "list locations for the current user",
@@ -1101,13 +1089,13 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
-					Action: createCommandWithT[listLocationsArgs](ListLocationsAction),
+					Action: createActionCommandWithT[listLocationsArgs](ListLocationsAction),
 				},
 				{
 					Name:      "api-key",
 					Usage:     "work with an api-key for your location",
 					UsageText: createUsageText("locations api-key", nil, false, true),
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "create",
 							Usage:     "create an api key for your location",
@@ -1128,7 +1116,7 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: "will attempt to attach key to the org of the location if only one org is attached to the location",
 								},
 							},
-							Action: createCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
+							Action: createActionCommandWithT[locationAPIKeyCreateArgs](LocationAPIKeyCreateAction),
 						},
 					},
 				},
@@ -1139,7 +1127,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with CLI profiles",
 			UsageText:       createUsageText("profiles", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "update",
 					Usage:     "update an existing profile for authentication, or add it if it doesn't exist",
@@ -1161,7 +1149,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "the profile's API key",
 						},
 					},
-					Action: createCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
+					Action: createActionCommandWithT[addOrUpdateProfileArgs](UpdateProfileAction),
 				},
 				{
 					Name:      "add",
@@ -1184,13 +1172,13 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "the profile's API key",
 						},
 					},
-					Action: createCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
+					Action: createActionCommandWithT[addOrUpdateProfileArgs](AddProfileAction),
 				},
 				{
 					Name:      "list",
 					Usage:     "list all existing profiles by name",
 					UsageText: createUsageText("profiles list", nil, false, false),
-					Action:    createCommandWithT[emptyArgs](ListProfilesAction),
+					Action:    createActionCommandWithT[emptyArgs](ListProfilesAction),
 				},
 				{
 					Name:      "remove",
@@ -1203,7 +1191,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the profile to remove",
 						},
 					},
-					Action: createCommandWithT[removeProfileArgs](RemoveProfileAction),
+					Action: createActionCommandWithT[removeProfileArgs](RemoveProfileAction),
 				},
 			},
 		},
@@ -1212,29 +1200,30 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with data",
 			UsageText:       createUsageText("data", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:            "export",
 					Usage:           "download data from Viam cloud",
 					UsageText:       createUsageText("data export", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:            "binary",
 							Usage:           "download binary data",
 							UsageText:       createUsageText("data export binary", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:            "filter",
 									Usage:           "download binary data using filters",
 									UsageText:       createUsageText("data export binary filter", []string{generalFlagDestination}, true, false),
 									HideHelpCommand: true,
 									Flags: append([]cli.Flag{
-										&cli.PathFlag{
-											Name:     generalFlagDestination,
-											Required: true,
-											Usage:    "output directory for downloaded data",
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Required:  true,
+											Usage:     "output directory for downloaded data",
+											TakesFile: true,
 										},
 										&cli.UintFlag{
 											Name:  dataFlagParallelDownloads,
@@ -1251,7 +1240,7 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "tags filter. accepts 'tagged' for all tagged data, 'untagged' for all untagged data, or a list of tags",
 										},
 									}, commonFilterFlags...),
-									Action: createCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
+									Action: createActionCommandWithT[dataExportBinaryArgs](DataExportBinaryAction),
 								},
 								{
 									Name:            "ids",
@@ -1259,10 +1248,11 @@ Note: There is no progress meter while copying is in progress.
 									UsageText:       createUsageText("data export binary ids", []string{generalFlagDestination, dataFlagBinaryDataIDs}, true, false),
 									HideHelpCommand: true,
 									Flags: []cli.Flag{
-										&cli.PathFlag{
-											Name:     generalFlagDestination,
-											Required: true,
-											Usage:    "output directory for downloaded data",
+										&cli.StringFlag{
+											Name:      generalFlagDestination,
+											Required:  true,
+											Usage:     "output directory for downloaded data",
+											TakesFile: true,
 										},
 										&cli.UintFlag{
 											Name:  dataFlagTimeout,
@@ -1275,7 +1265,7 @@ Note: There is no progress meter while copying is in progress.
 											Usage:    "binary data ids to query for. accepts a single binary data id or list of comma-separated binary data ids",
 										},
 									},
-									Action: createCommandWithT[dataExportBinaryIDsArgs](DataExportBinaryIDsAction),
+									Action: createActionCommandWithT[dataExportBinaryIDsArgs](DataExportBinaryIDsAction),
 								},
 							},
 						},
@@ -1290,10 +1280,11 @@ Note: There is no progress meter while copying is in progress.
 								generalFlagMethod,
 							}, true, false),
 							Flags: []cli.Flag{
-								&cli.PathFlag{
-									Name:     generalFlagDestination,
-									Required: true,
-									Usage:    "output directory for downloaded data",
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Required:  true,
+									Usage:     "output directory for downloaded data",
+									TakesFile: true,
 								},
 								&cli.StringFlag{
 									Name:     generalFlagPartID,
@@ -1328,7 +1319,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "additional parameters to pass to the tabular data export query. accepts a JSON string of key-value pairs",
 								},
 							},
-							Action: createCommandWithT[dataExportTabularArgs](DataExportTabularAction),
+							Action: createActionCommandWithT[dataExportTabularArgs](DataExportTabularAction),
 						},
 					},
 				},
@@ -1337,7 +1328,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "delete data from Viam cloud",
 					UsageText:       createUsageText("data delete", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "binary",
 							Usage:     "delete binary data from Viam cloud",
@@ -1406,7 +1397,7 @@ Note: There is no progress meter while copying is in progress.
 										"accepts string labels corresponding to bounding boxes within images",
 								},
 							},
-							Action: createCommandWithT[emptyArgs](DataDeleteBinaryAction),
+							Action: createActionCommandWithT[emptyArgs](DataDeleteBinaryAction),
 						},
 						{
 							Name:      "tabular",
@@ -1423,7 +1414,7 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 								},
 							},
-							Action: createCommandWithT[dataDeleteTabularArgs](DataDeleteTabularAction),
+							Action: createActionCommandWithT[dataDeleteTabularArgs](DataDeleteTabularAction),
 						},
 					},
 				},
@@ -1432,7 +1423,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "interact with a MongoDB Atlas Data Federation instance",
 					UsageText:       createUsageText("data database", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "configure",
 							Usage:     "configures a database user for the Viam org's MongoDB Atlas Data Federation instance",
@@ -1448,8 +1439,8 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 								},
 							},
-							Before: createCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUserConfirmation),
-							Action: createCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUser),
+							Before: createBeforeCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUserConfirmation),
+							Action: createActionCommandWithT[dataConfigureDatabaseUserArgs](DataConfigureDatabaseUser),
 						},
 						{
 							Name:      "hostname",
@@ -1461,7 +1452,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "org ID for the database user",
 								},
 							},
-							Action: createCommandWithT[dataGetDatabaseConnectionArgs](DataGetDatabaseConnection),
+							Action: createActionCommandWithT[dataGetDatabaseConnectionArgs](DataGetDatabaseConnection),
 						},
 					},
 				},
@@ -1470,13 +1461,13 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "tag binary data by filter or ids",
 					UsageText:       createUsageText("data tag", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:            "ids",
 							Usage:           "adds or removes tags from binary data by binary data ids for a given org and location",
 							UsageText:       createUsageText("data tag ids", nil, true, false),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:  "add",
 									Usage: "adds tags to binary data by binary data ids for a given org and location",
@@ -1484,7 +1475,7 @@ Note: There is no progress meter while copying is in progress.
 										"data tag ids add", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
+									Action: createActionCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 								{
 									Name:  "remove",
@@ -1493,7 +1484,7 @@ Note: There is no progress meter while copying is in progress.
 										"data tag ids remove", []string{generalFlagTags, dataFlagBinaryDataIDs}, false, false,
 									),
 									Flags:  dataTagByIDsFlags,
-									Action: createCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
+									Action: createActionCommandWithT[dataTagByIDsArgs](DataTagActionByIDs),
 								},
 							},
 						},
@@ -1502,20 +1493,20 @@ Note: There is no progress meter while copying is in progress.
 							Usage:           "adds or removes tags from binary data by filter",
 							UsageText:       createUsageText("data tag filter", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:      "add",
 									Usage:     "adds tags to binary data by filter",
 									UsageText: createUsageText("data tag filter add", []string{generalFlagTags}, false, false),
 									Flags:     dataTagByFilterFlags,
-									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
+									Action:    createActionCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 								{
 									Name:      "remove",
 									Usage:     "removes tags from binary data by filter",
 									UsageText: createUsageText("data tag filter remove", []string{generalFlagTags}, false, false),
 									Flags:     dataTagByFilterFlags,
-									Action:    createCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
+									Action:    createActionCommandWithT[dataTagByFilterArgs](DataTagActionByFilter),
 								},
 							},
 						},
@@ -1526,7 +1517,7 @@ Note: There is no progress meter while copying is in progress.
 					Usage:           "manage indexes for hot data and pipeline sink collections",
 					UsageText:       createUsageText("data index", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:  "create",
 							Usage: "create an index for a data collection",
@@ -1548,14 +1539,14 @@ Note: There is no progress meter while copying is in progress.
 									Required: false,
 									Usage:    "name of the pipeline associated with the index when collection type is 'pipeline-sink'",
 								},
-								&cli.PathFlag{
+								&cli.StringFlag{
 									Name:      dataFlagIndexSpecFile,
 									Required:  true,
 									Usage:     "path to index specification JSON file",
 									TakesFile: true,
 								},
 							},
-							Action: createCommandWithT[createCustomIndexArgs](CreateCustomIndexAction),
+							Action: createActionCommandWithT[createCustomIndexArgs](CreateCustomIndexAction),
 						},
 						{
 							Name:      "delete",
@@ -1582,7 +1573,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "name of the index to delete",
 								},
 							},
-							Action: createCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexAction),
+							Action: createActionCommandWithT[deleteCustomIndexArgs](DeleteCustomIndexAction),
 						},
 						{
 							Name:      "list",
@@ -1599,7 +1590,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
 							},
-							Action: createCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
+							Action: createActionCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
 						},
 					},
 				},
@@ -1610,7 +1601,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with datasets",
 			UsageText:       createUsageText("dataset", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "create",
 					Usage:     "create a new dataset",
@@ -1626,7 +1617,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "name of the new dataset",
 						},
 					},
-					Action: createCommandWithT[datasetCreateArgs](DatasetCreateAction),
+					Action: createActionCommandWithT[datasetCreateArgs](DatasetCreateAction),
 				},
 				{
 					Name:  "rename",
@@ -1645,7 +1636,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "new name for the dataset",
 						},
 					},
-					Action: createCommandWithT[datasetRenameArgs](DatasetRenameAction),
+					Action: createActionCommandWithT[datasetRenameArgs](DatasetRenameAction),
 				},
 				{
 					Name:  "list",
@@ -1663,7 +1654,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage: fmt.Sprintf("org ID for which datasets will be listed, required if '%s' is not given", datasetFlagDatasetIDs),
 						},
 					},
-					Action: createCommandWithT[datasetListArgs](DatasetListAction),
+					Action: createActionCommandWithT[datasetListArgs](DatasetListAction),
 				},
 				{
 					Name:      "delete",
@@ -1676,7 +1667,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "ID of the dataset to be deleted",
 						},
 					},
-					Action: createCommandWithT[datasetDeleteArgs](DatasetDeleteAction),
+					Action: createActionCommandWithT[datasetDeleteArgs](DatasetDeleteAction),
 				},
 				{
 					Name:  "export",
@@ -1684,10 +1675,11 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("dataset export",
 						[]string{generalFlagDestination, datasetFlagDatasetID}, true, false),
 					Flags: []cli.Flag{
-						&cli.PathFlag{
-							Name:     generalFlagDestination,
-							Required: true,
-							Usage:    "output directory for downloaded data",
+						&cli.StringFlag{
+							Name:      generalFlagDestination,
+							Required:  true,
+							Usage:     "output directory for downloaded data",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:     datasetFlagDatasetID,
@@ -1713,7 +1705,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "force the use of Linux-style paths for the dataset.jsonl file",
 						},
 					},
-					Action: createCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
+					Action: createActionCommandWithT[datasetDownloadArgs](DatasetDownloadAction),
 				},
 				{
 					Name:      "merge",
@@ -1735,21 +1727,21 @@ Note: There is no progress meter while copying is in progress.
 							Usage:    "dataset IDs to merge (comma-separated list)",
 						},
 					},
-					Action: createCommandWithT[datasetMergeArgs](DatasetMergeAction),
+					Action: createActionCommandWithT[datasetMergeArgs](DatasetMergeAction),
 				},
 				{
 					Name:            "data",
 					Usage:           "add or remove data from datasets",
 					UsageText:       createUsageText("dataset data", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						//nolint:dupl
 						{
 							Name:            "add",
 							Usage:           "adds binary data either by IDs or filter to dataset",
 							UsageText:       createUsageText("dataset data add", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:  "ids",
 									Usage: "adds binary data with binary data ids in a single org and location to dataset",
@@ -1768,7 +1760,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 									},
-									Action: createCommandWithT[dataAddToDatasetByIDsArgs](DataAddToDatasetByIDs),
+									Action: createActionCommandWithT[dataAddToDatasetByIDsArgs](DataAddToDatasetByIDs),
 								},
 								{
 									Name:      "filter",
@@ -1788,7 +1780,7 @@ Note: There is no progress meter while copying is in progress.
 										},
 									},
 										commonFilterFlags...),
-									Action: createCommandWithT[dataAddToDatasetByFilterArgs](DataAddToDatasetByFilter),
+									Action: createActionCommandWithT[dataAddToDatasetByFilterArgs](DataAddToDatasetByFilter),
 								},
 							},
 						},
@@ -1798,7 +1790,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage:           "removes binary data either by IDs or filter from dataset",
 							UsageText:       createUsageText("dataset data remove", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:  "ids",
 									Usage: "removes binary data with binary data ids in a single org and location from a dataset",
@@ -1817,7 +1809,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 									},
-									Action: createCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
+									Action: createActionCommandWithT[dataRemoveFromDatasetArgs](DataRemoveFromDataset),
 								},
 								{
 									Name:      "filter",
@@ -1837,7 +1829,7 @@ Note: There is no progress meter while copying is in progress.
 										},
 									},
 										commonFilterFlags...),
-									Action: createCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
+									Action: createActionCommandWithT[dataRemoveFromDatasetByFilterArgs](DataRemoveFromDatasetByFilter),
 								},
 							},
 						},
@@ -1850,7 +1842,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "manage and track data pipelines",
 			UsageText:       createUsageText("datapipelines", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:  "list",
 					Usage: "list data pipelines for an organization ID",
@@ -1862,7 +1854,7 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "organization ID for which data pipelines will be listed",
 						},
 					},
-					Action: createCommandWithT[datapipelineListArgs](DatapipelineListAction),
+					Action: createActionCommandWithT[datapipelineListArgs](DatapipelineListAction),
 				},
 				{
 					Name:      "describe",
@@ -1875,7 +1867,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
+					Action: createActionCommandWithT[datapipelineDescribeArgs](DatapipelineDescribeAction),
 				},
 				{
 					Name:  "create",
@@ -1923,7 +1915,7 @@ Note: There is no progress meter while copying is in progress.
 							),
 						},
 					},
-					Action: createCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
+					Action: createActionCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
 				},
 				{
 					Name:      "rename",
@@ -1941,7 +1933,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
+					Action: createActionCommandWithT[datapipelineRenameArgs](DatapipelineRenameAction),
 				},
 				{
 					Name:      "delete",
@@ -1954,7 +1946,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
+					Action: createActionCommandWithT[datapipelineDeleteArgs](DatapipelineDeleteAction),
 				},
 				{
 					Name:      "enable",
@@ -1967,7 +1959,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineEnableArgs](DatapipelineEnableAction),
+					Action: createActionCommandWithT[datapipelineEnableArgs](DatapipelineEnableAction),
 				},
 				{
 					Name:      "disable",
@@ -1980,7 +1972,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[datapipelineDisableArgs](DatapipelineDisableAction),
+					Action: createActionCommandWithT[datapipelineDisableArgs](DatapipelineDisableAction),
 				},
 			},
 		},
@@ -1989,12 +1981,12 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "train on data",
 			UsageText:       createUsageText("train", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "containers",
 					Usage:     "returns container information for custom training",
 					UsageText: createUsageText("train containers", nil, false, false),
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "list",
 							Usage:     "lists supported containers for custom training",
@@ -2005,7 +1997,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "show container URIs with the list of containers",
 								},
 							},
-							Action: createCommandWithT[mlListContainersArgs](MLListContainers),
+							Action: createActionCommandWithT[mlListContainersArgs](MLListContainers),
 						},
 					},
 				},
@@ -2013,7 +2005,7 @@ Note: There is no progress meter while copying is in progress.
 					Name:      "submit",
 					Usage:     "submits training job on data in Viam cloud",
 					UsageText: createUsageText("train submit", nil, false, true),
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:  "managed",
 							Usage: "submits training job on data in Viam cloud with a Viam-managed training script",
@@ -2064,14 +2056,14 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: "current timestamp",
 								},
 							},
-							Action: createCommandWithT[mlSubmitTrainingJobArgs](MLSubmitTrainingJob),
+							Action: createActionCommandWithT[mlSubmitTrainingJobArgs](MLSubmitTrainingJob),
 						},
 						{
 							Name:            "custom",
 							Usage:           "submits custom training job on data in Viam cloud",
 							UsageText:       createUsageText("train submit custom", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:  "from-registry",
 									Usage: "submits custom training job with an existing training script in the registry on data in Viam cloud",
@@ -2125,7 +2117,7 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
-									Action: createCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
+									Action: createActionCommandWithT[mlSubmitCustomTrainingJobArgs](MLSubmitCustomTrainingJob),
 								},
 								{
 									Name:  "with-upload",
@@ -2158,9 +2150,10 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "url of Github repository associated with the training scripts",
 										},
 										&cli.StringFlag{
-											Name:     generalFlagPath,
-											Usage:    "path to ML training scripts for upload",
-											Required: true,
+											Name:      generalFlagPath,
+											Usage:     "path to ML training scripts for upload",
+											Required:  true,
+											TakesFile: true,
 										},
 										&cli.StringFlag{
 											Name:  generalFlagOrgID,
@@ -2202,7 +2195,7 @@ Note: There is no progress meter while copying is in progress.
 											Usage: "command line arguments to run the training script with. should be formatted as option1=value1,option2=value2",
 										},
 									},
-									Action: createCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),
+									Action: createActionCommandWithT[mlSubmitCustomTrainingJobWithUploadArgs](MLSubmitCustomTrainingJobWithUpload),
 								},
 							},
 						},
@@ -2219,7 +2212,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[dataGetTrainingJobArgs](DataGetTrainingJob),
+					Action: createActionCommandWithT[dataGetTrainingJobArgs](DataGetTrainingJob),
 				},
 				{
 					Name:      "logs",
@@ -2232,7 +2225,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[mlGetTrainingJobLogsArgs](MLGetTrainingJobLogs),
+					Action: createActionCommandWithT[mlGetTrainingJobLogsArgs](MLGetTrainingJobLogs),
 				},
 				{
 					Name:      "cancel",
@@ -2245,7 +2238,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[dataCancelTrainingJobArgs](DataCancelTrainingJob),
+					Action: createActionCommandWithT[dataCancelTrainingJobArgs](DataCancelTrainingJob),
 				},
 				{
 					Name:      "list",
@@ -2262,7 +2255,7 @@ Note: There is no progress meter while copying is in progress.
 							Value: defaultTrainingStatus(),
 						},
 					},
-					Action: createCommandWithT[dataListTrainingJobsArgs](DataListTrainingJobs),
+					Action: createActionCommandWithT[dataListTrainingJobsArgs](DataListTrainingJobs),
 				},
 			},
 		},
@@ -2272,7 +2265,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "work with machines",
 			UsageText:       createUsageText("machines", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "create",
 					Usage:     "Create a new machine",
@@ -2296,7 +2289,7 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
-					Action: createCommandWithT(CreateMachineAction),
+					Action: createActionCommandWithT(CreateMachineAction),
 				},
 				{
 					Name:      "delete",
@@ -2323,7 +2316,7 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
-					Action: createCommandWithT(DeleteMachineAction),
+					Action: createActionCommandWithT(DeleteMachineAction),
 				},
 				{
 					Name:      "update",
@@ -2356,7 +2349,7 @@ Note: There is no progress meter while copying is in progress.
 							Name: generalFlagNewName,
 						},
 					},
-					Action: createCommandWithT(UpdateMachineAction),
+					Action: createActionCommandWithT(UpdateMachineAction),
 				},
 				{
 					Name:      "list",
@@ -2382,14 +2375,14 @@ Note: There is no progress meter while copying is in progress.
 							Usage: "list all machines in the organization. overrides location flag",
 						},
 					},
-					Action: createCommandWithT[listRobotsActionArgs](ListRobotsAction),
+					Action: createActionCommandWithT[listRobotsActionArgs](ListRobotsAction),
 				},
 				{
 					Name:            "api-key",
 					Usage:           "work with a machine's api keys",
 					UsageText:       createUsageText("machines api-key", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "create",
 							Usage:     "create an api-key for your machine",
@@ -2414,7 +2407,7 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: "default-org value if set, else the org attached to the machine if only one exists",
 								},
 							},
-							Action: createCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
+							Action: createActionCommandWithT[robotAPIKeyCreateArgs](RobotAPIKeyCreateAction),
 						},
 					},
 				},
@@ -2445,7 +2438,7 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
-					Action: createCommandWithT[robotsStatusArgs](RobotsStatusAction),
+					Action: createActionCommandWithT[robotsStatusArgs](RobotsStatusAction),
 				},
 				{
 					Name:      "logs",
@@ -2505,14 +2498,14 @@ Note: There is no progress meter while copying is in progress.
 							DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 						},
 					},
-					Action: createCommandWithT[robotsLogsArgs](RobotsLogsAction),
+					Action: createActionCommandWithT[robotsLogsArgs](RobotsLogsAction),
 				},
 				{
 					Name:            "part",
 					Usage:           "work with a machine part",
 					UsageText:       createUsageText("machines part", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "create",
 							Usage:     "create a machine part",
@@ -2542,14 +2535,14 @@ Note: There is no progress meter while copying is in progress.
 									},
 								},
 							},
-							Action: createCommandWithT(machinesPartCreateAction),
+							Action: createActionCommandWithT(machinesPartCreateAction),
 						},
 						{
 							Name:      "delete",
 							Usage:     "delete a robot part",
 							UsageText: createUsageText("machines part delete", []string{generalFlagPart}, true, false),
 							Flags:     commonPartFlags,
-							Action:    createCommandWithT(machinesPartDeleteAction),
+							Action:    createActionCommandWithT(machinesPartDeleteAction),
 						},
 						{
 							Name:  "add-resource",
@@ -2576,14 +2569,14 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "subtype of resource (e.g., arm). Use with standard resource subtypes",
 								},
 							}...),
-							Action: createCommandWithT(robotsPartAddResourceAction),
+							Action: createActionCommandWithT(robotsPartAddResourceAction),
 						},
 						{
 							Name:      "remove-resource",
 							Usage:     "remove a resource from a machine part",
 							UsageText: createUsageText("machines part remove-resource", []string{generalFlagPart, generalFlagName}, true, false),
 							Flags:     append(commonPartFlags, &cli.StringFlag{Name: generalFlagName, Required: true}),
-							Action:    createCommandWithT(robotsPartRemoveResourceAction),
+							Action:    createActionCommandWithT(robotsPartRemoveResourceAction),
 						},
 						{
 							Name:      "status",
@@ -2618,7 +2611,7 @@ Note: There is no progress meter while copying is in progress.
 									},
 								},
 							},
-							Action: createCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
+							Action: createActionCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
 						},
 						{
 							Name:      "logs",
@@ -2677,14 +2670,14 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: fmt.Sprintf("%v", defaultNumLogs),
 								},
 							},
-							Action: createCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
+							Action: createActionCommandWithT[robotsPartLogsArgs](RobotsPartLogsAction),
 						},
 						{
 							Name:            "fragments",
 							Usage:           "work with fragments on a part",
 							UsageText:       createUsageText("machines part fragments", nil, false, true),
 							HideHelpCommand: true,
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:      "add",
 									Usage:     "add a fragment to a part",
@@ -2693,7 +2686,7 @@ Note: There is no progress meter while copying is in progress.
 										Name:  generalFlagFragment,
 										Usage: "fragment name or ID to add (if not provided, uses interactive selection)",
 									}),
-									Action: createCommandWithT(RobotsPartAddFragmentAction),
+									Action: createActionCommandWithT(RobotsPartAddFragmentAction),
 								},
 								{
 									Name:      "remove",
@@ -2703,7 +2696,7 @@ Note: There is no progress meter while copying is in progress.
 										Name:  generalFlagFragment,
 										Usage: "fragment name or ID to remove (if not provided, uses interactive selection)",
 									}),
-									Action: createCommandWithT(RobotsPartRemoveFragmentAction),
+									Action: createActionCommandWithT(RobotsPartRemoveFragmentAction),
 								},
 							},
 						},
@@ -2740,7 +2733,7 @@ Note: There is no progress meter while copying is in progress.
 									},
 								},
 							},
-							Action: createCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
+							Action: createActionCommandWithT[robotsPartRestartArgs](RobotsPartRestartAction),
 						},
 						{
 							Name:      "run",
@@ -2791,7 +2784,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:   "component name - automatically sets 'name' in data and resolves short method names",
 								},
 							},
-							Action: createCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
+							Action: createActionCommandWithT[machinesPartRunArgs](MachinesPartRunAction),
 						},
 						{
 							Name:  "shell",
@@ -2802,7 +2795,7 @@ Organization and location are required flags if the machine/part name are not un
 `,
 							UsageText: createUsageText("machines part shell", []string{generalFlagPart}, false, false),
 							Flags:     commonPartFlags,
-							Action:    createCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
+							Action:    createActionCommandWithT[robotsPartShellArgs](RobotsPartShellAction),
 						},
 						{
 							Name:      "list",
@@ -2825,7 +2818,7 @@ Organization and location are required flags if the machine/part name are not un
 									Aliases: []string{generalFlagLocationID, generalFlagAliasLocationName},
 								},
 							},
-							Action: createCommandWithT[machinesPartListArgs](MachinesPartListAction),
+							Action: createActionCommandWithT[machinesPartListArgs](MachinesPartListAction),
 						},
 						{
 							Name:  "cp",
@@ -2879,7 +2872,7 @@ Copy multiple files from the machine to a local destination with recursion and k
 									Usage:   "hide progress of the file transfer",
 								},
 							}...),
-							Action: createCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
+							Action: createActionCommandWithT[machinesPartCopyFilesArgs](MachinesPartCopyFilesAction),
 						},
 						{
 							Name:  "get-ftdc",
@@ -2896,7 +2889,7 @@ Note: There is no progress meter while copying is in progress.
 								true, false,
 								"[target]"),
 							Flags:  commonPartFlags,
-							Action: createCommandWithT(MachinesPartGetFTDCAction),
+							Action: createActionCommandWithT(MachinesPartGetFTDCAction),
 						},
 						{
 							Name:  "tunnel",
@@ -2914,20 +2907,20 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 								},
 							}...),
-							Action: createCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
+							Action: createActionCommandWithT[robotsPartTunnelArgs](RobotsPartTunnelAction),
 						},
 						{
 							Name: "motion",
-							Subcommands: []*cli.Command{
+							Commands: []*cli.Command{
 								{
 									Name:   "print-config",
 									Flags:  commonPartFlags,
-									Action: createCommandWithT[motionPrintArgs](motionPrintConfigAction),
+									Action: createActionCommandWithT[motionPrintArgs](motionPrintConfigAction),
 								},
 								{
 									Name:   "print-status",
 									Flags:  commonPartFlags,
-									Action: createCommandWithT[motionPrintArgs](motionPrintStatusAction),
+									Action: createActionCommandWithT[motionPrintArgs](motionPrintStatusAction),
 								},
 
 								{
@@ -2938,7 +2931,7 @@ Note: There is no progress meter while copying is in progress.
 											Required: true,
 										},
 									}...),
-									Action: createCommandWithT[motionGetPoseArgs](motionGetPoseAction),
+									Action: createActionCommandWithT[motionGetPoseArgs](motionGetPoseAction),
 								},
 								{
 									Name: "set-pose",
@@ -2955,7 +2948,7 @@ Note: There is no progress meter while copying is in progress.
 										&cli.Float64SliceFlag{Name: "oz"},
 										&cli.Float64SliceFlag{Name: "theta"},
 									}...),
-									Action: createCommandWithT[motionSetPoseArgs](motionSetPoseAction),
+									Action: createActionCommandWithT[motionSetPoseArgs](motionSetPoseAction),
 								},
 							},
 						},
@@ -2968,7 +2961,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "manage the metadata attached to your orgs, locations, machines, and/or machine parts",
 			UsageText:       createUsageText("metadata", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "read",
 					Usage:     "read metadata attached to your orgs, locations, machines, and/or machine parts",
@@ -3003,7 +2996,7 @@ Note: There is no progress meter while copying is in progress.
 							},
 						},
 					},
-					Action: createCommandWithT[metadataReadArgs](MetadataReadAction),
+					Action: createActionCommandWithT[metadataReadArgs](MetadataReadAction),
 				},
 			},
 		},
@@ -3012,7 +3005,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "tools for working with xacro files",
 			UsageText:       createUsageText("xacro", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "convert",
 					Usage:     "convert a xacro file to URDF",
@@ -3059,7 +3052,7 @@ Note: There is no progress meter while copying is in progress.
 							Value: true,
 						},
 					},
-					Action: createCommandWithT[xacroConvertArgs](XacroConvertAction),
+					Action: createActionCommandWithT[xacroConvertArgs](XacroConvertAction),
 				},
 			},
 		},
@@ -3068,7 +3061,7 @@ Note: There is no progress meter while copying is in progress.
 			Usage:           "manage your modules in Viam's registry",
 			UsageText:       createUsageText("module", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name: "local-app-testing",
 					Usage: "Test your viam application locally. This will stand up a local proxy at http://localhost:8012 to simulate " +
@@ -3089,7 +3082,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: false,
 						},
 					},
-					Action: createCommandWithT[localAppTestingArgs](LocalAppTestingAction),
+					Action: createActionCommandWithT[localAppTestingArgs](LocalAppTestingAction),
 				},
 				{
 					Name:  "create",
@@ -3123,7 +3116,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Usage: "create a meta.json file for local use, but don't create the module on the backend",
 						},
 					},
-					Action: createCommandWithT[createModuleActionArgs](CreateModuleAction),
+					Action: createActionCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
 					Name:      "generate",
@@ -3174,7 +3167,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Hidden: true,
 						},
 					},
-					Action: createCommandWithT[generateModuleArgs](GenerateModuleAction),
+					Action: createActionCommandWithT[generateModuleArgs](GenerateModuleAction),
 				},
 				{
 					Name:      "update",
@@ -3188,7 +3181,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 					},
-					Action: createCommandWithT[updateModuleArgs](UpdateModuleAction),
+					Action: createActionCommandWithT[updateModuleArgs](UpdateModuleAction),
 				},
 				{
 					Name:      "update-models",
@@ -3207,7 +3200,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Required: true,
 						},
 					},
-					Action: createCommandWithT[updateModelsArgs](UpdateModelsAction),
+					Action: createActionCommandWithT[updateModelsArgs](UpdateModelsAction),
 				},
 				{
 					Name:  "upload",
@@ -3279,7 +3272,7 @@ viam module upload --version "0.1.0" --platform "linux/amd64" --upload "./bin"
 							Required: false, // should be true, but set to false to allow for backwards compatibility
 						},
 					},
-					Action: createCommandWithT[uploadModuleArgs](UploadModuleAction),
+					Action: createActionCommandWithT[uploadModuleArgs](UploadModuleAction),
 				},
 				{
 					Name:            "build",
@@ -3300,7 +3293,7 @@ Example:
   }
 }
 `,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:      "local",
 							Usage:     "run your meta.json build command locally",
@@ -3313,7 +3306,7 @@ Example:
 									TakesFile: true,
 								},
 							},
-							Action: createCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
+							Action: createActionCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
 						},
 						{
 							Name:      "start",
@@ -3351,7 +3344,7 @@ Example:
 									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
 								},
 							},
-							Action: createCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
+							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
 						},
 						{
 							Name:      "list",
@@ -3375,7 +3368,7 @@ Example:
 									Usage: "restrict output to just return builds that match this id",
 								},
 							},
-							Action: createCommandWithT[moduleBuildListArgs](ModuleBuildListAction),
+							Action: createActionCommandWithT[moduleBuildListArgs](ModuleBuildListAction),
 						},
 						{
 							Name:      "logs",
@@ -3405,7 +3398,7 @@ Example:
 									Usage: "write ::group:: commands so github action logs collapse",
 								},
 							},
-							Action: createCommandWithT[moduleBuildLogsArgs](ModuleBuildLogsAction),
+							Action: createActionCommandWithT[moduleBuildLogsArgs](ModuleBuildLogsAction),
 						},
 						{
 							Name:      "link-repo",
@@ -3432,7 +3425,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 									Usage: "your github repository in account/repository form (e.g. viamrobotics/rdk, not github.com/viamrobotics/rdk)",
 								},
 							},
-							Action: createCommandWithT[moduleBuildLinkRepoArgs](ModuleBuildLinkRepoAction),
+							Action: createActionCommandWithT[moduleBuildLinkRepoArgs](ModuleBuildLinkRepoAction),
 						},
 					},
 				},
@@ -3459,13 +3452,14 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  generalFlagID,
 							Usage: "ID of module to restart, for example viam:wifi-sensor. pass at most one of --name, --id",
 						},
-						&cli.PathFlag{
-							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
-							Value: "/etc/viam.json",
+						&cli.StringFlag{
+							Name:      moduleBuildFlagCloudConfig,
+							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Value:     "/etc/viam.json",
+							TakesFile: true,
 						},
 					},
-					Action: createCommandWithT[moduleRestartArgs](ModuleRestartAction),
+					Action: createActionCommandWithT[moduleRestartArgs](ModuleRestartAction),
 				},
 				{
 					Name:      "reload-local",
@@ -3526,10 +3520,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
 						},
-						&cli.PathFlag{
-							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
-							Value: "/etc/viam.json",
+						&cli.StringFlag{
+							Name:      moduleBuildFlagCloudConfig,
+							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Value:     "/etc/viam.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagModelName,
@@ -3547,7 +3542,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							DefaultText: "resource type with a unique numerical suffix",
 						},
 					},
-					Action: createCommandWithT[reloadModuleArgs](ReloadModuleLocalAction),
+					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleLocalAction),
 				},
 				{
 					Name:      "reload",
@@ -3593,10 +3588,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
 							Value: "~",
 						},
-						&cli.PathFlag{
-							Name:  moduleBuildFlagCloudConfig,
-							Usage: "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
-							Value: "/etc/viam.json",
+						&cli.StringFlag{
+							Name:      moduleBuildFlagCloudConfig,
+							Usage:     "Provide the location of the viam.json file, used to look up the part ID using the machine ID. Alternative to --part-id.",
+							Value:     "/etc/viam.json",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagModelName,
@@ -3617,19 +3613,21 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:        generalFlagPath,
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
+							TakesFile:   true,
 						},
 					},
-					Action: createCommandWithT[reloadModuleArgs](ReloadModuleAction),
+					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),
 				},
 				{
 					Name:      "download",
 					Usage:     "download a module package from the registry",
 					UsageText: createUsageText("module download", []string{}, true, false),
 					Flags: []cli.Flag{
-						&cli.PathFlag{
-							Name:  generalFlagDestination,
-							Usage: "output directory for downloaded package",
-							Value: ".",
+						&cli.StringFlag{
+							Name:      generalFlagDestination,
+							Usage:     "output directory for downloaded package",
+							Value:     ".",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagID,
@@ -3647,7 +3645,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							DefaultText: "platform of the CLI binary",
 						},
 					},
-					Action: createCommandWithT[downloadModuleFlags](DownloadModuleAction),
+					Action: createActionCommandWithT[downloadModuleFlags](DownloadModuleAction),
 				},
 			},
 		},
@@ -3656,16 +3654,17 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Usage:           "work with packages",
 			UsageText:       createUsageText("packages", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "export",
 					Usage:     "download a package from Viam cloud",
 					UsageText: createUsageText("packages export", []string{generalFlagType}, false, false),
 					Flags: []cli.Flag{
-						&cli.PathFlag{
-							Name:  generalFlagDestination,
-							Usage: "output directory for downloaded package",
-							Value: ".",
+						&cli.StringFlag{
+							Name:      generalFlagDestination,
+							Usage:     "output directory for downloaded package",
+							Value:     ".",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:        generalFlagOrgID,
@@ -3688,7 +3687,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:    formatAcceptedValues("type of the requested package", packageTypes...),
 						},
 					},
-					Action: createCommandWithT[packageExportArgs](PackageExportAction),
+					Action: createActionCommandWithT[packageExportArgs](PackageExportAction),
 				},
 				{
 					Name:  "upload",
@@ -3697,10 +3696,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						[]string{generalFlagPath, generalFlagOrgID, generalFlagName, generalFlagVersion, generalFlagType},
 						false, false),
 					Flags: []cli.Flag{
-						&cli.PathFlag{
-							Name:     generalFlagPath,
-							Required: true,
-							Usage:    "path to package for upload",
+						&cli.StringFlag{
+							Name:      generalFlagPath,
+							Required:  true,
+							Usage:     "path to package for upload",
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
@@ -3734,7 +3734,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							),
 						},
 					},
-					Action: createCommandWithT[packageUploadArgs](PackageUploadAction),
+					Action: createActionCommandWithT[packageUploadArgs](PackageUploadAction),
 				},
 			},
 		},
@@ -3743,16 +3743,17 @@ This won't work unless you have an existing installation of our GitHub app on yo
 			Usage:           "manage training scripts for custom ML training",
 			UsageText:       createUsageText("training-script", nil, false, true),
 			HideHelpCommand: true,
-			Subcommands: []*cli.Command{
+			Commands: []*cli.Command{
 				{
 					Name:      "upload",
 					Usage:     "upload ML training scripts for custom ML training",
 					UsageText: createUsageText("training-script upload", []string{generalFlagOrgID, generalFlagPath, mlTrainingFlagName}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
-							Name:     generalFlagPath,
-							Usage:    "path to ML training scripts for upload",
-							Required: true,
+							Name:      generalFlagPath,
+							Usage:     "path to ML training scripts for upload",
+							Required:  true,
+							TakesFile: true,
 						},
 						&cli.StringFlag{
 							Name:  generalFlagOrgID,
@@ -3790,7 +3791,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Required: false,
 						},
 					},
-					Action: createCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
+					Action: createActionCommandWithT[mlTrainingUploadArgs](MLTrainingUploadAction),
 				},
 				{
 					Name:  "update",
@@ -3822,7 +3823,7 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage: "url of Github repository associated with the training scripts",
 						},
 					},
-					Action: createCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
+					Action: createActionCommandWithT[mlTrainingUpdateArgs](MLTrainingUpdateAction),
 				},
 				{
 					Name:  "test-local",
@@ -3892,7 +3893,7 @@ NOTES:
 							Usage: "custom arguments to pass to the training script (format: key=value)",
 						},
 					},
-					Action: createCommandWithT[mlTrainingScriptTestLocalArgs](MLTrainingScriptTestLocalAction),
+					Action: createActionCommandWithT[mlTrainingScriptTestLocalArgs](MLTrainingScriptTestLocalAction),
 				},
 			},
 		},
@@ -3928,19 +3929,19 @@ NOTES:
 					Required: true,
 				},
 			},
-			Action: createCommandWithT[mlInferenceInferArgs](MLInferenceInferAction),
+			Action: createActionCommandWithT[mlInferenceInferArgs](MLInferenceInferAction),
 		},
 		{
 			Name:      "version",
 			Usage:     "print version info for this program",
 			UsageText: createUsageText("version", nil, false, false),
-			Action:    createCommandWithT[emptyArgs](VersionAction),
+			Action:    createActionCommandWithT[emptyArgs](VersionAction),
 		},
 		{
 			Name:      "update",
 			Usage:     "update the CLI to the latest version",
 			UsageText: createUsageText("update", nil, false, false),
-			Action:    createCommandWithT[emptyArgs](UpdateCLIAction),
+			Action:    createActionCommandWithT[emptyArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",
@@ -3950,26 +3951,27 @@ NOTES:
 			),
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:     generalFlagPath,
-					Required: true,
-					Usage:    "absolute file path to the ftdc file",
+					Name:      generalFlagPath,
+					Required:  true,
+					Usage:     "absolute file path to the ftdc file",
+					TakesFile: true,
 				},
 			},
-			Action: createCommandWithT[ftdcArgs](FTDCParseAction),
+			Action: createActionCommandWithT[ftdcArgs](FTDCParseAction),
 		},
 	},
 }
 
 // NewApp returns a new app with the CLI API, Writer set to out, and ErrWriter
 // set to errOut.
-func NewApp(out, errOut io.Writer) *cli.App {
+func NewApp(out, errOut io.Writer) *cli.Command {
 	app.Writer = out
 	app.ErrWriter = errOut
 	return app
 }
 
 // return a shallow copy of global `app` to support test parallelism.
-func newTestApp(out, errOut io.Writer) *cli.App {
+func newTestApp(out, errOut io.Writer) *cli.Command {
 	appCopy := *app
 	appCopy.Writer = out
 	appCopy.ErrWriter = errOut

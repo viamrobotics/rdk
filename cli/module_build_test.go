@@ -79,7 +79,7 @@ func TestStartBuild(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3"}, "token")
-	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -93,7 +93,7 @@ func TestStartBuild(t *testing.T) {
 	out.messages = nil
 	errOut.messages = nil
 
-	path, err = ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err = ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "meta.json must have a url field set in order to start a cloud build")
 	test.That(t, path, test.ShouldBeEmpty)
@@ -117,7 +117,7 @@ func TestListBuild(t *testing.T) {
 			}}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifest}, "token")
-	err := ac.moduleBuildListAction(cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
+	err := ac.moduleBuildListAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
 	test.That(t, joinedOutput, test.ShouldEqual, `ID     PLATFORM    STATUS VERSION TIME
@@ -235,7 +235,7 @@ func TestLocalBuild(t *testing.T) {
 		map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	manifest, err := loadManifest(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
-	err = moduleBuildLocalAction(cCtx, &manifest, nil)
+	err = moduleBuildLocalAction(context.Background(), cCtx, &manifest, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 

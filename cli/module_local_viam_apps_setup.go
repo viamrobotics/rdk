@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 )
 
@@ -38,35 +38,35 @@ type localAppTestingServer struct {
 }
 
 // LocalAppTestingAction is the action for the local-app-testing command.
-func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
+func LocalAppTestingAction(ctx context.Context, cmd *cli.Command, args localAppTestingArgs) error {
 	serverPort := 8012
-	viamClient, err := newViamClient(ctx)
+	viamClient, err := newViamClient(ctx, cmd)
 	if err != nil {
-		printf(ctx.App.ErrWriter, "error initializing the Viam client: "+err.Error())
+		printf(cmd.Root().ErrWriter, "error initializing the Viam client: "+err.Error())
 		return err
 	}
 
 	localAppTesting := localAppTestingServer{
 		serverURL: fmt.Sprintf("http://localhost:%d", serverPort),
-		logger:    ctx.App.Writer,
+		logger:    cmd.Root().Writer,
 	}
 
-	printf(ctx.App.Writer, "Starting server to locally test viam apps on %s", localAppTesting.serverURL)
-	printf(ctx.App.Writer, "Proxying local app from: %s", args.AppURL)
-	printf(ctx.App.Writer, "Press Ctrl+C to stop the server")
+	printf(cmd.Root().Writer, "Starting server to locally test viam apps on %s", localAppTesting.serverURL)
+	printf(cmd.Root().Writer, "Proxying local app from: %s", args.AppURL)
+	printf(cmd.Root().Writer, "Press Ctrl+C to stop the server")
 
 	var httpServer *http.Server
 
 	// Single-machine Viam app
 	if args.MachineID != "" {
-		printf(ctx.App.Writer, "Local testing for a single-machine Viam app, machine ID: %s", args.MachineID)
+		printf(cmd.Root().Writer, "Local testing for a single-machine Viam app, machine ID: %s", args.MachineID)
 
-		machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx.Context, viamClient.client, args.MachineID)
+		machineAPIKeyID, machineAPIKey, err := getMachineAPIKeys(ctx, viamClient.client, args.MachineID)
 		if err != nil {
 			return err
 		}
 
-		machineHostname, err := getMachineHostname(ctx.Context, viamClient.client, args.MachineID)
+		machineHostname, err := getMachineHostname(ctx, viamClient.client, args.MachineID)
 		if err != nil {
 			return err
 		}
@@ -79,26 +79,26 @@ func LocalAppTestingAction(ctx *cli.Context, args localAppTestingArgs) error {
 		httpServer = localAppTesting.setupHTTPServerSingleMachineApp(serverPort, args.AppURL)
 	} else {
 		// Multi machine Viam app
-		printf(ctx.App.Writer, "Local testing for a multi-machine Viam app")
+		printf(cmd.Root().Writer, "Local testing for a multi-machine Viam app")
 
 		currentToken, found := viamClient.conf.Auth.(*token)
 		if !found || currentToken.AccessToken == "" {
-			printf(ctx.App.ErrWriter, "You need an access token configured in the CLI to proceed. "+
+			printf(cmd.Root().ErrWriter, "You need an access token configured in the CLI to proceed. "+
 				"Run the `viam login` command to re-authenticate, do NOT use an API key")
 		}
 
 		httpServer = localAppTesting.setupHTTPServerMultiMachineApp(serverPort, args.AppURL, currentToken.AccessToken)
 	}
 
-	if err := startServerInBackground(httpServer, ctx.App.Writer); err != nil {
+	if err := startServerInBackground(httpServer, cmd.Root().Writer); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
 
 	if err := openbrowser(fmt.Sprintf("%s/start", localAppTesting.serverURL)); err != nil {
-		printf(ctx.App.Writer, "Warning: Could not open browser: %v", err)
+		printf(cmd.Root().Writer, "Warning: Could not open browser: %v", err)
 	}
 
-	notifyCtx, _ := signal.NotifyContext(ctx.Context, os.Interrupt, syscall.SIGTERM)
+	notifyCtx, _ := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 
 	<-notifyCtx.Done()
 

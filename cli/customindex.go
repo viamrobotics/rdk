@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	pb "go.viam.com/api/app/data/v1"
 )
 
@@ -35,11 +35,11 @@ type createCustomIndexArgs struct {
 
 // CreateCustomIndexAction creates a custom index for a specified organization and collection type
 // using the provided index specification file in the arguments.
-func CreateCustomIndexAction(c *cli.Context, args createCustomIndexArgs) error {
+func CreateCustomIndexAction(ctx context.Context, c *cli.Command, args createCustomIndexArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a custom index")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func CreateCustomIndexAction(c *cli.Context, args createCustomIndexArgs) error {
 		return fmt.Errorf("failed to create index: %w", err)
 	}
 
-	printf(c.App.Writer, "Create index request sent successfully")
+	printf(c.Root().Writer, "Create index request sent successfully")
 
 	return nil
 }
@@ -77,11 +77,11 @@ type deleteCustomIndexArgs struct {
 }
 
 // DeleteCustomIndexAction deletes a custom index for a specified organization and collection type using the provided index name.
-func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
+func DeleteCustomIndexAction(ctx context.Context, c *cli.Command, args deleteCustomIndexArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to delete a custom index")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func DeleteCustomIndexAction(c *cli.Context, args deleteCustomIndexArgs) error {
 		return fmt.Errorf("failed to delete index: %w", err)
 	}
 
-	printf(c.App.Writer, "Index (name: %s) deleted successfully", args.IndexName)
+	printf(c.Root().Writer, "Index (name: %s) deleted successfully", args.IndexName)
 
 	return nil
 }
@@ -113,11 +113,11 @@ type listCustomIndexesArgs struct {
 }
 
 // ListCustomIndexesAction lists all custom indexes for a specified organization and collection type.
-func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
+func ListCustomIndexesAction(ctx context.Context, c *cli.Command, args listCustomIndexesArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to list custom indexes")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -137,20 +137,20 @@ func ListCustomIndexesAction(c *cli.Context, args listCustomIndexesArgs) error {
 	}
 
 	if len(resp.Indexes) == 0 {
-		printf(c.App.Writer, "No indexes found")
+		printf(c.Root().Writer, "No indexes found")
 		return nil
 	}
 
-	printf(c.App.Writer, "Indexes:\n")
+	printf(c.Root().Writer, "Indexes:\n")
 	for _, index := range resp.Indexes {
-		printf(c.App.Writer, "- Name: %s\n", index.IndexName)
-		printf(c.App.Writer, "  Spec: %s\n", index.IndexSpec)
+		printf(c.Root().Writer, "- Name: %s\n", index.IndexName)
+		printf(c.Root().Writer, "  Spec: %s\n", index.IndexSpec)
 	}
 
 	return nil
 }
 
-func validateCollectionTypeArgs(c *cli.Context, collectionType string) (pb.IndexableCollection, error) {
+func validateCollectionTypeArgs(c *cli.Command, collectionType string) (pb.IndexableCollection, error) {
 	var collectionTypeProto pb.IndexableCollection
 	switch collectionType {
 	case hotStoreCollectionTypeStr:

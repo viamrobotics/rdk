@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 )
 
@@ -11,7 +12,7 @@ type defaultsSetOrgArgs struct {
 	OrgID string
 }
 
-func getDefaultOrg(cCtx *cli.Context) (string, error) {
+func getDefaultOrg(cCtx *cli.Command) (string, error) {
 	config, err := ConfigFromCache(cCtx)
 	if err != nil {
 		return "", err
@@ -21,7 +22,7 @@ func getDefaultOrg(cCtx *cli.Context) (string, error) {
 }
 
 // returns the provided org argument if non-empty else the default org value if set, else empty string
-func orgOrDefault(cCtx *cli.Context, orgStr string) string {
+func orgOrDefault(cCtx *cli.Command, orgStr string) string {
 	if orgStr != "" {
 		return orgStr
 	}
@@ -33,7 +34,7 @@ func orgOrDefault(cCtx *cli.Context, orgStr string) string {
 	return org
 }
 
-func locationOrDefault(cCtx *cli.Context, locStr string) string {
+func locationOrDefault(cCtx *cli.Command, locStr string) string {
 	if locStr != "" {
 		return locStr
 	}
@@ -46,7 +47,7 @@ func locationOrDefault(cCtx *cli.Context, locStr string) string {
 	return loc
 }
 
-func getDefaultLocation(cCtx *cli.Context) (string, error) {
+func getDefaultLocation(cCtx *cli.Command) (string, error) {
 	config, err := ConfigFromCache(cCtx)
 	if err != nil {
 		return "", err
@@ -56,12 +57,12 @@ func getDefaultLocation(cCtx *cli.Context) (string, error) {
 }
 
 // verifies that a passed org exists and is accessible, then sets it as the default within the config
-func (c *viamClient) setDefaultOrg(cCtx *cli.Context, config *Config, orgStr string) (*Config, error) {
+func (c *viamClient) setDefaultOrg(ctx context.Context, cCtx *cli.Command, config *Config, orgStr string) (*Config, error) {
 	// we're setting a new default org, so try to verify that it actually exists and there's
 	// permission to access it
 	if orgStr != "" {
-		if orgs, err := c.listOrganizations(); err != nil {
-			warningf(cCtx.App.ErrWriter, "unable to verify existence of org %s: %v", orgStr, err)
+		if orgs, err := c.listOrganizations(ctx); err != nil {
+			warningf(cCtx.Root().ErrWriter, "unable to verify existence of org %s: %v", orgStr, err)
 		} else {
 			orgFound := false
 			for _, org := range orgs {
@@ -87,8 +88,8 @@ func (c *viamClient) setDefaultOrg(cCtx *cli.Context, config *Config, orgStr str
 	return config, nil
 }
 
-func (c *viamClient) writeDefaultOrg(cCtx *cli.Context, config *Config, orgStr string) error {
-	config, err := c.setDefaultOrg(cCtx, config, orgStr)
+func (c *viamClient) writeDefaultOrg(ctx context.Context, cCtx *cli.Command, config *Config, orgStr string) error {
+	config, err := c.setDefaultOrg(ctx, cCtx, config, orgStr)
 	if err != nil {
 		return err
 	}
@@ -96,8 +97,8 @@ func (c *viamClient) writeDefaultOrg(cCtx *cli.Context, config *Config, orgStr s
 	return storeConfigToCache(config)
 }
 
-func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
-	client, err := newViamClient(cCtx)
+func writeDefaultOrg(ctx context.Context, cCtx *cli.Command, orgStr string) error {
+	client, err := newViamClient(ctx, cCtx)
 	if err != nil {
 		return err
 	}
@@ -107,10 +108,10 @@ func writeDefaultOrg(cCtx *cli.Context, orgStr string) error {
 		return err
 	}
 
-	return client.writeDefaultOrg(cCtx, config, orgStr)
+	return client.writeDefaultOrg(ctx, cCtx, config, orgStr)
 }
 
-func (c *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locStr string) (*Config, error) {
+func (c *viamClient) setDefaultLocation(ctx context.Context, cCtx *cli.Command, config *Config, locStr string) (*Config, error) {
 	var err error
 	// we're setting a new default location arg, so verify that the location exists and is
 	// accessible given the current auth settings and default org argument.
@@ -118,17 +119,17 @@ func (c *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locSt
 		orgs := []*apppb.Organization{}
 
 		if config.DefaultOrg == "" {
-			warningf(cCtx.App.ErrWriter, "attempting to set a default location argument when no default org argument is set."+
+			warningf(cCtx.Root().ErrWriter, "attempting to set a default location argument when no default org argument is set."+
 				" This can work, but may result in unexpected behavior.")
 
-			orgs, err = c.listOrganizations()
+			orgs, err = c.listOrganizations(ctx)
 			if err != nil {
-				warningf(cCtx.App.ErrWriter, "unable to list organizations to find location %s: %v", locStr, err)
+				warningf(cCtx.Root().ErrWriter, "unable to list organizations to find location %s: %v", locStr, err)
 			}
 		} else {
-			org, err := c.getOrg(config.DefaultOrg)
+			org, err := c.getOrg(ctx, config.DefaultOrg)
 			if err != nil {
-				warningf(cCtx.App.ErrWriter, "unable to lookup org with default org value %s", config.DefaultOrg)
+				warningf(cCtx.Root().ErrWriter, "unable to lookup org with default org value %s", config.DefaultOrg)
 			} else {
 				orgs = append(orgs, org)
 			}
@@ -136,9 +137,9 @@ func (c *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locSt
 
 		locFound := false
 		for _, org := range orgs {
-			locs, err := c.listLocations(org.Id)
+			locs, err := c.listLocations(ctx, org.Id)
 			if err != nil {
-				warningf(cCtx.App.ErrWriter, "unable to list locations for org %s: %v", org.Id, err)
+				warningf(cCtx.Root().ErrWriter, "unable to list locations for org %s: %v", org.Id, err)
 				continue
 			}
 			for _, loc := range locs {
@@ -172,8 +173,8 @@ func (c *viamClient) setDefaultLocation(cCtx *cli.Context, config *Config, locSt
 	return config, nil
 }
 
-func (c *viamClient) writeDefaultLocation(cCtx *cli.Context, config *Config, locationStr string) error {
-	config, err := c.setDefaultLocation(cCtx, config, locationStr)
+func (c *viamClient) writeDefaultLocation(ctx context.Context, cCtx *cli.Command, config *Config, locationStr string) error {
+	config, err := c.setDefaultLocation(ctx, cCtx, config, locationStr)
 	if err != nil {
 		return err
 	}
@@ -181,8 +182,8 @@ func (c *viamClient) writeDefaultLocation(cCtx *cli.Context, config *Config, loc
 	return storeConfigToCache(config)
 }
 
-func writeDefaultLocation(cCtx *cli.Context, locationStr string) error {
-	client, err := newViamClient(cCtx)
+func writeDefaultLocation(ctx context.Context, cCtx *cli.Command, locationStr string) error {
+	client, err := newViamClient(ctx, cCtx)
 	if err != nil {
 		return err
 	}
@@ -192,25 +193,25 @@ func writeDefaultLocation(cCtx *cli.Context, locationStr string) error {
 		return err
 	}
 
-	return client.writeDefaultLocation(cCtx, config, locationStr)
+	return client.writeDefaultLocation(ctx, cCtx, config, locationStr)
 }
 
-func defaultsSetOrgAction(cCtx *cli.Context, args defaultsSetOrgArgs) error {
-	return writeDefaultOrg(cCtx, args.OrgID)
+func defaultsSetOrgAction(ctx context.Context, cCtx *cli.Command, args defaultsSetOrgArgs) error {
+	return writeDefaultOrg(ctx, cCtx, args.OrgID)
 }
 
-func defaultsClearOrgAction(cCtx *cli.Context, args emptyArgs) error {
-	return writeDefaultOrg(cCtx, "")
+func defaultsClearOrgAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error {
+	return writeDefaultOrg(ctx, cCtx, "")
 }
 
 type defaultsSetLocationArgs struct {
 	LocationID string
 }
 
-func defaultsSetLocationAction(cCtx *cli.Context, args defaultsSetLocationArgs) error {
-	return writeDefaultLocation(cCtx, args.LocationID)
+func defaultsSetLocationAction(ctx context.Context, cCtx *cli.Command, args defaultsSetLocationArgs) error {
+	return writeDefaultLocation(ctx, cCtx, args.LocationID)
 }
 
-func defaultsClearLocationAction(cCtx *cli.Context, args emptyArgs) error {
-	return writeDefaultLocation(cCtx, "")
+func defaultsClearLocationAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error {
+	return writeDefaultLocation(ctx, cCtx, "")
 }

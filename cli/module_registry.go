@@ -20,7 +20,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
@@ -131,7 +131,7 @@ type createModuleActionArgs struct {
 // CreateModuleAction is the corresponding Action for 'module create'. It runs
 // the command to create a module. This includes both a gRPC call to register
 // the module on app.viam.com and creating the manifest file.
-func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
+func CreateModuleAction(ctx context.Context, c *cli.Command, args createModuleActionArgs) error {
 	moduleNameArg := args.Name
 	publicNamespaceArg := args.PublicNamespace
 	orgIDArg := args.OrgID
@@ -143,11 +143,11 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 	if localOnly {
 		org = &apppb.Organization{Id: orgIDArg, PublicNamespace: publicNamespaceArg}
 	} else {
-		client, err = newViamClient(c)
+		client, err = newViamClient(ctx, c)
 		if err != nil {
 			return err
 		}
-		org, err = resolveOrg(client, publicNamespaceArg, orgIDArg)
+		org, err = resolveOrg(ctx, client, publicNamespaceArg, orgIDArg)
 		if err != nil {
 			return err
 		}
@@ -183,7 +183,7 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 			returnedModuleID.prefix = org.Id
 		}
 	} else {
-		response, err := client.createModule(moduleNameArg, org.GetId())
+		response, err := client.createModule(ctx, moduleNameArg, org.GetId())
 		if err != nil {
 			return errors.Wrap(err, "failed to register the module on app.viam.com")
 		}
@@ -191,9 +191,9 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 		if err != nil {
 			return err
 		}
-		printf(c.App.Writer, "Successfully created '%s'", returnedModuleID.String())
+		printf(c.Root().Writer, "Successfully created '%s'", returnedModuleID.String())
 		if response.GetUrl() != "" {
-			printf(c.App.Writer, "You can view it here: %s", response.GetUrl())
+			printf(c.Root().Writer, "You can view it here: %s", response.GetUrl())
 		}
 	}
 
@@ -207,7 +207,7 @@ func CreateModuleAction(c *cli.Context, args createModuleActionArgs) error {
 			return err
 		}
 
-		printf(c.App.Writer, "Configuration for the module has been written to meta.json")
+		printf(c.Root().Writer, "Configuration for the module has been written to meta.json")
 	}
 	return nil
 }
@@ -219,10 +219,10 @@ type updateModuleArgs struct {
 // UpdateModuleAction is the corresponding Action for 'module update'. It runs
 // the command to update a module. This includes updating the meta.json to
 // include the public namespace (if set on the org).
-func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
+func UpdateModuleAction(ctx context.Context, c *cli.Command, args updateModuleArgs) error {
 	manifestPath := args.Module
 
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -237,17 +237,17 @@ func UpdateModuleAction(c *cli.Context, args updateModuleArgs) error {
 		return err
 	}
 
-	validateModels(c.App.ErrWriter, &manifest)
+	validateModels(c.Root().ErrWriter, &manifest)
 
-	response, err := client.updateModule(moduleID, manifest)
+	response, err := client.updateModule(ctx, moduleID, manifest)
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
+	printf(c.Root().Writer, "Module successfully updated! You can view your changes online here: %s", response.GetUrl())
 
 	// if the module id prefix is an org id, check to see if a public namespace has been set and update the manifest if it has
 	if isValidOrgID(moduleID.prefix) {
-		org, err := client.getOrg(moduleID.prefix)
+		org, err := client.getOrg(ctx, moduleID.prefix)
 		if err != nil {
 			return errors.Wrap(err, "failed to update meta.json with new information from Viam")
 		}
@@ -275,7 +275,7 @@ type uploadModuleArgs struct {
 }
 
 // UploadModuleAction is the corresponding action for 'module upload'.
-func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
+func UploadModuleAction(ctx context.Context, c *cli.Command, args uploadModuleArgs) error {
 	manifestPath := args.Module
 	publicNamespaceArg := args.PublicNamespace
 	orgIDArg := args.OrgID
@@ -295,7 +295,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	// Clean the version argument to ensure compatibility with github tag standards
 	versionArg = strings.TrimPrefix(versionArg, "v")
 
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
@@ -330,14 +330,14 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 				moduleID.name)
 		}
 
-		moduleID, err = validateModuleID(client, moduleID.String(), publicNamespaceArg, orgIDArg)
+		moduleID, err = validateModuleID(ctx, client, moduleID.String(), publicNamespaceArg, orgIDArg)
 		if err != nil {
 			return err
 		}
 
-		validateModels(c.App.ErrWriter, &manifest)
+		validateModels(c.Root().ErrWriter, &manifest)
 
-		_, err = client.updateModule(moduleID, manifest)
+		_, err = client.updateModule(ctx, moduleID, manifest)
 		if err != nil {
 			return errors.Wrap(err, "Module update failed. Please correct the following issues in your meta.json")
 		}
@@ -345,7 +345,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 
 	tarballPath := moduleUploadPath
 	if !isTarball(tarballPath) {
-		tarballPath, err = createTarballForUpload(moduleUploadPath, c.App.Writer)
+		tarballPath, err = createTarballForUpload(moduleUploadPath, c.Root().Writer)
 		if err != nil {
 			return err
 		}
@@ -353,19 +353,19 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
+		if err := validateModuleFile(ctx, client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
 				err)
 		}
 	}
 
-	response, err := client.uploadModuleFile(moduleID, versionArg, platformArg, constraints, tarballPath)
+	response, err := client.uploadModuleFile(ctx, moduleID, versionArg, platformArg, constraints, tarballPath)
 	if err != nil {
 		return err
 	}
 
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
+	printf(c.Root().Writer, "Version successfully uploaded! you can view your changes online here: %s", response.GetUrl())
 
 	return nil
 }
@@ -400,7 +400,7 @@ type updateModelsArgs struct {
 }
 
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
-func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
+func UpdateModelsAction(ctx context.Context, c *cli.Command, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
 	newModels, err := readModels(args.Binary, logger)
 	if err != nil {
@@ -435,22 +435,22 @@ func UpdateModelsAction(c *cli.Context, args updateModelsArgs) error {
 	return writeManifest(args.Module, manifest)
 }
 
-func (c *viamClient) createModule(moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
+func (c *viamClient) createModule(ctx context.Context, moduleName, organizationID string) (*apppb.CreateModuleResponse, error) {
 	req := apppb.CreateModuleRequest{
 		Name:           moduleName,
 		OrganizationId: organizationID,
 	}
-	return c.client.CreateModule(c.c.Context, &req)
+	return c.client.CreateModule(ctx, &req)
 }
 
-func (c *viamClient) getModule(moduleID moduleID) (*apppb.GetModuleResponse, error) {
+func (c *viamClient) getModule(ctx context.Context, moduleID moduleID) (*apppb.GetModuleResponse, error) {
 	req := apppb.GetModuleRequest{
 		ModuleId: moduleID.String(),
 	}
-	return c.client.GetModule(c.c.Context, &req)
+	return c.client.GetModule(ctx, &req)
 }
 
-func (c *viamClient) updateModule(moduleID moduleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
+func (c *viamClient) updateModule(ctx context.Context, moduleID moduleID, manifest ModuleManifest) (*apppb.UpdateModuleResponse, error) {
 	var models []*apppb.Model
 	for _, moduleComponent := range manifest.Models {
 		models = append(models, moduleComponentToProto(moduleComponent))
@@ -491,10 +491,11 @@ func (c *viamClient) updateModule(moduleID moduleID, manifest ModuleManifest) (*
 	if manifest.FirstRun != "" {
 		req.FirstRun = &manifest.FirstRun
 	}
-	return c.client.UpdateModule(c.c.Context, &req)
+	return c.client.UpdateModule(ctx, &req)
 }
 
 func (c *viamClient) uploadModuleFile(
+	ctx context.Context,
 	moduleID moduleID,
 	version,
 	platform string,
@@ -506,8 +507,6 @@ func (c *viamClient) uploadModuleFile(
 	if err != nil {
 		return nil, err
 	}
-	ctx := c.c.Context
-
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return nil, err
@@ -528,7 +527,7 @@ func (c *viamClient) uploadModuleFile(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.Root().Writer, getNextModuleUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -537,8 +536,8 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, tarballPath, version, platform string) error {
-	getModuleResp, err := client.getModule(moduleID)
+func validateModuleFile(ctx context.Context, client *viamClient, c *cli.Command, moduleID moduleID, tarballPath, version, platform string) error {
+	getModuleResp, err := client.getModule(ctx, moduleID)
 	if err != nil {
 		return err
 	}
@@ -568,7 +567,7 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 	badSymlinks := map[string]string{}
 	foundEntrypoint := false
 	for {
-		if err := client.c.Context.Err(); err != nil {
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 		header, err := tarReader.Next()
@@ -610,7 +609,7 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 			// continue looping to find symlinks
 			foundEntrypoint = true
 			if parsed := getExecutableArch(tarReader); parsed != "" && parsed != platform {
-				warningf(c.App.ErrWriter,
+				warningf(c.Root().ErrWriter,
 					"You've tagged %s but your binary has platform %s. (This warning is experimental, ignore if it doesn't make sense).",
 					platform, parsed)
 			}
@@ -620,14 +619,14 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		}
 	}
 	if len(badSymlinks) > 0 {
-		warningf(client.c.App.ErrWriter, "Module contains symlinks to files outside the package."+
+		warningf(client.c.Root().ErrWriter, "Module contains symlinks to files outside the package."+
 			" This might cause issues on other smart machines:")
 		numPrinted := 0
 		for name := range badSymlinks {
-			printf(client.c.App.ErrWriter, "\t%s -> %s", name, badSymlinks[name])
+			printf(client.c.Root().ErrWriter, "\t%s -> %s", name, badSymlinks[name])
 			// only print at most 10 links (virtual environments can have thousands of links)
 			if numPrinted++; numPrinted == 10 {
-				printf(client.c.App.ErrWriter, "\t...")
+				printf(client.c.Root().ErrWriter, "\t...")
 				break
 			}
 		}
@@ -737,6 +736,7 @@ func (m *moduleID) String() string {
 
 // validateModuleID tries to parse the manifestModuleID and checks that it matches the publicNamespaceArg and orgIDArg if they are provided.
 func validateModuleID(
+	ctx context.Context,
 	client *viamClient,
 	manifestModuleID,
 	publicNamespaceArg,
@@ -749,11 +749,11 @@ func validateModuleID(
 
 	// if either publicNamespaceArg or orgIDArg are set, check that they match the passed moduleID
 	if publicNamespaceArg != "" || orgIDArg != "" {
-		org, err := resolveOrg(client, publicNamespaceArg, orgIDArg)
+		org, err := resolveOrg(ctx, client, publicNamespaceArg, orgIDArg)
 		if err != nil {
 			return moduleID{}, err
 		}
-		expectedOrg, err := getOrgByModuleIDPrefix(client, modID.prefix)
+		expectedOrg, err := getOrgByModuleIDPrefix(ctx, client, modID.prefix)
 		if err != nil {
 			return moduleID{}, err
 		}
@@ -770,7 +770,7 @@ func validateModuleID(
 
 // resolveOrg accepts either an orgID or a publicNamespace (one must be an empty string).
 // If orgID is an empty string, it will use the publicNamespace to resolve it.
-func resolveOrg(client *viamClient, publicNamespace, orgID string) (*apppb.Organization, error) {
+func resolveOrg(ctx context.Context, client *viamClient, publicNamespace, orgID string) (*apppb.Organization, error) {
 	if orgID != "" {
 		if publicNamespace != "" {
 			return nil, errors.New("cannot specify both org-id and public-namespace")
@@ -778,7 +778,7 @@ func resolveOrg(client *viamClient, publicNamespace, orgID string) (*apppb.Organ
 		if !isValidOrgID(orgID) {
 			return nil, errors.Errorf("provided org-id %q is not a valid org-id", orgID)
 		}
-		org, err := client.getOrg(orgID)
+		org, err := client.getOrg(ctx, orgID)
 		if err != nil {
 			return nil, err
 		}
@@ -788,18 +788,18 @@ func resolveOrg(client *viamClient, publicNamespace, orgID string) (*apppb.Organ
 	if publicNamespace == "" {
 		return nil, errors.New("must provide either org-id or public-namespace")
 	}
-	org, err := client.getUserOrgByPublicNamespace(publicNamespace)
+	org, err := client.getUserOrgByPublicNamespace(ctx, publicNamespace)
 	if err != nil {
 		return nil, err
 	}
 	return org, nil
 }
 
-func getOrgByModuleIDPrefix(client *viamClient, moduleIDPrefix string) (*apppb.Organization, error) {
+func getOrgByModuleIDPrefix(ctx context.Context, client *viamClient, moduleIDPrefix string) (*apppb.Organization, error) {
 	if isValidOrgID(moduleIDPrefix) {
-		return client.getOrg(moduleIDPrefix)
+		return client.getOrg(ctx, moduleIDPrefix)
 	}
-	return client.getUserOrgByPublicNamespace(moduleIDPrefix)
+	return client.getUserOrgByPublicNamespace(ctx, moduleIDPrefix)
 }
 
 // isValidOrgID checks if the str is a valid uuid.
@@ -1059,7 +1059,7 @@ type downloadModuleFlags struct {
 	Platform    string
 }
 
-func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModuleFlags) (string, error) {
+func (c *viamClient) downloadModuleAction(ctx context.Context, cCtx *cli.Command, flags downloadModuleFlags) (string, error) {
 	moduleID := flags.ModuleID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
@@ -1070,7 +1070,7 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 	}
 
 	req := &apppb.GetModuleRequest{ModuleId: moduleID}
-	res, err := c.client.GetModule(ctx.Context, req)
+	res, err := c.client.GetModule(ctx, req)
 	if err != nil {
 		return "", err
 	}
@@ -1105,7 +1105,7 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 
 		if platform == "" {
 			platform = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-			infof(ctx.App.ErrWriter, "using default platform %s", platform)
+			infof(cCtx.Root().ErrWriter, "using default platform %s", platform)
 		}
 		if !slices.ContainsFunc(ver.Files, func(file *apppb.Uploads) bool { return file.Platform == platform }) {
 			return "", fmt.Errorf("platform %s not present for version %s", platform, ver.Version)
@@ -1119,7 +1119,7 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 	include := true
 	packageType := packagespb.PackageType_PACKAGE_TYPE_MODULE
 	// note: this is working around a GetPackage quirk where platform messes with version
-	pkg, err := c.packageClient.GetPackage(ctx.Context, &packagespb.GetPackageRequest{
+	pkg, err := c.packageClient.GetPackage(ctx, &packagespb.GetPackageRequest{
 		Id:         packageID,
 		Version:    fullVersion,
 		IncludeUrl: &include,
@@ -1129,19 +1129,19 @@ func (c *viamClient) downloadModuleAction(ctx *cli.Context, flags downloadModule
 		return "", err
 	}
 	destName := strings.ReplaceAll(moduleID, ":", "-")
-	return downloadPackageFromURL(ctx.Context, c.authFlow.httpClient,
+	return downloadPackageFromURL(ctx, c.authFlow.httpClient,
 		flags.Destination, destName,
 		fullVersion, pkg.Package.Url, c.conf.Auth,
 	)
 }
 
 // DownloadModuleAction downloads a module.
-func DownloadModuleAction(c *cli.Context, flags downloadModuleFlags) error {
-	client, err := newViamClient(c)
+func DownloadModuleAction(ctx context.Context, c *cli.Command, flags downloadModuleFlags) error {
+	client, err := newViamClient(ctx, c)
 	if err != nil {
 		return err
 	}
-	_, err = client.downloadModuleAction(c, flags)
+	_, err = client.downloadModuleAction(ctx, c, flags)
 	return err
 }
 

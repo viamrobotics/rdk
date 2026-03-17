@@ -1,13 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"flag"
+	"fmt"
 	"os"
 	"testing"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 )
@@ -71,12 +72,23 @@ func TestValidateCollectionTypeArgs(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			app := &cli.App{}
-			set := flag.NewFlagSet("test", 0)
-			set.String(dataFlagCollectionType, tc.collectionType, "")
-			set.String(dataFlagPipelineName, tc.pipelineName, "")
-			set.Parse(nil)
-			ctx := cli.NewContext(app, set, nil)
+			ctx := &cli.Command{
+				Flags: []cli.Flag{
+					&cli.StringFlag{Name: dataFlagCollectionType},
+					&cli.StringFlag{Name: dataFlagPipelineName},
+				},
+				Action: func(_ context.Context, _ *cli.Command) error { return nil },
+			}
+			osArgs := []string{"test"}
+			if tc.collectionType != "" {
+				osArgs = append(osArgs, fmt.Sprintf("--%s=%s", dataFlagCollectionType, tc.collectionType))
+			}
+			if tc.pipelineName != "" {
+				osArgs = append(osArgs, fmt.Sprintf("--%s=%s", dataFlagPipelineName, tc.pipelineName))
+			}
+			if err := ctx.Run(context.Background(), osArgs); err != nil {
+				t.Fatal(err)
+			}
 
 			collectionType, err := validateCollectionTypeArgs(ctx, tc.collectionType)
 

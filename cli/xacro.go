@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 const (
@@ -90,7 +90,7 @@ type urdfLimit struct {
 }
 
 // XacroConvertAction converts a xacro file to URDF format.
-func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
+func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertArgs) error {
 	if _, err := exec.LookPath(dockerExecutable); err != nil {
 		return fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err)
 	}
@@ -108,7 +108,7 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	if err != nil {
 		return fmt.Errorf("failed to detect package name: %w", err)
 	}
-	printf(c.App.Writer, "Detected package: %s\n", pkgName)
+	printf(c.Root().Writer, "Detected package: %s\n", pkgName)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -146,7 +146,7 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		)
 	}
 	if len(dependentPkgs) > 0 {
-		printf(c.App.Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
+		printf(c.Root().Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
 	}
 
 	dockerArgs, err := processXacroArgs(args.Args, cwd, pkgName)
@@ -165,20 +165,20 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	)
 
 	if args.DryRun {
-		printf(c.App.Writer, "Dry run - would execute:\n")
-		printf(c.App.Writer, "%s %s\n", dockerExecutable, strings.Join(dockerCmd, " "))
+		printf(c.Root().Writer, "Dry run - would execute:\n")
+		printf(c.Root().Writer, "%s %s\n", dockerExecutable, strings.Join(dockerCmd, " "))
 		if args.CollapseFixedJoints {
-			printf(c.App.Writer, "\nAfter Docker processing, would collapse fixed joint chains:\n")
-			printf(c.App.Writer, "  - Removes fixed joints where the child link is a leaf (has no children)\n")
-			printf(c.App.Writer, "  - Removes the corresponding child links\n")
-			printf(c.App.Writer, "  - Simplifies kinematic structure while preserving functionality\n")
+			printf(c.Root().Writer, "\nAfter Docker processing, would collapse fixed joint chains:\n")
+			printf(c.Root().Writer, "  - Removes fixed joints where the child link is a leaf (has no children)\n")
+			printf(c.Root().Writer, "  - Removes the corresponding child links\n")
+			printf(c.Root().Writer, "  - Simplifies kinematic structure while preserving functionality\n")
 		}
 		return nil
 	}
 
-	printf(c.App.Writer, "Processing with Docker...\n")
+	printf(c.Root().Writer, "Processing with Docker...\n")
 
-	ctx := context.Background()
+	ctx = context.Background()
 	//nolint:gosec // G204: Docker command constructed from validated user input
 	cmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
 	var stdout, stderr bytes.Buffer
@@ -198,11 +198,11 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 	// Note: Only use this flag if the generated URDF has multiple end-effectors.
 	// This happens when there are fixed joints (as opposed to revolute/prismatic).
 	if args.CollapseFixedJoints {
-		printf(c.App.Writer, "Collapsing fixed joint chains...\n")
+		printf(c.Root().Writer, "Collapsing fixed joint chains...\n")
 		collapsed, err := collapseFixedJoints(output)
 		if err != nil {
 			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
-				printf(c.App.Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
+				printf(c.Root().Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
 			return fmt.Errorf(
 				"failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. "+
@@ -217,7 +217,7 @@ func XacroConvertAction(c *cli.Context, args xacroConvertArgs) error {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
-	printf(c.App.Writer, "Success! Generated: %s\n", args.OutputFile)
+	printf(c.Root().Writer, "Success! Generated: %s\n", args.OutputFile)
 	return nil
 }
 
