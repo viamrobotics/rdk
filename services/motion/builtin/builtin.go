@@ -376,38 +376,29 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		smCloned, err := referenceframe.Clone(sm)
+		// Resolve override keys: match by name first, then by stringified moveable-frame index
+		resolved := make(map[string]referenceframe.Limit, len(mods))
+		moveableNames := sm.MoveableFrameNames()
+		for key, limit := range mods {
+			matched := false
+			for i, name := range moveableNames {
+				if key == name || key == strconv.Itoa(i) {
+					resolved[name] = limit
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return nil, fmt.Errorf("can't find mod (%s)", key)
+			}
+		}
+
+		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
 		if err != nil {
 			return nil, err
 		}
-		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
 
-		sub := smClonedTyped.OrdTransforms()
-
-		for modString, l := range mods {
-			idx := 0
-
-			found := false
-			for _, ss := range sub {
-				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
-					found = true
-					ss.DoF()[0] = l
-					break
-				}
-
-				if len(ss.DoF()) > 0 {
-					idx++
-				}
-			}
-
-			if !found {
-				return nil, fmt.Errorf("can't find mod (%s)", modString)
-			}
-		}
-
-		smClonedTyped.SetOrdTransforms(sub)
-
-		err = frameSys.ReplaceFrame(smClonedTyped)
+		err = frameSys.ReplaceFrame(newModel)
 		if err != nil {
 			return nil, err
 		}
@@ -497,7 +488,15 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			traceID = span.SpanContext().TraceID().String()
 		}
 
-		err := ms.writePlanRequest(planRequest, plan, start, traceID, err)
+		// Extract plan tag from extra if provided
+		var planTag string
+		if req.Extra != nil {
+			if tag, ok := req.Extra["plan_tag"].(string); ok {
+				planTag = tag
+			}
+		}
+
+		err := ms.writePlanRequest(planRequest, plan, start, traceID, planTag, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
@@ -681,7 +680,7 @@ func waypointsFromRequest(
 }
 
 func (ms *builtIn) writePlanRequest(
-	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID string, planError error,
+	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID, planTag string, planError error,
 ) error {
 	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
@@ -703,10 +702,15 @@ func (ms *builtIn) writePlanRequest(
 		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
 	}
 
+	// Add plan tag to filename if provided
+	if planTag != "" {
+		planExtra += fmt.Sprintf("-%s", planTag)
+	}
+
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+		fn = filepath.Join(ms.conf.PlanFilePath, fmt.Sprint("tag=", traceID), fn)
 	} else {
 		fn = filepath.Join(ms.conf.PlanFilePath, fn)
 	}

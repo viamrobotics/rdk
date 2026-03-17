@@ -106,9 +106,9 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, partAgain.FrameConfig.pose, test.ShouldResemble, part.FrameConfig.pose)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
 	test.That(t,
-		len(partAgain.ModelFrame.(*SimpleModel).OrdTransforms()),
+		len(partAgain.ModelFrame.DoF()),
 		test.ShouldEqual,
-		len(part.ModelFrame.(*SimpleModel).OrdTransforms()),
+		len(part.ModelFrame.DoF()),
 	)
 }
 

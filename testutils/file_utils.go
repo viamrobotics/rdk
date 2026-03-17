@@ -212,6 +212,22 @@ func BuildTempModuleWithFirstRun(tb testing.TB, modDir string) string {
 	return exePath
 }
 
+// VerifyDirectoryBuilds verifies that the Go code in the specified directory builds successfully.
+// Warnings are allowed; only build failures cause the test to fail.
+func VerifyDirectoryBuilds(tb testing.TB, dir string) {
+	tb.Helper()
+
+	resolvedDir := utils.ResolveFile(dir)
+	//nolint:gosec
+	builder := exec.Command("go", "build", "-o", os.DevNull, ".")
+	builder.Dir = resolvedDir
+	out, err := builder.CombinedOutput()
+	if err != nil {
+		// Build failed - show detailed compiler output
+		tb.Fatalf("failed to build directory %s:\nError: %v\n\nCompiler output:\n%s", dir, err, string(out))
+	}
+}
+
 // MockBuffer is a buffered writer that just appends data to an array to read
 // without needing a real file system for testing.
 type MockBuffer struct {
@@ -264,31 +280,34 @@ func CheckMockBufferWrites(
 	writes chan []*v1.SensorData,
 	expecteds []*v1.SensorData,
 ) {
-	select {
-	case <-ctx.Done():
-		t.Error("timeout")
-		t.FailNow()
-	case writes := <-writes:
-		end := time.Now()
-		test.That(t, len(writes), test.ShouldEqual, len(expecteds))
-		for i, expected := range expecteds {
-			write := writes[i]
-			requestedAt := write.Metadata.TimeRequested.AsTime()
-			receivedAt := write.Metadata.TimeReceived.AsTime()
-			test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
-			test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
-			test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
-			test.That(t, len(expecteds), test.ShouldEqual, len(writes))
-			// nil out to make comparable
-			// nil out to make comparable
-			write.Metadata.TimeRequested = nil
-			write.Metadata.TimeReceived = nil
-			test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
-			if isBinary(write) {
-				test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
-			} else {
-				test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
-			}
+	var allWrites []*v1.SensorData
+	for range expecteds {
+		select {
+		case <-ctx.Done():
+			t.Error("timeout")
+			t.FailNow()
+			return
+		case batch := <-writes:
+			allWrites = append(allWrites, batch...)
+		}
+	}
+	end := time.Now()
+	test.That(t, len(allWrites), test.ShouldEqual, len(expecteds))
+	for i, expected := range expecteds {
+		write := allWrites[i]
+		requestedAt := write.Metadata.TimeRequested.AsTime()
+		receivedAt := write.Metadata.TimeReceived.AsTime()
+		test.That(t, start, test.ShouldHappenOnOrBefore, requestedAt)
+		test.That(t, requestedAt, test.ShouldHappenOnOrBefore, receivedAt)
+		test.That(t, receivedAt, test.ShouldHappenOnOrBefore, end)
+		// nil out to make comparable
+		write.Metadata.TimeRequested = nil
+		write.Metadata.TimeReceived = nil
+		test.That(t, write.GetMetadata(), test.ShouldResemble, expected.GetMetadata())
+		if isBinary(write) {
+			test.That(t, write.GetBinary(), test.ShouldResemble, expected.GetBinary())
+		} else {
+			test.That(t, write.GetStruct(), test.ShouldResemble, expected.GetStruct())
 		}
 	}
 }
@@ -299,18 +318,18 @@ func (m *MockBuffer) Close() {
 }
 
 // WriteBinary writes binary sensor data.
-func (m *MockBuffer) WriteBinary(items []*v1.SensorData) error {
+func (m *MockBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
 	if err := m.ctx.Err(); err != nil {
 		return err
 	}
-	for i, item := range items {
-		if !isBinary(item) {
-			m.t.Errorf("MockBuffer.WriteBinary called with non binary data. index: %d, items: %#v\n", i, items)
-			m.t.FailNow()
-		}
+
+	if !isBinary(item) {
+		m.t.Errorf("MockBuffer.WriteBinary called with non binary data. item: %#v\n", item)
+		m.t.FailNow()
 	}
+
 	select {
-	case m.Writes <- items:
+	case m.Writes <- []*v1.SensorData{item}:
 	case <-m.ctx.Done():
 	}
 	return nil

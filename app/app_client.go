@@ -605,6 +605,7 @@ type AppContent struct {
 	BlobPath   string
 	Entrypoint string
 	AppType    int
+	Public     bool
 }
 
 // AppClient is a gRPC client for method calls to the App API.
@@ -3934,5 +3935,6 @@ func appContentFromProto(resp *pb.GetAppContentResponse) *AppContent {
 		BlobPath:   resp.GetBlobPath(),
 		Entrypoint: resp.GetEntrypoint(),
 		AppType:    int(resp.GetAppType()),
+		Public:     resp.GetPublic(),
 	}
 }

@@ -351,10 +351,6 @@ func (replay *pcdCamera) Stream(ctx context.Context, errHandlers ...gostream.Err
 	return stream, errors.New("Stream is unimplemented")
 }
 
-func (replay *pcdCamera) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, camera.ImageMetadata, error) {
-	return nil, camera.ImageMetadata{}, errors.New("Image is unimplemented")
-}
-
 func (replay *pcdCamera) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	return make([]spatialmath.Geometry, 0), nil
 }

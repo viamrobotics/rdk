@@ -25,6 +25,7 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -54,6 +55,7 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -84,6 +86,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -109,6 +112,7 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -137,6 +141,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -190,6 +195,7 @@ func TestWineCrazyTouch2(t *testing.T) {
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	t.Parallel()
 	name := "ur20-modular"
 
 	if IsTooSmallForCache() {
@@ -282,6 +288,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -316,6 +323,7 @@ func TestBadSpray1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -404,6 +412,7 @@ func TestPirouette(t *testing.T) {
 }
 
 func TestBadPlanNoCrash(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -412,6 +421,7 @@ func TestBadPlanNoCrash(t *testing.T) {
 }
 
 func TestOrbPlanTooManySteps(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -432,6 +442,7 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 }
 
 func TestSandingWallCollision(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -485,6 +496,64 @@ func TestSandingWallCollision(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		}
 	})
+}
+
+func TestTeleOpTwoMove(t *testing.T) {
+	t.Parallel()
+	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for i := 0; i < 5; i++ {
+		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			logger := newChattyMotionPlanTestLogger(t)
+
+			req.PlannerOptions.RandomSeed = i
+			plan, _, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+
+			a := plan.Trajectory()[0]["right-arm"]
+			b := plan.Trajectory()[1]["right-arm"]
+
+			test.That(t, len(a), test.ShouldEqual, 6)
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .01)
+		})
+	}
+}
+
+func TestWineBadBottleMoveGoodCost(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	req, err := ReadRequestFromFile("data/wine-bad-bottle-move.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	test.That(t, err, test.ShouldBeNil)
+
+	sss, err := newSolutionSolvingState(ctx, psc, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("goodCost: %0.4f", sss.goodCost)
+	test.That(t, sss.goodCost, test.ShouldBeLessThan, 3)
+
+	plan, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	a := plan.Trajectory()[0]["right-arm"]
+	b := plan.Trajectory()[1]["right-arm"]
+	dist := referenceframe.InputsL2Distance(a, b)
+	logger.Infof("L2 distance: %0.4f", dist)
+	test.That(t, dist, test.ShouldBeLessThan, 2)
 }
 
 func BenchmarkBigPlanRequest(b *testing.B) {

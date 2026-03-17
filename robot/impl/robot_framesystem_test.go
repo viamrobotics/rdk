@@ -10,6 +10,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
@@ -125,7 +126,7 @@ func TestFrameSystemConfigWithRemote(t *testing.T) {
 	rr, ok := r2.(*localRobot)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	rr.triggerConfig <- struct{}{}
+	rr.triggerConfig <- "TestFrameSystemConfigWithRemote"
 
 	finalSet := []resource.Name{
 		base.Named("foo"),
@@ -241,6 +242,84 @@ func TestServiceWithUnavailableRemote(t *testing.T) {
 	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 2)
+}
+
+// TestRemoteFrameSystemCurrentInputs verifies that CurrentInputs and GetPose
+// work correctly for remote components with DoF > 0 (e.g., arms). This is a
+// regression test for a bug where the frame system service keyed its component
+// map using ShortName() ("remote:prefixName") but frame names used only the
+// prefix-concatenated name ("prefixName"), causing lookup failures.
+func TestRemoteFrameSystemCurrentInputs(t *testing.T) {
+	t.Parallel()
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// Set up a remote robot with a fake arm (which has DoF > 0).
+	remoteConfig, err := config.Read(ctx, rutils.ResolveFile("robot/impl/data/fake.json"), logger.Sublogger("remote"), nil)
+	test.That(t, err, test.ShouldBeNil)
+	remoteRobot := setupLocalRobot(t, ctx, remoteConfig, logger.Sublogger("remote"))
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	err = remoteRobot.StartWeb(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	o1 := &spatialmath.R4AA{Theta: math.Pi / 2., RX: 0, RY: 0, RZ: 1}
+	o1Cfg, err := spatialmath.NewOrientationConfig(o1)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Set up a local robot that connects to the remote with a prefix.
+	localConfig := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "localBase",
+				API:   base.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "rem",
+				Address: addr,
+				Prefix:  "rem",
+				Frame: &referenceframe.LinkConfig{
+					Parent:      "localBase",
+					Translation: r3.Vector{100, 200, 300},
+					Orientation: o1Cfg,
+				},
+			},
+		},
+	}
+	r := setupLocalRobot(t, ctx, localConfig, logger.Sublogger("local"))
+
+	// Verify the remote arm is accessible.
+	_, err = r.ResourceByName(arm.Named("rempieceArm"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// CurrentInputs must succeed — before the fix this returned
+	// DependencyNotFoundError because the component map was keyed by
+	// "rem:rempieceArm" (ShortName) while the frame name was "rempieceArm".
+	inputs, err := r.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inputs, test.ShouldNotBeNil)
+
+	// The remote arm "rempieceArm" has DoF > 0, so it should appear in inputs.
+	_, ok := inputs["rempieceArm"]
+	test.That(t, ok, test.ShouldBeTrue)
+
+	// GetPose on the remote arm frame must also succeed (it calls CurrentInputs
+	// internally).
+	pose, err := r.GetPose(ctx, "rempieceArm", referenceframe.World, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldNotBeNil)
+
+	// TransformPose between a local and remote frame must succeed.
+	armPose := referenceframe.NewPoseInFrame("rempieceArm", spatialmath.NewZeroPose())
+	tf, err := r.TransformPose(ctx, armPose, referenceframe.World, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, tf, test.ShouldNotBeNil)
 }
 
 func TestModularFramesystemDependency(t *testing.T) {

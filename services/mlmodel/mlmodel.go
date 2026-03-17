@@ -91,8 +91,42 @@ func TensorsToProto(ts ml.Tensors) (*servicepb.FlatTensors, error) {
 func tensorToProto(t *tensor.Dense) (*servicepb.FlatTensor, error) {
 	ftpb := &servicepb.FlatTensor{}
 	shape := t.Shape()
+	isEmpty := false
 	for _, s := range shape {
 		ftpb.Shape = append(ftpb.Shape, uint64(s))
+		if s == 0 {
+			isEmpty = true
+		}
+	}
+	// Handle empty tensors (e.g., when model detects 0 objects)
+	// gorgonia tensor panics when accessing Data() on empty backing arrays
+	if isEmpty {
+		// Return tensor with shape but empty data based on dtype
+		switch t.Dtype() {
+		case tensor.Int8:
+			ftpb.Tensor = &servicepb.FlatTensor_Int8Tensor{Int8Tensor: &servicepb.FlatTensorDataInt8{}}
+		case tensor.Uint8:
+			ftpb.Tensor = &servicepb.FlatTensor_Uint8Tensor{Uint8Tensor: &servicepb.FlatTensorDataUInt8{}}
+		case tensor.Int16:
+			ftpb.Tensor = &servicepb.FlatTensor_Int16Tensor{Int16Tensor: &servicepb.FlatTensorDataInt16{}}
+		case tensor.Uint16:
+			ftpb.Tensor = &servicepb.FlatTensor_Uint16Tensor{Uint16Tensor: &servicepb.FlatTensorDataUInt16{}}
+		case tensor.Int32:
+			ftpb.Tensor = &servicepb.FlatTensor_Int32Tensor{Int32Tensor: &servicepb.FlatTensorDataInt32{}}
+		case tensor.Uint32:
+			ftpb.Tensor = &servicepb.FlatTensor_Uint32Tensor{Uint32Tensor: &servicepb.FlatTensorDataUInt32{}}
+		case tensor.Int64, tensor.Int:
+			ftpb.Tensor = &servicepb.FlatTensor_Int64Tensor{Int64Tensor: &servicepb.FlatTensorDataInt64{}}
+		case tensor.Uint64, tensor.Uint:
+			ftpb.Tensor = &servicepb.FlatTensor_Uint64Tensor{Uint64Tensor: &servicepb.FlatTensorDataUInt64{}}
+		case tensor.Float32:
+			ftpb.Tensor = &servicepb.FlatTensor_FloatTensor{FloatTensor: &servicepb.FlatTensorDataFloat{}}
+		case tensor.Float64:
+			ftpb.Tensor = &servicepb.FlatTensor_DoubleTensor{DoubleTensor: &servicepb.FlatTensorDataDouble{}}
+		default:
+			return nil, errors.Errorf("cannot turn empty tensor of dtype %v into proto message", t.Dtype())
+		}
+		return ftpb, nil
 	}
 	// switch on data type of the underlying array
 	data := t.Data()

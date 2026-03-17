@@ -485,9 +485,16 @@ func (g *Graph) FindNodesByAPI(api API) []Name {
 // provided string after applying any remote prefixes. This means that while
 // the "name" argument to this function should include remote prefix(es), the
 // Name.Name field of the return value: will not include remote prefix(es).
+//
+// It will also ignore internal resources (if namespace is "rdk-internal") because
+// none of them besides the framesystem have exposed grpc methods. In any case, the framesystem
+// is expected to be called for differently.
 func (g *Graph) FindBySimpleName(name string) []Name {
 	var result []Name
 	for key, val := range g.nodes.simpleNameCache {
+		if key.api.Type.Namespace == APINamespaceRDKInternal {
+			continue
+		}
 		if name != key.name || !(key.api.IsComponent() || key.api.IsService()) {
 			continue
 		}

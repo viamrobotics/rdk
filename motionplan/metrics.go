@@ -8,7 +8,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const orientationDistanceScaling = 10.
+const orientationDistanceScaling = 100.
 
 // SegmentFSMetricType is a string enum indicating which algorithm to use for distance in
 // configuration space.
@@ -89,7 +89,7 @@ func OrientDist(o1, o2 spatial.Orientation) float64 {
 
 // WeightedSquaredNormDistance is a distance function between two poses to be used for gradient descent.
 func WeightedSquaredNormDistance(start, end spatial.Pose) float64 {
-	return WeightedSquaredNormDistanceWithOptions(start, end, .1, orientationDistanceScaling)
+	return WeightedSquaredNormDistanceWithOptions(start, end, 1.0, orientationDistanceScaling)
 }
 
 // WeightedSquaredNormDistanceWithOptions is a distance function between two poses to be used for gradient descent.
@@ -161,6 +161,6 @@ func NewSquaredNormMetric(goalPose spatial.Pose) func(spatial.Pose) float64 {
 // NewScaledSquaredNormMetric creates a metric function with scaled orientation weight
 func NewScaledSquaredNormMetric(goalPose spatial.Pose, orientationScale float64) func(spatial.Pose) float64 {
 	return func(currentPose spatial.Pose) float64 {
-		return WeightedSquaredNormDistanceWithOptions(currentPose, goalPose, 0.1, orientationScale)
+		return WeightedSquaredNormDistanceWithOptions(currentPose, goalPose, 1.0, orientationScale)
 	}
 }

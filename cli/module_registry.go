@@ -90,6 +90,7 @@ type manifestBuildInfo struct {
 	Setup      string   `json:"setup"`
 	Path       string   `json:"path"`
 	Arch       []string `json:"arch"`
+	Distro     string   `json:"distro,omitempty"`
 	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
@@ -592,7 +593,7 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		// optional ".exe" at the end, because Windows can automatically resolve the entrypoint
 		// "foo" to the executable "foo.exe" when needed.
 		if filepath.Clean(path) == filepath.Clean(entrypoint) ||
-			(strings.HasPrefix(strings.ToLower(platform), "windows") &&
+			(strings.HasPrefix(strings.ToLower(platform), osWindows) &&
 				filepath.Clean(path) == filepath.Clean(entrypoint)+".exe") {
 			info := header.FileInfo()
 			if info.IsDir() {
@@ -931,7 +932,10 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
-	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{UntrustedEnv: false})
+	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{
+		UntrustedEnv:            false,
+		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
+	})
 	if err != nil {
 		return nil, err
 	}

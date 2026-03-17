@@ -153,3 +153,21 @@ func testCompatibility(t *testing.T, o Orientation) {
 		}
 	}
 }
+
+func TestOrientationVectorPoleRadius(t *testing.T) {
+	ov := &OrientationVectorDegrees{Theta: 90.2029644505, OX: 0.0050164674, OY: 0.0079070413, OZ: 0.9999561559}
+	q := Quaternion(ov.Quaternion())
+	composedOv := q.OrientationVectorDegrees()
+	// This isn't a perfect match because of the pole radius, but it should be close.
+	test.That(t, composedOv.Theta, test.ShouldAlmostEqual, ov.Theta, 0.01)
+	test.That(t, composedOv.OX, test.ShouldAlmostEqual, ov.OX, 0.01)
+	test.That(t, composedOv.OY, test.ShouldAlmostEqual, ov.OY, 0.01)
+	test.That(t, composedOv.OZ, test.ShouldAlmostEqual, ov.OZ, 0.01)
+}
+
+func TestIsDefaultOrientation(t *testing.T) {
+	test.That(t, IsDefaultOrientation(nil), test.ShouldBeTrue)
+	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{1, 1, 1, 1}), test.ShouldBeFalse)
+	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeTrue)
+	test.That(t, IsDefaultOrientation(&OrientationVectorDegrees{OX: 1, OY: 0, OZ: 1, Theta: 0}), test.ShouldBeFalse)
+}

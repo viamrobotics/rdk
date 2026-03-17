@@ -71,7 +71,6 @@ func TestCollectors(t *testing.T) {
 			collector: camera.NewReadImageCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{
-					MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
 					Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}}},
 				},
 				Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
@@ -83,10 +82,8 @@ func TestCollectors(t *testing.T) {
 			name:      "NextPointCloud returns a non nil binary response",
 			collector: camera.NewNextPointCloudCollector,
 			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: pcdBuf.Bytes()},
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data:     &datasyncpb.SensorData_Binary{Binary: pcdBuf.Bytes()},
 			}},
 			camera: cam,
 		},
@@ -96,14 +93,12 @@ func TestCollectors(t *testing.T) {
 			expected: []*datasyncpb.SensorData{
 				{
 					Metadata: &datasyncpb.SensorMetadata{
-						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
 						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}, {Label: "left"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
 				},
 				{
 					Metadata: &datasyncpb.SensorMetadata{
-						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
 						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_more_annotations"}, {Label: "right"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},
@@ -118,7 +113,6 @@ func TestCollectors(t *testing.T) {
 			expected: []*datasyncpb.SensorData{
 				{
 					Metadata: &datasyncpb.SensorMetadata{
-						MimeType:    datasyncpb.MimeType_MIME_TYPE_IMAGE_JPEG,
 						Annotations: &v1.Annotations{Classifications: []*v1.Classification{{Label: "add_annotations"}, {Label: "left"}}},
 					},
 					Data: &datasyncpb.SensorData_Binary{Binary: viamLogoJpeg},

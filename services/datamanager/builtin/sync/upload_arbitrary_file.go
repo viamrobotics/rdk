@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/benbjohnson/clock"
@@ -30,6 +31,7 @@ var (
 // They are frequently files written by 3rd party programs such as images, videos, logs, written to
 // the capture directory or a subdirectory or to additional sync paths (or their sub directories).
 // Note: the bytes size returned is the size of the input file. It only returns a non 0 value in the success case.
+// If bytesUploadingCounter is provided, it will be updated as each chunk is successfully uploaded.
 func uploadArbitraryFile(
 	ctx context.Context,
 	f *os.File,
@@ -38,6 +40,7 @@ func uploadArbitraryFile(
 	fileLastModifiedMillis int,
 	clock clock.Clock,
 	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
 ) (uint64, error) {
 	logger.Debugf("attempting to sync arbitrary file: %s", f.Name())
 	path, err := filepath.Abs(f.Name())
@@ -123,7 +126,7 @@ func uploadArbitraryFile(
 		return 0, errors.Wrap(err, "FileUpload failed sending metadata")
 	}
 
-	if err := sendFileUploadRequests(ctx, stream, f, path, logger); err != nil {
+	if err := sendFileUploadRequests(ctx, stream, f, path, logger, bytesUploadingCounter); err != nil {
 		return 0, errors.Wrap(err, "FileUpload failed to sync")
 	}
 
@@ -140,6 +143,7 @@ func sendFileUploadRequests(
 	f *os.File,
 	path string,
 	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
 ) error {
 	// Loop until there is no more content to be read from file.
 	i := 0
@@ -163,6 +167,15 @@ func sendFileUploadRequests(
 		if err = stream.Send(uploadReq); err != nil {
 			return err
 		}
+
+		// Update byte counter after successful chunk upload.
+		if bytesUploadingCounter != nil {
+			if fileContents := uploadReq.GetFileContents(); fileContents != nil {
+				chunkSize := uint64(len(fileContents.Data))
+				bytesUploadingCounter.Add(chunkSize)
+			}
+		}
+
 		i++
 	}
 }

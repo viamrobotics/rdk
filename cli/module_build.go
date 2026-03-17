@@ -10,12 +10,14 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5/plumbing/format/gitignore"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v2"
@@ -24,7 +26,6 @@ import (
 	buildpb "go.viam.com/api/app/build/v1"
 	v1 "go.viam.com/api/app/packages/v1"
 	apppb "go.viam.com/api/app/v1"
-	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/exp/maps"
 
@@ -101,13 +102,16 @@ func (c *viamClient) moduleBuildStartForRepo(
 		ModuleVersion: version,
 		Token:         &token,
 		Workdir:       &workdir,
+		Distro:        &manifest.Build.Distro,
 	}
 	res, err := c.buildClient.StartBuild(c.c.Context, &req)
 	if err != nil {
 		return "", err
 	}
-	// Print to stderr so that the buildID is the only thing in stdout
-	printf(cCtx.App.ErrWriter, "Started build:")
+	// Print to stderr so that stdout only contains the buildID, which is parsed by the build-action.
+	// See https://github.com/viamrobotics/build-action/blob/main/src/index.js
+	printf(cCtx.App.ErrWriter, "Build started, follow the logs with:")
+	printf(cCtx.App.ErrWriter, "	viam module build logs --id %s", res.BuildId)
 	printf(cCtx.App.Writer, res.BuildId)
 	return res.BuildId, nil
 }
@@ -116,6 +120,16 @@ func (c *viamClient) moduleBuildStartAction(cCtx *cli.Context, args moduleBuildS
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
+	}
+
+	// Check if this is a Windows Python module by looking for src/main.py
+	if runtime.GOOS == osWindows && manifest.Build != nil {
+		manifestDir := filepath.Dir(args.Module)
+		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
+		if _, err := os.Stat(mainPyPath); err == nil {
+			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
+				"Build locally with 'viam module build local' and upload with 'viam module upload'")
+		}
 	}
 
 	if manifest.URL == "" {
@@ -145,27 +159,39 @@ func moduleBuildLocalAction(cCtx *cli.Context, manifest *ModuleManifest, environ
 		return errors.New("your meta.json cannot have an empty build step. See 'viam module build --help' for more information")
 	}
 	infof(cCtx.App.Writer, "Starting build")
-	processConfig := pexec.ProcessConfig{
-		Environment: environment,
-		Name:        "bash",
-		OneShot:     true,
-		Log:         true,
-		LogWriter:   cCtx.App.Writer,
+
+	// Use cmd.exe on Windows, bash on Unix-like systems
+	shellName := "bash"
+	shellFlag := "-c"
+	if runtime.GOOS == osWindows {
+		shellName = "cmd.exe"
+		shellFlag = "/C"
 	}
-	// Required logger for the ManagedProcess. Not used
-	logger := logging.NewLogger("x")
+
+	// Build environment slice from map, inheriting current environment
+	env := os.Environ()
+	for k, v := range environment {
+		env = append(env, k+"="+v)
+	}
+
 	if manifest.Build.Setup != "" {
 		infof(cCtx.App.Writer, "Starting setup step: %q", manifest.Build.Setup)
-		processConfig.Args = []string{"-c", manifest.Build.Setup}
-		proc := pexec.NewManagedProcess(processConfig, logger)
-		if err := proc.Start(cCtx.Context); err != nil {
+		//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+		cmd := exec.CommandContext(cCtx.Context, shellName, shellFlag, manifest.Build.Setup)
+		cmd.Env = env
+		cmd.Stdout = cCtx.App.Writer
+		cmd.Stderr = cCtx.App.Writer
+		if err := cmd.Run(); err != nil {
 			return err
 		}
 	}
 	infof(cCtx.App.Writer, "Starting build step: %q", manifest.Build.Build)
-	processConfig.Args = []string{"-c", manifest.Build.Build}
-	proc := pexec.NewManagedProcess(processConfig, logger)
-	if err := proc.Start(cCtx.Context); err != nil {
+	//nolint:gosec // user-provided build commands from meta.json are intentionally executed
+	cmd := exec.CommandContext(cCtx.Context, shellName, shellFlag, manifest.Build.Build)
+	cmd.Env = env
+	cmd.Stdout = cCtx.App.Writer
+	cmd.Stderr = cCtx.App.Writer
+	if err := cmd.Run(); err != nil {
 		return err
 	}
 	infof(cCtx.App.Writer, "Completed build")
@@ -631,11 +657,13 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			if c.shouldIgnore(relPath, matcher, true) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		// Check if file matches gitignore patterns
-		if c.shouldIgnoreFile(relPath, matcher) {
+		if c.shouldIgnore(relPath, matcher, false) {
 			return nil
 		}
 
@@ -688,41 +716,24 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 		patterns = append(patterns, gitignore.ParsePattern(pattern, nil))
 	}
 
-	// Load .gitignore file if it exists
-	gitignorePath := filepath.Join(repoPath, ".gitignore")
-	if _, err := os.Stat(gitignorePath); err == nil {
-		//nolint:gosec // gitignorePath is constructed from validated repoPath and constant filename
-		file, err := os.Open(gitignorePath)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to open .gitignore file")
-		}
-		defer func() {
-			//nolint:errcheck // Ignore close error for read-only file
-			file.Close()
-		}()
-
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			// Skip empty lines and comments
-			if line == "" || strings.HasPrefix(line, "#") {
-				continue
-			}
-			patterns = append(patterns, gitignore.ParsePattern(line, nil))
-		}
-
-		if err := scanner.Err(); err != nil {
-			return nil, errors.Wrap(err, "failed to read .gitignore file")
-		}
+	// Recursively read .gitignore files from the repo tree. ReadPatterns walks
+	// subdirectories, respects already-matched ignore rules (so it won't descend
+	// into e.g. node_modules), and attaches the correct domain to each pattern so
+	// that nested .gitignore rules are scoped to their directory.
+	// If no .git directory exists, ReadPatterns still reads .gitignore files.
+	fs := osfs.New(repoPath)
+	repoPatterns, err := gitignore.ReadPatterns(fs, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read gitignore patterns")
 	}
+	patterns = append(patterns, repoPatterns...)
 
 	return gitignore.NewMatcher(patterns), nil
 }
 
-func (c *viamClient) shouldIgnoreFile(relPath string, matcher gitignore.Matcher) bool {
-	// Convert to forward slashes for gitignore matching
+func (c *viamClient) shouldIgnore(relPath string, matcher gitignore.Matcher, isDir bool) bool {
 	normalizedPath := filepath.ToSlash(relPath)
-	return matcher.Match(strings.Split(normalizedPath, "/"), false)
+	return matcher.Match(strings.Split(normalizedPath, "/"), isDir)
 }
 
 func (c *viamClient) ensureModuleRegisteredInCloud(
@@ -1367,7 +1378,7 @@ func reloadModuleActionInner(
 		return err
 	}
 	var newPart *apppb.RobotPart
-	newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local)
+	newPart, needsRestart, err = configureModule(c, vc, manifest, part.Part, args.Local, reloadUser(vc.conf))
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {

@@ -92,15 +92,18 @@ func newMultiAxis(
 		return nil, err
 	}
 
-	model := referenceframe.NewSimpleModel(mAx.Name().Name)
+	frames := make([]referenceframe.Frame, 0, len(mAx.subAxes))
 	for _, subAx := range mAx.subAxes {
 		k, err := subAx.Kinematics(ctx)
 		if err != nil {
 			return nil, err
 		}
-		model.SetOrdTransforms(append(model.OrdTransforms(), k))
+		frames = append(frames, k)
 	}
-	mAx.model = model
+	mAx.model, err = referenceframe.NewSerialModel(mAx.Name().Name, frames)
+	if err != nil {
+		return nil, err
+	}
 
 	return mAx, nil
 }
