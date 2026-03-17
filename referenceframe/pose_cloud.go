@@ -71,6 +71,7 @@ type PoseCloud struct {
 	Theta float64 `json:"theta"`
 }
 
+// ToProto turns this to proto.
 func (pc *PoseCloud) ToProto() *commonpb.PoseCloud {
 	return &commonpb.PoseCloud{
 		X:     pc.X,

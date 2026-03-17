@@ -44,6 +44,7 @@ func NewZeroPoseInFrame(frame string) *PoseInFrame {
 	}
 }
 
+// NewPoseInFrameWithGoalCloud creates a new pose in frame where the goal pose is fuzzy.
 func NewPoseInFrameWithGoalCloud(frame string, pose spatialmath.Pose, goalCloud *PoseCloud) *PoseInFrame {
 	return &PoseInFrame{
 		parent:    frame,
