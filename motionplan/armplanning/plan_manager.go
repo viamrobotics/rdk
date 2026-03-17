@@ -65,7 +65,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		}
 
 		if i > 0 {
-			pm.logger.Infof("planning step %d of %d, current linearTraj size: %d",
+			pm.logger.Debugf("planning step %d of %d, current linearTraj size: %d",
 				i, len(pm.request.Goals), len(linearTraj))
 		}
 
