@@ -75,6 +75,9 @@ type generateModuleArgs struct {
 func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 	c, err := newViamClient(cCtx)
 	if err != nil {
+		if !isInteractive() {
+			return errors.New("authentication required; run `viam login` before using module generate non-interactively")
+		}
 		shouldContinueGeneration := promptUnauthenticated()
 		if !shouldContinueGeneration {
 			return err
@@ -129,6 +132,10 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	}
 
 	if newModule.HasEmptyInput() {
+		if !isInteractive() {
+			return errors.New("missing required flags for non-interactive mode; " +
+				"provide --name, --language, --public-namespace, --resource-subtype, and --model-name")
+		}
 		err = promptUser(newModule)
 		if err != nil {
 			return err
@@ -141,7 +148,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	}
 	populateAdditionalInfo(newModule)
 
-	s := spinner.New()
+	var s *spinner.Spinner
 	var fatalError error
 	var registryURL string
 	nonFatalError := false
@@ -150,8 +157,20 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		return err
 	}
 	globalArgs := *gArgs
+
+	// logTitle updates the spinner in interactive mode, prints a status line
+	// in non-interactive mode, and is a no-op in debug mode.
+	logTitle := func(string) {}
+	interactive := isInteractive()
+	if interactive && !globalArgs.Debug {
+		s = spinner.New()
+		logTitle = func(msg string) { s.Title(msg) }
+	} else if !globalArgs.Debug {
+		logTitle = func(msg string) { fmt.Fprintln(cCtx.App.Writer, msg) }
+	}
+
 	action := func() {
-		s.Title("Getting latest release...")
+		logTitle("Getting latest release...")
 		version, err := getLatestSDKTag(cCtx, newModule.Language, globalArgs)
 		if err != nil {
 			fatalError = err
@@ -159,52 +178,52 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		}
 		newModule.SDKVersion = version[1:]
 
-		s.Title("Setting up module directory...")
+		logTitle("Setting up module directory...")
 		if err = setupDirectories(cCtx, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Creating module and generating manifest...")
+		logTitle("Creating module and generating manifest...")
 		registryURL, err = createModuleAndManifest(cCtx, c, *newModule, globalArgs)
 		if err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Rendering common files...")
+		logTitle("Rendering common files...")
 		if err = renderCommonFiles(cCtx, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title(fmt.Sprintf("Copying %s files...", newModule.Language))
+		logTitle(fmt.Sprintf("Copying %s files...", newModule.Language))
 		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title("Rendering template...")
+		logTitle("Rendering template...")
 		if err = renderTemplate(cCtx, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
-		s.Title(fmt.Sprintf("Generating %s stubs...", newModule.Language))
+		logTitle(fmt.Sprintf("Generating %s stubs...", newModule.Language))
 		if err = generateStubs(cCtx, *newModule, globalArgs); err != nil {
 			warningf(cCtx.App.ErrWriter, err.Error())
 			nonFatalError = true
 		}
 	}
 
-	if globalArgs.Debug {
-		action()
-	} else {
+	if interactive && !globalArgs.Debug {
 		s.Action(action)
 		err := s.Run()
 		if err != nil {
 			return err
 		}
+	} else {
+		action()
 	}
 
 	if fatalError != nil {
