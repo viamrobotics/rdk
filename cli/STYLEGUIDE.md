@@ -18,7 +18,7 @@ type fooArgs struct {
     Baz string
 }
 
-func fooAction(ctx cli.Context, args foo) error {
+func fooAction(ctx context.Context, c *cli.Command, args fooArgs) error {
     bar := args.Bar
     baz := args.Baz
     ...
@@ -46,9 +46,9 @@ cli.Command{
 <summary>Bad:</summary>
 
 ```golang
-func fooAction(ctx cli.Context) error {
-    bar := ctx.Int("Bar")
-    baz := ctx.String("Baz)
+func fooAction(ctx context.Context, c *cli.Command) error {
+    bar := c.Int("Bar")
+    baz := c.String("Baz")
     ...
 }
 
