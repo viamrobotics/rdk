@@ -166,7 +166,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		s = spinner.New()
 		logTitle = func(msg string) { s.Title(msg) }
 	} else if !globalArgs.Debug {
-		logTitle = func(msg string) { fmt.Fprintln(cCtx.App.Writer, msg) }
+		logTitle = func(msg string) { printf(cCtx.App.Writer, "%s", msg) }
 	}
 
 	action := func() {
