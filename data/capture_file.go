@@ -28,6 +28,7 @@ const (
 	CompletedCaptureFileExt = ".capture"
 	readImage               = "ReadImage"
 	getAudio                = "GetAudio"
+	getVideo                = "GetVideo"
 	// GetImages is used for getting simultaneous images from different imagers.
 	GetImages            = "GetImages"
 	nextPointCloud       = "NextPointCloud"
