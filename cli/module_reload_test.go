@@ -126,14 +126,14 @@ func TestFullReloadFlow(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
 	t.Run("addShellService", func(t *testing.T) {
 		t.Run("addsServiceWhenMissing", func(t *testing.T) {
-			part, _ := vc.getRobotPart("id")
+			part, _ := vc.getRobotPart(context.Background(), "id")
 			_, err := addShellService(context.Background(), cCtx, vc, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
@@ -162,7 +162,7 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			part, _ := vc2.getRobotPart("id")
+			part, _ := vc2.getRobotPart(context.Background(), "id")
 			_, err = addShellService(context.Background(), cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
@@ -272,7 +272,7 @@ func TestReloadWithCloudConfig(t *testing.T) {
 			},
 			"token",
 		)
-		test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+		test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 
 		// Test that reloadModuleActionInner correctly uses cloud-config to resolve part ID
 		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
@@ -632,7 +632,7 @@ func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
@@ -677,7 +677,7 @@ func TestUpdateRobotPartRetryOnConflict(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	logger := logging.NewTestLogger(t)
 	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
@@ -722,7 +722,7 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)

@@ -160,7 +160,7 @@ func TestModuleBuildWait(t *testing.T) {
 		},
 	}, map[string]any{}, "token")
 	startWaitTime := time.Now()
-	statuses, err := ac.waitForBuildToFinish("xyz123", "", nil)
+	statuses, err := ac.waitForBuildToFinish(context.Background(), "xyz123", "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, statuses, test.ShouldResemble, map[string]jobStatus{"linux/amd64": "Done"})
 	// ensure that we had to wait for at least 2, but no more than 5 polling intervals
@@ -192,7 +192,7 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 			}}, nil
 		},
 	}, map[string]any{}, "token")
-	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
+	platforms, err := ac.getPlatformsForModuleBuild(context.Background(), "xyz123")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
 }
@@ -337,7 +337,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		orgID, err := vc.getOrgIDForPart(part)
+		orgID, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orgID, test.ShouldEqual, expectedOrgID)
 	})
@@ -380,7 +380,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no primary org id found for location")
 	})
@@ -399,7 +399,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: "robot-abc",
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "robot not found")
 	})
@@ -431,7 +431,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "location not found")
 	})
