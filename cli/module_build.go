@@ -103,6 +103,7 @@ func (c *viamClient) moduleBuildStartForRepo(
 		ModuleVersion: version,
 		Token:         &token,
 		Workdir:       &workdir,
+		Distro:        &manifest.Build.Distro,
 	}
 	res, err := c.buildClient.StartBuild(ctx, &req)
 	if err != nil {

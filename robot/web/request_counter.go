@@ -117,6 +117,12 @@ type RequestCounter struct {
 	// potentially prefixed with "module-[name-of-module]-" to represent a module's
 	// connection back to the RDK.
 	pcToClientMetadata ssync.Map[*webrtc.PeerConnection, string]
+
+	// beforeLogHook, if set, is called at the start of logRequestLimitExceeded before any
+	// client connection state is inspected. For testing purposes only. The peer connection
+	// associated with the offending client is passed so tests can observe or wait on its
+	// state.
+	beforeLogHook func(pc *webrtc.PeerConnection)
 }
 
 // decrInFlight decrements the in-flight request counters for a given resource and pc.
@@ -320,16 +326,24 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	apiMethodString, resource string,
 	pc *webrtc.PeerConnection,
 ) int64 {
+	// beforeLogHook is only used for testing.
+	if rc.beforeLogHook != nil {
+		rc.beforeLogHook(pc)
+	}
+
 	var offendingClientInformationJSON []byte
 	offendingClientInformation := rc.createClientInformationFromPC(pc)
 	// offendingClientInformation will be nil if offending client's pc has already been
-	// closed. Leave offendingClientInformationJSON empty in that case.
+	// closed. Use the string "already_disconnected" for offendingClientInformationJSON in that
+	// case.
 	if offendingClientInformation != nil {
 		var err error
 		offendingClientInformationJSON, err = json.Marshal(offendingClientInformation)
 		if err != nil {
 			rc.logger.Errorf("Failed to marshal client information %+v", offendingClientInformation)
 		}
+	} else {
+		offendingClientInformationJSON = []byte(`"already_disconnected"`)
 	}
 
 	var allOtherClientInformationStrs []string
@@ -366,6 +380,11 @@ func (rc *RequestCounter) logRequestLimitExceeded(
 	)
 	rc.logger.Warnw(msg)
 
+	// If offending client _just_ disconnected, return 0 with the assumption that they will
+	// not have any in-flight requests for this resource until re-connecting.
+	if offendingClientInformation == nil {
+		return 0
+	}
 	return offendingClientInformation.InFlightRequests[resource]
 }
 

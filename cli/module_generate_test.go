@@ -3,12 +3,14 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -226,6 +228,66 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+	})
+
+	t.Run("test generate cpp stubs", func(t *testing.T) {
+		cppModule := testModule
+		cppModule.Language = "cpp"
+		cppModule.ResourceType = "component"
+		cppModule.ResourceSubtype = "camera"
+		cppModule.ResourceSubtypeSnake = "camera"
+		cppModule.ModelSnake = "my_model"
+		cppModule.ModelPascal = "MyModel"
+
+		setupDirectories(cCtx, cppModule.ModuleName, globalArgs)
+
+		mockTemplates := map[string]string{
+			"main.cpp.in":       "// main {{ .ModuleName }}",
+			"CMakeLists.txt.in": "# cmake {{ .ModuleName }}",
+			"conanfile.py.in":   "# conan {{ .ModuleName }}",
+			"camera.cpp.in":     "// camera impl {{ .ModelPascal }}",
+			"camera.hpp.in":     "// camera header {{ .ModelPascal }}",
+			"conan.lock":        `{"version": "0.5"}`,
+		}
+		modgen.FetchRawTemplate = func(url string) (string, error) {
+			for filename, content := range mockTemplates {
+				if strings.HasSuffix(url, filename) {
+					return content, nil
+				}
+			}
+			return "", fmt.Errorf("unexpected template URL: %s", url)
+		}
+
+		err := generateCppStubs(cppModule)
+		test.That(t, err, test.ShouldBeNil)
+
+		// top-level files
+		for _, tc := range []struct {
+			file    string
+			content string
+		}{
+			{"main.cpp", "// main " + cppModule.ModuleName},
+			{"CMakeLists.txt", "# cmake " + cppModule.ModuleName},
+			{"conanfile.py", "# conan " + cppModule.ModuleName},
+			{"conan.lock", `{"version": "0.5"}`},
+		} {
+			b, err := os.ReadFile(filepath.Join(modulePath, tc.file))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, string(b), test.ShouldEqual, tc.content)
+		}
+
+		// type-specific files in src/
+		for _, tc := range []struct {
+			file    string
+			content string
+		}{
+			{cppModule.ModelSnake + ".cpp", "// camera impl " + cppModule.ModelPascal},
+			{cppModule.ModelSnake + ".hpp", "// camera header " + cppModule.ModelPascal},
+		} {
+			b, err := os.ReadFile(filepath.Join(modulePath, "src", tc.file))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, string(b), test.ShouldEqual, tc.content)
+		}
 	})
 
 	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {

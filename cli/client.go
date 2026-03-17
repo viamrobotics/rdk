@@ -32,6 +32,7 @@ import (
 	"github.com/ktr0731/go-fuzzyfinder"
 	"github.com/nathan-fiscaletti/consolesize-go"
 	"github.com/pkg/errors"
+	cron "github.com/robfig/cron/v3"
 	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -1423,7 +1424,7 @@ func robotsPartAddResourceAction(ctx context.Context, c *cli.Command, args robot
 	}
 
 	// for a custom resource subtype, a user might not follow the format of namespace:type:subtype
-	if resourceType != "component" && resourceType != "service" {
+	if resourceType != "component" && resourceType != "service" { //nolint:goconst
 		warningf(c.Root().ErrWriter, "unknown resource type '%s'. Resource type should be 'component' or 'service'; defaulting to component",
 			resourceType,
 		)
@@ -1520,6 +1521,1536 @@ func robotsPartRemoveResourceAction(ctx context.Context, c *cli.Command, args ro
 	}
 
 	printf(c.Root().Writer, "successfully removed resource %s from part %s", args.Name, args.Part)
+	return nil
+}
+
+// parseJSONOrFile tries json.Unmarshal first; if that fails and s is a file path, reads and parses it.
+func parseJSONOrFile(s string) (map[string]any, error) {
+	var result map[string]any
+	jsonErr := json.Unmarshal([]byte(s), &result)
+	if jsonErr == nil {
+		return result, nil
+	}
+	data, err := os.ReadFile(s) //nolint:gosec // s is a user-provided path for a JSON file
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse as JSON (%w) and failed to read file %q: %w", jsonErr, s, err)
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON from file %q: %w", s, err)
+	}
+	return result, nil
+}
+
+type resourceEnableDisableArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	ResourceName []string
+}
+
+func resourceEnableAction(ctx context.Context, c *cli.Command, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(ctx, c, args, false)
+}
+
+func resourceDisableAction(ctx context.Context, c *cli.Command, args resourceEnableDisableArgs) error {
+	return resourceEnableDisable(ctx, c, args, true)
+}
+
+func resourceEnableDisable(ctx context.Context, c *cli.Command, args resourceEnableDisableArgs, disable bool) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	for _, name := range args.ResourceName {
+		if strings.TrimSpace(name) == "" {
+			return errors.New("--resource value must not be empty")
+		}
+	}
+
+	// warn on duplicate resources and create a set of unique ones
+	uniqueResources := make(map[string]bool)
+	for _, name := range args.ResourceName {
+		if uniqueResources[name] {
+			warningf(c.Root().Writer, "duplicate resource %q ignored\n", name)
+			continue
+		}
+		uniqueResources[name] = true
+	}
+
+	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	var updatedResources []string
+	for _, resourceType := range []string{"components", "services", "modules"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			name, ok := resource["name"].(string)
+			if !ok || !uniqueResources[name] {
+				continue
+			}
+			if disable {
+				resource["disabled"] = true
+			} else {
+				delete(resource, "disabled")
+			}
+			updatedResources = append(updatedResources, name)
+			delete(uniqueResources, name)
+		}
+		config[resourceType] = resources
+	}
+	for name := range uniqueResources {
+		warningf(c.Root().Writer, "resource %q not found in part config\n", name)
+	}
+
+	if len(updatedResources) == 0 {
+		return errors.New("no matching resources found in part config")
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(ctx, &req)
+	if err != nil {
+		return err
+	}
+
+	action := "enabled"
+	if disable {
+		action = "disabled"
+	}
+	printf(c.Root().Writer, "successfully %s resource(s): %s", action, strings.Join(updatedResources, ", "))
+	return nil
+}
+
+type machinesPartUpdateResourceArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	ResourceName string
+	Config       string
+}
+
+func machinesPartUpdateResourceAction(ctx context.Context, c *cli.Command, args machinesPartUpdateResourceArgs) error {
+	updates, err := parseJSONOrFile(args.Config)
+	if err != nil {
+		return err
+	}
+
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+	resourceFound := false
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			return err
+		}
+		for _, resource := range resources {
+			if resource["name"] == args.ResourceName {
+				resourceFound = true
+				if rutils.IsEmptyJSONValue(updates) {
+					delete(resource, "attributes")
+					infof(c.Root().Writer, "empty JSON detected, deleting attributes from resource %q...", args.ResourceName)
+				} else {
+					resource["attributes"] = updates
+				}
+				break
+			}
+		}
+		config[resourceType] = resources
+	}
+
+	if !resourceFound {
+		return fmt.Errorf("resource %q not found in part config", args.ResourceName)
+	}
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(ctx, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "Successfully updated resource %q", args.ResourceName)
+	return nil
+}
+
+// Trigger event type constants.
+const (
+	triggerEventPartOnline              = "part_online"
+	triggerEventPartOffline             = "part_offline"
+	triggerEventPartDataSynced          = "part_data_ingested"
+	triggerEventConditionalDataIngested = "conditional_data_ingested"
+	triggerEventConditionalLogsIngested = "conditional_logs_ingested"
+)
+
+// Notification type constants.
+const (
+	notifTypeEmail   = "email"
+	notifTypeWebhook = "webhook"
+)
+
+type machinesPartAddTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Config       string
+}
+
+type machinesPartDeleteTriggerArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func machinesPartAddTriggerAction(ctx context.Context, c *cli.Command, args machinesPartAddTriggerArgs) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	var triggerConfig map[string]any
+	var part *apppb.RobotPart
+
+	// If no config provided, run the interactive huh flow.
+	if args.Config != "" {
+		// Non-interactive path: config and part are required flags.
+		triggerConfig, err = parseJSONOrFile(args.Config)
+		if err != nil {
+			return err
+		}
+
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --config; specify --part")
+		}
+		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Get part ID
+		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+		if err != nil {
+			return err
+		}
+
+		triggerConfig, err = collectTriggerForm(part)
+		if err != nil {
+			return err
+		}
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	if err := validateTriggerConfig(c.Root().ErrWriter, config, triggerConfig); err != nil {
+		return err
+	}
+
+	name, _ := triggerConfig["name"].(string)
+
+	if err := combineTriggers(config, triggerConfig, name); err != nil {
+		return err
+	}
+
+	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "successfully added trigger %q to part %s", name, part.Name)
+	return nil
+}
+
+// collectTriggerForm runs the interactive form to build a trigger config.
+func collectTriggerForm(part *apppb.RobotPart) (map[string]any, error) {
+	var triggerName, eventType string
+	form := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Add a trigger to a part"),
+		huh.NewInput().Title("Set a trigger name:").Value(&triggerName).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("trigger name cannot be empty")
+				}
+				return nil
+			}),
+		huh.NewSelect[string]().Title("Select an event type:").
+			Options(
+				huh.NewOption("Part is online", triggerEventPartOnline),
+				huh.NewOption("Part is offline", triggerEventPartOffline),
+				huh.NewOption("Data has been synced to the cloud", triggerEventPartDataSynced),
+				huh.NewOption("Conditional data ingestion", triggerEventConditionalDataIngested),
+				huh.NewOption("Conditional logs ingestion", triggerEventConditionalLogsIngested),
+			).
+			Value(&eventType),
+	))
+	if err := form.Run(); err != nil {
+		return nil, err
+	}
+
+	event := map[string]any{"type": eventType}
+	switch eventType {
+	case triggerEventPartDataSynced:
+		var dataTypes []string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewMultiSelect[string]().Title("Select data types:").
+				Options(
+					huh.NewOption("Unspecified", "unspecified"),
+					huh.NewOption("Binary(image)", "binary"),
+					huh.NewOption("Tabular(sensor)", "tabular"),
+					huh.NewOption("File", "file"),
+				).
+				Value(&dataTypes).
+				Validate(func(s []string) error {
+					if len(s) == 0 {
+						return errors.New("select at least one data type")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		event["data_ingested"] = map[string]any{"data_types": toAnySlice(dataTypes)}
+
+	case triggerEventConditionalDataIngested:
+		conditionalEvent, err := collectConditionalDataIngested(part)
+		if err != nil {
+			return nil, err
+		}
+		event["conditional"] = conditionalEvent
+
+	case triggerEventConditionalLogsIngested:
+		var logLevels []string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewMultiSelect[string]().Title("Select log levels:").
+				Options(
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warn", "warn"),
+					huh.NewOption("Error", "error"),
+				).
+				Value(&logLevels).
+				Validate(func(s []string) error {
+					if len(s) == 0 {
+						return errors.New("select at least one log level")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		event["log_levels"] = toAnySlice(logLevels)
+	}
+
+	notifications, err := collectNotifications(eventType)
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"name": triggerName, "event": event, "notifications": notifications,
+	}, nil
+}
+
+// combineTriggers combines new triggers with the existing trigger config, erroring for repeat triggers.
+func combineTriggers(config, triggerConfig map[string]any, name string) error {
+	// Use []any (not []map[string]any) so structpb.NewStruct can serialize it.
+	var triggers []any
+	if existing, ok := config["triggers"]; ok {
+		if arr, ok := existing.([]any); ok {
+			triggers = arr
+		}
+	}
+	for _, t := range triggers {
+		if tMap, ok := t.(map[string]any); ok {
+			if tMap["name"] == name {
+				return fmt.Errorf("trigger with name %q already exists", name)
+			}
+		}
+	}
+	triggers = append(triggers, triggerConfig)
+	config["triggers"] = triggers
+	return nil
+}
+
+// collectConditionalDataIngested prompts for resource, method, operator, and value
+// to build the "conditional" portion of a conditional_data_ingested trigger event.
+func collectConditionalDataIngested(part *apppb.RobotPart) (map[string]any, error) {
+	// Build resource options and subtype map from the part config (components only).
+	confMap := part.RobotConfig.AsMap()
+	var resourceOpts []huh.Option[string]
+	subtypeByName := make(map[string]string)
+	resources, err := resourcesFromPartConfig(confMap, "components")
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range resources {
+		n, _ := r["name"].(string)
+		if n == "" {
+			continue
+		}
+		resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+		api, _ := r["api"].(string)
+		parts := strings.Split(api, ":")
+		if len(parts) == 3 && parts[2] != "" {
+			subtypeByName[n] = parts[2]
+		}
+	}
+	if len(resourceOpts) == 0 {
+		return nil, errors.New("this machine contains no components")
+	}
+	// Select a resource.
+	var resourceName string
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewSelect[string]().Title("Select a resource:").
+			Options(resourceOpts...).Value(&resourceName),
+	)).Run(); err != nil {
+		return nil, err
+	}
+
+	subtype, ok := subtypeByName[resourceName]
+	if !ok {
+		return nil, fmt.Errorf("could not determine subtype for resource %q", resourceName)
+	}
+
+	// Select a data capture method.
+	var method string
+	if methods, ok := validDataCaptureMethods[subtype]; ok {
+		methodOpts := make([]huh.Option[string], 0, len(methods))
+		for _, m := range methods {
+			methodOpts = append(methodOpts, huh.NewOption(m, m))
+		}
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewSelect[string]().Title("Select a data capture method:").
+				Options(methodOpts...).Value(&method),
+		)).Run(); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Data capture method:").
+				Description("e.g., Readings, ReadImage").
+				Value(&method).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("method cannot be empty")
+					}
+					return nil
+				}),
+		)).Run(); err != nil {
+			return nil, err
+		}
+	}
+
+	dcm := subtype + ":" + resourceName + ":" + method
+
+	// 3. Key, operator, and value.
+	var conditionKey, operator, conditionValue string
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewInput().Title("Condition key:").
+			Description("The field to evaluate, e.g. x, y, readings").
+			Value(&conditionKey).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("key cannot be empty")
+				}
+				return nil
+			}),
+		huh.NewSelect[string]().Title("Select a condition operator:").
+			Options(
+				huh.NewOption("gt (greater than)", "gt"),
+				huh.NewOption("gte (greater than or equal)", "gte"),
+				huh.NewOption("lt (less than)", "lt"),
+				huh.NewOption("lte (less than or equal)", "lte"),
+				huh.NewOption("eq (equal)", "eq"),
+				huh.NewOption("neq (not equal)", "neq"),
+				huh.NewOption("regex", "regex"),
+			).
+			Value(&operator),
+		huh.NewInput().Title("Condition value:").
+			Description("The threshold or regex value, e.g. 4, 80.5, true, a.*c").
+			Value(&conditionValue).
+			Validate(func(s string) error {
+				if strings.TrimSpace(s) == "" {
+					return errors.New("value cannot be empty")
+				}
+				return nil
+			}),
+	)).Run(); err != nil {
+		return nil, err
+	}
+
+	return map[string]any{
+		"data_capture_method": dcm,
+		"condition": map[string]any{
+			"evals": []any{
+				map[string]any{
+					"operator": operator,
+					"value":    map[string]any{conditionKey: parseValueString(conditionValue)},
+				},
+			},
+		},
+	}, nil
+}
+
+// parseValueString attempts to interpret a string as a number or boolean,
+// falling back to the raw string if neither applies.
+func parseValueString(s string) any {
+	s = strings.TrimSpace(s)
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	if b, err := strconv.ParseBool(s); err == nil {
+		return b
+	}
+	return s
+}
+
+// collectNotifications prompts the user for webhook and email notification settings.
+func collectNotifications(eventType string) ([]any, error) {
+	validateSeconds := func(s string) error {
+		if strings.TrimSpace(s) == "" {
+			return errors.New("value cannot be empty")
+		}
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return errors.New("must be a number")
+		}
+		switch eventType {
+		case triggerEventPartOnline, triggerEventPartOffline:
+			if v <= 0 {
+				return errors.New("must be over 0 for liveness triggers")
+			}
+		default:
+			if v < 0 {
+				return errors.New("must be >= 0")
+			}
+		}
+		return nil
+	}
+
+	var notifications []any
+
+	// Section 1: Webhooks.
+	var addWebhook bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Webhook notifications"),
+		huh.NewConfirm().Title("Add a webhook notification?").Value(&addWebhook),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	for addWebhook {
+		var webhookURL, secondsStr string
+		var addAnother bool
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().Title("Webhook URL:").Value(&webhookURL).
+					Validate(func(s string) error {
+						u, parseErr := url.Parse(strings.TrimSpace(s))
+						if parseErr != nil || u.Scheme == "" || u.Host == "" {
+							return errors.New("not a valid url")
+						}
+						return nil
+					}),
+				huh.NewInput().Title("Seconds between notifications:").Value(&secondsStr).
+					Validate(validateSeconds),
+			),
+			huh.NewGroup(
+				huh.NewConfirm().Title("Add another webhook?").Value(&addAnother),
+			),
+		).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeWebhook, "value": webhookURL, "seconds_between_notifications": seconds,
+		})
+		addWebhook = addAnother
+	}
+
+	// Section 2: Email alerts — email all machine owners.
+	var emailAll bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewNote().Title("Email alerts"),
+		huh.NewConfirm().Title("Email all machine owners?").Value(&emailAll),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	if emailAll {
+		var secondsStr string
+		if err := huh.NewForm(huh.NewGroup(
+			huh.NewInput().Title("Seconds between alerts (all machine owners):").
+				Value(&secondsStr).
+				Validate(validateSeconds),
+		)).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeEmail, "value": "all_machine_owners", "seconds_between_notifications": seconds,
+		})
+	}
+
+	// Section 3: Email alerts — specific email addresses.
+	var addSpecific bool
+	if err := huh.NewForm(huh.NewGroup(
+		huh.NewConfirm().Title("Email a specific email address?").Value(&addSpecific),
+	)).Run(); err != nil {
+		return nil, err
+	}
+	for addSpecific {
+		var email, secondsStr string
+		var addAnother bool
+		if err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().Title("Email address:").Value(&email).
+					Validate(func(s string) error {
+						if !strings.Contains(strings.TrimSpace(s), "@") {
+							return errors.New("must be a valid email address")
+						}
+						return nil
+					}),
+				huh.NewInput().Title("Seconds between alerts (this email):").
+					Value(&secondsStr).
+					Validate(validateSeconds),
+			),
+			huh.NewGroup(
+				huh.NewConfirm().Title("Add another email?").Value(&addAnother),
+			),
+		).Run(); err != nil {
+			return nil, err
+		}
+		seconds, _ := strconv.ParseFloat(secondsStr, 64) //nolint:errcheck
+		notifications = append(notifications, map[string]any{
+			"type": notifTypeEmail, "value": strings.TrimSpace(email), "seconds_between_notifications": seconds,
+		})
+		addSpecific = addAnother
+	}
+
+	if len(notifications) == 0 {
+		return nil, errors.New("at least one notification (webhook or email) is required")
+	}
+
+	return notifications, nil
+}
+
+func toAnySlice(ss []string) []any {
+	result := make([]any, len(ss))
+	for i, s := range ss {
+		result[i] = s
+	}
+	return result
+}
+
+func machinesPartDeleteTriggerAction(ctx context.Context, c *cli.Command, args machinesPartDeleteTriggerArgs) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	triggers, err := resourcesFromPartConfig(config, "triggers")
+	if err != nil {
+		return err
+	}
+	if len(triggers) == 0 {
+		printf(c.Root().Writer, "no triggers found on part %s", part.Name)
+		return nil
+	}
+
+	if args.Name == "" {
+		idx, err := fuzzyfinder.Find(triggers, func(i int) string {
+			name, _ := triggers[i]["name"].(string)
+			return name
+		})
+		if err != nil {
+			return err
+		}
+		args.Name, _ = triggers[idx]["name"].(string)
+	}
+	var updatedTriggers []map[string]any
+	found := false
+	for _, t := range triggers {
+		if t["name"] == args.Name {
+			found = true
+		} else {
+			updatedTriggers = append(updatedTriggers, t)
+		}
+	}
+	if !found {
+		printf(c.Root().Writer, "trigger %q not found", args.Name)
+		return nil
+	}
+
+	config["triggers"] = updatedTriggers
+
+	pbConfig, err := protoutils.StructToStructPb(config)
+	if err != nil {
+		return err
+	}
+
+	req := apppb.UpdateRobotPartRequest{Id: part.Id, Name: part.Name, RobotConfig: pbConfig}
+	_, err = client.client.UpdateRobotPart(ctx, &req)
+	if err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "successfully deleted trigger %q", args.Name)
+	return nil
+}
+
+// validDataCaptureMethods maps component/service subtypes to their valid data capture method names.
+var validDataCaptureMethods = map[string][]string{
+	"arm":     {"EndPosition", "JointPositions", "DoCommand"},
+	"audioin": {"GetAudio", "DoCommand"},
+	"base":    {"DoCommand"},
+	"board":   {"Analogs", "Gpios", "DoCommand"},
+	"button":  {"DoCommand"},
+	"camera":  {"NextPointCloud", "ReadImage", "GetImages", "DoCommand"},
+	"encoder": {"TicksCount", "DoCommand"},
+	"gantry":  {"Position", "Lengths", "DoCommand"},
+	"generic": {"DoCommand"},
+	"gripper": {"DoCommand"},
+	"input":   {"DoCommand"},
+	"motor":   {"Position", "IsPowered", "DoCommand"},
+	"movement_sensor": {
+		"Position", "LinearVelocity", "AngularVelocity", "CompassHeading",
+		"LinearAcceleration", "Orientation", "Readings", "DoCommand",
+	},
+	"pose_tracker": {"DoCommand"},
+	"power_sensor": {"Voltage", "Current", "Power", "Readings", "DoCommand"},
+	"sensor":       {"Readings", "DoCommand"},
+	"servo":        {"Position", "DoCommand"},
+	"switch":       {"DoCommand"},
+}
+
+// warnUnknownKeys warns about any keys in m that are not in validKeys.
+func warnUnknownKeys(w io.Writer, context string, m map[string]any, validKeys map[string]struct{}) {
+	for k := range m {
+		if _, ok := validKeys[k]; !ok {
+			warningf(w, "unknown field %q in %s", k, context)
+		}
+	}
+}
+
+// validateTriggerConfig validates the trigger configuration and returns an error for invalid configs.
+func validateTriggerConfig(w io.Writer, config, triggerConfig map[string]any) error {
+	// warn about unknown top-level keys
+	warnUnknownKeys(w, "trigger config", triggerConfig, map[string]struct{}{
+		"name": {}, "event": {}, "notifications": {}, "disabled": {},
+	})
+
+	// name: required non-empty string
+	nameRaw, ok := triggerConfig["name"]
+	if !ok {
+		return errors.New("trigger config missing required field \"name\"")
+	}
+	name, ok := nameRaw.(string)
+	if !ok || name == "" {
+		return errors.New("trigger \"name\" must be a non-empty string")
+	}
+
+	// 2. event: required map
+	eventRaw, ok := triggerConfig["event"]
+	if !ok {
+		return errors.New("trigger config missing required field \"event\"")
+	}
+	event, ok := eventRaw.(map[string]any)
+	if !ok {
+		return errors.New("trigger \"event\" must be an object")
+	}
+
+	// 3. event.type: must be one of the valid types
+	validEventTypes := map[string]struct{}{
+		triggerEventPartOnline:              {},
+		triggerEventPartOffline:             {},
+		triggerEventPartDataSynced:          {},
+		triggerEventConditionalDataIngested: {},
+		triggerEventConditionalLogsIngested: {},
+	}
+	eventTypeRaw, ok := event["type"]
+	if !ok {
+		return errors.New("trigger event missing required field \"type\"")
+	}
+	eventType, ok := eventTypeRaw.(string)
+	_, validType := validEventTypes[eventType]
+	if !ok || !validType {
+		return fmt.Errorf(
+			"trigger event type must be one of: part_online, part_offline, "+
+				"part_data_ingested, conditional_data_ingested, conditional_logs_ingested; got %q", eventTypeRaw)
+	}
+
+	// warn about unknown event keys
+	validEventKeys := map[string]struct{}{"type": {}}
+	switch eventType {
+	case triggerEventPartDataSynced:
+		validEventKeys["data_ingested"] = struct{}{}
+	case triggerEventConditionalDataIngested:
+		validEventKeys["conditional"] = struct{}{}
+	case triggerEventConditionalLogsIngested:
+		validEventKeys["log_levels"] = struct{}{}
+	}
+	warnUnknownKeys(w, "event", event, validEventKeys)
+
+	// 4. event-type-specific validation
+	switch eventType {
+	case triggerEventPartDataSynced:
+		if err := validateDataSynced(event); err != nil {
+			return err
+		}
+	case triggerEventConditionalDataIngested:
+		if err := validateConditionalDataIngested(w, event, config); err != nil {
+			return err
+		}
+	case triggerEventConditionalLogsIngested:
+		if err := validateConditionalLogsIngested(event); err != nil {
+			return err
+		}
+	}
+
+	// 5. notifications: required non-empty array
+	notificationsRaw, ok := triggerConfig["notifications"]
+	if !ok {
+		return errors.New("trigger config missing required field \"notifications\"")
+	}
+	notifications, ok := notificationsRaw.([]any)
+	if !ok || len(notifications) == 0 {
+		return errors.New("trigger \"notifications\" must be a non-empty array")
+	}
+
+	// 6. validate each notification
+	for i, nRaw := range notifications {
+		n, ok := nRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("notification at index %d must be an object", i)
+		}
+		if err := validateNotification(w, n, i, eventType); err != nil {
+			return err
+		}
+	}
+
+	// 7. warnings
+	if disabled, ok := triggerConfig["disabled"].(bool); ok && disabled {
+		warningf(w, "trigger will be created in disabled state")
+	}
+
+	return nil
+}
+
+func validateDataSynced(event map[string]any) error {
+	diRaw, ok := event["data_ingested"]
+	if !ok {
+		return errors.New("event type \"part_data_ingested\" requires \"data_ingested\" field")
+	}
+	di, ok := diRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"data_ingested\" must be an object")
+	}
+	dtRaw, ok := di["data_types"]
+	if !ok {
+		return errors.New("\"data_ingested\" requires \"data_types\" field")
+	}
+	dataTypes, ok := dtRaw.([]any)
+	if !ok || len(dataTypes) == 0 {
+		return errors.New("\"data_types\" must be a non-empty array")
+	}
+	validDataTypes := map[string]bool{"binary": true, "tabular": true, "file": true, "unspecified": true}
+	for _, dt := range dataTypes {
+		s, ok := dt.(string)
+		if !ok || !validDataTypes[s] {
+			return fmt.Errorf("invalid data type %q; must be one of: binary, tabular, file, unspecified", dt)
+		}
+	}
+	return nil
+}
+
+func validateConditionalDataIngested(w io.Writer, event, config map[string]any) error {
+	condRaw, ok := event["conditional"]
+	if !ok {
+		return errors.New("event type \"conditional_data_ingested\" requires \"conditional\" field")
+	}
+	cond, ok := condRaw.(map[string]any)
+	if !ok {
+		return errors.New("\"conditional\" must be an object")
+	}
+	dcmRaw, ok := cond["data_capture_method"]
+	if !ok {
+		return errors.New("\"conditional\" requires \"data_capture_method\" field")
+	}
+	dcm, ok := dcmRaw.(string)
+	if !ok || dcm == "" {
+		return errors.New("\"data_capture_method\" must be a non-empty string")
+	}
+	parts := strings.Split(dcm, ":")
+	if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+		return fmt.Errorf("\"data_capture_method\" must have format subtype:name:method (e.g., sensor:my-sensor:Readings); got %q", dcm)
+	}
+	subtype := parts[0]
+	componentName := parts[1]
+	methodName := parts[2]
+
+	// cross-reference against components and services in the part config
+	if err := validateComponentExists(config, subtype, componentName); err != nil {
+		return err
+	}
+
+	// validate method name against known methods for this subtype
+	if methods, known := validDataCaptureMethods[subtype]; known {
+		valid := false
+		for _, m := range methods {
+			if m == methodName {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("method %q is not a valid data capture method for %q; valid methods: %s",
+				methodName, subtype, strings.Join(methods, ", "))
+		}
+	} else {
+		warningf(w, "unknown subtype %q; cannot validate method %q. "+
+			"If this is a custom component, ensure the method name is correct", subtype, methodName)
+	}
+
+	// validate condition.evals if present
+	if conditionRaw, ok := cond["condition"]; ok {
+		condition, ok := conditionRaw.(map[string]any)
+		if !ok {
+			return errors.New("\"condition\" must be an object")
+		}
+		if evalsRaw, ok := condition["evals"]; ok {
+			evals, ok := evalsRaw.([]any)
+			if !ok {
+				return errors.New("\"condition.evals\" must be an array")
+			}
+			if err := validateEvals(evals); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// validateComponentExists checks that a component/service with the given name exists in the config
+// and its API subtype matches the expected subtype.
+func validateComponentExists(config map[string]any, subtype, componentName string) error {
+	for _, resourceType := range []string{"components", "services"} {
+		resources, err := resourcesFromPartConfig(config, resourceType)
+		if err != nil {
+			continue
+		}
+		for _, r := range resources {
+			name, _ := r["name"].(string)
+			if name != componentName {
+				continue
+			}
+			// found it — verify the API subtype matches
+			api, _ := r["api"].(string)
+			apiParts := strings.Split(api, ":")
+			if len(apiParts) == 3 && apiParts[2] != subtype {
+				return fmt.Errorf("component %q has subtype %q (api: %s), but data_capture_method specifies subtype %q",
+					componentName, apiParts[2], api, subtype)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no component or service named %q found in the part config; "+
+		"data_capture_method must reference an existing component", componentName)
+}
+
+func validateEvals(evals []any) error {
+	validOperators := map[string]bool{
+		"lt": true, "lte": true, "gt": true, "gte": true,
+		"eq": true, "neq": true, "regex": true,
+	}
+	for i, eRaw := range evals {
+		e, ok := eRaw.(map[string]any)
+		if !ok {
+			return fmt.Errorf("eval at index %d must be an object", i)
+		}
+		opRaw, ok := e["operator"]
+		if !ok {
+			return fmt.Errorf("eval at index %d missing required field \"operator\"", i)
+		}
+		op, ok := opRaw.(string)
+		if !ok || !validOperators[op] {
+			return fmt.Errorf("eval at index %d has invalid operator %q; must be one of: lt, lte, gt, gte, eq, neq, regex", i, opRaw)
+		}
+		if _, ok := e["value"]; !ok {
+			return fmt.Errorf("eval at index %d missing required field \"value\"", i)
+		}
+	}
+	return nil
+}
+
+func validateConditionalLogsIngested(event map[string]any) error {
+	llRaw, ok := event["log_levels"]
+	if !ok {
+		return errors.New("event type \"conditional_logs_ingested\" requires \"log_levels\" field")
+	}
+	logLevels, ok := llRaw.([]any)
+	if !ok || len(logLevels) == 0 {
+		return errors.New("\"log_levels\" must be a non-empty array")
+	}
+	validLevels := map[string]bool{"info": true, "warn": true, "error": true}
+	for _, ll := range logLevels {
+		s, ok := ll.(string)
+		if !ok || !validLevels[s] {
+			return fmt.Errorf("invalid log level %q; must be one of: info, warn, error", ll)
+		}
+	}
+	return nil
+}
+
+func validateNotification(w io.Writer, n map[string]any, index int, eventType string) error {
+	warnUnknownKeys(w, fmt.Sprintf("notification at index %d", index), n, map[string]struct{}{
+		"type": {}, "value": {}, "seconds_between_notifications": {},
+	})
+
+	// type
+	ntRaw, ok := n["type"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"type\"", index)
+	}
+	nt, ok := ntRaw.(string)
+	if !ok || (nt != notifTypeWebhook && nt != notifTypeEmail) {
+		return fmt.Errorf("notification at index %d has invalid type %q; must be \"webhook\" or \"email\"", index, ntRaw)
+	}
+
+	// value
+	valRaw, ok := n["value"]
+	if !ok {
+		return fmt.Errorf("notification at index %d missing required field \"value\"", index)
+	}
+	val, ok := valRaw.(string)
+	if !ok || val == "" {
+		return fmt.Errorf("notification at index %d \"value\" must be a non-empty string", index)
+	}
+
+	if nt == notifTypeWebhook {
+		u, err := url.Parse(val)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return fmt.Errorf("notification at index %d has invalid webhook URL %q (must have scheme and host)", index, val)
+		}
+	}
+	if nt == notifTypeEmail {
+		if val != "all_machine_owners" && !strings.Contains(val, "@") {
+			return fmt.Errorf("notification at index %d has invalid email %q (must contain '@' or be \"all_machine_owners\")", index, val)
+		}
+	}
+
+	// seconds_between_notifications
+	if sbnRaw, ok := n["seconds_between_notifications"]; ok {
+		sbn, ok := sbnRaw.(float64)
+		if !ok {
+			return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be a number", index)
+		}
+		switch eventType {
+		case triggerEventPartOnline, triggerEventPartOffline:
+			if sbn <= 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be over 0 for liveness triggers; got %v", index, sbn)
+			}
+		case triggerEventPartDataSynced, triggerEventConditionalDataIngested:
+			if sbn < 0 {
+				return fmt.Errorf("notification at index %d \"seconds_between_notifications\" must be >=0 for data triggers; got %v", index, sbn)
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateJobConfig validates the fields of a job config map. When isUpdate is true,
+// this is an update-job so not all fields are required.
+func validateJobConfig(jobConfig, partConfig map[string]any, isUpdate bool) error {
+	// validate schedule
+	if schedule, ok := jobConfig["schedule"].(string); ok {
+		if err := validateJobSchedule(schedule); err != nil {
+			return err
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'schedule' field (string)")
+	}
+
+	// validate resource
+	if resource, ok := jobConfig["resource"].(string); ok {
+		if resource == "" {
+			return errors.New("'resource' field must be a non-empty string")
+		}
+		if !resourceExistsInConfig(partConfig, resource) {
+			return fmt.Errorf("resource %q not found in part config", resource)
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'resource' field (string)")
+	}
+
+	// validate method
+	if method, ok := jobConfig["method"].(string); ok {
+		if method == "" {
+			return errors.New("'method' field must be a non-empty string")
+		}
+	} else if !isUpdate {
+		return errors.New("job config must include 'method' field (string)")
+	}
+
+	// Validate command is a JSON object (map) if provided.
+	if command, ok := jobConfig["command"]; ok {
+		if _, ok := command.(map[string]any); !ok {
+			return errors.New("'command' field must be a JSON object")
+		}
+	}
+
+	// validate log configuration
+	if logConfig, ok := jobConfig["log_configuration"].(map[string]any); ok {
+		if level, ok := logConfig["level"].(string); ok {
+			validLevels := map[string]bool{
+				"debug": true, "info": true, "warn": true, "warning": true, "error": true,
+			}
+			if !validLevels[strings.ToLower(level)] {
+				return fmt.Errorf("log_configuration level must be one of: debug, info, warn, warning, error; got %q", level)
+			}
+		}
+	}
+
+	return nil
+}
+
+// resourceExistsInConfig checks if a resource name exists in the part's components or services.
+func resourceExistsInConfig(config map[string]any, name string) bool {
+	for _, key := range []string{"components", "services"} {
+		if arr, ok := config[key].([]any); ok {
+			for _, item := range arr {
+				if m, ok := item.(map[string]any); ok {
+					if m["name"] == name {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+func validateJobSchedule(schedule string) error {
+	if strings.ToLower(schedule) == "continuous" {
+		return nil
+	}
+
+	intErr := validateInterval(schedule)
+	if intErr == nil {
+		return nil
+	}
+
+	cronErr := validateCronExpression(schedule)
+	if cronErr == nil {
+		return nil
+	}
+
+	return errors.Errorf(
+		"invalid schedule %q: not a valid interval (%v) or cron expression (%v)",
+		schedule, intErr, cronErr,
+	)
+}
+
+func validateInterval(interval string) error {
+	d, err := time.ParseDuration(interval)
+	if err != nil {
+		return err
+	}
+	if d <= 0 {
+		return errors.New("interval must be a positive duration")
+	}
+	return nil
+}
+
+func validateCronExpression(schedule string) error {
+	withSeconds := len(strings.Fields(schedule)) >= 6
+	if withSeconds {
+		p := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+		if _, err := p.Parse(schedule); err != nil {
+			return err
+		}
+	} else {
+		if _, err := cron.ParseStandard(schedule); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type machinesPartAddJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Config       string
+}
+
+func machinesPartAddJobAction(ctx context.Context, c *cli.Command, args machinesPartAddJobArgs) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	var jobConfig map[string]any
+	var part *apppb.RobotPart
+
+	// If no config is provided, run the interactive huh flow.
+	if args.Config != "" {
+		// Non-interactive path: config and part are required flags.
+		jobConfig, err = parseJSONOrFile(args.Config)
+		if err != nil {
+			return errors.Wrap(err, "failed to parse job config")
+		}
+
+		partStr := strings.TrimSpace(args.Part)
+		if partStr == "" {
+			return errors.New("part is required when using --config; specify --part")
+		}
+		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, partStr)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Get part ID
+		part, err = client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+		if err != nil {
+			return err
+		}
+
+		// 2. Build interactive form from the part config.
+		confMap := part.RobotConfig.AsMap()
+		var resourceOpts []huh.Option[string]
+		for _, key := range []string{"components", "services"} {
+			resources, err := resourcesFromPartConfig(confMap, key)
+			if err != nil {
+				return err
+			}
+			for _, r := range resources {
+				if n, ok := r["name"].(string); ok && n != "" {
+					resourceOpts = append(resourceOpts, huh.NewOption(n, n))
+				}
+			}
+		}
+		if len(resourceOpts) == 0 {
+			return errors.New("This machine contains no components or services")
+		}
+
+		// 3. Create the form and run it
+		var name, resource, method, commandStr, logLevel, scheduleType string
+		form := huh.NewForm(huh.NewGroup(
+			huh.NewNote().Title("Add a job to a part"),
+			huh.NewInput().Title("Set a job name:").Value(&name).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("job name cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().Title("Select a resource:").Options(resourceOpts...).Value(&resource),
+			huh.NewInput().Title("Set a method:").Value(&method).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return errors.New("method cannot be empty")
+					}
+					return nil
+				}),
+			huh.NewInput().
+				TitleFunc(func() string {
+					if strings.ToLower(strings.TrimSpace(method)) != "docommand" {
+						return "(Optional) Add a JSON argument to your method"
+					}
+					return "Set a command in JSON format:"
+				}, &method).
+				PlaceholderFunc(func() string {
+					if strings.ToLower(strings.TrimSpace(method)) != "docommand" {
+						return "Unless you are using DoCommand, you will most likely leave this empty"
+					}
+					return "{}"
+				}, &method).
+				Value(&commandStr).
+				Validate(func(s string) error {
+					if strings.TrimSpace(s) == "" {
+						return nil
+					}
+					var cmd map[string]any
+					if err := json.Unmarshal([]byte(s), &cmd); err != nil {
+						return errors.Wrap(err, "invalid JSON object")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().
+				Title("Set the log threshold:").
+				Options(
+					huh.NewOption("Debug", "debug"),
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warn", "warn"),
+					huh.NewOption("Error", "error"),
+				).
+				Value(&logLevel),
+			huh.NewSelect[string]().
+				Title("Set the schedule type:").
+				Options(
+					huh.NewOption("Interval", "interval"),
+					huh.NewOption("Cron", "cron"),
+					huh.NewOption("Continuous", "continuous"),
+				).
+				Value(&scheduleType),
+		))
+		if err := form.Run(); err != nil {
+			return err
+		}
+
+		// 4. last page form loads based on what type of schedule is selected
+		var schedule string
+		switch scheduleType {
+		case "interval":
+			var intervalStr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Set the interval:").
+						Description("Valid intervals look like 10s, 1m, 1h1m, etc. (Go duration format).").
+						Validate(validateInterval).
+						Value(&intervalStr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = intervalStr
+		case "cron":
+			var cronExpr string
+			form2 := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Cron expression:").
+						Description("Valid cron expressions look like 0 0 * * * for daily, */5 * * * * * for every 5 seconds, etc...").
+						Validate(validateCronExpression).
+						Value(&cronExpr),
+				),
+			)
+			if err := form2.Run(); err != nil {
+				return err
+			}
+			schedule = cronExpr
+		default:
+			schedule = "continuous"
+		}
+
+		// 5. Build the jobConfig map from the interactive inputs.
+		jobConfig = map[string]any{
+			"name": name, "schedule": schedule, "resource": resource, "method": method,
+		}
+
+		if method == "DoCommand" {
+			if strings.TrimSpace(commandStr) == "" {
+				jobConfig["command"] = map[string]any{}
+			} else {
+				var cmd map[string]any
+				if err := json.Unmarshal([]byte(commandStr), &cmd); err != nil {
+					return errors.Wrapf(err, "invalid command JSON")
+				}
+				jobConfig["command"] = cmd
+			}
+		}
+		if logLevel != "" {
+			jobConfig["log_configuration"] = map[string]any{"level": logLevel}
+		}
+	}
+
+	// Validate required fields and format
+	name, ok := jobConfig["name"].(string)
+	if !ok || name == "" {
+		return errors.New("job config must include 'name' field (string)")
+	}
+
+	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(jobConfig, config, false); err != nil {
+		return err
+	}
+
+	// Get existing jobs array or create new one
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Check if job with same name exists
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == name {
+				return fmt.Errorf("job with name %s already exists on part %s", name, part.Name)
+			}
+		}
+	}
+
+	jobs = append(jobs, jobConfig)
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "successfully added job %s to part %s", name, part.Name)
+	return nil
+}
+
+type machinesPartUpdateJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+	Config       string
+}
+
+func machinesPartUpdateJobAction(ctx context.Context, c *cli.Command, args machinesPartUpdateJobArgs) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	newJobConfig, err := parseJSONOrFile(args.Config)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse job config")
+	}
+
+	config := part.RobotConfig.AsMap()
+	if err := validateJobConfig(newJobConfig, config, true); err != nil {
+		return err
+	}
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Find and update the job
+	found := false
+	for i, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] == args.Name {
+				found = true
+				// Merge the new config into existing job, keeping the name
+				for k, v := range newJobConfig {
+					jobMap[k] = v
+				}
+				jobMap["name"] = args.Name // Ensure name doesn't change
+				jobs[i] = jobMap
+				break
+			}
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = jobs
+
+	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "successfully updated job %s on part %s", args.Name, part.Name)
+	return nil
+}
+
+type machinesPartDeleteJobArgs struct {
+	Part         string
+	Machine      string
+	Location     string
+	Organization string
+	Name         string
+}
+
+func machinesPartDeleteJobAction(ctx context.Context, c *cli.Command, args machinesPartDeleteJobArgs) error {
+	client, err := newViamClient(ctx, c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return err
+	}
+
+	config := part.RobotConfig.AsMap()
+
+	var jobs []any
+	if existingJobs, ok := config["jobs"]; ok {
+		if arr, ok := existingJobs.([]any); ok {
+			jobs = arr
+		}
+	}
+
+	// Filter out the job
+	var newJobs []any
+	found := false
+	for _, j := range jobs {
+		if jobMap, ok := j.(map[string]any); ok {
+			if jobMap["name"] != args.Name {
+				newJobs = append(newJobs, j)
+			} else {
+				found = true
+			}
+		} else {
+			newJobs = append(newJobs, j)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("job %s not found on part %s", args.Name, part.Name)
+	}
+
+	config["jobs"] = newJobs
+
+	if err := client.updateRobotPart(ctx, part, config, nil); err != nil {
+		return err
+	}
+
+	printf(c.Root().Writer, "successfully deleted job %s from part %s", args.Name, part.Name)
 	return nil
 }
 
@@ -4074,6 +5605,9 @@ func (c *viamClient) readOAuthAppAction(ctx context.Context, cCtx *cli.Command, 
 	printf(cCtx.Root().Writer, "PKCE (Proof Key for Code Exchange): %s", formatStringForOutput(config.Pkce.String(), pkcePrefix))
 	printf(cCtx.Root().Writer, "URL Validation Policy: %s", formatStringForOutput(config.UrlValidation.String(), urlValidationPrefix))
 	printf(cCtx.Root().Writer, "Logout URL: %s", config.LogoutUri)
+	if config.InviteRedirectUri != "" {
+		printf(cCtx.Root().Writer, "Invite Redirect URL: %s", config.InviteRedirectUri)
+	}
 	printf(cCtx.Root().Writer, "Redirect URLs: %s", strings.Join(config.RedirectUris, ", "))
 	if len(config.OriginUris) > 0 {
 		printf(cCtx.Root().Writer, "Origin URLs: %s", strings.Join(config.OriginUris, ", "))
@@ -4262,6 +5796,7 @@ type createOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4284,7 +5819,7 @@ func CreateOAuthAppAction(ctx context.Context, c *cli.Command, args createOAuthA
 
 func (c *viamClient) createOAuthAppAction(ctx context.Context, cCtx *cli.Command, args createOAuthAppArgs) error {
 	config, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return err
 	}
@@ -4312,6 +5847,7 @@ type updateOAuthAppArgs struct {
 	ClientAuthentication string
 	Pkce                 string
 	LogoutURI            string
+	InviteRedirectURI    string
 	UrlValidation        string //nolint:revive,stylecheck
 	OriginURIs           []string
 	RedirectURIs         []string
@@ -4343,8 +5879,8 @@ func (c *viamClient) updateOAuthAppAction(ctx context.Context, cCtx *cli.Command
 	return nil
 }
 
-func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI string,
-	originURIs, redirectURIs, enabledGrants []string,
+func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI,
+	inviteRedirectURI string, originURIs, redirectURIs, enabledGrants []string,
 ) (*apppb.OAuthConfig, error) {
 	clientAuthProto, err := clientAuthToProto(clientAuthentication)
 	if err != nil {
@@ -4371,6 +5907,7 @@ func generateOAuthConfig(clientAuthentication, pkce, urlValidation, logoutURI st
 		UrlValidation:        urlValidationProto,
 		OriginUris:           originURIs,
 		RedirectUris:         redirectURIs,
+		InviteRedirectUri:    inviteRedirectURI,
 		LogoutUri:            logoutURI,
 		EnabledGrants:        egProto,
 	}, nil
@@ -4385,7 +5922,7 @@ func createUpdateOAuthAppRequest(args updateOAuthAppArgs) (*apppb.UpdateOAuthApp
 	clientName := args.ClientName
 
 	oauthConfig, err := generateOAuthConfig(args.ClientAuthentication, args.Pkce, args.UrlValidation,
-		args.LogoutURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
+		args.LogoutURI, args.InviteRedirectURI, args.OriginURIs, args.RedirectURIs, args.EnabledGrants)
 	if err != nil {
 		return nil, err
 	}

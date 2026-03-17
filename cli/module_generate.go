@@ -42,6 +42,7 @@ const (
 	basePath                       = "module_generate"
 	templatePrefix                 = "tmpl-"
 	python                         = "python"
+	cpp                            = "cpp"
 	golang                         = "go"
 	moduleVisibilityPrivate        = "private"
 	moduleVisibilityPublic         = "public"
@@ -158,6 +159,10 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cCtx *cli.Command
 			return
 		}
 		newModule.SDKVersion = version[1:]
+		// C++ SDK tags are of the form "release/vx.y.z"; strip the prefix so SDKVersion is always "x.y.z".
+		if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
+			newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
+		}
 
 		s.Title("Setting up module directory...")
 		if err = setupDirectories(cCtx, newModule.ModuleName, globalArgs); err != nil {
@@ -329,10 +334,11 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Options(
 					huh.NewOption("Python", python),
 					huh.NewOption("Go", golang),
+					huh.NewOption("C++", cpp),
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
-				Title("Visibiity:").
+				Title("Visibility:").
 				Options(
 					huh.NewOption("Public", moduleVisibilityPublic),
 					huh.NewOption("Private", moduleVisibilityPrivate),
@@ -587,6 +593,10 @@ func renderCommonFiles(c *cli.Command, module modulegen.ModuleInputs, globalArgs
 
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
 func copyLanguageTemplate(c *cli.Command, language, moduleName string, globalArgs globalArgs) error {
+	// templates are stored elsewhere for C++
+	if language == cpp {
+		return nil
+	}
 	debugf(c.Root().Writer, globalArgs.Debug, "Creating %s template files", language)
 	languagePath := path.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -650,6 +660,10 @@ func copyLanguageTemplate(c *cli.Command, language, moduleName string, globalArg
 
 // Render all the files in the new directory.
 func renderTemplate(c *cli.Command, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	// templates are stored in separate repo for C++
+	if module.Language == cpp {
+		return nil
+	}
 	debugf(c.Root().Writer, globalArgs.Debug, "Rendering template files")
 	languagePath := path.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
@@ -701,9 +715,47 @@ func generateStubs(c *cli.Command, module modulegen.ModuleInputs, globalArgs glo
 		return generatePythonStubs(module)
 	case golang:
 		return generateGolangStubs(module)
+	case cpp:
+		return generateCppStubs(module)
 	default:
 		return errors.Errorf("cannot generate stubs for language %s", module.Language)
 	}
+}
+
+func generateCppStubs(module modulegen.ModuleInputs) error {
+	rendered, err := gen.RenderCppTemplates(module)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
+	}
+
+	srcDir := filepath.Join(module.ModuleName, "src")
+	if err = os.MkdirAll(srcDir, 0o750); err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory")
+	}
+
+	filesToWrite := []struct {
+		path string
+		data []byte
+	}{
+		{filepath.Join(module.ModuleName, "main.cpp"), rendered.Main},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.cpp", module.ModelSnake)), rendered.Type},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
+		{filepath.Join(module.ModuleName, "CMakeLists.txt"), rendered.CMakeLists},
+		{filepath.Join(module.ModuleName, "conanfile.py"), rendered.ConanFile},
+		{filepath.Join(module.ModuleName, "conan.lock"), rendered.ConanLock},
+	}
+	for _, f := range filesToWrite {
+		file, err := os.Create(f.path)
+		if err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path)
+		}
+		defer utils.UncheckedErrorFunc(file.Close)
+		if _, err = file.Write(f.data); err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to write to %s", f.path)
+		}
+	}
+
+	return nil
 }
 
 func generateGolangStubs(module modulegen.ModuleInputs) error {
@@ -828,6 +880,8 @@ func getLatestSDKTag(ctx context.Context, c *cli.Command, language string, globa
 		repo = "viam-python-sdk"
 	case golang:
 		repo = "rdk"
+	case cpp:
+		repo = "viam-cpp-sdk"
 	default:
 		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}
@@ -1006,6 +1060,14 @@ func renderManifest(c *cli.Command, moduleID string, module modulegen.ModuleInpu
 				Path:  "module.tar.gz",
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 			}
+		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
+	case cpp:
+		manifest.Build = &manifestBuildInfo{
+			Build:  "conan build . --build missing",
+			Path:   "build/Release/module.tar.gz",
+			Distro: "bookworm",
+			Arch:   []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}

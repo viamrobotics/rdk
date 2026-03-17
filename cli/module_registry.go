@@ -90,6 +90,7 @@ type manifestBuildInfo struct {
 	Setup      string   `json:"setup"`
 	Path       string   `json:"path"`
 	Arch       []string `json:"arch"`
+	Distro     string   `json:"distro,omitempty"`
 	DarwinDeps []string `json:"darwin_deps,omitempty"`
 }
 
@@ -302,7 +303,7 @@ func UploadModuleAction(ctx context.Context, c *cli.Command, args uploadModuleAr
 
 	var moduleID moduleID
 	// if the manifest cant be found, use passed in arguments to determine the module id
-	if _, err := os.Stat(manifestPath); err != nil {
+	if _, err = os.Stat(manifestPath); err != nil {
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
 			return errors.New("unable to find the meta.json. " +
 				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
@@ -353,7 +354,7 @@ func UploadModuleAction(ctx context.Context, c *cli.Command, args uploadModuleAr
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(ctx, client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
+		if err := validateModuleFile(ctx, client, c, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
 				err)
@@ -536,7 +537,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(ctx context.Context, client *viamClient, c *cli.Command, moduleID moduleID, tarballPath, version, platform string) error {
+func validateModuleFile(ctx context.Context, client *viamClient, c *cli.Command, moduleID moduleID, tarballPath, version, platform, uploadPath string) error {
 	getModuleResp, err := client.getModule(ctx, moduleID)
 	if err != nil {
 		return err
@@ -635,6 +636,9 @@ func validateModuleFile(ctx context.Context, client *viamClient, c *cli.Command,
 		extraErrInfo := ""
 		if len(filesWithSameNameAsEntrypoint) > 0 {
 			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+		}
+		if !isTarball(uploadPath) {
+			return fmt.Errorf("archive for uploading must be a *.tar.gz file, provided %s%s", uploadPath, extraErrInfo)
 		}
 		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
 			entrypoint, extraErrInfo)
