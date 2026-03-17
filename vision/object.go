@@ -62,7 +62,7 @@ func (o *Object) Distance() (float64, error) {
 	return dist, nil
 }
 
-// NormalizeScore checks to see if the score is between 0 and 1
+// NormalizeScore checks to see if the score is between 0 and 1 and if not, changes it
 func NormalizeScore(score float64) float64 {
 	if score < 0.0 {
 		return 0.0
