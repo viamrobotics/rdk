@@ -40,7 +40,6 @@ const (
 	version                        = "0.1.0"
 	basePath                       = "module_generate"
 	templatePrefix                 = "tmpl-"
-	cpp                            = "cpp"
 	python                         = "python"
 	cpp                            = "cpp"
 	golang                         = "go"
@@ -1064,9 +1063,10 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build: "conan build . --build missing",
-			Path:  "build/Release/module.tar.gz",
-			Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+			Build:  "conan build . --build missing",
+			Path:   "build/Release/module.tar.gz",
+			Distro: "bookworm",
+			Arch:   []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
