@@ -315,8 +315,8 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(operation.StreamClientInterceptor),
 		rpc.WithUnaryClientInterceptor(logging.UnaryClientInterceptor),
 		// sending version metadata
-		rpc.WithUnaryClientInterceptor(ViamClientInfoUnaryClientInterceptor()),
-		rpc.WithStreamClientInterceptor(ViamClientInfoStreamClientInterceptor()),
+		rpc.WithUnaryClientInterceptor(unaryClientInterceptor()),
+		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
 		rpc.WithDialStatsHandler(otelStatsHandler),
 	)
@@ -1496,14 +1496,13 @@ func ViamClientInfoUnaryServerInterceptor(
 	values := meta.Get(viamClientInfoMetadataKey)
 	if len(values) == 1 {
 		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, values[0])
 	}
 
 	return handler(ctx, req)
 }
 
-// ViamClientInfoUnaryClientInterceptor is a UnaryClientInterceptor that appends go;Version;APIVersion
-// to the outgoing context.
-func ViamClientInfoUnaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
+func unaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -1519,9 +1518,7 @@ func ViamClientInfoUnaryClientInterceptor() googlegrpc.UnaryClientInterceptor {
 	}
 }
 
-// ViamClientInfoStreamClientInterceptor is a StreamClientInterceptor that appends go;Version;APIVersion
-// to the outgoing context.
-func ViamClientInfoStreamClientInterceptor() googlegrpc.StreamClientInterceptor {
+func streamClientInterceptor() googlegrpc.StreamClientInterceptor {
 	return func(
 		ctx context.Context,
 		desc *googlegrpc.StreamDesc,

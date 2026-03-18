@@ -36,7 +36,6 @@ import (
 	modlib "go.viam.com/rdk/module"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -92,12 +91,10 @@ func (m *module) dial() error {
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
-			client.ViamClientInfoUnaryClientInterceptor(),
 		),
 		grpc.WithChainStreamInterceptor(
 			grpc_retry.StreamClientInterceptor(),
 			operation.StreamClientInterceptor,
-			client.ViamClientInfoStreamClientInterceptor(),
 		),
 		grpc.WithStatsHandler(otelStatsHandler),
 	)
