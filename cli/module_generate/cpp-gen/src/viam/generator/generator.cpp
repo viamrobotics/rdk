@@ -406,7 +406,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
 
 class {0}Recipe(ConanFile):
-    name = "{0}"
+    name = "{1}"
     version = "0.1"
     package_type = "application"
 
@@ -445,8 +445,9 @@ class {0}Recipe(ConanFile):
         cmake.install()
 
     def requirements(self):
-        self.requires("viam-cpp-sdk/{1}")
+        self.requires("viam-cpp-sdk/{2}")
 )--",
+                             fmt_str::modulePascal,
                              fmt_str::moduleName,
                              fmt_str::sdkVersion);
 }
