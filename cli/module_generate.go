@@ -1063,10 +1063,10 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build:  "conan build . --build missing",
+			Build:  "conan build . --build missing -s:a compiler.cppstd=17",
 			Path:   "build/Release/module.tar.gz",
 			Distro: "bookworm",
-			Arch:   []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+			Arch:   []string{"linux/amd64", "linux/arm64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
