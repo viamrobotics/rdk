@@ -86,7 +86,6 @@ func buildTestFlags(m map[string]any) []cli.Flag {
 }
 
 // buildTestCmd creates a *cli.Command with the given flags and positional args parsed.
-// In urfave/cli v3, there is no cli.NewContext; the *cli.Command itself serves as the context.
 func buildTestCmd(out, errOut io.Writer, flagDefs map[string]any, cliArgs ...string) *cli.Command {
 	flags := buildTestFlags(flagDefs)
 	cmd := &cli.Command{
