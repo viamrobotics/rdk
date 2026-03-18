@@ -1121,7 +1121,9 @@ func RobotsLogsAction(ctx context.Context, c *cli.Command, args robotsLogsArgs) 
 }
 
 // fetchLogs fetches logs for all parts and writes them to the provided writer.
-func (c *viamClient) fetchAndSaveLogs(ctx context.Context, robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer) error {
+func (c *viamClient) fetchAndSaveLogs(
+	ctx context.Context, robot *apppb.Robot, parts []*apppb.RobotPart, args robotsLogsArgs, writer io.Writer,
+) error {
 	for i, part := range parts {
 		// Write a header for text format
 		if args.Format == "text" || args.Format == "" {
@@ -4743,7 +4745,9 @@ func (c *viamClient) getRobotPart(ctx context.Context, partID string) (*apppb.Ge
 	return c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID})
 }
 
-func (c *viamClient) updateRobotPart(ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp) error {
+func (c *viamClient) updateRobotPart(
+	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
+) error {
 	confStruct, err := structpb.NewStruct(confMap)
 	if err != nil {
 		return errors.Wrap(err, "in NewStruct")
@@ -4861,7 +4865,9 @@ func (c *viamClient) printRobotPartLogs(ctx context.Context, orgStr, locStr, rob
 }
 
 // tailRobotPartLogs tails and prints logs for the given robot part.
-func (c *viamClient) tailRobotPartLogs(ctx context.Context, orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string) error {
+func (c *viamClient) tailRobotPartLogs(
+	ctx context.Context, orgStr, locStr, robotStr, partStr string, errorsOnly bool, indent, header string,
+) error {
 	part, err := c.robotPart(ctx, orgStr, locStr, robotStr, partStr)
 	if err != nil {
 		return err

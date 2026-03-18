@@ -479,7 +479,9 @@ func MLTrainingUploadAction(ctx context.Context, c *cli.Command, args mlTraining
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(ctx context.Context, draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
+func (c *viamClient) uploadTrainingScript(
+	ctx context.Context, draft bool, modelType, framework, url, orgID, name, version, path, visibility string,
+) (
 	*packagespb.CreatePackageResponse, error,
 ) {
 	metadata, err := createMetadata(draft, modelType, framework, url, visibility)

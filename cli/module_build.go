@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"context"
 	"archive/tar"
 	"bufio"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"net/url"
@@ -437,7 +437,9 @@ func (c *viamClient) printModuleBuildLogs(ctx context.Context, buildID, platform
 	return nil
 }
 
-func (c *viamClient) listModuleBuildJobs(ctx context.Context, moduleIDFilter string, count *int32, buildIDFilter *string) (*buildpb.ListJobsResponse, error) {
+func (c *viamClient) listModuleBuildJobs(
+	ctx context.Context, moduleIDFilter string, count *int32, buildIDFilter *string,
+) (*buildpb.ListJobsResponse, error) {
 	req := buildpb.ListJobsRequest{
 		ModuleId:      moduleIDFilter,
 		MaxJobsLength: count,

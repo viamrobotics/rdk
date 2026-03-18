@@ -182,7 +182,9 @@ func applyShellServiceToPartMap(partMap map[string]any) bool {
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 // Returns (wasAdded, error) where wasAdded indicates if the shell service was newly added.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
-func addShellService(ctx context.Context, c *cli.Command, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool) (bool, error) {
+func addShellService(
+	ctx context.Context, c *cli.Command, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool,
+) (bool, error) {
 	args, err := getGlobalArgs(c)
 	if err != nil {
 		return false, err

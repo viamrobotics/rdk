@@ -537,7 +537,9 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(ctx context.Context, client *viamClient, c *cli.Command, moduleID moduleID, tarballPath, version, platform, uploadPath string) error {
+func validateModuleFile(
+	ctx context.Context, client *viamClient, c *cli.Command, moduleID moduleID, tarballPath, version, platform, uploadPath string,
+) error {
 	getModuleResp, err := client.getModule(ctx, moduleID)
 	if err != nil {
 		return err

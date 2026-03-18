@@ -178,7 +178,6 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 
 	printf(c.Root().Writer, "Processing with Docker...\n")
 
-	ctx = context.Background()
 	//nolint:gosec // G204: Docker command constructed from validated user input
 	cmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
 	var stdout, stderr bytes.Buffer

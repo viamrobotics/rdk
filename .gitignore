@@ -100,3 +100,5 @@ web/cmd/server/*.core
 # Claude Code
 .claude/worktrees
 .claude/settings.local.json
+cli/CLAUDE.md
+cli/rdk.code-workspace

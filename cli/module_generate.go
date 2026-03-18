@@ -916,7 +916,9 @@ func getLatestSDKTag(ctx context.Context, c *cli.Command, language string, globa
 	return version, nil
 }
 
-func createModuleAndManifest(ctx context.Context, cCtx *cli.Command, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) (string, error) {
+func createModuleAndManifest(
+	ctx context.Context, cCtx *cli.Command, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs,
+) (string, error) {
 	var moduleID moduleID
 	var registryURL string
 	if module.RegisterOnApp {

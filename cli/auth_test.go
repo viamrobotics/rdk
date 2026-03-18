@@ -55,7 +55,8 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	}
 	cCtx, ac, out, errOut := setup(asc, nil, nil, map[string]any{"org-id": "my-org"}, "token")
 
-	test.That(t, ac.organizationsAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	orgKeyArgs := parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.organizationsAPIKeyCreateAction(context.Background(), cCtx, orgKeyArgs), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 8)
 	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "id-xxx")
@@ -170,7 +171,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 
 	cCtx.Set(generalFlagLocationID, fakeLocID)
 	// will create an api-key with a default name
-	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	locKeyArgs := parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, locKeyArgs), test.ShouldBeNil)
 	allMessages := strings.Join(out.messages, " ")
 
 	test.That(t, allMessages, test.ShouldContainSubstring, "using default key name of ")
@@ -181,7 +183,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	// test with an orgID is fine
 	cCtx.Set(generalFlagOrgID, fakeOrgID)
 	test.That(t, ac.c.Value(generalFlagOrgID), test.ShouldNotBeEmpty)
-	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	locKeyArgsWithOrg := parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, locKeyArgsWithOrg), test.ShouldBeNil)
 	allMessages = strings.Join(out.messages, " ")
 
 	test.That(t, allMessages, test.ShouldContainSubstring, "Successfully created key")

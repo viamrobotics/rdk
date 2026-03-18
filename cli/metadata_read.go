@@ -1,8 +1,8 @@
 package cli
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 
 	"github.com/pkg/errors"

@@ -415,7 +415,9 @@ func createActionCommandWithT[T any](f func(context.Context, *cli.Command, T) er
 
 // createBeforeCommandWithT is like Action but returns a BeforeFunc-compatible
 // signature (context.Context, error) instead of just error.
-func createBeforeCommandWithT[T any](f func(context.Context, *cli.Command, T) error) func(context.Context, *cli.Command) (context.Context, error) {
+func createBeforeCommandWithT[T any](
+	f func(context.Context, *cli.Command, T) error,
+) func(context.Context, *cli.Command) (context.Context, error) {
 	return func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 		t := parseStructFromCtx[T](cmd)
 		return ctx, f(ctx, cmd, t)
@@ -4207,12 +4209,4 @@ func NewApp(out, errOut io.Writer) *cli.Command {
 	app.Writer = out
 	app.ErrWriter = errOut
 	return app
-}
-
-// return a shallow copy of global `app` to support test parallelism.
-func newTestApp(out, errOut io.Writer) *cli.Command {
-	appCopy := *app
-	appCopy.Writer = out
-	appCopy.ErrWriter = errOut
-	return &appCopy
 }

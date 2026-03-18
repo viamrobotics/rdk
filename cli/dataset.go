@@ -222,7 +222,9 @@ func DatasetDownloadAction(ctx context.Context, c *cli.Command, args datasetDown
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(ctx context.Context, dst, datasetID string, onlyJSONLines, forceLinuxPath bool, parallelDownloads, timeout uint) error {
+func (c *viamClient) downloadDataset(
+	ctx context.Context, dst, datasetID string, onlyJSONLines, forceLinuxPath bool, parallelDownloads, timeout uint,
+) error {
 	var datasetFile *os.File
 	var err error
 	datasetPath := filepath.Join(dst, "dataset.jsonl")
