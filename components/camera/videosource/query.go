@@ -83,7 +83,7 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	logger.Info("sanity check rq!!!")
+	logger.Info("sanity check rq!!! ayyyyyy")
 	if runtime.GOOS == "linux" {
 		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
 		// So we can call Initialize() only once, and call discover() as many times as we need.
@@ -111,26 +111,6 @@ func findReaderAndDriver(
 		if err != nil {
 			return nil, nil, "", err
 		}
-
-		// img, release, err := reader.Read()
-		// if release != nil {
-		// 	defer release()
-		// }
-		// if err != nil {
-		// 	logger.Errorw("error reading from driver, closing driver", "error", err)
-		// 	if closeErr := driver.Close(); closeErr != nil {
-		// 		logger.Errorw("error closing driver after error reading", "error", closeErr)
-		// 		return nil, nil, "", fmt.Errorf("%w; close error: %w", err, closeErr)
-		// 	}
-		// 	return nil, nil, "", err
-		// }
-
-		// if conf.Width != 0 && conf.Height != 0 {
-		// 	if img.Bounds().Dx() != conf.Width || img.Bounds().Dy() != conf.Height {
-		// 		logger.Warnf("requested width and height (%dx%d) do not match actual webcam resolution (%dx%d); using actual resolution",
-		// 			conf.Width, conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
-		// 	}
-		// }
 		return reader, driver, path, nil
 	}
 
