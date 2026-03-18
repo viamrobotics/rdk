@@ -73,6 +73,11 @@ type PoseCloud struct {
 
 // ToProto turns this to proto.
 func (pc *PoseCloud) ToProto() *commonpb.PoseCloud {
+	if pc == nil {
+		// A default PoseCloud is equivalent to not specifying one (all of the leeways are 0).
+		return &commonpb.PoseCloud{}
+	}
+
 	return &commonpb.PoseCloud{
 		X:     pc.X,
 		Y:     pc.Y,
