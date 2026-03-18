@@ -187,7 +187,8 @@ func enforceCreateActionCommandWithTRun(pass *analysis.Pass) (any, error) {
 				key := keyValue.Key.(*ast.Ident)
 
 				// "Action", "Before", and "After" are the three types of CLI actions for which
-				// `createActionCommandWithT` was designed
+				// `createActionCommandWithT` was designed. "Before" uses `createBeforeCommandWithT`
+				// because BeforeFunc returns (context.Context, error) instead of just error.
 				if key.Name == "Action" || key.Name == "Before" ||
 					key.Name == "After" {
 					callExpr, isCallExpr := keyValue.Value.(*ast.CallExpr)
@@ -211,7 +212,11 @@ func enforceCreateActionCommandWithTRun(pass *analysis.Pass) (any, error) {
 						return true
 					}
 
-					if funcIdent.Name != "createActionCommandWithT" {
+					allowedFunc := "createActionCommandWithT"
+					if key.Name == "Before" {
+						allowedFunc = "createBeforeCommandWithT"
+					}
+					if funcIdent.Name != allowedFunc {
 						// some other func was used to generate the action
 						pass.Report(analysis.Diagnostic{
 							Pos:     funcIdent.Pos(),

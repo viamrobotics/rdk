@@ -334,18 +334,18 @@ func camelFormatName(name string) string {
 	return strings.ToLower(camelFormattedName)
 }
 
-func getValFromContext(name string, ctx *cli.Command) any {
+func getValFromContext(name string, c *cli.Command) any {
 	// some fuzzy searching is required here, because flags are typically in kebab case, but
 	// params are typically in snake or camel case
 	replacer := strings.NewReplacer("_", "-")
 	dashFormattedName := replacer.Replace(strings.ToLower(name))
 
-	value := ctx.Value(dashFormattedName)
+	value := c.Value(dashFormattedName)
 	if value != nil {
 		return value
 	}
 
-	return ctx.Value(camelFormatName(name))
+	return c.Value(camelFormatName(name))
 }
 
 // (erodkin) We don't support pointers in structs here. The problem is that when getting a value
@@ -353,16 +353,13 @@ func getValFromContext(name string, ctx *cli.Command) any {
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
 // be a pointer to that default value.
-func parseStructFromCtx[T any](ctx *cli.Command) T {
+func parseStructFromCtx[T any](c *cli.Command) T {
 	var t T
 	tValue := reflect.ValueOf(&t).Elem()
 	tType := tValue.Type()
 	for i := 0; i < tType.NumField(); i++ {
 		field := tType.Field(i)
-		if value := getValFromContext(field.Name, ctx); value != nil {
-			// In urfave/cli v3, slice flag values (e.g. StringSliceFlag) are returned as
-			// their native Go types ([]string, []int, etc.) directly from Command.Value(),
-			// so no special unwrapping is needed.
+		if value := getValFromContext(field.Name, c); value != nil {
 			if field.Type.Kind() == reflect.Slice {
 				tValue.Field(i).Set(reflect.ValueOf(value))
 			} else {
@@ -372,7 +369,7 @@ func parseStructFromCtx[T any](ctx *cli.Command) T {
 					camelFormatName(field.Name),
 				) {
 					if val, isStr := value.(string); isStr {
-						value = orgOrDefault(ctx, val)
+						value = orgOrDefault(c, val)
 					}
 				}
 
@@ -382,7 +379,7 @@ func parseStructFromCtx[T any](ctx *cli.Command) T {
 					camelFormatName(field.Name),
 				) {
 					if val, isStr := value.(string); isStr {
-						value = locationOrDefault(ctx, val)
+						value = locationOrDefault(c, val)
 					}
 				}
 
