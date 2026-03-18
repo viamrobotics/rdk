@@ -155,7 +155,12 @@ func (o *RawDelimitedProtoReader) All() iter.Seq[[]byte] {
 func splitMessages(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if len(data) < 5 {
 		// Not enough data to contain a full message + its length.
-		return 0, nil, bufio.ErrFinalToken
+		if atEOF {
+			// Also reached EOF; invalid state.
+			return 0, nil, bufio.ErrFinalToken
+		}
+		// Otherwise, request bufio read more in and try again.
+		return 0, nil, nil
 	}
 	messageSize := binary.LittleEndian.Uint32(data[:4])
 	messageBytes := data[4:]
