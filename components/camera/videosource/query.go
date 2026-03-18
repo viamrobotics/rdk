@@ -83,7 +83,6 @@ func findReaderAndDriver(
 	path string,
 	logger logging.Logger,
 ) (video.Reader, driver.Driver, string, error) {
-	logger.Info("sanity check rq!!! ayyyyyy")
 	if runtime.GOOS == "linux" {
 		// TODO(RSDK-12789): Separate discover() calls from Initialize() calls.
 		// So we can call Initialize() only once, and call discover() as many times as we need.
