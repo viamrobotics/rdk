@@ -25,11 +25,11 @@ type mlInferenceInferArgs struct {
 }
 
 // MLInferenceInferAction is the corresponding action for 'inference infer'.
-func MLInferenceInferAction(ctx context.Context, c *cli.Command, args mlInferenceInferArgs) error {
+func MLInferenceInferAction(ctx context.Context, cmd *cli.Command, args mlInferenceInferArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to run an ML inference")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}

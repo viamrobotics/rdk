@@ -31,11 +31,11 @@ type datasetCreateArgs struct {
 }
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
-func DatasetCreateAction(ctx context.Context, c *cli.Command, args datasetCreateArgs) error {
+func DatasetCreateAction(ctx context.Context, cmd *cli.Command, args datasetCreateArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a dataset")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -62,8 +62,8 @@ type datasetRenameArgs struct {
 }
 
 // DatasetRenameAction is the corresponding action for 'dataset rename'.
-func DatasetRenameAction(ctx context.Context, c *cli.Command, args datasetRenameArgs) error {
-	client, err := newViamClient(ctx, c)
+func DatasetRenameAction(ctx context.Context, cmd *cli.Command, args datasetRenameArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -91,11 +91,11 @@ type datasetMergeArgs struct {
 }
 
 // DatasetMergeAction is the corresponding action for 'dataset merge'.
-func DatasetMergeAction(ctx context.Context, c *cli.Command, args datasetMergeArgs) error {
+func DatasetMergeAction(ctx context.Context, cmd *cli.Command, args datasetMergeArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to merge datasets")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -125,8 +125,8 @@ type datasetListArgs struct {
 }
 
 // DatasetListAction is the corresponding action for 'dataset list'.
-func DatasetListAction(ctx context.Context, c *cli.Command, args datasetListArgs) error {
-	client, err := newViamClient(ctx, c)
+func DatasetListAction(ctx context.Context, cmd *cli.Command, args datasetListArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -177,8 +177,8 @@ type datasetDeleteArgs struct {
 }
 
 // DatasetDeleteAction is the corresponding action for 'dataset delete'.
-func DatasetDeleteAction(ctx context.Context, c *cli.Command, args datasetDeleteArgs) error {
-	client, err := newViamClient(ctx, c)
+func DatasetDeleteAction(ctx context.Context, cmd *cli.Command, args datasetDeleteArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -209,8 +209,8 @@ type datasetDownloadArgs struct {
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
-func DatasetDownloadAction(ctx context.Context, c *cli.Command, args datasetDownloadArgs) error {
-	client, err := newViamClient(ctx, c)
+func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDownloadArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}

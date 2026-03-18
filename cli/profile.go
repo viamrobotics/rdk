@@ -59,7 +59,7 @@ func writeProfiles(profiles map[string]profile) error {
 	return os.WriteFile(getCLIProfilesPath(), md, 0o640)
 }
 
-func addOrUpdateProfile(ctx context.Context, c *cli.Command, args addOrUpdateProfileArgs, isAdd bool) error {
+func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs, isAdd bool) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -105,18 +105,18 @@ func addOrUpdateProfile(ctx context.Context, c *cli.Command, args addOrUpdatePro
 		}
 	}
 
-	printf(c.Root().Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
+	printf(cmd.Root().Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
 	return nil
 }
 
 // AddProfileAction adds a new CLI profile.
-func AddProfileAction(ctx context.Context, c *cli.Command, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(ctx, c, args, true)
+func AddProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
+	return addOrUpdateProfile(ctx, cmd, args, true)
 }
 
 // UpdateProfileAction updates an existing CLI profile, or adds it if it doesn't already exist.
-func UpdateProfileAction(ctx context.Context, c *cli.Command, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(ctx, c, args, false)
+func UpdateProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
+	return addOrUpdateProfile(ctx, cmd, args, false)
 }
 
 type removeProfileArgs struct {
@@ -141,7 +141,7 @@ func whichProfile(args *globalArgs) (*string, bool) {
 }
 
 // RemoveProfileAction removes a CLI profile.
-func RemoveProfileAction(ctx context.Context, c *cli.Command, args removeProfileArgs) error {
+func RemoveProfileAction(ctx context.Context, cmd *cli.Command, args removeProfileArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		return err
@@ -157,20 +157,20 @@ func RemoveProfileAction(ctx context.Context, c *cli.Command, args removeProfile
 		return err
 	}
 
-	printf(c.Root().Writer, "Successfully deleted profile %s", args.ProfileName)
+	printf(cmd.Root().Writer, "Successfully deleted profile %s", args.ProfileName)
 
 	return nil
 }
 
 // ListProfilesAction lists all currently supported profiles.
-func ListProfilesAction(ctx context.Context, c *cli.Command, args emptyArgs) error {
+func ListProfilesAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		return err
 	}
 
 	for p := range profiles {
-		printf(c.Root().Writer, p)
+		printf(cmd.Root().Writer, p)
 	}
 
 	return nil

@@ -90,7 +90,7 @@ type urdfLimit struct {
 }
 
 // XacroConvertAction converts a xacro file to URDF format.
-func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertArgs) error {
+func XacroConvertAction(ctx context.Context, cmd *cli.Command, args xacroConvertArgs) error {
 	if _, err := exec.LookPath(dockerExecutable); err != nil {
 		return fmt.Errorf("%s not found - please install Docker to use xacro conversion: %w", dockerExecutable, err)
 	}
@@ -108,7 +108,7 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 	if err != nil {
 		return fmt.Errorf("failed to detect package name: %w", err)
 	}
-	printf(c.Root().Writer, "Detected package: %s\n", pkgName)
+	printf(cmd.Root().Writer, "Detected package: %s\n", pkgName)
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -146,7 +146,7 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 		)
 	}
 	if len(dependentPkgs) > 0 {
-		printf(c.Root().Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
+		printf(cmd.Root().Writer, "Found dependent packages: %s\n", strings.Join(getPackageNames(dependentPkgs), ", "))
 	}
 
 	dockerArgs, err := processXacroArgs(args.Args, cwd, pkgName)
@@ -165,26 +165,26 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 	)
 
 	if args.DryRun {
-		printf(c.Root().Writer, "Dry run - would execute:\n")
-		printf(c.Root().Writer, "%s %s\n", dockerExecutable, strings.Join(dockerCmd, " "))
+		printf(cmd.Root().Writer, "Dry run - would execute:\n")
+		printf(cmd.Root().Writer, "%s %s\n", dockerExecutable, strings.Join(dockerCmd, " "))
 		if args.CollapseFixedJoints {
-			printf(c.Root().Writer, "\nAfter Docker processing, would collapse fixed joint chains:\n")
-			printf(c.Root().Writer, "  - Removes fixed joints where the child link is a leaf (has no children)\n")
-			printf(c.Root().Writer, "  - Removes the corresponding child links\n")
-			printf(c.Root().Writer, "  - Simplifies kinematic structure while preserving functionality\n")
+			printf(cmd.Root().Writer, "\nAfter Docker processing, would collapse fixed joint chains:\n")
+			printf(cmd.Root().Writer, "  - Removes fixed joints where the child link is a leaf (has no children)\n")
+			printf(cmd.Root().Writer, "  - Removes the corresponding child links\n")
+			printf(cmd.Root().Writer, "  - Simplifies kinematic structure while preserving functionality\n")
 		}
 		return nil
 	}
 
-	printf(c.Root().Writer, "Processing with Docker...\n")
+	printf(cmd.Root().Writer, "Processing with Docker...\n")
 
 	//nolint:gosec // G204: Docker command constructed from validated user input
-	cmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
+	execCmd := exec.CommandContext(ctx, dockerExecutable, dockerCmd...)
 	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	execCmd.Stdout = &stdout
+	execCmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
+	if err := execCmd.Run(); err != nil {
 		errMsg := fmt.Sprintf("xacro processing failed: %v\nStderr: %s", err, stderr.String())
 		if strings.Contains(err.Error(), "connection refused") || strings.Contains(err.Error(), "Cannot connect") {
 			errMsg += fmt.Sprintf("\n\nSuggestion: Check that Docker is running (try '%s ps')", dockerExecutable)
@@ -197,11 +197,11 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 	// Note: Only use this flag if the generated URDF has multiple end-effectors.
 	// This happens when there are fixed joints (as opposed to revolute/prismatic).
 	if args.CollapseFixedJoints {
-		printf(c.Root().Writer, "Collapsing fixed joint chains...\n")
+		printf(cmd.Root().Writer, "Collapsing fixed joint chains...\n")
 		collapsed, err := collapseFixedJoints(output)
 		if err != nil {
 			if writeErr := os.WriteFile(args.OutputFile, []byte(output), fileOutputPerm); writeErr == nil {
-				printf(c.Root().Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
+				printf(cmd.Root().Writer, "Warning: Collapse failed, wrote uncollapsed output to %s\n", args.OutputFile)
 			}
 			return fmt.Errorf(
 				"failed to collapse fixed joints: %w\n\nSuggestion: The uncollapsed URDF has been saved. "+
@@ -216,7 +216,7 @@ func XacroConvertAction(ctx context.Context, c *cli.Command, args xacroConvertAr
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 
-	printf(c.Root().Writer, "Success! Generated: %s\n", args.OutputFile)
+	printf(cmd.Root().Writer, "Success! Generated: %s\n", args.OutputFile)
 	return nil
 }
 

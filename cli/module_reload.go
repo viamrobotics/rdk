@@ -114,7 +114,7 @@ func applyResourceToPartMap(
 // addResourceFromModule adds a resource to the components or services slice if missing.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func (c *viamClient) addResourceFromModule(
-	ctx *cli.Command, part *apppb.RobotPart, manifest *ModuleManifest, modelName, resourceName string,
+	cmd *cli.Command, part *apppb.RobotPart, manifest *ModuleManifest, modelName, resourceName string,
 ) error {
 	partMap := part.RobotConfig.AsMap()
 	resolvedName, err := applyResourceToPartMap(partMap, manifest, modelName, resourceName)
@@ -124,7 +124,7 @@ func (c *viamClient) addResourceFromModule(
 	if err := writeBackConfig(part, partMap); err != nil {
 		return err
 	}
-	infof(ctx.Root().Writer, "installing %s model with name %s on target machine", modelName, resolvedName)
+	infof(cmd.Root().Writer, "installing %s model with name %s on target machine", modelName, resolvedName)
 
 	if err := c.updateRobotPart(context.Background(), part, partMap, part.LastUpdated); err != nil {
 		partResp, refetchErr := c.getRobotPart(context.Background(), part.Id)
@@ -183,15 +183,15 @@ func applyShellServiceToPartMap(partMap map[string]any) bool {
 // Returns (wasAdded, error) where wasAdded indicates if the shell service was newly added.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func addShellService(
-	ctx context.Context, c *cli.Command, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool,
+	ctx context.Context, cmd *cli.Command, vc *viamClient, logger logging.Logger, part *apppb.RobotPart, wait bool,
 ) (bool, error) {
-	args, err := getGlobalArgs(c)
+	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
 	if !applyShellServiceToPartMap(partMap) {
-		debugf(c.Root().Writer, args.Debug, "shell service found on target machine, not installing")
+		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
 	}
 	if err := writeBackConfig(part, partMap); err != nil {
@@ -205,7 +205,7 @@ func addShellService(
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
 		if !applyShellServiceToPartMap(retryMap) {
-			debugf(c.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
+			debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
 		}
 		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
@@ -248,7 +248,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // applyModuleConfigToPartMap applies the module reload configuration changes to a partMap.
 // Returns (modules, dirty, error).
 func applyModuleConfigToPartMap(
-	c *cli.Command, partMap map[string]any, manifest ModuleManifest, local bool, reloadUser string,
+	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local bool, reloadUser string,
 ) ([]ModuleMap, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
@@ -261,7 +261,7 @@ func applyModuleConfigToPartMap(
 		return nil, false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, modules, manifest, local, reloadUser)
+	modules, dirty, err := mutateModuleConfig(cmd, modules, manifest, local, reloadUser)
 	if err != nil {
 		return nil, false, err
 	}
@@ -279,13 +279,13 @@ func applyModuleConfigToPartMap(
 // Mutates the passed part.RobotConfig.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func configureModule(
-	ctx context.Context, c *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool, reloadUser string,
+	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool, reloadUser string,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, err := applyModuleConfigToPartMap(c, partMap, *manifest, local, reloadUser)
+	_, dirty, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, reloadUser)
 	if err != nil {
 		return part, false, err
 	}
@@ -293,11 +293,11 @@ func configureModule(
 		return part, false, err
 	}
 	if dirty {
-		args, err := getGlobalArgs(c)
+		args, err := getGlobalArgs(cmd)
 		if err != nil {
 			return part, false, err
 		}
-		debugf(c.Root().Writer, args.Debug, "writing back config changes")
+		debugf(cmd.Root().Writer, args.Debug, "writing back config changes")
 		if err := vc.updateRobotPart(ctx, part, partMap, part.LastUpdated); err != nil {
 			partResp, refetchErr := vc.getRobotPart(ctx, part.Id)
 			if refetchErr != nil {
@@ -305,7 +305,7 @@ func configureModule(
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
-			_, _, retryErr := applyModuleConfigToPartMap(c, retryMap, *manifest, local, reloadUser)
+			_, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, reloadUser)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
@@ -338,7 +338,7 @@ func localizeModuleID(moduleID string) string {
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
 // reloadUser is the email/identity of the user performing the reload.
 func mutateModuleConfig(
-	c *cli.Command,
+	cmd *cli.Command,
 	modules []ModuleMap,
 	manifest ModuleManifest,
 	local bool,
@@ -363,10 +363,10 @@ func mutateModuleConfig(
 			return nil, dirty, err
 		}
 	} else {
-		absEntrypoint = reloadingDestination(c, &manifest)
+		absEntrypoint = reloadingDestination(cmd, &manifest)
 	}
 
-	args, err := getGlobalArgs(c)
+	args, err := getGlobalArgs(cmd)
 	if err != nil {
 		return nil, false, err
 	}
@@ -380,13 +380,13 @@ func mutateModuleConfig(
 		}
 		reloadFlag := foundMod["reload_enabled"]
 		if samePath && reloadFlag == true {
-			debugf(c.Root().Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, updating user and time")
+			debugf(cmd.Root().Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, updating user and time")
 		} else {
 			if samePath {
-				debugf(c.Root().Writer, args.Debug, "ReloadPath is up to date, setting ReloadEnabled true")
+				debugf(cmd.Root().Writer, args.Debug, "ReloadPath is up to date, setting ReloadEnabled true")
 				foundMod["reload_enabled"] = true
 			} else {
-				debugf(c.Root().Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
+				debugf(cmd.Root().Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
 				foundMod["reload_path"] = absEntrypoint
 				foundMod["reload_enabled"] = true
 			}
@@ -397,9 +397,9 @@ func mutateModuleConfig(
 	} else {
 		dirty = true
 		if foundMod == nil {
-			debugf(c.Root().Writer, args.Debug, "module not found, inserting")
+			debugf(cmd.Root().Writer, args.Debug, "module not found, inserting")
 		} else {
-			debugf(c.Root().Writer, args.Debug, "found local module, inserting registry module")
+			debugf(cmd.Root().Writer, args.Debug, "found local module, inserting registry module")
 		}
 		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime)
 		modules = append(modules, newMod)

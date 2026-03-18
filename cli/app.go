@@ -334,18 +334,18 @@ func camelFormatName(name string) string {
 	return strings.ToLower(camelFormattedName)
 }
 
-func getValFromContext(name string, c *cli.Command) any {
+func getValFromContext(name string, cmd *cli.Command) any {
 	// some fuzzy searching is required here, because flags are typically in kebab case, but
 	// params are typically in snake or camel case
 	replacer := strings.NewReplacer("_", "-")
 	dashFormattedName := replacer.Replace(strings.ToLower(name))
 
-	value := c.Value(dashFormattedName)
+	value := cmd.Value(dashFormattedName)
 	if value != nil {
 		return value
 	}
 
-	return c.Value(camelFormatName(name))
+	return cmd.Value(camelFormatName(name))
 }
 
 // (erodkin) We don't support pointers in structs here. The problem is that when getting a value
@@ -353,13 +353,13 @@ func getValFromContext(name string, c *cli.Command) any {
 // When getting a value from the context, though, we currently have no way of know if that's going
 // to a concrete value, going to a pointer and should be a nil value, or going to a pointer but should
 // be a pointer to that default value.
-func parseStructFromCtx[T any](c *cli.Command) T {
+func parseStructFromCtx[T any](cmd *cli.Command) T {
 	var t T
 	tValue := reflect.ValueOf(&t).Elem()
 	tType := tValue.Type()
 	for i := 0; i < tType.NumField(); i++ {
 		field := tType.Field(i)
-		if value := getValFromContext(field.Name, c); value != nil {
+		if value := getValFromContext(field.Name, cmd); value != nil {
 			if field.Type.Kind() == reflect.Slice {
 				tValue.Field(i).Set(reflect.ValueOf(value))
 			} else {
@@ -369,7 +369,7 @@ func parseStructFromCtx[T any](c *cli.Command) T {
 					camelFormatName(field.Name),
 				) {
 					if val, isStr := value.(string); isStr {
-						value = orgOrDefault(c, val)
+						value = orgOrDefault(cmd, val)
 					}
 				}
 
@@ -379,7 +379,7 @@ func parseStructFromCtx[T any](c *cli.Command) T {
 					camelFormatName(field.Name),
 				) {
 					if val, isStr := value.(string); isStr {
-						value = locationOrDefault(c, val)
+						value = locationOrDefault(cmd, val)
 					}
 				}
 
@@ -391,8 +391,8 @@ func parseStructFromCtx[T any](c *cli.Command) T {
 	return t
 }
 
-func getGlobalArgs(ctx *cli.Command) (*globalArgs, error) {
-	gArgs := parseStructFromCtx[globalArgs](ctx)
+func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
+	gArgs := parseStructFromCtx[globalArgs](cmd)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
 	// programmatically enforce compliance here.

@@ -52,8 +52,8 @@ type packageExportArgs struct {
 }
 
 // PackageExportAction is the corresponding action for 'package export'.
-func PackageExportAction(ctx context.Context, c *cli.Command, args packageExportArgs) error {
-	client, err := newViamClient(ctx, c)
+func PackageExportAction(ctx context.Context, cmd *cli.Command, args packageExportArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -189,11 +189,11 @@ type packageUploadArgs struct {
 }
 
 // PackageUploadAction is the corresponding action for "packages upload".
-func PackageUploadAction(ctx context.Context, c *cli.Command, args packageUploadArgs) error {
+func PackageUploadAction(ctx context.Context, cmd *cli.Command, args packageUploadArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to upload a package")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -203,7 +203,7 @@ func PackageUploadAction(ctx context.Context, c *cli.Command, args packageUpload
 		return err
 	}
 
-	if err := validatePackageUploadRequest(c, args); err != nil {
+	if err := validatePackageUploadRequest(cmd, args); err != nil {
 		return err
 	}
 
@@ -233,7 +233,7 @@ func PackageUploadAction(ctx context.Context, c *cli.Command, args packageUpload
 		return err
 	}
 
-	printf(c.Root().Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
+	printf(cmd.Root().Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
 	return nil
 }
 

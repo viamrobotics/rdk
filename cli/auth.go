@@ -125,26 +125,26 @@ type loginActionArgs struct {
 }
 
 // LoginAction is the corresponding Action for 'login'.
-func LoginAction(ctx context.Context, cCtx *cli.Command, args loginActionArgs) error {
-	c, err := newViamClientInner(ctx, cCtx, args.DisableBrowserOpen)
+func LoginAction(ctx context.Context, cmd *cli.Command, args loginActionArgs) error {
+	c, err := newViamClientInner(ctx, cmd, args.DisableBrowserOpen)
 	if err != nil {
 		return err
 	}
-	return c.loginAction(ctx, cCtx)
+	return c.loginAction(ctx, cmd)
 }
 
-func (c *viamClient) loginAction(ctx context.Context, cCtx *cli.Command) error {
+func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
 	loggedInMessage := func(t *token, alreadyLoggedIn bool) {
 		already := "Already l"
 		if !alreadyLoggedIn {
 			already = "L"
 			// only print the viam logo if we are in an interative terminal
 			if term.IsTerminal(int(os.Stdout.Fd())) {
-				viamLogo(cCtx.Root().Writer)
+				viamLogo(cmd.Root().Writer)
 			}
 		}
 
-		printf(cCtx.Root().Writer, "%sogged in as %q, expires %s", already, t.User.Email,
+		printf(cmd.Root().Writer, "%sogged in as %q, expires %s", already, t.User.Email,
 			t.ExpiresAt.Format("Mon Jan 2 15:04:05 MST 2006"))
 	}
 
@@ -196,15 +196,15 @@ type loginWithAPIKeyArgs struct {
 }
 
 // LoginWithAPIKeyAction is the corresponding Action for `login api-key`.
-func LoginWithAPIKeyAction(ctx context.Context, cCtx *cli.Command, args loginWithAPIKeyArgs) error {
-	c, err := newViamClientInner(ctx, cCtx, false)
+func LoginWithAPIKeyAction(ctx context.Context, cmd *cli.Command, args loginWithAPIKeyArgs) error {
+	c, err := newViamClientInner(ctx, cmd, false)
 	if err != nil {
 		return err
 	}
-	return c.loginWithAPIKeyAction(ctx, cCtx, args)
+	return c.loginWithAPIKeyAction(ctx, cmd, args)
 }
 
-func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cCtx *cli.Command, args loginWithAPIKeyArgs) error {
+func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cmd *cli.Command, args loginWithAPIKeyArgs) error {
 	key := apiKey{
 		KeyID:     args.KeyID,
 		KeyCrypto: args.Key,
@@ -220,22 +220,22 @@ func (c viamClient) loginWithAPIKeyAction(ctx context.Context, cCtx *cli.Command
 	if _, err := c.listOrganizations(ctx); err != nil {
 		return errors.Wrapf(err, "unable to connect to %q using the provided api key", c.conf.BaseURL)
 	}
-	printf(cCtx.Root().Writer, "Successfully logged in with api key %q", key.KeyID)
+	printf(cmd.Root().Writer, "Successfully logged in with api key %q", key.KeyID)
 	return nil
 }
 
 // PrintAccessTokenAction is the corresponding Action for 'print-access-token'.
-func PrintAccessTokenAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error {
-	c, err := newViamClient(ctx, cCtx)
+func PrintAccessTokenAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	return c.printAccessTokenAction(cCtx)
+	return c.printAccessTokenAction(cmd)
 }
 
-func (c *viamClient) printAccessTokenAction(cCtx *cli.Command) error {
+func (c *viamClient) printAccessTokenAction(cmd *cli.Command) error {
 	if token, ok := c.conf.Auth.(*token); ok {
-		printf(cCtx.Root().Writer, token.AccessToken)
+		printf(cmd.Root().Writer, token.AccessToken)
 	} else {
 		return errors.New("not logged in as a user. Cannot print access token. Run \"viam login\" to sign in with your account")
 	}
@@ -243,9 +243,9 @@ func (c *viamClient) printAccessTokenAction(cCtx *cli.Command) error {
 }
 
 // LogoutAction is the corresponding Action for 'logout'.
-func LogoutAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error {
+func LogoutAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	// Create basic viam client; no need to check base URL.
-	conf, err := ConfigFromCache(cCtx)
+	conf, err := ConfigFromCache(cmd)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -254,41 +254,41 @@ func LogoutAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error 
 	}
 
 	vc := &viamClient{
-		c:    cCtx,
+		c:    cmd,
 		conf: conf,
 	}
-	return vc.logoutAction(cCtx)
+	return vc.logoutAction(cmd)
 }
 
-func (c *viamClient) logoutAction(cCtx *cli.Command) error {
+func (c *viamClient) logoutAction(cmd *cli.Command) error {
 	auth := c.conf.Auth
 	if auth == nil {
-		printf(cCtx.Root().Writer, "Already logged out")
+		printf(cmd.Root().Writer, "Already logged out")
 		return nil
 	}
 	if err := c.logout(); err != nil {
 		return errors.Wrap(err, "could not logout")
 	}
-	printf(cCtx.Root().Writer, "Logged out from %q", auth)
+	printf(cmd.Root().Writer, "Logged out from %q", auth)
 	return nil
 }
 
 // WhoAmIAction is the corresponding Action for 'whoami'.
-func WhoAmIAction(ctx context.Context, cCtx *cli.Command, args emptyArgs) error {
-	c, err := newViamClient(ctx, cCtx)
+func WhoAmIAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	return c.whoAmIAction(cCtx)
+	return c.whoAmIAction(cmd)
 }
 
-func (c *viamClient) whoAmIAction(cCtx *cli.Command) error {
+func (c *viamClient) whoAmIAction(cmd *cli.Command) error {
 	auth := c.conf.Auth
 	if auth == nil {
-		warningf(cCtx.Root().Writer, "Not logged in. Run \"login\" command")
+		warningf(cmd.Root().Writer, "Not logged in. Run \"login\" command")
 		return nil
 	}
-	printf(cCtx.Root().Writer, "%s", auth)
+	printf(cmd.Root().Writer, "%s", auth)
 	return nil
 }
 
@@ -304,15 +304,15 @@ type organizationsAPIKeyCreateArgs struct {
 }
 
 // OrganizationsAPIKeyCreateAction corresponds to `organizations api-key create`.
-func OrganizationsAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args organizationsAPIKeyCreateArgs) error {
-	c, err := newViamClient(ctx, cCtx)
+func OrganizationsAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args organizationsAPIKeyCreateArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	return c.organizationsAPIKeyCreateAction(ctx, cCtx, args)
+	return c.organizationsAPIKeyCreateAction(ctx, cmd, args)
 }
 
-func (c *viamClient) organizationsAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args organizationsAPIKeyCreateArgs) error {
+func (c *viamClient) organizationsAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args organizationsAPIKeyCreateArgs) error {
 	var err error
 	orgID := args.OrgID
 	if orgID == "" {
@@ -321,16 +321,16 @@ func (c *viamClient) organizationsAPIKeyCreateAction(ctx context.Context, cCtx *
 	keyName := args.Name
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
-		infof(cCtx.Root().Writer, "using default key name of %q", keyName)
+		infof(cmd.Root().Writer, "using default key name of %q", keyName)
 	}
 	resp, err := c.createOrganizationAPIKey(ctx, orgID, keyName)
 	if err != nil {
 		return err
 	}
-	infof(cCtx.Root().Writer, "Successfully created key:")
-	printf(cCtx.Root().Writer, "Key ID: %s ", resp.GetId())
-	printf(cCtx.Root().Writer, "Key Value: %s", resp.GetKey())
-	warningf(cCtx.Root().Writer, "Keep this key somewhere safe; it has full write access to your organization")
+	infof(cmd.Root().Writer, "Successfully created key:")
+	printf(cmd.Root().Writer, "Key ID: %s ", resp.GetId())
+	printf(cmd.Root().Writer, "Key Value: %s", resp.GetKey())
+	warningf(cmd.Root().Writer, "Keep this key somewhere safe; it has full write access to your organization")
 	return nil
 }
 
@@ -359,17 +359,17 @@ type locationAPIKeyCreateArgs struct {
 }
 
 // LocationAPIKeyCreateAction corresponds to `location api-key create`.
-func LocationAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args locationAPIKeyCreateArgs) error {
-	c, err := newViamClient(ctx, cCtx)
+func LocationAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args locationAPIKeyCreateArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	err = c.locationAPIKeyCreateAction(ctx, cCtx, args)
+	err = c.locationAPIKeyCreateAction(ctx, cmd, args)
 	return err
 }
 
-func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args locationAPIKeyCreateArgs) error {
+func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args locationAPIKeyCreateArgs) error {
 	locationID := args.LocationID
 	orgID := args.OrgID
 	keyName := args.Name
@@ -380,7 +380,7 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cCtx *cli.C
 
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
-		infof(cCtx.Root().Writer, "using default key name of %s", keyName)
+		infof(cmd.Root().Writer, "using default key name of %s", keyName)
 	}
 
 	req := &apppb.CreateKeyRequest{
@@ -407,10 +407,10 @@ func (c *viamClient) locationAPIKeyCreateAction(ctx context.Context, cCtx *cli.C
 		return err
 	}
 
-	infof(cCtx.Root().Writer, "Successfully created key: ")
-	printf(cCtx.Root().Writer, "Key ID: %s", key.GetId())
-	printf(cCtx.Root().Writer, "Key Value: %s", key.GetKey())
-	warningf(cCtx.Root().Writer, "Keep this key somewhere safe; it has full write access to your location")
+	infof(cmd.Root().Writer, "Successfully created key: ")
+	printf(cmd.Root().Writer, "Key ID: %s", key.GetId())
+	printf(cmd.Root().Writer, "Key Value: %s", key.GetKey())
+	warningf(cmd.Root().Writer, "Keep this key somewhere safe; it has full write access to your location")
 	return nil
 }
 
@@ -421,16 +421,16 @@ type robotAPIKeyCreateArgs struct {
 }
 
 // RobotAPIKeyCreateAction corresponds to `machine api-key create`.
-func RobotAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args robotAPIKeyCreateArgs) error {
-	c, err := newViamClient(ctx, cCtx)
+func RobotAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args robotAPIKeyCreateArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	err = c.robotAPIKeyCreateAction(ctx, cCtx, args)
+	err = c.robotAPIKeyCreateAction(ctx, cmd, args)
 	return err
 }
 
-func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cCtx *cli.Command, args robotAPIKeyCreateArgs) error {
+func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cmd *cli.Command, args robotAPIKeyCreateArgs) error {
 	robotID := args.MachineID
 	keyName := args.Name
 	orgID := args.OrgID
@@ -441,7 +441,7 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cCtx *cli.Comm
 
 	if keyName == "" {
 		keyName = c.generateDefaultKeyName()
-		infof(cCtx.Root().Writer, "using default key name of %q", keyName)
+		infof(cmd.Root().Writer, "using default key name of %q", keyName)
 	}
 
 	// If we pass in an empty OrgID the CreateAPIKey endpoint
@@ -471,10 +471,10 @@ func (c *viamClient) robotAPIKeyCreateAction(ctx context.Context, cCtx *cli.Comm
 		}
 		return err
 	}
-	infof(cCtx.Root().Writer, "Successfully created key:")
-	printf(cCtx.Root().Writer, "Key ID: %s", key.GetId())
-	printf(cCtx.Root().Writer, "Key Value: %s", key.GetKey())
-	warningf(cCtx.Root().Writer, "Keep this key somewhere safe; it has full write access to your machine")
+	infof(cmd.Root().Writer, "Successfully created key:")
+	printf(cmd.Root().Writer, "Key ID: %s", key.GetId())
+	printf(cmd.Root().Writer, "Key Value: %s", key.GetKey())
+	warningf(cmd.Root().Writer, "Keep this key somewhere safe; it has full write access to your machine")
 
 	return nil
 }
@@ -715,7 +715,7 @@ func newCLIAuthFlowWithAuthDomain(authDomain, audience, clientID string, console
 	}
 }
 
-func (a *authFlow) loginAsUser(ctx context.Context, c *cli.Command) (*token, error) {
+func (a *authFlow) loginAsUser(ctx context.Context, cmd *cli.Command) (*token, error) {
 	discovery, err := a.loadOIDiscoveryEndpoint(ctx)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed retrieving discovery endpoint")
@@ -728,7 +728,7 @@ func (a *authFlow) loginAsUser(ctx context.Context, c *cli.Command) (*token, err
 
 	err = a.directUser(deviceCode)
 	if err != nil {
-		warningf(c.Root().ErrWriter, "unable to open the browser to complete the login flow due to %q. "+
+		warningf(cmd.Root().ErrWriter, "unable to open the browser to complete the login flow due to %q. "+
 			"Please go to the provided URL to log in; you can use the --%s flag to skip this warning in the future",
 			err.Error(), loginFlagDisableBrowser)
 	}

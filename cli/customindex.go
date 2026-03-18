@@ -35,16 +35,16 @@ type createCustomIndexArgs struct {
 
 // CreateCustomIndexAction creates a custom index for a specified organization and collection type
 // using the provided index specification file in the arguments.
-func CreateCustomIndexAction(ctx context.Context, c *cli.Command, args createCustomIndexArgs) error {
+func CreateCustomIndexAction(ctx context.Context, cmd *cli.Command, args createCustomIndexArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a custom index")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	collectionType, err := validateCollectionTypeArgs(c, args.CollectionType)
+	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func CreateCustomIndexAction(ctx context.Context, c *cli.Command, args createCus
 		return fmt.Errorf("failed to create index: %w", err)
 	}
 
-	printf(c.Root().Writer, "Create index request sent successfully")
+	printf(cmd.Root().Writer, "Create index request sent successfully")
 
 	return nil
 }
@@ -77,16 +77,16 @@ type deleteCustomIndexArgs struct {
 }
 
 // DeleteCustomIndexAction deletes a custom index for a specified organization and collection type using the provided index name.
-func DeleteCustomIndexAction(ctx context.Context, c *cli.Command, args deleteCustomIndexArgs) error {
+func DeleteCustomIndexAction(ctx context.Context, cmd *cli.Command, args deleteCustomIndexArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to delete a custom index")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	collectionType, err := validateCollectionTypeArgs(c, args.CollectionType)
+	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func DeleteCustomIndexAction(ctx context.Context, c *cli.Command, args deleteCus
 		return fmt.Errorf("failed to delete index: %w", err)
 	}
 
-	printf(c.Root().Writer, "Index (name: %s) deleted successfully", args.IndexName)
+	printf(cmd.Root().Writer, "Index (name: %s) deleted successfully", args.IndexName)
 
 	return nil
 }
@@ -113,16 +113,16 @@ type listCustomIndexesArgs struct {
 }
 
 // ListCustomIndexesAction lists all custom indexes for a specified organization and collection type.
-func ListCustomIndexesAction(ctx context.Context, c *cli.Command, args listCustomIndexesArgs) error {
+func ListCustomIndexesAction(ctx context.Context, cmd *cli.Command, args listCustomIndexesArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to list custom indexes")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	collectionType, err := validateCollectionTypeArgs(c, args.CollectionType)
+	collectionType, err := validateCollectionTypeArgs(cmd, args.CollectionType)
 	if err != nil {
 		return err
 	}
@@ -137,20 +137,20 @@ func ListCustomIndexesAction(ctx context.Context, c *cli.Command, args listCusto
 	}
 
 	if len(resp.Indexes) == 0 {
-		printf(c.Root().Writer, "No indexes found")
+		printf(cmd.Root().Writer, "No indexes found")
 		return nil
 	}
 
-	printf(c.Root().Writer, "Indexes:\n")
+	printf(cmd.Root().Writer, "Indexes:\n")
 	for _, index := range resp.Indexes {
-		printf(c.Root().Writer, "- Name: %s\n", index.IndexName)
-		printf(c.Root().Writer, "  Spec: %s\n", index.IndexSpec)
+		printf(cmd.Root().Writer, "- Name: %s\n", index.IndexName)
+		printf(cmd.Root().Writer, "  Spec: %s\n", index.IndexSpec)
 	}
 
 	return nil
 }
 
-func validateCollectionTypeArgs(c *cli.Command, collectionType string) (pb.IndexableCollection, error) {
+func validateCollectionTypeArgs(cmd *cli.Command, collectionType string) (pb.IndexableCollection, error) {
 	var collectionTypeProto pb.IndexableCollection
 	switch collectionType {
 	case hotStoreCollectionTypeStr:
@@ -161,8 +161,8 @@ func validateCollectionTypeArgs(c *cli.Command, collectionType string) (pb.Index
 		return unspecifiedCollectionType, errInvalidCollectionType
 	}
 
-	collectionTypeFlag := c.String(dataFlagCollectionType)
-	pipelineName := c.String(dataFlagPipelineName)
+	collectionTypeFlag := cmd.String(dataFlagCollectionType)
+	pipelineName := cmd.String(dataFlagPipelineName)
 
 	if collectionTypeFlag == pipelineSinkCollectionTypeStr && pipelineName == "" {
 		return unspecifiedCollectionType, errPipelineNameRequired

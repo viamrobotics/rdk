@@ -98,18 +98,18 @@ type dataExportTabularArgs struct {
 }
 
 // DataExportBinaryAction is the corresponding action for 'data export binary'.
-func DataExportBinaryAction(ctx context.Context, cCtx *cli.Command, args dataExportBinaryArgs) error {
-	client, err := newViamClient(ctx, cCtx)
+func DataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportBinaryAction(ctx, cCtx, args)
+	return client.dataExportBinaryAction(ctx, cmd, args)
 }
 
 // DataExportBinaryIDsAction is the corresponding action for 'data export binary ids'.
-func DataExportBinaryIDsAction(ctx context.Context, cCtx *cli.Command, args dataExportBinaryIDsArgs) error {
-	client, err := newViamClient(ctx, cCtx)
+func DataExportBinaryIDsAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -118,13 +118,13 @@ func DataExportBinaryIDsAction(ctx context.Context, cCtx *cli.Command, args data
 }
 
 // DataExportTabularAction is the corresponding action for 'data export tabular'.
-func DataExportTabularAction(ctx context.Context, cCtx *cli.Command, args dataExportTabularArgs) error {
-	client, err := newViamClient(ctx, cCtx)
+func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportTabularAction(ctx, cCtx, args)
+	return client.dataExportTabularAction(ctx, cmd, args)
 }
 
 type dataTagByFilterArgs struct {
@@ -132,18 +132,18 @@ type dataTagByFilterArgs struct {
 }
 
 // DataTagActionByFilter is the corresponding action for 'data tag filter'.
-func DataTagActionByFilter(ctx context.Context, c *cli.Command, args dataTagByFilterArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataTagActionByFilter(ctx context.Context, cmd *cli.Command, args dataTagByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
 
-	switch c.Name {
+	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByFilter(filter, args.Tags); err != nil {
 			return err
@@ -155,7 +155,7 @@ func DataTagActionByFilter(ctx context.Context, c *cli.Command, args dataTagByFi
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", c.Name)
+		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
 	}
 }
 
@@ -165,13 +165,13 @@ type dataTagByIDsArgs struct {
 }
 
 // DataTagActionByIDs is the corresponding action for 'data tag'.
-func DataTagActionByIDs(ctx context.Context, c *cli.Command, args dataTagByIDsArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataTagActionByIDs(ctx context.Context, cmd *cli.Command, args dataTagByIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	switch c.Name {
+	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
 			return err
@@ -183,18 +183,18 @@ func DataTagActionByIDs(ctx context.Context, c *cli.Command, args dataTagByIDsAr
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", c.Name)
+		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
 	}
 }
 
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
-func DataDeleteBinaryAction(ctx context.Context, c *cli.Command, args emptyArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataDeleteBinaryAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -210,11 +210,11 @@ type dataDeleteTabularArgs struct {
 }
 
 // DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
-func DataDeleteTabularAction(ctx context.Context, c *cli.Command, args dataDeleteTabularArgs) error {
+func DataDeleteTabularAction(ctx context.Context, cmd *cli.Command, args dataDeleteTabularArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to delete tabular data")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -225,8 +225,8 @@ func DataDeleteTabularAction(ctx context.Context, c *cli.Command, args dataDelet
 	return nil
 }
 
-func createDataFilter(c *cli.Command) (*datapb.Filter, error) {
-	args := parseStructFromCtx[commonFilterArgs](c)
+func createDataFilter(cmd *cli.Command) (*datapb.Filter, error) {
+	args := parseStructFromCtx[commonFilterArgs](cmd)
 	filter := &datapb.Filter{}
 
 	if args.OrgIDs != nil {
@@ -263,7 +263,7 @@ func createDataFilter(c *cli.Command) (*datapb.Filter, error) {
 	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
 	// tags to add to the data. To account for this, we have to check if we're running the tag
 	// command, and if so, to add the filter tags if we pass in --filter-tags.
-	if strings.Contains(c.UsageText, "tag") && len(args.FilterTags) != 0 {
+	if strings.Contains(cmd.UsageText, "tag") && len(args.FilterTags) != 0 {
 		filter.TagsFilter = &datapb.TagsFilter{
 			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
 			Tags: args.FilterTags,
@@ -271,7 +271,7 @@ func createDataFilter(c *cli.Command) (*datapb.Filter, error) {
 	}
 	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
 	// running the tag command.
-	if !strings.Contains(c.UsageText, "tag") && args.Tags != nil {
+	if !strings.Contains(cmd.UsageText, "tag") && args.Tags != nil {
 		if len(args.FilterTags) == 0 {
 			switch {
 			case len(args.Tags) == 1 && args.Tags[0] == "tagged":
@@ -355,8 +355,8 @@ func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, er
 	}, nil
 }
 
-func (c *viamClient) dataExportBinaryAction(ctx context.Context, cCtx *cli.Command, args dataExportBinaryArgs) error {
-	filter, err := createDataFilter(cCtx)
+func (c *viamClient) dataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -378,8 +378,8 @@ func (c *viamClient) dataExportBinaryIDsAction(ctx context.Context, args dataExp
 	return nil
 }
 
-func (c *viamClient) dataExportTabularAction(ctx context.Context, cCtx *cli.Command, args dataExportTabularArgs) error {
-	request, err := createExportTabularRequest(cCtx)
+func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
+	request, err := createExportTabularRequest(cmd)
 	if err != nil {
 		return err
 	}
@@ -946,8 +946,8 @@ type dataAddToDatasetByIDsArgs struct {
 }
 
 // DataAddToDatasetByIDs is the corresponding action for 'dataset data add ids'.
-func DataAddToDatasetByIDs(ctx context.Context, c *cli.Command, args dataAddToDatasetByIDsArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataAddToDatasetByIDs(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -973,12 +973,12 @@ type dataAddToDatasetByFilterArgs struct {
 }
 
 // DataAddToDatasetByFilter is the corresponding action for 'dataset data add filter'.
-func DataAddToDatasetByFilter(ctx context.Context, c *cli.Command, args dataAddToDatasetByFilterArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataAddToDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -1026,8 +1026,8 @@ type dataRemoveFromDatasetArgs struct {
 }
 
 // DataRemoveFromDataset is the corresponding action for 'dataset data remove ids'.
-func DataRemoveFromDataset(ctx context.Context, c *cli.Command, args dataRemoveFromDatasetArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataRemoveFromDataset(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1053,12 +1053,12 @@ type dataRemoveFromDatasetByFilterArgs struct {
 }
 
 // DataRemoveFromDatasetByFilter is the corresponding action for 'dataset data remove filter'.
-func DataRemoveFromDatasetByFilter(ctx context.Context, c *cli.Command, args dataRemoveFromDatasetByFilterArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataRemoveFromDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -1099,11 +1099,11 @@ type dataConfigureDatabaseUserArgs struct {
 // DataConfigureDatabaseUserConfirmation is the Before action for 'data database configure'.
 // it asks for the user to confirm that they are aware that they are changing the authentication
 // credentials of their database.
-func DataConfigureDatabaseUserConfirmation(ctx context.Context, c *cli.Command, args dataConfigureDatabaseUserArgs) error {
+func DataConfigureDatabaseUserConfirmation(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to configure database user")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1117,18 +1117,18 @@ func DataConfigureDatabaseUserConfirmation(ctx context.Context, c *cli.Command, 
 	// skip this check if we don't have an existing ADF instance
 	if err == nil && res.HasDatabaseUser {
 		yellow := "\033[1;33m%s\033[0m"
-		printf(c.Root().Writer, yellow, "WARNING!!\n")
-		printf(c.Root().Writer, yellow, "You or someone else in your organization have already created a user.\n")
-		printf(c.Root().Writer, yellow, "The following steps update the password for that user.\n")
-		printf(c.Root().Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
-		printf(c.Root().Writer, yellow, "other integrations relying on this password.\n")
-		printf(c.Root().Writer, yellow, "Do you want to continue?")
-		printf(c.Root().Writer, "Continue: y/n")
+		printf(cmd.Root().Writer, yellow, "WARNING!!\n")
+		printf(cmd.Root().Writer, yellow, "You or someone else in your organization have already created a user.\n")
+		printf(cmd.Root().Writer, yellow, "The following steps update the password for that user.\n")
+		printf(cmd.Root().Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
+		printf(cmd.Root().Writer, yellow, "other integrations relying on this password.\n")
+		printf(cmd.Root().Writer, yellow, "Do you want to continue?")
+		printf(cmd.Root().Writer, "Continue: y/n")
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		rawInput, err := bufio.NewReader(c.Root().Reader).ReadString('\n')
+		rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
 		if err != nil {
 			return err
 		}
@@ -1143,8 +1143,8 @@ func DataConfigureDatabaseUserConfirmation(ctx context.Context, c *cli.Command, 
 }
 
 // DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
-func DataConfigureDatabaseUser(ctx context.Context, c *cli.Command, args dataConfigureDatabaseUserArgs) error {
-	client, err := newViamClient(ctx, c)
+func DataConfigureDatabaseUser(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1172,11 +1172,11 @@ type dataGetDatabaseConnectionArgs struct {
 }
 
 // DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
-func DataGetDatabaseConnection(ctx context.Context, c *cli.Command, args dataGetDatabaseConnectionArgs) error {
+func DataGetDatabaseConnection(ctx context.Context, cmd *cli.Command, args dataGetDatabaseConnectionArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to get a database connection")
 	}
-	client, err := newViamClient(ctx, c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}

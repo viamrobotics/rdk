@@ -28,13 +28,13 @@ type motionPrintArgs struct {
 	Part         string
 }
 
-func motionPrintConfigAction(ctx context.Context, c *cli.Command, args motionPrintArgs) error {
-	client, err := newViamClient(ctx, c)
+func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -59,18 +59,18 @@ func motionPrintConfigAction(ctx context.Context, c *cli.Command, args motionPri
 		return err
 	}
 
-	printf(c.Root().Writer, "%v", frameSystem)
+	printf(cmd.Root().Writer, "%v", frameSystem)
 
 	return nil
 }
 
-func motionPrintStatusAction(ctx context.Context, c *cli.Command, args motionPrintArgs) error {
-	client, err := newViamClient(ctx, c)
+func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func motionPrintStatusAction(ctx context.Context, c *cli.Command, args motionPri
 			return err
 		}
 
-		printf(c.Root().Writer, "%20s : %v", n, prettyString(pif.Pose()))
+		printf(cmd.Root().Writer, "%20s : %v", n, prettyString(pif.Pose()))
 	}
 
 	return nil
@@ -123,13 +123,13 @@ type motionGetPoseArgs struct {
 	Component string
 }
 
-func motionGetPoseAction(ctx context.Context, c *cli.Command, args motionGetPoseArgs) error {
-	client, err := newViamClient(ctx, c)
+func motionGetPoseAction(ctx context.Context, cmd *cli.Command, args motionGetPoseArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func motionGetPoseAction(ctx context.Context, c *cli.Command, args motionGetPose
 		return err
 	}
 
-	printf(c.Root().Writer, "%v", prettyString(pif.Pose()))
+	printf(cmd.Root().Writer, "%v", prettyString(pif.Pose()))
 
 	return nil
 }
@@ -175,13 +175,13 @@ type motionSetPoseArgs struct {
 	X, Y, Z, Ox, Oy, Oz, Theta []float64
 }
 
-func motionSetPoseAction(ctx context.Context, c *cli.Command, args motionSetPoseArgs) error {
-	client, err := newViamClient(ctx, c)
+func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPoseArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func motionSetPoseAction(ctx context.Context, c *cli.Command, args motionSetPose
 		return err
 	}
 
-	printf(c.Root().Writer, "start pose %v", pose)
+	printf(cmd.Root().Writer, "start pose %v", pose)
 
 	pt := pose.Pose().Point()
 	o := pose.Pose().Orientation().OrientationVectorDegrees()
@@ -241,7 +241,7 @@ func motionSetPoseAction(ctx context.Context, c *cli.Command, args motionSetPose
 
 	pose = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.NewPose(pt, o))
 
-	printf(c.Root().Writer, "going to pose %v", pose)
+	printf(cmd.Root().Writer, "going to pose %v", pose)
 
 	req := motion.MoveReq{
 		ComponentName: args.Component,

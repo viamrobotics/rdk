@@ -13,7 +13,7 @@ type ftdcArgs struct {
 }
 
 // FTDCParseAction is the cli action to parse an ftdc file.
-func FTDCParseAction(ctx context.Context, c *cli.Command, args ftdcArgs) error {
+func FTDCParseAction(ctx context.Context, cmd *cli.Command, args ftdcArgs) error {
 	parser.LaunchREPL(args.Path)
 	return nil
 }
