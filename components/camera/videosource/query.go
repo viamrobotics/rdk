@@ -121,10 +121,7 @@ func findReaderAndDriver(
 	labels := strings.Split(driver.Info().Label, mediadevicescamera.LabelSeparator)
 	if len(labels) == 0 {
 		logger.Error("no labels parsed from driver")
-		if closeErr := driver.Close(); closeErr != nil {
-			logger.Errorw("error closing driver after label parse failure", "error", closeErr)
-		}
-		return nil, nil, "", nil
+		return nil, nil, "", errors.New("no labels parsed from driver")
 	}
 	path = labels[0] // path is always the first element
 
