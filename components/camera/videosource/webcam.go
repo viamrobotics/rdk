@@ -36,7 +36,7 @@ var (
 
 const (
 	defaultFrameRate = float32(30.0)
-	resWarnInterval  = 5 * time.Minute
+	resWarnInterval  = 10 * time.Minute
 )
 
 func init() {
