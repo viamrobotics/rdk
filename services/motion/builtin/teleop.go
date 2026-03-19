@@ -29,8 +29,8 @@ type teleopPipeline struct {
 	logger logging.Logger
 
 	// Immutable after creation.
-	componentName string
-	moveReqBase   motion.MoveReq
+	componentName  string
+	moveReqBase    motion.MoveReq
 	cachedFrameSys *referenceframe.FrameSystem // built once at pipeline start
 
 	// Channels.
