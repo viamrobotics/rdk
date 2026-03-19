@@ -40,8 +40,13 @@ func NewWorldState(obstacles []*GeometriesInFrame, transforms []*LinkInFrame) (*
 	unnamedCount := 0
 	for _, gf := range obstacles {
 		geometries := gf.Geometries()
-		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
+		if len(geometries) == 0 {
+			// Avoid adding a bag of empty geometries. Such that `len(worldState.Obstacles())`
+			// returns 0 iff there are no obstacles.
+			continue
+		}
 
+		checkedGeometries := make([]spatialmath.Geometry, 0, len(geometries))
 		// iterate over geometries and make sure that each one that is added to the WorldState has a unique name
 		for _, geometry := range geometries {
 			name := geometry.Label()
@@ -79,6 +84,55 @@ func WorldStateFromProtobuf(proto *commonpb.WorldState) (*WorldState, error) {
 	}
 
 	return NewWorldState(allGeometries, transforms)
+}
+
+// Merge creates a shallow copy of the `WorldState` merged with the input geometries.
+func (ws *WorldState) Merge(geomsInFrame *GeometriesInFrame) *WorldState {
+	ret := &WorldState{
+		obstacleNames: make(map[string]bool),
+	}
+
+	// It's unclear how geometry names might be re-used across multiple snapshots of the world frame
+	// when executing a replannable motion plan. We assume duplicates can exist, and the input
+	// `geomsInFrame` has precedence (they were returned from a fresh vision service query to get
+	// objects).
+	//
+	// First add the input geometries.
+	if len(geomsInFrame.Geometries()) > 0 {
+		// Avoid adding a bag of empty geometries. Such that `len(worldState.Obstacles())` returns 0
+		// iff there are no obstacles.
+		ret.obstacles = append(ret.obstacles, geomsInFrame)
+		for _, geom := range geomsInFrame.Geometries() {
+			ret.obstacleNames[geom.Label()] = true
+		}
+	}
+
+	// Followed by filling in leftover geometries from the `ws` object.
+	for _, geomsInFrame := range ws.obstacles {
+		geomsToKeep := make([]spatialmath.Geometry, 0, len(geomsInFrame.Geometries()))
+		for _, geom := range geomsInFrame.Geometries() {
+			if _, exists := ret.obstacleNames[geom.Label()]; exists {
+				continue
+			}
+
+			ret.obstacleNames[geom.Label()] = true
+			geomsToKeep = append(geomsToKeep, geom)
+		}
+
+		if len(geomsToKeep) > 0 {
+			// Similar to above, avoid adding a bag of empty geometries.
+			ret.obstacles = append(ret.obstacles,
+				NewGeometriesInFrame(geomsInFrame.Parent(), geomsToKeep))
+		}
+	}
+
+	// Fill in the rest of `obstacleNames`. This is presumably just the names of `transforms`.
+	for name := range ws.obstacleNames {
+		ret.obstacleNames[name] = true
+	}
+	ret.transforms = append(ret.transforms, ws.transforms...)
+
+	return ret
 }
 
 // ToProtobuf takes an rdk WorldState and converts it to the protobuf definition of a WorldState.

@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
+	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
@@ -28,6 +29,23 @@ func TrajectoryFromLinearInputs(inps []*referenceframe.LinearInputs) Trajectory 
 	}
 
 	return ret
+}
+
+func (traj Trajectory) ToTrajectoryWaypointTensor(actuatorName string) *tensor.Dense {
+	if len(traj) == 0 {
+		return &tensor.Dense{}
+	}
+
+	dof := len(traj[0][actuatorName])
+	waypoints := make([]float64, 0, len(traj)*dof)
+	for _, wp := range traj {
+		waypoints = append(waypoints, wp[actuatorName]...)
+	}
+
+	return tensor.New(
+		tensor.Of(tensor.Float64),
+		tensor.WithShape(len(traj), dof),
+		tensor.WithBacking(waypoints))
 }
 
 // Plan is an interface that describes plans returned by this package.  There are two key components to a Plan:
