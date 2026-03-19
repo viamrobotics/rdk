@@ -532,6 +532,9 @@ func (ms *builtIn) planTeleop(
 	fsInputs referenceframe.FrameSystemInputs,
 	logger logging.Logger,
 ) (motionplan.Plan, error) {
+	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleop")
+	defer span.End()
+
 	movingFrame := frameSys.Frame(req.ComponentName)
 	if movingFrame == nil {
 		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
