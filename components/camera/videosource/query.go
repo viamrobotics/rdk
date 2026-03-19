@@ -148,10 +148,26 @@ func getReaderAndDriver(
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if err := openDriver(d); err != nil {
+		return nil, nil, err
+	}
+
+	success := false
+	defer func() {
+		if !success {
+			if err := d.Close(); err != nil {
+				logger.Errorw("failed to close driver after error", "error", err)
+			}
+		}
+	}()
+
 	reader, err := newReaderFromDriver(d, selectedMedia)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	success = true // signal success to the deferred func
 	return reader, d, nil
 }
 
@@ -167,6 +183,19 @@ func getUserVideoDriver(
 	return selectVideo(videoConstraints, label, logger)
 }
 
+func openDriver(d driver.Driver) error {
+	if ok, err := driver.IsAvailable(d); !errors.Is(err, availability.ErrUnimplemented) && !ok {
+		return errors.Wrap(err, "video driver not available")
+	}
+	if driverStatus := d.Status(); driverStatus != driver.StateClosed {
+		return errors.New("video driver in use")
+	}
+	if err := d.Open(); err != nil {
+		return errors.Wrap(err, "cannot open video driver")
+	}
+	return nil
+}
+
 func newReaderFromDriver(
 	videoDriver driver.Driver,
 	mediaProp prop.Media,
@@ -175,24 +204,8 @@ func newReaderFromDriver(
 	if !ok {
 		return nil, errors.New("driver not a driver.VideoRecorder")
 	}
-
-	if ok, err := driver.IsAvailable(videoDriver); !errors.Is(err, availability.ErrUnimplemented) && !ok {
-		return nil, errors.Wrap(err, "video driver not available")
-	} else if driverStatus := videoDriver.Status(); driverStatus != driver.StateClosed {
-		return nil, errors.New("video driver in use")
-	} else if err := videoDriver.Open(); err != nil {
-		return nil, errors.Wrap(err, "cannot open video driver")
-	}
-
 	mediaProp.DiscardFramesOlderThan = time.Second
-	reader, err := recorder.VideoRecord(mediaProp)
-	if err != nil {
-		if closeErr := videoDriver.Close(); closeErr != nil {
-			return nil, fmt.Errorf("%w; close error: %w", err, closeErr)
-		}
-		return nil, err
-	}
-	return reader, nil
+	return recorder.VideoRecord(mediaProp)
 }
 
 func labelFilter(target string, useSep bool) driver.FilterFn {
