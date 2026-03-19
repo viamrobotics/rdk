@@ -1491,7 +1491,8 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// verbose errors that was already logged.
 		r.Logger().CErrorw(
 			ctx,
-			"reconfiguration aborted because cloud modules or packages download and/or unzip failed, "+
+			"reconfiguration aborted because cloud modules or packages download and/or unzip failed. falling back to last config where "+
+				"all modules were fully downloaded and unzipped, and completed its first run script. "+
 				"currently running modules will not be shutdown",
 		)
 		return
@@ -1504,7 +1505,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// errors in a readable way.
 		r.Logger().CErrorw(
 			ctx,
-			"reconfiguration aborted because local modules or packages sync failed, currently running modules will not be shutdown",
+			"reconfiguration aborted because local modules or packages sync failed. "+
+				"falling back to last config where all modules were fully downloaded and unzipped, "+
+				"and completed its first run script. currently running modules will not be shutdown",
 		)
 		return
 	}
@@ -1515,7 +1518,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
 			r.logger.CErrorw(
 				ctx,
-				"reconfiguration aborted because of error executing first run, currently running modules will not be shutdown",
+				"reconfiguration aborted because of error executing first run. falling back to last config "+
+					"where all modules were fully downloaded and unzipped, and completed its first run script. "+
+					"currently running modules will not be shutdown",
 				"module", mod.Name,
 				"error", err,
 			)

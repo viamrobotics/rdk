@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.viam.com/utils"
@@ -119,8 +120,9 @@ type solutionSolvingState struct {
 	goodCost        float64
 	doingSmartSeeds bool
 
-	processCalls int
-	failures     *IkConstraintError
+	totalIkAttempts atomic.Int32
+	processCalls    int
+	failures        *IkConstraintError
 
 	solutions         []*node
 	startTime         time.Time
@@ -154,19 +156,21 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()}
+	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
 	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
+	// For multi-arm systems, `rawRatios` elements will be -1 for non-moving arms. `minRatio` will
+	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
 	rawRatios, minRatio, err := sss.computeGoodCost(psc.goal)
 	if err != nil {
 		return nil, err
 	}
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:1
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
+	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:2
 	sss.seedLimits = append(sss.seedLimits,
 		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
 
@@ -219,13 +223,23 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 	}
 
 	ratios := clampSensitivities(rawRatios, .03)
-
 	minRatio := 1.0
+
+	for _, r := range ratios {
+		if r > 0 { // if a joint is part of a non-moving arm, don't consider it
+			minRatio = min(minRatio, r)
+		}
+	}
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
-		adjusted = append(adjusted, sss.psc.pc.lis.Jog(idx, sss.linearSeeds[0][idx], r))
-		minRatio = min(minRatio, r)
+		val := sss.linearSeeds[0][idx]
+		if r > 0 {
+			// we use min ratio here because we're pretty sure that if we moved every joint minRatio amount
+			// we'd move plenty
+			val = sss.psc.pc.lis.Jog(idx, val, minRatio)
+		}
+		adjusted = append(adjusted, val)
 	}
 
 	step, err := sss.psc.pc.lis.FloatsToInputs(adjusted)
@@ -335,57 +349,68 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 	}
 
 	multiple := 100.0
-	minMillis := 10000
+	minMillis := 10000.0
+	minAttempts := int32(2000)
 	if !sss.doingSmartSeeds {
 		// if we're not doing small seeds, it means we're doing a very tiny motion
 		// if we're doing a tiny motion, and failing after 100ms, something is wrong, so give up
 		minMillis = 100
+		minAttempts = 100
 	}
 
-	if sss.bestScoreNoProblem < sss.goodCost/20 {
+	if sss.bestScoreNoProblem < sss.goodCost/20 { // .05
 		multiple = 0
-		minMillis = 5
-	} else if sss.bestScoreNoProblem < sss.goodCost/15 {
+		minMillis = 2 * speedMultiplier
+		minAttempts = 4
+	} else if sss.bestScoreNoProblem < sss.goodCost/10 { // .06
 		multiple = 1
-		minMillis = 10
-	} else if sss.bestScoreNoProblem < sss.goodCost/10 {
-		multiple = 0
-		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/5 {
-		multiple = 2
-		minMillis = 15
-	} else if sss.bestScoreNoProblem < sss.goodCost/3.5 {
-		multiple = 4
-		minMillis = 20
-	} else if sss.bestScoreNoProblem < sss.goodCost/2 {
-		multiple = 20
-		minMillis = 50
+		minMillis = 2 * speedMultiplier
+		minAttempts = 4
+	} else if sss.bestScoreNoProblem < sss.goodCost/4 { // .25
+		multiple = 1
+		minMillis = 3 * speedMultiplier
+		minAttempts = 10
 	} else if sss.bestScoreNoProblem < sss.goodCost {
-		multiple = 50
-		minMillis = 100
-	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 5
+		minMillis = 5 * speedMultiplier
+		minAttempts = 20
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 1.5) {
+		multiple = 10
+		minMillis = 25 * speedMultiplier
+		minAttempts = 50
+	} else if sss.bestScoreNoProblem < (sss.goodCost * 2) {
+		multiple = 10
+		minMillis = 100 * speedMultiplier
+		minAttempts = 200
+	} else if sss.bestScoreWithProblem < (sss.goodCost / 2) {
 		// we're going to have to do cbirrt, so look a little less, but still look
-		multiple = 100
+		multiple = 10
+		minMillis = 150 * speedMultiplier
+		minAttempts = 300
+	} else if sss.bestScoreWithProblem < sss.goodCost {
+		multiple = 20
+		minMillis = 500 * speedMultiplier
+		minAttempts = 1000
 	}
-
 	timeToSearch := max(sss.firstSolutionTime*time.Duration(multiple), time.Duration(minMillis)*time.Millisecond)
 
 	if sss.psc.pc.planOpts.Timeout > 0 && len(sss.solutions) > 0 {
 		timeToSearch = min(timeToSearch, sss.psc.pc.planOpts.timeoutDuration()/2)
 	}
 
-	if elapsed > timeToSearch {
-		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v \n\t timeToSearch: %v firstSolutionTime: %v",
+	if elapsed > timeToSearch && sss.totalIkAttempts.Load() > minAttempts {
+		sss.logger.Debugf("stopping early bestScore %0.2f (%0.3f)/ %0.2f (%0.3f) after: %v attempts: %v \n"+
+			"\t timeToSearch: %v minAttempts: %v firstSolutionTime: %v",
 			sss.bestScoreNoProblem, sss.bestScoreNoProblem/sss.goodCost,
 			sss.bestScoreWithProblem, sss.bestScoreWithProblem/sss.goodCost,
-			elapsed, timeToSearch, sss.firstSolutionTime)
+			elapsed, sss.totalIkAttempts.Load(), timeToSearch, minAttempts, sss.firstSolutionTime)
 		return true
 	}
 
-	if len(sss.solutions) == 0 && elapsed > (1000*time.Millisecond) {
+	if len(sss.solutions) == 0 && sss.totalIkAttempts.Load() > minAttempts && elapsed > (1000*time.Millisecond) {
 		// if we found any solution, we want to look for better for a while
 		// but if we've found 0, then probably never going to
-		sss.logger.Debugf("stopping early after: %v because nothing has been found, probably won't", elapsed)
+		sss.logger.Debugf("stopping early after: %v (%d)because nothing has been found, probably won't", elapsed, sss.totalIkAttempts.Load())
 		return true
 	}
 
@@ -429,8 +454,10 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	if !solvingState.doingSmartSeeds {
 		ikTime = 100 * time.Millisecond
 	}
+
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
+		close(solutionGen)
 		return nil, err
 	}
 
@@ -442,9 +469,14 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	utils.PanicCapturingGo(func() {
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
-		nSol, m, err := solver.Solve(ctxWithCancel,
-			solutionGen, solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
-		solvingState.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
+		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
+			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
+		if err == nil {
+			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)
+		} else {
+			solvingState.logger.Infof("Solver stopped with error. Solutions: %v IK Meta: %v Err? %v",
+				nSol, m, err)
+		}
 
 		solveErrorLock.Lock()
 		solveError = err

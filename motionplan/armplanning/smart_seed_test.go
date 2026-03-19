@@ -145,6 +145,78 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 	})
 }
 
+// TestSmartSeedCacheOffsetMount verifies that findSeeds works when the arm is mounted
+// far from the world origin. Without the parent-coordinate-system fix in findMovingInfo,
+// the goal's norm in world coordinates (~2800mm) exceeds the cache's maxNorm (~1017mm)
+// and triggers a false "too far" error.
+func TestSmartSeedCacheOffsetMount(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	armName := "ur5e"
+	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Mount the arm 2000mm from world origin via a static offset frame.
+	mountPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 2000, Y: 0, Z: 0})
+	mount, err := referenceframe.NewStaticFrame("mount", mountPose)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := referenceframe.NewEmptyFrameSystem("offset_test")
+	err = fs.AddFrame(mount, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(armKinematics, fs.Frame("mount"))
+	test.That(t, err, test.ShouldBeNil)
+
+	ssc, err := smartSeed(fs, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	startJoints := []referenceframe.Input{
+		1.0471667423817,
+		0.011108350341463286,
+		-1.0899013011625651,
+		-3.0938870331059594,
+		-1.767558957758243e-05,
+		-3.681258507284093,
+	}
+	start := referenceframe.FrameSystemInputs{armName: startJoints}.ToLinearInputs()
+
+	// Compute a goal pose from a different joint configuration so that the goal is
+	// reachable but distinct from the start (the seed finder filters out seeds that
+	// are further than the start).
+	goalJoints := []referenceframe.Input{0.52, 0, -1.57, 0, 0, 0}
+	localPose, err := armKinematics.Transform(goalJoints)
+	test.That(t, err, test.ShouldBeNil)
+	goalInWorld := spatialmath.Compose(mountPose, localPose)
+
+	// Sanity check: the goal norm in world coords must exceed the cache maxNorm
+	// (~1017mm for the ur5e). This is the condition that triggers the false
+	// "too far" error without the parent-coordinate-system fix.
+	goalNorm := goalInWorld.Point().Norm()
+	test.That(t, goalNorm, test.ShouldBeGreaterThan, ssc.rawCache[armName].maxNorm)
+	logger.Infof("goal norm in world: %0.2f, cache maxNorm: %0.2f", goalNorm, ssc.rawCache[armName].maxNorm)
+
+	// This call would fail with tooFarError if findMovingInfo doesn't transform the
+	// goal into the frame's parent coordinate system.
+	seeds, _, err := ssc.findSeeds(ctx,
+		referenceframe.FrameSystemPoses{armName: referenceframe.NewPoseInFrame("world", goalInWorld)},
+		start, 10, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(seeds), test.ShouldBeGreaterThan, 0)
+
+	best := 100000.0
+	for _, s := range seeds {
+		cost := myCost(start.Get(armName), s.Get(armName))
+		best = min(best, cost)
+	}
+	logger.Infof("best seed cost: %v", best)
+	test.That(t, best, test.ShouldBeLessThan, 1.5)
+}
+
 func TestSmartSeedCachePirouette(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

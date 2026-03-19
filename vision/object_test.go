@@ -72,6 +72,22 @@ func TestObjectCreationWithLabel(t *testing.T) {
 	test.That(t, obj2.Geometry.Label(), test.ShouldResemble, providedLabel)
 }
 
+func TestNormalizeScore(t *testing.T) {
+	// negative score should clamp to 0
+	test.That(t, NormalizeScore(-1.0), test.ShouldEqual, 0.0)
+	test.That(t, NormalizeScore(-0.5), test.ShouldEqual, 0.0)
+
+	// scores in [0, 1] should be returned as-is
+	test.That(t, NormalizeScore(0.0), test.ShouldEqual, 0.0)
+	test.That(t, NormalizeScore(0.5), test.ShouldEqual, 0.5)
+	test.That(t, NormalizeScore(1.0), test.ShouldEqual, 1.0)
+
+	// scores > 1 are assumed to be percentages and divided by 100
+	test.That(t, NormalizeScore(100.0), test.ShouldEqual, 1.0)
+	test.That(t, NormalizeScore(75.0), test.ShouldEqual, 0.75)
+	test.That(t, NormalizeScore(50.0), test.ShouldEqual, 0.5)
+}
+
 func TestObjectDistance(t *testing.T) {
 	pc := pointcloud.NewBasicEmpty()
 	err := pc.Set(pointcloud.NewVector(0, 0, 0), nil)

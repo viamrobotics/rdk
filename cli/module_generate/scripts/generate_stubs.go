@@ -39,6 +39,54 @@ var CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Requ
 	return req, nil
 }
 
+func cppSDKBaseURL(version string) string {
+	return fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/tags/releases/v%s", version)
+}
+
+// FetchRawTemplate fetches the content at url and returns it as a string.
+// It is a package-level var to allow overriding in tests.
+var FetchRawTemplate = func(url string) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", errors.Wrapf(err, "cannot fetch template from %s", url)
+	}
+	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	if resp.StatusCode != http.StatusOK {
+		return "", errors.Errorf("unexpected http GET status: %s getting %s", resp.Status, url)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", errors.Wrapf(err, "error reading response body from %s", url)
+	}
+	return string(body), nil
+}
+
+func getCppTemplate(base string) (string, error) {
+	return FetchRawTemplate(base + "/res/module_generator/_templates/main.cpp.in")
+}
+
+func getCppCMakeTemplate(base string) (string, error) {
+	return FetchRawTemplate(base + "/res/module_generator/_templates/CMakeLists.txt.in")
+}
+
+func getCppConanTemplate(base string) (string, error) {
+	return FetchRawTemplate(base + "/res/module_generator/_templates/conanfile.py.in")
+}
+
+func getCppTypeTemplate(base string, module modulegen.ModuleInputs) (string, error) {
+	url := fmt.Sprintf("%s/res/module_generator/_templates/%ss/%s.cpp.in", base, module.ResourceType, module.ResourceSubtypeSnake)
+	return FetchRawTemplate(url)
+}
+
+func getCppTypeHeaderTemplate(base string, module modulegen.ModuleInputs) (string, error) {
+	url := fmt.Sprintf("%s/res/module_generator/_templates/%ss/%s.hpp.in", base, module.ResourceType, module.ResourceSubtypeSnake)
+	return FetchRawTemplate(url)
+}
+
 // getClientCode grabs client.go code of component type.
 func getClientCode(module modulegen.ModuleInputs) (string, error) {
 	req, err := CreateGetClientCodeRequest(module)
@@ -473,6 +521,87 @@ func formatEmptyFunctionWithDoc(doc, receiver, funcName, args string, returns []
 	}
 
 	return fmt.Sprintf("%sfunc (s *%s) %s(%s)%s {\n%s\n}\n\n", docComment, receiver, funcName, args, returnDef, body)
+}
+
+// renderCppTemplate fetches and executes a single C++ template, returning the rendered bytes.
+func renderCppTemplate(name, rawTmpl string, module modulegen.ModuleInputs) ([]byte, error) {
+	tmpl, err := template.New(name).Parse(rawTmpl)
+	if err != nil {
+		return nil, err
+	}
+	var output bytes.Buffer
+	if err = tmpl.Execute(&output, module); err != nil {
+		return nil, err
+	}
+	return output.Bytes(), nil
+}
+
+// RenderCppTemplates outputs the rendered C++ files for the created module.
+func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFiles, error) {
+	base := cppSDKBaseURL(module.SDKVersion)
+
+	mainRaw, err := getCppTemplate(base)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	main, err := renderCppTemplate("main", mainRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	typeRaw, err := getCppTypeTemplate(base, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	typeCpp, err := renderCppTemplate("type", typeRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	headerRaw, err := getCppTypeHeaderTemplate(base, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	header, err := renderCppTemplate("header", headerRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	cmakeRaw, err := getCppCMakeTemplate(base)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	cmake, err := renderCppTemplate("cmake", cmakeRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	conanRaw, err := getCppConanTemplate(base)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+	conan, err := renderCppTemplate("conan", conanRaw, module)
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	// TODO(RSDK-13622) currently the lockfile is generated immediately after a release,
+	// not as part of it. Thus, we have to pull from latest main. once that is fixed
+	// on the C++ side, we should update here to also point to the latest release.
+	const cppSDKMain = "https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/heads/main"
+	conanLockRaw, err := FetchRawTemplate(cppSDKMain + "/etc/conan/conan.lock")
+	if err != nil {
+		return modulegen.CppRenderedFiles{}, err
+	}
+
+	return modulegen.CppRenderedFiles{
+		Main:       main,
+		Type:       typeCpp,
+		Header:     header,
+		CMakeLists: cmake,
+		ConanFile:  conan,
+		ConanLock:  []byte(conanLockRaw),
+	}, nil
 }
 
 // RenderGoTemplates outputs the method stubs for created module.

@@ -4,6 +4,7 @@ package ik
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -28,6 +29,7 @@ type NloptIK struct{}
 // Solve refuses to solve problems without cgo.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
