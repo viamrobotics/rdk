@@ -454,6 +454,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	if !solvingState.doingSmartSeeds {
 		ikTime = 100 * time.Millisecond
 	}
+
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
 		close(solutionGen)
@@ -470,7 +471,12 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
 			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
-		solvingState.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
+		if err == nil {
+			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)
+		} else {
+			solvingState.logger.Infof("Solver stopped with error. Solutions: %v IK Meta: %v Err? %v",
+				nSol, m, err)
+		}
 
 		solveErrorLock.Lock()
 		solveError = err

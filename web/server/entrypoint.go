@@ -64,24 +64,12 @@ type robotServer struct {
 }
 
 func logViamEnvVariables(logger logging.Logger) {
-	var viamEnvVariables []interface{}
-	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_CONFIG_READ_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_CONFIG_READ_TIMEOUT", value)
-	}
+	viamEnvVariables := make(map[string]string)
 	if value, exists := os.LookupEnv("CWD"); exists {
-		viamEnvVariables = append(viamEnvVariables, "CWD", value)
+		viamEnvVariables["CWD"] = value
 	}
 	if rutils.PlatformHomeDir() != "" {
-		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
+		viamEnvVariables["HOME"] = rutils.PlatformHomeDir()
 	}
 	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
 	value, alreadySet := os.LookupEnv(rutils.HomeEnvVar)
@@ -92,12 +80,7 @@ func logViamEnvVariables(logger logging.Logger) {
 	} else if err != nil && !alreadySet {
 		logger.Infof("Unable to set %v environment variable, continuing with startup", rutils.HomeEnvVar)
 	}
-	if value, exists := os.LookupEnv(rutils.HomeEnvVar); exists {
-		viamEnvVariables = append(viamEnvVariables, rutils.HomeEnvVar, value)
-	}
-	if len(viamEnvVariables) != 0 {
-		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
-	}
+	rutils.LogViamEnvVariables("Started with the following Viam environment variables", viamEnvVariables, logger)
 }
 
 func logVersion(logger logging.Logger) {
