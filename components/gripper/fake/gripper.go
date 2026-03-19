@@ -62,9 +62,13 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	newConf, err := resource.NativeConfig[*Config](conf)
-	if err != nil {
-		return err
+	newConf := &Config{}
+	if conf.ConvertedAttributes != nil {
+		var err error
+		newConf, err = resource.NativeConfig[*Config](conf)
+		if err != nil {
+			return err
+		}
 	}
 
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
