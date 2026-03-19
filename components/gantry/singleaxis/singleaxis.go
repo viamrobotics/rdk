@@ -102,9 +102,9 @@ type singleAxis struct {
 
 	model referenceframe.Model
 
-	cancelFunc              func()
 	logger                  logging.Logger
 	opMgr                   *operation.SingleOperationManager
+	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
 }
 
@@ -125,6 +125,10 @@ func newSingleAxis(
 }
 
 func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	// Only exercised in the constructor's call to `Reconfigure`. Never nil beyond that.
 	if g.motor != nil {
 		if err := g.motor.Stop(ctx, nil); err != nil {
 			return err
@@ -135,9 +139,6 @@ func (g *singleAxis) Reconfigure(ctx context.Context, deps resource.Dependencies
 		g.cancelFunc()
 		g.activeBackgroundWorkers.Wait()
 	}
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
 
 	needsToReHome := false
 	newConf, err := resource.NativeConfig[*Config](conf)
