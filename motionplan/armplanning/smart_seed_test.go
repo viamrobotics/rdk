@@ -132,7 +132,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 
 		f, p, err := c.findMovingInfo(
 			referenceframe.FrameSystemInputs{
-				"arm": []referenceframe.Input{0, 0, 0, 0, 0, 0},
+				"arm": []referenceframe.Input{0, 1, 0, 1, 0, 1},
 			}.ToLinearInputs(),
 			"gripper",
 			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{OX: 1})),
