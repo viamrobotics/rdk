@@ -29,7 +29,6 @@ type teleopPipeline struct {
 	logger logging.Logger
 
 	// Immutable after creation.
-	componentName  string
 	moveReqBase    motion.MoveReq
 	cachedFrameSys *referenceframe.FrameSystem // built once at pipeline start
 
@@ -84,6 +83,26 @@ func (tp *teleopPipeline) runPlanner(ctx context.Context, ms *builtIn) {
 	}
 }
 
+// planningHeadEqual reports whether two FrameSystemInputs snapshots are identical.
+// Used to detect whether the planning head was reset while a plan was in flight.
+func planningHeadEqual(a, b referenceframe.FrameSystemInputs) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, av := range a {
+		bv, ok := b[k]
+		if !ok || len(av) != len(bv) {
+			return false
+		}
+		for idx := range av {
+			if av[idx] != bv[idx] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *referenceframe.PoseInFrame) {
 	// Read the current planning head for the teleop'd arm.
 	tp.planningHeadMu.RLock()
@@ -97,7 +116,7 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	liveInputs, err := ms.fsService.CurrentInputs(ctx)
 	ms.mu.RUnlock()
 	if err != nil {
-		tp.storeError(err)
+		tp.lastErr.Store(&err)
 		tp.logger.CWarnf(ctx, "teleop planner: failed to get current inputs: %v", err)
 		return
 	}
@@ -119,31 +138,39 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	ms.mu.RUnlock()
 
 	if err != nil {
-		tp.storeError(err)
+		tp.lastErr.Store(&err)
 		tp.logger.CWarnf(ctx, "teleop planner error: %v", err)
 		return
 	}
 
-	tp.clearError()
+	tp.lastErr.Store(nil)
 	traj := plan.Trajectory()
 	tp.logger.Info("Trajectory Size:", len(traj))
 	if len(traj) == 0 {
 		return
 	}
 
-	// Update the planning head to the last step of this trajectory.
+	// Re-acquire the write lock to atomically validate that the planning head
+	// hasn't been reset (by an execution error) while we were planning, update
+	// it to the last step of this trajectory, and enqueue the trajectory.
+	// The send must be non-blocking: a blocking send while holding the lock
+	// would deadlock with resetPlanningHead, which also needs the write lock to
+	// drain trajCh. If the channel is full the head is left unchanged so the
+	// next planning iteration re-plans from the same base.
 	lastStep := traj[len(traj)-1]
 	tp.planningHeadMu.Lock()
-	tp.planningHead = lastStep
-	tp.planningHeadMu.Unlock()
-
-	// Send trajectory to executor. This blocks if the executor is busy,
-	// providing natural backpressure.
-	select {
-	case <-ctx.Done():
+	if !planningHeadEqual(tp.planningHead, planningHead) {
+		tp.planningHeadMu.Unlock()
+		tp.logger.CDebugf(ctx, "teleop planner: planning head changed during planning, discarding trajectory")
 		return
-	case tp.trajCh <- traj:
 	}
+	select {
+	case tp.trajCh <- traj:
+		tp.planningHead = lastStep
+	default:
+		// Executor is busy; leave head unchanged and let the next pose trigger a fresh plan.
+	}
+	tp.planningHeadMu.Unlock()
 }
 
 // buildMoveReq creates a MoveReq from the template with the given destination
@@ -224,18 +251,21 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			lastExecEnd = time.Now()
 
 			if err != nil {
-				tp.storeError(err)
+				tp.lastErr.Store(&err)
 				tp.logger.CWarnf(ctx, "teleop executor error: %v", err)
 				tp.resetPlanningHead(ctx, ms)
 			} else {
-				tp.clearError()
+				tp.lastErr.Store(nil)
 			}
 		}
 	}
 }
 
-// resetPlanningHead sets the planning head to the arm's actual current position.
-// Called after execution errors when we don't know where the arm stopped.
+// resetPlanningHead sets the planning head to the arm's actual current position
+// after an execution error. Resetting the planning head invalidates all previously
+// planned trajectories: any trajectory in trajCh was chained from the old (now
+// incorrect) head. The drain of trajCh and the head reset are held under the same
+// write lock so that planOnce cannot enqueue a stale trajectory between them.
 func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
@@ -248,71 +278,53 @@ func (tp *teleopPipeline) resetPlanningHead(ctx context.Context, ms *builtIn) {
 
 	tp.planningHeadMu.Lock()
 	tp.planningHead = fsInputs
+	select {
+	case <-tp.trajCh:
+	default:
+	}
 	tp.planningHeadMu.Unlock()
 }
 
 // stop shuts down the pipeline goroutines and best-effort stops the arm.
 func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
-
-	// Best-effort stop the arm component.
-	ms.mu.RLock()
-	defer ms.mu.RUnlock()
-	if r, ok := ms.components[tp.componentName]; ok {
-		if actuator, ok := r.(inputEnabledActuator); ok {
-			if err := actuator.Stop(ctx, nil); err != nil {
-				tp.logger.CWarnf(ctx, "failed to stop arm on teleop shutdown: %v", err)
-			}
-		}
-	}
-}
-
-func (tp *teleopPipeline) storeError(err error) {
-	tp.lastErr.Store(&err)
-}
-
-func (tp *teleopPipeline) clearError() {
-	tp.lastErr.Store(nil)
-}
-
-func (tp *teleopPipeline) loadError() error {
-	if p := tp.lastErr.Load(); p != nil {
-		return *p
-	}
-	return nil
 }
 
 // startTeleopPipeline creates and starts a new teleop pipeline.
-func (ms *builtIn) startTeleopPipeline(ctx context.Context, req motion.MoveReq) error {
-	// Stop any existing pipeline first (outside locks to avoid deadlock).
-	ms.stopTeleopPipeline(ctx)
+func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveReq) error {
+	// Stop any existing pipeline first.
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(cmdCtx, ms)
+	}
+	defer ms.teleopMu.Unlock()
 
 	ms.mu.RLock()
-	fsInputs, err := ms.fsService.CurrentInputs(ctx)
+	fsInputs, err := ms.fsService.CurrentInputs(cmdCtx)
 	if err != nil {
 		ms.mu.RUnlock()
 		return err
 	}
 
-	// Verify the component exists.
-	if _, ok := ms.components[req.ComponentName]; !ok {
+	// Validate the command.
+	if _, ok := ms.components[req.ComponentName]; !ok || req.Destination == nil {
 		ms.mu.RUnlock()
-		return fmt.Errorf("component %s not found", req.ComponentName)
+		return fmt.Errorf("Component must exist and destination must be set. Component: %v Destination: %v",
+			req.ComponentName, req.Destination)
 	}
 
 	// Build and cache the frame system once for the lifetime of this pipeline.
 	// The kinematic structure doesn't change during teleop; Reconfigure() stops
 	// the pipeline before any config changes.
-	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
+	frameSys, err := ms.getFrameSystem(cmdCtx, req.WorldState.Transforms())
 	if err != nil {
 		ms.mu.RUnlock()
 		return err
 	}
 	ms.mu.RUnlock()
 
-	tp := &teleopPipeline{
+	ms.teleopPipeline = &teleopPipeline{
 		logger:         ms.logger.Sublogger("teleop"),
-		componentName:  req.ComponentName,
 		moveReqBase:    req,
 		cachedFrameSys: frameSys,
 		poseCh:         make(chan *referenceframe.PoseInFrame, 1),
@@ -320,34 +332,13 @@ func (ms *builtIn) startTeleopPipeline(ctx context.Context, req motion.MoveReq) 
 		planningHead:   fsInputs,
 	}
 
-	// If the initial request has a destination, enqueue it.
-	if req.Destination != nil {
-		tp.poseCh <- req.Destination
-	}
-
-	tp.workers = goutils.NewBackgroundStoppableWorkers(
-		func(ctx context.Context) { tp.runPlanner(ctx, ms) },
-		func(ctx context.Context) { tp.runExecutor(ctx, ms) },
+	ms.teleopPipeline.poseCh <- req.Destination
+	ms.teleopPipeline.workers = goutils.NewBackgroundStoppableWorkers(
+		func(pipelineCtx context.Context) { ms.teleopPipeline.runPlanner(pipelineCtx, ms) },
+		func(pipelineCtx context.Context) { ms.teleopPipeline.runExecutor(pipelineCtx, ms) },
 	)
 
-	ms.teleopMu.Lock()
-	ms.teleopPipeline = tp
-	ms.teleopMu.Unlock()
-
 	return nil
-}
-
-// stopTeleopPipeline stops the teleop pipeline if one is running.
-// Follows the stop-outside-lock pattern to avoid deadlocks.
-func (ms *builtIn) stopTeleopPipeline(ctx context.Context) {
-	ms.teleopMu.Lock()
-	oldPipeline := ms.teleopPipeline
-	ms.teleopPipeline = nil
-	ms.teleopMu.Unlock()
-
-	if oldPipeline != nil {
-		oldPipeline.stop(ctx, ms)
-	}
 }
 
 // handleTeleopCommand handles teleop DoCommand requests.
@@ -358,18 +349,18 @@ func (ms *builtIn) handleTeleopCommand(
 	cmd map[string]interface{},
 ) (map[string]interface{}, bool, error) {
 	resp := make(map[string]interface{})
-	handled := false
 
 	if req, ok := cmd[DoTeleopStart]; ok {
-		handled = true
 		s, err := utils.AssertType[string](req)
 		if err != nil {
 			return nil, true, err
 		}
+
 		var moveReqProto pb.MoveRequest
 		if err := protojson.Unmarshal([]byte(s), &moveReqProto); err != nil {
 			return nil, true, err
 		}
+
 		fields := moveReqProto.Extra.AsMap()
 		if extra, err := utils.AssertType[map[string]interface{}](fields["fields"]); err == nil {
 			v, err := structpb.NewStruct(extra)
@@ -378,18 +369,21 @@ func (ms *builtIn) handleTeleopCommand(
 			}
 			moveReqProto.Extra = v
 		}
+
 		moveReq, err := motion.MoveReqFromProto(&moveReqProto)
 		if err != nil {
 			return nil, true, err
 		}
+
 		if err := ms.startTeleopPipeline(ctx, moveReq); err != nil {
 			return nil, true, err
 		}
+
 		resp[DoTeleopStart] = true
+		return resp, true, nil
 	}
 
 	if req, ok := cmd[DoTeleopMove]; ok {
-		handled = true
 		ms.teleopMu.RLock()
 		tp := ms.teleopPipeline
 		ms.teleopMu.RUnlock()
@@ -405,35 +399,48 @@ func (ms *builtIn) handleTeleopCommand(
 		if err := protojson.Unmarshal([]byte(s), &pifProto); err != nil {
 			return nil, true, err
 		}
+
 		pif := referenceframe.ProtobufToPoseInFrame(&pifProto)
 		trySendLatest(tp.poseCh, pif)
 		resp[DoTeleopMove] = true
+		return resp, true, nil
 	}
 
 	if _, ok := cmd[DoTeleopStop]; ok {
-		handled = true
-		ms.stopTeleopPipeline(ctx)
+		ms.teleopMu.Lock()
+		if ms.teleopPipeline != nil {
+			ms.teleopPipeline.stop(ctx, ms)
+			ms.teleopPipeline = nil
+		}
+		ms.teleopMu.Unlock()
+
 		resp[DoTeleopStop] = true
+		return resp, true, nil
 	}
 
 	if _, ok := cmd[DoTeleopStatus]; ok {
-		handled = true
 		ms.teleopMu.RLock()
 		tp := ms.teleopPipeline
 		ms.teleopMu.RUnlock()
 
-		status := map[string]interface{}{
-			"running": tp != nil,
+		if tp == nil {
+			return map[string]any{
+				"running": tp != nil,
+			}, true, nil
 		}
-		if tp != nil {
-			status["queued_poses"] = len(tp.poseCh)
-			status["queued_plans"] = len(tp.trajCh)
-			if lastErr := tp.loadError(); lastErr != nil {
-				status["error"] = lastErr.Error()
-			}
+
+		status := map[string]any{
+			"queued_poses": len(tp.poseCh),
+			"queued_plans": len(tp.trajCh),
 		}
+		if lastErr := tp.lastErr.Load(); lastErr != nil {
+			status["error"] = (*lastErr).Error()
+		}
+
 		resp[DoTeleopStatus] = status
+
+		return resp, true, nil
 	}
 
-	return resp, handled, nil
+	return resp, false, nil
 }

@@ -169,11 +169,15 @@ func (ms *builtIn) Reconfigure(
 	conf resource.Config,
 ) error {
 	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
-	ms.stopTeleopPipeline(ctx)
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
 
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-
 	config, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -215,7 +219,13 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
-	ms.stopTeleopPipeline(ctx)
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
+
 	return nil
 }
 
