@@ -17,8 +17,9 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
-	pb "go.viam.com/api/app/v1"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zapcore"
+	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -783,15 +784,15 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	storeCloudConfig := func(debug bool) {
 		t.Helper()
 		cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
-			ID:               deviceID,
-			Secret:           configtestutils.FakeCredentialPayLoad,
-			FQDN:             "woo",
-			LocalFQDN:        "yee",
+			ID:                deviceID,
+			Secret:            configtestutils.FakeCredentialPayLoad,
+			FQDN:              "woo",
+			LocalFQDN:         "yee",
 			SignalingInsecure: true,
-			PrimaryOrgID:     "the-primary-org",
-			LocationID:       "the-location",
-			MachineID:        "the-machine",
-			LocationSecrets:  []config.LocationSecret{{ID: "1", Secret: "secret"}},
+			PrimaryOrgID:      "the-primary-org",
+			LocationID:        "the-location",
+			MachineID:         "the-machine",
+			LocationSecrets:   []config.LocationSecret{{ID: "1", Secret: "secret"}},
 		})
 		test.That(t, err, test.ShouldBeNil)
 
