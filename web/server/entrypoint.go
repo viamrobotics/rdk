@@ -296,7 +296,10 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	config.UpdateFileConfigDebug(cfg.Debug)
+	// Only touch the "file" config debug flag if there is no cloud connection.
+	if s.conn == nil {
+		config.UpdateFileConfigDebug(cfg.Debug)
+	}
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
