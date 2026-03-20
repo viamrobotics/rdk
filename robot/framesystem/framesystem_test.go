@@ -272,3 +272,47 @@ func TestNewFrameSystemFromBadConfig(t *testing.T) {
 		test.That(t, fs, test.ShouldBeNil)
 	})
 }
+
+func TestGeometryParentedComponentFromRobotConfig(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// Load a robot config where a camera is parented to "myArm:upper_arm_link".
+	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_with_geometry_parent.json"), logger, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(ctx, cfg, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer r.Close(ctx)
+
+	// Get the frame system config — this exercises getLocalFrameSystemParts.
+	fsCfg, err := r.FrameSystemConfig(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Build the frame system — this should create a geometry proxy frame.
+	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs, test.ShouldNotBeNil)
+
+	// The proxy frame should exist.
+	proxyFrame := fs.Frame("myArm:upper_arm_link")
+	test.That(t, proxyFrame, test.ShouldNotBeNil)
+	test.That(t, len(proxyFrame.DoF()), test.ShouldEqual, 0)
+
+	// The camera should exist.
+	test.That(t, fs.Frame("armCamera"), test.ShouldNotBeNil)
+
+	// Transform the camera to world at zero inputs.
+	inputs := referenceframe.NewZeroInputs(fs)
+	cameraPose, err := fs.Transform(
+		inputs.ToLinearInputs(),
+		referenceframe.NewPoseInFrame("armCamera", spatialmath.NewZeroPose()),
+		referenceframe.World,
+	)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The camera should NOT be at the origin — it should be offset by the geometry center
+	// of upper_arm_link plus the 50mm X offset specified in the config.
+	cameraPoint := cameraPose.(*referenceframe.PoseInFrame).Pose().Point()
+	test.That(t, cameraPoint.Norm() > 10, test.ShouldBeTrue)
+}

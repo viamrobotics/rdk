@@ -375,7 +375,14 @@ func PrefixRemoteParts(parts []*referenceframe.FrameSystemPart, remotePrefix, re
 			part.FrameConfig.SetName(remotePrefix + part.FrameConfig.Name())
 		}
 		if part.FrameConfig.Parent() != remoteParent {
-			part.FrameConfig.SetParent(remotePrefix + part.FrameConfig.Parent())
+			// For qualified names, prefix only the component portion:
+			// "myArm:upper_arm_link" -> "remoteA_myArm:upper_arm_link"
+			componentName, subFrameName, isQualified := referenceframe.ParseQualifiedFrameName(part.FrameConfig.Parent())
+			if isQualified {
+				part.FrameConfig.SetParent(remotePrefix + componentName + ":" + subFrameName)
+			} else {
+				part.FrameConfig.SetParent(remotePrefix + part.FrameConfig.Parent())
+			}
 		}
 	}
 }

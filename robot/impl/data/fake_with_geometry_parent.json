@@ -1,0 +1,38 @@
+{
+    "components": [
+        {
+            "name": "myArm",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/kinematics/ur5e.json"
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        },
+        {
+            "name": "armCamera",
+            "type": "camera",
+            "model": "image_file",
+            "attributes": {
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
+            },
+            "frame": {
+                "parent": "myArm:upper_arm_link",
+                "translation": {
+                    "x": 50,
+                    "y": 0,
+                    "z": 0
+                }
+            }
+        }
+    ]
+}

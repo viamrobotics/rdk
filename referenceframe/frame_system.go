@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -23,6 +24,16 @@ const World = "world"
 
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
+
+// ParseQualifiedFrameName splits a qualified frame name of the form "component:subframe"
+// into its component and sub-frame parts. If the name is not qualified, isQualified is false.
+func ParseQualifiedFrameName(name string) (componentName, subFrameName string, isQualified bool) {
+	idx := strings.Index(name, ":")
+	if idx < 0 {
+		return name, "", false
+	}
+	return name[:idx], name[idx+1:], true
+}
 
 // FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
 type FrameSystemPoses map[string]*PoseInFrame
@@ -97,14 +108,87 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	}
 
 	fs := NewEmptyFrameSystem(name)
+
+	// First pass: collect all qualified parent names and their owner models.
+	// Map from qualified name (e.g. "myArm:upper_arm_link") to owner component name.
+	qualifiedParents := make(map[string]string)
+	for _, part := range sortedParts {
+		parent := part.FrameConfig.Parent()
+		componentName, _, isQualified := ParseQualifiedFrameName(parent)
+		if isQualified {
+			qualifiedParents[parent] = componentName
+		}
+	}
+
+	// Track which proxy frames have been created to avoid duplicates.
+	createdProxies := make(map[string]bool)
+
 	for _, part := range sortedParts {
 		// make the frames from the configs
 		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
 		if err != nil {
 			return nil, err
 		}
+
+		parent := part.FrameConfig.Parent()
+		parentFrame := fs.Frame(parent)
+
+		// If the parent is a qualified name, create a proxy frame if needed.
+		if parentFrame == nil {
+			componentName, subFrameName, isQualified := ParseQualifiedFrameName(parent)
+			if !isQualified {
+				return nil, fmt.Errorf("parent frame %q not found in frame system", parent)
+			}
+
+			// Find the owner model in the already-added frames.
+			ownerFrame := fs.Frame(componentName)
+			if ownerFrame == nil {
+				return nil, fmt.Errorf("owner component %q for qualified parent %q not found in frame system", componentName, parent)
+			}
+
+			// The owner must be a Model to have internal geometries.
+			ownerModel, ok := ownerFrame.(Model)
+			if !ok {
+				// Check if it's a namedFrame wrapping a Model
+				if nf, isNamed := ownerFrame.(*namedFrame); isNamed {
+					ownerModel, ok = nf.Frame.(Model)
+				}
+				if !ok {
+					return nil, fmt.Errorf("component %q is not a model frame; cannot use qualified parent %q", componentName, parent)
+				}
+			}
+
+			// Validate that the geometry label exists on this model.
+			zeroInputs := make([]Input, len(ownerModel.DoF()))
+			geoms, err := ownerModel.Geometries(zeroInputs)
+			if err != nil {
+				return nil, fmt.Errorf("error getting geometries for %q to validate parent %q: %w", componentName, parent, err)
+			}
+			qualifiedLabel := componentName + ":" + subFrameName
+			geom := geoms.GeometryByName(qualifiedLabel)
+			if geom == nil {
+				return nil, fmt.Errorf("geometry %q not found on model %q; available geometries: %v",
+					subFrameName, componentName, geometryNames(geoms))
+			}
+
+			// Create the proxy frame if not already created.
+			if !createdProxies[parent] {
+				proxy := newGeometryProxyFrame(parent, componentName, subFrameName)
+				// Parent the proxy to the model's _origin frame.
+				originFrame := fs.Frame(componentName + "_origin")
+				if originFrame == nil {
+					return nil, fmt.Errorf("origin frame %q not found for model %q", componentName+"_origin", componentName)
+				}
+				if err := fs.AddFrame(proxy, originFrame); err != nil {
+					return nil, fmt.Errorf("error adding geometry proxy frame %q: %w", parent, err)
+				}
+				createdProxies[parent] = true
+			}
+			parentFrame = fs.Frame(parent)
+		}
+
 		// attach static offset frame to parent, attach model frame to static offset frame
-		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
+		if err = fs.AddFrame(staticOffsetFrame, parentFrame); err != nil {
 			return nil, err
 		}
 		if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
@@ -230,12 +314,16 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 
 	var tfParentDQ spatial.DualQuaternion
 	var err error
-	if _, ok := object.(*GeometriesInFrame); ok && src != World {
+	_, isGeometries := object.(*GeometriesInFrame)
+	_, isProxy := srcFrame.(*geometryProxyFrame)
+	if isGeometries && src != World && !isProxy {
 		// We don't want to apply the final transformation when that is taken care of by the geometries
 		// This has to do with the way we decided to tie geometries to frames for ease of defining them in the model_json file
 		// A frame is assigned a pose and a geometry and the two are not coupled together. This way you do can define everything relative
 		// to the parent frame. So geometries are tied to the frame they are assigned to but we do not want to actually transform them
 		// along the final transformation.
+		// Exception: geometry proxy frames should NOT be skipped because their transform IS the geometry
+		// pose resolution — skipping would lose the geometry's position.
 		parentName, exists := sfs.parents[srcFrame.Name()]
 		if !exists {
 			return nil, NewParentFrameNilError(srcFrame.Name())
@@ -487,7 +575,33 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		var pose spatial.Pose
 		var err error
 
-		if len(frame.DoF()) == 0 {
+		if proxy, ok := frame.(*geometryProxyFrame); ok {
+			// Look up the owner model and its inputs to compute the geometry pose.
+			modelFrame := sfs.Frame(proxy.ownerModelName)
+			if modelFrame == nil {
+				return ret, fmt.Errorf("owner model %q not found for geometry proxy %q", proxy.ownerModelName, proxy.Name())
+			}
+			model, isModel := modelFrame.(Model)
+			if !isModel {
+				if nf, isNamed := modelFrame.(*namedFrame); isNamed {
+					model, isModel = nf.Frame.(Model)
+				}
+				if !isModel {
+					return ret, fmt.Errorf("frame %q is not a model, cannot resolve geometry proxy %q", proxy.ownerModelName, proxy.Name())
+				}
+			}
+			modelInputs := linearInputs.Get(proxy.ownerModelName)
+			geoms, gErr := model.Geometries(modelInputs)
+			if gErr != nil {
+				return ret, fmt.Errorf("error computing geometries for %q: %w", proxy.ownerModelName, gErr)
+			}
+			qualifiedLabel := proxy.ownerModelName + ":" + proxy.geometryLabel
+			geom := geoms.GeometryByName(qualifiedLabel)
+			if geom == nil {
+				return ret, fmt.Errorf("geometry %q not found on model %q during transform", proxy.geometryLabel, proxy.ownerModelName)
+			}
+			pose = geom.Pose()
+		} else if len(frame.DoF()) == 0 {
 			pose, err = frame.Transform([]Input{})
 			if err != nil {
 				return ret, err
@@ -804,6 +918,16 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
+// geometryNames returns a list of geometry labels from a GeometriesInFrame.
+func geometryNames(gifs *GeometriesInFrame) []string {
+	geoms := gifs.Geometries()
+	names := make([]string, len(geoms))
+	for i, g := range geoms {
+		names[i] = g.Label()
+	}
+	return names
+}
+
 // Names returns the names of input parts.
 func getPartNames(parts []*FrameSystemPart) []string {
 	names := make([]string, len(parts))
@@ -835,8 +959,15 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 	children := make(map[string][]*FrameSystemPart)
 	for _, part := range parts {
 		parent := part.FrameConfig.Parent()
+		// If the parent is a qualified name (e.g. "myArm:upper_arm_link"),
+		// treat the component portion as the effective parent for sorting purposes.
 		if !partNameIndex[parent] {
-			continue
+			componentName, _, isQualified := ParseQualifiedFrameName(parent)
+			if isQualified && partNameIndex[componentName] {
+				parent = componentName
+			} else {
+				continue
+			}
 		}
 
 		children[parent] = append(children[parent], part)

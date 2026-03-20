@@ -841,6 +841,11 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		default:
 			return framesAlmostEqual(f1.staticFrame, f2.staticFrame, epsilon)
 		}
+	case *geometryProxyFrame:
+		f2 := frame2.(*geometryProxyFrame)
+		if f1.ownerModelName != f2.ownerModelName || f1.geometryLabel != f2.geometryLabel {
+			return false, nil
+		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
 		frames1 := f1.framesInOrder()
@@ -889,4 +894,89 @@ func clone(f Frame) (Frame, error) {
 	}
 
 	return newFrame, nil
+}
+
+// geometryProxyFrame is a 0-DoF frame that acts as a proxy for a geometry on an arm model.
+// It allows components and world state obstacles/transforms to be parented to intermediate
+// arm geometries (e.g. "myArm:upper_arm_link"). At transform time, the proxy resolves its
+// pose by looking up the owning model's geometry pose.
+type geometryProxyFrame struct {
+	*baseFrame
+	ownerModelName string // e.g. "myArm"
+	geometryLabel  string // unqualified label, e.g. "upper_arm_link"
+}
+
+// newGeometryProxyFrame creates a new geometry proxy frame.
+// qualifiedName is the full name (e.g. "myArm:upper_arm_link").
+func newGeometryProxyFrame(qualifiedName, ownerModelName, geometryLabel string) *geometryProxyFrame {
+	return &geometryProxyFrame{
+		baseFrame:      &baseFrame{name: qualifiedName, limits: []Limit{}},
+		ownerModelName: ownerModelName,
+		geometryLabel:  geometryLabel,
+	}
+}
+
+// Hash returns a hash value for this geometry proxy frame.
+func (gpf *geometryProxyFrame) Hash() int {
+	h := gpf.hash()
+	h += hashString(gpf.ownerModelName) * 17
+	h += hashString(gpf.geometryLabel) * 31
+	return h
+}
+
+// Transform returns the identity pose. The actual resolution happens in composeTransforms.
+func (gpf *geometryProxyFrame) Transform(input []Input) (spatial.Pose, error) {
+	if len(input) != 0 {
+		return nil, NewIncorrectDoFError(len(input), 0)
+	}
+	return spatial.NewZeroPose(), nil
+}
+
+// InputFromProtobuf converts pb.JointPosition to inputs.
+func (gpf *geometryProxyFrame) InputFromProtobuf(jp *pb.JointPositions) []Input {
+	return []Input{}
+}
+
+// ProtobufFromInput converts inputs to pb.JointPosition.
+func (gpf *geometryProxyFrame) ProtobufFromInput(input []Input) *pb.JointPositions {
+	return &pb.JointPositions{}
+}
+
+// Geometries returns empty — the proxy itself has no geometry to avoid duplicates.
+func (gpf *geometryProxyFrame) Geometries(input []Input) (*GeometriesInFrame, error) {
+	return NewGeometriesInFrame(gpf.Name(), nil), nil
+}
+
+// MarshalJSON serializes a geometryProxyFrame.
+func (gpf geometryProxyFrame) MarshalJSON() ([]byte, error) {
+	type serialized struct {
+		Type     string `json:"type"`
+		Name     string `json:"name"`
+		Owner    string `json:"owner"`
+		Geometry string `json:"geometry"`
+	}
+	return json.Marshal(serialized{
+		Type:     "geometry_proxy",
+		Name:     gpf.name,
+		Owner:    gpf.ownerModelName,
+		Geometry: gpf.geometryLabel,
+	})
+}
+
+// UnmarshalJSON deserializes a geometryProxyFrame.
+func (gpf *geometryProxyFrame) UnmarshalJSON(data []byte) error {
+	type serialized struct {
+		Type     string `json:"type"`
+		Name     string `json:"name"`
+		Owner    string `json:"owner"`
+		Geometry string `json:"geometry"`
+	}
+	var ser serialized
+	if err := json.Unmarshal(data, &ser); err != nil {
+		return err
+	}
+	gpf.baseFrame = &baseFrame{name: ser.Name, limits: []Limit{}}
+	gpf.ownerModelName = ser.Owner
+	gpf.geometryLabel = ser.Geometry
+	return nil
 }
