@@ -547,7 +547,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// updates to the registry will be handled by the config watcher goroutine.
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.configLogger)
+	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.rootLogger)
 
 	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
 	// handling restart checking for us (relevant environment variable is unset).
