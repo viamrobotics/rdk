@@ -17,16 +17,19 @@ import (
 	"time"
 
 	"github.com/invopop/jsonschema"
+	pb "go.viam.com/api/app/v1"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 	gtestutils "go.viam.com/utils/testutils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
+	configtestutils "go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -741,6 +744,174 @@ func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	// Cancel context and wait for server goroutine to stop running.
+	cancel()
+	wg.Wait()
+}
+
+// TestCloudModulesRespondToDebugAndLogChanges is the cloud-config variant of
+// TestModulesRespondToDebugAndLogChanges. It verifies that toggling the top-level
+// "debug" flag through a cloud config correctly propagates to modules AND that
+// modules are not spuriously restarted a second time when the (unchanged) cloud
+// config is re-fetched on the next poll cycle.
+func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
+
+	logger, logObserver := logging.NewObservedTestLogger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
+	helperModel := resource.NewModel("rdk", "test", "helper")
+
+	// Find a free port for the machine to bind to.
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	test.That(t, err, test.ShouldBeNil)
+	machineAddress := listener.Addr().String()
+	listener.Close()
+
+	// Set up fake cloud server.
+	fakeServer, cleanup := configtestutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	deviceID := "test-device-id"
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+
+	// storeCloudConfig stores a full robot config in the fake cloud server.
+	// The only parameter that changes between calls is the debug flag.
+	storeCloudConfig := func(debug bool) {
+		t.Helper()
+		cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
+			ID:               deviceID,
+			Secret:           configtestutils.FakeCredentialPayLoad,
+			FQDN:             "woo",
+			LocalFQDN:        "yee",
+			SignalingInsecure: true,
+			PrimaryOrgID:     "the-primary-org",
+			LocationID:       "the-location",
+			MachineID:        "the-machine",
+			LocationSecrets:  []config.LocationSecret{{ID: "1", Secret: "secret"}},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		moduleProto, err := config.ModuleConfigToProto(&config.Module{
+			Name:    "testModule",
+			ExePath: testModulePath,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		componentProto, err := config.ComponentConfigToProto(&resource.Config{
+			Name:  "helper",
+			API:   generic.API,
+			Model: helperModel,
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress: machineAddress,
+			},
+		})
+		test.That(t, err, test.ShouldBeNil)
+
+		protoConfig := &pb.RobotConfig{
+			Cloud:      cloudConfProto,
+			Modules:    []*pb.ModuleConfig{moduleProto},
+			Components: []*pb.ComponentConfig{componentProto},
+			Network:    networkProto,
+			Debug:      &debug,
+		}
+		fakeServer.StoreDeviceConfig(deviceID, protoConfig, &pb.CertificateResponse{})
+	}
+
+	// Store initial config with debug=false.
+	storeCloudConfig(false)
+
+	// Write a minimal config file with only the cloud section. RunServer will
+	// read this, connect to the fake cloud, and fetch the full config.
+	cfgFile := filepath.Join(t.TempDir(), "cloud_config.json")
+	cfgJSON := fmt.Sprintf(
+		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"1s"}}`,
+		deviceID, appAddress, configtestutils.FakeCredentialPayLoad,
+	)
+	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
+
+	// Start RunServer in a goroutine. Use -no-tls since the fake cloud
+	// returns empty TLS certs.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		args := []string{"viam-server", "-config", cfgFile, "-no-tls"}
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Wait for the server to be reachable and the helper module to be ready.
+	// Cloud-configured servers require authentication via location secret.
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second,
+		client.WithDialOptions(
+			rpc.WithEntityCredentials("woo", rpc.Credentials{
+				Type:    utils.CredentialsTypeRobotLocationSecret,
+				Payload: "secret",
+			}),
+			rpc.WithAllowInsecureWithCredentialsDowngrade(),
+		),
+	)
+	var helper resource.Resource
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		helper, err = rc.ResourceByName(generic.Named("helper"))
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
+	// Verify initial state: helper should report Info-level logging.
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err := helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	// --- Transition: debug false → true ---
+	storeCloudConfig(true)
+
+	// Wait for the helper to report Debug-level logging.
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err := helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+	})
+
+	// Record the number of module reconfigurations so far.
+	reconfigCount := logObserver.FilterMessageSnippet("Module configuration changed").Len()
+
+	// Wait for several more cloud poll cycles (RefreshInterval=1s). If the
+	// processConfig mutation of module LogLevel is not handled correctly, the
+	// next poll will see a diff between the mutated local config and the
+	// unchanged cloud config, causing a spurious second module restart.
+	time.Sleep(3 * time.Second)
+
+	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
+		test.ShouldEqual, reconfigCount)
+
+	// --- Transition: debug true → false ---
+	storeCloudConfig(false)
+
+	// Wait for the helper to report Info-level logging again.
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err := helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
+	time.Sleep(3 * time.Second)
+
+	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
+		test.ShouldEqual, reconfigCount)
+
 	cancel()
 	wg.Wait()
 }
