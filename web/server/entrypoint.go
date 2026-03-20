@@ -353,6 +353,17 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 	out.AllowInsecureCreds = s.args.AllowInsecureCreds
 	out.UntrustedEnv = s.args.UntrustedEnv
 
+	// Propagate the top-level debug flag into the module log levels.
+	// This will trigger modules to be restarted with `--log-level=debug`
+	// if they don't already have a log level set
+	if out.Debug {
+		for i, moduleCfg := range out.Modules {
+			if moduleCfg.LogLevel == "" {
+				out.Modules[i].LogLevel = "debug"
+			}
+		}
+	}
+
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
 		out.PackagePath = path.Join(rutils.ViamDotDir, "packages")
