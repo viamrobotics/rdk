@@ -18,7 +18,6 @@ import (
 
 	"github.com/invopop/jsonschema"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	goutils "go.viam.com/utils"
