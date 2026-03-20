@@ -548,6 +548,77 @@ func TestTunnelE2E(t *testing.T) {
 	wg.Wait()
 }
 
+func TestDebugLogAppliesAtStartup(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
+	// Primarily a regression test for RSDK-13456.
+
+	logger := logging.NewTestLogger(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start a machine with a testmodule and a 'helper' component that should start with
+	// info-level logging.
+	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
+
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	machineAddress := "127.0.0.1:23659"
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "testModule",
+				ExePath: testModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper",
+				API:   generic.API,
+				Model: helperModel,
+			},
+		},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress: machineAddress,
+			},
+		},
+		Debug: true,
+	}
+	cfgFileName, err := robottestutils.MakeTempConfig(t, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Call `RunServer` in a goroutine as it is blocking. Point it to the temporary config
+	// file created above.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		args := []string{"viam-server", "-config", cfgFileName}
+		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
+	}()
+
+	// Create an SDK client to the server that was started on 127.0.0.1:23659.
+	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
+	t.Log(rc.ResourceNames())
+	helper, err := rc.ResourceByName(generic.Named("helper"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Log a DEBUG line through helper. While we cannot actually examine the log output, we
+	// can examine the response from the component to see its set log level. That level
+	// should start as "Debug."
+	resp, err := helper.DoCommand(ctx,
+		map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+
+	// Cancel context and wait for server goroutine to stop running.
+	cancel()
+	wg.Wait()
+}
+
 func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
 	t.Parallel()
 	if runtime.GOOS == "windows" {
