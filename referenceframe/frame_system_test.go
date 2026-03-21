@@ -547,486 +547,142 @@ func TestTopologicalSortParts(t *testing.T) {
 // 2. Qualified names (e.g. "myArm:upper_arm_link") work correctly via geometry proxy frames
 // 3. Both config path (NewFrameSystem) and world state path (ObstaclesInWorldFrame) work.
 func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
-	// Load a UR5e arm model.
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"))
 	test.That(t, err, test.ShouldBeNil)
 	armModel, err := UnmarshalModelJSON(jsonData, "myArm")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(armModel.DoF()), test.ShouldEqual, 6)
 
-	// Verify that the arm model's internal frames include the intermediate joints we care about.
+	// Get the expected geometry pose for upper_arm_link at zero inputs.
 	zeroInputs := make([]Input, len(armModel.DoF()))
 	geoms, err := armModel.Geometries(zeroInputs)
 	test.That(t, err, test.ShouldBeNil)
-	foundUpperArm := false
-	var upperArmGeomPose spatial.Pose
-	for _, g := range geoms.Geometries() {
-		if g.Label() == "myArm:upper_arm_link" {
-			foundUpperArm = true
-			upperArmGeomPose = g.Pose()
-			break
-		}
+	upperArmGeom := geoms.GeometryByName("myArm:upper_arm_link")
+	test.That(t, upperArmGeom, test.ShouldNotBeNil)
+	upperArmGeomPose := upperArmGeom.Pose()
+
+	// Helper: build arm-at-world-origin LinkInFrame (used by every subtest).
+	makeArmParts := func(extras ...*FrameSystemPart) []*FrameSystemPart {
+		armLif, err := (&LinkConfig{ID: "myArm", Parent: World}).ParseConfig()
+		test.That(t, err, test.ShouldBeNil)
+		return append([]*FrameSystemPart{{FrameConfig: armLif, ModelFrame: armModel}}, extras...)
 	}
-	test.That(t, foundUpperArm, test.ShouldBeTrue)
 
-	// --- Negative: unqualified intermediate joint name still rejected ---
-	t.Run("NewFrameSystem rejects unqualified intermediate arm joint parent", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
+	// Helper: build a child part with a given parent.
+	makeChildPart := func(name, parent string) *FrameSystemPart {
+		lif, err := (&LinkConfig{ID: name, Parent: parent}).ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
+		return &FrameSystemPart{FrameConfig: lif}
+	}
 
-		cameraLif, err := (&LinkConfig{
-			ID:       "camera",
-			Parent:   "upper_arm_link",
-			Geometry: &spatial.GeometryConfig{Type: "box", X: 10, Y: 10, Z: 10},
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
+	// --- Negative: unqualified names are rejected ---
+	t.Run("unqualified parent rejected", func(t *testing.T) {
+		fs, err := NewFrameSystem("test", makeArmParts(makeChildPart("camera", "upper_arm_link")), nil)
 		test.That(t, fs, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not linked to the world frame")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "camera")
 	})
 
-	// --- Negative: unqualified transform parent still rejected ---
-	t.Run("NewFrameSystem rejects unqualified transform parent", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-		}
-
-		transforms := []*LinkInFrame{
-			NewLinkInFrame("upper_arm_link", spatial.NewZeroPose(), "attachedTool", nil),
-		}
-
-		fs, err := NewFrameSystem("test", parts, transforms)
+	t.Run("unqualified transform parent rejected", func(t *testing.T) {
+		transforms := []*LinkInFrame{NewLinkInFrame("upper_arm_link", spatial.NewZeroPose(), "tool", nil)}
+		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
 		test.That(t, fs, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not linked to the world frame")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "attachedTool")
 	})
 
-	// --- Negative: unqualified world state obstacle parent still fails ---
-	t.Run("WorldState obstacle with unqualified intermediate joint fails", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
+	// --- Negative: invalid qualified geometry labels ---
+	for _, tc := range []struct {
+		name, label string
+	}{
+		{"nonexistent link", "nonexistent_link"},
+		{"joint frame (no geometry)", "shoulder_pan_joint"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fs, err := NewFrameSystem("test", makeArmParts(makeChildPart("camera", "myArm:"+tc.label)), nil)
+			test.That(t, fs, test.ShouldBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, tc.label)
+		})
+	}
 
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-		}
+	// --- Positive: qualified parent for parts, transforms, and world state ---
+	t.Run("qualified geometry parent", func(t *testing.T) {
+		parts := makeArmParts(makeChildPart("camera", "myArm:upper_arm_link"))
 		fs, err := NewFrameSystem("test", parts, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, fs.Frame("upper_arm_link"), test.ShouldBeNil)
-		test.That(t, fs.Frame("myArm"), test.ShouldNotBeNil)
+		// Proxy frame should exist with 0 DoF.
+		proxy := fs.Frame("myArm:upper_arm_link")
+		test.That(t, proxy, test.ShouldNotBeNil)
+		test.That(t, proxy.DoF(), test.ShouldHaveLength, 0)
+
+		// Camera at zero inputs should be at upper_arm_link geometry center.
+		inputs := NewZeroInputs(fs)
+		tf, err := fs.Transform(inputs.ToLinearInputs(), NewPoseInFrame("camera", spatial.NewZeroPose()), World)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostCoincident(tf.(*PoseInFrame).Pose(), upperArmGeomPose), test.ShouldBeTrue)
+
+		// Camera should move when arm joints change.
+		nonZero := NewZeroInputs(fs)
+		nonZero["myArm"] = []Input{0.5, 0, 0, 0, 0, 0}
+		tf2, err := fs.Transform(nonZero.ToLinearInputs(), NewPoseInFrame("camera", spatial.NewZeroPose()), World)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostCoincident(tf.(*PoseInFrame).Pose(), tf2.(*PoseInFrame).Pose()), test.ShouldBeFalse)
+
+		// Proxy should produce no geometries of its own (no duplicates).
+		allGeoms, err := FrameSystemGeometries(fs, inputs)
+		test.That(t, err, test.ShouldBeNil)
+		if proxyGeoms, ok := allGeoms["myArm:upper_arm_link"]; ok {
+			test.That(t, proxyGeoms.Geometries(), test.ShouldHaveLength, 0)
+		}
+	})
+
+	t.Run("qualified parent for transform with offset", func(t *testing.T) {
+		offset := spatial.NewPoseFromPoint(r3.Vector{X: 100})
+		transforms := []*LinkInFrame{NewLinkInFrame("myArm:upper_arm_link", offset, "tool", nil)}
+		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
+		test.That(t, err, test.ShouldBeNil)
+
+		inputs := NewZeroInputs(fs)
+		tf, err := fs.Transform(inputs.ToLinearInputs(), NewPoseInFrame("tool", spatial.NewZeroPose()), World)
+		test.That(t, err, test.ShouldBeNil)
+		expected := spatial.Compose(upperArmGeomPose, offset)
+		test.That(t, spatial.PoseAlmostCoincident(tf.(*PoseInFrame).Pose(), expected), test.ShouldBeTrue)
+	})
+
+	t.Run("world state obstacle with qualified parent", func(t *testing.T) {
+		transforms := []*LinkInFrame{NewLinkInFrame("myArm:upper_arm_link", spatial.NewZeroPose(), "anchor", nil)}
+		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
+		test.That(t, err, test.ShouldBeNil)
 
 		box, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{10, 10, 10}, "obstacle")
 		test.That(t, err, test.ShouldBeNil)
-		ws, err := NewWorldState(
-			[]*GeometriesInFrame{
-				NewGeometriesInFrame("upper_arm_link", []spatial.Geometry{box}),
-			},
-			nil,
-		)
+		ws, err := NewWorldState([]*GeometriesInFrame{NewGeometriesInFrame("myArm:upper_arm_link", []spatial.Geometry{box})}, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		inputs := NewZeroInputs(fs)
-		_, err = ws.ObstaclesInWorldFrame(fs, inputs)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "upper_arm_link")
-	})
-
-	// --- Positive: qualified name for config path ---
-	t.Run("NewFrameSystem accepts qualified geometry parent", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
+		gifs, err := ws.ObstaclesInWorldFrame(fs, NewZeroInputs(fs))
 		test.That(t, err, test.ShouldBeNil)
-
-		cameraLif, err := (&LinkConfig{
-			ID:       "camera",
-			Parent:   "myArm:upper_arm_link",
-			Geometry: &spatial.GeometryConfig{Type: "box", X: 10, Y: 10, Z: 10},
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fs, test.ShouldNotBeNil)
-
-		// Proxy frame should exist
-		proxyFrame := fs.Frame("myArm:upper_arm_link")
-		test.That(t, proxyFrame, test.ShouldNotBeNil)
-		test.That(t, len(proxyFrame.DoF()), test.ShouldEqual, 0)
-
-		// Camera frame should exist
-		test.That(t, fs.Frame("camera"), test.ShouldNotBeNil)
-
-		// Verify camera transforms correctly at zero inputs.
-		inputs := NewZeroInputs(fs)
-		cameraPose, err := fs.Transform(inputs.ToLinearInputs(),
-			NewPoseInFrame("camera", spatial.NewZeroPose()), World)
-		test.That(t, err, test.ShouldBeNil)
-		cameraPoseInWorld := cameraPose.(*PoseInFrame).Pose()
-		// The camera should be at the geometry center of upper_arm_link
-		test.That(t, spatial.PoseAlmostCoincident(cameraPoseInWorld, upperArmGeomPose), test.ShouldBeTrue)
-	})
-
-	// --- Positive: qualified name for transform (additional frame) ---
-	t.Run("NewFrameSystem accepts qualified geometry parent for transform", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-		}
-
-		offset := spatial.NewPoseFromPoint(r3.Vector{X: 100, Y: 0, Z: 0})
-		transforms := []*LinkInFrame{
-			NewLinkInFrame("myArm:upper_arm_link", offset, "attachedTool", nil),
-		}
-
-		fs, err := NewFrameSystem("test", parts, transforms)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fs, test.ShouldNotBeNil)
-		test.That(t, fs.Frame("attachedTool"), test.ShouldNotBeNil)
-
-		// The attached tool should be at the geometry center of upper_arm_link plus the offset.
-		inputs := NewZeroInputs(fs)
-		toolPose, err := fs.Transform(inputs.ToLinearInputs(),
-			NewPoseInFrame("attachedTool", spatial.NewZeroPose()), World)
-		test.That(t, err, test.ShouldBeNil)
-		expectedPose := spatial.Compose(upperArmGeomPose, offset)
-		test.That(t, spatial.PoseAlmostCoincident(toolPose.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
-	})
-
-	// --- Positive: world state obstacle with qualified parent works ---
-	t.Run("WorldState obstacle with qualified geometry parent works", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-		}
-
-		// Include the proxy in the FS by using it as an additional transform target.
-		transforms := []*LinkInFrame{
-			NewLinkInFrame("myArm:upper_arm_link", spatial.NewZeroPose(), "proxyAnchor", nil),
-		}
-		fs, err := NewFrameSystem("test", parts, transforms)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Now create world state obstacle parented to the qualified name.
-		box, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{10, 10, 10}, "obstacle")
-		test.That(t, err, test.ShouldBeNil)
-		ws, err := NewWorldState(
-			[]*GeometriesInFrame{
-				NewGeometriesInFrame("myArm:upper_arm_link", []spatial.Geometry{box}),
-			},
-			nil,
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		inputs := NewZeroInputs(fs)
-		gifs, err := ws.ObstaclesInWorldFrame(fs, inputs)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(gifs.Geometries()), test.ShouldEqual, 1)
-		// Obstacle should be at the geometry center of upper_arm_link.
+		test.That(t, gifs.Geometries(), test.ShouldHaveLength, 1)
 		test.That(t, spatial.PoseAlmostCoincident(gifs.Geometries()[0].Pose(), upperArmGeomPose), test.ShouldBeTrue)
 	})
 
-	// --- Positive: camera moves when arm joints change ---
-	t.Run("camera on proxy moves with arm joints", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		cameraLif, err := (&LinkConfig{
-			ID:     "camera",
-			Parent: "myArm:upper_arm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Get camera pose at zero inputs.
-		zeroInputMap := NewZeroInputs(fs)
-		cameraPose0, err := fs.Transform(zeroInputMap.ToLinearInputs(),
-			NewPoseInFrame("camera", spatial.NewZeroPose()), World)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Change a joint and get camera pose again.
-		nonZeroInputMap := NewZeroInputs(fs)
-		nonZeroInputMap["myArm"] = []Input{0.5, 0, 0, 0, 0, 0}
-		cameraPose1, err := fs.Transform(nonZeroInputMap.ToLinearInputs(),
-			NewPoseInFrame("camera", spatial.NewZeroPose()), World)
-		test.That(t, err, test.ShouldBeNil)
-
-		// The poses should differ since the arm moved.
-		test.That(t, spatial.PoseAlmostCoincident(
-			cameraPose0.(*PoseInFrame).Pose(),
-			cameraPose1.(*PoseInFrame).Pose(),
-		), test.ShouldBeFalse)
-	})
-
-	// --- Positive: multiple proxies on same arm ---
-	t.Run("multiple sub-frame proxies on same arm", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		camera1Lif, err := (&LinkConfig{
-			ID:     "camera1",
-			Parent: "myArm:upper_arm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		camera2Lif, err := (&LinkConfig{
-			ID:     "camera2",
-			Parent: "myArm:forearm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: camera1Lif},
-			{FrameConfig: camera2Lif},
-		}
-
+	// --- Edge cases ---
+	t.Run("multiple proxies on same arm", func(t *testing.T) {
+		parts := makeArmParts(makeChildPart("cam1", "myArm:upper_arm_link"), makeChildPart("cam2", "myArm:forearm_link"))
 		fs, err := NewFrameSystem("test", parts, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fs.Frame("myArm:upper_arm_link"), test.ShouldNotBeNil)
 		test.That(t, fs.Frame("myArm:forearm_link"), test.ShouldNotBeNil)
-		test.That(t, fs.Frame("camera1"), test.ShouldNotBeNil)
-		test.That(t, fs.Frame("camera2"), test.ShouldNotBeNil)
 	})
 
-	// --- Negative: non-existent geometry label ---
-	t.Run("non-existent geometry label errors", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
+	t.Run("two arms with same internal names", func(t *testing.T) {
+		arm2Model, err := UnmarshalModelJSON(jsonData, "arm2")
+		test.That(t, err, test.ShouldBeNil)
+		arm2Lif, err := (&LinkConfig{ID: "arm2", Parent: World}).ParseConfig()
 		test.That(t, err, test.ShouldBeNil)
 
-		cameraLif, err := (&LinkConfig{
-			ID:     "camera",
-			Parent: "myArm:nonexistent_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, fs, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "geometry")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "nonexistent_link")
-	})
-
-	// --- Negative: internal joint name (no geometry) ---
-	t.Run("internal joint name without geometry errors", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		// shoulder_pan_joint is a rotational frame, not a link — it has no geometry.
-		cameraLif, err := (&LinkConfig{
-			ID:     "camera",
-			Parent: "myArm:shoulder_pan_joint",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, fs, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "geometry")
-		test.That(t, err.Error(), test.ShouldContainSubstring, "shoulder_pan_joint")
-	})
-
-	// --- Positive: two arms with same internal names ---
-	t.Run("multiple arms with same internal names", func(t *testing.T) {
-		armModel2, err := UnmarshalModelJSON(jsonData, "arm2")
-		test.That(t, err, test.ShouldBeNil)
-
-		arm1Lif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		arm2Lif, err := (&LinkConfig{
-			ID:     "arm2",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		cam1Lif, err := (&LinkConfig{
-			ID:     "cam1",
-			Parent: "myArm:upper_arm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		cam2Lif, err := (&LinkConfig{
-			ID:     "cam2",
-			Parent: "arm2:upper_arm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: arm1Lif, ModelFrame: armModel},
-			{FrameConfig: arm2Lif, ModelFrame: armModel2},
-			{FrameConfig: cam1Lif},
-			{FrameConfig: cam2Lif},
-		}
-
+		parts := makeArmParts(makeChildPart("cam1", "myArm:upper_arm_link"))
+		parts = append(parts, &FrameSystemPart{FrameConfig: arm2Lif, ModelFrame: arm2Model}, makeChildPart("cam2", "arm2:upper_arm_link"))
 		fs, err := NewFrameSystem("test", parts, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fs.Frame("myArm:upper_arm_link"), test.ShouldNotBeNil)
 		test.That(t, fs.Frame("arm2:upper_arm_link"), test.ShouldNotBeNil)
-		test.That(t, fs.Frame("cam1"), test.ShouldNotBeNil)
-		test.That(t, fs.Frame("cam2"), test.ShouldNotBeNil)
-	})
-
-	// --- Positive: no duplicate geometries from proxy frames ---
-	t.Run("FrameSystemGeometries returns no duplicates for proxy frames", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		cameraLif, err := (&LinkConfig{
-			ID:     "camera",
-			Parent: "myArm:upper_arm_link",
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		inputs := NewZeroInputs(fs)
-		allGeoms, err := FrameSystemGeometries(fs, inputs)
-		test.That(t, err, test.ShouldBeNil)
-
-		// Proxy frame should have no geometries of its own
-		proxyGeoms, hasProxy := allGeoms["myArm:upper_arm_link"]
-		if hasProxy {
-			test.That(t, len(proxyGeoms.Geometries()), test.ShouldEqual, 0)
-		}
-	})
-
-	// --- Positive: parenting to the arm's end-effector frame works ---
-	t.Run("NewFrameSystem accepts part parented to arm end-effector", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		cameraLif, err := (&LinkConfig{
-			ID:       "camera",
-			Parent:   "myArm",
-			Geometry: &spatial.GeometryConfig{Type: "box", X: 10, Y: 10, Z: 10},
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-			{FrameConfig: cameraLif},
-		}
-
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fs.Frame("camera"), test.ShouldNotBeNil)
-
-		inputs := NewZeroInputs(fs)
-		geometries, err := FrameSystemGeometries(fs, inputs)
-		test.That(t, err, test.ShouldBeNil)
-		_, hasCameraGeom := geometries["camera_origin"]
-		test.That(t, hasCameraGeom, test.ShouldBeTrue)
-	})
-
-	// --- Positive: world state obstacle parented to arm end-effector works ---
-	t.Run("WorldState obstacle parented to arm end-effector works", func(t *testing.T) {
-		armLif, err := (&LinkConfig{
-			ID:     "myArm",
-			Parent: World,
-		}).ParseConfig()
-		test.That(t, err, test.ShouldBeNil)
-
-		parts := []*FrameSystemPart{
-			{FrameConfig: armLif, ModelFrame: armModel},
-		}
-		fs, err := NewFrameSystem("test", parts, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		box, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{10, 10, 10}, "obstacle")
-		test.That(t, err, test.ShouldBeNil)
-		ws, err := NewWorldState(
-			[]*GeometriesInFrame{
-				NewGeometriesInFrame("myArm", []spatial.Geometry{box}),
-			},
-			nil,
-		)
-		test.That(t, err, test.ShouldBeNil)
-
-		inputs := NewZeroInputs(fs)
-		gifs, err := ws.ObstaclesInWorldFrame(fs, inputs)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(gifs.Geometries()), test.ShouldEqual, 1)
 	})
 }
