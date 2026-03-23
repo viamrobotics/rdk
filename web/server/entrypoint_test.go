@@ -551,12 +551,13 @@ func TestTunnelE2E(t *testing.T) {
 	wg.Wait()
 }
 
+// This is a regression test for RSDK-13456, which fixes a bug
+// where viam-server would not enable debug logging on startup if
+// debug: true was present in the config, but the config was file-based
 func TestDebugLogAppliesAtStartup(t *testing.T) {
-	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
-	// Primarily a regression test for RSDK-13456.
 
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -622,132 +623,6 @@ func TestDebugLogAppliesAtStartup(t *testing.T) {
 	wg.Wait()
 }
 
-func TestModulesRespondToDebugAndLogChanges(t *testing.T) {
-	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
-	// Primarily a regression test for RSDK-10723.
-
-	logger := logging.NewTestLogger(t)
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// Start a machine with a testmodule and a 'helper' component that should start with
-	// info-level logging.
-	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
-
-	helperModel := resource.NewModel("rdk", "test", "helper")
-	machineAddress := "127.0.0.1:23659"
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{
-				Name:    "testModule",
-				ExePath: testModulePath,
-			},
-		},
-		Components: []resource.Config{
-			{
-				Name:  "helper",
-				API:   generic.API,
-				Model: helperModel,
-			},
-		},
-		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{
-				BindAddress: machineAddress,
-			},
-		},
-	}
-	cfgFileName, err := robottestutils.MakeTempConfig(t, cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Call `RunServer` in a goroutine as it is blocking. Point it to the temporary config
-	// file created above.
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		args := []string{"viam-server", "-config", cfgFileName}
-		test.That(t, server.RunServer(ctx, args, logger), test.ShouldBeNil)
-	}()
-
-	// Create an SDK client to the server that was started on 127.0.0.1:23659.
-	rc := robottestutils.NewRobotClient(t, logger, machineAddress, time.Second)
-	t.Log(rc.ResourceNames())
-	helper, err := rc.ResourceByName(generic.Named("helper"))
-	test.That(t, err, test.ShouldBeNil)
-
-	// Log a DEBUG line through helper. While we cannot actually examine the log output, we
-	// can examine the response from the component to see its set log level. That level
-	// should start as "Info."
-	resp, err := helper.DoCommand(ctx,
-		map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldResemble, map[string]any{"level": "Info"})
-
-	// Write an identical config to the temporary config file but add { "debug": true }.
-	cfg.Debug = true
-	cfgBytes, err := json.Marshal(&cfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
-		resp, err = helper.DoCommand(ctx,
-			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
-	})
-
-	// Change "debug" to be false in the temporary config file.
-	cfg.Debug = false
-	cfgBytes, err = json.Marshal(&cfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
-		resp, err = helper.DoCommand(ctx,
-			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
-	})
-
-	// Specify a "log" pattern of { "testModule": "debug" } in the temporary config file.
-	cfg.LogConfig = []logging.LoggerPatternConfig{{Pattern: "testModule", Level: "debug"}}
-	cfgBytes, err = json.Marshal(&cfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-	// Wait for the helper to reconfigure and report a log level of "Debug."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
-		resp, err = helper.DoCommand(ctx,
-			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
-	})
-
-	// Remove the "log" pattern in the temporary config file.
-	cfg.LogConfig = nil
-	cfgBytes, err = json.Marshal(&cfg)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, os.WriteFile(cfgFileName, cfgBytes, 0o755), test.ShouldBeNil)
-
-	// Wait for the helper to reconfigure and report a log level of "Info."
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
-		resp, err = helper.DoCommand(ctx,
-			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
-		test.That(tb, err, test.ShouldBeNil)
-		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
-	})
-
-	// Cancel context and wait for server goroutine to stop running.
-	cancel()
-	wg.Wait()
-}
-
 // TestCloudModulesRespondToDebugAndLogChanges is the cloud-config variant of
 // TestModulesRespondToDebugAndLogChanges. It verifies that toggling the top-level
 // "debug" flag through a cloud config correctly propagates to modules AND that
@@ -778,55 +653,58 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	deviceID := "test-device-id"
 	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
 
-	// storeCloudConfig stores a full robot config in the fake cloud server.
-	// The only parameter that changes between calls is the debug flag.
-	storeCloudConfig := func(debug bool) {
+	// Build the base proto config pieces that remain constant across updates.
+	cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
+		ID:                deviceID,
+		Secret:            configtestutils.FakeCredentialPayLoad,
+		FQDN:              "woo",
+		LocalFQDN:         "yee",
+		SignalingInsecure: true,
+		PrimaryOrgID:      "the-primary-org",
+		LocationID:        "the-location",
+		MachineID:         "the-machine",
+		LocationSecrets:   []config.LocationSecret{{ID: "1", Secret: "secret"}},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	moduleProto, err := config.ModuleConfigToProto(&config.Module{
+		Name:    "testModule",
+		ExePath: testModulePath,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	componentProto, err := config.ComponentConfigToProto(&resource.Config{
+		Name:  "helper",
+		API:   generic.API,
+		Model: helperModel,
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
+		NetworkConfigData: config.NetworkConfigData{
+			BindAddress: machineAddress,
+		},
+	})
+	test.That(t, err, test.ShouldBeNil)
+
+	baseConfig := &pb.RobotConfig{
+		Cloud:      cloudConfProto,
+		Modules:    []*pb.ModuleConfig{moduleProto},
+		Components: []*pb.ComponentConfig{componentProto},
+		Network:    networkProto,
+	}
+
+	// storeCloudConfig stores the given robot config in the fake cloud server.
+	// Callers can modify baseConfig before calling this to change any field.
+	storeCloudConfig := func(cfg *pb.RobotConfig) {
 		t.Helper()
-		cloudConfProto, err := config.CloudConfigToProto(&config.Cloud{
-			ID:                deviceID,
-			Secret:            configtestutils.FakeCredentialPayLoad,
-			FQDN:              "woo",
-			LocalFQDN:         "yee",
-			SignalingInsecure: true,
-			PrimaryOrgID:      "the-primary-org",
-			LocationID:        "the-location",
-			MachineID:         "the-machine",
-			LocationSecrets:   []config.LocationSecret{{ID: "1", Secret: "secret"}},
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		moduleProto, err := config.ModuleConfigToProto(&config.Module{
-			Name:    "testModule",
-			ExePath: testModulePath,
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		componentProto, err := config.ComponentConfigToProto(&resource.Config{
-			Name:  "helper",
-			API:   generic.API,
-			Model: helperModel,
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		networkProto, err := config.NetworkConfigToProto(&config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{
-				BindAddress: machineAddress,
-			},
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		protoConfig := &pb.RobotConfig{
-			Cloud:      cloudConfProto,
-			Modules:    []*pb.ModuleConfig{moduleProto},
-			Components: []*pb.ComponentConfig{componentProto},
-			Network:    networkProto,
-			Debug:      &debug,
-		}
-		fakeServer.StoreDeviceConfig(deviceID, protoConfig, &pb.CertificateResponse{})
+		fakeServer.StoreDeviceConfig(deviceID, cfg, &pb.CertificateResponse{})
 	}
 
 	// Store initial config with debug=false.
-	storeCloudConfig(false)
+	debugFalse := false
+	baseConfig.Debug = &debugFalse
+	storeCloudConfig(baseConfig)
 
 	// Write a minimal config file with only the cloud section. RunServer will
 	// read this, connect to the fake cloud, and fetch the full config.
@@ -873,7 +751,9 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	})
 
 	// --- Transition: debug false → true ---
-	storeCloudConfig(true)
+	debugTrue := true
+	baseConfig.Debug = &debugTrue
+	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Debug-level logging.
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -896,7 +776,44 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		test.ShouldEqual, reconfigCount)
 
 	// --- Transition: debug true → false ---
-	storeCloudConfig(false)
+	baseConfig.Debug = &debugFalse
+	storeCloudConfig(baseConfig)
+
+	// Wait for the helper to report Info-level logging again.
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err := helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
+	})
+
+	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
+	time.Sleep(3 * time.Second)
+
+	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
+		test.ShouldEqual, reconfigCount)
+
+	// --- Transition: add log pattern "testModule" at debug level ---
+	baseConfig.Log = []*pb.LogPatternConfig{{Pattern: "testModule", Level: "debug"}}
+	storeCloudConfig(baseConfig)
+
+	// Wait for the helper to report Debug-level logging.
+	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+		resp, err := helper.DoCommand(ctx,
+			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
+		test.That(tb, err, test.ShouldBeNil)
+		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
+	})
+
+	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
+	time.Sleep(3 * time.Second)
+
+	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
+		test.ShouldEqual, reconfigCount)
+
+	// --- Transition: remove log pattern ---
+	baseConfig.Log = nil
+	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Info-level logging again.
 	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
