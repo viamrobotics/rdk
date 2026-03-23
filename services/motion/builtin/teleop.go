@@ -44,6 +44,14 @@ type teleopPipeline struct {
 	// Error reporting, pollable via teleop_status.
 	lastErr atomic.Pointer[error]
 
+	// Profiling atomics (written by planner/executor, read by status handler).
+	lastInputsNanos  atomic.Int64
+	lastPlanNanos    atomic.Int64
+	lastExecNanos    atomic.Int64
+	lastExecWaitNanos atomic.Int64
+	planCount        atomic.Int64
+	execCount        atomic.Int64
+
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
 }
@@ -112,9 +120,14 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	// Merge live inputs with the planning head: use fresh CurrentInputs for
 	// all components (including the other arm in bimanual setups), then overlay
 	// the planning head for the teleop'd component so trajectory chaining works.
+	// Timing includes RLock acquisition — intentional: wall-clock latency is what
+	// matters for diagnosing stutter; lock contention is a real part of that latency.
+	inputsStart := time.Now()
 	ms.mu.RLock()
 	liveInputs, err := ms.fsService.CurrentInputs(ctx)
 	ms.mu.RUnlock()
+	inputsDur := time.Since(inputsStart)
+	tp.lastInputsNanos.Store(inputsDur.Nanoseconds())
 	if err != nil {
 		tp.lastErr.Store(&err)
 		tp.logger.CWarnf(ctx, "teleop planner: failed to get current inputs: %v", err)
@@ -133,19 +146,24 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	req := tp.buildMoveReq(pose, mergedInputs)
 
 	// Call ms.planTeleop with cached frame system and merged inputs.
+	planStart := time.Now()
 	ms.mu.RLock()
 	plan, err := ms.planTeleop(ctx, req, tp.cachedFrameSys, mergedInputs, tp.logger)
 	ms.mu.RUnlock()
+	planDur := time.Since(planStart)
+	tp.lastPlanNanos.Store(planDur.Nanoseconds())
+	// Includes failed plans; compare with exec_count for success rate.
+	tp.planCount.Add(1)
 
 	if err != nil {
 		tp.lastErr.Store(&err)
-		tp.logger.CWarnf(ctx, "teleop planner error: %v", err)
+		tp.logger.CWarnf(ctx, "teleop planner error (inputs: %s, plan: %s): %v", inputsDur, planDur, err)
 		return
 	}
 
 	tp.lastErr.Store(nil)
 	traj := plan.Trajectory()
-	tp.logger.Info("Trajectory Size:", len(traj))
+	tp.logger.CInfof(ctx, "teleop planner: inputs took: %s, plan took: %s, traj size: %d", inputsDur, planDur, len(traj))
 	if len(traj) == 0 {
 		return
 	}
@@ -226,10 +244,14 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 	var totalCycle time.Duration
 	var moveCount int64
 	for {
+		waitStart := time.Now()
 		select {
 		case <-ctx.Done():
 			return
 		case traj := <-tp.trajCh:
+			waitDur := time.Since(waitStart)
+			tp.lastExecWaitNanos.Store(waitDur.Nanoseconds())
+
 			execStart := time.Now()
 			// Skip start-position check (math.MaxFloat64) because the arm
 			// is in continuous motion and won't be exactly at the trajectory start.
@@ -237,16 +259,19 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			err := ms.execute(ctx, traj, math.MaxFloat64)
 			ms.mu.RUnlock()
 			execDur := time.Since(execStart)
+			tp.lastExecNanos.Store(execDur.Nanoseconds())
+			// Includes failed executions; compare with plan_count for pipeline health.
+			tp.execCount.Add(1)
 
 			if !lastExecEnd.IsZero() {
 				cycle := time.Since(lastExecEnd)
 				totalCycle += cycle
 				moveCount++
 				avg := totalCycle / time.Duration(moveCount)
-				tp.logger.CInfof(ctx, "teleop executor: execute took: %s, cycle: %s, avg cycle: %s (n=%d)",
-					execDur, cycle, avg, moveCount)
+				tp.logger.CInfof(ctx, "teleop executor: wait: %s, execute: %s, cycle: %s, avg cycle: %s (n=%d)",
+					waitDur, execDur, cycle, avg, moveCount)
 			} else {
-				tp.logger.CInfof(ctx, "teleop executor: execute took: %s (first move)", execDur)
+				tp.logger.CInfof(ctx, "teleop executor: wait: %s, execute: %s (first move)", waitDur, execDur)
 			}
 			lastExecEnd = time.Now()
 
@@ -401,6 +426,11 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		pif := referenceframe.ProtobufToPoseInFrame(&pifProto)
+		if seq, ok := cmd["seq"]; ok {
+			if seqF, ok := seq.(float64); ok {
+				tp.logger.CDebugf(ctx, "teleop received seq=%d", int64(seqF))
+			}
+		}
 		trySendLatest(tp.poseCh, pif)
 		resp[DoTeleopMove] = true
 		return resp, true, nil
@@ -430,8 +460,14 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		status := map[string]any{
-			"queued_poses": len(tp.poseCh),
-			"queued_plans": len(tp.trajCh),
+			"queued_poses":     len(tp.poseCh),
+			"queued_plans":     len(tp.trajCh),
+			"last_inputs_ms":  float64(tp.lastInputsNanos.Load()) / 1e6,
+			"last_plan_ms":    float64(tp.lastPlanNanos.Load()) / 1e6,
+			"last_exec_ms":    float64(tp.lastExecNanos.Load()) / 1e6,
+			"last_exec_wait_ms": float64(tp.lastExecWaitNanos.Load()) / 1e6,
+			"plan_count":      tp.planCount.Load(),
+			"exec_count":      tp.execCount.Load(),
 		}
 		if lastErr := tp.lastErr.Load(); lastErr != nil {
 			status["error"] = (*lastErr).Error()
