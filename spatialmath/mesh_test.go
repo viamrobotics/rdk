@@ -233,9 +233,9 @@ func TestExplicitDecimationRoundTrip(t *testing.T) {
 	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 3000)
 
 	// Explicitly decimate (as the URDF path would do).
-	decimated, err := mesh.ConservativeDecimateToDefault()
+	decimated, err := mesh.ConservativeDecimate(2000)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, 2000)
 
 	// Visualization round-trip should preserve the decimated triangle count.
 	proto := decimated.ToProtobuf()
@@ -825,9 +825,9 @@ func TestMeshConservativeDecimate(t *testing.T) {
 	original.rawBytes = original.TrianglesToPLYBytes(false)
 	test.That(t, len(original.Triangles()), test.ShouldEqual, 3000)
 
-	decimated, err := original.ConservativeDecimate(DefaultConservativeDecimatedTriangleCount)
+	decimated, err := original.ConservativeDecimate(2000)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, DefaultConservativeDecimatedTriangleCount)
+	test.That(t, len(decimated.Triangles()), test.ShouldBeLessThanOrEqualTo, 2000)
 
 	encompassed, err := original.EncompassedBy(decimated)
 	test.That(t, err, test.ShouldBeNil)
@@ -836,7 +836,7 @@ func TestMeshConservativeDecimate(t *testing.T) {
 
 func TestMeshConservativeDecimateNoop(t *testing.T) {
 	mesh := makeSimpleTriangleMesh().(*Mesh)
-	decimated, err := mesh.ConservativeDecimate(DefaultConservativeDecimatedTriangleCount)
+	decimated, err := mesh.ConservativeDecimate(2000)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, decimated, test.ShouldEqual, mesh)
 }

@@ -60,7 +60,7 @@ func TestServer(t *testing.T) {
 	pose1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	positions := []float64{1., 2., 3., 1., 2., 3.}
 	goodKinematics := func(ctx context.Context) (referenceframe.Model, error) {
-		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
+		model, err := referenceframe.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo", nil)
 		if err != nil {
 			return nil, err
 		}

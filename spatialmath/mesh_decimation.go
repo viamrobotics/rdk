@@ -9,10 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// DefaultConservativeDecimatedTriangleCount is the default target triangle count used by
-// conservative mesh simplification for collision checks.
-const DefaultConservativeDecimatedTriangleCount = 2000
-
 // ConservativeDecimate returns a mesh with at most the requested number of triangles.
 // If this mesh has more triangles than requested, it is replaced by an enclosing conservative hull mesh
 // that guarantees containment and avoids collision false negatives.
@@ -46,11 +42,6 @@ func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 	decimated.rawBytes = decimated.TrianglesToPLYBytes(false)
 	decimated.SetOriginalFilePath(m.originalFilePath)
 	return decimated, nil
-}
-
-// ConservativeDecimateToDefault decimates meshes larger than 2000 triangles to <= 2000 triangles.
-func (m *Mesh) ConservativeDecimateToDefault() (*Mesh, error) {
-	return m.ConservativeDecimate(DefaultConservativeDecimatedTriangleCount)
 }
 
 type quickHullFace struct {

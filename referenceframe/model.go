@@ -36,7 +36,7 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 		return UnmarshalModelJSON(data, name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF:
 		meshMap := resp.GetMeshesByUrdfFilepath()
-		modelconf, err := UnmarshalModelXML(data, name, meshMap)
+		modelconf, err := UnmarshalModelXML(data, name, meshMap, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +109,7 @@ func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Me
 func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	switch {
 	case strings.HasSuffix(modelPath, ".urdf"):
-		return ParseModelXMLFile(modelPath, name)
+		return ParseModelXMLFile(modelPath, name, nil)
 	case strings.HasSuffix(modelPath, ".json"):
 		return ParseModelJSONFile(modelPath, name)
 	default:
