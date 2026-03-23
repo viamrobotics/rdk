@@ -30,18 +30,19 @@ type LinkConfig struct {
 
 // MimicConfig describes a mimic joint relationship where this joint's position is derived
 // from another joint: position = multiplier * source_position + offset.
+// A Multiplier of 0 is treated as 1.0 (the default).
 type MimicConfig struct {
-	Joint      string   `json:"joint"`
-	Multiplier *float64 `json:"multiplier,omitempty"` // default 1.0 if nil
-	Offset     float64  `json:"offset,omitempty"`
+	Joint      string  `json:"joint"`
+	Multiplier float64 `json:"multiplier,omitempty"`
+	Offset     float64 `json:"offset,omitempty"`
 }
 
-// EffectiveMultiplier returns the multiplier value, defaulting to 1.0 if not set.
+// EffectiveMultiplier returns the multiplier value, defaulting to 1.0 when zero.
 func (mc *MimicConfig) EffectiveMultiplier() float64 {
-	if mc.Multiplier != nil {
-		return *mc.Multiplier
+	if mc.Multiplier == 0 {
+		return 1.0
 	}
-	return 1.0
+	return mc.Multiplier
 }
 
 // JointConfig is a frame with nonzero DOF. Supports rotational or translational.

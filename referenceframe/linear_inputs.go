@@ -61,7 +61,9 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 }
 
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
-// if the wrong number of floats are provided.
+// if the wrong number of floats are provided. The returned LinearInputs owns an independent copy of
+// the schema's metas slice so that Put calls (which may append new entries) do not mutate the
+// original schema.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
 	totDoF := 0
 	for idx := range lis.metas {
@@ -71,8 +73,11 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 		return nil, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
 	}
 
+	clonedMetas := make([]linearInputMeta, len(lis.metas))
+	copy(clonedMetas, lis.metas)
+
 	return &LinearInputs{
-		schema: lis,
+		schema: &LinearInputsSchema{metas: clonedMetas},
 		inputs: inps,
 	}, nil
 }

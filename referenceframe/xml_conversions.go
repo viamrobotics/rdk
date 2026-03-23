@@ -324,7 +324,7 @@ type limit struct {
 type mimicXML struct {
 	XMLName    xml.Name `xml:"mimic"`
 	Joint      string   `xml:"joint,attr"`
-	Multiplier *float64 `xml:"multiplier,attr,omitempty"`
+	Multiplier float64  `xml:"multiplier,attr,omitempty"`
 	Offset     float64  `xml:"offset,attr,omitempty"`
 }
 

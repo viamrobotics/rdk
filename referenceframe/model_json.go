@@ -204,10 +204,9 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 			sourceJoint = nextMC.Joint
 		}
 
-		mult := composedMultiplier
 		resolvedMimics[jointID] = &MimicConfig{
 			Joint:      sourceJoint,
-			Multiplier: &mult,
+			Multiplier: composedMultiplier,
 			Offset:     composedOffset,
 		}
 	}
