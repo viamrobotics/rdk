@@ -26,6 +26,7 @@ import (
 	gtestutils "go.viam.com/utils/testutils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/config"
@@ -694,11 +695,12 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		Network:    networkProto,
 	}
 
-	// storeCloudConfig stores the given robot config in the fake cloud server.
-	// Callers can modify baseConfig before calling this to change any field.
+	// storeCloudConfig clones cfg and stores the clone in the fake cloud server.
+	// This avoids a data race between the test goroutine mutating baseConfig
+	// and the gRPC handler goroutine marshaling the stored proto.
 	storeCloudConfig := func(cfg *pb.RobotConfig) {
 		t.Helper()
-		fakeServer.StoreDeviceConfig(deviceID, cfg, &pb.CertificateResponse{})
+		fakeServer.StoreDeviceConfig(deviceID, proto.Clone(cfg).(*pb.RobotConfig), &pb.CertificateResponse{})
 	}
 
 	// Store initial config with debug=false.
