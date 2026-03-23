@@ -1424,7 +1424,7 @@ func robotsPartAddResourceAction(c *cli.Context, args robotsPartAddResourceArgs)
 	}
 
 	// for a custom resource subtype, a user might not follow the format of namespace:type:subtype
-	if resourceType != "component" && resourceType != "service" {
+	if resourceType != "component" && resourceType != "service" { //nolint:goconst
 		warningf(c.App.ErrWriter, "unknown resource type '%s'. Resource type should be 'component' or 'service'; defaulting to component",
 			resourceType,
 		)

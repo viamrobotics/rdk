@@ -526,6 +526,9 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("-  If there were no IK solutions that satisfied constraints,",
 				"this will list the configuration for each failed solution.")
 			logger.Println()
+			logger.Println("sg, show goals")
+			logger.Println("-  show the goals in viz tool")
+			logger.Println()
 			logger.Println("re, render error <number>")
 			logger.Println("-  Renders the configuration of a failed solution.")
 			logger.Println()
@@ -562,6 +565,27 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					idxCounter++
 				}
 			}
+		case cmd == "show goals" || cmd == "sg":
+			for gi, goalPlanState := range req.Goals {
+				poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
+				if err != nil {
+					return err
+				}
+				for pi, poseValue := range poses {
+					poseInWorldFrame := poseValue.Transform(
+						referenceframe.NewPoseInFrame(
+							req.FrameSystem.World().Name(),
+							spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					sphere, err := spatialmath.NewSphere(poseInWorldFrame.Pose(), 10, fmt.Sprintf("goal-%d-%v", gi, pi))
+					if err != nil {
+						return err
+					}
+					if err := viz.DrawGeometry(sphere, "blue"); err != nil {
+						return err
+					}
+				}
+			}
+
 		case strings.HasPrefix(cmd, "render error ") || strings.HasPrefix(cmd, "re "):
 			pieces := strings.Split(cmd, " ")
 			errorNumberStr := pieces[len(pieces)-1]

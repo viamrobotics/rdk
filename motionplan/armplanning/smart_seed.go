@@ -354,12 +354,12 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	}
 
 	goalInWorld := spatialmath.Compose(goalPIF.Pose(), &spatialmath.DualQuaternion{f2w1DQ})
-	delta := spatialmath.PoseDelta(
-		&spatialmath.DualQuaternion{f2w3DQ},
+	offset := spatialmath.PoseBetween(
 		&spatialmath.DualQuaternion{f2w2DQ},
+		&spatialmath.DualQuaternion{f2w3DQ},
 	)
 
-	newPose := spatialmath.Compose(goalInWorld, delta)
+	newPose := spatialmath.Compose(goalInWorld, offset)
 
 	// The smart seed cache stores FK results from frame.Transform(), which are in the frame's
 	// parent coordinate system. Transform newPose from world coordinates to that system so the

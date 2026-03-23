@@ -39,38 +39,38 @@ func applyMotionRegistryOptions(registry *Registry) {
 		return
 	}
 
+	mpPatterns := []LoggerPatternConfig{}
+
 	// We are in testing. If the IK debug env variable is also present, set all motion planning to
 	// DEBUG.
 	if debugIkMinFunc {
-		registry.Update([]LoggerPatternConfig{
+		mpPatterns = append(mpPatterns, LoggerPatternConfig{
 			// This targets both `*.mp` and `*.mp.*`.
-			{
-				Pattern: "*.mp*",
-				Level:   "DEBUG",
-			},
-		}, warnLogger)
+			Pattern: "*.mp*",
+			Level:   "DEBUG",
+		})
 	} else {
-		registry.Update([]LoggerPatternConfig{
+		mpPatterns = append(mpPatterns,
 			// `mp` at DEBUG is reasonable, everything under `mp` is chatty and set to only emit
 			// INFO+ for testing.
-			{
+			LoggerPatternConfig{
 				Pattern: "*.mp",
 				Level:   "DEBUG",
 			},
-			{
+			LoggerPatternConfig{
 				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
-		}, warnLogger)
+		)
 	}
 
 	// The `startup-profile` logger is used for some startup motion plan requests. Avoid logging
 	// those the progress of those requests. Assume if there's a computational problem, there's
 	// better suited motion planning test that will surface appropriate details.
-	registry.Update([]LoggerPatternConfig{
-		{
-			Pattern: "startup-profile.*",
-			Level:   "WARN",
-		},
-	}, warnLogger)
+	mpPatterns = append(mpPatterns, LoggerPatternConfig{
+		Pattern: "startup-profile.*",
+		Level:   "WARN",
+	})
+
+	registry.Update(mpPatterns, warnLogger)
 }

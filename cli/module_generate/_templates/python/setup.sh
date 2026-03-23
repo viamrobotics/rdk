@@ -4,7 +4,7 @@ cd `dirname $0`
 # Create a virtual environment to run our code
 VENV_NAME="venv"
 PYTHON="$VENV_NAME/bin/python"
-ENV_ERROR="This module requires Python >=3.8, pip, and virtualenv to be installed."
+ENV_ERROR="This module requires Python >=3.10, pip, and virtualenv to be installed."
 
 if ! python3 -m venv $VENV_NAME >/dev/null 2>&1; then
     echo "Failed to create virtualenv."
