@@ -119,33 +119,40 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 	if recursionDepth >= maxRecursionDepth {
 		return 0, errors.New("error max allowable recursion depth reached")
 	}
-	if (PointAndData{P: p, D: d} == PointAndData{}) {
+	if d == nil && p == (r3.Vector{}) {
 		return 0, nil
 	}
 
-	if !octree.checkPointPlacement(p) {
-		return 0, errors.New("error point is outside the bounds of this octree")
-	}
-
-	var err error
 	switch octree.node.nodeType {
 	case internalNode:
-		for _, childNode := range octree.node.children {
-			if childNode.checkPointPlacement(p) {
-				mv, err := childNode.helperSet(p, d, recursionDepth+1)
-				if err == nil {
-					// Update metadata
-					octree.meta.Merge(p, d)
-					octree.size++
-					octree.node.maxVal = int(math.Max(float64(mv), float64(octree.node.maxVal)))
-				}
-				return octree.node.maxVal, err
-			}
+		if len(octree.node.children) != 8 {
+			return 0, errors.New("error invalid internal node detected, please check your tree")
 		}
-		return 0, errors.New("error invalid internal node detected, please check your tree")
+		// Compute octant index directly from point position relative to center.
+		// Children are ordered: X(-/+) outer, Y(-/+) middle, Z(-/+) inner loop.
+		// Use > (not >=) so boundary points go to the negative octant, matching the
+		// original linear-scan behavior where the first matching child was chosen.
+		idx := 0
+		if p.X > octree.center.X {
+			idx |= 4
+		}
+		if p.Y > octree.center.Y {
+			idx |= 2
+		}
+		if p.Z > octree.center.Z {
+			idx |= 1
+		}
+		childNode := octree.node.children[idx]
+		mv, err := childNode.helperSet(p, d, recursionDepth+1)
+		if err == nil {
+			octree.meta.Merge(p, d)
+			octree.size++
+			octree.node.maxVal = max(mv, octree.node.maxVal)
+		}
+		return octree.node.maxVal, err
 
 	case leafNodeFilled:
-		if _, exists := octree.At(p.X, p.Y, p.Z); exists {
+		if pointsAlmostEqualEpsilon(octree.node.point.P, p, floatEpsilon) {
 			// Update data in point
 			octree.node.point.D = d
 			octree.node.maxVal = getRawVal(d)
@@ -162,7 +169,7 @@ func (octree *BasicOctree) helperSet(p r3.Vector, d Data, recursionDepth int) (i
 		octree.meta.Merge(p, d)
 		octree.size++
 		octree.node = newLeafNodeFilled(p, d)
-		return octree.node.maxVal, err
+		return octree.node.maxVal, nil
 	}
 
 	return 0, errors.New("error attempting to set into invalid node type")

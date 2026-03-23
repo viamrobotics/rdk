@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"image"
 	"sort"
+
+	"go.viam.com/rdk/vision"
 )
 
 // Classification returns a confidence score of the classification and a label of the class.
@@ -32,6 +34,7 @@ type Classifier func(context.Context, image.Image) (Classifications, error)
 
 // NewClassification creates a simple 2D classification.
 func NewClassification(score float64, label string) Classification {
+	score = vision.NormalizeScore(score)
 	return &classification2D{score, label}
 }
 

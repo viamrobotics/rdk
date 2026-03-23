@@ -3,7 +3,6 @@ package fake
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"go.viam.com/rdk/components/gripper"
@@ -15,9 +14,19 @@ import (
 
 var model = resource.DefaultModelFamily.WithModel("fake")
 
-// Config is the config for a trossen gripper.
+// Config is used for converting config attributes.
 type Config struct {
-	resource.TriviallyValidateConfig
+	ModelFilePath string `json:"model-path,omitempty"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (conf *Config) Validate(path string) ([]string, []string, error) {
+	if conf.ModelFilePath != "" {
+		if _, err := referenceframe.KinematicModelFromFile(conf.ModelFilePath, ""); err != nil {
+			return nil, nil, err
+		}
+	}
+	return nil, nil, nil
 }
 
 func init() {
@@ -30,6 +39,7 @@ type Gripper struct {
 	resource.TriviallyCloseable
 	geometries []spatialmath.Geometry
 	model      referenceframe.Model
+	inputs     []referenceframe.Input
 	mu         sync.Mutex
 	logger     logging.Logger
 }
@@ -52,6 +62,15 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	newConf := &Config{}
+	if conf.ConvertedAttributes != nil {
+		var err error
+		newConf, err = resource.NativeConfig[*Config](conf)
+		if err != nil {
+			return err
+		}
+	}
+
 	if conf.Frame != nil && conf.Frame.Geometry != nil {
 		geometry, err := conf.Frame.Geometry.ParseConfig()
 		if err != nil {
@@ -59,11 +78,21 @@ func (g *Gripper) Reconfigure(_ context.Context, _ resource.Dependencies, conf r
 		}
 		g.geometries = []spatialmath.Geometry{geometry}
 	}
-	model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
-	if err != nil {
-		return err
+
+	if newConf.ModelFilePath != "" {
+		model, err := referenceframe.KinematicModelFromFile(newConf.ModelFilePath, g.Name().ShortName())
+		if err != nil {
+			return err
+		}
+		g.model = model
+	} else {
+		model, err := gripper.MakeModel(g.Name().ShortName(), g.geometries)
+		if err != nil {
+			return err
+		}
+		g.model = model
 	}
-	g.model = model
+	g.inputs = make([]referenceframe.Input, len(g.model.DoF()))
 	return nil
 }
 
@@ -74,33 +103,44 @@ func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) 
 	return g.model, nil
 }
 
-// CurrentInputs is unimplemented for grippers.
+// CurrentInputs returns the current inputs of the fake gripper.
 func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.model != nil && len(g.model.DoF()) != 0 {
-		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
-	}
-	return []referenceframe.Input{}, nil
+	ret := make([]referenceframe.Input, len(g.inputs))
+	copy(ret, g.inputs)
+	return ret, nil
 }
 
-// GoToInputs is unimplemented for grippers.
-func (g *Gripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+// GoToInputs moves the fake gripper to the given inputs.
+func (g *Gripper) GoToInputs(_ context.Context, inputSteps ...[]referenceframe.Input) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.model != nil && len(g.model.DoF()) != 0 {
-		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
+	for _, inputs := range inputSteps {
+		copy(g.inputs, inputs)
 	}
 	return nil
 }
 
-// Open does nothing.
+// Open sets all inputs to their maximum values (fully open).
 func (g *Gripper) Open(ctx context.Context, extra map[string]interface{}) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	dof := g.model.DoF()
+	for i, limit := range dof {
+		g.inputs[i] = limit.Max
+	}
 	return nil
 }
 
-// Grab does nothing.
+// Grab sets all inputs to their minimum values (fully closed).
 func (g *Gripper) Grab(ctx context.Context, extra map[string]interface{}) (bool, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	dof := g.model.DoF()
+	for i, limit := range dof {
+		g.inputs[i] = limit.Min
+	}
 	return false, nil
 }
 
@@ -120,9 +160,16 @@ func (g *Gripper) IsMoving(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-// Geometries returns the geometries associated with the fake base.
+// Geometries returns the geometries associated with the fake gripper at its current input positions.
 func (g *Gripper) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if len(g.model.DoF()) > 0 {
+		gif, err := g.model.Geometries(g.inputs)
+		if err != nil {
+			return nil, err
+		}
+		return gif.Geometries(), nil
+	}
 	return g.geometries, nil
 }

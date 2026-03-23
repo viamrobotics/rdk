@@ -19,9 +19,6 @@ type Options struct {
 	// Pprof turns on the pprof profiler accessible at /debug
 	Pprof bool
 
-	// SharedDir is the location of static web assets.
-	SharedDir string
-
 	// StaticHost is a url to use for static assets, like app.viam.com
 	StaticHost string
 
