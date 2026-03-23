@@ -303,7 +303,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 
 	var moduleID moduleID
 	// if the manifest cant be found, use passed in arguments to determine the module id
-	if _, err := os.Stat(manifestPath); err != nil {
+	if _, err = os.Stat(manifestPath); err != nil {
 		if nameArg == "" || (publicNamespaceArg == "" && orgIDArg == "") {
 			return errors.New("unable to find the meta.json. " +
 				"If you want to upload a version without a meta.json, you must supply a module name and namespace (or module name and org-id)",
@@ -354,7 +354,7 @@ func UploadModuleAction(c *cli.Context, args uploadModuleArgs) error {
 	}
 
 	if !forceUploadArg {
-		if err := validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg); err != nil {
+		if err = validateModuleFile(client, c, moduleID, tarballPath, versionArg, platformArg, moduleUploadPath); err != nil {
 			return fmt.Errorf(
 				"error validating module: %w. For more details, please visit: https://docs.viam.com/dev/tools/cli#module ",
 				err)
@@ -538,7 +538,7 @@ func (c *viamClient) uploadModuleFile(
 	return resp, errs
 }
 
-func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, tarballPath, version, platform string) error {
+func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, tarballPath, version, platform, uploadPath string) error {
 	getModuleResp, err := client.getModule(moduleID)
 	if err != nil {
 		return err
@@ -637,6 +637,9 @@ func validateModuleFile(client *viamClient, c *cli.Context, moduleID moduleID, t
 		extraErrInfo := ""
 		if len(filesWithSameNameAsEntrypoint) > 0 {
 			extraErrInfo = fmt.Sprintf(". Did you mean to set your entrypoint to %v?", filesWithSameNameAsEntrypoint)
+		}
+		if !isTarball(uploadPath) {
+			return fmt.Errorf("archive for uploading must be a *.tar.gz file, provided %s%s", uploadPath, extraErrInfo)
 		}
 		return errors.Errorf("the archive does not contain a file at the desired entrypoint %q%s",
 			entrypoint, extraErrInfo)

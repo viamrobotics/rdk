@@ -23,7 +23,6 @@ func TestMetadataFromProto(t *testing.T) {
 	locID := "def"
 
 	samePartID := &robotpb.GetCloudMetadataResponse{
-		RobotPartId:   partID,
 		MachinePartId: partID,
 		MachineId:     machineID,
 		PrimaryOrgId:  orgID,
@@ -38,9 +37,7 @@ func TestMetadataFromProto(t *testing.T) {
 	observed = MetadataFromProto(samePartID)
 	test.That(t, observed, test.ShouldResemble, expected)
 
-	robotPartID := "789"
 	diffPartID := &robotpb.GetCloudMetadataResponse{
-		RobotPartId:   robotPartID,
 		MachinePartId: partID,
 		MachineId:     machineID,
 		PrimaryOrgId:  orgID,
@@ -63,7 +60,6 @@ func TestMetadataToProto(t *testing.T) {
 		LocationID:    locID,
 	}
 	expected := &robotpb.GetCloudMetadataResponse{
-		RobotPartId:   partID,
 		MachinePartId: partID,
 		MachineId:     machineID,
 		PrimaryOrgId:  orgID,
