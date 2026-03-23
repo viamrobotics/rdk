@@ -109,17 +109,6 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 	fs := NewEmptyFrameSystem(name)
 
-	// First pass: collect all qualified parent names and their owner models.
-	// Map from qualified name (e.g. "myArm:upper_arm_link") to owner component name.
-	qualifiedParents := make(map[string]string)
-	for _, part := range sortedParts {
-		parent := part.FrameConfig.Parent()
-		componentName, _, isQualified := ParseQualifiedFrameName(parent)
-		if isQualified {
-			qualifiedParents[parent] = componentName
-		}
-	}
-
 	// Track which proxy frames have been created to avoid duplicates.
 	createdProxies := make(map[string]bool)
 
@@ -147,15 +136,9 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			}
 
 			// The owner must be a Model to have internal geometries.
-			ownerModel, ok := ownerFrame.(Model)
+			ownerModel, ok := resolveModel(ownerFrame)
 			if !ok {
-				// Check if it's a namedFrame wrapping a Model
-				if nf, isNamed := ownerFrame.(*namedFrame); isNamed {
-					ownerModel, ok = nf.Frame.(Model)
-				}
-				if !ok {
-					return nil, fmt.Errorf("component %q is not a model frame; cannot use qualified parent %q", componentName, parent)
-				}
+				return nil, fmt.Errorf("component %q is not a model frame; cannot use qualified parent %q", componentName, parent)
 			}
 
 			// Validate that the geometry label exists on this model.
@@ -581,14 +564,9 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 			if modelFrame == nil {
 				return ret, fmt.Errorf("owner model %q not found for geometry proxy %q", proxy.ownerModelName, proxy.Name())
 			}
-			model, isModel := modelFrame.(Model)
+			model, isModel := resolveModel(modelFrame)
 			if !isModel {
-				if nf, isNamed := modelFrame.(*namedFrame); isNamed {
-					model, isModel = nf.Frame.(Model)
-				}
-				if !isModel {
-					return ret, fmt.Errorf("frame %q is not a model, cannot resolve geometry proxy %q", proxy.ownerModelName, proxy.Name())
-				}
+				return ret, fmt.Errorf("frame %q is not a model, cannot resolve geometry proxy %q", proxy.ownerModelName, proxy.Name())
 			}
 			modelInputs := linearInputs.Get(proxy.ownerModelName)
 			geoms, gErr := model.Geometries(modelInputs)
@@ -916,6 +894,19 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	// Since the geometry of a frame system part is intended to be located at the origin of the model frame, we place it post-transform
 	// in the "_origin" static frame
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
+}
+
+// resolveModel unwraps a Frame to a Model, handling the namedFrame wrapper case.
+func resolveModel(f Frame) (Model, bool) {
+	if m, ok := f.(Model); ok {
+		return m, true
+	}
+	if nf, ok := f.(*namedFrame); ok {
+		if m, ok := nf.Frame.(Model); ok {
+			return m, true
+		}
+	}
+	return nil, false
 }
 
 // geometryNames returns a list of geometry labels from a GeometriesInFrame.
