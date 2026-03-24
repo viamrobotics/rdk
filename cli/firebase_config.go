@@ -1,10 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	apppb "go.viam.com/api/app/v1"
 )
 
@@ -19,8 +20,8 @@ type setFirebaseConfigArgs struct {
 }
 
 // SetFirebaseConfigAction uploads a Firebase config JSON for a specific app ID.
-func SetFirebaseConfigAction(cCtx *cli.Context, args setFirebaseConfigArgs) error {
-	client, err := newViamClient(cCtx)
+func SetFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args setFirebaseConfigArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -30,11 +31,11 @@ func SetFirebaseConfigAction(cCtx *cli.Context, args setFirebaseConfigArgs) erro
 		return fmt.Errorf("failed to read firebase config file %q: %w", args.FirebaseConfigPath, err)
 	}
 
-	if err := client.ensureLoggedIn(); err != nil {
+	if err := client.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
 
-	_, err = client.client.SetFirebaseConfig(cCtx.Context, &apppb.SetFirebaseConfigRequest{
+	_, err = client.client.SetFirebaseConfig(ctx, &apppb.SetFirebaseConfigRequest{
 		OrgId:      args.OrgID,
 		AppId:      args.AppID,
 		ConfigJson: string(configJSON),
@@ -52,25 +53,25 @@ type readFirebaseConfigArgs struct {
 
 // ReadFirebaseConfigAction reads Firebase config metadata for an organization.
 // For security, only the organization and app ID are displayed, not the config JSON.
-func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) error {
-	client, err := newViamClient(cCtx)
+func ReadFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args readFirebaseConfigArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	if err := client.ensureLoggedIn(); err != nil {
+	if err := client.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
 
-	resp, err := client.client.GetFirebaseConfig(cCtx.Context, &apppb.GetFirebaseConfigRequest{
+	resp, err := client.client.GetFirebaseConfig(ctx, &apppb.GetFirebaseConfigRequest{
 		OrgId: args.OrgID,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to read firebase config: %w", err)
 	}
 
-	printf(cCtx.App.Writer, "Firebase config for organization %q:", args.OrgID)
-	printf(cCtx.App.Writer, "App ID: %q", resp.GetAppId())
+	printf(cmd.Root().Writer, "Firebase config for organization %q:", args.OrgID)
+	printf(cmd.Root().Writer, "App ID: %q", resp.GetAppId())
 	return nil
 }
 
@@ -80,17 +81,17 @@ type deleteFirebaseConfigArgs struct {
 }
 
 // DeleteFirebaseConfigAction deletes a Firebase config JSON for a specific app ID.
-func DeleteFirebaseConfigAction(cCtx *cli.Context, args deleteFirebaseConfigArgs) error {
-	client, err := newViamClient(cCtx)
+func DeleteFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args deleteFirebaseConfigArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	if err := client.ensureLoggedIn(); err != nil {
+	if err := client.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
 
-	_, err = client.client.DeleteFirebaseConfig(cCtx.Context, &apppb.DeleteFirebaseConfigRequest{
+	_, err = client.client.DeleteFirebaseConfig(ctx, &apppb.DeleteFirebaseConfigRequest{
 		OrgId: args.OrgID,
 		AppId: args.AppID,
 	})

@@ -1079,11 +1079,12 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
-					Name:            "firebase-config",
-					Usage:           "manage Firebase configurations for push notifications",
+					Name: "firebase-config",
+					Usage: "manage Firebase configurations for push notifications " +
+						"(organization owner only)",
 					UsageText:       createUsageText("organizations firebase-config", nil, false, true),
 					HideHelpCommand: true,
-					Subcommands: []*cli.Command{
+					Commands: []*cli.Command{
 						{
 							Name:  "set",
 							Usage: "upload a Firebase config JSON for a specific app ID",
@@ -1105,7 +1106,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "path to the Firebase config JSON file",
 								},
 							},
-							Action: createCommandWithT[setFirebaseConfigArgs](SetFirebaseConfigAction),
+							Action: createActionCommandWithT[setFirebaseConfigArgs](SetFirebaseConfigAction),
 						},
 						{
 							Name:  "read",
@@ -1118,7 +1119,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "organization ID",
 								},
 							},
-							Action: createCommandWithT[readFirebaseConfigArgs](ReadFirebaseConfigAction),
+							Action: createActionCommandWithT[readFirebaseConfigArgs](ReadFirebaseConfigAction),
 						},
 						{
 							Name:  "delete",
@@ -1136,7 +1137,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage:    "app ID (e.g., com.example.myapp)",
 								},
 							},
-							Action: createCommandWithT[deleteFirebaseConfigArgs](DeleteFirebaseConfigAction),
+							Action: createActionCommandWithT[deleteFirebaseConfigArgs](DeleteFirebaseConfigAction),
 						},
 					},
 				},
