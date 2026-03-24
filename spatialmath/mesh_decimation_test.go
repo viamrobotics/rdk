@@ -183,3 +183,35 @@ func TestMeshConservativeDecimateIsDeterministic(t *testing.T) {
 		test.That(t, againBytes, test.ShouldResemble, firstBytes)
 	}
 }
+
+func TestMeshCollisionDeterministicAfterBVHInit(t *testing.T) {
+	// Regression test: verifies that BVH initialization doesn't corrupt
+	// subsequent collision checks (which was a bug in computeGeometryAABB).
+	tri1 := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 10, Y: 0, Z: 0},
+		r3.Vector{X: 5, Y: 10, Z: 0},
+	)
+	tri2 := NewTriangle(
+		r3.Vector{X: 3, Y: 3, Z: -1},
+		r3.Vector{X: 7, Y: 3, Z: -1},
+		r3.Vector{X: 5, Y: 7, Z: 1},
+	)
+
+	pose1 := NewPose(r3.Vector{X: 1, Y: 2, Z: 3}, &OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1, Theta: 45})
+	pose2 := NewPose(r3.Vector{X: 2, Y: 3, Z: 3}, &OrientationVectorDegrees{OX: 0, OY: 1, OZ: 0, Theta: 30})
+
+	mesh1 := NewMesh(pose1, []*Triangle{tri1}, "mesh1")
+	mesh2 := NewMesh(pose2, []*Triangle{tri2}, "mesh2")
+
+	// First call triggers BVH init.
+	collides1, dist1, err1 := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+	test.That(t, err1, test.ShouldBeNil)
+
+	// Second call on the SAME objects must return the same result.
+	collides2, dist2, err2 := mesh1.CollidesWith(mesh2, defaultCollisionBufferMM)
+	test.That(t, err2, test.ShouldBeNil)
+
+	test.That(t, collides1, test.ShouldEqual, collides2)
+	test.That(t, dist1, test.ShouldEqual, dist2)
+}

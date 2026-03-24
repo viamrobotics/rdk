@@ -407,6 +407,10 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 	return minDist
 }
 
+// encompassedByMeshAABB checks whether all vertices of m fall within the world-space AABB of other.
+// This is intentionally conservative (loose): a mesh inside the AABB might not be inside the actual
+// hull, but a mesh outside the AABB is definitely not inside. This is used only for collision-safe
+// simplification validation (e.g. verifying that a decimated hull still encloses the original mesh).
 func (m *Mesh) encompassedByMeshAABB(other *Mesh) bool {
 	if len(other.triangles) == 0 {
 		return false

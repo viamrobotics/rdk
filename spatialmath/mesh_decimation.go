@@ -1,7 +1,7 @@
 package spatialmath
 
 import (
-	"fmt"
+	"log"
 	"math"
 	"sort"
 
@@ -29,6 +29,7 @@ func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 	enclosingTris, err := conservativeHullDecimateTriangles(m.triangles, targetTriangles)
 	if err != nil {
 		// Fallback for degenerate/pathological meshes.
+		log.Printf("spatialmath: conservative hull decimation failed (%v), falling back to tessellated AABB", err)
 		minPt, maxPt := localAABBForTriangles(m.triangles)
 		enclosingTris = tessellatedAABBTriangles(minPt, maxPt, targetTriangles)
 	}
@@ -94,23 +95,35 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	return hullTris, nil
 }
 
+// vectorKey uses exact bit-pattern comparison for deduplication,
+// avoiding string formatting overhead and locale-dependent formatting.
+type vectorKey struct{ x, y, z uint64 }
+
+func makeVectorKey(v r3.Vector) vectorKey {
+	return vectorKey{math.Float64bits(v.X), math.Float64bits(v.Y), math.Float64bits(v.Z)}
+}
+
 func uniqueTriangleVertices(triangles []*Triangle) []r3.Vector {
-	pointMap := make(map[string]r3.Vector)
+	pointMap := make(map[vectorKey]r3.Vector)
 	for _, tri := range triangles {
 		for _, pt := range tri.Points() {
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
+			key := makeVectorKey(pt)
 			pointMap[key] = pt
 		}
 	}
-	keys := make([]string, 0, len(pointMap))
-	for k := range pointMap {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
 	out := make([]r3.Vector, 0, len(pointMap))
-	for _, k := range keys {
-		out = append(out, pointMap[k])
+	for _, v := range pointMap {
+		out = append(out, v)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].X != out[j].X {
+			return out[i].X < out[j].X
+		}
+		if out[i].Y != out[j].Y {
+			return out[i].Y < out[j].Y
+		}
+		return out[i].Z < out[j].Z
+	})
 	return out
 }
 
@@ -128,7 +141,7 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		r3.Vector{X: 0, Y: 0, Z: 1}, r3.Vector{X: 0, Y: 0, Z: -1},
 	)
 
-	supportMap := make(map[string]r3.Vector)
+	supportMap := make(map[vectorKey]r3.Vector)
 	for _, dir := range directions {
 		best := vertices[0]
 		bestDot := best.Dot(dir)
@@ -139,19 +152,22 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 				best = vertices[i]
 			}
 		}
-		key := fmt.Sprintf("%.10f,%.10f,%.10f", best.X, best.Y, best.Z)
-		supportMap[key] = best
+		supportMap[makeVectorKey(best)] = best
 	}
 
-	supportKeys := make([]string, 0, len(supportMap))
-	for k := range supportMap {
-		supportKeys = append(supportKeys, k)
+	support := make([]r3.Vector, 0, len(supportMap))
+	for _, v := range supportMap {
+		support = append(support, v)
 	}
-	sort.Strings(supportKeys)
-	support := make([]r3.Vector, 0, len(supportKeys))
-	for _, k := range supportKeys {
-		support = append(support, supportMap[k])
-	}
+	sort.Slice(support, func(i, j int) bool {
+		if support[i].X != support[j].X {
+			return support[i].X < support[j].X
+		}
+		if support[i].Y != support[j].Y {
+			return support[i].Y < support[j].Y
+		}
+		return support[i].Z < support[j].Z
+	})
 	if len(support) > maxPoints {
 		center := centroidOfPoints(vertices)
 		sort.SliceStable(support, func(i, j int) bool {
@@ -162,7 +178,7 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 
 	if len(support) < 4 {
 		for _, pt := range vertices {
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
+			key := makeVectorKey(pt)
 			if _, ok := supportMap[key]; ok {
 				continue
 			}
@@ -533,7 +549,7 @@ func requiredHullScale(original []r3.Vector, faces []quickHullFace, center r3.Ve
 		}
 		for _, pt := range original {
 			num := face.normal.Dot(pt) - centerDot
-			required := (num + defaultCollisionBufferMM) / denom
+			required := num / denom
 			if required > scale {
 				scale = required
 			}
