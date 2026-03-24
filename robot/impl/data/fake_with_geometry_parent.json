@@ -17,14 +17,9 @@
             }
         },
         {
-            "name": "armCamera",
-            "type": "camera",
-            "model": "image_file",
-            "attributes": {
-                "color": "artifact_data/vision/chess/board3.png",
-                "depth": "artifact_data/vision/chess/board3.dat.gz",
-                "aligned": true
-            },
+            "name": "armGripper",
+            "type": "gripper",
+            "model": "fake",
             "frame": {
                 "parent": "myArm:upper_arm_link",
                 "translation": {

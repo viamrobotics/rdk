@@ -277,7 +277,7 @@ func TestGeometryParentedComponentFromRobotConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
-	// Load a robot config where a camera is parented to "myArm:upper_arm_link".
+	// Load a robot config where a gripper is parented to "myArm:upper_arm_link".
 	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_with_geometry_parent.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -299,20 +299,20 @@ func TestGeometryParentedComponentFromRobotConfig(t *testing.T) {
 	test.That(t, proxyFrame, test.ShouldNotBeNil)
 	test.That(t, len(proxyFrame.DoF()), test.ShouldEqual, 0)
 
-	// The camera should exist.
-	test.That(t, fs.Frame("armCamera"), test.ShouldNotBeNil)
+	// The gripper should exist.
+	test.That(t, fs.Frame("armGripper"), test.ShouldNotBeNil)
 
-	// Transform the camera to world at zero inputs.
+	// Transform the gripper to world at zero inputs.
 	inputs := referenceframe.NewZeroInputs(fs)
-	cameraPose, err := fs.Transform(
+	gripperPose, err := fs.Transform(
 		inputs.ToLinearInputs(),
-		referenceframe.NewPoseInFrame("armCamera", spatialmath.NewZeroPose()),
+		referenceframe.NewPoseInFrame("armGripper", spatialmath.NewZeroPose()),
 		referenceframe.World,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	// The camera should NOT be at the origin — it should be offset by the geometry center
+	// The gripper should NOT be at the origin — it should be offset by the geometry center
 	// of upper_arm_link plus the 50mm X offset specified in the config.
-	cameraPoint := cameraPose.(*referenceframe.PoseInFrame).Pose().Point()
-	test.That(t, cameraPoint.Norm() > 10, test.ShouldBeTrue)
+	gripperPoint := gripperPose.(*referenceframe.PoseInFrame).Pose().Point()
+	test.That(t, gripperPoint.Norm() > 10, test.ShouldBeTrue)
 }
