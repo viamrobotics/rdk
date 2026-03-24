@@ -25,10 +25,12 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
-// ParseQualifiedFrameName splits a qualified frame name of the form "component:subframe"
-// into its component and sub-frame parts. If the name is not qualified, isQualified is false.
-func ParseQualifiedFrameName(name string) (componentName, subFrameName string, isQualified bool) {
-	idx := strings.Index(name, ":")
+// ParseGeometryName splits a name of the form "component:geometryLabel"
+// into its component and geometry label parts. The split is on the last colon
+// so that component names containing colons (e.g. from remote prefixes) are
+// preserved. If the name contains no colon, hasGeometry is false.
+func ParseGeometryName(name string) (componentName, geometryLabel string, hasGeometry bool) {
+	idx := strings.LastIndex(name, ":")
 	if idx < 0 {
 		return name, "", false
 	}
@@ -109,9 +111,6 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 	fs := NewEmptyFrameSystem(name)
 
-	// Track which proxy frames have been created to avoid duplicates.
-	createdProxies := make(map[string]bool)
-
 	for _, part := range sortedParts {
 		// make the frames from the configs
 		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
@@ -122,66 +121,13 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 		parent := part.FrameConfig.Parent()
 		parentFrame := fs.Frame(parent)
 
-		// If the parent is a qualified name, create a proxy frame if needed.
+		// If the parent is a qualified name (e.g. "myArm:upper_arm_link"),
+		// create a geometry proxy frame if needed.
 		if parentFrame == nil {
-			componentName, subFrameName, isQualified := ParseQualifiedFrameName(parent)
-			if !isQualified {
-				return nil, fmt.Errorf("parent frame %q not found in frame system", parent)
-			}
-
-			// Find the owner model in the already-added frames.
-			ownerFrame := fs.Frame(componentName)
-			if ownerFrame == nil {
-				return nil, fmt.Errorf("owner component %q for qualified parent %q not found in frame system", componentName, parent)
-			}
-
-			// The owner must be a Model to have internal geometries.
-			ownerModel, ok := resolveModel(ownerFrame)
-			if !ok {
-				return nil, fmt.Errorf("component %q is not a model frame; cannot use qualified parent %q", componentName, parent)
-			}
-
-			// Extract the *SimpleModel for the proxy's resolveTransform method.
-			var ownerSimpleModel *SimpleModel
-			switch m := ownerFrame.(type) {
-			case *SimpleModel:
-				ownerSimpleModel = m
-			case *namedFrame:
-				if sm, isSM := m.Frame.(*SimpleModel); isSM {
-					ownerSimpleModel = sm
-				}
-			}
-			if ownerSimpleModel == nil {
-				return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use qualified parent %q", componentName, parent)
-			}
-
-			// Validate that the geometry label exists on this model.
-			zeroInputs := make([]Input, len(ownerModel.DoF()))
-			geoms, err := ownerModel.Geometries(zeroInputs)
+			parentFrame, err = ensureGeometryProxy(fs, parent)
 			if err != nil {
-				return nil, fmt.Errorf("error getting geometries for %q to validate parent %q: %w", componentName, parent, err)
+				return nil, err
 			}
-			qualifiedLabel := componentName + ":" + subFrameName
-			geom := geoms.GeometryByName(qualifiedLabel)
-			if geom == nil {
-				return nil, fmt.Errorf("geometry %q not found on model %q; available geometries: %v",
-					subFrameName, componentName, geometryNames(geoms))
-			}
-
-			// Create the proxy frame if not already created.
-			if !createdProxies[parent] {
-				proxy := newGeometryProxyFrame(parent, componentName, subFrameName, ownerSimpleModel)
-				// Parent the proxy to the model's _origin frame.
-				originFrame := fs.Frame(componentName + "_origin")
-				if originFrame == nil {
-					return nil, fmt.Errorf("origin frame %q not found for model %q", componentName+"_origin", componentName)
-				}
-				if err := fs.AddFrame(proxy, originFrame); err != nil {
-					return nil, fmt.Errorf("error adding geometry proxy frame %q: %w", parent, err)
-				}
-				createdProxies[parent] = true
-			}
-			parentFrame = fs.Frame(parent)
 		}
 
 		// attach static offset frame to parent, attach model frame to static offset frame
@@ -927,6 +873,70 @@ func getPartNames(parts []*FrameSystemPart) []string {
 	return names
 }
 
+// ensureGeometryProxy creates a geometry proxy frame for a qualified parent name
+// (e.g. "myArm:upper_arm_link") if one doesn't already exist in the frame system.
+// Returns the proxy frame, or an error if the qualified name is invalid.
+func ensureGeometryProxy(fs *FrameSystem, qualifiedParent string) (Frame, error) {
+	if f := fs.Frame(qualifiedParent); f != nil {
+		return f, nil
+	}
+
+	componentName, subFrameName, isQualified := ParseGeometryName(qualifiedParent)
+	if !isQualified {
+		return nil, fmt.Errorf("parent frame %q not found in frame system", qualifiedParent)
+	}
+
+	// Find the owner model in the already-added frames.
+	ownerFrame := fs.Frame(componentName)
+	if ownerFrame == nil {
+		return nil, fmt.Errorf("owner component %q for qualified parent %q not found in frame system", componentName, qualifiedParent)
+	}
+
+	ownerModel, ok := resolveModel(ownerFrame)
+	if !ok {
+		return nil, fmt.Errorf("component %q is not a model frame; cannot use qualified parent %q", componentName, qualifiedParent)
+	}
+
+	// Extract the *SimpleModel for the proxy's resolveTransform method.
+	var ownerSimpleModel *SimpleModel
+	switch m := ownerFrame.(type) {
+	case *SimpleModel:
+		ownerSimpleModel = m
+	case *namedFrame:
+		if sm, isSM := m.Frame.(*SimpleModel); isSM {
+			ownerSimpleModel = sm
+		}
+	}
+	if ownerSimpleModel == nil {
+		return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use qualified parent %q", componentName, qualifiedParent)
+	}
+
+	// Validate that the geometry label exists on this model.
+	zeroInputs := make([]Input, len(ownerModel.DoF()))
+	geoms, err := ownerModel.Geometries(zeroInputs)
+	if err != nil {
+		return nil, fmt.Errorf("error getting geometries for %q to validate parent %q: %w", componentName, qualifiedParent, err)
+	}
+	qualifiedLabel := componentName + ":" + subFrameName
+	geom := geoms.GeometryByName(qualifiedLabel)
+	if geom == nil {
+		return nil, fmt.Errorf("geometry %q not found on model %q; available geometries: %v",
+			subFrameName, componentName, geometryNames(geoms))
+	}
+
+	// Create the proxy frame parented to the model's _origin frame.
+	proxy := newGeometryProxyFrame(qualifiedParent, componentName, subFrameName, ownerSimpleModel)
+	originFrame := fs.Frame(componentName + "_origin")
+	if originFrame == nil {
+		return nil, fmt.Errorf("origin frame %q not found for model %q", componentName+"_origin", componentName)
+	}
+	if err := fs.AddFrame(proxy, originFrame); err != nil {
+		return nil, fmt.Errorf("error adding geometry proxy frame %q: %w", qualifiedParent, err)
+	}
+
+	return proxy, nil
+}
+
 // TopologicallySortParts takes a potentially un-ordered slice of frame system parts and sorts them,
 // beginning at the world node. The world frame is not included in the output.
 //
@@ -952,7 +962,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 		// If the parent is a qualified name (e.g. "myArm:upper_arm_link"),
 		// treat the component portion as the effective parent for sorting purposes.
 		if !partNameIndex[parent] {
-			componentName, _, isQualified := ParseQualifiedFrameName(parent)
+			componentName, _, isQualified := ParseGeometryName(parent)
 			if isQualified && partNameIndex[componentName] {
 				parent = componentName
 			} else {

@@ -907,7 +907,7 @@ type geometryProxyFrame struct {
 	*baseFrame
 	ownerModelName string       // e.g. "myArm"
 	geometryLabel  string       // unqualified label, e.g. "upper_arm_link"
-	ownerModel     *SimpleModel // set during NewFrameSystem; nil after deserialization
+	ownerModel     *SimpleModel // set during construction via ensureGeometryProxy
 }
 
 // newGeometryProxyFrame creates a new geometry proxy frame.
@@ -942,9 +942,6 @@ func (gpf *geometryProxyFrame) Transform(input []Input) (spatial.Pose, error) {
 // base frame coordinates, by calling the model's Geometries method and finding the
 // matching geometry by name.
 func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Pose, error) {
-	if gpf.ownerModel == nil {
-		return nil, fmt.Errorf("geometry proxy %q has no model reference (deserialized without re-linking?)", gpf.Name())
-	}
 	geoms, err := gpf.ownerModel.Geometries(modelInputs)
 	if err != nil {
 		return nil, err
