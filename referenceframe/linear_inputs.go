@@ -61,9 +61,9 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 }
 
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
-// if the wrong number of floats are provided. The returned LinearInputs owns an independent copy of
-// the schema's metas slice so that Put calls (which may append new entries) do not mutate the
-// original schema.
+// if the wrong number of floats are provided. The returned LinearInputs shares the schema pointer
+// with the original. Callers that need to mutate the schema (e.g. via Put for new frames) must call
+// ForkSchema first.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
 	totDoF := 0
 	for idx := range lis.metas {
@@ -73,11 +73,8 @@ func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, er
 		return nil, fmt.Errorf("wrong number of inputs. Expected: %v Received: %v", totDoF, len(inps))
 	}
 
-	clonedMetas := make([]linearInputMeta, len(lis.metas))
-	copy(clonedMetas, lis.metas)
-
 	return &LinearInputs{
-		schema: &LinearInputsSchema{metas: clonedMetas},
+		schema: lis,
 		inputs: inps,
 	}, nil
 }
@@ -148,6 +145,16 @@ func NewLinearInputs() *LinearInputs {
 		schema: &LinearInputsSchema{},
 		inputs: make([]Input, 0, 8),
 	}
+}
+
+// forkSchema replaces this LinearInputs' schema with an independent copy so that subsequent
+// mutations (e.g. Put appending new frame entries) do not affect the original schema. This
+// must be called before mutating the schema when the LinearInputs was created via FloatsToInputs,
+// which shares the schema pointer for performance.
+func (li *LinearInputs) forkSchema() {
+	clonedMetas := make([]linearInputMeta, len(li.schema.metas))
+	copy(clonedMetas, li.schema.metas)
+	li.schema = &LinearInputsSchema{metas: clonedMetas}
 }
 
 // Len returns how many frames (included 0-DoF frames) are in the LinearInputs.

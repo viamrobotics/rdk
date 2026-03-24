@@ -576,6 +576,8 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	}
 
 	// Inject derived inputs for mimic frames so the FrameSystem can compute their geometries.
+	// ForkSchema so the Put calls below don't mutate the model's shared input schema.
+	li.forkSchema()
 	for frameName, mm := range m.mimicMappings {
 		derived := mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset
 		li.Put(frameName, []Input{derived})
