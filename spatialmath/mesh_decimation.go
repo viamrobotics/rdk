@@ -72,7 +72,6 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	if len(hullInput) > vertexBudget {
 		hullInput = selectSupportVertices(vertices, vertexBudget)
 	}
-
 	faces, hullPoints, err := quickHull3D(hullInput, floatEpsilon)
 	if err != nil {
 		return nil, err
@@ -200,6 +199,34 @@ func fibonacciSphereDirections(n int) []r3.Vector {
 	return dirs
 }
 
+// edgeToFaceMap tracks which active face owns each directed half-edge,
+// enabling BFS adjacency traversal for visibility flood-fill.
+type edgeToFaceMap map[[2]int]int
+
+func newEdgeToFaceMap() edgeToFaceMap { return make(edgeToFaceMap) }
+
+func (m edgeToFaceMap) add(faceIdx, a, b, c int) {
+	m[[2]int{a, b}] = faceIdx
+	m[[2]int{b, c}] = faceIdx
+	m[[2]int{c, a}] = faceIdx
+}
+
+func (m edgeToFaceMap) remove(a, b, c int) {
+	delete(m, [2]int{a, b})
+	delete(m, [2]int{b, c})
+	delete(m, [2]int{c, a})
+}
+
+// neighbor returns the face index sharing the edge (b, a) — i.e., the face on
+// the other side of directed edge (a, b). Returns -1 if none.
+func (m edgeToFaceMap) neighbor(a, b int) int {
+	fi, ok := m[[2]int{b, a}]
+	if !ok {
+		return -1
+	}
+	return fi
+}
+
 func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector, error) {
 	if len(points) < 4 {
 		return nil, nil, errors.New("need at least 4 points for 3D hull")
@@ -258,6 +285,11 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 		newQuickHullFace(points, i2, i3, i0, interior),
 	}
 
+	adj := newEdgeToFaceMap()
+	for i := range faces {
+		adj.add(i, faces[i].a, faces[i].b, faces[i].c)
+	}
+
 	tetra := map[int]struct{}{i0: {}, i1: {}, i2: {}, i3: {}}
 	for pIdx := range points {
 		if _, ok := tetra[pIdx]; ok {
@@ -284,22 +316,26 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 			continue
 		}
 
-		visible := make([]int, 0)
-		for i := range faces {
-			if faces[i].deleted {
-				continue
-			}
-			if facePointDistance(faces[i], points[eye]) > eps {
-				visible = append(visible, i)
-			}
-		}
+		// BFS flood-fill from faceIdx to find connected visible faces.
+		// This guarantees the visible region is a topological disk, preventing
+		// the horizon from splitting into multiple loops.
+		visible := bfsVisibleFaces(points, faces, adj, faceIdx, eye, eps)
 		if len(visible) == 0 {
 			faces[faceIdx].outside = removePointFromSlice(faces[faceIdx].outside, eye)
 			continue
 		}
 
-		horizon := make(map[[2]int]struct{})
+		// Build visible set for fast lookup.
+		visibleSet := make(map[int]bool, len(visible))
+		for _, vi := range visible {
+			visibleSet[vi] = true
+		}
+
+		// Collect orphaned outside points and compute horizon edges.
+		// Horizon edges are edges of visible faces whose neighbor across
+		// that edge is NOT visible.
 		reassign := make(map[int]struct{})
+		horizon := make([][2]int, 0)
 		for _, vi := range visible {
 			f := &faces[vi]
 			for _, pIdx := range f.outside {
@@ -307,33 +343,39 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 					reassign[pIdx] = struct{}{}
 				}
 			}
-			f.deleted = true
-			addHorizonEdge(horizon, f.a, f.b)
-			addHorizonEdge(horizon, f.b, f.c)
-			addHorizonEdge(horizon, f.c, f.a)
+			for _, edge := range [3][2]int{{f.a, f.b}, {f.b, f.c}, {f.c, f.a}} {
+				nb := adj.neighbor(edge[0], edge[1])
+				if nb >= 0 && !visibleSet[nb] {
+					horizon = append(horizon, edge)
+				}
+			}
+		}
+
+		// Now delete visible faces and remove from adjacency.
+		for _, vi := range visible {
+			faces[vi].deleted = true
+			adj.remove(faces[vi].a, faces[vi].b, faces[vi].c)
 		}
 		if len(horizon) == 0 {
 			continue
 		}
 
-		edges := make([][2]int, 0, len(horizon))
-		for edge := range horizon {
-			edges = append(edges, edge)
-		}
-		sort.Slice(edges, func(i, j int) bool {
-			if edges[i][0] != edges[j][0] {
-				return edges[i][0] < edges[j][0]
+		sort.Slice(horizon, func(i, j int) bool {
+			if horizon[i][0] != horizon[j][0] {
+				return horizon[i][0] < horizon[j][0]
 			}
-			return edges[i][1] < edges[j][1]
+			return horizon[i][1] < horizon[j][1]
 		})
-		newFaces := make([]int, 0, len(edges))
-		for _, edge := range edges {
+		newFaces := make([]int, 0, len(horizon))
+		for _, edge := range horizon {
 			nf := newQuickHullFace(points, edge[0], edge[1], eye, interior)
 			if nf.normal.Norm2() <= 0 {
 				continue
 			}
+			fi := len(faces)
 			faces = append(faces, nf)
-			newFaces = append(newFaces, len(faces)-1)
+			adj.add(fi, nf.a, nf.b, nf.c)
+			newFaces = append(newFaces, fi)
 		}
 		if len(newFaces) == 0 {
 			continue
@@ -360,6 +402,36 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 	}
 
 	return faces, points, nil
+}
+
+// bfsVisibleFaces performs a BFS from startFace, expanding to adjacent faces that are
+// visible from the eye point. This ensures the visible region is connected, preventing
+// the horizon from splitting into disjoint loops (which would create duplicate hull faces).
+func bfsVisibleFaces(points []r3.Vector, faces []quickHullFace, adj edgeToFaceMap, startFace, eye int, eps float64) []int {
+	if facePointDistance(faces[startFace], points[eye]) <= eps {
+		return nil
+	}
+	visited := map[int]bool{startFace: true}
+	queue := []int{startFace}
+	visible := []int{startFace}
+
+	for len(queue) > 0 {
+		fi := queue[0]
+		queue = queue[1:]
+		f := faces[fi]
+		for _, edge := range [3][2]int{{f.a, f.b}, {f.b, f.c}, {f.c, f.a}} {
+			nb := adj.neighbor(edge[0], edge[1])
+			if nb < 0 || visited[nb] || faces[nb].deleted {
+				continue
+			}
+			visited[nb] = true
+			if facePointDistance(faces[nb], points[eye]) > eps {
+				visible = append(visible, nb)
+				queue = append(queue, nb)
+			}
+		}
+	}
+	return visible
 }
 
 func newQuickHullFace(points []r3.Vector, a, b, c int, interior r3.Vector) quickHullFace {
@@ -414,15 +486,6 @@ func farthestOutsidePoint(points []r3.Vector, face quickHullFace) int {
 		}
 	}
 	return bestIdx
-}
-
-func addHorizonEdge(horizon map[[2]int]struct{}, a, b int) {
-	rev := [2]int{b, a}
-	if _, ok := horizon[rev]; ok {
-		delete(horizon, rev)
-		return
-	}
-	horizon[[2]int{a, b}] = struct{}{}
 }
 
 func removePointFromSlice(points []int, target int) []int {

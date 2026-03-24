@@ -125,11 +125,9 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 		pt := geom.position
 		return pt, pt
 	case *Mesh:
-		// Use existing BVH bounds if available
-		if geom.bvh != nil {
-			return geom.bvh.min, geom.bvh.max
-		}
-		// Fallback: compute from triangles
+		// Always compute from triangles with world-space transform.
+		// The BVH stores bounds in local space, so using bvh.min/max directly
+		// would return local-space bounds while this function promises world-space.
 		return computeMeshAABB(geom)
 	default:
 		panic(fmt.Errorf(

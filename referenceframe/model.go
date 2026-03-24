@@ -471,26 +471,6 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	return NewGeometriesInFrame(m.name, geometries), err
 }
 
-// AdjacentCollisionLabels returns pairs of geometry labels for adjacent links in the kinematic chain.
-// These pairs should always be allowed to collide, because adjacent links are connected by a joint
-// and conservative collision geometries (e.g., convex hulls) may overlap at the joint boundary.
-func (m *SimpleModel) AdjacentCollisionLabels() [][2]string {
-	var geoLabels []string
-	for _, frame := range m.framesInOrder() {
-		gif, err := frame.Geometries(make([]Input, len(frame.DoF())))
-		if err != nil || gif == nil || len(gif.Geometries()) == 0 {
-			continue
-		}
-		geoLabels = append(geoLabels, m.name+":"+gif.Geometries()[0].Label())
-	}
-
-	var pairs [][2]string
-	for i := 0; i < len(geoLabels)-1; i++ {
-		pairs = append(pairs, [2]string{geoLabels[i], geoLabels[i+1]})
-	}
-	return pairs
-}
-
 // DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
 	return m.limits
