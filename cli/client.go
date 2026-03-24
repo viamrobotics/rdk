@@ -4142,9 +4142,23 @@ func (conf *Config) checkUpdate(c *cli.Context) error {
 	return nil
 }
 
+type updateArgs struct {
+	NoProgress bool
+}
+
 // UpdateCLIAction updates the CLI to the latest version.
-func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
+func UpdateCLIAction(c *cli.Context, args updateArgs) error {
+	pm := NewProgressManager([]*Step{
+		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
+		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
+		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
+		{ID: "install", Message: "Installing update", IndentLevel: 1},
+	}, WithProgressOutput(!args.NoProgress))
+
 	// 1. check CLI to see if update needed, if this fails then try update anyways
+	if err := pm.Start("check"); err != nil {
+		return err
+	}
 	latestVersion, latestVersionErr := latestVersion()
 	if latestVersionErr != nil {
 		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
@@ -4155,78 +4169,125 @@ func UpdateCLIAction(c *cli.Context, args emptyArgs) error {
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
-			infof(c.App.Writer, "Your CLI is already up to date (version %s)", localVersion.Original())
+			if err := pm.CompleteWithMessage("check", fmt.Sprintf("Already up to date (version %s)", localVersion.Original())); err != nil {
+				return err
+			}
 			return nil
 		}
 	}
+	updateMsg := "Update available"
+	if latestVersion != nil {
+		updateMsg = fmt.Sprintf("Updating to %s", latestVersion.Original())
+	}
+	if err := pm.CompleteWithMessage("check", updateMsg); err != nil {
+		return err
+	}
+
 	// 2. check if cli managed by brew, if so attempt update. If it fails
 	// dont continue with binary replacement to avoid putting brew out of sync
-	managedByBrew, err := checkAndTryBrewUpdate()
-	if err != nil {
-		return errors.Errorf("CLI update failed: %v", err)
-	}
-	// try the binary replacement process because not managed by brew
-	if !managedByBrew {
-		// 3. get the local version binary path (use full path if no symlinks)
-		execPath, err := os.Executable()
-		if err != nil {
-			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+	if isViamManagedByBrew() {
+		if err := pm.Start("brew-upgrade"); err != nil {
+			return err
 		}
-		localBinaryPath, err := filepath.EvalSymlinks(execPath)
-		if err != nil {
-			localBinaryPath = execPath
-		}
-		directoryPath := filepath.Dir(localBinaryPath)
-
-		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
-		binaryURL := binaryURL()
-		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
-		defer os.Remove(latestBinaryPath) //nolint:errcheck
-		if err != nil {
-			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
-		}
-
-		// 5. replace the old binary with the new one
-		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
-			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
-		}
-
-		// 6. on Windows, ensure the CLI directory is in the user's PATH
-		if runtime.GOOS == osWindows {
-			if err := addToWindowsUserPATH(c, directoryPath); err != nil {
-				warningf(c.App.ErrWriter, "Failed to add CLI to user PATH. "+
-					"To add manually, run the following in PowerShell:\n"+
-					`  [Environment]::SetEnvironmentVariable("Path", `+
-					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
-					"\nThen restart your terminal for the change to take effect."+
-					"\nError: %v", directoryPath, err)
+		pm.UpdateText("  → Updating via Homebrew — do not cancel. To recover if deleted: brew reinstall viam")
+		updated, brewErr := tryBrewUpgrade()
+		if brewErr != nil {
+			if failErr := pm.Fail("brew-upgrade", brewErr); failErr != nil {
+				return failErr
 			}
+			return errors.Errorf("CLI update failed: %v", brewErr)
+		}
+		switch updated {
+		case brewUpdated:
+			return pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew")
+		case brewNotAvailable:
+			pm.Stop()
+			infof(c.App.Writer, "Latest version not yet available on Homebrew, try again later")
+			return nil
 		}
 	}
-	infof(c.App.Writer, "Your CLI has been successfully updated")
-	return nil
+	// 3. get the local version binary path (use full path if no symlinks)
+	execPath, err := os.Executable()
+	if err != nil {
+		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+	}
+	localBinaryPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		localBinaryPath = execPath
+	}
+	directoryPath := filepath.Dir(localBinaryPath)
+
+	// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+	if err := pm.Start("download"); err != nil {
+		return err
+	}
+	binaryURL := binaryURL()
+	latestBinaryPath, downloadErr := downloadBinaryIntoDir(binaryURL, directoryPath, pm)
+	defer os.Remove(latestBinaryPath) //nolint:errcheck
+	if downloadErr != nil {
+		if failErr := pm.Fail("download", downloadErr); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: failed to download binary: %v", downloadErr)
+	}
+	if err := pm.Complete("download"); err != nil {
+		return err
+	}
+
+	// 5. replace the old binary with the new one
+	if err := pm.Start("install"); err != nil {
+		return err
+	}
+	if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+		if failErr := pm.Fail("install", err); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+	}
+
+	// 6. on Windows, ensure the CLI directory is in the user's PATH
+	if runtime.GOOS == osWindows {
+		if err := addToWindowsUserPATH(c, directoryPath); err != nil {
+			warningf(c.App.ErrWriter, "Failed to add CLI to user PATH. "+
+				"To add manually, run the following in PowerShell:\n"+
+				`  [Environment]::SetEnvironmentVariable("Path", `+
+				`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+				"\nThen restart your terminal for the change to take effect."+
+				"\nError: %v", directoryPath, err)
+		}
+	}
+	return pm.CompleteWithMessage("install", "CLI updated successfully")
 }
 
-func checkAndTryBrewUpdate() (bool, error) {
-	if runtime.GOOS == "darwin" {
-		if _, err := exec.LookPath("brew"); err == nil {
-			// Check if viam is actually managed by brew
-			err := exec.Command("brew", "list", "viam").Run()
-			if err == nil {
-				// viam is managed by brew - try upgrade
-				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
-				if err == nil {
-					if strings.Contains(string(out), "already installed") {
-						// edge case: latest version released but brew has not updated yet
-						return false, errors.New("the latest version is not on brew yet")
-					}
-					return true, nil
-				}
-				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
-			}
-		}
+type brewUpdateResult int
+
+const (
+	brewUpdated      brewUpdateResult = iota
+	brewNotAvailable brewUpdateResult = iota
+)
+
+// isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
+func isViamManagedByBrew() bool {
+	if runtime.GOOS != "darwin" {
+		return false
 	}
-	return false, nil
+	if _, err := exec.LookPath("brew"); err != nil {
+		return false
+	}
+	return exec.Command("brew", "list", "viam").Run() == nil
+}
+
+// tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called
+// after confirming viam is brew-managed via isViamManagedByBrew.
+func tryBrewUpgrade() (brewUpdateResult, error) {
+	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
+	if err != nil {
+		return brewUpdated, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+	}
+	if strings.Contains(string(out), "already installed") {
+		return brewNotAvailable, nil
+	}
+	return brewUpdated, nil
 }
 
 func binaryURL() string {
@@ -4239,7 +4300,30 @@ func binaryURL() string {
 	return binaryURL
 }
 
-func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
+// downloadProgressReader wraps an io.Reader and updates a ProgressManager spinner text with download progress.
+type downloadProgressReader struct {
+	r        io.Reader
+	pm       *ProgressManager
+	total    int64
+	received int64
+}
+
+func (dr *downloadProgressReader) Read(p []byte) (int, error) {
+	n, err := dr.r.Read(p)
+	dr.received += int64(n)
+	if dr.pm != nil {
+		receivedMB := float64(dr.received) / (1024 * 1024)
+		if dr.total > 0 {
+			totalMB := float64(dr.total) / (1024 * 1024)
+			dr.pm.UpdateText(fmt.Sprintf("  → Downloading latest CLI... %.1f / %.1f MB", receivedMB, totalMB))
+		} else {
+			dr.pm.UpdateText(fmt.Sprintf("  → Downloading latest CLI... %.1f MB", receivedMB))
+		}
+	}
+	return n, err
+}
+
+func downloadBinaryIntoDir(binaryURL, directoryPath string, pm *ProgressManager) (string, error) {
 	// Download the binary
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
 	if err != nil {
@@ -4276,8 +4360,15 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 		return "", errors.Errorf("failed to create temp file: %v", err)
 	}
 
+	// Wrap response body in a downloadProgressReader to update the spinner during io.Copy
+	reader := &downloadProgressReader{
+		r:     resp.Body,
+		pm:    pm,
+		total: resp.ContentLength,
+	}
+
 	// Write downloaded content to temp file
-	_, err = io.Copy(latestBinaryFile, resp.Body)
+	_, err = io.Copy(latestBinaryFile, reader)
 	utils.UncheckedError(resp.Body.Close())
 	utils.UncheckedError(latestBinaryFile.Close())
 	if err != nil {
@@ -4309,12 +4400,18 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 			}
 			return errors.Errorf("failed to rename old binary: %v", err)
 		}
+		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
+			// Roll back: restore the old binary so the CLI is not left deleted.
+			_ = os.Rename(oldPath, localBinaryPath) //nolint:errcheck
+			if os.IsPermission(err) {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
+			return errors.Errorf("failed to replace binary: %v", err)
+		}
+		return nil
 	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
-			if runtime.GOOS == osWindows {
-				return errors.New("permission denied: run PowerShell as Administrator")
-			}
 			return errors.New("permission denied: run 'sudo viam update'")
 		}
 		return errors.Errorf("failed to replace binary: %v", err)

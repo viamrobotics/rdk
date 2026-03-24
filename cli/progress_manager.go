@@ -91,6 +91,7 @@ func NewProgressManager(steps []*Step, opts ...ProgressManagerOption) *ProgressM
 		Text:  "✗",
 		Style: pterm.NewStyle(pterm.FgRed),
 	}
+
 	// Add a leading space to each spinner sequence character for alignment
 	baseSequence := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	spinnerSequence := make([]string, len(baseSequence))

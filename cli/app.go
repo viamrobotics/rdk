@@ -4179,7 +4179,13 @@ NOTES:
 			Name:      "update",
 			Usage:     "update the CLI to the latest version",
 			UsageText: createUsageText("update", nil, false, false),
-			Action:    createCommandWithT[emptyArgs](UpdateCLIAction),
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  generalFlagNoProgress,
+					Usage: "hide progress during update",
+				},
+			},
+			Action: createCommandWithT[updateArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",

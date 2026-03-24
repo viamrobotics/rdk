@@ -1765,7 +1765,7 @@ func TestCLIUpdateAction(t *testing.T) {
 		filename += ".exe"
 	}
 	downloadURL := server.URL + filename
-	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir)
+	downloadedPath, err := downloadBinaryIntoDir(downloadURL, tempDir, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// downloadBinaryIntoDir creates a file with a fixed name pattern, not the URL filename
