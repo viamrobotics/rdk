@@ -243,10 +243,12 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 }
 
 // applyModuleConfigToPartMap applies the module reload configuration changes to a partMap.
-// Returns (modules, dirty, error).
+// Returns (modules, dirty, needsRestart, error).
+// dirty means config was changed and needs to be written back.
+// needsRestart means the module needs an explicit restart (the reload path was already correct).
 func applyModuleConfigToPartMap(
 	c *cli.Context, partMap map[string]any, manifest ModuleManifest, local bool, reloadUser string,
-) ([]ModuleMap, bool, error) {
+) ([]ModuleMap, bool, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
 	}
@@ -255,21 +257,21 @@ func applyModuleConfigToPartMap(
 		func(raw any) (ModuleMap, error) { return ModuleMap(raw.(map[string]any)), nil },
 	)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
-	modules, dirty, err := mutateModuleConfig(c, modules, manifest, local, reloadUser)
+	modules, dirty, needsRestart, err := mutateModuleConfig(c, modules, manifest, local, reloadUser)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	modulesAsInterfaces, err := rutils.MapOver(modules, func(mod ModuleMap) (any, error) {
 		return map[string]any(mod), nil
 	})
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 	partMap["modules"] = modulesAsInterfaces
-	return modules, dirty, nil
+	return modules, dirty, needsRestart, nil
 }
 
 // configureModule is the configuration step of module reloading. Returns (updated robotPartpart, needsRestart, error).
@@ -282,7 +284,7 @@ func configureModule(
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, err := applyModuleConfigToPartMap(c, partMap, *manifest, local, reloadUser)
+	_, dirty, needsRestart, err := applyModuleConfigToPartMap(c, partMap, *manifest, local, reloadUser)
 	if err != nil {
 		return part, false, err
 	}
@@ -302,7 +304,7 @@ func configureModule(
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
-			_, _, retryErr := applyModuleConfigToPartMap(c, retryMap, *manifest, local, reloadUser)
+			_, _, _, retryErr := applyModuleConfigToPartMap(c, retryMap, *manifest, local, reloadUser)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
@@ -320,10 +322,9 @@ func configureModule(
 	// to get the most up-to-date version, and return it for further use.
 	partResponse, err := vc.getRobotPart(part.Id)
 	if err != nil {
-		return part, !dirty, err
+		return part, false, err
 	}
-	// if we modified config, caller doesn't need to restart module.
-	return partResponse.Part, !dirty, nil
+	return partResponse.Part, needsRestart, nil
 }
 
 // localizeModuleID converts a module ID to its 'local mode' name.
@@ -334,14 +335,18 @@ func localizeModuleID(moduleID string) string {
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
 // reloadUser is the email/identity of the user performing the reload.
+// Returns (modules, dirty, needsRestart, error).
+// dirty means config was changed and needs to be written back.
+// needsRestart means the module binary needs an explicit restart (the reload path/enabled were already correct).
 func mutateModuleConfig(
 	c *cli.Context,
 	modules []ModuleMap,
 	manifest ModuleManifest,
 	local bool,
 	reloadUser string,
-) ([]ModuleMap, bool, error) {
+) ([]ModuleMap, bool, bool, error) {
 	var dirty bool
+	var needsRestart bool
 	var foundMod ModuleMap
 	for _, mod := range modules {
 		if mod["module_id"] == manifest.ModuleID {
@@ -357,7 +362,7 @@ func mutateModuleConfig(
 		// Does not indicate module type (registry vs local)
 		absEntrypoint, err = filepath.Abs(manifest.Entrypoint)
 		if err != nil {
-			return nil, dirty, err
+			return nil, dirty, false, err
 		}
 	} else {
 		absEntrypoint = reloadingDestination(c, &manifest)
@@ -365,7 +370,7 @@ func mutateModuleConfig(
 
 	args, err := getGlobalArgs(c)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	reloadTime := time.Now().UTC().Format(time.RFC3339)
@@ -373,11 +378,12 @@ func mutateModuleConfig(
 	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
 		if err != nil {
-			return nil, dirty, err
+			return nil, dirty, false, err
 		}
 		reloadFlag := foundMod["reload_enabled"]
 		if samePath && reloadFlag == true {
 			debugf(c.App.Writer, args.Debug, "ReloadPath is up to date and ReloadEnabled, updating user and time")
+			needsRestart = true
 		} else {
 			if samePath {
 				debugf(c.App.Writer, args.Debug, "ReloadPath is up to date, setting ReloadEnabled true")
@@ -401,7 +407,7 @@ func mutateModuleConfig(
 		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime)
 		modules = append(modules, newMod)
 	}
-	return modules, dirty, nil
+	return modules, dirty, needsRestart, nil
 }
 
 func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime string) ModuleMap {
