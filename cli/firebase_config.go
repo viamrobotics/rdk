@@ -51,7 +51,7 @@ type readFirebaseConfigArgs struct {
 }
 
 // ReadFirebaseConfigAction reads Firebase config metadata for an organization.
-// For security, only the organization and app (bundle) ID are displayed, not the config JSON.
+// For security, only the organization and app ID are displayed, not the config JSON.
 func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {

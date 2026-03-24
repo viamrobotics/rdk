@@ -1086,18 +1086,18 @@ Note: There is no progress meter while copying is in progress.
 					Subcommands: []*cli.Command{
 						{
 							Name:  "set",
-							Usage: "upload a Firebase config JSON for a specific app bundle ID",
+							Usage: "upload a Firebase config JSON for a specific app ID",
 							UsageText: createUsageText("organizations firebase-config set",
-								[]string{generalFlagOrgID, "bundle-id", firebaseConfigFlagPath}, false, false),
+								[]string{generalFlagOrgID, "app-id", firebaseConfigFlagPath}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:  generalFlagOrgID,
 									Usage: "organization ID",
 								},
 								&cli.StringFlag{
-									Name:     "bundle-id",
+									Name:     "app-id",
 									Required: true,
-									Usage:    "app bundle ID (e.g., com.example.myapp)",
+									Usage:    "app ID (e.g., com.example.myapp)",
 								},
 								&cli.StringFlag{
 									Name:     firebaseConfigFlagPath,
@@ -1122,18 +1122,18 @@ Note: There is no progress meter while copying is in progress.
 						},
 						{
 							Name:  "delete",
-							Usage: "delete a Firebase config for a specific app bundle ID",
+							Usage: "delete a Firebase config for a specific app ID",
 							UsageText: createUsageText("organizations firebase-config delete",
-								[]string{generalFlagOrgID, "bundle-id"}, false, false),
+								[]string{generalFlagOrgID, "app-id"}, false, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:  generalFlagOrgID,
 									Usage: "organization ID",
 								},
 								&cli.StringFlag{
-									Name:     "bundle-id",
+									Name:     "app-id",
 									Required: true,
-									Usage:    "app bundle ID (e.g., com.example.myapp)",
+									Usage:    "app ID (e.g., com.example.myapp)",
 								},
 							},
 							Action: createCommandWithT[deleteFirebaseConfigArgs](DeleteFirebaseConfigAction),
