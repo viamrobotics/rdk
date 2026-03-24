@@ -4,6 +4,8 @@ package fake
 import (
 	"context"
 	_ "embed"
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -103,7 +105,12 @@ func buildModel(cfg resource.Config, newConf *Config) (referenceframe.Model, err
 	case armModel != "":
 		model, err = modelFromName(armModel, cfg.Name)
 	case modelPath != "":
-		model, err = referenceframe.KinematicModelFromFile(modelPath, cfg.Name)
+		if strings.HasSuffix(modelPath, ".urdf") {
+			model, err = referenceframe.ParseModelXMLFile(modelPath, cfg.Name, []float64{0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2})
+		} else {
+			return referenceframe.ParseModelJSONFile(modelPath, cfg.Name)
+		}
+
 	default:
 		// if no arm model is specified, we return a fake arm with 1 dof and 0 spatial transformation
 		model, err = modelFromName(Model.Name, cfg.Name)
@@ -272,6 +279,7 @@ func (a *Arm) Geometries(ctx context.Context, extra map[string]interface{}) ([]s
 	}
 	a.mu.RLock()
 	defer a.mu.RUnlock()
+	fmt.Println("these are the inputs: ", inputs)
 	gif, err := a.model.Geometries(inputs)
 	if err != nil {
 		return nil, err

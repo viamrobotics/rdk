@@ -521,7 +521,31 @@ func computeInitialCollisionsToIgnore(
 	// Add coparented static frames that could never be brought into collision
 	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
 
+	// Add adjacent link pairs from kinematic models (e.g., arms with mesh collision geometries).
+	// Adjacent links connected by a joint should always be allowed to collide, because conservative
+	// collision geometries (convex hulls from mesh decimation) may overlap at joint boundaries.
+	initialCollisions = append(initialCollisions, findAdjacentLinkCollisions(fs)...)
+
 	return initialCollisions, nil
+}
+
+// adjacentCollisionLabeler is implemented by frames (e.g., SimpleModel) that can identify
+// geometry pairs which should always be allowed to collide (adjacent links in a kinematic chain).
+type adjacentCollisionLabeler interface {
+	AdjacentCollisionLabels() [][2]string
+}
+
+func findAdjacentLinkCollisions(fs *referenceframe.FrameSystem) []Collision {
+	var skipList []Collision
+	for _, name := range fs.FrameNames() {
+		frame := fs.Frame(name)
+		if labeler, ok := frame.(adjacentCollisionLabeler); ok {
+			for _, pair := range labeler.AdjacentCollisionLabels() {
+				skipList = append(skipList, Collision{name1: pair[0], name2: pair[1]})
+			}
+		}
+	}
+	return skipList
 }
 
 func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {

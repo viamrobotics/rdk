@@ -103,9 +103,14 @@ func uniqueTriangleVertices(triangles []*Triangle) []r3.Vector {
 			pointMap[key] = pt
 		}
 	}
+	keys := make([]string, 0, len(pointMap))
+	for k := range pointMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	out := make([]r3.Vector, 0, len(pointMap))
-	for _, pt := range pointMap {
-		out = append(out, pt)
+	for _, k := range keys {
+		out = append(out, pointMap[k])
 	}
 	return out
 }
@@ -139,13 +144,18 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		supportMap[key] = best
 	}
 
-	support := make([]r3.Vector, 0, len(supportMap))
-	for _, pt := range supportMap {
-		support = append(support, pt)
+	supportKeys := make([]string, 0, len(supportMap))
+	for k := range supportMap {
+		supportKeys = append(supportKeys, k)
+	}
+	sort.Strings(supportKeys)
+	support := make([]r3.Vector, 0, len(supportKeys))
+	for _, k := range supportKeys {
+		support = append(support, supportMap[k])
 	}
 	if len(support) > maxPoints {
 		center := centroidOfPoints(vertices)
-		sort.Slice(support, func(i, j int) bool {
+		sort.SliceStable(support, func(i, j int) bool {
 			return support[i].Sub(center).Norm2() > support[j].Sub(center).Norm2()
 		})
 		support = support[:maxPoints]
@@ -306,8 +316,18 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 			continue
 		}
 
-		newFaces := make([]int, 0, len(horizon))
+		edges := make([][2]int, 0, len(horizon))
 		for edge := range horizon {
+			edges = append(edges, edge)
+		}
+		sort.Slice(edges, func(i, j int) bool {
+			if edges[i][0] != edges[j][0] {
+				return edges[i][0] < edges[j][0]
+			}
+			return edges[i][1] < edges[j][1]
+		})
+		newFaces := make([]int, 0, len(edges))
+		for _, edge := range edges {
 			nf := newQuickHullFace(points, edge[0], edge[1], eye, interior)
 			if nf.normal.Norm2() <= 0 {
 				continue
@@ -319,7 +339,12 @@ func quickHull3D(points []r3.Vector, eps float64) ([]quickHullFace, []r3.Vector,
 			continue
 		}
 
+		reassignPts := make([]int, 0, len(reassign))
 		for pIdx := range reassign {
+			reassignPts = append(reassignPts, pIdx)
+		}
+		sort.Ints(reassignPts)
+		for _, pIdx := range reassignPts {
 			bestFace, bestDist := -1, eps
 			for _, fi := range newFaces {
 				d := facePointDistance(faces[fi], points[pIdx])
