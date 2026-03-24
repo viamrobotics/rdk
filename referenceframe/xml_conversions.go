@@ -322,10 +322,10 @@ type limit struct {
 }
 
 type mimicXML struct {
-	XMLName    xml.Name `xml:"mimic"`
-	Joint      string   `xml:"joint,attr"`
-	Multiplier float64  `xml:"multiplier,attr,omitempty"`
-	Offset     float64  `xml:"offset,attr,omitempty"`
+	XMLName         xml.Name `xml:"mimic"`
+	Joint           string   `xml:"joint,attr"`
+	ValueMultiplier float64  `xml:"multiplier,attr,omitempty"`
+	ValueOffset     float64  `xml:"offset,attr,omitempty"`
 }
 
 type axis struct {

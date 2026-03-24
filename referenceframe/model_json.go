@@ -191,7 +191,7 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	for jointID, mc := range mimicConfigs {
 		visited := map[string]bool{jointID: true}
 		composedMultiplier := mc.EffectiveMultiplier()
-		composedOffset := mc.Offset
+		composedOffset := mc.ValueOffset
 
 		sourceJoint := mc.Joint
 		for {
@@ -205,15 +205,15 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 			visited[sourceJoint] = true
 
 			// Compose: if A = m1*B + o1, and B = m2*C + o2, then A = m1*(m2*C + o2) + o1 = m1*m2*C + m1*o2 + o1
-			composedOffset = composedMultiplier*nextMC.Offset + composedOffset
+			composedOffset = composedMultiplier*nextMC.ValueOffset + composedOffset
 			composedMultiplier *= nextMC.EffectiveMultiplier()
 			sourceJoint = nextMC.Joint
 		}
 
 		resolvedMimics[jointID] = &MimicConfig{
-			Joint:      sourceJoint,
-			Multiplier: composedMultiplier,
-			Offset:     composedOffset,
+			Joint:           sourceJoint,
+			ValueMultiplier: composedMultiplier,
+			ValueOffset:     composedOffset,
 		}
 	}
 
@@ -231,8 +231,8 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 		result[jointID] = &mimicMapping{
 			sourceFrameName: mc.Joint,
 			sourceInputIdx:  -1, // placeholder, resolved in NewModelWithMimics
-			multiplier:      mc.EffectiveMultiplier(),
-			offset:          mc.Offset,
+			valueMultiplier: mc.EffectiveMultiplier(),
+			valueOffset:     mc.ValueOffset,
 		}
 	}
 

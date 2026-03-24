@@ -113,9 +113,9 @@ func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Me
 // mimicMapping describes how a mimic frame's input is derived from a source frame's input.
 type mimicMapping struct {
 	sourceFrameName string // name of the source frame
-	sourceInputIdx  int    // offset in flat input vector (resolved after schema is built)
-	multiplier      float64
-	offset          float64
+	sourceInputIdx  int    // index in flat input vector (resolved after schema is built)
+	valueMultiplier float64
+	valueOffset     float64
 }
 
 // KinematicModelFromFile returns a model frame from a file that defines the kinematics.
@@ -386,8 +386,8 @@ func (m *SimpleModel) Hash() int {
 	for name, mm := range m.mimicMappings {
 		h += hashString(name)
 		h += mm.sourceInputIdx * 37
-		h += int(mm.multiplier*1000) * 41
-		h += int(mm.offset*1000) * 43
+		h += int(mm.valueMultiplier*1000) * 41
+		h += int(mm.valueOffset*1000) * 43
 	}
 	return h
 }
@@ -485,7 +485,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			var frameInputs []Input
 			if offset == -1 {
 				mm := m.mimicMappings[chainFrame.Name()]
-				frameInputs = []Input{mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset}
+				frameInputs = []Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset}
 			} else {
 				frameInputs = inputs[offset : offset+dof]
 				if err := frame.validInputs(frameInputs); err != nil {
@@ -508,7 +508,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(emptyInputs)
 			} else if offset == -1 {
 				mm := m.mimicMappings[chainFrame.Name()]
-				pose, err = chainFrame.Transform([]Input{mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset})
+				pose, err = chainFrame.Transform([]Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset})
 			} else {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
@@ -577,7 +577,7 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 
 	// Inject derived inputs for mimic frames so the FrameSystem can compute their geometries.
 	for frameName, mm := range m.mimicMappings {
-		derived := mm.multiplier*inputs[mm.sourceInputIdx] + mm.offset
+		derived := mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset
 		li.Put(frameName, []Input{derived})
 	}
 

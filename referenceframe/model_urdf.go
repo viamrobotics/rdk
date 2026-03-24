@@ -161,9 +161,9 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 			}
 			if jointElem.Mimic != nil {
 				thisJoint.Mimic = &MimicConfig{
-					Joint:      jointElem.Mimic.Joint,
-					Multiplier: jointElem.Mimic.Multiplier,
-					Offset:     jointElem.Mimic.Offset,
+					Joint:           jointElem.Mimic.Joint,
+					ValueMultiplier: jointElem.Mimic.ValueMultiplier,
+					ValueOffset:     jointElem.Mimic.ValueOffset,
 				}
 				// URDF requires <limit> on revolute/prismatic joints, but limits are
 				// meaningless for mimic joints. Clear them so buildMimicMappings

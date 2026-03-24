@@ -877,8 +877,8 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 			}
 			if mm1.sourceFrameName != mm2.sourceFrameName ||
 				mm1.sourceInputIdx != mm2.sourceInputIdx ||
-				math.Abs(mm1.multiplier-mm2.multiplier) > epsilon ||
-				math.Abs(mm1.offset-mm2.offset) > epsilon {
+				math.Abs(mm1.valueMultiplier-mm2.valueMultiplier) > epsilon ||
+				math.Abs(mm1.valueOffset-mm2.valueOffset) > epsilon {
 				return false, nil
 			}
 		}
