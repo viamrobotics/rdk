@@ -125,6 +125,9 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 		pt := geom.position
 		return pt, pt
 	case *Mesh:
+		// BVH stores bounds in local space. We must transform to world space via the mesh pose.
+		// Previously this returned bvh.min/max directly (local space), which caused collision
+		// checks to silently miss collisions after BVH initialization.
 		bvh := geom.ensureBVH()
 		if bvh != nil {
 			return transformAABBToWorldSpace(bvh.min, bvh.max, geom.pose)
