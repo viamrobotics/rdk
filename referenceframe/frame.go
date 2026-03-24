@@ -906,15 +906,15 @@ func clone(f Frame) (Frame, error) {
 type geometryProxyFrame struct {
 	*baseFrame
 	ownerModelName string       // e.g. "myArm"
-	geometryLabel  string       // unqualified label, e.g. "upper_arm_link"
+	geometryLabel  string       // e.g. "upper_arm_link"
 	ownerModel     *SimpleModel // set during construction via ensureGeometryProxy
 }
 
 // newGeometryProxyFrame creates a new geometry proxy frame.
-// qualifiedName is the full name (e.g. "myArm:upper_arm_link").
-func newGeometryProxyFrame(qualifiedName, ownerModelName, geometryLabel string, model *SimpleModel) *geometryProxyFrame {
+// name is the full geometry name (e.g. "myArm:upper_arm_link").
+func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, model *SimpleModel) *geometryProxyFrame {
 	return &geometryProxyFrame{
-		baseFrame:      &baseFrame{name: qualifiedName, limits: []Limit{}},
+		baseFrame:      &baseFrame{name: name, limits: []Limit{}},
 		ownerModelName: ownerModelName,
 		geometryLabel:  geometryLabel,
 		ownerModel:     model,
@@ -946,8 +946,8 @@ func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Po
 	if err != nil {
 		return nil, err
 	}
-	qualifiedLabel := gpf.ownerModelName + ":" + gpf.geometryLabel
-	geom := geoms.GeometryByName(qualifiedLabel)
+	fullLabel := gpf.ownerModelName + ":" + gpf.geometryLabel
+	geom := geoms.GeometryByName(fullLabel)
 	if geom == nil {
 		return nil, fmt.Errorf("geometry %q not found on model %q during transform", gpf.geometryLabel, gpf.ownerModelName)
 	}

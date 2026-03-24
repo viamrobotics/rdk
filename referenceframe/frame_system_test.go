@@ -543,8 +543,8 @@ func TestTopologicalSortParts(t *testing.T) {
 }
 
 // TestGeometryParentedToIntermediateArmJoint verifies that:
-// 1. Unqualified intermediate arm joint names (e.g. "upper_arm_link") are still rejected
-// 2. Qualified names (e.g. "myArm:upper_arm_link") work correctly via geometry proxy frames
+// 1. Bare geometry label names (e.g. "upper_arm_link") are still rejected
+// 2. Geometry names (e.g. "myArm:upper_arm_link") work correctly via geometry proxy frames
 // 3. Both config path (NewFrameSystem) and world state path (ObstaclesInWorldFrame) work.
 func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
 	jsonData, err := os.ReadFile(rdkutils.ResolveFile("components/arm/fake/kinematics/ur5e.json"))
@@ -574,21 +574,21 @@ func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
 		return &FrameSystemPart{FrameConfig: lif}
 	}
 
-	// --- Negative: unqualified names are rejected ---
-	t.Run("unqualified parent rejected", func(t *testing.T) {
+	// --- Negative: bare geometry labels (without component prefix) are rejected ---
+	t.Run("bare geometry label parent rejected", func(t *testing.T) {
 		fs, err := NewFrameSystem("test", makeArmParts(makeChildPart("camera", "upper_arm_link")), nil)
 		test.That(t, fs, test.ShouldBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not linked to the world frame")
 	})
 
-	t.Run("unqualified transform parent rejected", func(t *testing.T) {
+	t.Run("bare geometry label transform parent rejected", func(t *testing.T) {
 		transforms := []*LinkInFrame{NewLinkInFrame("upper_arm_link", spatial.NewZeroPose(), "tool", nil)}
 		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
 		test.That(t, fs, test.ShouldBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not linked to the world frame")
 	})
 
-	// --- Negative: invalid qualified geometry labels ---
+	// --- Negative: invalid geometry labels ---
 	for _, tc := range []struct {
 		name, label string
 	}{
@@ -602,8 +602,8 @@ func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
 		})
 	}
 
-	// --- Positive: qualified parent for parts, transforms, and world state ---
-	t.Run("qualified geometry parent", func(t *testing.T) {
+	// --- Positive: geometry parent for parts, transforms, and world state ---
+	t.Run("geometry parent", func(t *testing.T) {
 		parts := makeArmParts(makeChildPart("camera", "myArm:upper_arm_link"))
 		fs, err := NewFrameSystem("test", parts, nil)
 		test.That(t, err, test.ShouldBeNil)
@@ -634,7 +634,7 @@ func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
 		}
 	})
 
-	t.Run("qualified parent for transform with offset", func(t *testing.T) {
+	t.Run("geometry parent for transform with offset", func(t *testing.T) {
 		offset := spatial.NewPoseFromPoint(r3.Vector{X: 100})
 		transforms := []*LinkInFrame{NewLinkInFrame("myArm:upper_arm_link", offset, "tool", nil)}
 		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
@@ -647,7 +647,7 @@ func TestGeometryParentedToIntermediateArmJoint(t *testing.T) {
 		test.That(t, spatial.PoseAlmostCoincident(tf.(*PoseInFrame).Pose(), expected), test.ShouldBeTrue)
 	})
 
-	t.Run("world state obstacle with qualified parent", func(t *testing.T) {
+	t.Run("world state obstacle with geometry parent", func(t *testing.T) {
 		transforms := []*LinkInFrame{NewLinkInFrame("myArm:upper_arm_link", spatial.NewZeroPose(), "anchor", nil)}
 		fs, err := NewFrameSystem("test", makeArmParts(), transforms)
 		test.That(t, err, test.ShouldBeNil)
