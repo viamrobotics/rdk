@@ -42,6 +42,11 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 		}
 		return modelconf.ParseConfig(name)
 	case commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED:
+		if len(data) == 0 {
+			// No kinematics data — treat as an empty model. This preserves backward
+			// compatibility with older modules that return GetKinematics without a format.
+			return NewSimpleModel(name), nil
+		}
 		fallthrough
 	default:
 		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
@@ -105,6 +110,14 @@ func extractMeshMapFromModelConfig(cfg *ModelConfigJSON) map[string]*commonpb.Me
 	return meshMap
 }
 
+// mimicMapping describes how a mimic frame's input is derived from a source frame's input.
+type mimicMapping struct {
+	sourceFrameName string // name of the source frame
+	sourceInputIdx  int    // index in flat input vector (resolved after schema is built)
+	valueMultiplier float64
+	valueOffset     float64
+}
+
 // KinematicModelFromFile returns a model frame from a file that defines the kinematics.
 func KinematicModelFromFile(modelPath, name string) (Model, error) {
 	switch {
@@ -118,6 +131,8 @@ func KinematicModelFromFile(modelPath, name string) (Model, error) {
 }
 
 // SimpleModel is a model that uses an internal FrameSystem to represent its kinematic tree.
+// It supports both serial chains and branching tree topologies (e.g. grippers with branching fingers).
+// A user-specified "primary output frame" determines what Transform() returns.
 type SimpleModel struct {
 	baseFrame
 	internalFS         *FrameSystem        // tree of frames
@@ -130,6 +145,17 @@ type SimpleModel struct {
 	// to iterate a slice instead of doing map lookups and linear scans per
 	// frame per call.
 	transformChain []Frame
+
+	// transformChainInputOffsets holds the offset into the flat input vector for
+	// each frame in transformChain. For branching models, frames not on the
+	// primary path may appear between chain frames in the BFS-ordered input
+	// array, so a sequential posIdx would be wrong. A value of -1 indicates
+	// a mimic frame whose input is derived at runtime.
+	transformChainInputOffsets []int
+
+	// mimicMappings maps frame name to its mimic mapping. A mimic frame derives
+	// its input from a source frame rather than consuming a slot in the flat input vector.
+	mimicMappings map[string]*mimicMapping
 }
 
 // NewSimpleModel constructs a new empty model with no kinematics.
@@ -148,18 +174,6 @@ func NewSimpleModel(name string) *SimpleModel {
 func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleModel, error) {
 	if fs.Frame(primaryOutputFrame) == nil {
 		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
-	}
-
-	// Verify the frame system is a linear chain: no frame may have more than one child.
-	childCount := map[string]int{}
-	for frameName := range fs.frames {
-		parent := fs.parents[frameName]
-		childCount[parent]++
-	}
-	for parent, count := range childCount {
-		if count > 1 {
-			return nil, fmt.Errorf("%w: frame %q has %d children", ErrNeedOneEndEffector, parent, count)
-		}
 	}
 
 	m := &SimpleModel{
@@ -185,6 +199,65 @@ func NewModel(name string, fs *FrameSystem, primaryOutputFrame string) (*SimpleM
 
 	// Pre-compute the transform chain: walk from primaryOutputFrame back to world recording each frame
 	m.transformChain = m.buildTransformChain()
+	// Pre-compute schema offsets for each chain frame so Transform() can handle branching correctly.
+	m.transformChainInputOffsets = m.buildTransformChainOffsets()
+
+	return m, nil
+}
+
+// NewModelWithMimics constructs a model like NewModel but with mimic frame support.
+// Mimic frames are present in the FrameSystem but excluded from the input schema:
+// their input is derived at runtime from the source frame's input.
+func NewModelWithMimics(name string, fs *FrameSystem, primaryOutputFrame string, mimics map[string]*mimicMapping) (*SimpleModel, error) {
+	if fs.Frame(primaryOutputFrame) == nil {
+		return nil, fmt.Errorf("primary output frame %q not found in frame system", primaryOutputFrame)
+	}
+
+	m := &SimpleModel{
+		baseFrame:          baseFrame{name: name},
+		internalFS:         fs,
+		primaryOutputFrame: primaryOutputFrame,
+		mimicMappings:      mimics,
+	}
+
+	// Build zero inputs in BFS order, skipping mimic frames.
+	// We cannot use GetSchema because it auto-adds missing frames from the FS,
+	// which would re-add the mimic frames we want to exclude.
+	zeroInputs := NewLinearInputs()
+	for _, fn := range bfsFrameNames(fs) {
+		if mimics[fn] != nil {
+			continue
+		}
+		frame := fs.Frame(fn)
+		if frame != nil {
+			zeroInputs.Put(fn, make([]Input, len(frame.DoF())))
+		}
+	}
+
+	// Manually set frame references on schema metas (normally done by GetSchema).
+	schema := zeroInputs.schema
+	for idx := range schema.metas {
+		frame := fs.Frame(schema.metas[idx].frameName)
+		if frame == nil {
+			return nil, NewFrameMissingError(schema.metas[idx].frameName)
+		}
+		schema.metas[idx].frame = frame
+	}
+	m.inputSchema = schema
+	m.limits = schema.GetLimits()
+
+	// Resolve sourceInputIdx for each mimic mapping by finding the source frame in the schema.
+	for _, mm := range mimics {
+		for _, meta := range schema.metas {
+			if meta.frameName == mm.sourceFrameName {
+				mm.sourceInputIdx = meta.offset
+				break
+			}
+		}
+	}
+
+	m.transformChain = m.buildTransformChain()
+	m.transformChainInputOffsets = m.buildTransformChainOffsets()
 
 	return m, nil
 }
@@ -230,10 +303,16 @@ func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (
 		frame.DoF()[0] = limit
 	}
 
-	m, err := NewModel(base.name, newFS, base.primaryOutputFrame)
+	var m *SimpleModel
+	if len(base.mimicMappings) > 0 {
+		m, err = NewModelWithMimics(base.name, newFS, base.primaryOutputFrame, base.mimicMappings)
+	} else {
+		m, err = NewModel(base.name, newFS, base.primaryOutputFrame)
+	}
 	if err != nil {
 		return nil, err
 	}
+	m.modelConfig = base.modelConfig
 	return m, nil
 }
 
@@ -304,6 +383,12 @@ func (m *SimpleModel) Hash() int {
 		h += f.Hash()
 	}
 	h += hashString(m.primaryOutputFrame)
+	for name, mm := range m.mimicMappings {
+		h += hashString(name)
+		h += mm.sourceInputIdx * 37
+		h += int(mm.valueMultiplier*1000) * 41
+		h += int(mm.valueOffset*1000) * 43
+	}
 	return h
 }
 
@@ -338,6 +423,32 @@ func (m *SimpleModel) buildTransformChain() []Frame {
 	return chain
 }
 
+// buildTransformChainOffsets returns, for each frame in transformChain, the
+// offset of that frame's inputs within the flat input vector defined by
+// inputSchema. For 0-DoF frames the offset is unused, so 0 is stored.
+// For mimic frames, -1 is stored as a sentinel indicating the input is
+// derived at runtime.
+// This must be called after both transformChain and inputSchema are set.
+func (m *SimpleModel) buildTransformChainOffsets() []int {
+	offsets := make([]int, len(m.transformChain))
+	for i, frame := range m.transformChain {
+		if len(frame.DoF()) == 0 {
+			continue // offset unused for 0-DoF frames
+		}
+		if m.mimicMappings != nil && m.mimicMappings[frame.Name()] != nil {
+			offsets[i] = -1 // sentinel: input derived at runtime from source frame
+			continue
+		}
+		for _, meta := range m.inputSchema.metas {
+			if meta.frameName == frame.Name() {
+				offsets[i] = meta.offset
+				break
+			}
+		}
+	}
+	return offsets
+}
+
 // emptyInputs is a pre-allocated empty slice used for 0-DoF frame transforms.
 var emptyInputs = []Input{}
 
@@ -356,9 +467,14 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	}
 
 	// Iterate base-to-tip (the storage order of transformChain).
-	posIdx := 0
-	for _, chainFrame := range m.transformChain {
+	// Use transformChainInputOffsets to locate each frame's inputs within the
+	// flat vector: a sequential posIdx would be wrong for branching models
+	// because sibling-branch frames with nonzero DoF occupy slots between
+	// chain frames in the BFS-ordered input array.
+	// An offset of -1 indicates a mimic frame whose input is derived at runtime.
+	for i, chainFrame := range m.transformChain {
 		dof := len(chainFrame.DoF())
+		offset := m.transformChainInputOffsets[i]
 
 		switch frame := chainFrame.(type) {
 		case *staticFrame:
@@ -366,9 +482,15 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(frame.transform.(*spatialmath.DualQuaternion).Number),
 			}
 		case *rotationalFrame:
-			frameInputs := inputs[posIdx : posIdx+dof]
-			if err := frame.validInputs(frameInputs); err != nil {
-				return &composedTransformation, err
+			var frameInputs []Input
+			if offset == -1 {
+				mm := m.mimicMappings[chainFrame.Name()]
+				frameInputs = []Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset}
+			} else {
+				frameInputs = inputs[offset : offset+dof]
+				if err := frame.validInputs(frameInputs); err != nil {
+					return &composedTransformation, err
+				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
 			pose := &spatialmath.DualQuaternion{
@@ -384,8 +506,11 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			var err error
 			if dof == 0 {
 				pose, err = chainFrame.Transform(emptyInputs)
+			} else if offset == -1 {
+				mm := m.mimicMappings[chainFrame.Name()]
+				pose, err = chainFrame.Transform([]Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset})
 			} else {
-				pose, err = chainFrame.Transform(inputs[posIdx : posIdx+dof])
+				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
 				return &composedTransformation, err
@@ -394,8 +519,6 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
 			}
 		}
-
-		posIdx += dof
 	}
 
 	return &composedTransformation, nil
@@ -452,14 +575,25 @@ func (m *SimpleModel) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 		return nil, err
 	}
 
+	// Inject derived inputs for mimic frames so the FrameSystem can compute their geometries.
+	// forkSchema so the Put calls below don't mutate the model's shared input schema.
+	if len(m.mimicMappings) > 0 {
+		li.forkSchema()
+	}
+	for frameName, mm := range m.mimicMappings {
+		derived := mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset
+		li.Put(frameName, []Input{derived})
+	}
+
 	allGeomsMap, err := FrameSystemGeometriesLinearInputs(m.internalFS, li)
 	if err != nil && len(allGeomsMap) == 0 {
 		return nil, err
 	}
 
+	// Collect geometries from all frames in the FS (not just schema-order) to include mimic frames.
 	geometries := make([]spatialmath.Geometry, 0)
-	for _, frame := range m.framesInOrder() {
-		gif, ok := allGeomsMap[frame.Name()]
+	for _, name := range m.internalFS.FrameNames() {
+		gif, ok := allGeomsMap[name]
 		if !ok {
 			continue
 		}
@@ -527,6 +661,8 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = newModel.primaryOutputFrame
 		m.inputSchema = newModel.inputSchema
 		m.transformChain = newModel.transformChain
+		m.transformChainInputOffsets = newModel.transformChainInputOffsets
+		m.mimicMappings = newModel.mimicMappings
 	} else if ser.InternalFS != nil {
 		// This happens if Model is nil. Model may be nil if we overrode model limits, or constructed directly from frames/framesystem.
 		rebuilt, err := NewModel(frameName, ser.InternalFS, ser.PrimaryOutputFrame)
@@ -537,6 +673,7 @@ func (m *SimpleModel) UnmarshalJSON(data []byte) error {
 		m.primaryOutputFrame = rebuilt.primaryOutputFrame
 		m.inputSchema = rebuilt.inputSchema
 		m.transformChain = rebuilt.transformChain
+		m.transformChainInputOffsets = rebuilt.transformChainInputOffsets
 		m.limits = rebuilt.limits
 	} else {
 		fs := NewEmptyFrameSystem(frameName)

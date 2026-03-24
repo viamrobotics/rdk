@@ -10,19 +10,19 @@ import (
 	"fmt"
 	"image"
 	"strings"
-	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/camera/v1"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
@@ -73,6 +73,13 @@ func Named(name string) resource.Name {
 	return resource.NewName(API, name)
 }
 
+// ExtrinsicParams define the position and orientation of the camera
+// relative to a reference frame (the world or another sensor).
+type ExtrinsicParams struct {
+	Translation r3.Vector
+	Orientation spatialmath.Orientation
+}
+
 // Properties is a lookup for a camera's features and settings.
 type Properties struct {
 	// SupportsPCD indicates that the Camera supports a valid
@@ -81,8 +88,37 @@ type Properties struct {
 	ImageType        ImageType
 	IntrinsicParams  *transform.PinholeCameraIntrinsics
 	DistortionParams transform.Distorter
+	ExtrinsicParams  *ExtrinsicParams
 	MimeTypes        []string
 	FrameRate        float32
+}
+
+// PointToPixel projects a 3D point to a 2D pixel coordinate.
+// If extrinsic parameters are set, the point is first transformed from the depth/reference
+// frame into the camera's coordinate frame, then projected to a pixel using intrinsics.
+func (p *Properties) PointToPixel(pt r3.Vector) (float64, float64, error) {
+	if p.IntrinsicParams == nil {
+		return 0, 0, errors.New("camera properties has no intrinsic parameters")
+	}
+
+	if p.ExtrinsicParams != nil {
+		if !spatialmath.IsDefaultOrientation(p.ExtrinsicParams.Orientation) {
+			// Extrinsics represent the camera's pose in the reference frame.
+			// To transform a point from the reference frame to the camera frame,
+			// we apply the inverse of the extrinsic pose.
+			extrinsicPose := spatialmath.NewPose(p.ExtrinsicParams.Translation, p.ExtrinsicParams.Orientation)
+			extrinsicInverse := spatialmath.PoseInverse(extrinsicPose)
+			pointPose := spatialmath.NewPoseFromPoint(pt)
+			transformed := spatialmath.Compose(extrinsicInverse, pointPose)
+			pt = transformed.Point()
+		} else {
+			// Just translation - subtract the camera's position to transform point to camera frame
+			pt = pt.Sub(p.ExtrinsicParams.Translation)
+		}
+	}
+
+	px, py := p.IntrinsicParams.PointToPixel(pt.X, pt.Y, pt.Z)
+	return px, py, nil
 }
 
 // NamedImage is a struct that associates the source from where the image came from to the Image.
@@ -172,13 +208,6 @@ func (ni *NamedImage) MimeType() string {
 	return ni.mimeType
 }
 
-// ImageMetadata contains useful information about returned image bytes such as its mimetype
-// and any annotations associated with the image.
-type ImageMetadata struct {
-	MimeType    string
-	Annotations data.Annotations
-}
-
 // A Camera is a resource that can capture frames.
 // For more information, see the [camera component docs].
 //
@@ -215,9 +244,6 @@ type Camera interface {
 	resource.Resource
 	resource.Shaped
 
-	// Deprecated: Please utilize Images instead.
-	Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error)
-
 	// Images is used for getting simultaneous images from different imagers from 3D cameras along with associated metadata,
 	// and single images from non-3D cameras e.g. webcams, RTSP cameras etc. in the NamedImage list response.
 	// It is not for getting a time series of images from the same imager.
@@ -251,110 +277,6 @@ func DecodeImageFromCamera(ctx context.Context, cam Camera, filterSourceNames []
 		return nil, fmt.Errorf("could not decode into image.Image: %w", err)
 	}
 	return img, nil
-}
-
-// GetImageFromGetImages is a utility function to implement Image from an already-implemented Images method.
-// It returns a byte slice and ImageMetadata, which is the same response signature as the Image method.
-//
-// If sourceName is nil, it returns the first image in the response slice.
-// If sourceName is not nil, it returns the image with the matching source name.
-// If no image is found with the matching source name, it returns an error.
-//
-// It uses the mimeType from the NamedImage to encode the bytes.
-// The extra parameter is passed through to the underlying Images method.
-// Deprecated: This helper will be removed when Image method is fully removed.
-func GetImageFromGetImages(
-	ctx context.Context,
-	sourceName *string,
-	cam Camera,
-	extra map[string]interface{},
-	filterSourceNames []string,
-) ([]byte, ImageMetadata, error) {
-	sourceNames := []string{}
-	if sourceName != nil {
-		sourceNames = append(sourceNames, *sourceName)
-	}
-	namedImages, _, err := cam.Images(ctx, sourceNames, extra)
-	if err != nil {
-		return nil, ImageMetadata{}, fmt.Errorf("could not get images from camera: %w", err)
-	}
-	if len(namedImages) == 0 {
-		return nil, ImageMetadata{}, errors.New("no images returned from camera")
-	}
-
-	var img image.Image
-	var mimeType string
-	var annotations data.Annotations
-	if sourceName == nil {
-		img, err = namedImages[0].Image(ctx)
-		if err != nil {
-			return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
-		}
-		mimeType = namedImages[0].MimeType()
-		annotations = namedImages[0].Annotations
-	} else {
-		for _, i := range namedImages {
-			if i.SourceName == *sourceName {
-				img, err = i.Image(ctx)
-				if err != nil {
-					return nil, ImageMetadata{}, fmt.Errorf("could not get image from named image: %w", err)
-				}
-				mimeType = i.MimeType()
-				annotations = i.Annotations
-				break
-			}
-		}
-		if img == nil {
-			return nil, ImageMetadata{}, errors.New("no image found with source name: " + *sourceName)
-		}
-	}
-
-	if img == nil {
-		return nil, ImageMetadata{}, errors.New("image is nil")
-	}
-
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, ImageMetadata{}, fmt.Errorf("could not encode image with encoding %s: %w", mimeType, err)
-	}
-	return imgBytes, ImageMetadata{MimeType: mimeType, Annotations: annotations}, nil
-}
-
-// GetImagesFromGetImage will be deprecated after RSDK-11726.
-// It is a utility function to quickly implement GetImages from an already-implemented GetImage method.
-// It takes a mimeType, extra parameters, and a camera as args, and returns a slice of NamedImage and ResponseMetadata,
-// which is the same response signature as the Images method. We use the mimeType arg to specify
-// how to decode the image bytes returned from GetImage. The extra parameter is passed through to the underlying GetImage method.
-// Source name is empty string always.
-// It returns a slice of NamedImage of length 1 and ResponseMetadata, with empty string as the source name.
-// Deprecated: This helper will be removed when Image method is fully removed.
-func GetImagesFromGetImage(
-	ctx context.Context,
-	mimeType string,
-	cam Camera,
-	logger logging.Logger,
-	extra map[string]interface{},
-) ([]NamedImage, resource.ResponseMetadata, error) {
-	resBytes, resMetadata, err := cam.Image(ctx, mimeType, extra)
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not get image bytes from camera: %w", err)
-	}
-	if len(resBytes) == 0 {
-		return nil, resource.ResponseMetadata{}, errors.New("received empty bytes from camera")
-	}
-
-	resMimetype, _ := utils.CheckLazyMIMEType(resMetadata.MimeType)
-	reqMimetype, _ := utils.CheckLazyMIMEType(mimeType)
-	if resMimetype != reqMimetype {
-		logger.Warnf("requested mime type %s, but received %s", mimeType, resMimetype)
-	}
-
-	namedImg, err := NamedImageFromBytes(resBytes, "", resMetadata.MimeType, resMetadata.Annotations)
-	if err != nil {
-		return nil, resource.ResponseMetadata{}, fmt.Errorf("could not create named image: %w", err)
-	}
-
-	return []NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 }
 
 // VideoSource is a camera that has `Stream` embedded to directly integrate with gostream.

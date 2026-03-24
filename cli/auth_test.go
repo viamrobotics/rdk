@@ -18,7 +18,7 @@ import (
 func TestLoginAction(t *testing.T) {
 	cCtx, ac, out, errOut := setup(nil, nil, nil, nil, "token")
 
-	test.That(t, ac.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, ac.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 1)
 	test.That(t, out.messages[0], test.ShouldContainSubstring,
@@ -55,7 +55,8 @@ func TestAPIKeyCreateAction(t *testing.T) {
 	}
 	cCtx, ac, out, errOut := setup(asc, nil, nil, map[string]any{"org-id": "my-org"}, "token")
 
-	test.That(t, ac.organizationsAPIKeyCreateAction(cCtx, parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	orgKeyArgs := parseStructFromCtx[organizationsAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.organizationsAPIKeyCreateAction(context.Background(), cCtx, orgKeyArgs), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 8)
 	test.That(t, strings.Join(out.messages, ""), test.ShouldContainSubstring, "id-xxx")
@@ -82,7 +83,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagName] = "my-name"
 	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
 
-	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	test.That(t, ac.robotAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, len(out.messages), test.ShouldEqual, 6)
 	test.That(t, out.messages[1], test.ShouldContainSubstring, "Successfully created key")
@@ -94,7 +95,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	cCtx.Set(generalFlagName, "")
 	test.That(t, cCtx.Value(generalFlagName), test.ShouldEqual, "")
 
-	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	test.That(t, ac.robotAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, strings.Join(out.messages, " "), test.ShouldContainSubstring, "using default key name of")
 
@@ -102,7 +103,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	cCtx.Set(generalFlagOrgID, "")
 	test.That(t, cCtx.Value(generalFlagOrgID), test.ShouldEqual, "")
 
-	test.That(t, ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	test.That(t, ac.robotAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 
 	allMessages := strings.Join(out.messages, " ")
@@ -115,7 +116,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	// test without a robot ID should fail
 	cCtx.Set(generalFlagMachineID, "")
 	test.That(t, cCtx.Value(generalFlagMachineID), test.ShouldEqual, "")
-	err := ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
+	err := ac.robotAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a machine without an ID")
@@ -136,7 +137,7 @@ func TestRobotAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagOrgID] = ""
 	flags[generalFlagName] = "test-me"
 	cCtx, ac, out, _ = setup(asc, nil, nil, flags, "token")
-	err = ac.robotAPIKeyCreateAction(cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
+	err = ac.robotAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[robotAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, len(out.messages), test.ShouldEqual, 0)
@@ -163,14 +164,15 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	flags[generalFlagName] = "" // testing no locationID
 
 	cCtx, ac, out, errOut := setup(asc, nil, nil, flags, "token")
-	err := ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
+	err := ac.locationAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot create an api-key for a location without an ID")
 
 	cCtx.Set(generalFlagLocationID, fakeLocID)
 	// will create an api-key with a default name
-	test.That(t, ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	locKeyArgs := parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, locKeyArgs), test.ShouldBeNil)
 	allMessages := strings.Join(out.messages, " ")
 
 	test.That(t, allMessages, test.ShouldContainSubstring, "using default key name of ")
@@ -181,7 +183,8 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 	// test with an orgID is fine
 	cCtx.Set(generalFlagOrgID, fakeOrgID)
 	test.That(t, ac.c.Value(generalFlagOrgID), test.ShouldNotBeEmpty)
-	test.That(t, ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)), test.ShouldBeNil)
+	locKeyArgsWithOrg := parseStructFromCtx[locationAPIKeyCreateArgs](cCtx)
+	test.That(t, ac.locationAPIKeyCreateAction(context.Background(), cCtx, locKeyArgsWithOrg), test.ShouldBeNil)
 	allMessages = strings.Join(out.messages, " ")
 
 	test.That(t, allMessages, test.ShouldContainSubstring, "Successfully created key")
@@ -205,7 +208,7 @@ func TestLocationAPIKeyCreateAction(t *testing.T) {
 
 	cCtx, ac, _, _ = setup(asc, nil, nil, flags, "token")
 
-	err = ac.locationAPIKeyCreateAction(cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
+	err = ac.locationAPIKeyCreateAction(context.Background(), cCtx, parseStructFromCtx[locationAPIKeyCreateArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		fmt.Sprintf("cannot create api-key for location: %s as there are multiple orgs on the location", fakeLocID))

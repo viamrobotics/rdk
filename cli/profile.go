@@ -1,11 +1,12 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // CLI profiles allow a user to run commands with a specific API key without having to
@@ -58,7 +59,7 @@ func writeProfiles(profiles map[string]profile) error {
 	return os.WriteFile(getCLIProfilesPath(), md, 0o640)
 }
 
-func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool) error {
+func addOrUpdateProfile(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs, isAdd bool) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -104,18 +105,18 @@ func addOrUpdateProfile(c *cli.Context, args addOrUpdateProfileArgs, isAdd bool)
 		}
 	}
 
-	printf(c.App.Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
+	printf(cmd.Root().Writer, "Successfully %s profile %s", addOrUpdate, args.ProfileName)
 	return nil
 }
 
 // AddProfileAction adds a new CLI profile.
-func AddProfileAction(c *cli.Context, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(c, args, true)
+func AddProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
+	return addOrUpdateProfile(ctx, cmd, args, true)
 }
 
 // UpdateProfileAction updates an existing CLI profile, or adds it if it doesn't already exist.
-func UpdateProfileAction(c *cli.Context, args addOrUpdateProfileArgs) error {
-	return addOrUpdateProfile(c, args, false)
+func UpdateProfileAction(ctx context.Context, cmd *cli.Command, args addOrUpdateProfileArgs) error {
+	return addOrUpdateProfile(ctx, cmd, args, false)
 }
 
 type removeProfileArgs struct {
@@ -140,7 +141,7 @@ func whichProfile(args *globalArgs) (*string, bool) {
 }
 
 // RemoveProfileAction removes a CLI profile.
-func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
+func RemoveProfileAction(ctx context.Context, cmd *cli.Command, args removeProfileArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		return err
@@ -156,20 +157,20 @@ func RemoveProfileAction(c *cli.Context, args removeProfileArgs) error {
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully deleted profile %s", args.ProfileName)
+	printf(cmd.Root().Writer, "Successfully deleted profile %s", args.ProfileName)
 
 	return nil
 }
 
 // ListProfilesAction lists all currently supported profiles.
-func ListProfilesAction(c *cli.Context, args emptyArgs) error {
+func ListProfilesAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
 	profiles, err := getProfiles()
 	if err != nil {
 		return err
 	}
 
 	for p := range profiles {
-		printf(c.App.Writer, p)
+		printf(cmd.Root().Writer, p)
 	}
 
 	return nil

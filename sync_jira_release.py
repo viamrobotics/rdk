@@ -185,17 +185,21 @@ def set_fix_version_and_close(ticket_key, version_id):
     
     transitions = response.json().get("transitions", [])
     close_transition = next(
-        (t for t in transitions if t["name"].lower() == "closed"),
+        (t for t in transitions if t.get("to", {}).get("name", "").lower() == "closed"),
         None
     )
-    
+
     if not close_transition:
-        print(f"⚠️  No 'Closed' transition for {ticket_key}")
+        available = [f"{t['name']} → {t.get('to', {}).get('name', '?')}" for t in transitions]
+        print(f"⚠️  No transition to 'Closed' status for {ticket_key}. Available: {available}")
         return False
-    
-    # Step 3: Transition to Closed
+
+    # Step 3: Transition to Closed with Resolution "Done"
     payload = {
-        "transition": {"id": close_transition["id"]}
+        "transition": {"id": close_transition["id"]},
+        "fields": {
+            "resolution": {"name": "Done"}
+        }
     }
     
     response = requests.post(

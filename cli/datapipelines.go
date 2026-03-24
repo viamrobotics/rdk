@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
 	pb "go.viam.com/api/app/data/v1"
@@ -43,11 +43,11 @@ type datapipelineListArgs struct {
 }
 
 // DatapipelineListAction lists all data pipelines for an organization.
-func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
+func DatapipelineListAction(ctx context.Context, cmd *cli.Command, args datapipelineListArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to list data pipelines")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func DatapipelineListAction(c *cli.Context, args datapipelineListArgs) error {
 			enabled = "Disabled"
 		}
 		dataSourceType := dataSourceTypeMap[*pipeline.DataSourceType]
-		printf(c.App.Writer, "\t%s (ID: %s) [%s] [Data Source Type: %s]", pipeline.Name, pipeline.Id, enabled, dataSourceType)
+		printf(cmd.Root().Writer, "\t%s (ID: %s) [%s] [Data Source Type: %s]", pipeline.Name, pipeline.Id, enabled, dataSourceType)
 	}
 
 	return nil
@@ -82,11 +82,11 @@ type datapipelineCreateArgs struct {
 }
 
 // DatapipelineCreateAction creates a new data pipeline.
-func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error {
+func DatapipelineCreateAction(ctx context.Context, cmd *cli.Command, args datapipelineCreateArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a data pipeline")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func DatapipelineCreateAction(c *cli.Context, args datapipelineCreateArgs) error
 		return fmt.Errorf("error creating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (ID: %s) created.", args.Name, resp.GetId())
+	printf(cmd.Root().Writer, "%s (ID: %s) created.", args.Name, resp.GetId())
 
 	return nil
 }
@@ -124,8 +124,8 @@ type datapipelineRenameArgs struct {
 }
 
 // DatapipelineRenameAction renames an existing data pipeline.
-func DatapipelineRenameAction(c *cli.Context, args datapipelineRenameArgs) error {
-	client, err := newViamClient(c)
+func DatapipelineRenameAction(ctx context.Context, cmd *cli.Command, args datapipelineRenameArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func DatapipelineRenameAction(c *cli.Context, args datapipelineRenameArgs) error
 		return fmt.Errorf("error updating data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "%s (id: %s) renamed.", args.Name, args.ID)
+	printf(cmd.Root().Writer, "%s (id: %s) renamed.", args.Name, args.ID)
 	return nil
 }
 
@@ -147,8 +147,8 @@ type datapipelineDeleteArgs struct {
 }
 
 // DatapipelineDeleteAction deletes a data pipeline.
-func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error {
-	client, err := newViamClient(c)
+func DatapipelineDeleteAction(ctx context.Context, cmd *cli.Command, args datapipelineDeleteArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func DatapipelineDeleteAction(c *cli.Context, args datapipelineDeleteArgs) error
 		return fmt.Errorf("error deleting data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "data pipeline (id: %s) deleted.", args.ID)
+	printf(cmd.Root().Writer, "data pipeline (id: %s) deleted.", args.ID)
 	return nil
 }
 
@@ -169,8 +169,8 @@ type datapipelineDescribeArgs struct {
 }
 
 // DatapipelineDescribeAction describes a data pipeline and its status.
-func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) error {
-	client, err := newViamClient(c)
+func DatapipelineDescribeAction(ctx context.Context, cmd *cli.Command, args datapipelineDescribeArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -194,34 +194,34 @@ func DatapipelineDescribeAction(c *cli.Context, args datapipelineDescribeArgs) e
 
 	mql, err := mqlJSON(pipeline.GetMqlBinary())
 	if err != nil {
-		warningf(c.App.Writer, "error parsing MQL query: %s", err)
+		warningf(cmd.Root().Writer, "error parsing MQL query: %s", err)
 		mql = "(error parsing MQL query)"
 	}
 
-	printf(c.App.Writer, "ID: %s", pipeline.GetId())
-	printf(c.App.Writer, "Name: %s", pipeline.GetName())
-	printf(c.App.Writer, "Enabled: %t", pipeline.GetEnabled())
-	printf(c.App.Writer, "Schedule: %s", pipeline.GetSchedule())
-	printf(c.App.Writer, "MQL query: %s", mql)
-	printf(c.App.Writer, "DataSourceType: %s", pipeline.GetDataSourceType())
+	printf(cmd.Root().Writer, "ID: %s", pipeline.GetId())
+	printf(cmd.Root().Writer, "Name: %s", pipeline.GetName())
+	printf(cmd.Root().Writer, "Enabled: %t", pipeline.GetEnabled())
+	printf(cmd.Root().Writer, "Schedule: %s", pipeline.GetSchedule())
+	printf(cmd.Root().Writer, "MQL query: %s", mql)
+	printf(cmd.Root().Writer, "DataSourceType: %s", pipeline.GetDataSourceType())
 
 	if len(runs) > 0 {
 		r := runs[0]
 
-		printf(c.App.Writer, "Last run:")
-		printf(c.App.Writer, "  Status: %s", pipelineRunStatusMap[r.GetStatus()])
-		printf(c.App.Writer, "  Started: %s", r.GetStartTime().AsTime().Format(time.RFC3339))
-		printf(c.App.Writer, "  Data range: [%s, %s]",
+		printf(cmd.Root().Writer, "Last run:")
+		printf(cmd.Root().Writer, "  Status: %s", pipelineRunStatusMap[r.GetStatus()])
+		printf(cmd.Root().Writer, "  Started: %s", r.GetStartTime().AsTime().Format(time.RFC3339))
+		printf(cmd.Root().Writer, "  Data range: [%s, %s]",
 			r.GetDataStartTime().AsTime().Format(time.RFC3339),
 			r.GetDataEndTime().AsTime().Format(time.RFC3339))
 		if r.GetEndTime() != nil {
-			printf(c.App.Writer, "  Ended: %s", r.GetEndTime().AsTime().Format(time.RFC3339))
+			printf(cmd.Root().Writer, "  Ended: %s", r.GetEndTime().AsTime().Format(time.RFC3339))
 		}
 		if r.GetErrorMessage() != "" {
-			printf(c.App.Writer, "  Error: %s", r.GetErrorMessage())
+			printf(cmd.Root().Writer, "  Error: %s", r.GetErrorMessage())
 		}
 	} else {
-		printf(c.App.Writer, "Has not run yet.")
+		printf(cmd.Root().Writer, "Has not run yet.")
 	}
 
 	return nil
@@ -232,8 +232,8 @@ type datapipelineEnableArgs struct {
 }
 
 // DatapipelineEnableAction enables a data pipeline.
-func DatapipelineEnableAction(c *cli.Context, args datapipelineEnableArgs) error {
-	client, err := newViamClient(c)
+func DatapipelineEnableAction(ctx context.Context, cmd *cli.Command, args datapipelineEnableArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func DatapipelineEnableAction(c *cli.Context, args datapipelineEnableArgs) error
 		return fmt.Errorf("error enabling data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "data pipeline (id: %s) enabled.", args.ID)
+	printf(cmd.Root().Writer, "data pipeline (id: %s) enabled.", args.ID)
 	return nil
 }
 
@@ -254,8 +254,8 @@ type datapipelineDisableArgs struct {
 }
 
 // DatapipelineDisableAction disables a data pipeline.
-func DatapipelineDisableAction(c *cli.Context, args datapipelineDisableArgs) error {
-	client, err := newViamClient(c)
+func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datapipelineDisableArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func DatapipelineDisableAction(c *cli.Context, args datapipelineDisableArgs) err
 		return fmt.Errorf("error disabling data pipeline: %w", err)
 	}
 
-	printf(c.App.Writer, "data pipeline (id: %s) disabled.", args.ID)
+	printf(cmd.Root().Writer, "data pipeline (id: %s) disabled.", args.ID)
 	return nil
 }
 

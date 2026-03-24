@@ -14,8 +14,9 @@ import (
 // If you use an injected frame system, do not also create the system's default frame system as well.
 type FrameSystemService struct {
 	framesystem.Service
-	name        resource.Name
-	GetPoseFunc func(
+	name                  resource.Name
+	FrameSystemConfigFunc func(ctx context.Context) (*framesystem.Config, error)
+	GetPoseFunc           func(
 		ctx context.Context,
 		componentName, destinationFrame string,
 		supplementalTransforms []*referenceframe.LinkInFrame,
@@ -56,6 +57,14 @@ func NewFrameSystemService(name string) *FrameSystemService {
 // Name returns the name of the resource.
 func (fs *FrameSystemService) Name() resource.Name {
 	return fs.name
+}
+
+// FrameSystemConfig calls the injected FrameSystemConfig or the real variant.
+func (fs *FrameSystemService) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
+	if fs.FrameSystemConfigFunc == nil {
+		return fs.Service.FrameSystemConfig(ctx)
+	}
+	return fs.FrameSystemConfigFunc(ctx)
 }
 
 // GetPose calls the injected GetPose or the real variant.

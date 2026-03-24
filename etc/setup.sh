@@ -161,9 +161,9 @@ do_brew(){
 	brew "node@18", link: true, conflicts_with: ["node"]
 
 	# unpinned
-	brew "canon"
+	brew "viamrobotics/brews/canon"
 	brew "pkg-config"
-	brew "nlopt-static"
+	brew "viamrobotics/brews/nlopt-static"
 	brew "x264", args: ["build-from-source"]
 	brew "ffmpeg"
 	brew "licensefinder"

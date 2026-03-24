@@ -60,6 +60,7 @@ func realMain() error {
 	forceMotion := flag.Bool("force-move", false, "")
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
+	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 
 	flag.Parse()
 
@@ -180,6 +181,34 @@ func realMain() error {
 			return err
 		}
 		mylog.Printf("extra plan took %v", time.Since(ss))
+	}
+
+	if *tryManySeeds > 1 {
+		minDistance := 10000.0
+		maxDistance := 0.0
+
+		for i := 1; i < *tryManySeeds; i++ {
+			req.PlannerOptions.RandomSeed = i
+			seedPlan, _, err := armplanning.PlanMotion(ctx, logger, req)
+			if err != nil {
+				return fmt.Errorf("planning for seed %d failed %w", i, err)
+			}
+
+			seedTotalL2 := 0.0
+			t := seedPlan.Trajectory()
+			for idx := 1; idx < len(t); idx++ {
+				for k := range t[idx] {
+					myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+					seedTotalL2 += myl2n
+				}
+			}
+
+			minDistance = min(minDistance, seedTotalL2)
+			maxDistance = max(maxDistance, seedTotalL2)
+
+			mylog.Printf("tryManySeeds seed %4d: traj_len=%d l2=%0.4f", i, len(t), seedTotalL2)
+		}
+		mylog.Printf("tryManySeeds result min: %0.2f max:%0.2f", minDistance, maxDistance)
 	}
 
 	relevantParts := []string{}
@@ -497,6 +526,9 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("-  If there were no IK solutions that satisfied constraints,",
 				"this will list the configuration for each failed solution.")
 			logger.Println()
+			logger.Println("sg, show goals")
+			logger.Println("-  show the goals in viz tool")
+			logger.Println()
 			logger.Println("re, render error <number>")
 			logger.Println("-  Renders the configuration of a failed solution.")
 			logger.Println()
@@ -533,6 +565,27 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					idxCounter++
 				}
 			}
+		case cmd == "show goals" || cmd == "sg":
+			for gi, goalPlanState := range req.Goals {
+				poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
+				if err != nil {
+					return err
+				}
+				for pi, poseValue := range poses {
+					poseInWorldFrame := poseValue.Transform(
+						referenceframe.NewPoseInFrame(
+							req.FrameSystem.World().Name(),
+							spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					sphere, err := spatialmath.NewSphere(poseInWorldFrame.Pose(), 10, fmt.Sprintf("goal-%d-%v", gi, pi))
+					if err != nil {
+						return err
+					}
+					if err := viz.DrawGeometry(sphere, "blue"); err != nil {
+						return err
+					}
+				}
+			}
+
 		case strings.HasPrefix(cmd, "render error ") || strings.HasPrefix(cmd, "re "):
 			pieces := strings.Split(cmd, " ")
 			errorNumberStr := pieces[len(pieces)-1]

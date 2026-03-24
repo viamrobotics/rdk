@@ -66,10 +66,8 @@ func TestCollectors(t *testing.T) {
 			collector: slam.NewPointCloudMapCollector,
 			datatype:  data.CaptureTypeBinary,
 			expected: []*datasyncpb.SensorData{{
-				Metadata: &datasyncpb.SensorMetadata{
-					MimeType: datasyncpb.MimeType_MIME_TYPE_APPLICATION_PCD,
-				},
-				Data: &datasyncpb.SensorData_Binary{Binary: pcd},
+				Metadata: &datasyncpb.SensorMetadata{},
+				Data:     &datasyncpb.SensorData_Binary{Binary: pcd},
 			}},
 			slam: newSlamService(pcdPath),
 		},

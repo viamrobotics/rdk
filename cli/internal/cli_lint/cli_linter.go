@@ -142,13 +142,13 @@ func enforceLocationOptionalRun(pass *analysis.Pass) (any, error) {
 	return enforceFlagOptionalRun(pass, isLocationType, "location")
 }
 
-var enforceCreateCommandWithT = &analysis.Analyzer{
-	Name: "createcommandwitht",
-	Doc:  "Enforces CreateCommandWithT usage in the CLI codebase",
-	Run:  enforceCreateCommandWithTRun,
+var enforceCreateActionCommandWithT = &analysis.Analyzer{
+	Name: "createactioncommandwitht",
+	Doc:  "Enforces createActionCommandWithT usage in the CLI codebase",
+	Run:  enforceCreateActionCommandWithTRun,
 }
 
-func enforceCreateCommandWithTRun(pass *analysis.Pass) (any, error) {
+func enforceCreateActionCommandWithTRun(pass *analysis.Pass) (any, error) {
 	var commandType types.Type
 
 	for _, pkg := range pass.Pkg.Imports() {
@@ -187,7 +187,8 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (any, error) {
 				key := keyValue.Key.(*ast.Ident)
 
 				// "Action", "Before", and "After" are the three types of CLI actions for which
-				// `createCommandWithT` was designed
+				// `createActionCommandWithT` was designed. "Before" uses `createBeforeCommandWithT`
+				// because BeforeFunc returns (context.Context, error) instead of just error.
 				if key.Name == "Action" || key.Name == "Before" ||
 					key.Name == "After" {
 					callExpr, isCallExpr := keyValue.Value.(*ast.CallExpr)
@@ -197,7 +198,7 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (any, error) {
 						pass.Report(analysis.Diagnostic{
 							Pos:     keyValue.Pos(),
 							End:     keyValue.End(),
-							Message: "must use createCommandWithT when constructing a CLI action",
+							Message: "must use createActionCommandWithT when constructing a CLI action",
 						})
 						return true
 					}
@@ -211,12 +212,16 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (any, error) {
 						return true
 					}
 
-					if funcIdent.Name != "createCommandWithT" {
+					allowedFunc := "createActionCommandWithT"
+					if key.Name == "Before" {
+						allowedFunc = "createBeforeCommandWithT"
+					}
+					if funcIdent.Name != allowedFunc {
 						// some other func was used to generate the action
 						pass.Report(analysis.Diagnostic{
 							Pos:     funcIdent.Pos(),
 							End:     funcIdent.End(),
-							Message: "must use createCommandWithT when constructing a CLI action",
+							Message: "must use createActionCommandWithT when constructing a CLI action",
 						})
 					}
 				}
@@ -229,5 +234,5 @@ func enforceCreateCommandWithTRun(pass *analysis.Pass) (any, error) {
 }
 
 func main() {
-	multichecker.Main(enforceOrgOptional, enforceLocationOptional, enforceCreateCommandWithT)
+	multichecker.Main(enforceOrgOptional, enforceLocationOptional, enforceCreateActionCommandWithT)
 }
