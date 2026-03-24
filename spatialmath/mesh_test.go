@@ -834,6 +834,28 @@ func TestMeshConservativeDecimate(t *testing.T) {
 	test.That(t, encompassed, test.ShouldBeTrue)
 }
 
+func TestMeshConservativeDecimateIsDeterministic(t *testing.T) {
+	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
+	original := &Mesh{
+		pose:      NewZeroPose(),
+		triangles: triangles,
+		label:     "dense",
+		fileType:  plyType,
+	}
+
+	// Decimate multiple times and verify identical output each time.
+	first, err := original.ConservativeDecimate(200)
+	test.That(t, err, test.ShouldBeNil)
+	firstBytes := first.TrianglesToPLYBytes(false)
+
+	for i := 0; i < 10; i++ {
+		again, err := original.ConservativeDecimate(200)
+		test.That(t, err, test.ShouldBeNil)
+		againBytes := again.TrianglesToPLYBytes(false)
+		test.That(t, againBytes, test.ShouldResemble, firstBytes)
+	}
+}
+
 func TestMeshConservativeDecimateNoop(t *testing.T) {
 	mesh := makeSimpleTriangleMesh().(*Mesh)
 	decimated, err := mesh.ConservativeDecimate(2000)
