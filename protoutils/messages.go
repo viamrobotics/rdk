@@ -38,8 +38,6 @@ func MetadataFromProto(pbMetadata *robotpb.GetCloudMetadataResponse) cloud.Metad
 // MetadataToProto converts a Metadata its proto counterpart.
 func MetadataToProto(metadata cloud.Metadata) *robotpb.GetCloudMetadataResponse {
 	return &robotpb.GetCloudMetadataResponse{
-		// TODO: RSDK-7181 remove RobotPartId
-		RobotPartId:   metadata.MachinePartID, // Deprecated: Duplicates MachinePartId,
 		MachinePartId: metadata.MachinePartID,
 		MachineId:     metadata.MachineID,
 		PrimaryOrgId:  metadata.PrimaryOrgID,

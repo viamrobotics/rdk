@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/framesystem"
 	genericservice "go.viam.com/rdk/services/generic"
 )
@@ -248,6 +249,11 @@ func (h *helper) DoCommand(ctx context.Context, req map[string]interface{}) (map
 	case "get_trace_id":
 		traceID := trace.FromContext(ctx).SpanContext().TraceID().String()
 		return map[string]any{"trace_id": traceID}, nil
+	case "get_viam_client_info":
+		if clientInfo, ok := client.GetViamClientInfo(ctx); ok {
+			return map[string]any{"viam_client_info": clientInfo}, nil
+		}
+		return nil, fmt.Errorf("no viam client info in ctx")
 	default:
 		return nil, fmt.Errorf("unknown command string %s", cmd)
 	}

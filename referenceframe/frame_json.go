@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/golang/geo/r3"
@@ -28,6 +29,23 @@ type LinkConfig struct {
 	Parent      string                     `json:"parent,omitempty"`
 }
 
+// MimicConfig describes a mimic joint relationship where this joint's position is derived
+// from another joint: position = valueMultiplier * source_position + valueOffset.
+// A ValueMultiplier of 0 is treated as 1.0 (the default).
+type MimicConfig struct {
+	Joint           string  `json:"joint"`
+	ValueMultiplier float64 `json:"multiplier,omitempty"`
+	ValueOffset     float64 `json:"offset,omitempty"`
+}
+
+// EffectiveMultiplier returns the multiplier value, defaulting to 1.0 when zero.
+func (mc *MimicConfig) EffectiveMultiplier() float64 {
+	if mc.ValueMultiplier == 0 {
+		return 1.0
+	}
+	return mc.ValueMultiplier
+}
+
 // JointConfig is a frame with nonzero DOF. Supports rotational or translational.
 type JointConfig struct {
 	ID       string                  `json:"id"`
@@ -37,6 +55,7 @@ type JointConfig struct {
 	Max      float64                 `json:"max"`                // in mm or degs
 	Min      float64                 `json:"min"`                // in mm or degs
 	Geometry *spatial.GeometryConfig `json:"geometry,omitempty"` // only valid for prismatic/translational joints
+	Mimic    *MimicConfig            `json:"mimic,omitempty"`
 }
 
 // DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.
@@ -127,13 +146,24 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 
 // ToFrame converts a JointConfig into a joint frame.
 func (cfg *JointConfig) ToFrame() (Frame, error) {
+	var limit Limit
 	switch cfg.Type {
 	case RevoluteJoint:
-		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(),
-			Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
+		limit = Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}
 	case PrismaticJoint:
-		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis),
-			Limit{Min: cfg.Min, Max: cfg.Max})
+		limit = Limit{Min: cfg.Min, Max: cfg.Max}
+	default:
+		return nil, NewUnsupportedJointTypeError(cfg.Type)
+	}
+	// Mimic joints are driven by their source joint and have no independent limits.
+	if cfg.Mimic != nil {
+		limit = Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	}
+	switch cfg.Type {
+	case RevoluteJoint:
+		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit)
+	case PrismaticJoint:
+		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
 	default:
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}

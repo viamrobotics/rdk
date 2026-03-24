@@ -247,7 +247,7 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 	if err != nil {
 		return nil, err
 	}
-	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src}), nil
+	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src, nil}), nil
 }
 
 // TransformToDQ is like `Transform` except it outputs a `DualQuaternion` that can be converted into

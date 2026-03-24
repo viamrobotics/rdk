@@ -79,7 +79,7 @@ func TestTraceGetRemote(t *testing.T) {
 		cCtx, viamClient, _, _ := setupWithRunningPart(
 			t, asc, nil, nil, testPartFlags, "token", partFqdn)
 		test.That(t,
-			viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
+			viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 			test.ShouldNotBeNil)
 
 		entries, err := os.ReadDir(tempDir)
@@ -111,7 +111,7 @@ func TestTraceGetRemote(t *testing.T) {
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, testFlags, "token", partFqdn)
 			test.That(t,
-				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, false, true, logger),
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, false, true, logger),
 				test.ShouldBeNil)
 
 			contents, err := os.ReadFile(filepath.Join(output, "traces"))
@@ -125,7 +125,7 @@ func TestTraceGetRemote(t *testing.T) {
 			cCtx, viamClient, _, _ := setupWithRunningPart(
 				t, asc, nil, nil, testFlags, "token", partFqdn)
 			test.That(t,
-				viamClient.tracesGetRemoteAction(cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, parseStructFromCtx[traceGetRemoteArgs](cCtx), output, true, true, logger),
 				test.ShouldBeNil)
 
 			contents, err := os.ReadDir(output)

@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	packagespb "go.viam.com/api/app/packages/v1"
 	"go.viam.com/utils"
@@ -52,13 +52,13 @@ type packageExportArgs struct {
 }
 
 // PackageExportAction is the corresponding action for 'package export'.
-func PackageExportAction(c *cli.Context, args packageExportArgs) error {
-	client, err := newViamClient(c)
+func PackageExportAction(ctx context.Context, cmd *cli.Command, args packageExportArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.packageExportAction(args.OrgID, args.Name, args.Version, args.Type, args.Destination)
+	return client.packageExportAction(ctx, args.OrgID, args.Name, args.Version, args.Type, args.Destination)
 }
 
 func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, error) {
@@ -83,7 +83,7 @@ func convertPackageTypeToProto(packageType string) (*packagespb.PackageType, err
 	return &packageTypeProto, nil
 }
 
-func (c *viamClient) getPackageDownloadURL(orgID, name, version, packageType string) (string, error) {
+func (c *viamClient) getPackageDownloadURL(ctx context.Context, orgID, name, version, packageType string) (string, error) {
 	if orgID == "" || name == "" {
 		if orgID != "" || name != "" {
 			return "", fmt.Errorf("if either of %s or %s is missing, both must be missing", generalFlagOrgID, generalFlagName)
@@ -101,7 +101,7 @@ func (c *viamClient) getPackageDownloadURL(orgID, name, version, packageType str
 		return "", err
 	}
 
-	resp, err := c.packageClient.GetPackage(c.c.Context,
+	resp, err := c.packageClient.GetPackage(ctx,
 		&packagespb.GetPackageRequest{
 			Id:         packageID,
 			Version:    version,
@@ -115,13 +115,13 @@ func (c *viamClient) getPackageDownloadURL(orgID, name, version, packageType str
 	return resp.GetPackage().GetUrl(), nil
 }
 
-func (c *viamClient) packageExportAction(orgID, name, version, packageType, destination string) error {
-	packageURL, err := c.getPackageDownloadURL(orgID, name, version, packageType)
+func (c *viamClient) packageExportAction(ctx context.Context, orgID, name, version, packageType, destination string) error {
+	packageURL, err := c.getPackageDownloadURL(ctx, orgID, name, version, packageType)
 	if err != nil {
 		return err
 	}
 
-	_, err = downloadPackageFromURL(c.c.Context, c.authFlow.httpClient, destination, name, version, packageURL, c.conf.Auth)
+	_, err = downloadPackageFromURL(ctx, c.authFlow.httpClient, destination, name, version, packageURL, c.conf.Auth)
 	return err
 }
 
@@ -189,11 +189,11 @@ type packageUploadArgs struct {
 }
 
 // PackageUploadAction is the corresponding action for "packages upload".
-func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
+func PackageUploadAction(ctx context.Context, cmd *cli.Command, args packageUploadArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to upload a package")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -203,11 +203,12 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 		return err
 	}
 
-	if err := validatePackageUploadRequest(c, args); err != nil {
+	if err := validatePackageUploadRequest(cmd, args); err != nil {
 		return err
 	}
 
 	resp, err := client.uploadPackage(
+		ctx,
 		args.OrgID,
 		args.Name,
 		args.Version,
@@ -232,11 +233,12 @@ func PackageUploadAction(c *cli.Context, args packageUploadArgs) error {
 		return err
 	}
 
-	printf(c.App.Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
+	printf(cmd.Root().Writer, "Successfully uploaded package %s, version: %s!", resp.GetId(), resp.GetVersion())
 	return nil
 }
 
 func (c *viamClient) uploadPackage(
+	ctx context.Context,
 	orgID, name, version, packageType, tarballPath string,
 	metadataStruct *structpb.Struct,
 ) (*packagespb.CreatePackageResponse, error) {
@@ -245,7 +247,6 @@ func (c *viamClient) uploadPackage(
 	if err != nil {
 		return nil, err
 	}
-	ctx := c.c.Context
 
 	stream, err := c.packageClient.CreatePackage(ctx)
 	if err != nil {
@@ -278,7 +279,7 @@ func (c *viamClient) uploadPackage(
 	var errs error
 	// We do not add the EOF as an error because all server-side errors trigger an EOF on the stream
 	// This results in extra clutter to the error msg
-	if err := sendUploadRequests(ctx, stream, file, c.c.App.Writer, getNextPackageUploadRequest); err != nil && !errors.Is(err, io.EOF) {
+	if err := sendUploadRequests(ctx, stream, file, c.c.Root().Writer, getNextPackageUploadRequest); err != nil && !errors.Is(err, io.EOF) {
 		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
 	}
 
@@ -316,7 +317,7 @@ func (m *moduleID) ToDetailURL(baseURL string, packageType PackageType) string {
 	return fmt.Sprintf("https://%s/%s/%s/%s", baseURL, strings.ReplaceAll(string(packageType), "_", "-"), m.prefix, m.name)
 }
 
-func validatePackageUploadRequest(_ *cli.Context, args packageUploadArgs) error {
+func validatePackageUploadRequest(_ *cli.Command, args packageUploadArgs) error {
 	packageType := args.Type
 
 	if packageType == "ml_model" {

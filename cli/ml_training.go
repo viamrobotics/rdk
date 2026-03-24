@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	mltrainingpb "go.viam.com/api/app/mltraining/v1"
 	packagespb "go.viam.com/api/app/packages/v1"
@@ -58,11 +58,11 @@ type mlSubmitCustomTrainingJobArgs struct {
 }
 
 // MLSubmitCustomTrainingJob is the corresponding action for 'train submit-custom'.
-func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArgs) error {
+func MLSubmitCustomTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitCustomTrainingJobArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to submit a custom ML training job")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func MLSubmitCustomTrainingJob(c *cli.Context, args mlSubmitCustomTrainingJobArg
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
 }
 
@@ -94,11 +94,11 @@ type mlSubmitCustomTrainingJobWithUploadArgs struct {
 }
 
 // MLSubmitCustomTrainingJobWithUpload is the corresponding action for 'train submit-custom'.
-func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrainingJobWithUploadArgs) error {
+func MLSubmitCustomTrainingJobWithUpload(ctx context.Context, cmd *cli.Command, args mlSubmitCustomTrainingJobWithUploadArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to submit a custom training job with upload")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		return errors.New("model name and script name must be different")
 	}
 
-	resp, err := client.uploadTrainingScript(true, args.ModelType, args.Framework,
+	resp, err := client.uploadTrainingScript(ctx, true, args.ModelType, args.Framework,
 		args.URL, args.OrgID, args.ScriptName, args.Version, args.Path, "private")
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+	printf(cmd.Root().Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
 		"To use your training script in the from-registry command, use %s as the script name", url,
 		registryItemID)
 	trainingJobID, err := client.mlSubmitCustomTrainingJob(
@@ -128,7 +128,7 @@ func MLSubmitCustomTrainingJobWithUpload(c *cli.Context, args mlSubmitCustomTrai
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
 }
 
@@ -155,8 +155,8 @@ type prettyPrintContainer struct {
 }
 
 // MLListContainers is the corresponding action for 'train containers'.
-func MLListContainers(c *cli.Context, args mlListContainersArgs) error {
-	client, err := newViamClient(c)
+func MLListContainers(ctx context.Context, cmd *cli.Command, args mlListContainersArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -183,13 +183,13 @@ func MLListContainers(c *cli.Context, args mlListContainersArgs) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "%s", b)
+	printf(cmd.Root().Writer, "%s", b)
 	return nil
 }
 
 // MLSubmitTrainingJob is the corresponding action for 'train submit'.
-func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
-	client, err := newViamClient(c)
+func MLSubmitTrainingJob(ctx context.Context, cmd *cli.Command, args mlSubmitTrainingJobArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func MLSubmitTrainingJob(c *cli.Context, args mlSubmitTrainingJobArgs) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Submitted training job with ID %s", trainingJobID)
+	printf(cmd.Root().Writer, "Submitted training job with ID %s", trainingJobID)
 	return nil
 }
 
@@ -282,8 +282,8 @@ type dataGetTrainingJobArgs struct {
 }
 
 // DataGetTrainingJob is the corresponding action for 'data train get'.
-func DataGetTrainingJob(c *cli.Context, args dataGetTrainingJobArgs) error {
-	client, err := newViamClient(c)
+func DataGetTrainingJob(ctx context.Context, cmd *cli.Command, args dataGetTrainingJobArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -291,7 +291,7 @@ func DataGetTrainingJob(c *cli.Context, args dataGetTrainingJobArgs) error {
 	if err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Training job: %s", job)
+	printf(cmd.Root().Writer, "Training job: %s", job)
 	return nil
 }
 
@@ -309,8 +309,8 @@ type mlGetTrainingJobLogsArgs struct {
 }
 
 // MLGetTrainingJobLogs is the corresponding action for 'data train logs'.
-func MLGetTrainingJobLogs(c *cli.Context, args mlGetTrainingJobLogsArgs) error {
-	client, err := newViamClient(c)
+func MLGetTrainingJobLogs(ctx context.Context, cmd *cli.Command, args mlGetTrainingJobLogsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -320,10 +320,10 @@ func MLGetTrainingJobLogs(c *cli.Context, args mlGetTrainingJobLogsArgs) error {
 	}
 
 	if len(logs) == 0 {
-		printf(c.App.Writer, "No logs found for job %s", trainFlagJobID)
+		printf(cmd.Root().Writer, "No logs found for job %s", trainFlagJobID)
 	}
 	for _, log := range logs {
-		printf(c.App.Writer, "{\"Timestamp\": \"%s\", \"Level\": \"%s\", \"Message\": \"%s\"}", log.Time.AsTime(), log.Level, log.Message)
+		printf(cmd.Root().Writer, "{\"Timestamp\": \"%s\", \"Level\": \"%s\", \"Message\": \"%s\"}", log.Time.AsTime(), log.Level, log.Message)
 	}
 	return nil
 }
@@ -355,8 +355,8 @@ type dataCancelTrainingJobArgs struct {
 }
 
 // DataCancelTrainingJob is the corresponding action for 'data train cancel'.
-func DataCancelTrainingJob(c *cli.Context, args dataCancelTrainingJobArgs) error {
-	client, err := newViamClient(c)
+func DataCancelTrainingJob(ctx context.Context, cmd *cli.Command, args dataCancelTrainingJobArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func DataCancelTrainingJob(c *cli.Context, args dataCancelTrainingJobArgs) error
 	if err := client.dataCancelTrainingJob(id); err != nil {
 		return err
 	}
-	printf(c.App.Writer, "Successfully sent cancellation request for training job %s", id)
+	printf(cmd.Root().Writer, "Successfully sent cancellation request for training job %s", id)
 	return nil
 }
 
@@ -383,11 +383,11 @@ type dataListTrainingJobsArgs struct {
 }
 
 // DataListTrainingJobs is the corresponding action for 'data train list'.
-func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
+func DataListTrainingJobs(ctx context.Context, cmd *cli.Command, args dataListTrainingJobsArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to list training jobs")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -396,7 +396,7 @@ func DataListTrainingJobs(c *cli.Context, args dataListTrainingJobsArgs) error {
 		return err
 	}
 	for _, job := range jobs {
-		printf(c.App.Writer, "Training job: %s\n", job)
+		printf(cmd.Root().Writer, "Training job: %s\n", job)
 	}
 	return nil
 }
@@ -451,16 +451,16 @@ type mlTrainingUploadArgs struct {
 }
 
 // MLTrainingUploadAction uploads a new custom training script.
-func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
+func MLTrainingUploadAction(ctx context.Context, cmd *cli.Command, args mlTrainingUploadArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to upload an ML training package")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	_, err = client.uploadTrainingScript(args.Draft, args.Type,
+	_, err = client.uploadTrainingScript(ctx, args.Draft, args.Type,
 		args.Framework, args.URL, args.OrgID, args.ScriptName,
 		args.Version, args.Path, args.Visibility,
 	)
@@ -473,13 +473,15 @@ func MLTrainingUploadAction(c *cli.Context, args mlTrainingUploadArgs) error {
 		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
+	printf(cmd.Root().Writer, "Version successfully uploaded! you can view your changes online here: %s. \n"+
 		"To use your training script in the from-registry command, use %s:%s as the script name", url,
 		moduleID.prefix, moduleID.name)
 	return nil
 }
 
-func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url, orgID, name, version, path, visibility string) (
+func (c *viamClient) uploadTrainingScript(
+	ctx context.Context, draft bool, modelType, framework, url, orgID, name, version, path, visibility string,
+) (
 	*packagespb.CreatePackageResponse, error,
 ) {
 	metadata, err := createMetadata(draft, modelType, framework, url, visibility)
@@ -491,7 +493,7 @@ func (c *viamClient) uploadTrainingScript(draft bool, modelType, framework, url,
 		return nil, err
 	}
 
-	resp, err := c.uploadPackage(orgID,
+	resp, err := c.uploadPackage(ctx, orgID,
 		name,
 		version,
 		string(PackageTypeMLTraining),
@@ -513,16 +515,16 @@ type mlTrainingUpdateArgs struct {
 }
 
 // MLTrainingUpdateAction updates the visibility of training scripts.
-func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
+func MLTrainingUpdateAction(ctx context.Context, cmd *cli.Command, args mlTrainingUpdateArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to update an ML training package")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	err = client.updateTrainingScript(args.OrgID, args.ScriptName,
+	err = client.updateTrainingScript(ctx, args.OrgID, args.ScriptName,
 		args.Visibility, args.Description, args.URL,
 	)
 	if err != nil {
@@ -534,14 +536,14 @@ func MLTrainingUpdateAction(c *cli.Context, args mlTrainingUpdateArgs) error {
 		name:   args.ScriptName,
 	}
 	url := moduleID.ToDetailURL(client.baseURL.Hostname(), PackageTypeMLTraining)
-	printf(c.App.Writer, "Training script successfully updated! you can view your changes online here: %s", url)
+	printf(cmd.Root().Writer, "Training script successfully updated! you can view your changes online here: %s", url)
 	return nil
 }
 
-func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, url string) error {
+func (c *viamClient) updateTrainingScript(ctx context.Context, orgID, name, visibility, description, url string) error {
 	// Get registry item
 	itemID := fmt.Sprintf("%s:%s", orgID, name)
-	resp, err := c.client.GetRegistryItem(c.c.Context, &v1.GetRegistryItemRequest{
+	resp, err := c.client.GetRegistryItem(ctx, &v1.GetRegistryItemRequest{
 		ItemId: itemID,
 	})
 	if err != nil {
@@ -566,7 +568,7 @@ func (c *viamClient) updateTrainingScript(orgID, name, visibility, description, 
 		stringURL = nil
 	}
 	// Update registry item
-	if _, err = c.client.UpdateRegistryItem(c.c.Context, &v1.UpdateRegistryItemRequest{
+	if _, err = c.client.UpdateRegistryItem(ctx, &v1.UpdateRegistryItemRequest{
 		ItemId:      itemID,
 		Type:        resp.GetItem().GetType(),
 		Description: updatedDescription,
@@ -697,8 +699,8 @@ type mlTrainingScriptTestLocalArgs struct {
 }
 
 // MLTrainingScriptTestLocalAction runs training locally in a Docker container.
-func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLocalArgs) error {
-	client, err := newViamClient(c)
+func MLTrainingScriptTestLocalAction(ctx context.Context, cmd *cli.Command, args mlTrainingScriptTestLocalArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -749,18 +751,18 @@ func MLTrainingScriptTestLocalAction(c *cli.Context, args mlTrainingScriptTestLo
 	defer stop()
 
 	//nolint:gosec
-	cmd := exec.CommandContext(ctx, "docker", dockerArgs...)
-	cmd.Stdout = c.App.Writer
-	cmd.Stderr = c.App.ErrWriter
+	execCmd := exec.CommandContext(ctx, "docker", dockerArgs...)
+	execCmd.Stdout = cmd.Root().Writer
+	execCmd.Stderr = cmd.Root().ErrWriter
 
-	warningf(c.App.ErrWriter, "If this is your first time running training, "+
+	warningf(cmd.Root().ErrWriter, "If this is your first time running training, "+
 		"it may take a few minutes to download the container image. "+
 		"This is normal and will not affect the training process.")
 
-	if err := cmd.Run(); err != nil {
+	if err := execCmd.Run(); err != nil {
 		// Check if the command was interrupted
 		if ctx.Err() == context.Canceled {
-			printf(c.App.Writer, "\nTraining interrupted by user")
+			printf(cmd.Root().Writer, "\nTraining interrupted by user")
 			return errors.New("training interrupted")
 		}
 
@@ -982,7 +984,7 @@ func getContainerImageURI(c *viamClient, version string) (string, error) {
 
 	container, ok := res.ContainerMap[version]
 	if !ok {
-		warningf(c.c.App.ErrWriter, "Container version %s not found. Supported versions: %s. "+
+		warningf(c.c.Root().ErrWriter, "Container version %s not found. Supported versions: %s. "+
 			"Attempting to use provided value as container URI: %s", version, strings.Join(containerKeyList, ", "), version)
 		return version, nil
 	}
