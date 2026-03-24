@@ -367,7 +367,7 @@ func TestMoreMLDetectors(t *testing.T) {
 
 	gotDetections, err = gotDetector(ctx, pic)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(gotDetections), test.ShouldEqual, 3)
+	test.That(t, len(gotDetections), test.ShouldEqual, 2)
 	test.That(t, gotDetections[0].Score(), test.ShouldBeGreaterThan, minConf)
 
 	// then add label filter

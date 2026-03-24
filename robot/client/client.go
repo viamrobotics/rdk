@@ -1496,6 +1496,7 @@ func ViamClientInfoUnaryServerInterceptor(
 	values := meta.Get(viamClientInfoMetadataKey)
 	if len(values) == 1 {
 		ctx = context.WithValue(ctx, viamClientInfoKeyID, values[0])
+		ctx = metadata.AppendToOutgoingContext(ctx, viamClientInfoMetadataKey, values[0])
 	}
 
 	return handler(ctx, req)

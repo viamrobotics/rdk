@@ -8,6 +8,8 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/vision"
 )
 
 // Detector returns a slice of object detections from an input image.
@@ -45,11 +47,13 @@ type Detection interface {
 // NewDetection creates a simple 2D detection.
 func NewDetection(imageBounds, boundingBox image.Rectangle, score float64, label string) Detection {
 	normBbox := NewNormalizedBoundingBox(imageBounds, boundingBox)
+	score = vision.NormalizeScore(score)
 	return &detection2D{boundingBox, normBbox, score, label}
 }
 
 // NewDetectionWithoutImgBounds creates a simple 2D detection.
 func NewDetectionWithoutImgBounds(boundingBox image.Rectangle, score float64, label string) Detection {
+	score = vision.NormalizeScore(score)
 	return &detection2D{boundingBox, nil, score, label}
 }
 

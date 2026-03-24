@@ -93,13 +93,11 @@ void Generator::header_prefix() {
 
     const char* fmt =
         R"--(
-class {0} : public viam::sdk::{1}, public viam::sdk::Reconfigurable {{
+class {0} : public viam::sdk::{1} {{
 public:
     {0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg);
 
     static std::vector<std::string> validate(const viam::sdk::ResourceConfig& cfg);
-
-    void reconfigure(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg) override;
 
 )--";
 
@@ -121,7 +119,7 @@ namespace {1} {
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
     : {1}(cfg.name()) {{
-    this->reconfigure(deps, cfg);
+    throw std::runtime_error("constructor not implemented");
 }
 
 )--";
@@ -129,10 +127,6 @@ namespace {1} {
              << llvm::formatv(R"--(
 std::vector<std::string> {0}::validate(const viam::sdk::ResourceConfig& cfg) {{
     throw std::runtime_error("\"validate\" not implemented");
-}
-
-void {0}::reconfigure(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg) {{
-    throw std::runtime_error("\"reconfigure\" not implemented");
 }
 
 )--",
@@ -146,7 +140,6 @@ const char* Generator::include_fmt<Generator::ResourceType::component>() {
 #include <viam/sdk/{0}>
 #include <viam/sdk/config/resource.hpp>
 #include <viam/sdk/module/service.hpp>
-#include <viam/sdk/resource/reconfigurable.hpp>
 
 )--";
 
@@ -159,7 +152,6 @@ const char* Generator::include_fmt<Generator::ResourceType::service>() {
 #include <viam/sdk/common/proto_value.hpp>
 #include <viam/sdk/config/resource.hpp>
 #include <viam/sdk/module/service.hpp>
-#include <viam/sdk/resource/reconfigurable.hpp>
 #include <viam/sdk/{0}>
 
 )--";
@@ -406,7 +398,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
 
 class {0}Recipe(ConanFile):
-    name = "{0}"
+    name = "{1}"
     version = "0.1"
     package_type = "application"
 
@@ -445,8 +437,9 @@ class {0}Recipe(ConanFile):
         cmake.install()
 
     def requirements(self):
-        self.requires("viam-cpp-sdk/{1}")
+        self.requires("viam-cpp-sdk/{2}")
 )--",
+                             fmt_str::modulePascal,
                              fmt_str::moduleName,
                              fmt_str::sdkVersion);
 }

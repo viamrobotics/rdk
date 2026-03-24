@@ -116,7 +116,7 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 	armKinematics, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), armName)
 	test.That(t, err, test.ShouldBeNil)
 
-	gripperFrame, err := referenceframe.NewStaticFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{10, 10, 10}))
+	gripperFrame, err := referenceframe.NewStaticFrame("gripper", spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 100}))
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("gripper", func(t *testing.T) {
@@ -132,16 +132,16 @@ func TestSmartSeedCacheFrames(t *testing.T) {
 
 		f, p, err := c.findMovingInfo(
 			referenceframe.FrameSystemInputs{
-				"arm": []referenceframe.Input{0, 0, 0, 0, 0, 0},
+				"arm": []referenceframe.Input{0, 1, 0, 1, 0, 1},
 			}.ToLinearInputs(),
 			"gripper",
-			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{})),
+			referenceframe.NewPoseInFrame("world", spatialmath.NewPose(r3.Vector{}, &spatialmath.OrientationVectorDegrees{OX: 1})),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f, test.ShouldEqual, "arm")
-		test.That(t, p.Point().X, test.ShouldAlmostEqual, 10)
-		test.That(t, p.Point().Y, test.ShouldAlmostEqual, -10)
-		test.That(t, p.Point().Z, test.ShouldAlmostEqual, 10)
+		test.That(t, p.Point().X, test.ShouldAlmostEqual, -100)
+		test.That(t, p.Point().Y, test.ShouldAlmostEqual, 0)
+		test.That(t, p.Point().Z, test.ShouldAlmostEqual, 0)
 	})
 }
 

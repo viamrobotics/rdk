@@ -290,6 +290,35 @@ func TestGenerateModuleAction(t *testing.T) {
 		}
 	})
 
+	t.Run("test check version", func(t *testing.T) {
+		checkPython := func(output string) error {
+			return checkVersionCompatible(output, "Python", minPythonVersion)
+		}
+		checkGo := func(output string) error {
+			return checkVersionCompatible(output, "Go", minGoVersion)
+		}
+
+		// supported versions
+		test.That(t, checkPython("Python 4.0.0\n"), test.ShouldBeNil)
+		test.That(t, checkGo("go version go1.24.0 linux/amd64\n"), test.ShouldBeNil)
+
+		// unsupported versions
+		err := checkPython("Python 3.8.10\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "3.8")
+		test.That(t, err.Error(), test.ShouldContainSubstring, ">= "+minPythonVersion)
+
+		err = checkGo("go version go1.22.5 darwin/arm64\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "1.22")
+		test.That(t, err.Error(), test.ShouldContainSubstring, ">= "+minGoVersion)
+
+		// unparseable output
+		err = checkPython("not a version\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot parse")
+	})
+
 	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {
 		// Build combined set directly from available + excluded resources
 		combinedSet := make(map[string]bool)
