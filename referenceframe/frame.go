@@ -899,20 +899,25 @@ func clone(f Frame) (Frame, error) {
 // geometryProxyFrame is a 0-DoF frame that acts as a proxy for a geometry on an arm model.
 // It allows components and world state obstacles/transforms to be parented to intermediate
 // arm geometries (e.g. "myArm:upper_arm_link"). At transform time, the proxy resolves its
-// pose by looking up the owning model's geometry pose.
+// pose by computing the referenced geometry's position from the owning model's internal FS.
+//
+// This is analogous to how mimic frames derive their input from a source frame — the proxy
+// derives its transform from the owning model's joint state rather than having its own DoF.
 type geometryProxyFrame struct {
 	*baseFrame
-	ownerModelName string // e.g. "myArm"
-	geometryLabel  string // unqualified label, e.g. "upper_arm_link"
+	ownerModelName string       // e.g. "myArm"
+	geometryLabel  string       // unqualified label, e.g. "upper_arm_link"
+	ownerModel     *SimpleModel // set during NewFrameSystem; nil after deserialization
 }
 
 // newGeometryProxyFrame creates a new geometry proxy frame.
 // qualifiedName is the full name (e.g. "myArm:upper_arm_link").
-func newGeometryProxyFrame(qualifiedName, ownerModelName, geometryLabel string) *geometryProxyFrame {
+func newGeometryProxyFrame(qualifiedName, ownerModelName, geometryLabel string, model *SimpleModel) *geometryProxyFrame {
 	return &geometryProxyFrame{
 		baseFrame:      &baseFrame{name: qualifiedName, limits: []Limit{}},
 		ownerModelName: ownerModelName,
 		geometryLabel:  geometryLabel,
+		ownerModel:     model,
 	}
 }
 
@@ -924,12 +929,32 @@ func (gpf *geometryProxyFrame) Hash() int {
 	return h
 }
 
-// Transform returns the identity pose. The actual resolution happens in composeTransforms.
+// Transform returns the identity pose. The actual geometry resolution happens via
+// resolveTransform, which is called by composeTransforms with the model's inputs.
 func (gpf *geometryProxyFrame) Transform(input []Input) (spatial.Pose, error) {
 	if len(input) != 0 {
 		return nil, NewIncorrectDoFError(len(input), 0)
 	}
 	return spatial.NewZeroPose(), nil
+}
+
+// resolveTransform computes the pose of the referenced geometry in the owning model's
+// base frame coordinates, by calling the model's Geometries method and finding the
+// matching geometry by name.
+func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Pose, error) {
+	if gpf.ownerModel == nil {
+		return nil, fmt.Errorf("geometry proxy %q has no model reference (deserialized without re-linking?)", gpf.Name())
+	}
+	geoms, err := gpf.ownerModel.Geometries(modelInputs)
+	if err != nil {
+		return nil, err
+	}
+	qualifiedLabel := gpf.ownerModelName + ":" + gpf.geometryLabel
+	geom := geoms.GeometryByName(qualifiedLabel)
+	if geom == nil {
+		return nil, fmt.Errorf("geometry %q not found on model %q during transform", gpf.geometryLabel, gpf.ownerModelName)
+	}
+	return geom.Pose(), nil
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.

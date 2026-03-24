@@ -158,6 +158,20 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 				}
 			}
 
+			// Extract the *SimpleModel for the proxy's resolveTransform method.
+			var ownerSimpleModel *SimpleModel
+			switch m := ownerFrame.(type) {
+			case *SimpleModel:
+				ownerSimpleModel = m
+			case *namedFrame:
+				if sm, isSM := m.Frame.(*SimpleModel); isSM {
+					ownerSimpleModel = sm
+				}
+			}
+			if ownerSimpleModel == nil {
+				return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use qualified parent %q", componentName, parent)
+			}
+
 			// Validate that the geometry label exists on this model.
 			zeroInputs := make([]Input, len(ownerModel.DoF()))
 			geoms, err := ownerModel.Geometries(zeroInputs)
@@ -173,7 +187,7 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 			// Create the proxy frame if not already created.
 			if !createdProxies[parent] {
-				proxy := newGeometryProxyFrame(parent, componentName, subFrameName)
+				proxy := newGeometryProxyFrame(parent, componentName, subFrameName, ownerSimpleModel)
 				// Parent the proxy to the model's _origin frame.
 				originFrame := fs.Frame(componentName + "_origin")
 				if originFrame == nil {
@@ -576,31 +590,11 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		var err error
 
 		if proxy, ok := frame.(*geometryProxyFrame); ok {
-			// Look up the owner model and its inputs to compute the geometry pose.
-			modelFrame := sfs.Frame(proxy.ownerModelName)
-			if modelFrame == nil {
-				return ret, fmt.Errorf("owner model %q not found for geometry proxy %q", proxy.ownerModelName, proxy.Name())
-			}
-			model, isModel := modelFrame.(Model)
-			if !isModel {
-				if nf, isNamed := modelFrame.(*namedFrame); isNamed {
-					model, isModel = nf.Frame.(Model)
-				}
-				if !isModel {
-					return ret, fmt.Errorf("frame %q is not a model, cannot resolve geometry proxy %q", proxy.ownerModelName, proxy.Name())
-				}
-			}
 			modelInputs := linearInputs.Get(proxy.ownerModelName)
-			geoms, gErr := model.Geometries(modelInputs)
-			if gErr != nil {
-				return ret, fmt.Errorf("error computing geometries for %q: %w", proxy.ownerModelName, gErr)
+			pose, err = proxy.resolveTransform(modelInputs)
+			if err != nil {
+				return ret, err
 			}
-			qualifiedLabel := proxy.ownerModelName + ":" + proxy.geometryLabel
-			geom := geoms.GeometryByName(qualifiedLabel)
-			if geom == nil {
-				return ret, fmt.Errorf("geometry %q not found on model %q during transform", proxy.geometryLabel, proxy.ownerModelName)
-			}
-			pose = geom.Pose()
 		} else if len(frame.DoF()) == 0 {
 			pose, err = frame.Transform([]Input{})
 			if err != nil {
