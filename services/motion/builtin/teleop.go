@@ -45,12 +45,13 @@ type teleopPipeline struct {
 	lastErr atomic.Pointer[error]
 
 	// Profiling atomics (written by planner/executor, read by status handler).
-	lastInputsNanos  atomic.Int64
-	lastPlanNanos    atomic.Int64
-	lastExecNanos    atomic.Int64
+	lastInputsNanos   atomic.Int64
+	lastPlanNanos     atomic.Int64
+	lastExecNanos     atomic.Int64
 	lastExecWaitNanos atomic.Int64
-	planCount        atomic.Int64
-	execCount        atomic.Int64
+	planCount         atomic.Int64
+	execCount         atomic.Int64
+	interruptCount    atomic.Int64
 
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
@@ -237,51 +238,107 @@ func (tp *teleopPipeline) buildMoveReq(
 	return req
 }
 
+// minExecBeforeInterrupt is the minimum time a trajectory must execute before
+// a newer trajectory is allowed to interrupt it. This prevents thrashing on
+// every controller frame while still allowing fast redirection during sweeps.
+const minExecBeforeInterrupt = 20 * time.Millisecond
+
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
-// and executes them on the arm via ms.execute.
+// and executes them on the arm via ms.execute. Long-running executions can
+// be interrupted mid-motion when a fresher trajectory arrives, allowing the
+// arm to redirect without fully stopping.
 func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 	var lastExecEnd time.Time
 	var totalCycle time.Duration
 	var moveCount int64
+
 	for {
 		waitStart := time.Now()
+		var traj motionplan.Trajectory
 		select {
 		case <-ctx.Done():
 			return
-		case traj := <-tp.trajCh:
-			waitDur := time.Since(waitStart)
-			tp.lastExecWaitNanos.Store(waitDur.Nanoseconds())
+		case traj = <-tp.trajCh:
+			tp.lastExecWaitNanos.Store(time.Since(waitStart).Nanoseconds())
+		}
 
-			execStart := time.Now()
+		// Create cancellable context for this execution.
+		execCtx, cancel := context.WithCancel(ctx)
+
+		// Run execute in a goroutine so we can select on interruption.
+		execDone := make(chan error, 1)
+		go func() {
 			// Skip start-position check (math.MaxFloat64) because the arm
 			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
-			err := ms.execute(ctx, traj, math.MaxFloat64)
+			err := ms.execute(execCtx, traj, math.MaxFloat64)
 			ms.mu.RUnlock()
-			execDur := time.Since(execStart)
-			tp.lastExecNanos.Store(execDur.Nanoseconds())
-			// Includes failed executions; compare with plan_count for pipeline health.
-			tp.execCount.Add(1)
+			execDone <- err
+		}()
 
-			if !lastExecEnd.IsZero() {
-				cycle := time.Since(lastExecEnd)
-				totalCycle += cycle
-				moveCount++
-				avg := totalCycle / time.Duration(moveCount)
-				tp.logger.CInfof(ctx, "teleop executor: wait: %s, execute: %s, cycle: %s, avg cycle: %s (n=%d)",
-					waitDur, execDur, cycle, avg, moveCount)
-			} else {
-				tp.logger.CInfof(ctx, "teleop executor: wait: %s, execute: %s (first move)", waitDur, execDur)
-			}
-			lastExecEnd = time.Now()
+		execStart := time.Now()
+		var err error
+		interrupted := false
 
-			if err != nil {
-				tp.lastErr.Store(&err)
-				tp.logger.CWarnf(ctx, "teleop executor error: %v", err)
-				tp.resetPlanningHead(ctx, ms)
-			} else {
-				tp.lastErr.Store(nil)
+		// Phase 1: Let execution run for at least minExecBeforeInterrupt.
+		// This prevents thrashing on every controller frame.
+		select {
+		case err = <-execDone:
+			cancel()
+			// Completed within the minimum window — normal path.
+		case <-time.After(minExecBeforeInterrupt):
+			// Phase 2: Now allow interruption by a newer trajectory.
+			select {
+			case err = <-execDone:
+				cancel()
+				// Normal completion.
+			case <-tp.trajCh:
+				cancel()         // cancel the in-flight GoToInputs
+				err = <-execDone // wait for execute to actually return
+				interrupted = true
+				// Discard the trajectory we just read — it was planned from
+				// the old planning head, not from where the arm actually is
+				// after interruption. resetPlanningHead will set the correct
+				// position and the planner will re-plan from there (~9ms).
 			}
+		}
+
+		execDur := time.Since(execStart)
+		tp.lastExecNanos.Store(execDur.Nanoseconds())
+		// Includes failed executions; compare with plan_count for pipeline health.
+		tp.execCount.Add(1)
+
+		// Log timing.
+		if !lastExecEnd.IsZero() {
+			cycle := time.Since(lastExecEnd)
+			totalCycle += cycle
+			moveCount++
+			avg := totalCycle / time.Duration(moveCount)
+			tp.logger.CInfof(ctx, "teleop executor: execute: %s, cycle: %s, avg cycle: %s (n=%d)",
+				execDur, cycle, avg, moveCount)
+		} else {
+			tp.logger.CInfof(ctx, "teleop executor: execute: %s (first move)", execDur)
+		}
+		lastExecEnd = time.Now()
+
+		if interrupted {
+			tp.logger.CDebugf(ctx, "teleop executor: interrupted after %s, redirecting", execDur)
+			tp.interruptCount.Add(1)
+			tp.resetPlanningHead(ctx, ms)
+			continue
+		}
+
+		// Normal completion or error.
+		if err != nil {
+			// Parent context cancelled — shutdown.
+			if ctx.Err() != nil {
+				return
+			}
+			tp.lastErr.Store(&err)
+			tp.logger.CWarnf(ctx, "teleop executor error: %v", err)
+			tp.resetPlanningHead(ctx, ms)
+		} else {
+			tp.lastErr.Store(nil)
 		}
 	}
 }
@@ -460,14 +517,16 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		status := map[string]any{
-			"queued_poses":     len(tp.poseCh),
-			"queued_plans":     len(tp.trajCh),
-			"last_inputs_ms":  float64(tp.lastInputsNanos.Load()) / 1e6,
-			"last_plan_ms":    float64(tp.lastPlanNanos.Load()) / 1e6,
-			"last_exec_ms":    float64(tp.lastExecNanos.Load()) / 1e6,
+			"running":           true,
+			"queued_poses":      len(tp.poseCh),
+			"queued_plans":      len(tp.trajCh),
+			"last_inputs_ms":   float64(tp.lastInputsNanos.Load()) / 1e6,
+			"last_plan_ms":     float64(tp.lastPlanNanos.Load()) / 1e6,
+			"last_exec_ms":     float64(tp.lastExecNanos.Load()) / 1e6,
 			"last_exec_wait_ms": float64(tp.lastExecWaitNanos.Load()) / 1e6,
-			"plan_count":      tp.planCount.Load(),
-			"exec_count":      tp.execCount.Load(),
+			"plan_count":       tp.planCount.Load(),
+			"exec_count":       tp.execCount.Load(),
+			"interrupt_count":  tp.interruptCount.Load(),
 		}
 		if lastErr := tp.lastErr.Load(); lastErr != nil {
 			status["error"] = (*lastErr).Error()

@@ -689,7 +689,13 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 				return err
 			}
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
-				// If there is an error on GoToInputs, stop the component if possible before returning the error
+				// If the context was cancelled (e.g. teleop interrupting for a trajectory
+				// redirect), return immediately without stopping the component. The next
+				// GoToInputs call will redirect the arm mid-motion.
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				// Real error — stop the component if possible before returning the error.
 				if actuator, ok := r.(inputEnabledActuator); ok {
 					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
 						return errors.Wrap(err, stopErr.Error())
