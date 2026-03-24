@@ -13,12 +13,12 @@ const (
 )
 
 type setFirebaseConfigArgs struct {
-	OrgID             string
-	BundleID          string
+	OrgID              string
+	AppID              string
 	FirebaseConfigPath string
 }
 
-// SetFirebaseConfigAction uploads a Firebase config JSON for a specific app bundle ID.
+// SetFirebaseConfigAction uploads a Firebase config JSON for a specific app ID.
 func SetFirebaseConfigAction(cCtx *cli.Context, args setFirebaseConfigArgs) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -36,14 +36,13 @@ func SetFirebaseConfigAction(cCtx *cli.Context, args setFirebaseConfigArgs) erro
 
 	_, err = client.client.SetFirebaseConfig(cCtx.Context, &apppb.SetFirebaseConfigRequest{
 		OrgId:      args.OrgID,
-		BundleId:   args.BundleID,
+		AppId:      args.AppID,
 		ConfigJson: string(configJSON),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to set firebase config: %w", err)
 	}
 
-	fmt.Fprintf(cCtx.App.Writer, "Successfully set Firebase config for org %q, bundle %q\n", args.OrgID, args.BundleID)
 	return nil
 }
 
@@ -51,8 +50,8 @@ type readFirebaseConfigArgs struct {
 	OrgID string
 }
 
-// ReadFirebaseConfigAction reads Firebase config metadata for a bundle ID.
-// For security, only the org, bundle ID, and created on date are displayed, not the actual config content.
+// ReadFirebaseConfigAction reads Firebase config metadata for a ID.
+// For security, only the org, ID, and created on date are displayed, not the actual config content.
 func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -72,16 +71,16 @@ func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) er
 
 	fmt.Fprintf(cCtx.App.Writer, "Firebase config found:\n")
 	fmt.Fprintf(cCtx.App.Writer, "  Organization ID: %s\n", args.OrgID)
-	fmt.Fprintf(cCtx.App.Writer, "  Bundle ID:       %s\n", resp.BundleId)
+	fmt.Fprintf(cCtx.App.Writer, "  App ID:       %s\n", resp.AppId)
 	return nil
 }
 
 type deleteFirebaseConfigArgs struct {
-	OrgID    string
-	BundleID string
+	OrgID string
+	AppID string
 }
 
-// DeleteFirebaseConfigAction deletes a Firebase config JSON for a specific app bundle ID.
+// DeleteFirebaseConfigAction deletes a Firebase config JSON for a specific app ID.
 func DeleteFirebaseConfigAction(cCtx *cli.Context, args deleteFirebaseConfigArgs) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -93,13 +92,12 @@ func DeleteFirebaseConfigAction(cCtx *cli.Context, args deleteFirebaseConfigArgs
 	}
 
 	_, err = client.client.DeleteFirebaseConfig(cCtx.Context, &apppb.DeleteFirebaseConfigRequest{
-		OrgId:    args.OrgID,
-		BundleId: args.BundleID,
+		OrgId: args.OrgID,
+		AppId: args.AppID,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to delete firebase config: %w", err)
 	}
 
-	fmt.Fprintf(cCtx.App.Writer, "Successfully deleted Firebase config for org %q, bundle %q\n", args.OrgID, args.BundleID)
 	return nil
 }
