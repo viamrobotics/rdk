@@ -45,12 +45,12 @@ type teleopPipeline struct {
 	lastErr atomic.Pointer[error]
 
 	// Profiling atomics (written by planner/executor, read by status handler).
-	lastInputsNanos  atomic.Int64
-	lastPlanNanos    atomic.Int64
-	lastExecNanos    atomic.Int64
+	lastInputsNanos   atomic.Int64
+	lastPlanNanos     atomic.Int64
+	lastExecNanos     atomic.Int64
 	lastExecWaitNanos atomic.Int64
-	planCount        atomic.Int64
-	execCount        atomic.Int64
+	planCount         atomic.Int64
+	execCount         atomic.Int64
 
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
@@ -460,14 +460,14 @@ func (ms *builtIn) handleTeleopCommand(
 		}
 
 		status := map[string]any{
-			"queued_poses":     len(tp.poseCh),
-			"queued_plans":     len(tp.trajCh),
-			"last_inputs_ms":  float64(tp.lastInputsNanos.Load()) / 1e6,
-			"last_plan_ms":    float64(tp.lastPlanNanos.Load()) / 1e6,
-			"last_exec_ms":    float64(tp.lastExecNanos.Load()) / 1e6,
+			"queued_poses":      len(tp.poseCh),
+			"queued_plans":      len(tp.trajCh),
+			"last_inputs_ms":    float64(tp.lastInputsNanos.Load()) / 1e6,
+			"last_plan_ms":      float64(tp.lastPlanNanos.Load()) / 1e6,
+			"last_exec_ms":      float64(tp.lastExecNanos.Load()) / 1e6,
 			"last_exec_wait_ms": float64(tp.lastExecWaitNanos.Load()) / 1e6,
-			"plan_count":      tp.planCount.Load(),
-			"exec_count":      tp.execCount.Load(),
+			"plan_count":        tp.planCount.Load(),
+			"exec_count":        tp.execCount.Load(),
 		}
 		if lastErr := tp.lastErr.Load(); lastErr != nil {
 			status["error"] = (*lastErr).Error()
