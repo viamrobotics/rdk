@@ -50,8 +50,8 @@ type readFirebaseConfigArgs struct {
 	OrgID string
 }
 
-// ReadFirebaseConfigAction reads Firebase config metadata for a ID.
-// For security, only the org, ID, and created on date are displayed, not the actual config content.
+// ReadFirebaseConfigAction reads Firebase config metadata for an organization.
+// For security, only the organization and app (bundle) ID are displayed, not the config JSON.
 func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) error {
 	client, err := newViamClient(cCtx)
 	if err != nil {
@@ -69,9 +69,8 @@ func ReadFirebaseConfigAction(cCtx *cli.Context, args readFirebaseConfigArgs) er
 		return fmt.Errorf("failed to read firebase config: %w", err)
 	}
 
-	fmt.Fprintf(cCtx.App.Writer, "Firebase config found:\n")
-	fmt.Fprintf(cCtx.App.Writer, "  Organization ID: %s\n", args.OrgID)
-	fmt.Fprintf(cCtx.App.Writer, "  App ID:       %s\n", resp.AppId)
+	printf(cCtx.App.Writer, "Firebase config for organization %q:", args.OrgID)
+	printf(cCtx.App.Writer, "App ID: %q", resp.GetAppId())
 	return nil
 }
 
