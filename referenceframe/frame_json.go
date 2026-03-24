@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 
 	"github.com/golang/geo/r3"
@@ -145,13 +146,24 @@ func (cfg *LinkConfig) Pose() (spatial.Pose, error) {
 
 // ToFrame converts a JointConfig into a joint frame.
 func (cfg *JointConfig) ToFrame() (Frame, error) {
+	var limit Limit
 	switch cfg.Type {
 	case RevoluteJoint:
-		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(),
-			Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)})
+		limit = Limit{Min: utils.DegToRad(cfg.Min), Max: utils.DegToRad(cfg.Max)}
 	case PrismaticJoint:
-		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis),
-			Limit{Min: cfg.Min, Max: cfg.Max})
+		limit = Limit{Min: cfg.Min, Max: cfg.Max}
+	default:
+		return nil, NewUnsupportedJointTypeError(cfg.Type)
+	}
+	// Mimic joints are driven by their source joint and have no independent limits.
+	if cfg.Mimic != nil {
+		limit = Limit{Min: math.Inf(-1), Max: math.Inf(1)}
+	}
+	switch cfg.Type {
+	case RevoluteJoint:
+		return NewRotationalFrame(cfg.ID, cfg.Axis.ParseConfig(), limit)
+	case PrismaticJoint:
+		return NewTranslationalFrame(cfg.ID, r3.Vector(cfg.Axis), limit)
 	default:
 		return nil, NewUnsupportedJointTypeError(cfg.Type)
 	}

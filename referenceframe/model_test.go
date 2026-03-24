@@ -427,11 +427,11 @@ func TestMimicBuildErrors(t *testing.T) {
 			},
 			Joints: []JointConfig{
 				{
-					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1}, Min: -180, Max: 180,
+					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1},
 					Mimic: &MimicConfig{Joint: "j2"},
 				},
 				{
-					ID: "j2", Type: RevoluteJoint, Parent: "j1", Axis: spatial.AxisConfig{0, 0, 1}, Min: -180, Max: 180,
+					ID: "j2", Type: RevoluteJoint, Parent: "j1", Axis: spatial.AxisConfig{0, 0, 1},
 					Mimic: &MimicConfig{Joint: "j1"},
 				},
 			},
@@ -451,7 +451,7 @@ func TestMimicBuildErrors(t *testing.T) {
 			},
 			Joints: []JointConfig{
 				{
-					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1}, Min: -180, Max: 180,
+					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1},
 					Mimic: &MimicConfig{Joint: "nonexistent"},
 				},
 			},

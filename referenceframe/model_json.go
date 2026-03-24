@@ -11,6 +11,9 @@ import (
 // ErrMimicSourceNotFound is returned when a mimic joint references a source joint that doesn't exist.
 var ErrMimicSourceNotFound = errors.New("mimic joint references non-existent source joint")
 
+// ErrMimicWithLimits is returned when a mimic joint specifies its own min/max limits.
+var ErrMimicWithLimits = errors.New("mimic joint must not specify min/max limits; limits are determined by the source joint")
+
 // ErrCircularMimicReference is returned when mimic joint references form a cycle.
 var ErrCircularMimicReference = errors.New("circular mimic joint reference detected")
 
@@ -172,6 +175,9 @@ func buildMimicMappings(joints []JointConfig, fs *FrameSystem) (map[string]*mimi
 	mimicConfigs := map[string]*MimicConfig{}
 	for i := range joints {
 		if joints[i].Mimic != nil {
+			if joints[i].Min != 0 || joints[i].Max != 0 {
+				return nil, fmt.Errorf("%w: joint %q", ErrMimicWithLimits, joints[i].ID)
+			}
 			mimicConfigs[joints[i].ID] = joints[i].Mimic
 		}
 	}

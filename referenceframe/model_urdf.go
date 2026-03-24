@@ -165,6 +165,10 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 					Multiplier: jointElem.Mimic.Multiplier,
 					Offset:     jointElem.Mimic.Offset,
 				}
+				// URDF requires <limit> on revolute/prismatic joints, but limits are
+				// meaningless for mimic joints. Clear them so buildMimicMappings
+				// validation passes; the source joint's limits govern the range.
+				thisJoint.Min, thisJoint.Max = 0, 0
 			}
 			joints = append(joints, thisJoint)
 
