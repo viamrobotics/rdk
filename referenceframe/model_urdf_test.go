@@ -123,7 +123,7 @@ func TestParseURDFFile(t *testing.T) {
 // TestMimicURDF loads a serial arm URDF where joint3 mimics joint1 with multiplier=-1
 // and verifies that the mimic relationship is correctly parsed and applied.
 func TestMimicURDF(t *testing.T) {
-	model, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.urdf"), "")
+	model, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.urdf"), "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "test_mimic_serial_urdf")
 
