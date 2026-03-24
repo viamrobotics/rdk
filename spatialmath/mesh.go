@@ -152,14 +152,13 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		tri := NewTriangle(pts[0], pts[1], pts[2])
 		triangles = append(triangles, tri)
 	}
-	mesh = &Mesh{
+	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-	}
-	return mesh, nil
+	}, nil
 }
 
 func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
@@ -205,14 +204,13 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 
 		triangles[i] = NewTriangle(v1, v2, v3)
 	}
-	mesh := &Mesh{
+	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-	}
-	return mesh, nil
+	}, nil
 }
 
 // readSTLVertex reads a 3D vertex from STL binary data at the given offset.
@@ -229,20 +227,14 @@ func readSTLVertex(data []byte, offset int) r3.Vector {
 
 // NewMeshFromProto creates a new mesh from a protobuf mesh.
 func NewMeshFromProto(pose Pose, m *commonpb.Mesh, label string) (*Mesh, error) {
-	var mesh *Mesh
-	var err error
 	switch m.ContentType {
 	case string(plyType):
-		mesh, err = newMeshFromBytes(pose, m.Mesh, label)
+		return newMeshFromBytes(pose, m.Mesh, label)
 	case string(stlType):
-		mesh, err = newMeshFromSTLBytes(pose, m.Mesh, label)
+		return newMeshFromSTLBytes(pose, m.Mesh, label)
 	default:
 		return nil, fmt.Errorf("unsupported Mesh type: %s", m.ContentType)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return mesh, nil
 }
 
 // SetOriginalFilePath sets the original URDF file path for this mesh.
