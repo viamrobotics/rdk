@@ -59,6 +59,7 @@ func (fs *FrameSystemService) Name() resource.Name {
 	return fs.name
 }
 
+// FrameSystemConfig calls the injected FrameSystemConfig or the real variant.
 func (fs *FrameSystemService) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	if fs.FrameSystemConfigFunc == nil {
 		return fs.Service.FrameSystemConfig(ctx)
