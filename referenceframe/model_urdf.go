@@ -86,7 +86,12 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // triangles to keep for the i-th mesh collision geometry in the URDF (in document order, skipping capsules and
 // non-mesh collisions). Values must be in (0, 1] where 1.0 means no decimation. If nil or shorter than the
 // number of mesh collisions, unspecified meshes are left undecimated.
-func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*commonpb.Mesh, meshDecimationRatios []float64) (*ModelConfigJSON, error) {
+func UnmarshalModelXML(
+	xmlData []byte,
+	modelName string,
+	meshMap map[string]*commonpb.Mesh,
+	meshDecimationRatios []float64,
+) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
