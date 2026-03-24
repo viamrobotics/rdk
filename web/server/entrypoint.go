@@ -296,7 +296,10 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// Only touch the "file" config debug flag if there is no cloud connection.
+	// If the "file" config debug flag is set here when the config has a cloud connection, the flag will never be unset.
+	// Then, logging_level.go/refreshLogLevelInLock will always set the log level to debug even if the cloud config
+	// does not have debug set (because it ORs the file and cloud debug flags).
+	// So, only touch this flag if we do not have a cloud connection.
 	if s.conn == nil {
 		config.UpdateFileConfigDebug(cfg.Debug)
 	}

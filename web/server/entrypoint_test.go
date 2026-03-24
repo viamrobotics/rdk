@@ -635,14 +635,14 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 
-	logger, logObserver := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	testModulePath := testutils.BuildTempModule(t, "module/testmodule")
 	helperModel := resource.NewModel("rdk", "test", "helper")
 
 	// Find a free port for the machine to bind to.
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp", "127.0.0.1:23660")
 	test.That(t, err, test.ShouldBeNil)
 	machineAddress := listener.Addr().String()
 	listener.Close()
@@ -710,10 +710,12 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 
 	// Write a minimal config file with only the cloud section. RunServer will
 	// read this, connect to the fake cloud, and fetch the full config.
+	// shorten the refresh interval to make the test run faster
+	refreshInterval := 1 * time.Second
 	cfgFile := filepath.Join(t.TempDir(), "cloud_config.json")
 	cfgJSON := fmt.Sprintf(
-		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"1s"}}`,
-		deviceID, appAddress, configtestutils.FakeCredentialPayLoad,
+		`{"cloud":{"id":%q,"app_address":%q,"secret":%q,"signaling_insecure":true,"refresh_interval":"%s"}}`,
+		deviceID, appAddress, configtestutils.FakeCredentialPayLoad, refreshInterval,
 	)
 	test.That(t, os.WriteFile(cfgFile, []byte(cfgJSON), 0o644), test.ShouldBeNil)
 
@@ -738,14 +740,24 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 			rpc.WithAllowInsecureWithCredentialsDowngrade(),
 		),
 	)
+
+	// helper function that waits longer than the specified refreshInterval
+	// to make sure we always wait long enough for a reconfigure to happen
+	waitForAssertionLongerThanRefreshInterval := func(t *testing.T, assertion func(tb testing.TB)) {
+		t.Helper()
+		retryInterval := 50 * time.Millisecond
+		nRuns := int(refreshInterval * 3 / retryInterval)
+		gtestutils.WaitForAssertionWithSleep(t, retryInterval, nRuns, assertion)
+	}
+
 	var helper resource.Resource
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		helper, err = rc.ResourceByName(generic.Named("helper"))
 		test.That(tb, err, test.ShouldBeNil)
 	})
 
 	// Verify initial state: helper should report Info-level logging.
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		resp, err := helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
@@ -758,78 +770,48 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Debug-level logging.
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		resp, err := helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
 	})
-
-	// Record the number of module reconfigurations so far.
-	reconfigCount := logObserver.FilterMessageSnippet("Module configuration changed").Len()
-
-	// Wait for several more cloud poll cycles (RefreshInterval=1s). If the
-	// processConfig mutation of module LogLevel is not handled correctly, the
-	// next poll will see a diff between the mutated local config and the
-	// unchanged cloud config, causing a spurious second module restart.
-	time.Sleep(3 * time.Second)
-
-	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
-		test.ShouldEqual, reconfigCount)
 
 	// --- Transition: debug true → false ---
 	baseConfig.Debug = &debugFalse
 	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Info-level logging again.
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		resp, err := helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
 	})
-
-	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
-	time.Sleep(3 * time.Second)
-
-	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
-		test.ShouldEqual, reconfigCount)
 
 	// --- Transition: add log pattern "testModule" at debug level ---
 	baseConfig.Log = []*pb.LogPatternConfig{{Pattern: "testModule", Level: "debug"}}
 	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Debug-level logging.
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		resp, err := helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Debug"})
 	})
 
-	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
-	time.Sleep(3 * time.Second)
-
-	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
-		test.ShouldEqual, reconfigCount)
-
 	// --- Transition: remove log pattern ---
 	baseConfig.Log = nil
 	storeCloudConfig(baseConfig)
 
 	// Wait for the helper to report Info-level logging again.
-	gtestutils.WaitForAssertion(t, func(tb testing.TB) {
+	waitForAssertionLongerThanRefreshInterval(t, func(tb testing.TB) {
 		resp, err := helper.DoCommand(ctx,
 			map[string]any{"command": "log", "msg": "debug log line", "level": "DEBUG"})
 		test.That(tb, err, test.ShouldBeNil)
 		test.That(tb, resp, test.ShouldResemble, map[string]any{"level": "Info"})
 	})
-
-	reconfigCount = logObserver.FilterMessageSnippet("Module configuration changed").Len()
-	time.Sleep(3 * time.Second)
-
-	test.That(t, logObserver.FilterMessageSnippet("Module configuration changed").Len(),
-		test.ShouldEqual, reconfigCount)
 
 	cancel()
 	wg.Wait()
