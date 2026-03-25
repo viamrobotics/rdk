@@ -578,7 +578,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// NewZeroInputs returns a zeroed FrameSystemInputs ensuring all frames have inputs.
+// NewZeroInputs returns a zeroed FrameSystemInputs ensuring all frames have inputs within their limits.
 func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	positions := make(FrameSystemInputs)
 	for _, fn := range fs.FrameNames() {
@@ -590,7 +590,7 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
-// NewNeutralFrameSystemInputs returns a FrameSystemInputs ensuring all frames have inputs.
+// NewNeutralFrameSystemInputs returns a FrameSystemInputs ensuring all frames have inputs within their limits.
 // It is similar to NewZeroInputs but the input values are clamped to be within their valid range.
 // Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
 func NewNeutralFrameSystemInputs(fs *FrameSystem) FrameSystemInputs {
