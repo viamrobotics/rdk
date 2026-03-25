@@ -128,8 +128,8 @@ func UnmarshalModelXML(
 			// If not a capsule, fall back to first collision element
 			if geometry == nil {
 				// Look up per-mesh decimation ratio if this is a mesh collision.
-			// Only mesh geometries support decimation; boxes, spheres, and cylinders are skipped.
-			// meshIndex tracks position in the meshDecimationRatios array across mesh collisions only.
+				// Only mesh geometries support decimation; boxes, spheres, and cylinders are skipped.
+				// meshIndex tracks position in the meshDecimationRatios array across mesh collisions only.
 				decimationRatio := 1.0 // 1.0 = keep all triangles (no decimation)
 				if linkElem.Collision[0].Geometry.Mesh != nil {
 					if meshIndex < len(meshDecimationRatios) {
