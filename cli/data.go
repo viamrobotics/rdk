@@ -635,6 +635,9 @@ func (c *viamClient) downloadSingleBinaryFile(ctx context.Context, dst string, t
 	if err != nil {
 		return err
 	}
+	defer func() {
+		utils.UncheckedError(jsonFile.Close())
+	}()
 	mdJSONBytes, err := protojson.Marshal(metadata)
 	if err != nil {
 		return err
@@ -715,6 +718,9 @@ func (c *viamClient) downloadSingleBinaryFile(ctx context.Context, dst string, t
 	if err != nil {
 		return errors.Wrapf(err, "could not create file for datum %s", id)
 	}
+	defer func() {
+		utils.UncheckedError(dataFile.Close())
+	}()
 
 	if _, err := io.Copy(dataFile, r); err != nil {
 		return err
