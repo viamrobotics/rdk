@@ -3424,7 +3424,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
-					UsageText: createUsageText("module update-models", []string{moduleFlagBinary}, true, false),
+					UsageText: createUsageText("module update-models", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -3433,9 +3433,9 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     moduleFlagBinary,
-							Usage:    "binary for the module to run (has to work on this os/processor)",
-							Required: true,
+							Name:      moduleFlagBinary,
+							Usage:     "binary for the module to run (has to work on this os/processor); if omitted, uses entrypoint from meta.json",
+							TakesFile: true,
 						},
 					},
 					Action: createActionCommandWithT[updateModelsArgs](UpdateModelsAction),

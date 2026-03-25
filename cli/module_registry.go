@@ -403,12 +403,25 @@ type updateModelsArgs struct {
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
 func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
-	newModels, err := readModels(args.Binary, logger)
+
+	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := loadManifest(args.Module)
+	binary := args.Binary
+	if binary == "" {
+		binary = manifest.Entrypoint
+	}
+	if binary == "" {
+		return errors.New("no binary specified: use --binary or set entrypoint in meta.json")
+	}
+	binary, err = filepath.Abs(binary)
+	if err != nil {
+		return err
+	}
+
+	newModels, err := readModels(binary, logger)
 	if err != nil {
 		return err
 	}
