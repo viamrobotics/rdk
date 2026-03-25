@@ -114,7 +114,7 @@ func TestConstraintPath(t *testing.T) {
 		fs,
 		[]spatial.Geometry{}, // moving geometries
 		[]spatial.Geometry{}, // static geometries
-		referenceframe.NewZeroInputs(fs).ToLinearInputs(),
+		referenceframe.NewNeutralLinearInputs(fs),
 		&referenceframe.WorldState{},
 		logger,
 	)
@@ -292,7 +292,7 @@ func TestCollisionConstraints(t *testing.T) {
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
 	test.That(t, err, test.ShouldBeNil)
-	seedMap := referenceframe.NewZeroInputs(fs)
+	seedMap := referenceframe.NewNeutralFrameSystemInputs(fs)
 	handler := &ConstraintChecker{}
 
 	// create robot collision entities
@@ -549,7 +549,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 	fs := referenceframe.NewEmptyFrameSystem("test")
 	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
 	test.That(b, err, test.ShouldBeNil)
-	seedMap := referenceframe.NewZeroInputs(fs)
+	seedMap := referenceframe.NewNeutralFrameSystemInputs(fs)
 	handler := &ConstraintChecker{}
 
 	// create robot collision entities

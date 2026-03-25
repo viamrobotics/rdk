@@ -90,7 +90,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
-	positions := frame.NewZeroLinearInputs(fs)
+	positions := frame.NewNeutralLinearInputs(fs)
 
 	// World point of xArm at 0 position
 	poseWorld1 := spatial.NewPoseFromPoint(r3.Vector{207, 0, 112})
@@ -138,7 +138,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urCamera, modelUR5e)
 
-	positions := frame.NewZeroLinearInputs(fs)
+	positions := frame.NewNeutralLinearInputs(fs)
 
 	poseUR5e := spatial.NewPoseFromPoint(r3.Vector{-717.2, -132.9, 262.8})
 	// Camera translates by 30, gripper is pointed at -Y
