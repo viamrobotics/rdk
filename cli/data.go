@@ -388,12 +388,17 @@ func (c *viamClient) dataExportBinaryIDsAction(ctx context.Context, args dataExp
 	}
 
 	// Download each file via HTTP.
-	for _, datum := range resp.GetData() {
+	data := resp.GetData()
+	if len(data) != len(args.BinaryDataIDs) {
+		return errors.Errorf("expected %d responses for %d files, received %d responses",
+			len(args.BinaryDataIDs), len(args.BinaryDataIDs), len(data))
+	}
+	for _, datum := range data {
 		if err := c.downloadSingleBinaryFile(ctx, args.Destination, args.Timeout, datum); err != nil {
 			return err
 		}
 	}
-	printf(c.c.Root().Writer, "Downloaded %d files", len(resp.GetData()))
+	printf(c.c.Root().Writer, "Downloaded %d files", len(data))
 	return nil
 }
 
