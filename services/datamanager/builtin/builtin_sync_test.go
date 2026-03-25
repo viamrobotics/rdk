@@ -833,16 +833,27 @@ func TestStreamingDCUpload(t *testing.T) {
 			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
+			// Fix the number of sync threads. For 1. consistency when running on different machines
+			// and 2. so we can ensure the file count doesn't exceed it. If there are more files than workers Sync() may block.
+			const numSyncThreads = 2
+			c.MaximumNumSyncThreads = numSyncThreads
 			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Capture an image, then close.
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
+			waitForCaptureFilesToExceedNFiles(tmpDir, numSyncThreads, logger)
 			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			// Get all captured data.
+			// Get all captured data and trim to at most numSyncThreads files
+			// so that Sync won't block on the unbuffered filesToSync channel.
 			filePaths := getAllFilePaths(tmpDir)
+			for len(filePaths) > numSyncThreads {
+				logger.Info("Too many files generated, deleting some to match sync count.")
+				err = os.Remove(filePaths[len(filePaths)-1])
+				test.That(t, err, test.ShouldBeNil)
+				filePaths = filePaths[:len(filePaths)-1]
+			}
 			_, capturedData, err := getCapturedData(filePaths)
 			test.That(t, err, test.ShouldBeNil)
 			t.Logf("capturedData len: %d", len(capturedData))

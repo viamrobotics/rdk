@@ -83,7 +83,16 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
 // The meshMap parameter provides mesh proto messages keyed by URDF file path (e.g., "meshes/base.stl" -> proto Mesh).
-func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*commonpb.Mesh) (*ModelConfigJSON, error) {
+// The meshDecimationRatios parameter controls per-mesh decimation: meshDecimationRatios[i] is the fraction of
+// triangles to keep for the i-th mesh collision geometry in the URDF (in document order, skipping capsules and
+// non-mesh collisions). Values must be in (0, 1] where 1.0 means no decimation. If nil or shorter than the
+// number of mesh collisions, unspecified meshes are left undecimated.
+func UnmarshalModelXML(
+	xmlData []byte,
+	modelName string,
+	meshMap map[string]*commonpb.Mesh,
+	meshDecimationRatios []float64,
+) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
@@ -98,6 +107,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 
 	// Read all links first
 	links := make(map[string]*LinkConfig, 0)
+	meshIndex := 0
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
 		if linkElem.Name == World {
@@ -117,7 +127,17 @@ func UnmarshalModelXML(xmlData []byte, modelName string, meshMap map[string]*com
 
 			// If not a capsule, fall back to first collision element
 			if geometry == nil {
-				geometry, err = linkElem.Collision[0].toGeometry(meshMap)
+				// Look up per-mesh decimation ratio if this is a mesh collision.
+				// Only mesh geometries support decimation; boxes, spheres, and cylinders are skipped.
+				// meshIndex tracks position in the meshDecimationRatios array across mesh collisions only.
+				decimationRatio := 1.0 // 1.0 = keep all triangles (no decimation)
+				if linkElem.Collision[0].Geometry.Mesh != nil {
+					if meshIndex < len(meshDecimationRatios) {
+						decimationRatio = meshDecimationRatios[meshIndex]
+					}
+					meshIndex++
+				}
+				geometry, err = linkElem.Collision[0].toGeometry(meshMap, decimationRatio)
 				if err != nil {
 					return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
 				}
@@ -309,7 +329,7 @@ func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.
 
 // ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
 // It automatically loads mesh files referenced in the URDF from the local filesystem.
-func ParseModelXMLFile(filename, modelName string) (Model, error) {
+func ParseModelXMLFile(filename, modelName string, meshDecimationRatios []float64) (Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
@@ -323,7 +343,7 @@ func ParseModelXMLFile(filename, modelName string) (Model, error) {
 		return nil, errors.Wrap(err, "failed to build mesh map")
 	}
 
-	mc, err := UnmarshalModelXML(xmlData, modelName, meshMap)
+	mc, err := UnmarshalModelXML(xmlData, modelName, meshMap, meshDecimationRatios)
 	if err != nil {
 		return nil, err
 	}

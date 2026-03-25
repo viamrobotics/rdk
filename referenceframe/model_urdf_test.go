@@ -21,7 +21,7 @@ func TestParseCapsuleURDF(t *testing.T) {
 	xmlData, err := os.ReadFile(utils.ResolveFile("referenceframe/testfiles/capsule.urdf"))
 	test.That(t, err, test.ShouldBeNil)
 
-	modelConfig, err := UnmarshalModelXML(xmlData, "capsule_bot", nil)
+	modelConfig, err := UnmarshalModelXML(xmlData, "capsule_bot", nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, modelConfig.Name, test.ShouldEqual, "capsule_bot")
 
@@ -77,7 +77,7 @@ func TestCapsuleWorldStateRoundTrip(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Parse back
-	modelConfig, err := UnmarshalModelXML(xmlBytes, "capsule_test", nil)
+	modelConfig, err := UnmarshalModelXML(xmlBytes, "capsule_test", nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Find the link with the capsule geometry
@@ -99,12 +99,12 @@ func TestCapsuleWorldStateRoundTrip(t *testing.T) {
 
 func TestParseURDFFile(t *testing.T) {
 	// Test a URDF which has prismatic joints
-	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.xml"), "")
+	u, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/example_gantry.xml"), "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(u.DoF()), test.ShouldEqual, 2)
 
 	// Test a URDF will has collision geometries we can evaluate and a DoF of 6
-	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
+	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	model, ok := u.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -115,7 +115,7 @@ func TestParseURDFFile(t *testing.T) {
 	test.That(t, len(modelGeo.Geometries()), test.ShouldEqual, 5) // notably we only have 5 geometries for this model
 
 	// Test naming of a URDF to something other than the robot's name element
-	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo")
+	u, err = ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "foo", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, u.Name(), test.ShouldEqual, "foo")
 }
@@ -123,7 +123,7 @@ func TestParseURDFFile(t *testing.T) {
 // TestMimicURDF loads a serial arm URDF where joint3 mimics joint1 with multiplier=-1
 // and verifies that the mimic relationship is correctly parsed and applied.
 func TestMimicURDF(t *testing.T) {
-	model, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.urdf"), "")
+	model, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.urdf"), "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, model.Name(), test.ShouldEqual, "test_mimic_serial_urdf")
 
@@ -209,7 +209,7 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 	meshMap, err := buildMeshMapFromURDF(xmlData, testfilesDir)
 	test.That(t, err, test.ShouldBeNil)
 
-	modelConfig, err := UnmarshalModelXML(xmlData, "ur20", meshMap)
+	modelConfig, err := UnmarshalModelXML(xmlData, "ur20", meshMap, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	model, err := modelConfig.ParseConfig("ur20")
@@ -251,6 +251,46 @@ func TestUR20URDFWithMeshes(t *testing.T) {
 			}
 		}
 		test.That(t, len(filePaths), test.ShouldEqual, 7)
+	})
+
+	t.Run("meshes are not decimated when no ratios provided", func(t *testing.T) {
+		simpleModel, ok := model.(*SimpleModel)
+		test.That(t, ok, test.ShouldBeTrue)
+		geometries, err := simpleModel.Geometries(make([]Input, 6))
+		test.That(t, err, test.ShouldBeNil)
+		for _, g := range geometries.Geometries() {
+			if m, ok := g.(*spatialmath.Mesh); ok {
+				// Without meshDecimationRatios, meshes should retain original triangle count
+				test.That(t, len(m.Triangles()), test.ShouldBeGreaterThan, 0)
+			}
+		}
+	})
+
+	t.Run("meshes are decimated when ratios provided", func(t *testing.T) {
+		ratio := 0.1
+		ratios := make([]float64, 7) // 7 mesh collisions in UR20
+		for i := range ratios {
+			ratios[i] = ratio
+		}
+		modelConfig2, err := UnmarshalModelXML(xmlData, "ur20", meshMap, ratios)
+		test.That(t, err, test.ShouldBeNil)
+		model2, err := modelConfig2.ParseConfig("ur20")
+		test.That(t, err, test.ShouldBeNil)
+		simpleModel2, ok := model2.(*SimpleModel)
+		test.That(t, ok, test.ShouldBeTrue)
+		geometries2, err := simpleModel2.Geometries(make([]Input, 6))
+		test.That(t, err, test.ShouldBeNil)
+		// Compare against undecimated model to verify decimation occurred
+		undecimatedGeometries, err := model.(*SimpleModel).Geometries(make([]Input, 6))
+		test.That(t, err, test.ShouldBeNil)
+		decimatedGeos := geometries2.Geometries()
+		undecimatedGeos := undecimatedGeometries.Geometries()
+		for i, g := range decimatedGeos {
+			if m, ok := g.(*spatialmath.Mesh); ok {
+				original := undecimatedGeos[i].(*spatialmath.Mesh)
+				test.That(t, len(m.Triangles()), test.ShouldBeLessThan, len(original.Triangles()))
+			}
+		}
 	})
 
 	t.Run("mesh file paths use package URI normalization", func(t *testing.T) {

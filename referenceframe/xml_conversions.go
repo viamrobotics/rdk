@@ -264,7 +264,7 @@ func newCollisionsFromCapsule(g spatialmath.Geometry) ([]*collision, error) {
 	return []*collision{cylCollision, sphere1Collision, sphere2Collision}, nil
 }
 
-func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.Geometry, error) {
+func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh, decimationRatio float64) (spatialmath.Geometry, error) {
 	// Get origin, defaulting to zero pose if not specified (optional in URDF)
 	origin := spatialmath.NewZeroPose()
 	if c.Origin != nil {
@@ -302,6 +302,17 @@ func (c *collision) toGeometry(meshMap map[string]*commonpb.Mesh) (spatialmath.G
 		mesh, err := spatialmath.NewMeshFromProto(origin, protoMesh, "")
 		if err != nil {
 			return nil, err
+		}
+		// Decimate mesh if a decimation ratio in (0, 1) was specified.
+		if decimationRatio > 0 && decimationRatio < 1 {
+			targetTriangles := int(decimationRatio * float64(len(mesh.Triangles())))
+			if targetTriangles < 12 {
+				targetTriangles = 12 // ConservativeDecimate minimum (tessellated AABB)
+			}
+			if decimated, err := mesh.ConservativeDecimate(targetTriangles); err == nil {
+				mesh = decimated
+			}
+			// On error, keep the original undecimated mesh (graceful fallback).
 		}
 		// Store the original mesh path for round-tripping
 		mesh.SetOriginalFilePath(meshPath)
