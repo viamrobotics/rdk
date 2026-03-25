@@ -158,6 +158,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			"Continuing with startup.", rutils.HomeEnvVar, value, rutils.HomeEnvVar)
 		rootLogger.Infof("Updating .viam dir from %v to %v", rutils.ViamDotDir, value)
 		rutils.ViamDotDir = value
+		config.UpdateViamPackagesDir()
 	}
 
 	// log startup info locally if server fails and exits while attempting to start up
