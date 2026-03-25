@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
@@ -625,12 +626,12 @@ func (c *viamClient) downloadSingleBinaryFile(ctx context.Context, dst string, t
 	metadata := datum.GetMetadata()
 	id := metadata.GetBinaryDataId()
 	fileName := filenameForDownload(metadata)
-	// Modify the file name in the metadata to reflect what it will be saved as.
-	metadata.FileName = fileName
 
 	debugf(c.c.Root().Writer, args.Debug, "Downloading binary file %s via HTTP", id)
 
-	// Write metadata JSON.
+	// Write metadata JSON with the resolved filename (without mutating the original proto).
+	mdForJSON := proto.Clone(metadata).(*datapb.BinaryMetadata)
+	mdForJSON.FileName = fileName
 	jsonPath := filepath.Join(dst, metadataDir, fileName+".json")
 	if err := os.MkdirAll(filepath.Dir(jsonPath), 0o700); err != nil {
 		return errors.Wrapf(err, "could not create metadata directory %s", filepath.Dir(jsonPath))
@@ -643,7 +644,7 @@ func (c *viamClient) downloadSingleBinaryFile(ctx context.Context, dst string, t
 	defer func() {
 		utils.UncheckedError(jsonFile.Close())
 	}()
-	mdJSONBytes, err := protojson.Marshal(metadata)
+	mdJSONBytes, err := protojson.Marshal(mdForJSON)
 	if err != nil {
 		return err
 	}
