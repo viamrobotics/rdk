@@ -151,6 +151,10 @@ func PlatformHomeDir() string {
 		return AndroidFilesDir
 	}
 	if runtime.GOOS == "windows" { //nolint:goconst
+		// HOME is not usually set on windows, but prefer it if it is.
+		if homeEnv, found := os.LookupEnv("HOME"); found && homeEnv != "" {
+			return homeEnv
+		}
 		homedir, _ := os.UserHomeDir() //nolint:errcheck
 		if homedir != "" {
 			return homedir
