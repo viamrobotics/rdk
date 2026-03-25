@@ -20,7 +20,7 @@ func main() {
 	logger := logging.NewLogger("client")
 	robot, err := client.New(
 		context.Background(),
-		"localhost:8080",
+		"localhost:8090",
 		logger,
 	)
 	if err != nil {

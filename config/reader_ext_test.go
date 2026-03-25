@@ -30,7 +30,7 @@ func TestFromReaderValidate(t *testing.T) {
 		ConfigFilePath: "somepath",
 		Network: config.NetworkConfig{
 			NetworkConfigData: config.NetworkConfigData{
-				BindAddress:           "localhost:8080",
+				BindAddress:           "localhost:8090",
 				BindAddressDefaultSet: true,
 				Sessions: config.SessionsConfig{
 					HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
@@ -58,7 +58,7 @@ func TestFromReaderValidate(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress:           "localhost:8080",
+			BindAddress:           "localhost:8090",
 			BindAddressDefaultSet: true,
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
@@ -92,7 +92,7 @@ func TestFromReaderEmptyModuleEnvironment(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress:           "localhost:8080",
+			BindAddress:           "localhost:8090",
 			BindAddressDefaultSet: true,
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,

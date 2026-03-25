@@ -84,7 +84,7 @@ func TestNewWatcherFile(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
@@ -115,7 +115,7 @@ func TestNewWatcherFile(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
@@ -165,7 +165,7 @@ func TestNewWatcherFile(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
@@ -256,7 +256,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
@@ -310,7 +310,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},
@@ -363,7 +363,7 @@ func TestNewWatcherCloud(t *testing.T) {
 			},
 		},
 		Network: config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{
-			BindAddress: "localhost:8080",
+			BindAddress: "localhost:8090",
 			Sessions: config.SessionsConfig{
 				HeartbeatWindow: config.DefaultSessionHeartbeatWindow,
 			},

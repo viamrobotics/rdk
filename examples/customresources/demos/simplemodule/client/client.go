@@ -17,7 +17,7 @@ func main() {
 	// Connect to the default localhost port for viam-server.
 	robot, err := client.New(
 		context.Background(),
-		"localhost:8080",
+		"localhost:8090",
 		logger,
 	)
 	if err != nil {

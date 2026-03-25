@@ -731,7 +731,7 @@ type NetworkConfigData struct {
 	Listener net.Listener `json:"-"`
 
 	// BindAddress is the address that the web server will bind to.
-	// The default behavior is to bind to localhost:8080. This is mutually
+	// The default behavior is to bind to localhost:8090. This is mutually
 	// exclusive with Listener.
 	BindAddress string `json:"bind_address,omitempty"`
 
@@ -770,7 +770,7 @@ func (nc NetworkConfig) MarshalJSON() ([]byte, error) {
 // DefaultBindAddress is the default address that will be listened on. This default may
 // not be used in managed cases when no bind address is explicitly set. In those cases
 // the server will bind to all interfaces.
-const DefaultBindAddress = "localhost:8080"
+const DefaultBindAddress = "localhost:8090"
 
 // Validate ensures all parts of the config are valid. Adds default BindAddress and HeartbeatWindow if not set.
 func (nc *NetworkConfig) Validate(path string) error {

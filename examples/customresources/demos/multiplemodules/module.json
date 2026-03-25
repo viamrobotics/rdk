@@ -32,7 +32,7 @@
 		}
 	],
 	"network": {
-		"bind_address": ":8080"
+		"bind_address": ":8090"
 	},
 	"tracing": {
 		"enabled": true,

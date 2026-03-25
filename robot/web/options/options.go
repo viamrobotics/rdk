@@ -104,16 +104,11 @@ func FromConfig(cfg *config.Config) (Options, error) {
 
 			// NOTE(RDK-148):
 			// when we are managed and no explicit bind address is set,
-			// we will listen everywhere on 8080. We assume this to be
+			// we will listen everywhere on 8090. We assume this to be
 			// secure because TLS will be enabled in addition to
-			// authentication. NOTE: If you do not want the UI to function
-			// without a specific secret being input, then you must set up
-			// a dedicated auth handler in the config. Otherwise, the secret
-			// for this robot will be baked into the UI. There may be a future
-			// feature to disable the baked in credentials from the managed
-			// interface.
+			// authentication.
 			if cfg.Network.BindAddressDefaultSet {
-				options.Network.BindAddress = ":8080"
+				options.Network.BindAddress = ":8090"
 			}
 
 			// This will only happen if we're switching from a local config to a cloud config.
