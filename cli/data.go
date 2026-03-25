@@ -715,7 +715,7 @@ func (c *viamClient) downloadSingleBinaryFile(ctx context.Context, dst string, t
 	if err != nil {
 		return errors.Wrapf(err, "could not create file for datum %s", id)
 	}
-	
+
 	if _, err := io.Copy(dataFile, r); err != nil {
 		return err
 	}
