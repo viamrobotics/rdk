@@ -930,20 +930,20 @@ func clone(f Frame) (Frame, error) {
 // derives its transform from the owning model's joint state rather than having its own DoF.
 type geometryProxyFrame struct {
 	*baseFrame
-	ownerModelName string       // e.g. "myArm"
-	geometryLabel  string       // full label, e.g. "myArm:upper_arm_link"
-	ownerModel     *SimpleModel // set during construction via ensureGeometryProxy
+	ownerModelName string // e.g. "myArm"
+	geometryLabel  string // full label, e.g. "myArm:upper_arm_link"
+	ownerFrame     Frame  // the frame whose Geometries() contains the target geometry
 }
 
 // newGeometryProxyFrame creates a new geometry proxy frame.
 // name is the frame name (typically the full geometry label).
-// geometryLabel is the full geometry label as returned by Model.Geometries.
-func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, model *SimpleModel) *geometryProxyFrame {
+// geometryLabel is the full geometry label as returned by Frame.Geometries.
+func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, ownerFrame Frame) *geometryProxyFrame {
 	return &geometryProxyFrame{
 		baseFrame:      &baseFrame{name: name, limits: []Limit{}},
 		ownerModelName: ownerModelName,
 		geometryLabel:  geometryLabel,
-		ownerModel:     model,
+		ownerFrame:     ownerFrame,
 	}
 }
 
@@ -968,7 +968,7 @@ func (gpf *geometryProxyFrame) Transform(input []Input) (spatial.Pose, error) {
 // base frame coordinates, by calling the model's Geometries method and finding the
 // matching geometry by name.
 func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Pose, error) {
-	geoms, err := gpf.ownerModel.Geometries(modelInputs)
+	geoms, err := gpf.ownerFrame.Geometries(modelInputs)
 	if err != nil {
 		return nil, err
 	}

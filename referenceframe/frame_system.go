@@ -890,19 +890,6 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
-// resolveModel unwraps a Frame to a Model, handling the namedFrame wrapper case.
-func resolveModel(f Frame) (Model, bool) {
-	if m, ok := f.(Model); ok {
-		return m, true
-	}
-	if nf, ok := f.(*namedFrame); ok {
-		if m, ok := nf.Frame.(Model); ok {
-			return m, true
-		}
-	}
-	return nil, false
-}
-
 // geometryNames returns a list of geometry labels from a GeometriesInFrame.
 func geometryNames(gifs *GeometriesInFrame) []string {
 	geoms := gifs.Geometries()
@@ -924,61 +911,39 @@ func getPartNames(parts []*FrameSystemPart) []string {
 
 // ensureGeometryProxy creates a geometry proxy frame for a geometry parent name
 // (e.g. "myArm:upper_arm_link") if one doesn't already exist in the frame system.
-// It searches all models currently in the frame system for a geometry whose label
-// matches the requested parent name. Returns the proxy frame, or an error if no
-// matching geometry is found.
+// It searches all frame geometries in the (partially-built) frame system for a match.
+// Returns the proxy frame, or an error if no matching geometry is found.
 func ensureGeometryProxy(fs *FrameSystem, geometryParent string) (Frame, error) {
 	if f := fs.Frame(geometryParent); f != nil {
 		return f, nil
 	}
 
-	// Search all models in the frame system for a geometry matching this name.
+	// Search all frame geometries for a geometry whose label matches.
 	neutralInputs := NewNeutralFrameSystemInputs(fs)
+	allGeoms, err := FrameSystemGeometries(fs, neutralInputs)
+	if err != nil {
+		return nil, fmt.Errorf("error computing frame system geometries: %w", err)
+	}
+
 	var ownerName string
-	var ownerSimpleModel *SimpleModel
+	var ownerFrame Frame
 	var allGeomNames []string
-	for _, name := range fs.FrameNames() {
-		frame := fs.Frame(name)
-		model, ok := resolveModel(frame)
-		if !ok {
-			continue
-		}
-		inputs := neutralInputs[name]
-		if inputs == nil {
-			inputs = make([]Input, len(model.DoF()))
-		}
-		geoms, err := model.Geometries(inputs)
-		if err != nil {
-			continue
-		}
-		for _, g := range geoms.Geometries() {
+	for frameName, gifs := range allGeoms {
+		for _, g := range gifs.Geometries() {
 			allGeomNames = append(allGeomNames, g.Label())
-		}
-		if geoms.GeometryByName(geometryParent) == nil {
-			continue
-		}
-		// Extract the *SimpleModel for the proxy's resolveTransform method.
-		switch m := frame.(type) {
-		case *SimpleModel:
-			ownerSimpleModel = m
-		case *namedFrame:
-			if sm, isSM := m.Frame.(*SimpleModel); isSM {
-				ownerSimpleModel = sm
+			if g.Label() == geometryParent {
+				ownerName = frameName
+				ownerFrame = fs.Frame(frameName)
 			}
 		}
-		if ownerSimpleModel == nil {
-			return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use geometry parent %q", name, geometryParent)
-		}
-		ownerName = name
-		break
 	}
 	if ownerName == "" {
-		return nil, fmt.Errorf("geometry %q not found in any model in the frame system; available geometries: %v",
+		return nil, fmt.Errorf("geometry %q not found in any frame in the frame system; available geometries: %v",
 			geometryParent, allGeomNames)
 	}
 
-	// Create the proxy frame parented to the model's _origin frame.
-	proxy := newGeometryProxyFrame(geometryParent, ownerName, geometryParent, ownerSimpleModel)
+	// Create the proxy frame parented to the owner's _origin frame.
+	proxy := newGeometryProxyFrame(geometryParent, ownerName, geometryParent, ownerFrame)
 	originFrame := fs.Frame(ownerName + "_origin")
 	if originFrame == nil {
 		return nil, fmt.Errorf("origin frame %q not found for model %q", ownerName+"_origin", ownerName)
