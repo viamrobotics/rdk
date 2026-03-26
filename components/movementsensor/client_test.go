@@ -206,6 +206,21 @@ func TestClient(t *testing.T) {
 		test.That(t, rs1["compass"], test.ShouldResemble, rs["compass"])
 		test.That(t, rs1["orientation"], test.ShouldResemble, rs["orientation"])
 
+		// Status - default empty status
+		statusResult, err := gps1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectMovementSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = gps1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectMovementSensor.StatusFunc = nil
+
 		test.That(t, gps1Client.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

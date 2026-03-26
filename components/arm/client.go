@@ -218,6 +218,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+}
+
 func (c *client) IsMoving(ctx context.Context) (bool, error) {
 	resp, err := c.client.IsMoving(ctx, &pb.IsMovingRequest{Name: c.name})
 	if err != nil {

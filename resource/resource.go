@@ -79,6 +79,9 @@ type Resource interface {
 	// DoCommand sends/receives arbitrary data
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 
+	// Status returns the current status of the resource as a map of key-value pairs.
+	Status(ctx context.Context) (map[string]interface{}, error)
+
 	// Close must safely shut down the resource and prevent further use.
 	// Close must be idempotent.
 	// Later reconfiguration may allow a resource to be "open" again.
@@ -289,6 +292,7 @@ func (a AlwaysRebuild) Reconfigure(ctx context.Context, deps Dependencies, conf 
 type Named interface {
 	Name() Name
 	DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	Status(ctx context.Context) (map[string]interface{}, error)
 }
 
 type selfNamed struct {
@@ -303,6 +307,11 @@ func (s selfNamed) Name() Name {
 // DoCommand always returns unimplemented but can be implemented by the embedder.
 func (s selfNamed) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return nil, ErrDoUnimplemented
+}
+
+// Status always returns an empty status map but can be implemented by the embedder.
+func (s selfNamed) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 }
 
 // AsType attempts to get a more specific interface from the resource.

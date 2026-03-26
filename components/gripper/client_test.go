@@ -145,6 +145,21 @@ func TestClient(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 
+		// Status - default empty status
+		statusResult, err := gripper1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectGripper.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = gripper1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectGripper.StatusFunc = nil
+
 		test.That(t, gripper1Client.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

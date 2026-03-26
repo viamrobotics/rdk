@@ -8,7 +8,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/trace"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -185,6 +184,15 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, camera, req)
+}
+
+// GetStatus returns the status of the camera.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	cam, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, cam, req)
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {

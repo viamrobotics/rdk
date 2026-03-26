@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/inputcontroller/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -25,10 +26,11 @@ const (
 )
 
 var (
-	errTriggerEvent   = errors.New("can't inject event")
-	errSendFailed     = errors.New("send fail")
-	errRegisterFailed = errors.New("can't register callbacks")
-	errNotFound       = errors.New("not found")
+	errTriggerEvent    = errors.New("can't inject event")
+	errSendFailed      = errors.New("send fail")
+	errRegisterFailed  = errors.New("can't register callbacks")
+	errNotFound        = errors.New("not found")
+	errGetStatusFailed = errors.New("can't get status")
 )
 
 type streamServer struct {
@@ -335,5 +337,31 @@ func TestServer(t *testing.T) {
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Triggerable")
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := inputControllerServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingInputControllerName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
+
+		resp, err := inputControllerServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testInputControllerName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectInputController.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = inputControllerServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testInputControllerName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectInputController.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = inputControllerServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testInputControllerName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectInputController.StatusFunc = nil
 	})
 }

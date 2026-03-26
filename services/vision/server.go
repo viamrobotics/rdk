@@ -10,7 +10,6 @@ import (
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/trace"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -331,4 +330,13 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return rprotoutils.DoFromResourceServer(ctx, svc, req)
+}
+
+// GetStatus returns the status of the vision service.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
 }

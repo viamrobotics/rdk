@@ -27,6 +27,7 @@ var (
 	errPowerFailed         = errors.New("can't get power")
 	errPowerSensorNotFound = errors.New("not found")
 	errReadingsFailed      = errors.New("can't get readings")
+	errGetStatusFailed     = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.PowerSensorServiceServer, *inject.PowerSensor, *inject.PowerSensor, error) {
@@ -191,4 +192,33 @@ func TestServerGetReadings(t *testing.T) {
 	_, err = powerSensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingPowerSensorName})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+}
+
+func TestServerGetStatus(t *testing.T) {
+	powerSensorServer, workingPowerSensor, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = powerSensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingPowerSensorName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errPowerSensorNotFound.Error())
+
+	resp, err := powerSensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPowerSensorName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingPowerSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = powerSensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPowerSensorName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingPowerSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = powerSensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPowerSensorName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	workingPowerSensor.StatusFunc = nil
 }

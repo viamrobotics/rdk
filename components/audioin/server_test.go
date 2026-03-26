@@ -28,6 +28,7 @@ var (
 	errGetAudioFailed   = errors.New("can't get audio")
 	errPropertiesFailed = errors.New("can't get properties")
 	errSendFailed       = errors.New("send fail")
+	errGetStatusFailed  = errors.New("can't get status")
 )
 
 // Mock streaming server for getAudio RPC.
@@ -182,5 +183,32 @@ func TestServer(t *testing.T) {
 		respMap := doCommandResponse.Result.AsMap()
 		test.That(t, respMap["command"], test.ShouldEqual, "test")
 		test.That(t, respMap["data"], test.ShouldEqual, 500)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := audioInServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "audio_in3"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		resp, err := audioInServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioInName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectAudioIn.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = audioInServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioInName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectAudioIn.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = audioInServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioInName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+		injectAudioIn.StatusFunc = nil
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/encoder/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -20,6 +21,7 @@ var (
 	errSetToZeroFailed     = errors.New("set to zero failed")
 	errPropertiesNotFound  = errors.New("properties not found")
 	errGetPropertiesFailed = errors.New("get properties failed")
+	errGetStatusFailed     = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.EncoderServiceServer, *inject.Encoder, *inject.Encoder, error) {
@@ -153,4 +155,33 @@ func TestServerExtraParams(t *testing.T) {
 
 	test.That(t, actualExtra["foo"], test.ShouldEqual, expectedExtra["foo"])
 	test.That(t, actualExtra["baz"], test.ShouldResemble, expectedExtra["baz"])
+}
+
+func TestServerGetStatus(t *testing.T) {
+	encoderServer, workingEncoder, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = encoderServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: fakeEncoderName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := encoderServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testEncoderName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingEncoder.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = encoderServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testEncoderName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingEncoder.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = encoderServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testEncoderName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	workingEncoder.StatusFunc = nil
 }

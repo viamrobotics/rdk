@@ -8,7 +8,6 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
 	"go.viam.com/utils/protoutils"
-
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	rprotoutils "go.viam.com/rdk/protoutils"
@@ -131,4 +130,13 @@ func (s *serviceServer) GetKinematics(ctx context.Context, req *commonpb.GetKine
 		return nil, err
 	}
 	return referenceframe.KinematicModelToProtobuf(model), nil
+}
+
+// GetStatus returns the status of the gripper.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
 }

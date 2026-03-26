@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	errCantPush       = errors.New("can't push")
-	errButtonNotFound = errors.New("not found")
+	errCantPush        = errors.New("can't push")
+	errButtonNotFound  = errors.New("not found")
+	errGetStatusFailed = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.ButtonServiceServer, *inject.Button, *inject.Button, error) {
@@ -91,5 +92,31 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		respMap := resp.GetResult().AsMap()
 		test.That(t, respMap, test.ShouldResemble, extra)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := buttonServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: missingButtonName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errButtonNotFound.Error())
+
+		resp, err := buttonServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testButtonName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectButton.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = buttonServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testButtonName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectButton.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = buttonServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testButtonName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectButton.StatusFunc = nil
 	})
 }

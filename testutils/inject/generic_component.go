@@ -14,8 +14,9 @@ import (
 type GenericComponent struct {
 	resource.Resource
 	name      resource.Name
-	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func(ctx context.Context) error
 }
 
 // NewGenericComponent returns a new injected generic component.
@@ -45,4 +46,15 @@ func (g *GenericComponent) Close(ctx context.Context) error {
 		return g.Resource.Close(ctx)
 	}
 	return g.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (g *GenericComponent) Status(ctx context.Context) (map[string]interface{}, error) {
+	if g.StatusFunc != nil {
+		return g.StatusFunc(ctx)
+	}
+	if g.Resource != nil {
+		return g.Resource.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

@@ -115,6 +115,21 @@ func TestWorkingAudioOutClient(t *testing.T) {
 		test.That(t, properties.SampleRateHz, test.ShouldEqual, expectedProperties.SampleRateHz)
 		test.That(t, properties.NumChannels, test.ShouldEqual, expectedProperties.NumChannels)
 
+		// Status - default empty status
+		statusResult, err := client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectAudioOut.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectAudioOut.StatusFunc = nil
+
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}
 

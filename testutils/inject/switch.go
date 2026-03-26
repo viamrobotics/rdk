@@ -15,6 +15,7 @@ type Switch struct {
 	GetPositionFunc          func(ctx context.Context, extra map[string]interface{}) (uint32, error)
 	GetNumberOfPositionsFunc func(ctx context.Context, extra map[string]interface{}) (uint32, []string, error)
 	DoFunc                   func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc               func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -66,4 +67,15 @@ func (s *Switch) Close(ctx context.Context) error {
 		return s.Switch.Close(ctx)
 	}
 	return s.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (s *Switch) Status(ctx context.Context) (map[string]interface{}, error) {
+	if s.StatusFunc != nil {
+		return s.StatusFunc(ctx)
+	}
+	if s.Switch != nil {
+		return s.Switch.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

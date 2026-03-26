@@ -30,6 +30,7 @@ var (
 	errKinematicsUnimplemented   = errors.New("Kinematics unimplemented")
 	errGeometriesUnimplemented   = errors.New("Geometries unimplemented")
 	errArmUnimplemented          = errors.New("not found")
+	errGetStatusFailed           = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
@@ -394,6 +395,33 @@ func TestServer(t *testing.T) {
 		_, err = armServer.Stop(context.Background(), &pb.StopRequest{Name: failArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := armServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errArmUnimplemented.Error())
+
+		resp, err := armServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectArm.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = armServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testArmName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectArm.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = armServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+		injectArm.StatusFunc = nil
 	})
 }
 
