@@ -852,7 +852,7 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *geometryProxyFrame:
 		f2 := frame2.(*geometryProxyFrame)
-		if f1.ownerModelName != f2.ownerModelName || f1.geometryLabel != f2.geometryLabel {
+		if f1.ownerFrame.Name() != f2.ownerFrame.Name() || f1.geometryLabel != f2.geometryLabel {
 			return false, nil
 		}
 	case *SimpleModel:
@@ -930,7 +930,7 @@ func clone(f Frame) (Frame, error) {
 // derives its transform from the owning model's joint state rather than having its own DoF.
 type geometryProxyFrame struct {
 	*baseFrame
-	ownerModelName string // e.g. "myArm"
+	ownerModelName string // only used for JSON serialization; at runtime use ownerFrame.Name()
 	geometryLabel  string // full label, e.g. "myArm:upper_arm_link"
 	ownerFrame     Frame  // the frame whose Geometries() contains the target geometry
 }
@@ -938,10 +938,10 @@ type geometryProxyFrame struct {
 // newGeometryProxyFrame creates a new geometry proxy frame.
 // name is the frame name (typically the full geometry label).
 // geometryLabel is the full geometry label as returned by Frame.Geometries.
-func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, ownerFrame Frame) *geometryProxyFrame {
+func newGeometryProxyFrame(name, geometryLabel string, ownerFrame Frame) *geometryProxyFrame {
 	return &geometryProxyFrame{
 		baseFrame:      &baseFrame{name: name, limits: []Limit{}},
-		ownerModelName: ownerModelName,
+		ownerModelName: ownerFrame.Name(),
 		geometryLabel:  geometryLabel,
 		ownerFrame:     ownerFrame,
 	}
@@ -950,7 +950,7 @@ func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, ownerFram
 // Hash returns a hash value for this geometry proxy frame.
 func (gpf *geometryProxyFrame) Hash() int {
 	h := gpf.hash()
-	h += hashString(gpf.ownerModelName) * 17
+	h += hashString(gpf.ownerFrame.Name()) * 17
 	h += hashString(gpf.geometryLabel) * 31
 	return h
 }
@@ -974,7 +974,7 @@ func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Po
 	}
 	geom := geoms.GeometryByName(gpf.geometryLabel)
 	if geom == nil {
-		return nil, fmt.Errorf("geometry %q not found on model %q during transform", gpf.geometryLabel, gpf.ownerModelName)
+		return nil, fmt.Errorf("geometry %q not found on model %q during transform", gpf.geometryLabel, gpf.ownerFrame.Name())
 	}
 	return geom.Pose(), nil
 }

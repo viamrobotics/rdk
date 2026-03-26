@@ -501,7 +501,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		var err error
 
 		if proxy, ok := frame.(*geometryProxyFrame); ok {
-			modelInputs := linearInputs.Get(proxy.ownerModelName)
+			modelInputs := linearInputs.Get(proxy.ownerFrame.Name())
 			pose, err = proxy.resolveTransform(modelInputs)
 			if err != nil {
 				return ret, err
@@ -871,16 +871,6 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
-// geometryNames returns a list of geometry labels from a GeometriesInFrame.
-func geometryNames(gifs *GeometriesInFrame) []string {
-	geoms := gifs.Geometries()
-	names := make([]string, len(geoms))
-	for i, g := range geoms {
-		names[i] = g.Label()
-	}
-	return names
-}
-
 // Names returns the names of input parts.
 func getPartNames(parts []*FrameSystemPart) []string {
 	names := make([]string, len(parts))
@@ -906,28 +896,26 @@ func ensureGeometryProxy(fs *FrameSystem, geometryParent string) (Frame, error) 
 		return nil, fmt.Errorf("error computing frame system geometries: %w", err)
 	}
 
-	var ownerName string
 	var ownerFrame Frame
 	var allGeomNames []string
 	for frameName, gifs := range allGeoms {
 		for _, g := range gifs.Geometries() {
 			allGeomNames = append(allGeomNames, g.Label())
 			if g.Label() == geometryParent {
-				ownerName = frameName
 				ownerFrame = fs.Frame(frameName)
 			}
 		}
 	}
-	if ownerName == "" {
+	if ownerFrame == nil {
 		return nil, fmt.Errorf("geometry %q not found in any frame in the frame system; available geometries: %v",
 			geometryParent, allGeomNames)
 	}
 
 	// Create the proxy frame parented to the owner's _origin frame.
-	proxy := newGeometryProxyFrame(geometryParent, ownerName, geometryParent, ownerFrame)
-	originFrame := fs.Frame(ownerName + "_origin")
+	proxy := newGeometryProxyFrame(geometryParent, geometryParent, ownerFrame)
+	originFrame := fs.Frame(ownerFrame.Name() + "_origin")
 	if originFrame == nil {
-		return nil, fmt.Errorf("origin frame %q not found for model %q", ownerName+"_origin", ownerName)
+		return nil, fmt.Errorf("origin frame %q not found for model %q", ownerFrame.Name()+"_origin", ownerFrame.Name())
 	}
 	if err := fs.AddFrame(proxy, originFrame); err != nil {
 		return nil, fmt.Errorf("error adding geometry proxy frame %q: %w", geometryParent, err)
