@@ -26,18 +26,6 @@ const World = "world"
 // defaultPointDensity ensures we use the default value specified within the spatialmath package.
 const defaultPointDensity = 0.
 
-// ParseGeometryName splits a name of the form "component:geometryLabel"
-// into its component and geometry label parts. The split is on the last colon
-// so that component names containing colons (e.g. from remote prefixes) are
-// preserved. If the name contains no colon, hasGeometry is false.
-func ParseGeometryName(name string) (componentName, geometryLabel string, hasGeometry bool) {
-	idx := strings.LastIndex(name, ":")
-	if idx < 0 {
-		return name, "", false
-	}
-	return name[:idx], name[idx+1:], true
-}
-
 // FrameSystemPoses is an alias for a mapping of frame names to PoseInFrame.
 type FrameSystemPoses map[string]*PoseInFrame
 
@@ -979,10 +967,11 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 		parent := part.FrameConfig.Parent()
 		// If the parent refers to a geometry on a model (e.g. "myArm:upper_arm_link"),
 		// treat the component portion as the effective parent for sorting purposes.
+		// Split on the last colon to handle component names that contain colons
+		// (e.g. "remote:arm:link" → "remote:arm").
 		if !partNameIndex[parent] {
-			componentName, _, hasGeometry := ParseGeometryName(parent)
-			if hasGeometry && partNameIndex[componentName] {
-				parent = componentName
+			if idx := strings.LastIndex(parent, ":"); idx >= 0 && partNameIndex[parent[:idx]] {
+				parent = parent[:idx]
 			} else {
 				continue
 			}
