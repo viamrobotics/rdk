@@ -166,7 +166,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewNeutralFrameSystemInputs(fs))
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +235,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 
 	// find all geometries that are not moving but are in the frame system
 	staticRobotGeometries := make([]spatialmath.Geometry, 0)
-	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewZeroInputs(fs))
+	frameSystemGeometries, err := frame.FrameSystemGeometries(fs, frame.NewNeutralFrameSystemInputs(fs))
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +397,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 	pr := &PlanRequest{
 		FrameSystem: fs,
 		Goals:       []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:  &PlanState{structuredConfiguration: frame.NewZeroInputs(fs)},
+		StartState:  &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
 		WorldState:  worldState1,
 		Constraints: constraints,
 	}
@@ -458,7 +458,7 @@ func TestSerializedPlanRequest(t *testing.T) {
 func TestArmOOBSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
-	positions := frame.NewZeroInputs(fs)
+	positions := frame.NewNeutralFrameSystemInputs(fs)
 
 	// Set a goal unreachable by the UR due to sheer distance
 	goal1 := spatialmath.NewPose(r3.Vector{X: 257, Y: 21000, Z: -300}, &spatialmath.OrientationVectorDegrees{OZ: -1})
@@ -481,7 +481,7 @@ func TestArmObstacleSolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
 	fs := makeTestFS(t)
-	positions := frame.NewZeroInputs(fs)
+	positions := frame.NewNeutralFrameSystemInputs(fs)
 
 	// Set an obstacle such that it is impossible to reach the goal without colliding with it
 	obstacle, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 257, Y: 210, Z: -300}), r3.Vector{10, 10, 100}, "")
@@ -514,7 +514,7 @@ func TestArmAndGantrySolve(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	t.Parallel()
 	fs := makeTestFS(t)
-	positions := frame.NewZeroLinearInputs(fs)
+	positions := frame.NewNeutralLinearInputs(fs)
 	pointXarmGripper := spatialmath.NewPoseFromPoint(r3.Vector{157., -50, -288})
 	transformPoint, err := fs.Transform(
 		positions,
@@ -552,7 +552,7 @@ func TestMultiArmSolve(t *testing.T) {
 
 	logger := logging.NewTestLogger(t)
 	fs := makeTestFS(t)
-	positions := frame.NewZeroInputs(fs)
+	positions := frame.NewNeutralFrameSystemInputs(fs)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 40mm from gripper to camera
 	goals := frame.FrameSystemPoses{
@@ -611,7 +611,7 @@ func TestReachOverArm(t *testing.T) {
 	plan, _, err := PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
-		StartState:     &PlanState{structuredConfiguration: frame.NewZeroInputs(fs)},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
 		PlannerOptions: planOpts,
 	})
 
@@ -630,7 +630,7 @@ func TestReachOverArm(t *testing.T) {
 	_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{xarm.Name(): goal}}},
-		StartState:     &PlanState{structuredConfiguration: frame.NewZeroInputs(fs)},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
 		PlannerOptions: planOpts,
 	})
 	test.That(t, err, test.ShouldBeNil)
@@ -719,7 +719,7 @@ func TestArmConstraintSpecificationSolve(t *testing.T) {
 		_, _, err = PlanMotion(context.Background(), logger, &PlanRequest{
 			FrameSystem:    fs,
 			Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArmVgripper": frame.NewPoseInFrame(frame.World, goal)}}},
-			StartState:     &PlanState{structuredConfiguration: frame.NewZeroInputs(fs)},
+			StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
 			WorldState:     worldState,
 			Constraints:    constraints,
 			PlannerOptions: NewBasicPlannerOptions(),
@@ -942,7 +942,7 @@ func TestArmGantryCheckPlan(t *testing.T) {
 	planReq := PlanRequest{
 		FrameSystem:    fs,
 		Goals:          []*PlanState{{poses: frame.FrameSystemPoses{"xArm6": frame.NewPoseInFrame(frame.World, goal)}}},
-		StartState:     &PlanState{structuredConfiguration: frame.NewZeroInputs(fs)},
+		StartState:     &PlanState{structuredConfiguration: frame.NewNeutralFrameSystemInputs(fs)},
 		PlannerOptions: NewBasicPlannerOptions(),
 	}
 

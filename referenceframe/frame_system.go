@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -278,7 +279,7 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 	if err != nil {
 		return nil, err
 	}
-	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src}), nil
+	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src, nil}), nil
 }
 
 // TransformToDQ is like `Transform` except it outputs a `DualQuaternion` that can be converted into
@@ -626,6 +627,30 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
+// NewNeutralFrameSystemInputs returns a FrameSystemInputs ensuring all frames have inputs within their limits.
+// It is similar to NewZeroInputs but the input values are clamped to be within their valid range.
+// Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
+func NewNeutralFrameSystemInputs(fs *FrameSystem) FrameSystemInputs {
+	inputs := make(FrameSystemInputs)
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame == nil {
+			continue
+		}
+		dof := frame.DoF()
+		if len(dof) == 0 {
+			inputs[fn] = []Input{}
+			continue
+		}
+		frameInputs := make([]Input, len(dof))
+		for i, limit := range dof {
+			frameInputs[i] = math.Max(limit.Min, math.Min(0, limit.Max))
+		}
+		inputs[fn] = frameInputs
+	}
+	return inputs
+}
+
 // NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 	positions := NewLinearInputs()
@@ -636,6 +661,30 @@ func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 		}
 	}
 	return positions
+}
+
+// NewNeutralLinearInputs returns LinearInputs ensuring all frames have inputs within their limits.
+// It is similar to NewZeroLinearInputs but the input values are clamped to be within their valid range.
+// Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
+func NewNeutralLinearInputs(fs *FrameSystem) *LinearInputs {
+	inputs := NewLinearInputs()
+	for _, fn := range fs.cachedBFSNames {
+		frame := fs.Frame(fn)
+		if frame == nil {
+			continue
+		}
+		dof := frame.DoF()
+		if len(dof) == 0 {
+			inputs.Put(fn, []Input{})
+			continue
+		}
+		frameInputs := make([]Input, len(dof))
+		for i, limit := range dof {
+			frameInputs[i] = math.Max(limit.Min, math.Min(0, limit.Max))
+		}
+		inputs.Put(fn, frameInputs)
+	}
+	return inputs
 }
 
 // InterpolateFS interpolates.
@@ -875,60 +924,64 @@ func getPartNames(parts []*FrameSystemPart) []string {
 
 // ensureGeometryProxy creates a geometry proxy frame for a geometry parent name
 // (e.g. "myArm:upper_arm_link") if one doesn't already exist in the frame system.
-// Returns the proxy frame, or an error if the name is invalid.
+// It searches all models currently in the frame system for a geometry whose label
+// matches the requested parent name. Returns the proxy frame, or an error if no
+// matching geometry is found.
 func ensureGeometryProxy(fs *FrameSystem, geometryParent string) (Frame, error) {
 	if f := fs.Frame(geometryParent); f != nil {
 		return f, nil
 	}
 
-	componentName, geometryLabel, hasGeometry := ParseGeometryName(geometryParent)
-	if !hasGeometry {
-		return nil, fmt.Errorf("parent frame %q not found in frame system", geometryParent)
-	}
-
-	// Find the owner model in the already-added frames.
-	ownerFrame := fs.Frame(componentName)
-	if ownerFrame == nil {
-		return nil, fmt.Errorf("owner component %q for geometry parent %q not found in frame system", componentName, geometryParent)
-	}
-
-	ownerModel, ok := resolveModel(ownerFrame)
-	if !ok {
-		return nil, fmt.Errorf("component %q is not a model frame; cannot use geometry parent %q", componentName, geometryParent)
-	}
-
-	// Extract the *SimpleModel for the proxy's resolveTransform method.
+	// Search all models in the frame system for a geometry matching this name.
+	neutralInputs := NewNeutralFrameSystemInputs(fs)
+	var ownerName string
 	var ownerSimpleModel *SimpleModel
-	switch m := ownerFrame.(type) {
-	case *SimpleModel:
-		ownerSimpleModel = m
-	case *namedFrame:
-		if sm, isSM := m.Frame.(*SimpleModel); isSM {
-			ownerSimpleModel = sm
+	var allGeomNames []string
+	for _, name := range fs.FrameNames() {
+		frame := fs.Frame(name)
+		model, ok := resolveModel(frame)
+		if !ok {
+			continue
 		}
+		inputs := neutralInputs[name]
+		if inputs == nil {
+			inputs = make([]Input, len(model.DoF()))
+		}
+		geoms, err := model.Geometries(inputs)
+		if err != nil {
+			continue
+		}
+		for _, g := range geoms.Geometries() {
+			allGeomNames = append(allGeomNames, g.Label())
+		}
+		if geoms.GeometryByName(geometryParent) == nil {
+			continue
+		}
+		// Extract the *SimpleModel for the proxy's resolveTransform method.
+		switch m := frame.(type) {
+		case *SimpleModel:
+			ownerSimpleModel = m
+		case *namedFrame:
+			if sm, isSM := m.Frame.(*SimpleModel); isSM {
+				ownerSimpleModel = sm
+			}
+		}
+		if ownerSimpleModel == nil {
+			return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use geometry parent %q", name, geometryParent)
+		}
+		ownerName = name
+		break
 	}
-	if ownerSimpleModel == nil {
-		return nil, fmt.Errorf("component %q is not a SimpleModel; cannot use geometry parent %q", componentName, geometryParent)
-	}
-
-	// Validate that the geometry label exists on this model.
-	zeroInputs := make([]Input, len(ownerModel.DoF()))
-	geoms, err := ownerModel.Geometries(zeroInputs)
-	if err != nil {
-		return nil, fmt.Errorf("error getting geometries for %q to validate parent %q: %w", componentName, geometryParent, err)
-	}
-	fullLabel := componentName + ":" + geometryLabel
-	geom := geoms.GeometryByName(fullLabel)
-	if geom == nil {
-		return nil, fmt.Errorf("geometry %q not found on model %q; available geometries: %v",
-			geometryLabel, componentName, geometryNames(geoms))
+	if ownerName == "" {
+		return nil, fmt.Errorf("geometry %q not found in any model in the frame system; available geometries: %v",
+			geometryParent, allGeomNames)
 	}
 
 	// Create the proxy frame parented to the model's _origin frame.
-	proxy := newGeometryProxyFrame(geometryParent, componentName, geometryLabel, ownerSimpleModel)
-	originFrame := fs.Frame(componentName + "_origin")
+	proxy := newGeometryProxyFrame(geometryParent, ownerName, geometryParent, ownerSimpleModel)
+	originFrame := fs.Frame(ownerName + "_origin")
 	if originFrame == nil {
-		return nil, fmt.Errorf("origin frame %q not found for model %q", componentName+"_origin", componentName)
+		return nil, fmt.Errorf("origin frame %q not found for model %q", ownerName+"_origin", ownerName)
 	}
 	if err := fs.AddFrame(proxy, originFrame); err != nil {
 		return nil, fmt.Errorf("error adding geometry proxy frame %q: %w", geometryParent, err)

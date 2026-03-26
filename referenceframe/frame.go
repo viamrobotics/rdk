@@ -23,6 +23,15 @@ import (
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
 
+// finiteOrZero returns v when finite, or 0 otherwise. Used when marshaling
+// frame limits to JSON, which cannot represent ±Inf.
+func finiteOrZero(v float64) float64 {
+	if math.IsInf(v, 0) {
+		return 0
+	}
+	return v
+}
+
 // Limit represents the limits of motion for a Frame.
 type Limit struct {
 	Min float64
@@ -539,8 +548,8 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   pf.name,
 		Type: PrismaticJoint,
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
-		Max:  pf.limits[0].Max,
-		Min:  pf.limits[0].Min,
+		Max:  finiteOrZero(pf.limits[0].Max),
+		Min:  finiteOrZero(pf.limits[0].Min),
 	}
 	if pf.geometry != nil {
 		var err error
@@ -636,8 +645,8 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   rf.name,
 		Type: RevoluteJoint,
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
-		Max:  utils.RadToDeg(rf.limits[0].Max),
-		Min:  utils.RadToDeg(rf.limits[0].Min),
+		Max:  finiteOrZero(utils.RadToDeg(rf.limits[0].Max)),
+		Min:  finiteOrZero(utils.RadToDeg(rf.limits[0].Min)),
 	}
 
 	return json.Marshal(temp)
@@ -862,6 +871,22 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, nil
 			}
 		}
+		// Compare mimic mappings
+		if len(f1.mimicMappings) != len(f2.mimicMappings) {
+			return false, nil
+		}
+		for name, mm1 := range f1.mimicMappings {
+			mm2, ok := f2.mimicMappings[name]
+			if !ok {
+				return false, nil
+			}
+			if mm1.sourceFrameName != mm2.sourceFrameName ||
+				mm1.sourceInputIdx != mm2.sourceInputIdx ||
+				math.Abs(mm1.valueMultiplier-mm2.valueMultiplier) > epsilon ||
+				math.Abs(mm1.valueOffset-mm2.valueOffset) > epsilon {
+				return false, nil
+			}
+		}
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}
@@ -906,12 +931,13 @@ func clone(f Frame) (Frame, error) {
 type geometryProxyFrame struct {
 	*baseFrame
 	ownerModelName string       // e.g. "myArm"
-	geometryLabel  string       // e.g. "upper_arm_link"
+	geometryLabel  string       // full label, e.g. "myArm:upper_arm_link"
 	ownerModel     *SimpleModel // set during construction via ensureGeometryProxy
 }
 
 // newGeometryProxyFrame creates a new geometry proxy frame.
-// name is the full geometry name (e.g. "myArm:upper_arm_link").
+// name is the frame name (typically the full geometry label).
+// geometryLabel is the full geometry label as returned by Model.Geometries.
 func newGeometryProxyFrame(name, ownerModelName, geometryLabel string, model *SimpleModel) *geometryProxyFrame {
 	return &geometryProxyFrame{
 		baseFrame:      &baseFrame{name: name, limits: []Limit{}},
@@ -946,8 +972,7 @@ func (gpf *geometryProxyFrame) resolveTransform(modelInputs []Input) (spatial.Po
 	if err != nil {
 		return nil, err
 	}
-	fullLabel := gpf.ownerModelName + ":" + gpf.geometryLabel
-	geom := geoms.GeometryByName(fullLabel)
+	geom := geoms.GeometryByName(gpf.geometryLabel)
 	if geom == nil {
 		return nil, fmt.Errorf("geometry %q not found on model %q during transform", gpf.geometryLabel, gpf.ownerModelName)
 	}

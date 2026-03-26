@@ -4,7 +4,7 @@ Thank you for contributing to the Viam CLI! Please keep in mind the following be
 when structuring your code.
 
 ## Make Arguments Typeful
-Your CLI command's action func should be constructed with `createCommandWithT` and should put
+Your CLI command's action func should be constructed with `createActionCommandWithT` and should put
 all command line argument values in a typed struct. This ensures type correctness and reduces
 the risks associated with having contributors manually parse args in each function they write.
 
@@ -18,7 +18,7 @@ type fooArgs struct {
     Baz string
 }
 
-func fooAction(ctx cli.Context, args foo) error {
+func fooAction(ctx context.Context, c *cli.Command, args fooArgs) error {
     bar := args.Bar
     baz := args.Baz
     ...
@@ -36,7 +36,7 @@ cli.Command{
             Name: Bar,
         },
     },
-    Action: createCommandWithT[fooArgs](fooAction),
+    Action: createActionCommandWithT[fooArgs](fooAction),
     ...
 }
 ```
@@ -46,9 +46,9 @@ cli.Command{
 <summary>Bad:</summary>
 
 ```golang
-func fooAction(ctx cli.Context) error {
-    bar := ctx.Int("Bar")
-    baz := ctx.String("Baz)
+func fooAction(ctx context.Context, c *cli.Command) error {
+    bar := c.Int("Bar")
+    baz := c.String("Baz")
     ...
 }
 
@@ -108,7 +108,7 @@ cli.Command{
     ...
     Name: "my-parent-command",
 +    HideHelpCommand: true,
-    Subcommands: []*cli.Command{
+    Commands: []*cli.Command{
         {
             Name: "my-child-command1",
             ...
@@ -138,7 +138,7 @@ text on a flag where only a discrete set of values are permitted.
 cli.Command{
     ...
     Name: "my-parent-command",
-    Subcommands: []*cli.Command{
+    Commands: []*cli.Command{
         Name: "my-child-command",
         Flags: []cli.Flag{
             &cli.StringFlag{

@@ -53,7 +53,7 @@ func TestSetOrg(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := Config{}
-			_, err := vc.setDefaultOrg(cCtx, &config, tt.orgID)
+			_, err := vc.setDefaultOrg(context.Background(), cCtx, &config, tt.orgID)
 			test.That(t, err == nil, test.ShouldEqual, tt.shouldPass)
 			if tt.shouldPass {
 				test.That(t, config.DefaultOrg, test.ShouldResemble, tt.orgID)
@@ -114,7 +114,7 @@ func TestSetLocation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := Config{}
-			_, err := vc.setDefaultLocation(cCtx, &config, tt.locationID)
+			_, err := vc.setDefaultLocation(context.Background(), cCtx, &config, tt.locationID)
 			test.That(t, err == nil, test.ShouldEqual, tt.shouldPass)
 			if tt.shouldPass {
 				test.That(t, config.DefaultLocation, test.ShouldResemble, tt.locationID)

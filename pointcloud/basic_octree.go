@@ -159,6 +159,9 @@ func (octree *BasicOctree) Set(p r3.Vector, d Data) error {
 		}
 		return octree.toStore.Set(p, d)
 	}
+	if !octree.checkPointPlacement(p) {
+		return errors.New("error point is outside the bounds of this octree")
+	}
 	_, err := octree.helperSet(p, d, 0)
 	return err
 }

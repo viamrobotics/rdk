@@ -22,6 +22,10 @@ type PoseInFrame struct {
 	parent string
 	pose   spatialmath.Pose
 	name   string
+
+	// GoalCloud represents a "cloud" of poses that can be considered equivalent to this one. This
+	// is only used for motion requests that can accept a range of goal poses.
+	GoalCloud *PoseCloud
 }
 
 // NewPoseInFrame generates a new PoseInFrame.
@@ -37,6 +41,15 @@ func NewZeroPoseInFrame(frame string) *PoseInFrame {
 	return &PoseInFrame{
 		parent: frame,
 		pose:   spatialmath.NewZeroPose(),
+	}
+}
+
+// NewPoseInFrameWithGoalCloud creates a new pose in frame where the goal pose is fuzzy.
+func NewPoseInFrameWithGoalCloud(frame string, pose spatialmath.Pose, goalCloud *PoseCloud) *PoseInFrame {
+	return &PoseInFrame{
+		parent:    frame,
+		pose:      pose,
+		GoalCloud: goalCloud,
 	}
 }
 
@@ -156,6 +169,7 @@ func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
 	return &commonpb.PoseInFrame{
 		ReferenceFrame: framedPose.parent,
 		Pose:           poseProto,
+		GoalCloud:      framedPose.GoalCloud.ToProto(),
 	}
 }
 

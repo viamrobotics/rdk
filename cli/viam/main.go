@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"go.viam.com/rdk/cli"
@@ -9,7 +10,7 @@ import (
 
 func main() {
 	app := cli.NewApp(os.Stdout, os.Stderr)
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		cli.Errorf(app.ErrWriter, err.Error())
 	}
 }

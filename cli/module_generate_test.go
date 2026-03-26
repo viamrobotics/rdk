@@ -208,7 +208,7 @@ func TestGenerateModuleAction(t *testing.T) {
 				return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 			},
 		}, map[string]any{}, "token")
-		_, err := createModuleAndManifest(cCtx, ac, testModule, globalArgs)
+		_, err := createModuleAndManifest(context.Background(), cCtx, ac, testModule, globalArgs)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
