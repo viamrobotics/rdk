@@ -107,16 +107,9 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 			return nil, err
 		}
 
-		parent := part.FrameConfig.Parent()
-		parentFrame := fs.Frame(parent)
-
-		// If the parent refers to a geometry on a model (e.g. "myArm:upper_arm_link"),
-		// create a geometry proxy frame if needed.
-		if parentFrame == nil {
-			parentFrame, err = ensureGeometryProxy(fs, parent)
-			if err != nil {
-				return nil, err
-			}
+		parentFrame, err := ensureGeometryProxy(fs, part.FrameConfig.Parent())
+		if err != nil {
+			return nil, err
 		}
 
 		// attach static offset frame to parent, attach model frame to static offset frame
