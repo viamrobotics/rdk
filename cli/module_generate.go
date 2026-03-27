@@ -970,7 +970,10 @@ func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, glo
 	if err != nil {
 		return "", errors.Wrap(err, "could not decode json")
 	}
-	version := result["tag_name"].(string)
+	version, ok := result["tag_name"].(string)
+	if !ok || version == "" {
+		return "", errors.Errorf("could not get latest %s release", repo)
+	}
 	debugf(cmd.Root().Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
 }
