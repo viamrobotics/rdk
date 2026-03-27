@@ -950,7 +950,7 @@ func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, glo
 		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Getting the latest release tag for %s", repo)
-	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
+	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases/latest", repo)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -965,17 +965,12 @@ func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, glo
 	if resp.StatusCode != http.StatusOK {
 		return "", errors.Errorf("unexpected http GET status: %s", resp.Status)
 	}
-	var result interface{}
+	var result map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&result)
 	if err != nil {
 		return "", errors.Wrap(err, "could not decode json")
 	}
-	releases := result.([]interface{})
-	if len(releases) == 0 {
-		return "", errors.Errorf("could not get latest %s release", repo)
-	}
-	latest := releases[0]
-	version := latest.(map[string]interface{})["tag_name"].(string)
+	version := result["tag_name"].(string)
 	debugf(cmd.Root().Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
 }
