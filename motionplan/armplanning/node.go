@@ -541,15 +541,16 @@ solutionLoop:
 	return solvingState.solutions, nil
 }
 
-// neutralBias computes a small cost penalty for rotational joints that are far from 0.
-// This favors solutions where rotational joints are near 0 rather than at pi/-pi.
+// neutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
+// This favors solutions where rotational joints are near the midpoint rather than at the extremes.
 func neutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
 	bias := 0.0
 	for i, limit := range limits {
 		if limit.IsRotational() {
+			mid := (limit.Min + limit.Max) / 2
 			_, _, r := limit.GoodLimits()
 			if r > 0 {
-				bias += math.Abs(configuration[i]) / r * 0.05
+				bias += math.Abs(configuration[i]-mid) / r * 0.05
 			}
 		}
 	}

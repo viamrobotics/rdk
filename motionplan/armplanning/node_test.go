@@ -36,25 +36,26 @@ func TestFixedStepInterpolation(t *testing.T) {
 }
 
 func TestNeutralBias(t *testing.T) {
+	// Symmetric limits: center is 0
 	rotLimits := []referenceframe.Limit{
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: -math.Pi, Max: math.Pi},
 		{Min: -math.Pi, Max: math.Pi},
 	}
 
-	// At 0, no bias
-	biasAtZero := neutralBias(rotLimits, []float64{0, 0, 0})
-	test.That(t, biasAtZero, test.ShouldEqual, 0)
+	// At center (0), no bias
+	biasAtCenter := neutralBias(rotLimits, []float64{0, 0, 0})
+	test.That(t, biasAtCenter, test.ShouldEqual, 0)
 
-	// At pi, maximum bias
+	// At extremes, maximum bias
 	biasAtPi := neutralBias(rotLimits, []float64{math.Pi, math.Pi, math.Pi})
 	test.That(t, biasAtPi, test.ShouldBeGreaterThan, 0)
 
-	// At -pi, same as pi
+	// Symmetric extremes should produce equal bias
 	biasAtNegPi := neutralBias(rotLimits, []float64{-math.Pi, -math.Pi, -math.Pi})
 	test.That(t, biasAtNegPi, test.ShouldAlmostEqual, biasAtPi)
 
-	// Closer to 0 should have less bias
+	// Closer to center should have less bias
 	biasSmall := neutralBias(rotLimits, []float64{0.1, 0.1, 0.1})
 	test.That(t, biasSmall, test.ShouldBeGreaterThan, 0)
 	test.That(t, biasSmall, test.ShouldBeLessThan, biasAtPi)
@@ -68,12 +69,24 @@ func TestNeutralBias(t *testing.T) {
 	biasRotOnly := neutralBias(mixedLimits, []float64{math.Pi, 0})
 	test.That(t, biasNonRot, test.ShouldEqual, biasRotOnly)
 
-	// xarm-style limits (-2pi to 2pi) should also count as rotational
+	// Asymmetric rotational limits: center is pi/2
+	asymLimits := []referenceframe.Limit{
+		{Min: 0, Max: math.Pi},
+	}
+	biasAtMid := neutralBias(asymLimits, []float64{math.Pi / 2})
+	biasAtMin := neutralBias(asymLimits, []float64{0})
+	biasAtMax := neutralBias(asymLimits, []float64{math.Pi})
+	test.That(t, biasAtMid, test.ShouldEqual, 0)
+	test.That(t, biasAtMin, test.ShouldAlmostEqual, biasAtMax)
+	test.That(t, biasAtMin, test.ShouldBeGreaterThan, 0)
+
+	// xarm-style limits: center is ~0
 	xarmLimits := []referenceframe.Limit{
 		{Min: -6.265732014659642, Max: 6.26573201465964},
 	}
-	biasXarmZero := neutralBias(xarmLimits, []float64{0})
+	xarmMid := (-6.265732014659642 + 6.26573201465964) / 2
+	biasXarmCenter := neutralBias(xarmLimits, []float64{xarmMid})
 	biasXarmPi := neutralBias(xarmLimits, []float64{math.Pi})
-	test.That(t, biasXarmZero, test.ShouldEqual, 0)
-	test.That(t, biasXarmPi, test.ShouldBeGreaterThan, 0)
+	test.That(t, biasXarmCenter, test.ShouldAlmostEqual, 0)
+	test.That(t, biasXarmPi, test.ShouldBeGreaterThan, biasXarmCenter)
 }
