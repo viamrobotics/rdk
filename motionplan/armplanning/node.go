@@ -277,6 +277,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
 
+	myCost += neutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
 		return
@@ -537,6 +539,21 @@ solutionLoop:
 	}
 
 	return solvingState.solutions, nil
+}
+
+// neutralBias computes a small cost penalty for rotational joints that are far from 0.
+// This favors solutions where rotational joints are near 0 rather than at pi/-pi.
+func neutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
+	bias := 0.0
+	for i, limit := range limits {
+		if limit.IsRotational() {
+			_, _, r := limit.GoodLimits()
+			if r > 0 {
+				bias += math.Abs(configuration[i]) / r * 0.05
+			}
+		}
+	}
+	return bias
 }
 
 func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
