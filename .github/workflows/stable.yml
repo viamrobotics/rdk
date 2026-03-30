@@ -19,26 +19,50 @@ jobs:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
-  appimage:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+  appimage-build:
+    uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
     with:
       release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  staticbuild:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+  appimage-deploy:
+    needs: [test, appimage-build]
+    uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@main
+    with:
+      date: ${{ needs.appimage-build.outputs.date }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  staticbuild-build:
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
     with:
       release_type: 'stable'
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  full-static:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
+  staticbuild-deploy:
+    needs: [test, staticbuild-build]
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-deploy.yml@main
     with:
+      date: ${{ needs.staticbuild-build.outputs.date }}
+      release_type: 'stable'
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  full-static-build:
+    uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@main
+    with:
+      channel: stable
+      version: ${{ github.ref_name }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  full-static-deploy:
+    needs: [test, full-static-build]
+    uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@main
+    with:
+      date: ${{ needs.full-static-build.outputs.date }}
       channel: stable
       version: ${{ github.ref_name }}
     secrets:
@@ -65,8 +89,8 @@ jobs:
     name: Post Workflow Status To Slack
     needs:
       - test
-      - appimage
-      - staticbuild
+      - appimage-deploy
+      - staticbuild-deploy
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'
