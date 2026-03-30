@@ -5,6 +5,7 @@ import (
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/powersensor/v1"
+
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"

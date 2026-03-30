@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/utils/trace"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"

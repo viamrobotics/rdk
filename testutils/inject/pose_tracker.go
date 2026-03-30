@@ -11,7 +11,7 @@ import (
 // PoseTracker is an injected pose tracker.
 type PoseTracker struct {
 	posetracker.PoseTracker
-	name      resource.Name
+	name       resource.Name
 	PosesFunc  func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StatusFunc func(ctx context.Context) (map[string]interface{}, error)

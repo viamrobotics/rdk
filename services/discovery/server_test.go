@@ -28,9 +28,9 @@ const (
 )
 
 var (
-	errDoFailed          = errors.New("do failed")
-	errDiscoverFailed    = errors.New("discover failed")
-	errGetStatusFailed   = errors.New("can't get status")
+	errDoFailed        = errors.New("do failed")
+	errDiscoverFailed  = errors.New("discover failed")
+	errGetStatusFailed = errors.New("can't get status")
 )
 
 // this was taken from proto_conversions_test and represents all of the information that a discovery service can provide about a component.

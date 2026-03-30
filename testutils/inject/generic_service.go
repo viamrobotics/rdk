@@ -1,6 +1,4 @@
 // Package inject provides dependency injected structures for mocking interfaces.
-//
-//nolint:dupl
 package inject
 
 import (
@@ -13,7 +11,7 @@ import (
 // GenericService is an injectable generic service.
 type GenericService struct {
 	resource.Resource
-	name      resource.Name
+	name       resource.Name
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc  func(ctx context.Context) error

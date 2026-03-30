@@ -7,6 +7,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/discovery/v1"
 	"go.viam.com/utils/trace"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"

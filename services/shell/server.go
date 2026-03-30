@@ -13,6 +13,7 @@ import (
 	"go.viam.com/utils"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"

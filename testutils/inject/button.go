@@ -10,7 +10,7 @@ import (
 // Button implements button.Button for testing.
 type Button struct {
 	button.Button
-	name      resource.Name
+	name       resource.Name
 	PushFunc   func(ctx context.Context, extra map[string]interface{}) error
 	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
