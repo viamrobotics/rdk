@@ -695,7 +695,7 @@ func TestRunning(t *testing.T) {
 		select {
 		case goForErr := <-errCh:
 			test.That(t, goForErr, test.ShouldNotBeNil)
-			test.That(t, goForErr.Error(), test.ShouldContainSubstring, "stopped or interrupted")
+			test.That(t, goForErr.Error(), test.ShouldContainSubstring, "context cancelled")
 		case <-time.After(5 * time.Second):
 			t.Fatal("GoFor did not return after Stop")
 		}
