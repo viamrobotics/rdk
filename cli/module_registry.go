@@ -947,6 +947,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	cfg := modconfig.Module{
 		Name:    "xxxx",
 		ExePath: path,
+		Type:    modconfig.ModuleTypeLocal,
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
