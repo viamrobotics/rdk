@@ -220,9 +220,10 @@ func (m *gpioStepper) startPWM(ctx context.Context, forward bool, freqHz uint) (
 		return 0, fmt.Errorf("error setting PWM duty cycle: %w", err)
 	}
 
-	// Read back confirmed frequency
+	// Read back confirmed frequency. Non-fatal: fall back to requested freq on error.
 	confirmedFreq, err := m.stepPin.PWMFreq(ctx, nil)
 	if err != nil {
+		m.logger.Infof("PWM freq requested %d Hz, readback failed: %v; using requested value", freqHz, err)
 		return float64(freqHz), nil
 	}
 
@@ -251,7 +252,9 @@ func (m *gpioStepper) trackPosition(ctx context.Context, doneCh chan<- error,
 	defer func() {
 		if ctx.Err() == nil {
 			// Natural exit (target reached) — we own hardware cleanup
-			m.stopHardware(context.Background())
+			if err := m.stopHardware(context.Background()); err != nil {
+				m.logger.Warnf("error stopping hardware after motion complete: %v", err)
+			}
 		}
 		// If cancelled, hardware is managed by the caller (new movement or Stop)
 		if doneCh != nil {
@@ -385,7 +388,9 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	if ctx.Err() != nil {
 		// Context was cancelled (external cancel or opMgr interrupt) — clean up
 		m.targetStepPosition.Store(m.stepPosition.Load())
-		m.stopHardware(context.Background())
+		if hwErr := m.stopHardware(context.Background()); hwErr != nil {
+			err = multierr.Combine(err, hwErr)
+		}
 	}
 	return err
 }

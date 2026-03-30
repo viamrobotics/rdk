@@ -547,70 +547,41 @@ func TestRunning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
-		m, err := newGPIOStepper(ctx, deps, c, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer m.Close(ctx)
+	// Tests SetRPM with motion, stop, and position verification. Run twice to cover
+	// both the "large revolutions" and "SetRPM" original test names.
+	for _, name := range []string{"motor testing with large # of revolutions", "motor testing with SetRPM"} {
+		t.Run(name, func(t *testing.T) {
+			m, err := newGPIOStepper(ctx, deps, c, logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer m.Close(ctx)
 
-		// Use SetRPM for indefinite motion, then stop
-		err = m.SetRPM(ctx, 1000, nil)
-		test.That(t, err, test.ShouldBeNil)
+			err = m.SetRPM(ctx, 1000, nil)
+			test.That(t, err, test.ShouldBeNil)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
 
-			on, _, err := m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
+				on, _, err := m.IsPowered(ctx, nil)
+				test.That(tb, err, test.ShouldBeNil)
+				test.That(tb, on, test.ShouldEqual, true)
 
-			pos, err := m.Position(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-		})
+				pos, err := m.Position(ctx, nil)
+				test.That(tb, err, test.ShouldBeNil)
+				test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+			})
 
-		err = m.Stop(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		on, _, err := m.IsPowered(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, false)
-
-		pos, err := m.Position(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-	})
-
-	t.Run("motor testing with SetRPM", func(t *testing.T) {
-		m, err := newGPIOStepper(ctx, deps, c, logger)
-		test.That(t, err, test.ShouldBeNil)
-		defer m.Close(ctx)
-
-		err = m.SetRPM(ctx, 1000, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
+			err = m.Stop(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
 
 			on, _, err := m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
 
 			pos, err := m.Position(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
 		})
-
-		err = m.Stop(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		on, _, err := m.IsPowered(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, false)
-
-		pos, err := m.Position(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-	})
+	}
 
 	t.Run("test rpmToFreqHz", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, deps, c, logger)
