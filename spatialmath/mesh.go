@@ -45,6 +45,11 @@ type Mesh struct {
 	// Built lazily on first collision check via ensureBVH().
 	bvh     *bvhNode
 	bvhOnce sync.Once
+
+	// uniqueVerts is a deduplicated list of triangle vertices in local space.
+	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
+	uniqueVerts     []r3.Vector
+	uniqueVertsOnce sync.Once
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -59,19 +64,14 @@ func trianglesToGeoms(triangles []*Triangle) []Geometry {
 
 // NewMesh creates a mesh from the given triangles and pose.
 // The BVH is built lazily on first collision check for faster mesh loading.
+// PLY bytes for protobuf are generated lazily on first serialization.
 func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
-	mesh := &Mesh{
+	return &Mesh{
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
+		fileType:  plyType,
 	}
-
-	// Convert triangles to PLY for protobuf
-	plyBytes := mesh.TrianglesToPLYBytes(false) // Keep it in the local frame
-	mesh.fileType = plyType
-	mesh.rawBytes = plyBytes
-
-	return mesh
 }
 
 // NewMeshFromPLYFile is a helper function to create a Mesh geometry from a PLY file.
@@ -295,6 +295,7 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
 		bvh:              m.bvh,
+		uniqueVerts:      m.ensureUniqueVertices(),
 	}
 }
 
@@ -310,11 +311,12 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 			return true, -1, nil
 		}
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
-	case *capsule, *point, *sphere, *Mesh:
+	case *Mesh:
+		return m.collidesWithMesh(other, collisionBufferMM)
+	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
-		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
-		return m.collidesWithMesh(triMesh, collisionBufferMM)
+		return m.collidesWithTriangleBVH(other, collisionBufferMM)
 	default:
 		return true, math.Inf(1), newCollisionTypeUnsupportedError(m, g)
 	}
@@ -370,21 +372,36 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	}
 }
 
+// ensureUniqueVertices lazily computes the deduplicated vertex list.
+func (m *Mesh) ensureUniqueVertices() []r3.Vector {
+	m.uniqueVertsOnce.Do(func() {
+		if m.uniqueVerts == nil && len(m.triangles) > 0 {
+			seen := make(map[r3.Vector]struct{}, len(m.triangles)*2)
+			verts := make([]r3.Vector, 0, len(m.triangles)*2)
+			for _, tri := range m.triangles {
+				for _, pt := range tri.Points() {
+					if _, ok := seen[pt]; ok {
+						continue
+					}
+					seen[pt] = struct{}{}
+					verts = append(verts, pt)
+				}
+			}
+			m.uniqueVerts = verts
+		}
+	})
+	return m.uniqueVerts
+}
+
 // Returns true if any triangle vertex of the mesh intersects the box.
 func (m *Mesh) boxIntersectsVertex(b *box) bool {
-	// Use map to deduplicate vertices (r3.Vector is comparable since it contains only float64 fields)
-	seen := make(map[r3.Vector]struct{})
-	for _, tri := range m.triangles {
-		for _, pt := range tri.Points() {
-			if _, ok := seen[pt]; ok {
-				continue
-			}
-			seen[pt] = struct{}{}
-			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
-			if c {
-				return true
-			}
+	q := m.pose.Orientation().Quaternion()
+	t := m.pose.Point()
+	for _, pt := range m.ensureUniqueVertices() {
+		worldPt := TransformPoint(q, t, pt)
+		c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
+		if c {
+			return true
 		}
 	}
 	return false
@@ -444,6 +461,12 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	}
 	// Pass poses to BVH collision - BVH stores geometries in local space
 	return bvhCollidesWithBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+}
+
+// collidesWithTriangleBVH checks collision between this mesh and a single triangle
+// without constructing a temporary Mesh (avoids PLY generation and BVH construction).
+func (m *Mesh) collidesWithTriangleBVH(other *Triangle, collisionBufferMM float64) (bool, float64, error) {
+	return m.collidesWithGeometryBVH(other, collisionBufferMM)
 }
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
