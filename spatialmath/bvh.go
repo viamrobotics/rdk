@@ -125,11 +125,13 @@ func computeGeometryAABB(g Geometry) (r3.Vector, r3.Vector) {
 		pt := geom.position
 		return pt, pt
 	case *Mesh:
-		// Use existing BVH bounds if available
-		if geom.bvh != nil {
-			return geom.bvh.min, geom.bvh.max
+		// BVH stores bounds in local space. We must transform to world space via the mesh pose.
+		// Previously this returned bvh.min/max directly (local space), which caused collision
+		// checks to silently miss collisions after BVH initialization.
+		bvh := geom.ensureBVH()
+		if bvh != nil {
+			return transformAABBToWorldSpace(bvh.min, bvh.max, geom.pose)
 		}
-		// Fallback: compute from triangles
 		return computeMeshAABB(geom)
 	default:
 		panic(fmt.Errorf(
@@ -222,6 +224,27 @@ func computeMeshAABB(m *Mesh) (r3.Vector, r3.Vector) {
 		minPt, maxPt = expandAABB(minPt, maxPt, TransformPoint(q, trans, tri.p2))
 	}
 	return minPt, maxPt
+}
+
+// transformAABBToWorldSpace transforms a local-space AABB to world space by
+// transforming all 8 corners and computing a new axis-aligned bounding box.
+// The result is a valid but potentially looser world-space AABB.
+func transformAABBToWorldSpace(localMin, localMax r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
+	q := pose.Orientation().Quaternion()
+	t := pose.Point()
+
+	worldMin := r3.Vector{X: math.Inf(1), Y: math.Inf(1), Z: math.Inf(1)}
+	worldMax := r3.Vector{X: math.Inf(-1), Y: math.Inf(-1), Z: math.Inf(-1)}
+
+	for _, x := range [2]float64{localMin.X, localMax.X} {
+		for _, y := range [2]float64{localMin.Y, localMax.Y} {
+			for _, z := range [2]float64{localMin.Z, localMax.Z} {
+				pt := TransformPoint(q, t, r3.Vector{X: x, Y: y, Z: z})
+				worldMin, worldMax = expandAABB(worldMin, worldMax, pt)
+			}
+		}
+	}
+	return worldMin, worldMax
 }
 
 // computeGeomsAABB computes the AABB encompassing all given geometries.

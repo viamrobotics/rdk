@@ -79,7 +79,7 @@ func TestStartBuild(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3"}, "token")
-	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -93,7 +93,7 @@ func TestStartBuild(t *testing.T) {
 	out.messages = nil
 	errOut.messages = nil
 
-	path, err = ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err = ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "meta.json must have a url field set in order to start a cloud build")
 	test.That(t, path, test.ShouldBeEmpty)
@@ -117,7 +117,7 @@ func TestListBuild(t *testing.T) {
 			}}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifest}, "token")
-	err := ac.moduleBuildListAction(cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
+	err := ac.moduleBuildListAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildListArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	joinedOutput := strings.Join(out.messages, "")
 	test.That(t, joinedOutput, test.ShouldEqual, `ID     PLATFORM    STATUS VERSION TIME
@@ -160,7 +160,7 @@ func TestModuleBuildWait(t *testing.T) {
 		},
 	}, map[string]any{}, "token")
 	startWaitTime := time.Now()
-	statuses, err := ac.waitForBuildToFinish("xyz123", "", nil)
+	statuses, err := ac.waitForBuildToFinish(context.Background(), "xyz123", "", nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, statuses, test.ShouldResemble, map[string]jobStatus{"linux/amd64": "Done"})
 	// ensure that we had to wait for at least 2, but no more than 5 polling intervals
@@ -192,7 +192,7 @@ func TestModuleGetPlatformsForModule(t *testing.T) {
 			}}, nil
 		},
 	}, map[string]any{}, "token")
-	platforms, err := ac.getPlatformsForModuleBuild("xyz123")
+	platforms, err := ac.getPlatformsForModuleBuild(context.Background(), "xyz123")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, platforms, test.ShouldResemble, []string{"linux/amd64", "linux/arm64"})
 }
@@ -235,7 +235,7 @@ func TestLocalBuild(t *testing.T) {
 		map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
 	manifest, err := loadManifest(manifestPath)
 	test.That(t, err, test.ShouldBeNil)
-	err = moduleBuildLocalAction(cCtx, &manifest, nil)
+	err = moduleBuildLocalAction(context.Background(), cCtx, &manifest, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, errOut.messages, test.ShouldHaveLength, 0)
 
@@ -337,7 +337,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		orgID, err := vc.getOrgIDForPart(part)
+		orgID, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, orgID, test.ShouldEqual, expectedOrgID)
 	})
@@ -380,7 +380,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no primary org id found for location")
 	})
@@ -399,7 +399,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: "robot-abc",
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "robot not found")
 	})
@@ -431,7 +431,7 @@ func TestGetOrgIDForPart(t *testing.T) {
 		part := &apppb.RobotPart{
 			Robot: robotID,
 		}
-		_, err := vc.getOrgIDForPart(part)
+		_, err := vc.getOrgIDForPart(context.Background(), part)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "location not found")
 	})

@@ -296,7 +296,13 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	config.UpdateFileConfigDebug(cfg.Debug)
+	// If the "file" config debug flag is set here when the config has a cloud connection, the flag will never be unset.
+	// Then, logging_level.go/refreshLogLevelInLock will always set the log level to debug even if the cloud config
+	// does not have debug set (because it ORs the file and cloud debug flags).
+	// So, only touch this flag if we do not have a cloud connection.
+	if s.conn == nil {
+		config.UpdateFileConfigDebug(cfg.Debug)
+	}
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
@@ -349,6 +355,17 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 	out.FromCommand = true
 	out.AllowInsecureCreds = s.args.AllowInsecureCreds
 	out.UntrustedEnv = s.args.UntrustedEnv
+
+	// Propagate the top-level debug flag into the module log levels.
+	// This will trigger modules to be restarted with `--log-level=debug`
+	// if they don't already have a log level set
+	if out.Debug {
+		for i, moduleCfg := range out.Modules {
+			if moduleCfg.LogLevel == "" {
+				out.Modules[i].LogLevel = "debug"
+			}
+		}
+	}
 
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
@@ -547,7 +564,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// updates to the registry will be handled by the config watcher goroutine.
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.configLogger)
+	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.rootLogger)
 
 	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
 	// handling restart checking for us (relevant environment variable is unset).

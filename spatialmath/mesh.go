@@ -322,12 +322,15 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
 func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
-	if _, ok := g.(*point); ok {
+	switch other := g.(type) {
+	case *point:
 		return false, nil
+	case *Mesh:
+		// Meshes are not treated as solid volumes for collision checks, so this uses conservative
+		// AABB containment to support collision-safe simplification checks.
+		return m.encompassedByMeshAABB(other), nil
 	}
-	if _, ok := g.(*Mesh); ok {
-		return false, nil
-	}
+
 	// For all other geometry types, check if all vertices of all triangles are inside
 	for _, pt := range m.ToPoints(1) {
 		collides, _, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
@@ -402,6 +405,26 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 		}
 	}
 	return minDist
+}
+
+// encompassedByMeshAABB checks whether all vertices of m fall within the world-space AABB of other.
+// This is intentionally conservative (loose): a mesh inside the AABB might not be inside the actual
+// hull, but a mesh outside the AABB is definitely not inside. This is used only for collision-safe
+// simplification validation (e.g. verifying that a decimated hull still encloses the original mesh).
+func (m *Mesh) encompassedByMeshAABB(other *Mesh) bool {
+	if len(other.triangles) == 0 {
+		return false
+	}
+	minPt, maxPt := computeMeshAABB(other)
+	eps := defaultCollisionBufferMM
+	for _, pt := range m.ToPoints(1) {
+		if pt.X < minPt.X-eps || pt.X > maxPt.X+eps ||
+			pt.Y < minPt.Y-eps || pt.Y > maxPt.Y+eps ||
+			pt.Z < minPt.Z-eps || pt.Z > maxPt.Z+eps {
+			return false
+		}
+	}
+	return true
 }
 
 // ensureBVH builds the BVH if it hasn't been built yet (thread-safe).

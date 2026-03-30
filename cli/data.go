@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
@@ -98,33 +98,33 @@ type dataExportTabularArgs struct {
 }
 
 // DataExportBinaryAction is the corresponding action for 'data export binary'.
-func DataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
-	client, err := newViamClient(cCtx)
+func DataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportBinaryAction(cCtx, args)
+	return client.dataExportBinaryAction(ctx, cmd, args)
 }
 
 // DataExportBinaryIDsAction is the corresponding action for 'data export binary ids'.
-func DataExportBinaryIDsAction(cCtx *cli.Context, args dataExportBinaryIDsArgs) error {
-	client, err := newViamClient(cCtx)
+func DataExportBinaryIDsAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportBinaryIDsAction(args)
+	return client.dataExportBinaryIDsAction(ctx, args)
 }
 
 // DataExportTabularAction is the corresponding action for 'data export tabular'.
-func DataExportTabularAction(cCtx *cli.Context, args dataExportTabularArgs) error {
-	client, err := newViamClient(cCtx)
+func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	return client.dataExportTabularAction(cCtx, args)
+	return client.dataExportTabularAction(ctx, cmd, args)
 }
 
 type dataTagByFilterArgs struct {
@@ -132,18 +132,18 @@ type dataTagByFilterArgs struct {
 }
 
 // DataTagActionByFilter is the corresponding action for 'data tag filter'.
-func DataTagActionByFilter(c *cli.Context, args dataTagByFilterArgs) error {
-	client, err := newViamClient(c)
+func DataTagActionByFilter(ctx context.Context, cmd *cli.Command, args dataTagByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
 
-	switch c.Command.Name {
+	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByFilter(filter, args.Tags); err != nil {
 			return err
@@ -155,7 +155,7 @@ func DataTagActionByFilter(c *cli.Context, args dataTagByFilterArgs) error {
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
 	}
 }
 
@@ -165,13 +165,13 @@ type dataTagByIDsArgs struct {
 }
 
 // DataTagActionByIDs is the corresponding action for 'data tag'.
-func DataTagActionByIDs(c *cli.Context, args dataTagByIDsArgs) error {
-	client, err := newViamClient(c)
+func DataTagActionByIDs(ctx context.Context, cmd *cli.Command, args dataTagByIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	switch c.Command.Name {
+	switch cmd.Name {
 	case dataCommandAdd:
 		if err := client.dataAddTagsToBinaryByIDs(args.Tags, args.BinaryDataIDs); err != nil {
 			return err
@@ -183,18 +183,18 @@ func DataTagActionByIDs(c *cli.Context, args dataTagByIDsArgs) error {
 		}
 		return nil
 	default:
-		return errors.Errorf("command must be add or remove, got %q", c.Command.Name)
+		return errors.Errorf("command must be add or remove, got %q", cmd.Name)
 	}
 }
 
 // DataDeleteBinaryAction is the corresponding action for 'data delete'.
-func DataDeleteBinaryAction(c *cli.Context, args emptyArgs) error {
-	client, err := newViamClient(c)
+func DataDeleteBinaryAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -210,11 +210,11 @@ type dataDeleteTabularArgs struct {
 }
 
 // DataDeleteTabularAction is the corresponding action for 'data delete-tabular'.
-func DataDeleteTabularAction(c *cli.Context, args dataDeleteTabularArgs) error {
+func DataDeleteTabularAction(ctx context.Context, cmd *cli.Command, args dataDeleteTabularArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to delete tabular data")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -225,8 +225,8 @@ func DataDeleteTabularAction(c *cli.Context, args dataDeleteTabularArgs) error {
 	return nil
 }
 
-func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
-	args := parseStructFromCtx[commonFilterArgs](c)
+func createDataFilter(cmd *cli.Command) (*datapb.Filter, error) {
+	args := parseStructFromCtx[commonFilterArgs](cmd)
 	filter := &datapb.Filter{}
 
 	if args.OrgIDs != nil {
@@ -263,7 +263,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	// It could be either tags to filter by, or, if running 'viam data tag' it will mean the
 	// tags to add to the data. To account for this, we have to check if we're running the tag
 	// command, and if so, to add the filter tags if we pass in --filter-tags.
-	if strings.Contains(c.Command.UsageText, "tag") && len(args.FilterTags) != 0 {
+	if strings.Contains(cmd.UsageText, "tag") && len(args.FilterTags) != 0 {
 		filter.TagsFilter = &datapb.TagsFilter{
 			Type: datapb.TagsFilterType_TAGS_FILTER_TYPE_MATCH_BY_OR,
 			Tags: args.FilterTags,
@@ -271,7 +271,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	}
 	// Similar to the above comment, we only want to add filter tags with --tags if we're NOT
 	// running the tag command.
-	if !strings.Contains(c.Command.UsageText, "tag") && args.Tags != nil {
+	if !strings.Contains(cmd.UsageText, "tag") && args.Tags != nil {
 		if len(args.FilterTags) == 0 {
 			switch {
 			case len(args.Tags) == 1 && args.Tags[0] == "tagged":
@@ -304,7 +304,7 @@ func createDataFilter(c *cli.Context) (*datapb.Filter, error) {
 	return filter, nil
 }
 
-func createExportTabularRequest(c *cli.Context) (*datapb.ExportTabularDataRequest, error) {
+func createExportTabularRequest(c *cli.Command) (*datapb.ExportTabularDataRequest, error) {
 	args := parseStructFromCtx[dataExportTabularArgs](c)
 	request := &datapb.ExportTabularDataRequest{}
 
@@ -355,31 +355,31 @@ func createCaptureInterval(startStr, endStr string) (*datapb.CaptureInterval, er
 	}, nil
 }
 
-func (c *viamClient) dataExportBinaryAction(cCtx *cli.Context, args dataExportBinaryArgs) error {
-	filter, err := createDataFilter(cCtx)
+func (c *viamClient) dataExportBinaryAction(ctx context.Context, cmd *cli.Command, args dataExportBinaryArgs) error {
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
 
-	if err := c.binaryData(args.Destination, filter, args.Parallel, args.Timeout); err != nil {
+	if err := c.binaryData(ctx, args.Destination, filter, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *viamClient) dataExportBinaryIDsAction(args dataExportBinaryIDsArgs) error {
+func (c *viamClient) dataExportBinaryIDsAction(ctx context.Context, args dataExportBinaryIDsArgs) error {
 	if len(args.BinaryDataIDs) > 0 {
-		result := c.downloadBinary(args.Destination, args.Timeout, args.BinaryDataIDs...)
+		result := c.downloadBinary(ctx, args.Destination, args.Timeout, args.BinaryDataIDs...)
 		if result == nil { // nil result means success
-			printf(c.c.App.Writer, "Downloaded %d files", len(args.BinaryDataIDs))
+			printf(c.c.Root().Writer, "Downloaded %d files", len(args.BinaryDataIDs))
 		}
 		return result
 	}
 	return nil
 }
 
-func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportTabularArgs) error {
-	request, err := createExportTabularRequest(cCtx)
+func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExportTabularArgs) error {
+	request, err := createExportTabularRequest(cmd)
 	if err != nil {
 		return err
 	}
@@ -392,14 +392,14 @@ func (c *viamClient) dataExportTabularAction(cCtx *cli.Context, args dataExportT
 }
 
 // BinaryData downloads binary data matching filter to dst.
-func (c *viamClient) binaryData(dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
+func (c *viamClient) binaryData(ctx context.Context, dst string, filter *datapb.Filter, parallelDownloads, timeout uint) error {
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			return c.downloadBinary(dst, timeout, id)
+			return c.downloadBinary(ctx, dst, timeout, id)
 		},
 		filter, parallelDownloads,
 		func(i int32) {
-			printf(c.c.App.Writer, "Downloaded %d files", i)
+			printf(c.c.Root().Writer, "Downloaded %d files", i)
 		},
 	)
 }
@@ -519,42 +519,42 @@ func isLargeFileError(err error) bool {
 		strings.Contains(err.Error(), "INCLUDE_BINARY_TOO_LARGE")
 }
 
-func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) error {
+func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uint, ids ...string) error {
 	args, err := getGlobalArgs(c.c)
 	if err != nil {
 		return err
 	}
-	debugf(c.c.App.Writer, args.Debug, "Attempting to download binary files: %v", ids)
+	debugf(c.c.Root().Writer, args.Debug, "Attempting to download binary files: %v", ids)
 
 	var resp *datapb.BinaryDataByIDsResponse
 	largeFile := false
 	// To begin, we assume the files are small and downloadable, so we try getting the binary directly
 	for count := 0; count < maxRetryCount; count++ {
-		resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
+		resp, err = c.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 			BinaryDataIds: ids,
 			IncludeBinary: !largeFile,
 		})
 		// If any file is too large, we break and try a different pathway for downloading
 		if err == nil || isLargeFileError(err) {
-			debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
+			debugf(c.c.Root().Writer, args.Debug, "Small file download for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 			break
 		}
-		debugf(c.c.App.Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
+		debugf(c.c.Root().Writer, args.Debug, "Small file download for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
 	}
 
 	// For large files, we get the metadata but not the binary itself
 	if err != nil && isLargeFileError(err) {
 		largeFile = true
 		for count := 0; count < maxRetryCount; count++ {
-			resp, err = c.dataClient.BinaryDataByIDs(c.c.Context, &datapb.BinaryDataByIDsRequest{
+			resp, err = c.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
 				BinaryDataIds: ids,
 				IncludeBinary: !largeFile,
 			})
 			if err == nil {
-				debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
+				debugf(c.c.Root().Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d succeeded", ids, count+1, maxRetryCount)
 				break
 			}
-			debugf(c.c.App.Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
+			debugf(c.c.Root().Writer, args.Debug, "Metadata fetch for files %v: attempt %d/%d failed", ids, count+1, maxRetryCount)
 		}
 	}
 	if err != nil {
@@ -594,9 +594,9 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 
 		var r io.ReadCloser
 		if largeFile {
-			debugf(c.c.App.Writer, args.Debug, "Attempting file %s as a large file download", id)
+			debugf(c.c.Root().Writer, args.Debug, "Attempting file %s as a large file download", id)
 			// Make request to the URI for large files since we exceed the message limit for gRPC
-			req, err := http.NewRequestWithContext(c.c.Context, http.MethodGet, datum.GetMetadata().GetUri(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, datum.GetMetadata().GetUri(), nil)
 			if err != nil {
 				return errors.Wrapf(err, serverErrorMessage)
 			}
@@ -620,19 +620,19 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 				res, err = httpClient.Do(req)
 
 				if err == nil && res.StatusCode == http.StatusOK {
-					debugf(c.c.App.Writer, args.Debug,
+					debugf(c.c.Root().Writer, args.Debug,
 						"Large file download for file %s: attempt %d/%d succeeded", id, count+1, maxRetryCount)
 					break
 				}
-				debugf(c.c.App.Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
+				debugf(c.c.Root().Writer, args.Debug, "Large file download for file %s: attempt %d/%d failed", id, count+1, maxRetryCount)
 			}
 
 			if err != nil {
-				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
+				debugf(c.c.Root().Writer, args.Debug, "Failed downloading large file %s: %s", id, err)
 				return errors.Wrapf(err, serverErrorMessage)
 			}
 			if res.StatusCode != http.StatusOK {
-				debugf(c.c.App.Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
+				debugf(c.c.Root().Writer, args.Debug, "Failed downloading large file %s: Server returned %d response", id, res.StatusCode)
 				return errors.New(serverErrorMessage)
 			}
 			defer func() {
@@ -653,7 +653,7 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 		if ext == gzFileExt {
 			r, err = gzip.NewReader(r)
 			if err != nil {
-				debugf(c.c.App.Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
+				debugf(c.c.Root().Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
 				return err
 			}
 		} else if filepath.Ext(dataPath) != ext {
@@ -663,22 +663,22 @@ func (c *viamClient) downloadBinary(dst string, timeout uint, ids ...string) err
 		}
 
 		if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed creating data directory %s: %s", dataPath, err)
+			debugf(c.c.Root().Writer, args.Debug, "Failed creating data directory %s: %s", dataPath, err)
 			return errors.Wrapf(err, "could not create data directory %s", filepath.Dir(dataPath))
 		}
 		//nolint:gosec
 		dataFile, err := os.Create(dataPath)
 		if err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed creating file %s: %s", id, err)
+			debugf(c.c.Root().Writer, args.Debug, "Failed creating file %s: %s", id, err)
 			return errors.Wrapf(err, "could not create file for datum %s", id)
 		}
 		//nolint:gosec
 		if _, err := io.Copy(dataFile, r); err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
+			debugf(c.c.Root().Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
 			return err
 		}
 		if err := r.Close(); err != nil {
-			debugf(c.c.App.Writer, args.Debug, "Failed closing file %s: %s", id, err)
+			debugf(c.c.Root().Writer, args.Debug, "Failed closing file %s: %s", id, err)
 			return err
 		}
 	}
@@ -724,7 +724,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 		return errors.Wrapf(err, "could not create destination directories")
 	}
 
-	fmt.Fprintf(c.c.App.Writer, "Downloading..") //nolint:errcheck
+	fmt.Fprintf(c.c.Root().Writer, "Downloading..") //nolint:errcheck
 
 	for count := 0; count < maxRetryCount; count++ {
 		err := func() error {
@@ -763,7 +763,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 
 			go func() {
 				defer close(dataRowChan)
-				fmt.Fprintf(c.c.App.Writer, ".") //nolint:errcheck // Adds '.' to 'Downloading..' output.
+				fmt.Fprintf(c.c.Root().Writer, ".") //nolint:errcheck // Adds '.' to 'Downloading..' output.
 
 				stream, err := c.dataClient.ExportTabularData(ctx, request)
 				if err != nil {
@@ -832,7 +832,7 @@ func (c *viamClient) tabularData(dest string, request *datapb.ExportTabularDataR
 			continue
 		}
 
-		printf(c.c.App.Writer, "") // newline
+		printf(c.c.Root().Writer, "") // newline
 		return err
 	}
 
@@ -873,7 +873,7 @@ func (c *viamClient) deleteBinaryData(filter *datapb.Filter) error {
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Deleted %d files", resp.GetDeletedCount())
+	printf(c.c.Root().Writer, "Deleted %d files", resp.GetDeletedCount())
 	return nil
 }
 
@@ -887,7 +887,7 @@ func (c *viamClient) dataAddTagsToBinaryByFilter(filter *datapb.Filter, tags []s
 		},
 		filter, parallelActions,
 		func(i int32) {
-			printf(c.c.App.Writer, "Added tags to %d files", i)
+			printf(c.c.Root().Writer, "Added tags to %d files", i)
 		},
 	)
 }
@@ -902,7 +902,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByFilter(filter *datapb.Filter, tag
 		},
 		filter, parallelActions,
 		func(i int32) {
-			printf(c.c.App.Writer, "Removed tags from %d files", i)
+			printf(c.c.Root().Writer, "Removed tags from %d files", i)
 		},
 	)
 }
@@ -913,7 +913,7 @@ func (c *viamClient) dataAddTagsToBinaryByIDs(tags, binaryDataIDs []string) erro
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Added tags %v to data", tags)
+	printf(c.c.Root().Writer, "Added tags %v to data", tags)
 	return nil
 }
 
@@ -925,7 +925,7 @@ func (c *viamClient) dataRemoveTagsFromBinaryByIDs(tags, binaryDataIDs []string)
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Removed tags %v from data", tags)
+	printf(c.c.Root().Writer, "Removed tags %v from data", tags)
 	return nil
 }
 
@@ -936,7 +936,7 @@ func (c *viamClient) deleteTabularData(orgID string, deleteOlderThanDays int) er
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Deleted %d datapoints", resp.GetDeletedCount())
+	printf(c.c.Root().Writer, "Deleted %d datapoints", resp.GetDeletedCount())
 	return nil
 }
 
@@ -946,8 +946,8 @@ type dataAddToDatasetByIDsArgs struct {
 }
 
 // DataAddToDatasetByIDs is the corresponding action for 'dataset data add ids'.
-func DataAddToDatasetByIDs(c *cli.Context, args dataAddToDatasetByIDsArgs) error {
-	client, err := newViamClient(c)
+func DataAddToDatasetByIDs(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByIDsArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -964,7 +964,7 @@ func (c *viamClient) dataAddToDatasetByIDs(datasetID string, binaryDataIDs []str
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Added data to dataset ID %s", datasetID)
+	printf(c.c.Root().Writer, "Added data to dataset ID %s", datasetID)
 	return nil
 }
 
@@ -973,23 +973,23 @@ type dataAddToDatasetByFilterArgs struct {
 }
 
 // DataAddToDatasetByFilter is the corresponding action for 'dataset data add filter'.
-func DataAddToDatasetByFilter(c *cli.Context, args dataAddToDatasetByFilterArgs) error {
-	client, err := newViamClient(c)
+func DataAddToDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataAddToDatasetByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
-	if err := client.dataAddToDatasetByFilter(filter, args.DatasetID); err != nil {
+	if err := client.dataAddToDatasetByFilter(ctx, filter, args.DatasetID); err != nil {
 		return err
 	}
 	return nil
 }
 
 // dataAddToDatasetByFilter adds data, with the specified filter to the dataset corresponding to the dataset ID.
-func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID string) error {
+func (c *viamClient) dataAddToDatasetByFilter(ctx context.Context, filter *datapb.Filter, datasetID string) error {
 	parallelActions := uint(100)
 
 	return c.performActionOnBinaryDataFromFilter(
@@ -999,24 +999,24 @@ func (c *viamClient) dataAddToDatasetByFilter(filter *datapb.Filter, datasetID s
 				if attempt > 0 {
 					select {
 					case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
-					case <-c.c.Context.Done():
-						return c.c.Context.Err()
+					case <-ctx.Done():
+						return ctx.Err()
 					}
 				}
-				ctx, cancel := context.WithTimeout(c.c.Context, 10*time.Second)
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				_, err = c.dataClient.AddBinaryDataToDatasetByIDs(ctx,
 					&datapb.AddBinaryDataToDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
 				cancel()
 				if err == nil || (status.Code(err) != codes.Unavailable && status.Code(err) != codes.DeadlineExceeded) {
 					return err
 				}
-				printf(c.c.App.Writer, "Retrying add data to dataset ID %s: attempt %d/%d, error: %v", datasetID, attempt+1, maxRetryCount, err)
+				printf(c.c.Root().Writer, "Retrying add data to dataset ID %s: attempt %d/%d, error: %v", datasetID, attempt+1, maxRetryCount, err)
 			}
 			return err
 		},
 		filter, parallelActions,
 		func(i int32) {
-			printf(c.c.App.Writer, "Added %d files to dataset ID %s", i, datasetID)
+			printf(c.c.Root().Writer, "Added %d files to dataset ID %s", i, datasetID)
 		})
 }
 
@@ -1026,8 +1026,8 @@ type dataRemoveFromDatasetArgs struct {
 }
 
 // DataRemoveFromDataset is the corresponding action for 'dataset data remove ids'.
-func DataRemoveFromDataset(c *cli.Context, args dataRemoveFromDatasetArgs) error {
-	client, err := newViamClient(c)
+func DataRemoveFromDataset(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1044,7 +1044,7 @@ func (c *viamClient) dataRemoveFromDataset(datasetID string, binaryDataIDs []str
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Removed data from dataset ID %s", datasetID)
+	printf(c.c.Root().Writer, "Removed data from dataset ID %s", datasetID)
 	return nil
 }
 
@@ -1053,12 +1053,12 @@ type dataRemoveFromDatasetByFilterArgs struct {
 }
 
 // DataRemoveFromDatasetByFilter is the corresponding action for 'dataset data remove filter'.
-func DataRemoveFromDatasetByFilter(c *cli.Context, args dataRemoveFromDatasetByFilterArgs) error {
-	client, err := newViamClient(c)
+func DataRemoveFromDatasetByFilter(ctx context.Context, cmd *cli.Command, args dataRemoveFromDatasetByFilterArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	filter, err := createDataFilter(c)
+	filter, err := createDataFilter(cmd)
 	if err != nil {
 		return err
 	}
@@ -1066,28 +1066,28 @@ func DataRemoveFromDatasetByFilter(c *cli.Context, args dataRemoveFromDatasetByF
 	// set the dataset ID in the filter, so that we do not attempt to remove data that is not in the dataset
 	filter.DatasetId = args.DatasetID
 
-	if err := client.dataRemoveFromDatasetByFilter(filter, args.DatasetID); err != nil {
+	if err := client.dataRemoveFromDatasetByFilter(ctx, filter, args.DatasetID); err != nil {
 		return err
 	}
 	return nil
 }
 
 // dataRemoveFromDatasetByFilter removes binary data from the specified filter from dataset.
-func (c *viamClient) dataRemoveFromDatasetByFilter(filter *datapb.Filter, datasetID string) error {
-	if err := c.ensureLoggedIn(); err != nil {
+func (c *viamClient) dataRemoveFromDatasetByFilter(ctx context.Context, filter *datapb.Filter, datasetID string) error {
+	if err := c.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
 	parallelActions := uint(100)
 
 	return c.performActionOnBinaryDataFromFilter(
 		func(id string) error {
-			_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(c.c.Context,
+			_, err := c.dataClient.RemoveBinaryDataFromDatasetByIDs(ctx,
 				&datapb.RemoveBinaryDataFromDatasetByIDsRequest{DatasetId: datasetID, BinaryDataIds: []string{id}})
 			return err
 		},
 		filter, parallelActions,
 		func(i int32) {
-			printf(c.c.App.Writer, "Removed %d files from dataset ID %s", i, datasetID)
+			printf(c.c.Root().Writer, "Removed %d files from dataset ID %s", i, datasetID)
 		})
 }
 
@@ -1099,11 +1099,11 @@ type dataConfigureDatabaseUserArgs struct {
 // DataConfigureDatabaseUserConfirmation is the Before action for 'data database configure'.
 // it asks for the user to confirm that they are aware that they are changing the authentication
 // credentials of their database.
-func DataConfigureDatabaseUserConfirmation(c *cli.Context, args dataConfigureDatabaseUserArgs) error {
+func DataConfigureDatabaseUserConfirmation(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to configure database user")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1117,18 +1117,18 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context, args dataConfigureDat
 	// skip this check if we don't have an existing ADF instance
 	if err == nil && res.HasDatabaseUser {
 		yellow := "\033[1;33m%s\033[0m"
-		printf(c.App.Writer, yellow, "WARNING!!\n")
-		printf(c.App.Writer, yellow, "You or someone else in your organization have already created a user.\n")
-		printf(c.App.Writer, yellow, "The following steps update the password for that user.\n")
-		printf(c.App.Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
-		printf(c.App.Writer, yellow, "other integrations relying on this password.\n")
-		printf(c.App.Writer, yellow, "Do you want to continue?")
-		printf(c.App.Writer, "Continue: y/n")
-		if err := c.Err(); err != nil {
+		printf(cmd.Root().Writer, yellow, "WARNING!!\n")
+		printf(cmd.Root().Writer, yellow, "You or someone else in your organization have already created a user.\n")
+		printf(cmd.Root().Writer, yellow, "The following steps update the password for that user.\n")
+		printf(cmd.Root().Writer, yellow, "Once you have updated the password, you will need to update all dashboards or")
+		printf(cmd.Root().Writer, yellow, "other integrations relying on this password.\n")
+		printf(cmd.Root().Writer, yellow, "Do you want to continue?")
+		printf(cmd.Root().Writer, "Continue: y/n")
+		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		rawInput, err := bufio.NewReader(c.App.Reader).ReadString('\n')
+		rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
 		if err != nil {
 			return err
 		}
@@ -1143,8 +1143,8 @@ func DataConfigureDatabaseUserConfirmation(c *cli.Context, args dataConfigureDat
 }
 
 // DataConfigureDatabaseUser is the corresponding action for 'data database configure'.
-func DataConfigureDatabaseUser(c *cli.Context, args dataConfigureDatabaseUserArgs) error {
-	client, err := newViamClient(c)
+func DataConfigureDatabaseUser(ctx context.Context, cmd *cli.Command, args dataConfigureDatabaseUserArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1163,7 +1163,7 @@ func (c *viamClient) dataConfigureDatabaseUser(orgID, password string) error {
 	if err != nil {
 		return errors.Wrapf(err, serverErrorMessage)
 	}
-	printf(c.c.App.Writer, "Configured database user for org %s", orgID)
+	printf(c.c.Root().Writer, "Configured database user for org %s", orgID)
 	return nil
 }
 
@@ -1172,11 +1172,11 @@ type dataGetDatabaseConnectionArgs struct {
 }
 
 // DataGetDatabaseConnection is the corresponding action for 'data database hostname'.
-func DataGetDatabaseConnection(c *cli.Context, args dataGetDatabaseConnectionArgs) error {
+func DataGetDatabaseConnection(ctx context.Context, cmd *cli.Command, args dataGetDatabaseConnectionArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to get a database connection")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -1184,8 +1184,8 @@ func DataGetDatabaseConnection(c *cli.Context, args dataGetDatabaseConnectionArg
 	if err != nil {
 		return err
 	}
-	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
-	printf(client.c.App.Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
+	printf(client.c.Root().Writer, "MongoDB Atlas Data Federation instance hostname: %s", res.GetHostname())
+	printf(client.c.Root().Writer, "MongoDB Atlas Data Federation instance connection URI: %s", res.GetMongodbUri())
 	return nil
 }
 

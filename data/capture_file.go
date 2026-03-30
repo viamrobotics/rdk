@@ -236,8 +236,7 @@ func IsDataCaptureFile(f *os.File) bool {
 
 // Create a filename based on the current time.
 func getFileTimestampName() string {
-	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
-	return time.Now().Format(time.RFC3339Nano)
+	return time.Now().Format("2006-01-02T15:04:05.000000Z07:00")
 }
 
 // SensorDataFromCaptureFilePath returns all readings in the file at filePath.
