@@ -656,4 +656,9 @@ func TestSaladRobots(t *testing.T) {
 	_, _, err = PlanMotion(context.Background(), mpLogger, req)
 	fmt.Println("took: ", time.Since(now))
 	test.That(t, err, test.ShouldBeNil)
+
+	b1, _ := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "a")
+	b2, _ := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "a")
+
+	fmt.Println(b1.EncompassedBy(b2))
 }
