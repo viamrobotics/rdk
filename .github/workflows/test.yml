@@ -92,9 +92,15 @@ jobs:
           SKIP_ROBOT_IMPL=true
 
           if [ -n "$CHANGED_GO_DIRS" ]; then
-            ROBOT_IMPL_DEPS=$(go list -deps go.viam.com/rdk/robot/impl \
+            _raw=$(go list -deps go.viam.com/rdk/robot/impl 2>&1) || {
+              echo "::warning::go list failed for robot/impl — falling back to running robot/impl tests"
+              echo "$_raw" | tail -5
+              SKIP_ROBOT_IMPL=false
+              _raw=""
+            }
+            ROBOT_IMPL_DEPS=$(echo "$_raw" \
               | grep '^go.viam.com/rdk/' \
-              | sed 's|go.viam.com/rdk/||')
+              | sed 's|go.viam.com/rdk/||' || true)
 
             while IFS= read -r dir; do
               if echo "$ROBOT_IMPL_DEPS" | grep -qx "$dir"; then
@@ -122,9 +128,15 @@ jobs:
           SKIP_ARMPLANNING=true
 
           if [ -n "$CHANGED_GO_DIRS" ]; then
-            ARMPLANNING_DEPS=$(go list -deps go.viam.com/rdk/motionplan/armplanning \
+            _raw=$(go list -deps go.viam.com/rdk/motionplan/armplanning 2>&1) || {
+              echo "::warning::go list failed for motionplan/armplanning — falling back to running armplanning tests"
+              echo "$_raw" | tail -5
+              SKIP_ARMPLANNING=false
+              _raw=""
+            }
+            ARMPLANNING_DEPS=$(echo "$_raw" \
               | grep '^go.viam.com/rdk/' \
-              | sed 's|go.viam.com/rdk/||')
+              | sed 's|go.viam.com/rdk/||' || true)
 
             while IFS= read -r dir; do
               if echo "$ARMPLANNING_DEPS" | grep -qx "$dir"; then
@@ -151,9 +163,15 @@ jobs:
           SKIP_MODULE=true
 
           if [ -n "$CHANGED_GO_DIRS" ]; then
-            MODULE_DEPS=$(go list -deps go.viam.com/rdk/module/modmanager \
+            _raw=$(go list -deps go.viam.com/rdk/module/modmanager 2>&1) || {
+              echo "::warning::go list failed for module/modmanager — falling back to running module tests"
+              echo "$_raw" | tail -5
+              SKIP_MODULE=false
+              _raw=""
+            }
+            MODULE_DEPS=$(echo "$_raw" \
               | grep '^go.viam.com/rdk/' \
-              | sed 's|go.viam.com/rdk/||')
+              | sed 's|go.viam.com/rdk/||' || true)
 
             while IFS= read -r dir; do
               if echo "$MODULE_DEPS" | grep -qx "$dir"; then
