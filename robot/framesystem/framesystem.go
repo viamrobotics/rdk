@@ -4,6 +4,7 @@ package framesystem
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -320,34 +321,63 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 	if err != nil {
 		return nil, err
 	}
-	input := referenceframe.NewZeroInputs(fs)
+	li := referenceframe.NewZeroLinearInputs(fs)
 
-	// build maps of relevant components and inputs from initial inputs
-	for name, original := range input {
-		// skip frames with no input
-		if len(original) == 0 {
+	// Track which components we've already fetched inputs for
+	seen := map[string]bool{}
+
+	for name := range li.Items() {
+		if len(li.Get(name)) == 0 {
 			continue
 		}
 
-		// add component to map
-		component, ok := svc.components[name]
+		// Extract component name: "arm1:joint1" → "arm1", "camera" → "camera"
+		componentName := componentNameFromFrame(name)
+		if seen[componentName] {
+			continue
+		}
+		seen[componentName] = true
+
+		component, ok := svc.components[componentName]
 		if !ok {
-			return nil, DependencyNotFoundError(name)
+			return nil, DependencyNotFoundError(componentName)
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
 			return nil, NotInputEnabledError(component)
 		}
 
-		// add input to map
-		pos, err := inputEnabled.CurrentInputs(ctx)
+		flatInputs, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err
 		}
-		input[name] = pos
+
+		// For flattened models, distribute flat inputs across namespaced frames
+		if componentName != name {
+			// This is a namespaced frame from a flattened model
+			model, err := inputEnabled.Kinematics(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if err := referenceframe.DistributeModelInputs(componentName, model, flatInputs, li); err != nil {
+				return nil, err
+			}
+		} else {
+			// Non-flattened frame: assign directly
+			li.Put(name, flatInputs)
+		}
 	}
 
-	return input, nil
+	return li.ToFrameSystemInputs(), nil
+}
+
+// componentNameFromFrame extracts the component name from a potentially namespaced frame name.
+// "arm1:joint1" → "arm1", "camera" → "camera".
+func componentNameFromFrame(frameName string) string {
+	if idx := strings.Index(frameName, ":"); idx >= 0 {
+		return frameName[:idx]
+	}
+	return frameName
 }
 
 // NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.

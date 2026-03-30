@@ -601,6 +601,14 @@ func (ms *builtIn) planTeleop(
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
+	// Preprocess: consolidate per-frame trajectory entries into per-component flat vectors.
+	// After model flattening, trajectory steps may have individual frame names like "arm1:joint1"
+	// instead of component-level names like "arm1". Gather them back for GoToInputs.
+	trajectory, err := ms.consolidateTrajectory(ctx, trajectory)
+	if err != nil {
+		return err
+	}
+
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -700,6 +708,81 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+// consolidateTrajectory converts per-frame trajectory entries back into per-component
+// flat input vectors. After model flattening, trajectory steps may have individual frame
+// names like "arm1:joint1". This gathers them into a flat vector under "arm1" for GoToInputs.
+func (ms *builtIn) consolidateTrajectory(
+	ctx context.Context, trajectory motionplan.Trajectory,
+) (motionplan.Trajectory, error) {
+	// Check if any namespaced frames exist; if not, return as-is for efficiency
+	hasNamespaced := false
+	if len(trajectory) > 0 {
+		for name := range trajectory[0] {
+			if strings.Contains(name, ":") {
+				hasNamespaced = true
+				break
+			}
+		}
+	}
+	if !hasNamespaced {
+		return trajectory, nil
+	}
+
+	// Cache models by component name
+	modelCache := map[string]referenceframe.Model{}
+
+	result := make(motionplan.Trajectory, len(trajectory))
+	for i, step := range trajectory {
+		consolidated := make(referenceframe.FrameSystemInputs)
+
+		// First, collect all non-namespaced entries directly
+		for name, inputs := range step {
+			if !strings.Contains(name, ":") {
+				consolidated[name] = inputs
+			}
+		}
+
+		// Group namespaced frames by component
+		componentFrames := map[string]bool{}
+		for name := range step {
+			if idx := strings.Index(name, ":"); idx >= 0 {
+				componentFrames[name[:idx]] = true
+			}
+		}
+
+		// For each component with namespaced frames, gather inputs
+		for componentName := range componentFrames {
+			if _, exists := consolidated[componentName]; exists {
+				continue // already has a direct entry
+			}
+			model, ok := modelCache[componentName]
+			if !ok {
+				r, ok := ms.components[componentName]
+				if !ok {
+					return nil, fmt.Errorf("component %s not found for trajectory consolidation", componentName)
+				}
+				ie, err := utils.AssertType[framesystem.InputEnabled](r)
+				if err != nil {
+					return nil, err
+				}
+				model, err = ie.Kinematics(ctx)
+				if err != nil {
+					return nil, err
+				}
+				modelCache[componentName] = model
+			}
+			gathered, err := referenceframe.GatherModelInputs(componentName, model, step.ToLinearInputs())
+			if err != nil {
+				return nil, err
+			}
+			consolidated[componentName] = gathered
+		}
+
+		result[i] = consolidated
+	}
+	return result, nil
 }
 
 // applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
