@@ -59,10 +59,10 @@ func (wosSvc *WorldStateStoreService) DoCommand(ctx context.Context, cmd map[str
 
 // Status calls the injected Status or the real version.
 func (wosSvc *WorldStateStoreService) Status(ctx context.Context) (map[string]interface{}, error) {
-	if wosSvc.StatusFunc != nil {
-		return wosSvc.StatusFunc(ctx)
+	if wosSvc.StatusFunc == nil {
+		return nil, errors.New("StatusFunc not set")
 	}
-	return map[string]interface{}{}, nil
+	return wosSvc.StatusFunc(ctx)
 }
 
 // StreamTransformChanges calls the injected StreamTransformChangesFunc or the real version.
