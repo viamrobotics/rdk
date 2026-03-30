@@ -421,6 +421,21 @@ func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModels
 		return err
 	}
 
+	// if the path is a directory or doesn't exist, look for a meta.json inside
+	// (or in the parent dir) to find the real entrypoint — supports legacy usage
+	// where users passed a module directory rather than the exact binary path
+	if info, statErr := os.Stat(binary); statErr != nil || info.IsDir() {
+		dirToCheck := binary
+		if statErr != nil {
+			dirToCheck = filepath.Dir(binary)
+		}
+		innerManifest, loadErr := loadManifest(filepath.Join(dirToCheck, "meta.json"))
+		if loadErr != nil || innerManifest.Entrypoint == "" {
+			return errors.Errorf("could not find binary or meta.json at %s", binary)
+		}
+		binary = filepath.Join(dirToCheck, innerManifest.Entrypoint)
+	}
+
 	newModels, err := readModels(binary, logger)
 	if err != nil {
 		return err
