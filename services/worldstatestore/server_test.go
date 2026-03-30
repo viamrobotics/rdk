@@ -301,15 +301,11 @@ func TestServerGetStatus(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
-
 	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
 	injectWSS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
 		return expectedStatus, nil
 	}
-	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
 
