@@ -472,6 +472,7 @@ func newWithResources(
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
+	logger.Info("setting home dir %q, VIAM_HOME is %q", homeDir, os.Getenv("VIAM_HOME"))
 
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
@@ -589,6 +590,7 @@ func newWithResources(
 	}
 
 	// Once web service is started, start module manager
+	logger.Infof("starting module manager with homeDir %q, packagePath %q", homeDir, cfg.PackagePath)
 	if err := r.manager.startModuleManager(
 		closeCtx,
 		r.webSvc.ModuleAddresses(),
