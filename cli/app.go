@@ -2662,7 +2662,7 @@ Note: There is no progress meter while copying is in progress.
 									Usage: "show only history entries saved by this email address",
 								},
 							},
-							Action: createCommandWithT(machinesPartHistoryAction),
+							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
 						},
 						{
 							Name:      "logs",

@@ -936,7 +936,7 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 
 	t.Run("all entries", func(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
-		err := ac.machinesPartHistoryAction(cCtx, machinesPartHistoryArgs{Part: partID})
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, len(out.messages), test.ShouldEqual, 2)
@@ -948,7 +948,7 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 
 	t.Run("filter by email", func(t *testing.T) {
 		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
-		err := ac.machinesPartHistoryAction(cCtx, machinesPartHistoryArgs{Part: partID, FilterByEmail: "alice@viam.com"})
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID, FilterByEmail: "alice@viam.com"})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, len(out.messages), test.ShouldEqual, 1)
@@ -966,7 +966,7 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 			},
 		}
 		cCtx, ac, out, errOut := setup(emptyAsc, nil, nil, nil, "token")
-		err := ac.machinesPartHistoryAction(cCtx, machinesPartHistoryArgs{Part: partID})
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
 		test.That(t, len(out.messages), test.ShouldEqual, 1)
