@@ -3433,8 +3433,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:      moduleFlagBinary,
-							Usage:     "binary for the module to run (has to work on this os/processor) like ./dist/main; if omitted, uses entrypoint from meta.json",
+							Name: moduleFlagBinary,
+							Usage: "binary for the module to run (has to work on this os/processor) like ./dist/main; " +
+								"if omitted, uses entrypoint from meta.json",
+							Required:  true,
 							TakesFile: true,
 						},
 					},
