@@ -28,7 +28,7 @@ type ModelConfigJSON struct {
 	Joints       []JointConfig   `json:"joints,omitempty"`
 	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 	OutputFrames []string        `json:"output_frames,omitempty"`
-	OriginalFile *ModelFile
+	OriginalFile *ModelFile `json:"-"`
 }
 
 // ModelFile is a struct that stores the raw bytes of the file used to create the model as well as its extension,
