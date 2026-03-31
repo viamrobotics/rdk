@@ -56,13 +56,12 @@ type Step struct {
 
 // ProgressManager manages a sequence of steps with spinners (sequential display).
 type ProgressManager struct {
-	steps           []*Step
-	stepMap         map[string]*Step
-	currentSpinner  progressSpinner // Active child spinner (IndentLevel > 0)
-	spinnerFactory  progressSpinnerFactory
-	mu              sync.Mutex
-	disabled        bool
-	showFinalOutput bool // when true, ending state is printed (Error, Success, etc.)
+	steps          []*Step
+	stepMap        map[string]*Step
+	currentSpinner progressSpinner // Active child spinner (IndentLevel > 0)
+	spinnerFactory progressSpinnerFactory
+	mu             sync.Mutex
+	disabled       bool
 }
 
 // ProgressManagerOption allows customizing ProgressManager behavior at creation time.
@@ -75,12 +74,6 @@ func WithProgressOutput(enabled bool) ProgressManagerOption {
 	}
 }
 
-// WithFinalOutput enables or disables printing the command's ending state 
-func WithFinalOutput() ProgressManagerOption {
-	return func(pm *ProgressManager) {
-		pm.showFinalOutput = true
-	}
-}
 
 func withProgressSpinnerFactory(factory progressSpinnerFactory) ProgressManagerOption {
 	return func(pm *ProgressManager) {
@@ -267,9 +260,6 @@ func (pm *ProgressManager) CompleteWithMessage(stepID, message string) error {
 	prefix := getPrefix(step)
 
 	if pm.disabled {
-		if pm.showFinalOutput && step.IndentLevel == 0 {
-			_, _ = fmt.Fprintln(os.Stdout, message)
-		}
 		return nil
 	}
 
@@ -329,9 +319,6 @@ func (pm *ProgressManager) failWithMessageLocked(step *Step, message string) {
 	step.Status = StepFailed
 
 	if pm.disabled {
-		if pm.showFinalOutput && step.IndentLevel == 0 {
-			_, _ = fmt.Fprintln(os.Stdout, message)
-		}
 		return
 	}
 

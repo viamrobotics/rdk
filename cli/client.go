@@ -3772,7 +3772,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-	var pm *ProgressManager
+	pm := NewProgressManager([]*Step{
+		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+	}, WithProgressOutput(!flagArgs.NoProgress))
 	doCopy := func() (int, error) {
 		var copyFunc func() error
 		if isFrom {
@@ -3809,15 +3811,10 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				)
 			}
 		}
-		if !flagArgs.NoProgress {
-			pm = NewProgressManager([]*Step{
-				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
-			})
-			if err := pm.Start("copy"); err != nil {
-				return 0, err
-			}
-			defer pm.Stop()
+		if err := pm.Start("copy"); err != nil {
+			return 0, err
 		}
+		defer pm.Stop()
 		attemptCount, err := c.retryableCopy(
 			cmd,
 			pm,
@@ -4163,7 +4160,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
 		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
-	}, WithProgressOutput(!args.NoProgress), WithFinalOutput())
+	}, WithProgressOutput(!args.NoProgress))
 
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	if err := pm.Start("check"); err != nil {
@@ -4182,6 +4179,9 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 			msg := fmt.Sprintf("Already up to date (version %s)", localVersion.Original())
 			if err := pm.CompleteWithMessage("check", msg); err != nil {
 				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, msg)
 			}
 			return nil
 		}
@@ -4222,9 +4222,22 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 			if err := pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew"); err != nil {
 				return err
 			}
-			return pm.CompleteWithMessage("update", updatedMsg)
+			if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
+				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, updatedMsg)
+			}
+			return nil
 		case brewNotAvailable:
-			return pm.FailWithMessage("update", "Latest version not yet available on Homebrew, try again later")
+			const brewNotAvailableMsg = "Latest version not yet available on Homebrew, try again later"
+			if err := pm.FailWithMessage("update", brewNotAvailableMsg); err != nil {
+				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, brewNotAvailableMsg)
+			}
+			return nil
 		}
 	}
 
@@ -4281,7 +4294,13 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 				"\nError: %v", directoryPath, err)
 		}
 	}
-	return pm.CompleteWithMessage("update", updatedMsg)
+	if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
+		return err
+	}
+	if args.NoProgress {
+		infof(cmd.Root().Writer, updatedMsg)
+	}
+	return nil
 }
 
 type brewUpdateResult int
