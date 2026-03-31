@@ -3109,20 +3109,23 @@ func machinesPartHistoryAction(c *cli.Context, args machinesPartHistoryArgs) err
 	if err != nil {
 		return err
 	}
+	return client.machinesPartHistoryAction(c, args)
+}
 
-	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+func (c *viamClient) machinesPartHistoryAction(cCtx *cli.Context, args machinesPartHistoryArgs) error {
+	part, err := c.robotPart(args.Organization, args.Location, args.Machine, args.Part)
 	if err != nil {
 		return errors.Wrap(err, "could not get machine part")
 	}
 
-	resp, err := client.client.GetRobotPartHistory(c.Context, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
+	resp, err := c.client.GetRobotPartHistory(cCtx.Context, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
 	if err != nil {
 		return err
 	}
 
 	history := resp.History
 	if len(history) == 0 {
-		printf(c.App.Writer, "no history found for part %s", part.Name)
+		printf(cCtx.App.Writer, "no history found for part %s", part.Name)
 		return nil
 	}
 
@@ -3138,7 +3141,7 @@ func machinesPartHistoryAction(c *cli.Context, args machinesPartHistoryArgs) err
 		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
 			editedBy = entry.EditedBy.Value
 		}
-		printf(c.App.Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
+		printf(cCtx.App.Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
 	}
 
 	return nil
