@@ -3135,7 +3135,7 @@ func (c *viamClient) machinesPartHistoryAction(cCtx *cli.Context, args machinesP
 		}
 		when := "<unknown time>"
 		if entry.When != nil {
-			when = entry.When.AsTime().Local().Format("2006-01-02 15:04:05 MST")
+			when = entry.When.AsTime().Format(time.UnixDate)
 		}
 		editedBy := "<unknown>"
 		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
