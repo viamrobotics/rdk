@@ -340,6 +340,46 @@ func TestSimpleModelProtoRoundTrip(t *testing.T) {
 	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
 }
 
+func TestKinematicModelFromProtobufUnspecifiedWithData(t *testing.T) {
+	// When kinematics data is round-tripped across gRPC module boundaries,
+	// the format field can arrive as UNSPECIFIED even though valid data is present.
+	// KinematicModelFromProtobuf should infer the format from the data content.
+
+	t.Run("unspecified format with valid SVA JSON data", func(t *testing.T) {
+		// Load a real arm model to get valid SVA JSON bytes.
+		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+		test.That(t, err, test.ShouldBeNil)
+
+		proto := KinematicModelToProtobuf(original)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+
+		// Simulate the gRPC round-trip bug: format lost, data preserved.
+		proto.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+
+		restored, err := KinematicModelFromProtobuf("xArm6", proto)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, restored, test.ShouldNotBeNil)
+		test.That(t, len(restored.DoF()), test.ShouldEqual, len(original.DoF()))
+	})
+
+	t.Run("unspecified format with valid URDF data", func(t *testing.T) {
+		// Load a real URDF model to get valid URDF bytes.
+		original, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		proto := KinematicModelToProtobuf(original)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+
+		// Simulate the gRPC round-trip bug: format lost, data preserved.
+		proto.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
+
+		restored, err := KinematicModelFromProtobuf("ur5e", proto)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, restored, test.ShouldNotBeNil)
+		test.That(t, len(restored.DoF()), test.ShouldEqual, len(original.DoF()))
+	})
+}
+
 // TestMimicGripperModel loads a branching gripper with mimic joints and verifies:
 //   - right_joint mimics left_joint (multiplier=1, offset=0) → only 1 DoF
 //   - Transform returns the TCP position
