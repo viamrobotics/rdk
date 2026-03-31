@@ -254,6 +254,20 @@ func (m *Mesh) String() string {
 		m.pose.Point().X, m.pose.Point().Y, m.pose.Point().Z, len(m.triangles))
 }
 
+// Volume computes the volume of the mesh using the divergence theorem
+// (signed tetrahedron volumes). The mesh is assumed to be closed.
+func (m *Mesh) Volume() float64 {
+	vol := 0.0
+	for _, tri := range m.triangles {
+		pts := tri.Points()
+		vol += pts[0].Dot(pts[1].Cross(pts[2]))
+	}
+	if vol < 0 {
+		vol = -vol
+	}
+	return vol / 6.0
+}
+
 // ToProtobuf converts a Mesh to its protobuf representation.
 // Meshes are always converted to PLY format for compatibility with the visualizer.
 // Note that if the mesh's rawBytes and fileType fields are unset this will result in a malformed message
