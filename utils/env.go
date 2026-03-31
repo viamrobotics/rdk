@@ -147,7 +147,7 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 
 // parent directory of ViamDotDir
 func viamHomeDir() string {
-	if viamHome := os.Getenv("VIAM_HOME"); viamHome != "" {
+	if viamHome := os.Getenv(HomeEnvVar); viamHome != "" {
 		return viamHome
 	}
 	return PlatformHomeDir()
@@ -168,10 +168,18 @@ func PlatformHomeDir() string {
 }
 
 // PlatformMkdirTemp wraps MkdirTemp. On android, when dir is empty, it uses a path
-// that is writable + executable.
+// that is writable + executable. On windows, it sometimes switches the drive.
 func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
 		dir = AndroidFilesDir
+	}
+	if runtime.GOOS == "windows" {
+		if wd, _ := os.Getwd(); wd != "" && filepath.VolumeName(wd) != "C:" {
+			// because we put socket paths in the temp dir, and because socket paths are
+			// posix paths (leading slash) for grpc-go reasons, we can't use the normal
+			// temp dir (which is on C:) when working directory is not on C:.
+			dir = filepath.Join(ViamDotDir, "tmp")
+		}
 	}
 	return os.MkdirTemp(dir, pattern)
 }
@@ -234,6 +242,7 @@ func CleanWindowsSocketPath(goos, orig string) (string, error) {
 			return "", fmt.Errorf("error cleaning socket path %s", orig)
 		}
 		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
+			// todo: this is no longer right
 			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
 		}
 		return strings.ReplaceAll(match[2], "\\", "/"), nil
