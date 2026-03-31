@@ -152,15 +152,6 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		return
 	}
 
-	// If user has set a custom VIAM_HOME, note that it is experimental.
-	if value, isSet := os.LookupEnv(rutils.HomeEnvVar); isSet {
-		rootLogger.Infof("Environment variable %v is set to %v. Support for custom %v is currently experimental. "+
-			"Continuing with startup.", rutils.HomeEnvVar, value, rutils.HomeEnvVar)
-		rootLogger.Infof("Updating .viam dir from %v to %v", rutils.ViamDotDir, value)
-		rutils.ViamDotDir = value
-		config.UpdateViamPackagesDir()
-	}
-
 	// log startup info locally if server fails and exits while attempting to start up
 	var startupInfoLogged bool
 	defer func() {
