@@ -248,10 +248,6 @@ func CleanWindowsSocketPath(goos, orig string) (string, error) {
 		if match == nil {
 			return "", fmt.Errorf("error cleaning socket path %s", orig)
 		}
-		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
-			// todo: this is no longer right
-			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
-		}
 		return strings.ReplaceAll(match[2], "\\", "/"), nil
 	}
 	return orig, nil
