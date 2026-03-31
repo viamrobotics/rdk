@@ -2626,6 +2626,45 @@ Note: There is no progress meter while copying is in progress.
 							Action: createActionCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
 						},
 						{
+							Name:      "history",
+							Usage:     "display configuration history for a machine part",
+							UsageText: createUsageText("machines part history", []string{generalFlagPart}, true, false),
+							Flags: []cli.Flag{
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:     generalFlagPart,
+										Aliases:  []string{generalFlagPartID, generalFlagPartName},
+										Required: true,
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagOrganization,
+										Aliases:     []string{generalFlagAliasOrg, generalFlagOrgID, generalFlagAliasOrgName},
+										DefaultText: "default-org value if set, else the first organization alphabetically",
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:        generalFlagLocation,
+										Aliases:     []string{generalFlagLocationID, generalFlagAliasLocationName},
+										DefaultText: "default-location value if set, else the first location alphabetically",
+									},
+								},
+								&AliasStringFlag{
+									cli.StringFlag{
+										Name:    generalFlagMachine,
+										Aliases: []string{generalFlagAliasRobot, generalFlagMachineID, generalFlagMachineName},
+									},
+								},
+								&cli.StringFlag{
+									Name:  "filter-by-email",
+									Usage: "show only history entries saved by this email address",
+								},
+							},
+							Action: createCommandWithT(machinesPartHistoryAction),
+						},
+						{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",

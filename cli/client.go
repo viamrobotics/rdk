@@ -3095,6 +3095,55 @@ func RobotsPartStatusAction(ctx context.Context, cmd *cli.Command, args robotsPa
 	return nil
 }
 
+type machinesPartHistoryArgs struct {
+	Organization  string
+	Location      string
+	Machine       string
+	Part          string
+	FilterByEmail string
+}
+
+// machinesPartHistoryAction is the corresponding action for 'machines part history'.
+func machinesPartHistoryAction(c *cli.Context, args machinesPartHistoryArgs) error {
+	client, err := newViamClient(c)
+	if err != nil {
+		return err
+	}
+
+	part, err := client.robotPart(args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine part")
+	}
+
+	resp, err := client.client.GetRobotPartHistory(c.Context, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
+	if err != nil {
+		return err
+	}
+
+	history := resp.History
+	if len(history) == 0 {
+		printf(c.App.Writer, "no history found for part %s", part.Name)
+		return nil
+	}
+
+	for i, entry := range history {
+		if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
+			continue
+		}
+		when := "<unknown time>"
+		if entry.When != nil {
+			when = entry.When.AsTime().Local().Format("2006-01-02 15:04:05 MST")
+		}
+		editedBy := "<unknown>"
+		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
+			editedBy = entry.EditedBy.Value
+		}
+		printf(c.App.Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
+	}
+
+	return nil
+}
+
 type robotsPartAddFragmentArgs struct {
 	Organization string
 	Location     string
