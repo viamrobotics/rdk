@@ -81,11 +81,6 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 var viamPackagesDir string
 
 func init() {
-	UpdateViamPackagesDir()
-}
-
-// UpdateViamPackagesDir updates viamPackagesDir with the latest available information.
-func UpdateViamPackagesDir() {
 	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
