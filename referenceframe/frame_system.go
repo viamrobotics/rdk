@@ -76,16 +76,6 @@ func (sfs *FrameSystem) FlattenedModel(componentName string) Model {
 	return nil
 }
 
-// FlattenedModelNames returns the component names of all flattened models.
-func (sfs *FrameSystem) FlattenedModelNames() []string {
-	names := make([]string, 0, len(sfs.flattenedModels))
-	for name := range sfs.flattenedModels {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
 // ComponentSchema returns the namespaced LinearInputsSchema for a flattened model component.
 // The schema frame names use the namespaced convention (e.g., "arm1:joint1").
 // Returns nil if the component is not a flattened model.

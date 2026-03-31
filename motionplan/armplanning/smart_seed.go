@@ -310,7 +310,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 			break
 		}
 		// Check if this is a backward-compat alias of a flattened model
-		if ssc.fs.FlattenedModel(frame.Name()) != nil {
+		if ssc.fs.ComponentSchema(frame.Name()) != nil {
 			break
 		}
 		if frame == ssc.fs.World() {
@@ -326,7 +326,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// The componentName is used for cache lookup and input gather/distribute.
 	// The fsFrameName is used for FS transform lookups (it exists in the FS as a zero-pose alias).
 	componentName := frame.Name()
-	if ssc.fs.FlattenedModel(componentName) == nil {
+	if ssc.fs.ComponentSchema(componentName) == nil {
 		// Standard check: ensure no parent also moves
 		p, err := ssc.fs.Parent(frame)
 		if err != nil {
@@ -768,7 +768,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 	}
 
 	// Build cache entries for flattened models using the original combined SimpleModel
-	for _, componentName := range ssc.fs.FlattenedModelNames() {
+	for _, componentName := range ssc.fs.ComponentSchemaNames() {
 		model := ssc.fs.FlattenedModel(componentName)
 		if model == nil || len(model.DoF()) == 0 {
 			continue
