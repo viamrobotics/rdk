@@ -4243,7 +4243,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		return err
 	}
 	binaryURL := binaryURL()
-	latestBinaryPath, downloadErr := downloadBinaryIntoDir(binaryURL, directoryPath, pm)
+	latestBinaryPath, downloadErr := downloadBinaryIntoDir(binaryURL, directoryPath)
 	defer os.Remove(latestBinaryPath) //nolint:errcheck
 	if downloadErr != nil {
 		if failErr := pm.Fail("download", downloadErr); failErr != nil {
@@ -4324,30 +4324,7 @@ func binaryURL() string {
 	return binaryURL
 }
 
-// downloadProgressReader wraps an io.Reader and updates a ProgressManager spinner text with download progress.
-type downloadProgressReader struct {
-	r        io.Reader
-	pm       *ProgressManager
-	total    int64
-	received int64
-}
-
-func (dr *downloadProgressReader) Read(p []byte) (int, error) {
-	n, err := dr.r.Read(p)
-	dr.received += int64(n)
-	if dr.pm != nil {
-		receivedMB := float64(dr.received) / (1024 * 1024)
-		if dr.total > 0 {
-			totalMB := float64(dr.total) / (1024 * 1024)
-			dr.pm.UpdateText(fmt.Sprintf("  → Downloading latest CLI... %.1f / %.1f MB", receivedMB, totalMB))
-		} else {
-			dr.pm.UpdateText(fmt.Sprintf("  → Downloading latest CLI... %.1f MB", receivedMB))
-		}
-	}
-	return n, err
-}
-
-func downloadBinaryIntoDir(binaryURL, directoryPath string, pm *ProgressManager) (string, error) {
+func downloadBinaryIntoDir(binaryURL, directoryPath string) (string, error) {
 	// Download the binary
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, binaryURL, nil)
 	if err != nil {
@@ -4384,15 +4361,8 @@ func downloadBinaryIntoDir(binaryURL, directoryPath string, pm *ProgressManager)
 		return "", errors.Errorf("failed to create temp file: %v", err)
 	}
 
-	// Wrap response body in a downloadProgressReader to update the spinner during io.Copy
-	reader := &downloadProgressReader{
-		r:     resp.Body,
-		pm:    pm,
-		total: resp.ContentLength,
-	}
-
 	// Write downloaded content to temp file
-	_, err = io.Copy(latestBinaryFile, reader)
+	_, err = io.Copy(latestBinaryFile, resp.Body)
 	utils.UncheckedError(resp.Body.Close())
 	utils.UncheckedError(latestBinaryFile.Close())
 	if err != nil {
