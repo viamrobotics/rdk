@@ -4150,6 +4150,7 @@ type updateArgs struct {
 func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 	pm := NewProgressManager([]*Step{
 		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
+		{ID: "update", Message: "Updating...", IndentLevel: 0},
 		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
 		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
@@ -4161,11 +4162,11 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 	}
 	latestVersion, latestVersionErr := latestVersion()
 	if latestVersionErr != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get latest release information: %v", latestVersionErr)
 	}
 	localVersion, localVersionErr := localVersion()
 	if localVersionErr != nil {
-		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+		warningf(c.App.ErrWriter, "CLI Update Check: failed to get local release information: %v", localVersionErr)
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
@@ -4175,15 +4176,24 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 			return nil
 		}
 	}
-	updateMsg := "Update available"
+	checkMsg := "Update available"
 	if latestVersion != nil {
-		updateMsg = fmt.Sprintf("Updating to %s", latestVersion.Original())
+		checkMsg = fmt.Sprintf("Update available: %s", latestVersion.Original())
 	}
-	if err := pm.CompleteWithMessage("check", updateMsg); err != nil {
+	if err := pm.CompleteWithMessage("check", checkMsg); err != nil {
 		return err
 	}
 
-	// 2. check if cli managed by brew, if so attempt update. If it fails
+	// 2. start the update parent step, which wraps all install work
+	if err := pm.Start("update"); err != nil {
+		return err
+	}
+	updatedMsg := "Updated successfully"
+	if latestVersion != nil {
+		updatedMsg = fmt.Sprintf("Updated to %s", latestVersion.Original())
+	}
+
+	// 3. check if cli managed by brew, if so attempt update. If it fails
 	// dont continue with binary replacement to avoid putting brew out of sync
 	if isViamManagedByBrew() {
 		if err := pm.Start("brew-upgrade"); err != nil {
@@ -4199,14 +4209,16 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 		}
 		switch updated {
 		case brewUpdated:
-			return pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew")
+			if err := pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew"); err != nil {
+				return err
+			}
+			return pm.CompleteWithMessage("update", updatedMsg)
 		case brewNotAvailable:
-			pm.Stop()
-			infof(c.App.Writer, "Latest version not yet available on Homebrew, try again later")
-			return nil
+			return pm.FailWithMessage("update", "Latest version not yet available on Homebrew, try again later")
 		}
 	}
-	// 3. get the local version binary path (use full path if no symlinks)
+
+	// 4. get the local version binary path (use full path if no symlinks)
 	execPath, err := os.Executable()
 	if err != nil {
 		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
@@ -4217,7 +4229,7 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 	}
 	directoryPath := filepath.Dir(localBinaryPath)
 
-	// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
+	// 5. get the latest binary (from storage.googleapis.com) and write it into a temp file
 	if err := pm.Start("download"); err != nil {
 		return err
 	}
@@ -4234,7 +4246,7 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 		return err
 	}
 
-	// 5. replace the old binary with the new one
+	// 6. replace the old binary with the new one
 	if err := pm.Start("install"); err != nil {
 		return err
 	}
@@ -4244,8 +4256,11 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 		}
 		return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
 	}
+	if err := pm.Complete("install"); err != nil {
+		return err
+	}
 
-	// 6. on Windows, ensure the CLI directory is in the user's PATH
+	// 7. on Windows, ensure the CLI directory is in the user's PATH
 	if runtime.GOOS == osWindows {
 		if err := addToWindowsUserPATH(c, directoryPath); err != nil {
 			warningf(c.App.ErrWriter, "Failed to add CLI to user PATH. "+
@@ -4256,7 +4271,7 @@ func UpdateCLIAction(c *cli.Context, args updateArgs) error {
 				"\nError: %v", directoryPath, err)
 		}
 	}
-	return pm.CompleteWithMessage("install", "CLI updated successfully")
+	return pm.CompleteWithMessage("update", updatedMsg)
 }
 
 type brewUpdateResult int
