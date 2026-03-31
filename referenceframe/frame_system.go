@@ -103,6 +103,40 @@ func (sfs *FrameSystem) ComponentSchemaNames() []string {
 	return names
 }
 
+// ComponentInputsFromLinear converts a LinearInputs (which may contain per-frame keys from
+// flattened models) into a FrameSystemInputs with component-level keys. For flattened models,
+// individual frame inputs are gathered back into a flat slice under the component name.
+// Non-flattened frame inputs are passed through unchanged.
+func (sfs *FrameSystem) ComponentInputsFromLinear(li *LinearInputs) FrameSystemInputs {
+	if len(sfs.componentSchemas) == 0 {
+		return li.ToFrameSystemInputs()
+	}
+
+	// Build set of per-frame keys that belong to flattened models
+	flattenedFrames := map[string]bool{}
+	for _, schema := range sfs.componentSchemas {
+		for _, name := range schema.FrameNamesInOrder() {
+			flattenedFrames[name] = true
+		}
+	}
+
+	fsi := make(FrameSystemInputs)
+
+	// Pass through non-flattened entries
+	for name, inputs := range li.Items() {
+		if !flattenedFrames[name] {
+			fsi[name] = inputs
+		}
+	}
+
+	// Gather flattened model inputs into component entries
+	for componentName, schema := range sfs.componentSchemas {
+		fsi[componentName] = schema.GatherInputs(li)
+	}
+
+	return fsi
+}
+
 // NewFrameSystem assembles a frame system from a set of parts and additional transforms.
 func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms []*LinkInFrame) (*FrameSystem, error) {
 	allParts := make([]*FrameSystemPart, 0, len(parts)+len(additionalTransforms))

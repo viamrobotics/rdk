@@ -601,14 +601,6 @@ func (ms *builtIn) planTeleop(
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
-	// Preprocess: consolidate per-frame trajectory entries into per-component flat vectors.
-	// After model flattening, trajectory steps may have individual frame names like "arm1:joint1"
-	// instead of component-level names like "arm1". Gather them back for GoToInputs.
-	trajectory, err := ms.consolidateTrajectory(ctx, trajectory)
-	if err != nil {
-		return err
-	}
-
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -708,56 +700,6 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
-}
-
-// consolidateTrajectory converts per-frame trajectory entries back into per-component
-// flat input vectors. After model flattening, trajectory steps may have individual frame
-// names (e.g., "arm1:joint1"). This gathers them into a flat vector under the component
-// name for GoToInputs, using the FS's stored component schemas.
-func (ms *builtIn) consolidateTrajectory(
-	ctx context.Context, trajectory motionplan.Trajectory,
-) (motionplan.Trajectory, error) {
-	fs, err := ms.getFrameSystem(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	componentNames := fs.ComponentSchemaNames()
-	if len(componentNames) == 0 {
-		return trajectory, nil
-	}
-
-	// Build a set of frame names that belong to flattened models so we can skip them
-	// when copying non-flattened entries.
-	flattenedFrames := map[string]bool{}
-	for _, componentName := range componentNames {
-		schema := fs.ComponentSchema(componentName)
-		for _, name := range schema.FrameNamesInOrder() {
-			flattenedFrames[name] = true
-		}
-	}
-
-	result := make(motionplan.Trajectory, len(trajectory))
-	for i, step := range trajectory {
-		consolidated := make(referenceframe.FrameSystemInputs)
-
-		// Copy non-flattened entries directly
-		for name, inputs := range step {
-			if !flattenedFrames[name] {
-				consolidated[name] = inputs
-			}
-		}
-
-		// Gather flattened model inputs using component schemas
-		stepLI := step.ToLinearInputs()
-		for _, componentName := range componentNames {
-			schema := fs.ComponentSchema(componentName)
-			consolidated[componentName] = schema.GatherInputs(stepLI)
-		}
-
-		result[i] = consolidated
-	}
-	return result, nil
 }
 
 // applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
