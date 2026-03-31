@@ -224,7 +224,7 @@ func (tp *teleopPipeline) buildMoveReq(
 		"timeout":          5.0,  // seconds; default is 300
 		"max_ik_solutions": 20,   // default is 100
 		"min_ik_score":     0.05, // default is 0.01
-		"frame_step":       0.01, // default is 0.01; reduces trajectory steps from ~14 to ~3-4
+		"frame_step":       0.05, // default is 0.01; reduces trajectory steps from ~14 to ~3-4
 	}
 	for k, v := range teleopDefaults {
 		if _, ok := extra[k]; !ok {
