@@ -5,6 +5,20 @@ concurrency:
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (use "pr" for safe testing, "latest" to publish)'
+        type: choice
+        options: [pr, latest]
+        default: pr
+      no_prod_upload:
+        description: 'Skip production deploy (build and stage only)'
+        type: boolean
+        default: true
+      full_test:
+        description: 'Run full test suite (disable skip logic)'
+        type: boolean
+        default: false
   push:
     branches: [ main ]
     paths-ignore:
@@ -17,32 +31,60 @@ on:
 jobs:
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    with:
+      full_test: ${{ inputs.full_test || false }}
     secrets:
       MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
-  appimage:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml@main
+  appimage-build:
+    uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
     with:
-      release_type: 'latest'
+      release_type: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
-  staticbuild:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/staticbuild.yml@main
+  appimage-deploy:
+    if: ${{ inputs.release_type != 'pr' && !inputs.no_prod_upload }}
+    needs: [test, appimage-build]
+    uses: viamrobotics/rdk/.github/workflows/appimage-deploy.yml@main
     with:
-      release_type: 'latest'
+      date: ${{ needs.appimage-build.outputs.date }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  staticbuild-build:
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
+    with:
+      release_type: ${{ inputs.release_type || 'latest' }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  staticbuild-deploy:
+    if: ${{ inputs.release_type != 'pr' && !inputs.no_prod_upload }}
+    needs: [test, staticbuild-build]
+    uses: viamrobotics/rdk/.github/workflows/staticbuild-deploy.yml@main
+    with:
+      date: ${{ needs.staticbuild-build.outputs.date }}
+      release_type: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
-  full-static:
-    needs: test
-    uses: viamrobotics/rdk/.github/workflows/full-static.yml@main
+  full-static-build:
+    uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@main
     with:
-      channel: latest
+      channel: ${{ inputs.release_type || 'latest' }}
+    secrets:
+      GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+
+  full-static-deploy:
+    if: ${{ inputs.release_type != 'pr' && !inputs.no_prod_upload }}
+    needs: [test, full-static-build]
+    uses: viamrobotics/rdk/.github/workflows/full-static-deploy.yml@main
+    with:
+      date: ${{ needs.full-static-build.outputs.date }}
+      channel: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -50,14 +92,14 @@ jobs:
     needs: test
     uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
-      release_type: 'latest'
+      release_type: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   cli:
     uses: viamrobotics/rdk/.github/workflows/cli.yml@main
     with:
-      release_type: 'latest'
+      release_type: ${{ inputs.release_type || 'latest' }}
     secrets:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
@@ -65,12 +107,12 @@ jobs:
     uses: viamrobotics/rdk/.github/workflows/license_finder.yml@main
 
   slack-workflow-status:
-    if: ${{ !success() }}
+    if: ${{ !success() && inputs.release_type != 'pr' && !inputs.no_prod_upload }}
     name: Post Workflow Status To Slack
     needs:
       - test
-      - appimage
-      - staticbuild
+      - appimage-deploy
+      - staticbuild-deploy
     runs-on: ubuntu-latest
     permissions:
       actions: 'read'

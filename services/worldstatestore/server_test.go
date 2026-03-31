@@ -286,6 +286,39 @@ func TestServerDoCommand(t *testing.T) {
 	})
 }
 
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectWSS := &inject.WorldStateStoreService{}
+	m := map[resource.Name]worldstatestore.Service{
+		worldstatestore.Named(testWorldStateStoreServiceName): injectWSS,
+	}
+	server, err := newServer(m, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectWSS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectWSS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testWorldStateStoreServiceName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectWSS.StatusFunc = nil
+}
+
 // mockStreamTransformChangesServer implements pb.WorldStateStoreService_StreamTransformChangesServer for testing.
 type mockStreamTransformChangesServer struct {
 	grpc.ServerStream

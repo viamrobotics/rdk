@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/board/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -19,11 +20,12 @@ import (
 )
 
 var (
-	errFoo        = errors.New("whoops")
-	errNotFound   = errors.New("not found")
-	errSendFailed = errors.New("send fail")
-	errAnalog     = errors.New("unknown analog error")
-	errDigital    = errors.New("unknown digital interrupt error")
+	errFoo             = errors.New("whoops")
+	errNotFound        = errors.New("not found")
+	errSendFailed      = errors.New("send fail")
+	errAnalog          = errors.New("unknown analog error")
+	errDigital         = errors.New("unknown digital interrupt error")
+	errGetStatusFailed = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.BoardServiceServer, *inject.Board, error) {
@@ -972,4 +974,33 @@ func TestStreamTicks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServerGetStatus(t *testing.T) {
+	server, injectBoard, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingBoardName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errNotFound.Error())
+
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testBoardName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectBoard.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testBoardName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectBoard.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testBoardName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	injectBoard.StatusFunc = nil
 }

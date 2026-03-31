@@ -13,18 +13,17 @@ package gpiostepper
            A4998:  https://lastminuteengineers.com/a4988-stepper-motor-driver-arduino-tutorial/
            L298N: https://lastminuteengineers.com/stepper-motor-l298n-arduino-tutorial/
 
-   This driver will drive the motor using a step pulse with a delay that matches the speed calculated by:
-   stepperDelay (ns) := 1min / (rpm (revs_per_minute) * spr (steps_per_revolution))
-   The motor will then step and increment its position until it has reached a target or has been stopped.
+   This driver uses hardware PWM on the step pin to generate precise step pulses at the desired
+   frequency. A 1kHz tracking goroutine estimates position based on elapsed time and the confirmed
+   PWM frequency.
 
    Configuration:
    Required pins: a step pin to send pulses and a direction pin to set the direction.
    Enabling current to flow through the armature and holding a position can be done by setting enable pins on
    hardware that supports that functionality.
 
-   An optional configurable stepper_delay parameter configures the minimum delay to set a pulse to high
-   for a particular stepper motor. This is usually motor specific and can be calculated using phase
-   resistance and induction data from the datasheet of your stepper motor.
+   An optional configurable stepper_delay parameter configures the minimum delay between pulses
+   for a particular stepper motor. This sets the maximum step frequency (1/stepper_delay).
 */
 
 import (
@@ -32,6 +31,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -90,10 +90,6 @@ func init() {
 	)
 }
 
-// TODO (rh) refactor this driver so that the enable and direction logic is at the beginning of each API call
-// and the step -> position logic is the only thing being handled by the background thread.
-// right now too many things can be called out of lock, this function is only called from the constructor, CLose
-// the doCycle step routine, and should not be called elsewhere since there's no lock in to ptoect the enable pins.
 func (m *gpioStepper) enable(ctx context.Context, high bool) error {
 	var err error
 	if m.enablePinHigh != nil {
@@ -169,7 +165,6 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	m.startThread()
 	return m, nil
 }
 
@@ -180,7 +175,6 @@ type gpioStepper struct {
 	// config
 	theBoard                    board.Board
 	stepsPerRotation            int
-	stepperDelay                time.Duration
 	minDelay                    time.Duration
 	enablePinHigh, enablePinLow board.GPIOPin
 	stepPin, dirPin             board.GPIOPin
@@ -190,12 +184,119 @@ type gpioStepper struct {
 	lock  sync.Mutex
 	opMgr *operation.SingleOperationManager
 
-	stepPosition       int64
-	threadStarted      bool
-	targetStepPosition int64
+	stepPosition       atomic.Int64
+	targetStepPosition atomic.Int64
+	trackingCancel     context.CancelFunc
+}
 
-	cancel    context.CancelFunc
-	waitGroup sync.WaitGroup
+// rpmToFreqHz converts RPM to step frequency in Hz, clamped by minDelay.
+func (m *gpioStepper) rpmToFreqHz(rpm float64) uint {
+	freq := math.Abs(rpm) * float64(m.stepsPerRotation) / 60.0
+	if m.minDelay > 0 {
+		maxFreq := 1.0 / m.minDelay.Seconds()
+		if freq > maxFreq {
+			freq = maxFreq
+		}
+	}
+	if freq < 1 {
+		freq = 1
+	}
+	return uint(math.Round(freq))
+}
+
+// startPWM sets direction, enables the motor, and starts PWM on the step pin.
+// Must be called under m.lock.
+func (m *gpioStepper) startPWM(ctx context.Context, forward bool, freqHz uint) (float64, error) {
+	if err := m.dirPin.Set(ctx, forward, nil); err != nil {
+		return 0, fmt.Errorf("error setting direction pin: %w", err)
+	}
+	if err := m.enable(ctx, true); err != nil {
+		return 0, fmt.Errorf("error enabling motor: %w", err)
+	}
+	if err := m.stepPin.SetPWMFreq(ctx, freqHz, nil); err != nil {
+		return 0, fmt.Errorf("error setting PWM frequency: %w", err)
+	}
+	if err := m.stepPin.SetPWM(ctx, 0.5, nil); err != nil {
+		return 0, fmt.Errorf("error setting PWM duty cycle: %w", err)
+	}
+
+	// Read back confirmed frequency. Non-fatal: fall back to requested freq on error.
+	confirmedFreq, err := m.stepPin.PWMFreq(ctx, nil)
+	if err != nil {
+		m.logger.Infof("PWM freq requested %d Hz, readback failed: %v; using requested value", freqHz, err)
+		return float64(freqHz), nil
+	}
+
+	actualFreq := float64(confirmedFreq)
+	if actualFreq == 0 {
+		actualFreq = float64(freqHz)
+	}
+
+	return actualFreq, nil
+}
+
+// stopHardware stops PWM and disables the motor. Idempotent.
+func (m *gpioStepper) stopHardware(ctx context.Context) error {
+	return multierr.Combine(
+		m.stepPin.SetPWM(ctx, 0, nil),
+		m.enable(ctx, false),
+	)
+}
+
+// trackPosition is a per-movement goroutine that estimates position based on elapsed time
+// and the confirmed PWM frequency.
+func (m *gpioStepper) trackPosition(ctx context.Context, doneCh chan<- error,
+	targetSteps int64, forward bool, actualFreqHz float64,
+) {
+	var result error
+	defer func() {
+		if ctx.Err() == nil {
+			// Natural exit (target reached) — we own hardware cleanup
+			if err := m.stopHardware(context.Background()); err != nil {
+				m.logger.Warnf("error stopping hardware after motion complete: %v", err)
+			}
+		}
+		// If cancelled, hardware is managed by the caller (new movement or Stop)
+		if doneCh != nil {
+			doneCh <- result
+		}
+	}()
+
+	ticker := time.NewTicker(time.Millisecond) // 1kHz
+	defer ticker.Stop()
+	lastTime := time.Now()
+	var accumulator float64
+	indefinite := targetSteps == math.MaxInt64 || targetSteps == math.MinInt64
+
+	for {
+		select {
+		case <-ctx.Done():
+			result = errors.New("trackPosition: context cancelled")
+			return
+		case now := <-ticker.C:
+			elapsed := now.Sub(lastTime)
+			lastTime = now
+			accumulator += elapsed.Seconds() * actualFreqHz
+			wholeSteps := int64(accumulator)
+			accumulator -= float64(wholeSteps)
+
+			curPos := m.stepPosition.Load()
+			if forward {
+				curPos += wholeSteps
+			} else {
+				curPos -= wholeSteps
+			}
+
+			if !indefinite {
+				if (forward && curPos >= targetSteps) || (!forward && curPos <= targetSteps) {
+					m.stepPosition.Store(targetSteps)
+					result = nil
+					return
+				}
+			}
+			m.stepPosition.Store(curPos)
+		}
+	}
 }
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
@@ -204,8 +305,6 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		return m.Stop(ctx, nil)
 	}
 
-	m.lock.Lock()
-	defer m.lock.Unlock()
 	if m.minDelay == 0 {
 		return errors.Errorf(
 			"if you want to set the power, set 'stepper_delay_usec' in the motor config at "+
@@ -213,98 +312,34 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 			m.Name().Name)
 	}
 
-	// lock added here to prevent race with doStep
-	m.stepperDelay = time.Duration(float64(m.minDelay) / math.Abs(powerPct))
+	m.opMgr.CancelRunning(ctx)
 
-	if powerPct < 0 {
-		m.targetStepPosition = math.MinInt64
-	} else {
-		m.targetStepPosition = math.MaxInt64
-	}
+	forward := powerPct > 0
+	freqHz := uint(math.Abs(powerPct) / m.minDelay.Seconds())
+	freqHz = max(1, freqHz)
 
-	return nil
-}
-
-func (m *gpioStepper) startThread() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	if m.threadStarted {
-		return
-	}
-
-	m.logger.Debugf("starting control thread for motor (%s)", m.Name().Name)
-
-	var ctxWG context.Context
-	ctxWG, m.cancel = context.WithCancel(context.Background())
-	m.threadStarted = true
-	m.waitGroup.Add(1)
-	go func() {
-		defer m.waitGroup.Done()
-		for {
-			sleep, err := m.doCycle(ctxWG)
-			if err != nil {
-				m.logger.Warnf("error cycling gpioStepper (%s) %s", m.Name().Name, err.Error())
-			}
-
-			if !utils.SelectContextOrWait(ctxWG, sleep) {
-				// context done
-				return
-			}
-		}
-	}()
-}
-
-func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	// thread waits until something changes the target position in the
-	// gpiostepper struct
-	if m.stepPosition == m.targetStepPosition {
-		return 5 * time.Millisecond, nil
-	}
-
-	// TODO: Setting PWM here works much better than steps to set speed
-	// Redo this part with PWM logic, but also be aware that parallel
-	// logic to the PWM call will need to be implemented to account for position
-	// reporting
-	err := m.doStep(ctx, m.stepPosition < m.targetStepPosition)
-	if err != nil {
-		return time.Second, fmt.Errorf("error stepping motor (%s) %w", m.Name().Name, err)
-	}
-
-	// wait the stepper delay to return from the doRun for loop or select
-	// context if the duration has not elapsed.
-	return 0, nil
-}
-
-// have to be locked to call.
-func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
-	err := multierr.Combine(
-		m.dirPin.Set(ctx, forward, nil),
-		m.stepPin.Set(ctx, true, nil),
-		m.enable(ctx, true),
-	)
-	if err != nil {
-		return err
-	}
-	// stay high for half the delay
-	time.Sleep(m.stepperDelay / 2.0)
-
-	if err := m.stepPin.Set(ctx, false, nil); err != nil {
-		return err
-	}
-
-	// stay low for the other half
-	time.Sleep(m.stepperDelay / 2.0)
-
+	var target int64
 	if forward {
-		m.stepPosition++
+		target = math.MaxInt64
 	} else {
-		m.stepPosition--
+		target = math.MinInt64
 	}
+	m.targetStepPosition.Store(target)
 
+	m.lock.Lock()
+	if m.trackingCancel != nil {
+		m.trackingCancel()
+	}
+	actualFreq, err := m.startPWM(ctx, forward, freqHz)
+	if err != nil {
+		m.lock.Unlock()
+		return err
+	}
+	trackCtx, cancel := context.WithCancel(context.Background())
+	m.trackingCancel = cancel
+	m.lock.Unlock()
+
+	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, nil, target, forward, actualFreq) })
 	return nil
 }
 
@@ -316,32 +351,6 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
-	if err := m.goForInternal(ctx, rpm, revolutions); err != nil {
-		return multierr.Combine(
-			m.enable(ctx, false),
-			errors.Wrapf(err, "error in GoFor from motor (%s)", m.Name().Name))
-	}
-
-	return multierr.Combine(
-		m.opMgr.WaitTillNotPowered(ctx, time.Millisecond, m, m.Stop),
-		m.enable(ctx, false))
-}
-
-// calcStepperDelay calculates the delay between steps for the thread that we started in component creation.
-// The delay is found by calculating seconds per step, and then casting that value to a time.Duration.
-func (m *gpioStepper) calcStepperDelay(rpm float64) time.Duration {
-	stepperDelay := time.Duration(int64(float64(time.Minute) / (math.Abs(rpm) * float64(m.stepsPerRotation))))
-	if stepperDelay < m.minDelay || rpm == 0 {
-		stepperDelay = m.minDelay
-		m.logger.Debugf(
-			"calculated delay less than the minimum delay for stepper motor setting to %+v", stepperDelay,
-		)
-	}
-
-	return stepperDelay
-}
-
-func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float64) error {
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
 		return multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError())
@@ -356,18 +365,34 @@ func (m *gpioStepper) goForInternal(ctx context.Context, rpm, revolutions float6
 		d = -1
 	}
 
+	forward := d > 0
+	target := m.stepPosition.Load() + d*int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
+	m.targetStepPosition.Store(target)
+
 	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	m.stepperDelay = m.calcStepperDelay(rpm)
-
-	if !m.threadStarted {
-		return errors.New("thread not started")
+	if m.trackingCancel != nil {
+		m.trackingCancel()
 	}
+	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
+	if err != nil {
+		m.lock.Unlock()
+		return err
+	}
+	trackCtx, cancel := context.WithCancel(ctx)
+	m.trackingCancel = cancel
+	m.lock.Unlock()
 
-	m.targetStepPosition += d * int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
-
-	return nil
+	doneCh := make(chan error, 1)
+	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, doneCh, target, forward, actualFreq) })
+	err = <-doneCh
+	if ctx.Err() != nil {
+		// Context was cancelled (external cancel or opMgr interrupt) — clean up
+		m.targetStepPosition.Store(m.stepPosition.Load())
+		if hwErr := m.stopHardware(context.Background()); hwErr != nil {
+			err = multierr.Combine(err, hwErr)
+		}
+	}
+	return err
 }
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
@@ -393,36 +418,52 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
 	if math.Abs(rpm) <= .0001 {
 		return m.Stop(ctx, nil)
 	}
 
-	// calculate delay between steps for the thread in the goroutine that we started in component creation.
-	// the delay is found by calculating seconds per step, and then casting that value to a time.Duration.
-	m.stepperDelay = m.calcStepperDelay(rpm)
+	m.opMgr.CancelRunning(ctx)
 
-	if !m.threadStarted {
-		return errors.New("thread not started")
-	}
-
-	if rpm < 0 {
-		m.targetStepPosition = math.MinInt64
+	forward := rpm > 0
+	var target int64
+	if forward {
+		target = math.MaxInt64
 	} else {
-		m.targetStepPosition = math.MaxInt64
+		target = math.MinInt64
 	}
+	m.targetStepPosition.Store(target)
 
+	m.lock.Lock()
+	if m.trackingCancel != nil {
+		m.trackingCancel()
+	}
+	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
+	if err != nil {
+		m.lock.Unlock()
+		return err
+	}
+	trackCtx, cancel := context.WithCancel(context.Background())
+	m.trackingCancel = cancel
+	m.lock.Unlock()
+
+	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, nil, target, forward, actualFreq) })
 	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
 	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.stepPosition = int64(-1 * offset * float64(m.stepsPerRotation))
-	m.targetStepPosition = m.stepPosition
+	if m.trackingCancel != nil {
+		m.trackingCancel()
+	}
+	m.lock.Unlock()
+	// stopHardware is needed because the cancelled tracking goroutine skips it.
+	if err := m.stopHardware(ctx); err != nil {
+		return err
+	}
+	pos := int64(-1 * offset * float64(m.stepsPerRotation))
+	m.stepPosition.Store(pos)
+	m.targetStepPosition.Store(pos)
 	return nil
 }
 
@@ -430,9 +471,7 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, ext
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
 func (m *gpioStepper) Position(ctx context.Context, extra map[string]interface{}) (float64, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil
+	return float64(m.stepPosition.Load()) / float64(m.stepsPerRotation), nil
 }
 
 // Properties returns the status of whether the motor supports certain optional properties.
@@ -444,18 +483,18 @@ func (m *gpioStepper) Properties(ctx context.Context, extra map[string]interface
 
 // IsMoving returns if the motor is currently moving.
 func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	return m.stepPosition != m.targetStepPosition, nil
+	return m.stepPosition.Load() != m.targetStepPosition.Load(), nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.lock.Lock()
-	defer m.lock.Unlock()
-	m.targetStepPosition = m.stepPosition
-
-	return m.enable(ctx, false)
+	if m.trackingCancel != nil {
+		m.trackingCancel()
+	}
+	m.lock.Unlock()
+	m.targetStepPosition.Store(m.stepPosition.Load())
+	return m.stopHardware(ctx)
 }
 
 // IsPowered returns whether or not the motor is currently on. It also returns the percent power
@@ -474,17 +513,10 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 }
 
 func (m *gpioStepper) Close(ctx context.Context) error {
-	err := m.Stop(ctx, nil)
-
 	m.lock.Lock()
-	if m.cancel != nil {
-		m.logger.CDebugf(ctx, "stopping control thread for motor (%s)", m.Name().Name)
-		m.cancel()
-		m.cancel = nil
-		m.threadStarted = false
+	if m.trackingCancel != nil {
+		m.trackingCancel()
 	}
 	m.lock.Unlock()
-	m.waitGroup.Wait()
-
-	return err
+	return m.stopHardware(ctx)
 }

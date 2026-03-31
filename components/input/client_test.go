@@ -237,6 +237,21 @@ func TestClient(t *testing.T) {
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
 		test.That(t, extraOptions, test.ShouldResemble, extra)
 		injectInputController.TriggerEventFunc = nil
+
+		// Status - default empty status
+		statusResult, err := inputController1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectInputController.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = inputController1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectInputController.StatusFunc = nil
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {

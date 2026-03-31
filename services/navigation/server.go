@@ -198,3 +198,12 @@ func (server *serviceServer) DoCommand(
 	}
 	return protoutils.DoFromResourceServer(ctx, svc, req)
 }
+
+// GetStatus returns the status of the navigation service.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+}

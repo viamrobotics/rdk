@@ -28,8 +28,9 @@ const (
 )
 
 var (
-	errDoFailed       = errors.New("do failed")
-	errDiscoverFailed = errors.New("discover failed")
+	errDoFailed        = errors.New("do failed")
+	errDiscoverFailed  = errors.New("discover failed")
+	errGetStatusFailed = errors.New("can't get status")
 )
 
 // this was taken from proto_conversions_test and represents all of the information that a discovery service can provide about a component.
@@ -169,6 +170,33 @@ func TestDiscoveryServiceServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
 		test.That(t, resp, test.ShouldBeNil)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := discoveryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		resp, err := discoveryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testDiscoveryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		workingDiscovery.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = discoveryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testDiscoveryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		workingDiscovery.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = discoveryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testDiscoveryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+		workingDiscovery.StatusFunc = nil
 	})
 }
 

@@ -16,6 +16,7 @@ type PowerSensor struct {
 	PowerFunc    func(ctx context.Context, extra map[string]interface{}) (float64, error)
 	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc   func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc    func() error
 }
 
@@ -78,4 +79,15 @@ func (i *PowerSensor) Close(ctx context.Context) error {
 		return i.PowerSensor.Close(ctx)
 	}
 	return i.CloseFunc()
+}
+
+// Status calls the injected Status or the real version.
+func (i *PowerSensor) Status(ctx context.Context) (map[string]interface{}, error) {
+	if i.StatusFunc != nil {
+		return i.StatusFunc(ctx)
+	}
+	if i.PowerSensor != nil {
+		return i.PowerSensor.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

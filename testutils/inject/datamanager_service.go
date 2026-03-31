@@ -15,7 +15,8 @@ type DataManagerService struct {
 	SyncFunc      func(ctx context.Context, extra map[string]interface{}) error
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func(ctx context.Context) error
 }
 
 // NewDataManagerService returns a new injected data manager service.
@@ -44,6 +45,17 @@ func (svc *DataManagerService) DoCommand(ctx context.Context,
 		return svc.Service.DoCommand(ctx, cmd)
 	}
 	return svc.DoCommandFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (svc *DataManagerService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if svc.StatusFunc != nil {
+		return svc.StatusFunc(ctx)
+	}
+	if svc.Service != nil {
+		return svc.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

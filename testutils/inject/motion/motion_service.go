@@ -51,7 +51,8 @@ type MotionService struct {
 		ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error,
 	)
-	CloseFunc func(ctx context.Context) error
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func(ctx context.Context) error
 }
 
 // NewMotionService returns a new injected motion service.
@@ -146,6 +147,17 @@ func (mgs *MotionService) DoCommand(ctx context.Context,
 		return mgs.Service.DoCommand(ctx, cmd)
 	}
 	return mgs.DoCommandFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (mgs *MotionService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if mgs.StatusFunc != nil {
+		return mgs.StatusFunc(ctx)
+	}
+	if mgs.Service != nil {
+		return mgs.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

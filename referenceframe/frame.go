@@ -99,6 +99,12 @@ func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
 }
 
+// IsRotational returns true if this limit appears to be for a rotational joint,
+// i.e. both min and max are multiples of pi and 0 is within range.
+func (l *Limit) IsRotational() bool {
+	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
+}
+
 // AreInputsValid checks if all values are within limit ranges
 func AreInputsValid(ls []Limit, values []float64) bool {
 	if len(ls) != len(values) {
