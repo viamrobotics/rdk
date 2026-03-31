@@ -74,7 +74,6 @@ func WithProgressOutput(enabled bool) ProgressManagerOption {
 	}
 }
 
-
 func withProgressSpinnerFactory(factory progressSpinnerFactory) ProgressManagerOption {
 	return func(pm *ProgressManager) {
 		pm.spinnerFactory = factory
