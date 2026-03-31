@@ -12,6 +12,7 @@ type Sensor struct {
 	sensor.Sensor
 	name         resource.Name
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc   func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc    func(ctx context.Context) error
 	ReadingsFunc func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 }
@@ -51,4 +52,15 @@ func (s *Sensor) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 		return s.Sensor.DoCommand(ctx, cmd)
 	}
 	return s.DoFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (s *Sensor) Status(ctx context.Context) (map[string]interface{}, error) {
+	if s.StatusFunc != nil {
+		return s.StatusFunc(ctx)
+	}
+	if s.Sensor != nil {
+		return s.Sensor.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

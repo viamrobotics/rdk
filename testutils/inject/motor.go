@@ -12,6 +12,7 @@ type Motor struct {
 	motor.Motor
 	name                  resource.Name
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc            func(ctx context.Context) (map[string]interface{}, error)
 	SetPowerFunc          func(ctx context.Context, powerPct float64, extra map[string]interface{}) error
 	GoForFunc             func(ctx context.Context, rpm, rotations float64, extra map[string]interface{}) error
 	GoToFunc              func(ctx context.Context, rpm, position float64, extra map[string]interface{}) error
@@ -132,4 +133,15 @@ func (m *Motor) Close(ctx context.Context) error {
 		return m.Motor.Close(ctx)
 	}
 	return m.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (m *Motor) Status(ctx context.Context) (map[string]interface{}, error) {
+	if m.StatusFunc != nil {
+		return m.StatusFunc(ctx)
+	}
+	if m.Motor != nil {
+		return m.Motor.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

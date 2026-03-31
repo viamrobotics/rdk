@@ -12,6 +12,7 @@ type Servo struct {
 	servo.Servo
 	name         resource.Name
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc   func(ctx context.Context) (map[string]interface{}, error)
 	MoveFunc     func(ctx context.Context, angleDeg uint32, extra map[string]interface{}) error
 	PositionFunc func(ctx context.Context, extra map[string]interface{}) (uint32, error)
 	StopFunc     func(ctx context.Context, extra map[string]interface{}) error
@@ -78,4 +79,15 @@ func (s *Servo) Close(ctx context.Context) error {
 		return s.Servo.Close(ctx)
 	}
 	return s.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (s *Servo) Status(ctx context.Context) (map[string]interface{}, error) {
+	if s.StatusFunc != nil {
+		return s.StatusFunc(ctx)
+	}
+	if s.Servo != nil {
+		return s.Servo.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

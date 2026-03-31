@@ -15,6 +15,7 @@ type Base struct {
 	base.Base
 	name             resource.Name
 	DoFunc           func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc       func(ctx context.Context) (map[string]interface{}, error)
 	MoveStraightFunc func(ctx context.Context, distanceMm int, mmPerSec float64, extra map[string]interface{}) error
 	SpinFunc         func(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error
 	StopFunc         func(ctx context.Context, extra map[string]interface{}) error
@@ -117,4 +118,15 @@ func (b *Base) Geometries(ctx context.Context, extra map[string]interface{}) ([]
 		return b.Base.Geometries(ctx, extra)
 	}
 	return b.GeometriesFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (b *Base) Status(ctx context.Context) (map[string]interface{}, error) {
+	if b.StatusFunc != nil {
+		return b.StatusFunc(ctx)
+	}
+	if b.Base != nil {
+		return b.Base.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

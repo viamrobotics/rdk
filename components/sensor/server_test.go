@@ -17,7 +17,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var errReadingsFailed = errors.New("can't get readings")
+var (
+	errReadingsFailed  = errors.New("can't get readings")
+	errGetStatusFailed = errors.New("can't get status")
+)
 
 func newServer(logger logging.Logger) (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
@@ -78,5 +81,31 @@ func TestServer(t *testing.T) {
 		_, err = sensorServer.GetReadings(context.Background(), &commonpb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := sensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		resp, err := sensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = sensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = sensorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectSensor.StatusFunc = nil
 	})
 }

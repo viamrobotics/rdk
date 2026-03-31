@@ -2,7 +2,17 @@ name: Test
 
 on:
   workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base branch to diff against for skip checks (used to test check-changes logic)'
+        default: 'main'
+        type: string
   workflow_call:
+    inputs:
+      full_test:
+        description: 'Run full test suite (disable skip logic)'
+        type: boolean
+        default: false
     secrets:
       MONGODB_TEST_OUTPUT_URI:
         required: true
@@ -13,7 +23,210 @@ env:
   MONGODB_TEST_OUTPUT_URI: ${{ secrets.MONGODB_TEST_OUTPUT_URI }}
 
 jobs:
+  check-changes:
+    name: Check Changed Packages
+    runs-on: ubuntu-latest
+    outputs:
+      skip_robot_impl: ${{ steps.check.outputs.skip_robot_impl }}
+      skip_armplanning: ${{ steps.check.outputs.skip_armplanning }}
+      skip_module: ${{ steps.check.outputs.skip_module }}
+      skip_motion_tests: ${{ steps.check.outputs.skip_motion_tests }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Determine which test suites can be skipped
+        id: check
+        run: |
+          # Determine the base ref to diff against. Only pull_request_target and
+          # workflow_dispatch runs the skip logic; all other events (e.g. push to main)
+          # always run the full suite.
+          if [ "${{ github.event_name }}" == "pull_request_target" ]; then
+            BASE_REF="${{ github.event.pull_request.base.ref }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            BASE_REF="${{ inputs.base_ref }}"
+          else
+            echo "Not a PR or dispatch run; will run all tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_armplanning=false" >> "$GITHUB_OUTPUT"
+            echo "skip_module=false" >> "$GITHUB_OUTPUT"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The 'full-test' label or full_test input forces a complete run.
+          if [ "${{ inputs.full_test }}" == "true" ] || [ "${{ contains(github.event.pull_request.labels.*.name, 'full-test') }}" == "true" ]; then
+            echo "'full-test' flag set; will run all tests"
+            echo "skip_robot_impl=false" >> "$GITHUB_OUTPUT"
+            echo "skip_armplanning=false" >> "$GITHUB_OUTPUT"
+            echo "skip_module=false" >> "$GITHUB_OUTPUT"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          BASE="origin/${BASE_REF}"
+
+          # All files changed in this PR vs base — used for the motion test check.
+          CHANGED_FILES=$(git diff --name-only "${BASE}..." || true)
+
+          # Directories of changed non-test Go source files — used for the robot/impl
+          # dep-tree check. We exclude test files here because a test file changing in
+          # a dependency (e.g. components/arm/arm_test.go) doesn't affect robot/impl's
+          # behavior. robot/impl's own test files are handled separately below.
+          CHANGED_GO_DIRS=$(echo "$CHANGED_FILES" \
+            | grep '\.go$' \
+            | grep -v '_test\.go$' \
+            | sed 's|/[^/]*\.go$||' \
+            | sort -u || true)
+
+          # --- robot/impl skip check ---
+          # We compute robot/impl's transitive dependency tree dynamically via 'go list
+          # -deps' rather than maintaining a static file. This ensures the check never
+          # goes stale as imports change over time.
+          SKIP_ROBOT_IMPL=true
+
+          if [ -n "$CHANGED_GO_DIRS" ]; then
+            _raw=$(go list -deps go.viam.com/rdk/robot/impl 2>&1) || {
+              echo "::warning::go list failed for robot/impl — falling back to running robot/impl tests"
+              echo "$_raw" | tail -5
+              SKIP_ROBOT_IMPL=false
+              _raw=""
+            }
+            ROBOT_IMPL_DEPS=$(echo "$_raw" \
+              | grep '^go.viam.com/rdk/' \
+              | sed 's|go.viam.com/rdk/||' || true)
+
+            while IFS= read -r dir; do
+              if echo "$ROBOT_IMPL_DEPS" | grep -qx "$dir"; then
+                echo "Changed dep found in robot/impl tree: $dir — will run robot/impl tests"
+                SKIP_ROBOT_IMPL=false
+                break
+              fi
+            done <<< "$CHANGED_GO_DIRS"
+          fi
+
+          # Also run if robot/impl's own test files changed. A dep-tree check on
+          # non-test files won't catch this: the tests we'd be skipping were directly
+          # modified. Test files in robot/impl's *dependencies* don't apply here —
+          # those are the deps' own tests and don't affect robot/impl's test run.
+          if echo "$CHANGED_FILES" | grep -q 'robot/impl/.*_test\.go'; then
+            echo "robot/impl test files changed; will run robot/impl tests"
+            SKIP_ROBOT_IMPL=false
+          fi
+
+          echo "skip_robot_impl=$SKIP_ROBOT_IMPL" >> "$GITHUB_OUTPUT"
+
+          # --- motionplan/armplanning skip check ---
+          # Same dep-tree approach as robot/impl. armplanning is the single slowest
+          # package in the test suite (~400s) and is independent of robot/impl.
+          SKIP_ARMPLANNING=true
+
+          if [ -n "$CHANGED_GO_DIRS" ]; then
+            _raw=$(go list -deps go.viam.com/rdk/motionplan/armplanning 2>&1) || {
+              echo "::warning::go list failed for motionplan/armplanning — falling back to running armplanning tests"
+              echo "$_raw" | tail -5
+              SKIP_ARMPLANNING=false
+              _raw=""
+            }
+            ARMPLANNING_DEPS=$(echo "$_raw" \
+              | grep '^go.viam.com/rdk/' \
+              | sed 's|go.viam.com/rdk/||' || true)
+
+            while IFS= read -r dir; do
+              if echo "$ARMPLANNING_DEPS" | grep -qx "$dir"; then
+                echo "Changed dep found in armplanning tree: $dir — will run armplanning tests"
+                SKIP_ARMPLANNING=false
+                break
+              fi
+            done <<< "$CHANGED_GO_DIRS"
+          fi
+
+          if echo "$CHANGED_FILES" | grep -q 'motionplan/armplanning/.*_test\.go'; then
+            echo "armplanning test files changed; will run armplanning tests"
+            SKIP_ARMPLANNING=false
+          fi
+
+          echo "skip_armplanning=$SKIP_ARMPLANNING" >> "$GITHUB_OUTPUT"
+
+          # --- module/modmanager skip check ---
+          # Covers module, module/modmanager, and the examples/*/moduletest packages.
+          # The example moduletests are test-only packages (no non-test imports of rdk),
+          # so we can't compute their dep trees directly. Instead we use module/modmanager's
+          # dep tree as the trigger (it covers all module system deps), and add an explicit
+          # path check for examples/customresources/ source files.
+          SKIP_MODULE=true
+
+          if [ -n "$CHANGED_GO_DIRS" ]; then
+            _raw=$(go list -deps go.viam.com/rdk/module/modmanager 2>&1) || {
+              echo "::warning::go list failed for module/modmanager — falling back to running module tests"
+              echo "$_raw" | tail -5
+              SKIP_MODULE=false
+              _raw=""
+            }
+            MODULE_DEPS=$(echo "$_raw" \
+              | grep '^go.viam.com/rdk/' \
+              | sed 's|go.viam.com/rdk/||' || true)
+
+            while IFS= read -r dir; do
+              if echo "$MODULE_DEPS" | grep -qx "$dir"; then
+                echo "Changed dep found in module/modmanager tree: $dir — will run module tests"
+                SKIP_MODULE=false
+                break
+              fi
+            done <<< "$CHANGED_GO_DIRS"
+          fi
+
+          # Also run if module/modmanager test files or example module source changed.
+          if echo "$CHANGED_FILES" | grep -qE '^(module|module/modmanager)/.*_test\.go|^examples/customresources/'; then
+            echo "module test files or example module source changed; will run module tests"
+            SKIP_MODULE=false
+          fi
+
+          echo "skip_module=$SKIP_MODULE" >> "$GITHUB_OUTPUT"
+
+          # --- motion extended tests skip check ---
+          # We use a hand-curated list of path patterns rather than a computed dep list.
+          # The extended tests live in viamrobotics/motion-testing (an external repo) and
+          # exercise specific runtime behavior using concrete hardware implementations
+          # (wheeled base, fake encoder/motor) that are not direct imports of
+          # services/motion/builtin. A dep-list would miss those triggers.
+          #
+          # We also check ALL changed files (not just Go) because non-Go assets like
+          # kinematic model JSON files in these directories can affect motion behavior.
+          MOTION_PATTERNS=(
+            motionplan
+            referenceframe
+            spatialmath
+            components/base/wheeled
+            components/base/kinematicbase
+            components/encoder/fake
+            components/motor/fake
+            services/motion/builtin
+          )
+          MOTION_PATTERN=$(IFS='|'; echo "${MOTION_PATTERNS[*]}")
+          if echo "$CHANGED_FILES" | grep -qE "$MOTION_PATTERN"; then
+            echo "Motion-related files changed; will run extended motion tests"
+            echo "skip_motion_tests=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "No motion-related files changed; skipping extended motion tests"
+            echo "skip_motion_tests=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Print skip decisions
+        run: |
+          echo "skip_robot_impl=${{ steps.check.outputs.skip_robot_impl }}"
+          echo "skip_armplanning=${{ steps.check.outputs.skip_armplanning }}"
+          echo "skip_module=${{ steps.check.outputs.skip_module }}"
+          echo "skip_motion_tests=${{ steps.check.outputs.skip_motion_tests }}"
+
   test_go:
+    needs: [check-changes]
     # note: we have automations that match on platform_name. be careful changing this.
     name: ${{ matrix.platform_name }} Go Unit Tests
     strategy:
@@ -58,11 +271,23 @@ jobs:
       - name: Chown
         run: chown -R testbot:testbot .
 
+      - name: Set SKIP_ROBOT_IMPL if robot/impl deps are unchanged
+        if: needs.check-changes.outputs.skip_robot_impl == 'true'
+        run: echo "SKIP_ROBOT_IMPL=true" >> $GITHUB_ENV
+
+      - name: Set SKIP_ARMPLANNING if armplanning deps are unchanged
+        if: needs.check-changes.outputs.skip_armplanning == 'true'
+        run: echo "SKIP_ARMPLANNING=true" >> $GITHUB_ENV
+
+      - name: Set SKIP_MODULE if module/modmanager deps are unchanged
+        if: needs.check-changes.outputs.skip_module == 'true'
+        run: echo "SKIP_MODULE=true" >> $GITHUB_ENV
+
       - name: Run go unit tests
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           sudo apt-get update && sudo apt-get install -y python3-venv
-          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY -Hu testbot bash -lc 'make test-go'
+          sudo --preserve-env=MONGODB_TEST_OUTPUT_URI,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_RUN_NUMBER,GITHUB_RUN_ATTEMPT,GITHUB_X_PR_BASE_SHA,GITHUB_X_PR_BASE_REF,GITHUB_X_HEAD_REF,GITHUB_X_HEAD_SHA,GITHUB_REPOSITORY,SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'make test-go'
 
       - name: Upload test.json
         if: always()
@@ -76,7 +301,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - runner: ubuntu-24.04
+          - runner: ubuntu-large
             image: ghcr.io/viamrobotics/rdk-devenv:amd64
             platform: linux/amd64
           - runner: github-linux-arm64-4core
@@ -112,6 +337,7 @@ jobs:
 
   test_win:
     name: windows
+    needs: [check-changes]
     runs-on: windows-2025
     steps:
     - uses: actions/checkout@v4
@@ -121,11 +347,43 @@ jobs:
       with:
         go-version-file: go.mod
     - name: test
+      shell: bash
       env:
         GOFLAGS: "-tags=no_cgo"
-      run:
-        # note: this is a subset of tests that are known to pass on windows
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log ./web/server ./module ./logging/...
+        SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
+        SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
+        SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
+      run: |
+        # Start from the full package list and apply the same SKIP_* filters as
+        # every other platform, so skip logic stays consistent as coverage grows.
+        TEST_TARGET=$(go list ./...)
+
+        if [[ -n "$SKIP_ROBOT_IMPL" ]]; then
+          echo "SKIP_ROBOT_IMPL set; excluding go.viam.com/rdk/robot/impl"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/robot/impl$')
+        fi
+        if [[ -n "$SKIP_ARMPLANNING" ]]; then
+          echo "SKIP_ARMPLANNING set; excluding go.viam.com/rdk/motionplan/armplanning"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/motionplan/armplanning$')
+        fi
+        if [[ -n "$SKIP_MODULE" ]]; then
+          echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
+        fi
+
+        # Intersect with the set of packages known to pass on Windows.
+        # As Windows compatibility improves, add packages here. When all packages
+        # pass, this filter can be removed entirely.
+        WORKING_WINDOWS_TESTS=(
+          go.viam.com/rdk/web/server
+          go.viam.com/rdk/module
+          go.viam.com/rdk/logging
+        )
+        WINDOWS_PATTERN=$(IFS='|'; echo "${WORKING_WINDOWS_TESTS[*]}")
+        TEST_TARGET=$(echo "$TEST_TARGET" | grep -E "^(${WINDOWS_PATTERN})$")
+
+        echo "Running Windows tests: $(echo "$TEST_TARGET" | wc -l) packages"
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
 
     - name: Upload test.json
       if: always()
@@ -137,6 +395,7 @@ jobs:
 
   test_macos:
     name: macOS
+    needs: [check-changes]
     runs-on: macos-latest-xlarge # latest silicon MacOS runner
     timeout-minutes: 30
     steps:
@@ -156,10 +415,23 @@ jobs:
         # required for a couple unit tests in CI.
         brew install ffmpeg
     - name: test
+      env:
+        SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
+        SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
       run: |
-        # Run all tests besides motion plannning, as they can take a long time on MacOS
-        # runners which are costly to use.
-        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $(go list ./... | grep -v motionplan)
+        # Run all tests besides motionplan — already slow/costly on macOS runners.
+        # armplanning is a subpackage of motionplan so it is excluded by the grep below.
+        # SKIP_ROBOT_IMPL and SKIP_MODULE are applied via etc/test.sh when set.
+        TEST_TARGET=$(go list ./... | grep -v motionplan)
+        if [[ -n "$SKIP_ROBOT_IMPL" ]]; then
+          echo "SKIP_ROBOT_IMPL set; excluding go.viam.com/rdk/robot/impl"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -v '^go.viam.com/rdk/robot/impl$')
+        fi
+        if [[ -n "$SKIP_MODULE" ]]; then
+          echo "SKIP_MODULE set; excluding module, module/modmanager, and example module tests"
+          TEST_TARGET=$(echo "$TEST_TARGET" | grep -vE '^go\.viam\.com/rdk/(module|module/modmanager|examples/customresources/demos/.*/moduletest)$')
+        fi
+        go run gotest.tools/gotestsum --format standard-verbose --jsonfile json.log $TEST_TARGET
 
     - name: Upload test.json
       if: always()
@@ -171,6 +443,7 @@ jobs:
 
   test32:
     name: Go 32-bit Unit Tests
+    needs: [check-changes]
     runs-on: ubuntu-arm-16-core
     timeout-minutes: 30
 
@@ -187,17 +460,27 @@ jobs:
       - uses: docker/setup-buildx-action@v3
 
       - name: Run go unit tests
+        env:
+          SKIP_ROBOT_IMPL: ${{ needs.check-changes.outputs.skip_robot_impl == 'true' && 'true' || '' }}
+          SKIP_ARMPLANNING: ${{ needs.check-changes.outputs.skip_armplanning == 'true' && 'true' || '' }}
+          SKIP_MODULE: ${{ needs.check-changes.outputs.skip_module == 'true' && 'true' || '' }}
         run: |
           chmod -R a+rwx . # temporary fix for arm runners
           docker run \
             --platform linux/arm/v7 \
             -v `pwd`:/rdk \
+            -e SKIP_ROBOT_IMPL \
+            -e SKIP_ARMPLANNING \
+            -e SKIP_MODULE \
             ghcr.io/viamrobotics/rdk-devenv:armhf-cache \
-            sudo -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && go test ./...'
+            sudo --preserve-env=SKIP_ROBOT_IMPL,SKIP_ARMPLANNING,SKIP_MODULE -Hu testbot bash -lc 'sudo apt-get update && sudo apt-get install -y python3-venv && cd /rdk && make test-go-no-race'
 
   motion_tests:
+    needs: [check-changes]
     name: Test Longer-running Motion Plans if affected
     uses: viamrobotics/rdk/.github/workflows/motion-tests.yml@main
+    with:
+      skip: ${{ needs.check-changes.outputs.skip_motion_tests == 'true' }}
 
   test_passing:
     name: All Tests Passing
@@ -217,7 +500,7 @@ jobs:
           [ "${{ needs.test32.result }}" == "success" ] && \
           [ "${{ needs.test_win.result }}" == "success" ] && \
           [ "${{ needs.test_macos.result }}" == "success" ] && \
-          [ "${{ needs.motion_tests.result }}" == "success" ] && \
+          [[ "${{ needs.motion_tests.result }}" =~ ^(success|skipped)$ ]] && \
           [ "${{ needs.lint.result }}" == "success" ]
 
       - name: Mark appimage label

@@ -3,6 +3,7 @@ package referenceframe
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 
@@ -589,6 +590,30 @@ func NewZeroInputs(fs *FrameSystem) FrameSystemInputs {
 	return positions
 }
 
+// NewNeutralFrameSystemInputs returns a FrameSystemInputs ensuring all frames have inputs within their limits.
+// It is similar to NewZeroInputs but the input values are clamped to be within their valid range.
+// Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
+func NewNeutralFrameSystemInputs(fs *FrameSystem) FrameSystemInputs {
+	inputs := make(FrameSystemInputs)
+	for _, fn := range fs.FrameNames() {
+		frame := fs.Frame(fn)
+		if frame == nil {
+			continue
+		}
+		dof := frame.DoF()
+		if len(dof) == 0 {
+			inputs[fn] = []Input{}
+			continue
+		}
+		frameInputs := make([]Input, len(dof))
+		for i, limit := range dof {
+			frameInputs[i] = math.Max(limit.Min, math.Min(0, limit.Max))
+		}
+		inputs[fn] = frameInputs
+	}
+	return inputs
+}
+
 // NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 	positions := NewLinearInputs()
@@ -599,6 +624,30 @@ func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 		}
 	}
 	return positions
+}
+
+// NewNeutralLinearInputs returns LinearInputs ensuring all frames have inputs within their limits.
+// It is similar to NewZeroLinearInputs but the input values are clamped to be within their valid range.
+// Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
+func NewNeutralLinearInputs(fs *FrameSystem) *LinearInputs {
+	inputs := NewLinearInputs()
+	for _, fn := range fs.cachedBFSNames {
+		frame := fs.Frame(fn)
+		if frame == nil {
+			continue
+		}
+		dof := frame.DoF()
+		if len(dof) == 0 {
+			inputs.Put(fn, []Input{})
+			continue
+		}
+		frameInputs := make([]Input, len(dof))
+		for i, limit := range dof {
+			frameInputs[i] = math.Max(limit.Min, math.Min(0, limit.Max))
+		}
+		inputs.Put(fn, frameInputs)
+	}
+	return inputs
 }
 
 // InterpolateFS interpolates.

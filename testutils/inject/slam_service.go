@@ -17,6 +17,7 @@ type SLAMService struct {
 	InternalStateFunc func(ctx context.Context) (func() ([]byte, error), error)
 	PropertiesFunc    func(ctx context.Context) (slam.Properties, error)
 	DoCommandFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc        func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc         func(ctx context.Context) error
 }
 
@@ -70,6 +71,17 @@ func (slamSvc *SLAMService) DoCommand(ctx context.Context,
 		return slamSvc.Service.DoCommand(ctx, cmd)
 	}
 	return slamSvc.DoCommandFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (slamSvc *SLAMService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if slamSvc.StatusFunc != nil {
+		return slamSvc.StatusFunc(ctx)
+	}
+	if slamSvc.Service != nil {
+		return slamSvc.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

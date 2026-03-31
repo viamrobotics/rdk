@@ -1,4 +1,4 @@
-name: full-static
+name: full-static (Build)
 
 on:
   # inputs note: we expect no inputs for pull request, channel=latest for main, (channel=stable, version=x) for release
@@ -8,7 +8,6 @@ on:
         description: a channel for file naming
         required: false
         type: choice
-        # test channel is for manual runs
         options: [latest, stable, test]
       version:
         description: a vX.X.X version string to use for file naming
@@ -27,11 +26,16 @@ on:
     secrets:
       GCP_CREDENTIALS:
         required: true
+    outputs:
+      date:
+        value: ${{ jobs.full-static.outputs.date }}
 
 jobs:
   full-static:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      date: ${{ steps.build_date.outputs.date }}
     env:
       BINS_DIR: bin/static # must agree with makefile
       BUCKET: packages.viam.com/apps/viam-server
@@ -87,6 +91,10 @@ jobs:
           cp viam*-$arch viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch
         done
 
+    - name: Set Date
+      id: build_date
+      run: echo "date=`date +%F`" >> $GITHUB_OUTPUT
+
     - uses: google-github-actions/auth@v2
       if: inputs.channel
       with:
@@ -98,16 +106,14 @@ jobs:
         headers: "cache-control: no-cache"
         path: ${{ env.BINS_DIR }}
         glob: viam-server-*
-        destination: ${{ env.BUCKET }}/
+        destination: ${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/
         parent: false
 
     - name: URLs to summary
       if: inputs.channel
       shell: bash
       run: |
+        echo "### Staged full-static binaries" >> $GITHUB_STEP_SUMMARY
         for arch in ${{ env.GOARCHES }}; do
-          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
-          if [ ${{ inputs.version }} ]; then
-            echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/viam-server-${{ inputs.channel }}-${{ inputs.version }}-static-$arch" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- $arch https://storage.googleapis.com/${{ env.BUCKET }}/testing/full-static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/viam-server-${{ inputs.channel }}-static-$arch" >> $GITHUB_STEP_SUMMARY
         done

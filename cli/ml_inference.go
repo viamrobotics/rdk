@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	mlinferencepb "go.viam.com/api/app/mlinference/v1"
 )
 
@@ -25,16 +25,17 @@ type mlInferenceInferArgs struct {
 }
 
 // MLInferenceInferAction is the corresponding action for 'inference infer'.
-func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
+func MLInferenceInferAction(ctx context.Context, cmd *cli.Command, args mlInferenceInferArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to run an ML inference")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
 	_, err = client.mlRunInference(
+		ctx,
 		args.OrgID, args.BinaryDataID,
 		args.ModelOrgID, args.ModelName, args.ModelVersion)
 	if err != nil {
@@ -44,10 +45,10 @@ func MLInferenceInferAction(c *cli.Context, args mlInferenceInferArgs) error {
 }
 
 // mlRunInference runs inference on an image with the specified parameters.
-func (c *viamClient) mlRunInference(orgID, binaryDataID, modelOrgID,
+func (c *viamClient) mlRunInference(ctx context.Context, orgID, binaryDataID, modelOrgID,
 	modelName, modelVersion string,
 ) (*mlinferencepb.GetInferenceResponse, error) {
-	if err := c.ensureLoggedIn(); err != nil {
+	if err := c.ensureLoggedIn(ctx); err != nil {
 		return nil, err
 	}
 
@@ -68,12 +69,12 @@ func (c *viamClient) mlRunInference(orgID, binaryDataID, modelOrgID,
 
 // printInferenceResponse prints a neat representation of the GetInferenceResponse.
 func (c *viamClient) printInferenceResponse(resp *mlinferencepb.GetInferenceResponse) {
-	printf(c.c.App.Writer, "Inference Response:")
-	printf(c.c.App.Writer, "Output Tensors:")
+	printf(c.c.Root().Writer, "Inference Response:")
+	printf(c.c.Root().Writer, "Output Tensors:")
 	if resp.OutputTensors != nil {
 		for name, tensor := range resp.OutputTensors.Tensors {
-			printf(c.c.App.Writer, "  Tensor Name: %s", name)
-			printf(c.c.App.Writer, "    Shape: %v", tensor.Shape)
+			printf(c.c.Root().Writer, "  Tensor Name: %s", name)
+			printf(c.c.Root().Writer, "    Shape: %v", tensor.Shape)
 			if tensor.Tensor != nil {
 				var sb strings.Builder
 				for i, value := range tensor.GetDoubleTensor().GetData() {
@@ -82,34 +83,34 @@ func (c *viamClient) printInferenceResponse(resp *mlinferencepb.GetInferenceResp
 					}
 					sb.WriteString(fmt.Sprintf("%.4f", value))
 				}
-				printf(c.c.App.Writer, "    Values: [%s]", sb.String())
+				printf(c.c.Root().Writer, "    Values: [%s]", sb.String())
 			} else {
-				printf(c.c.App.Writer, "    No values available.")
+				printf(c.c.Root().Writer, "    No values available.")
 			}
 		}
 	} else {
-		printf(c.c.App.Writer, "  No output tensors.")
+		printf(c.c.Root().Writer, "  No output tensors.")
 	}
 
-	printf(c.c.App.Writer, "Annotations:")
-	printf(c.c.App.Writer, "Bounding Box Format: [x_min, y_min, x_max, y_max]")
+	printf(c.c.Root().Writer, "Annotations:")
+	printf(c.c.Root().Writer, "Bounding Box Format: [x_min, y_min, x_max, y_max]")
 	if resp.Annotations != nil {
 		for _, bbox := range resp.Annotations.Bboxes {
-			printf(c.c.App.Writer, "  Bounding Box ID: %s, Label: %s",
+			printf(c.c.Root().Writer, "  Bounding Box ID: %s, Label: %s",
 				bbox.Id, bbox.Label)
-			printf(c.c.App.Writer, "    Coordinates: [%f, %f, %f, %f]",
+			printf(c.c.Root().Writer, "    Coordinates: [%f, %f, %f, %f]",
 				bbox.XMinNormalized, bbox.YMinNormalized, bbox.XMaxNormalized, bbox.YMaxNormalized)
 			if bbox.Confidence != nil {
-				printf(c.c.App.Writer, "    Confidence: %.4f", *bbox.Confidence)
+				printf(c.c.Root().Writer, "    Confidence: %.4f", *bbox.Confidence)
 			}
 		}
 		for _, classification := range resp.Annotations.Classifications {
-			printf(c.c.App.Writer, "  Classification Label: %s", classification.Label)
+			printf(c.c.Root().Writer, "  Classification Label: %s", classification.Label)
 			if classification.Confidence != nil {
-				printf(c.c.App.Writer, "    Confidence: %.4f", *classification.Confidence)
+				printf(c.c.Root().Writer, "    Confidence: %.4f", *classification.Confidence)
 			}
 		}
 	} else {
-		printf(c.c.App.Writer, "  No annotations.")
+		printf(c.c.Root().Writer, "  No annotations.")
 	}
 }

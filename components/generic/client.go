@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/logging"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -54,4 +55,8 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 		return nil, err
 	}
 	return resp.Result.AsMap(), nil
+}
+
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
 }

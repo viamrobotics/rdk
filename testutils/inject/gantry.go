@@ -14,6 +14,7 @@ type Gantry struct {
 	gantry.Gantry
 	name               resource.Name
 	DoFunc             func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc         func(ctx context.Context) (map[string]interface{}, error)
 	PositionFunc       func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
 	MoveToPositionFunc func(ctx context.Context, pos, speed []float64, extra map[string]interface{}) error
 	LengthsFunc        func(ctx context.Context, extra map[string]interface{}) ([]float64, error)
@@ -116,4 +117,15 @@ func (g *Gantry) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 		return g.Gantry.DoCommand(ctx, cmd)
 	}
 	return g.DoFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (g *Gantry) Status(ctx context.Context) (map[string]interface{}, error) {
+	if g.StatusFunc != nil {
+		return g.StatusFunc(ctx)
+	}
+	if g.Gantry != nil {
+		return g.Gantry.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

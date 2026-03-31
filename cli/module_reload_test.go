@@ -27,7 +27,7 @@ func TestConfigureModule(t *testing.T) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
 	}, map[string]any{moduleFlagPath: manifestPath, generalFlagVersion: "1.2.3"}, "token")
-	path, err := ac.moduleBuildStartAction(cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
+	path, err := ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
 	test.That(t, out.messages, test.ShouldHaveLength, 1)
@@ -126,15 +126,15 @@ func TestFullReloadFlow(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
+	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 
 	t.Run("addShellService", func(t *testing.T) {
 		t.Run("addsServiceWhenMissing", func(t *testing.T) {
-			part, _ := vc.getRobotPart("id")
-			_, err := addShellService(cCtx, vc, logging.NewTestLogger(t), part.Part, false)
+			part, _ := vc.getRobotPart(context.Background(), "id")
+			_, err := addShellService(context.Background(), cCtx, vc, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -162,8 +162,8 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			part, _ := vc2.getRobotPart("id")
-			_, err = addShellService(cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
+			part, _ := vc2.getRobotPart(context.Background(), "id")
+			_, err = addShellService(context.Background(), cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
 			test.That(t, err, test.ShouldBeNil)
 			services, ok := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, ok, test.ShouldBeTrue)
@@ -207,7 +207,7 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+			err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "not supported for hot reloading")
 		})
@@ -233,7 +233,7 @@ func TestFullReloadFlow(t *testing.T) {
 				"token",
 			)
 
-			err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+			err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, updateCount, test.ShouldEqual, 1)
 		})
@@ -272,10 +272,10 @@ func TestReloadWithCloudConfig(t *testing.T) {
 			},
 			"token",
 		)
-		test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+		test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 
 		// Test that reloadModuleActionInner correctly uses cloud-config to resolve part ID
-		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, updateCount, test.ShouldEqual, 1)
 	})
@@ -494,7 +494,7 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 		)
 
 		// Test reload-local (cloudBuild=false)
-		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required for 'reload' and 'reload-local' commands")
@@ -530,7 +530,7 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 		)
 
 		// Test reload with cloud build (cloudBuild=true)
-		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, true)
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, true)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "required for 'reload' and 'reload-local' commands")
@@ -570,7 +570,7 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 			"token",
 		)
 
-		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot have an empty build step")
 	})
@@ -608,7 +608,7 @@ func TestReloadWithMissingBuildSection(t *testing.T) {
 
 		// Even with --no-build flag, manifest with build section is still required
 		// because it needs to know where to find the already-built artifact
-		err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+		err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "manifest required for reload")
 	})
@@ -636,8 +636,8 @@ func TestUpdateRobotPartPassesLastKnownUpdate(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
+	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 	test.That(t, capturedTimestamp, test.ShouldNotBeNil)
@@ -681,9 +681,9 @@ func TestUpdateRobotPartRetryOnConflict(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
+	test.That(t, vc.loginAction(context.Background(), cCtx), test.ShouldBeNil)
 	logger := logging.NewTestLogger(t)
-	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+	err = reloadModuleActionInner(context.Background(), cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	// First call fails, triggers re-fetch + retry which succeeds
 	test.That(t, updateCount, test.ShouldEqual, 2)
@@ -740,18 +740,18 @@ func TestConfigureModuleNeedsRestart(t *testing.T) {
 			"reload_enabled": true,
 			"version":        "latest-with-prerelease",
 		}})
-		cCtx, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
+		cmd, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
 			map[string]any{moduleFlagLocal: true}, "token")
-		_, needsRestart, err := configureModule(cCtx, vc, manifest, part, true, testUser)
+		_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part, true, testUser)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, needsRestart, test.ShouldBeTrue)
 	})
 
 	t.Run("first_time_config_no_restart", func(t *testing.T) {
 		part := makePart(t, []any{})
-		cCtx, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
+		cmd, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
 			map[string]any{moduleFlagLocal: true}, "token")
-		_, needsRestart, err := configureModule(cCtx, vc, manifest, part, true, testUser)
+		_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part, true, testUser)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, needsRestart, test.ShouldBeFalse)
 	})
@@ -765,9 +765,9 @@ func TestConfigureModuleNeedsRestart(t *testing.T) {
 			"reload_enabled": true,
 			"version":        "latest-with-prerelease",
 		}})
-		cCtx, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
+		cmd, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
 			map[string]any{moduleFlagLocal: true}, "token")
-		_, needsRestart, err := configureModule(cCtx, vc, manifest, part, true, testUser)
+		_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part, true, testUser)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, needsRestart, test.ShouldBeFalse)
 	})
@@ -781,9 +781,9 @@ func TestConfigureModuleNeedsRestart(t *testing.T) {
 			"reload_enabled": false,
 			"version":        "latest-with-prerelease",
 		}})
-		cCtx, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
+		cmd, vc, _, _ := setup(mockClient(t, part), nil, &inject.BuildServiceClient{},
 			map[string]any{moduleFlagLocal: true}, "token")
-		_, needsRestart, err := configureModule(cCtx, vc, manifest, part, true, testUser)
+		_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part, true, testUser)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, needsRestart, test.ShouldBeFalse)
 	})
@@ -811,9 +811,9 @@ func TestConfigureModuleNeedsRestart(t *testing.T) {
 				return &apppb.UpdateRobotPartResponse{Part: part}, nil
 			},
 		}
-		cCtx, vc, _, _ := setup(client, nil, &inject.BuildServiceClient{},
+		cmd, vc, _, _ := setup(client, nil, &inject.BuildServiceClient{},
 			map[string]any{moduleFlagLocal: true}, "token")
-		_, needsRestart, err := configureModule(cCtx, vc, manifest, part, true, testUser)
+		_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part, true, testUser)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, needsRestart, test.ShouldBeTrue)
 		test.That(t, updateCount, test.ShouldEqual, 1)
@@ -862,20 +862,20 @@ func TestRepeatedReloadNeedsRestart(t *testing.T) {
 		},
 	}
 
-	cCtx, vc, _, _ := setup(client, nil, &inject.BuildServiceClient{},
+	cmd, vc, _, _ := setup(client, nil, &inject.BuildServiceClient{},
 		map[string]any{moduleFlagLocal: true}, "token")
 
 	// First reload: module is new, so needsRestart should be false.
-	part, err := vc.getRobotPart("part-123")
+	part, err := vc.getRobotPart(context.Background(), "part-123")
 	test.That(t, err, test.ShouldBeNil)
-	_, needsRestart, err := configureModule(cCtx, vc, manifest, part.Part, true, testUser)
+	_, needsRestart, err := configureModule(context.Background(), cmd, vc, manifest, part.Part, true, testUser)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, needsRestart, test.ShouldBeFalse)
 
 	// Second reload: module is already configured with correct path and enabled.
-	part, err = vc.getRobotPart("part-123")
+	part, err = vc.getRobotPart(context.Background(), "part-123")
 	test.That(t, err, test.ShouldBeNil)
-	_, needsRestart, err = configureModule(cCtx, vc, manifest, part.Part, true, testUser)
+	_, needsRestart, err = configureModule(context.Background(), cmd, vc, manifest, part.Part, true, testUser)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, needsRestart, test.ShouldBeTrue)
 }
@@ -906,7 +906,7 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 		}}, nil
 	}
 
-	cCtx, vc, _, _ := setup(
+	cmd, vc, _, _ := setup(
 		client,
 		nil,
 		&inject.BuildServiceClient{},
@@ -917,8 +917,8 @@ func TestReloadUserAndTimeInModuleConfig(t *testing.T) {
 		},
 		"token",
 	)
-	test.That(t, vc.loginAction(cCtx), test.ShouldBeNil)
-	err = reloadModuleActionInner(cCtx, vc, parseStructFromCtx[reloadModuleArgs](cCtx), logger, false)
+	test.That(t, vc.loginAction(context.Background(), cmd), test.ShouldBeNil)
+	err = reloadModuleActionInner(context.Background(), cmd, vc, parseStructFromCtx[reloadModuleArgs](cmd), logger, false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, updateCount, test.ShouldEqual, 1)
 	test.That(t, capturedConfig, test.ShouldNotBeNil)

@@ -86,6 +86,21 @@ func TestClient(t *testing.T) {
 		test.That(t, resp["cmd"], test.ShouldEqual, testutils.TestCommand["cmd"])
 		test.That(t, resp["data"], test.ShouldEqual, testutils.TestCommand["data"])
 
+		// Status - default empty status
+		statusResult, err := workingDiscoveryClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		workingDiscovery.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = workingDiscoveryClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		workingDiscovery.StatusFunc = nil
+
 		test.That(t, workingDiscoveryClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

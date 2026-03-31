@@ -187,6 +187,15 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	return protoutils.DoFromResourceServer(ctx, camera, req)
 }
 
+// GetStatus returns the status of the camera.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	cam, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, cam, req)
+}
+
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {
 	res, err := s.coll.Resource(req.GetName())
 	if err != nil {

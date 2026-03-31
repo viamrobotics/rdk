@@ -17,7 +17,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var errDoFailed = errors.New("do failed")
+var (
+	errDoFailed        = errors.New("do failed")
+	errGetStatusFailed = errors.New("can't get status")
+)
 
 func newServer(logger logging.Logger) (genericpb.GenericServiceServer, *inject.GenericService, *inject.GenericService, error) {
 	injectGeneric := &inject.GenericService{}
@@ -71,4 +74,34 @@ func TestGenericDo(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errDoFailed.Error())
 	test.That(t, resp, test.ShouldBeNil)
+}
+
+func TestServerGetStatus(t *testing.T) {
+	genericServer, workingGeneric, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = genericServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := genericServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGenericName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingGeneric.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = genericServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGenericName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingGeneric.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = genericServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGenericName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	workingGeneric.StatusFunc = nil
 }

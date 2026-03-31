@@ -376,6 +376,16 @@ func TestLimitMethods(t *testing.T) {
 	test.That(t, isMultipleOfPi(.1), test.ShouldBeFalse)
 	test.That(t, isMultipleOfPi(10), test.ShouldBeFalse)
 
+	// test IsRotational
+	test.That(t, (&Limit{-math.Pi, math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{-2 * math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{-4 * math.Pi, 4 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{0, 10}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{0, math.Pi}).IsRotational(), test.ShouldBeTrue)                           // 0 is a multiple of pi, 0 is in range
+	test.That(t, (&Limit{math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeFalse)                // 0 not in range
+	test.That(t, (&Limit{-1, 1}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{-6.265732014659642, 6.26573201465964}).IsRotational(), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
+
 	l = Limit{-4 * math.Pi, 4 * math.Pi}
 	_, _, c = l.GoodLimits()
 	test.That(t, c, test.ShouldEqual, 8*math.Pi)
