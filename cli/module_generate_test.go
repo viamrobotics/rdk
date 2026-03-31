@@ -227,7 +227,11 @@ func TestGenerateModuleAction(t *testing.T) {
 		var manifest ModuleManifest
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+		test.That(t, len(manifest.Models), test.ShouldEqual, 1)
+		test.That(t, manifest.Models[0].API, test.ShouldEqual, testModule.API)
+		test.That(t, manifest.Models[0].Model, test.ShouldEqual, testModule.ModelTriple)
+		test.That(t, manifest.Models[0].MarkdownLink, test.ShouldNotBeNil)
+		test.That(t, *manifest.Models[0].MarkdownLink, test.ShouldEqual, testModule.ModelReadmeLink)
 	})
 
 	t.Run("test generate cpp stubs", func(t *testing.T) {

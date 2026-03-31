@@ -1138,6 +1138,13 @@ func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleIn
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}
 
+	// Auto-populate models in the manifest using the generated module inputs
+	manifest.Models = []ModuleComponent{{
+		API:          module.API,
+		Model:        module.ModelTriple,
+		MarkdownLink: &module.ModelReadmeLink,
+	}}
+
 	if err := writeManifest(filepath.Join(module.ModuleName, defaultManifestFilename), manifest); err != nil {
 		return err
 	}
