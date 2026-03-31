@@ -326,9 +326,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// The componentName is used for cache lookup and input gather/distribute.
 	// The fsFrameName is used for FS transform lookups (it exists in the FS as a zero-pose alias).
 	componentName := frame.Name()
-	if model := ssc.fs.FlattenedModel(componentName); model != nil {
-		frame = model
-	} else {
+	if ssc.fs.FlattenedModel(componentName) == nil {
 		// Standard check: ensure no parent also moves
 		p, err := ssc.fs.Parent(frame)
 		if err != nil {
@@ -444,14 +442,11 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, err
 	}
 
-	// For flattened models, gather inputs from individual frames into a flat vector
-	model := ssc.fs.FlattenedModel(movingFrame)
+	// For flattened models, use the component schema to gather/distribute inputs.
+	schema := ssc.fs.ComponentSchema(movingFrame)
 	var startInputs []referenceframe.Input
-	if model != nil {
-		startInputs, err = referenceframe.GatherModelInputs(movingFrame, model, start)
-		if err != nil {
-			return nil, nil, err
-		}
+	if schema != nil {
+		startInputs = schema.GatherInputs(start)
 	} else {
 		startInputs = start.Get(movingFrame)
 	}
@@ -468,10 +463,13 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		for k, v := range start.Items() {
 			i.Put(k, v)
 		}
-		// For flattened models, distribute seed inputs to individual frames
-		if model != nil {
-			if err := referenceframe.DistributeModelInputs(movingFrame, model, s, i); err != nil {
+		if schema != nil {
+			distributed, err := schema.FloatsToInputs(s)
+			if err != nil {
 				return nil, nil, err
+			}
+			for name, inputs := range distributed.Items() {
+				i.Put(name, inputs)
 			}
 		} else {
 			i.Put(movingFrame, s)
@@ -480,9 +478,13 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	}
 
 	fullDivisors := start.CopyWithZeros()
-	if model != nil {
-		if err := referenceframe.DistributeModelInputs(movingFrame, model, divisors, fullDivisors); err != nil {
+	if schema != nil {
+		distributed, err := schema.FloatsToInputs(divisors)
+		if err != nil {
 			return nil, nil, err
+		}
+		for name, inputs := range distributed.Items() {
+			fullDivisors.Put(name, inputs)
 		}
 	} else {
 		fullDivisors.Put(movingFrame, divisors)

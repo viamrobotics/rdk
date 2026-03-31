@@ -845,7 +845,7 @@ func (mf *mimicFrameWrapper) Interpolate(from, to []Input, by float64) ([]Input,
 func (mf *mimicFrameWrapper) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 	innerGeo, err := mf.inner.Geometries([]Input{0})
 	if err != nil {
-		return NewGeometriesInFrame(mf.name, nil), nil
+		return nil, err
 	}
 	return NewGeometriesInFrame(mf.name, innerGeo.geometries), nil
 }

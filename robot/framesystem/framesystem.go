@@ -4,7 +4,6 @@ package framesystem
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -323,21 +322,9 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 	}
 	li := referenceframe.NewZeroLinearInputs(fs)
 
-	// Track which components we've already fetched inputs for
-	seen := map[string]bool{}
-
-	for name := range li.Items() {
-		if len(li.Get(name)) == 0 {
-			continue
-		}
-
-		// Extract component name: "arm1:joint1" → "arm1", "camera" → "camera"
-		componentName := componentNameFromFrame(name)
-		if seen[componentName] {
-			continue
-		}
-		seen[componentName] = true
-
+	// First, handle flattened models: use the FS's stored component schemas
+	// to distribute flat component inputs to individual namespaced frames.
+	for _, componentName := range fs.ComponentSchemaNames() {
 		component, ok := svc.components[componentName]
 		if !ok {
 			return nil, DependencyNotFoundError(componentName)
@@ -352,32 +339,46 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 			return nil, err
 		}
 
-		// For flattened models, distribute flat inputs across namespaced frames
-		if componentName != name {
-			// This is a namespaced frame from a flattened model
-			model, err := inputEnabled.Kinematics(ctx)
-			if err != nil {
-				return nil, err
-			}
-			if err := referenceframe.DistributeModelInputs(componentName, model, flatInputs, li); err != nil {
-				return nil, err
-			}
-		} else {
-			// Non-flattened frame: assign directly
-			li.Put(name, flatInputs)
+		schema := fs.ComponentSchema(componentName)
+		distributed, err := schema.FloatsToInputs(flatInputs)
+		if err != nil {
+			return nil, err
+		}
+		for name, inputs := range distributed.Items() {
+			li.Put(name, inputs)
 		}
 	}
 
-	return li.ToFrameSystemInputs(), nil
-}
-
-// componentNameFromFrame extracts the component name from a potentially namespaced frame name.
-// "arm1:joint1" → "arm1", "camera" → "camera".
-func componentNameFromFrame(frameName string) string {
-	if idx := strings.Index(frameName, ":"); idx >= 0 {
-		return frameName[:idx]
+	// Then, handle non-flattened frames with non-zero DoF
+	handledComponents := map[string]bool{}
+	for _, name := range fs.ComponentSchemaNames() {
+		handledComponents[name] = true
 	}
-	return frameName
+	for name, original := range li.ToFrameSystemInputs() {
+		if len(original) == 0 || handledComponents[name] {
+			continue
+		}
+		// Skip frames that belong to flattened models (already handled above)
+		if fs.ComponentSchema(name) != nil {
+			continue
+		}
+
+		component, ok := svc.components[name]
+		if !ok {
+			continue
+		}
+		inputEnabled, ok := component.(InputEnabled)
+		if !ok {
+			return nil, NotInputEnabledError(component)
+		}
+		pos, err := inputEnabled.CurrentInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		li.Put(name, pos)
+	}
+
+	return li.ToFrameSystemInputs(), nil
 }
 
 // NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.

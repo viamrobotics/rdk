@@ -48,17 +48,23 @@ type FrameSystem struct {
 	// flattened into individual frames. Used by smart seeding and other code that needs
 	// the combined multi-DoF model rather than individual joint frames.
 	flattenedModels map[string]*SimpleModel
+
+	// componentSchemas maps component name → namespaced LinearInputsSchema for flattened models.
+	// The schema frame names use the namespaced convention (e.g., "arm1:joint1").
+	// Used to convert between flat component inputs and per-frame LinearInputs.
+	componentSchemas map[string]*LinearInputsSchema
 }
 
 // NewEmptyFrameSystem creates a graph of Frames that have.
 func NewEmptyFrameSystem(name string) *FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
 	return &FrameSystem{
-		name:            name,
-		world:           worldFrame,
-		frames:          map[string]Frame{},
-		parents:         map[string]string{},
-		flattenedModels: map[string]*SimpleModel{},
+		name:             name,
+		world:            worldFrame,
+		frames:           map[string]Frame{},
+		parents:          map[string]string{},
+		flattenedModels:  map[string]*SimpleModel{},
+		componentSchemas: map[string]*LinearInputsSchema{},
 	}
 }
 
@@ -74,6 +80,23 @@ func (sfs *FrameSystem) FlattenedModel(componentName string) Model {
 func (sfs *FrameSystem) FlattenedModelNames() []string {
 	names := make([]string, 0, len(sfs.flattenedModels))
 	for name := range sfs.flattenedModels {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ComponentSchema returns the namespaced LinearInputsSchema for a flattened model component.
+// The schema frame names use the namespaced convention (e.g., "arm1:joint1").
+// Returns nil if the component is not a flattened model.
+func (sfs *FrameSystem) ComponentSchema(componentName string) *LinearInputsSchema {
+	return sfs.componentSchemas[componentName]
+}
+
+// ComponentSchemaNames returns the component names that have associated schemas.
+func (sfs *FrameSystem) ComponentSchemaNames() []string {
+	names := make([]string, 0, len(sfs.componentSchemas))
+	for name := range sfs.componentSchemas {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -416,11 +439,12 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &FrameSystem{
-		name:            newRoot.Name() + "_FS",
-		world:           newWorld,
-		frames:          map[string]Frame{},
-		parents:         map[string]string{},
-		flattenedModels: map[string]*SimpleModel{},
+		name:             newRoot.Name() + "_FS",
+		world:            newWorld,
+		frames:           map[string]Frame{},
+		parents:          map[string]string{},
+		flattenedModels:  map[string]*SimpleModel{},
+		componentSchemas: map[string]*LinearInputsSchema{},
 	}
 
 	rootFrame := sfs.Frame(newRoot.Name())
@@ -671,6 +695,9 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	if sfs.flattenedModels == nil {
 		sfs.flattenedModels = map[string]*SimpleModel{}
 	}
+	if sfs.componentSchemas == nil {
+		sfs.componentSchemas = map[string]*LinearInputsSchema{}
+	}
 	return nil
 }
 
@@ -773,52 +800,6 @@ func InterpolateFS(fs *FrameSystem, from, to *LinearInputs, by float64) (*Linear
 	}
 
 	return interp, nil
-}
-
-// DistributeModelInputs takes a component's flat []Input and distributes each internal
-// frame's slice into the target LinearInputs under namespaced keys (componentName:frameName).
-// For non-SimpleModel models, the flat inputs are stored under the component name directly.
-func DistributeModelInputs(componentName string, model Model, flatInputs []Input, target *LinearInputs) error {
-	sm, ok := model.(*SimpleModel)
-	if !ok {
-		target.Put(componentName, flatInputs)
-		return nil
-	}
-	modelLI, err := sm.inputSchema.FloatsToInputs(flatInputs)
-	if err != nil {
-		return err
-	}
-	for frameName, inputs := range modelLI.Items() {
-		target.Put(componentName+":"+frameName, inputs)
-	}
-	return nil
-}
-
-// GatherModelInputs reads namespaced frame inputs from a LinearInputs and reassembles
-// them into a flat []Input for the component, in schema order. For non-SimpleModel models,
-// the inputs are read directly from the component name key.
-func GatherModelInputs(componentName string, model Model, source *LinearInputs) ([]Input, error) {
-	sm, ok := model.(*SimpleModel)
-	if !ok {
-		inputs := source.Get(componentName)
-		if inputs == nil {
-			return []Input{}, nil
-		}
-		return inputs, nil
-	}
-	result := make([]Input, 0, len(model.DoF()))
-	for _, meta := range sm.inputSchema.metas {
-		if meta.dof == 0 {
-			continue
-		}
-		inputs := source.Get(componentName + ":" + meta.frameName)
-		if inputs == nil {
-			result = append(result, make([]Input, meta.dof)...)
-		} else {
-			result = append(result, inputs...)
-		}
-	}
-	return result, nil
 }
 
 // FrameSystemToPCD takes in a framesystem and returns a map where all elements are
@@ -1015,15 +996,6 @@ func createFramesFromPart(part *FrameSystemPart) (Frame, Frame, error) {
 	return modelFrame, &tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)}, nil
 }
 
-// Names returns the names of input parts.
-func getPartNames(parts []*FrameSystemPart) []string {
-	names := make([]string, len(parts))
-	for i, p := range parts {
-		names[i] = p.FrameConfig.Name()
-	}
-	return names
-}
-
 // TopologicallySortParts takes a potentially un-ordered slice of frame system parts and sorts them,
 // beginning at the world node. The world frame is not included in the output.
 //
@@ -1151,6 +1123,20 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 
 	// Store the original model for smart seeding and other code that needs combined DoF
 	outerFS.flattenedModels[componentName] = model
+
+	// Build a namespaced schema: copy the model's inputSchema with prefixed frame names.
+	// This schema maps flat component inputs ↔ per-frame LinearInputs with namespaced keys.
+	namespacedMetas := make([]linearInputMeta, 0, len(model.inputSchema.metas))
+	for _, meta := range model.inputSchema.metas {
+		namespacedMetas = append(namespacedMetas, linearInputMeta{
+			frameName: componentName + ":" + meta.frameName,
+			offset:    meta.offset,
+			dof:       meta.dof,
+			frame:     outerFS.Frame(componentName + ":" + meta.frameName),
+		})
+	}
+	outerFS.componentSchemas[componentName] = &LinearInputsSchema{metas: namespacedMetas}
+
 	return nil
 }
 

@@ -712,72 +712,47 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 
 // consolidateTrajectory converts per-frame trajectory entries back into per-component
 // flat input vectors. After model flattening, trajectory steps may have individual frame
-// names like "arm1:joint1". This gathers them into a flat vector under "arm1" for GoToInputs.
+// names (e.g., "arm1:joint1"). This gathers them into a flat vector under the component
+// name for GoToInputs, using the FS's stored component schemas.
 func (ms *builtIn) consolidateTrajectory(
 	ctx context.Context, trajectory motionplan.Trajectory,
 ) (motionplan.Trajectory, error) {
-	// Check if any namespaced frames exist; if not, return as-is for efficiency
-	hasNamespaced := false
-	if len(trajectory) > 0 {
-		for name := range trajectory[0] {
-			if strings.Contains(name, ":") {
-				hasNamespaced = true
-				break
-			}
-		}
+	fs, err := ms.getFrameSystem(ctx, nil)
+	if err != nil {
+		return nil, err
 	}
-	if !hasNamespaced {
+
+	componentNames := fs.ComponentSchemaNames()
+	if len(componentNames) == 0 {
 		return trajectory, nil
 	}
 
-	// Cache models by component name
-	modelCache := map[string]referenceframe.Model{}
+	// Build a set of frame names that belong to flattened models so we can skip them
+	// when copying non-flattened entries.
+	flattenedFrames := map[string]bool{}
+	for _, componentName := range componentNames {
+		schema := fs.ComponentSchema(componentName)
+		for _, name := range schema.FrameNamesInOrder() {
+			flattenedFrames[name] = true
+		}
+	}
 
 	result := make(motionplan.Trajectory, len(trajectory))
 	for i, step := range trajectory {
 		consolidated := make(referenceframe.FrameSystemInputs)
 
-		// First, collect all non-namespaced entries directly
+		// Copy non-flattened entries directly
 		for name, inputs := range step {
-			if !strings.Contains(name, ":") {
+			if !flattenedFrames[name] {
 				consolidated[name] = inputs
 			}
 		}
 
-		// Group namespaced frames by component
-		componentFrames := map[string]bool{}
-		for name := range step {
-			if idx := strings.Index(name, ":"); idx >= 0 {
-				componentFrames[name[:idx]] = true
-			}
-		}
-
-		// For each component with namespaced frames, gather inputs
-		for componentName := range componentFrames {
-			if _, exists := consolidated[componentName]; exists {
-				continue // already has a direct entry
-			}
-			model, ok := modelCache[componentName]
-			if !ok {
-				r, ok := ms.components[componentName]
-				if !ok {
-					return nil, fmt.Errorf("component %s not found for trajectory consolidation", componentName)
-				}
-				ie, err := utils.AssertType[framesystem.InputEnabled](r)
-				if err != nil {
-					return nil, err
-				}
-				model, err = ie.Kinematics(ctx)
-				if err != nil {
-					return nil, err
-				}
-				modelCache[componentName] = model
-			}
-			gathered, err := referenceframe.GatherModelInputs(componentName, model, step.ToLinearInputs())
-			if err != nil {
-				return nil, err
-			}
-			consolidated[componentName] = gathered
+		// Gather flattened model inputs using component schemas
+		stepLI := step.ToLinearInputs()
+		for _, componentName := range componentNames {
+			schema := fs.ComponentSchema(componentName)
+			consolidated[componentName] = schema.GatherInputs(stepLI)
 		}
 
 		result[i] = consolidated
