@@ -4163,7 +4163,7 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
 		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
-	}, WithProgressOutput(!args.NoProgress))
+	}, WithProgressOutput(!args.NoProgress), WithFinalOutput())
 
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	if err := pm.Start("check"); err != nil {
@@ -4179,7 +4179,8 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
-			if err := pm.CompleteWithMessage("check", fmt.Sprintf("Already up to date (version %s)", localVersion.Original())); err != nil {
+			msg := fmt.Sprintf("Already up to date (version %s)", localVersion.Original())
+			if err := pm.CompleteWithMessage("check", msg); err != nil {
 				return err
 			}
 			return nil
