@@ -107,7 +107,7 @@ var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
-var ViamDotDir = filepath.Join(PlatformHomeDir(), ".viam")
+var ViamDotDir = filepath.Join(viamHomeDir(), ".viam")
 
 var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
 
@@ -145,16 +145,20 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	return defaultTimeout, true
 }
 
+// parent directory of ViamDotDir
+func viamHomeDir() string {
+	if viamHome := os.Getenv("VIAM_HOME"); viamHome != "" {
+		return viamHome
+	}
+	return PlatformHomeDir()
+}
+
 // PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
 func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
 		return AndroidFilesDir
 	}
 	if runtime.GOOS == "windows" { //nolint:goconst
-		// HOME is not usually set on windows, but prefer it if it is.
-		if homeEnv, found := os.LookupEnv("HOME"); found && homeEnv != "" {
-			return homeEnv
-		}
 		homedir, _ := os.UserHomeDir() //nolint:errcheck
 		if homedir != "" {
 			return homedir
