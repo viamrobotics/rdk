@@ -1578,6 +1578,7 @@ func restartModule(
 	manifest *ModuleManifest,
 	logger logging.Logger,
 ) error {
+	// TODO(RSDK-9727) it'd be nice for this to be a method on a viam client rather than taking one as an arg
 	restartReq, err := resolveTargetModule(cmd, manifest)
 	if err != nil {
 		return err
