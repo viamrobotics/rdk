@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/build/v1"
 	apppb "go.viam.com/api/app/v1"
@@ -18,6 +19,7 @@ import (
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/testutils/inject"
+	rtestutils "go.viam.com/rdk/testutils"
 )
 
 func TestConfigureModule(t *testing.T) {
@@ -309,7 +311,68 @@ func TestReloadWithCloudConfig(t *testing.T) {
 }
 
 func TestRestartModule(t *testing.T) {
-	t.Skip("restartModule test requires fake robot client")
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	partFqdn := uuid.NewString()
+	const (
+		testPartID  = "cli-restart-part"
+		testRobotID = "cli-restart-robot"
+	)
+	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
+	modName := "cli-restart-module"
+	robotCfg := &rdkConfig.Config{
+		Modules: []rdkConfig.Module{
+			{Name: modName, ExePath: simplePath, Type: rdkConfig.ModuleTypeLocal},
+		},
+	}
+	emptyConf, err := structpb.NewStruct(map[string]any{"modules": []any{}})
+	test.That(t, err, test.ShouldBeNil)
+
+	asc := &inject.AppServiceClient{
+		GetRobotPartFunc: func(ctx context.Context, req *apppb.GetRobotPartRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotPartResponse, error) {
+			test.That(t, req.Id, test.ShouldEqual, testPartID)
+			return &apppb.GetRobotPartResponse{
+				Part: &apppb.RobotPart{
+					Id:          testPartID,
+					Robot:       testRobotID,
+					Fqdn:        partFqdn,
+					RobotConfig: emptyConf,
+					LastUpdated: timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				ConfigJson: ``,
+			}, nil
+		},
+		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
+			opts ...grpc.CallOption,
+		) (*apppb.GetRobotAPIKeysResponse, error) {
+			test.That(t, in.RobotId, test.ShouldEqual, testRobotID)
+			return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
+				{ApiKey: &apppb.APIKey{Id: "keyid", Key: "keysecret", Name: "test"}},
+			}}, nil
+		},
+	}
+
+	noManifestPath := filepath.Join(t.TempDir(), "no-meta.json")
+	flags := map[string]any{
+		generalFlagPartID: testPartID,
+		generalFlagName:   modName,
+		moduleFlagPath:    noManifestPath,
+	}
+
+	cCtx, vc, _, _ := setupWithRunningPartAndConfig(
+		t, asc, nil, &inject.BuildServiceClient{},
+		flags, "token", partFqdn, robotCfg,
+	)
+	test.That(t, vc.loginAction(ctx, cCtx), test.ShouldBeNil)
+
+	partResp, err := vc.getRobotPart(ctx, testPartID)
+	test.That(t, err, test.ShouldBeNil)
+
+	err = restartModule(ctx, cCtx, vc, partResp.Part, nil, logger)
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestResolvePartId(t *testing.T) {
