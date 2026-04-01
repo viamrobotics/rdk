@@ -118,16 +118,32 @@ func (pm *planManager) planToDirectJoints(
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "planToDirectJoints")
 	defer span.End()
-	fullConfig := referenceframe.NewLinearInputs()
+	// Build fullConfig as a FrameSystemInputs (unordered map) first, then convert
+	// to LinearInputs via ToLinearInputs() to ensure alphabetical ordering that
+	// matches pc.lis. Putting directly into a LinearInputs would produce BFS ordering
+	// from the component schema, causing a mismatch with the planner's schema.
+	fsi := make(referenceframe.FrameSystemInputs)
 	for k, v := range goal.Configuration() {
-		fullConfig.Put(k, v)
+		// If the key is a flattened model component name, distribute to individual frames
+		if schema := pm.pc.fs.ComponentSchema(k); schema != nil {
+			distributed, err := schema.FloatsToInputs(v)
+			if err != nil {
+				return nil, err
+			}
+			for name, inputs := range distributed.Items() {
+				fsi[name] = inputs
+			}
+		} else {
+			fsi[k] = v
+		}
 	}
 
 	for k, v := range start.Items() {
-		if len(fullConfig.Get(k)) == 0 {
-			fullConfig.Put(k, v)
+		if _, exists := fsi[k]; !exists {
+			fsi[k] = v
 		}
 	}
+	fullConfig := fsi.ToLinearInputs()
 
 	goalPoses, err := goal.ComputePoses(ctx, pm.pc.fs)
 	if err != nil {

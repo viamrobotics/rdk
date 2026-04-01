@@ -475,6 +475,12 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
 
+	// Expand component-keyed inputs to per-frame keys for flattened models.
+	startState, waypoints, err = expandPlanStates(frameSys, startState, waypoints)
+	if err != nil {
+		return nil, err
+	}
+
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
 	// As the meaning from `waypoints` has already been extracted above into its proper data structure, there is no longer a need to
 	// keep it in `extra`.
@@ -572,6 +578,11 @@ func (ms *builtIn) planTeleop(
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
 
+	startState, waypoints, err = expandPlanStates(frameSys, startState, waypoints)
+	if err != nil {
+		return nil, err
+	}
+
 	if req.Extra != nil {
 		req.Extra["waypoints"] = nil
 	}
@@ -615,6 +626,15 @@ func (ms *builtIn) planTeleop(
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
+	// Consolidate per-frame trajectory entries into per-component flat vectors for GoToInputs.
+	fs, err := ms.getFrameSystem(ctx, nil)
+	if err != nil {
+		return err
+	}
+	for i, step := range trajectory {
+		trajectory[i] = fs.ComponentInputsFromLinear(step.ToLinearInputs())
+	}
+
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -727,6 +747,36 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 			extras[key] = val
 		}
 	}
+}
+
+// expandPlanStates expands component-keyed inputs in PlanStates to per-frame keys
+// for flattened models. This is the API boundary between external callers (who use
+// component names) and the planner (which uses per-frame names).
+func expandPlanStates(
+	fs *referenceframe.FrameSystem,
+	startState *armplanning.PlanState,
+	waypoints []*armplanning.PlanState,
+) (*armplanning.PlanState, []*armplanning.PlanState, error) {
+	if len(fs.ComponentSchemaNames()) == 0 {
+		return startState, waypoints, nil
+	}
+	if cfg := startState.Configuration(); len(cfg) > 0 {
+		expanded, err := fs.ExpandComponentInputs(cfg)
+		if err != nil {
+			return nil, nil, err
+		}
+		startState = armplanning.NewPlanState(startState.Poses(), expanded)
+	}
+	for i, wp := range waypoints {
+		if cfg := wp.Configuration(); len(cfg) > 0 {
+			expanded, err := fs.ExpandComponentInputs(cfg)
+			if err != nil {
+				return nil, nil, err
+			}
+			waypoints[i] = armplanning.NewPlanState(wp.Poses(), expanded)
+		}
+	}
+	return startState, waypoints, nil
 }
 
 func waypointsFromRequest(

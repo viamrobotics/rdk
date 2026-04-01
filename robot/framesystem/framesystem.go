@@ -314,7 +314,9 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 }
 
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
-// InputEnabled resources that those inputs came from.
+// InputEnabled resources that those inputs came from. For flattened models, inputs are returned under the
+// component name (e.g., "pieceArm" → [0,0,0,0,0,0]) rather than per-frame — the FrameSystem
+// transparently resolves these to individual frames when computing transforms.
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {
@@ -322,24 +324,40 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 	}
 	input := referenceframe.NewZeroInputs(fs)
 
-	// For flattened models, replace per-frame entries with a single component-keyed entry.
-	// The FS transparently resolves component-keyed inputs to individual frames.
+	// For flattened models, remove per-frame entries and add a single component-keyed entry.
 	for _, componentName := range fs.ComponentSchemaNames() {
 		schema := fs.ComponentSchema(componentName)
 		for _, name := range schema.FrameNamesInOrder() {
 			delete(input, name)
 		}
+
+		component, ok := svc.components[componentName]
+		if !ok {
+			return nil, DependencyNotFoundError(componentName)
+		}
+		inputEnabled, ok := component.(InputEnabled)
+		if !ok {
+			return nil, NotInputEnabledError(component)
+		}
+		pos, err := inputEnabled.CurrentInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		input[componentName] = pos
 	}
 
-	// Build maps of relevant components and inputs
+	// Handle non-flattened frames with non-zero DoF.
 	for name, original := range input {
 		if len(original) == 0 {
 			continue
 		}
+		if fs.ComponentSchema(name) != nil {
+			continue // already handled above
+		}
 
 		component, ok := svc.components[name]
 		if !ok {
-			return nil, DependencyNotFoundError(name)
+			continue
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {

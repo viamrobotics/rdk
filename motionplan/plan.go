@@ -76,7 +76,8 @@ func NewSimplePlanFromTrajectory(
 		path = append(path, poseMap)
 	}
 
-	// Build trajectory with component-level keys (gathering flattened model frames)
+	// Build trajectory with component-level keys, gathering per-frame inputs
+	// from flattened models back into flat component-keyed entries.
 	traj := make(Trajectory, len(trajAsInputs))
 	for i, inp := range trajAsInputs {
 		traj[i] = fs.ComponentInputsFromLinear(inp)

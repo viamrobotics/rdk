@@ -93,6 +93,34 @@ func (sfs *FrameSystem) ComponentSchemaNames() []string {
 	return names
 }
 
+// ExpandComponentInputs converts a FrameSystemInputs that may contain component-name keys
+// (e.g., "pieceArm" → [0,0,0,0,0,0]) into one with per-frame keys
+// (e.g., "pieceArm:joint1" → [0], "pieceArm:joint2" → [0], ...).
+// Non-flattened entries are passed through unchanged. This should be called at API boundaries
+// where external callers provide component-keyed inputs before passing them to the planner.
+func (sfs *FrameSystem) ExpandComponentInputs(fsi FrameSystemInputs) (FrameSystemInputs, error) {
+	if len(sfs.componentSchemas) == 0 {
+		return fsi, nil
+	}
+	result := make(FrameSystemInputs, len(fsi))
+	for name, inputs := range fsi {
+		schema := sfs.componentSchemas[name]
+		if schema == nil || len(inputs) == 0 {
+			// Not a flattened model, or empty inputs (e.g., the 0-DoF backward-compat alias)
+			result[name] = inputs
+			continue
+		}
+		distributed, err := schema.FloatsToInputs(inputs)
+		if err != nil {
+			return nil, err
+		}
+		for frameName, frameInputs := range distributed.Items() {
+			result[frameName] = frameInputs
+		}
+	}
+	return result, nil
+}
+
 // resolveFrameInputs is a fallback for when linearInputs.Get(frameName) returns nil.
 // It checks if frameName belongs to a flattened model and, if so, extracts the right
 // slice from a component-name-keyed entry in the LinearInputs.
@@ -137,13 +165,22 @@ func (sfs *FrameSystem) ComponentInputsFromLinear(li *LinearInputs) FrameSystemI
 		}
 	}
 
-	// Gather flattened model inputs into component entries
+	// Gather flattened model inputs into component entries.
+	// If per-frame keys are present, gather them. Otherwise, a component-keyed
+	// entry may already exist in fsi from the pass-through above — leave it.
 	for componentName, schema := range sfs.componentSchemas {
 		var flat []Input
+		found := false
 		for _, name := range schema.FrameNamesInOrder() {
-			flat = append(flat, li.Get(name)...)
+			frameInputs := li.Get(name)
+			if frameInputs != nil {
+				found = true
+			}
+			flat = append(flat, frameInputs...)
 		}
-		fsi[componentName] = flat
+		if found {
+			fsi[componentName] = flat
+		}
 	}
 
 	return fsi
