@@ -337,8 +337,8 @@ func TestRestartModule(t *testing.T) {
 			test.That(t, req.Id, test.ShouldEqual, testPartID)
 			return &apppb.GetRobotPartResponse{
 				Part: &apppb.RobotPart{
-					Id:   testPartID,
-					Fqdn: partFqdn,
+					Id:          testPartID,
+					Fqdn:        partFqdn,
 					RobotConfig: emptyConf,
 					LastUpdated: timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
 				},
