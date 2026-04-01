@@ -4414,18 +4414,12 @@ func replaceBinary(localBinaryPath, latestBinaryPath string) error {
 			}
 			return errors.Errorf("failed to rename old binary: %v", err)
 		}
-		if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
-			// Roll back: restore the old binary so the CLI is not left deleted.
-			_ = os.Rename(oldPath, localBinaryPath) //nolint:errcheck
-			if os.IsPermission(err) {
-				return errors.New("permission denied: run PowerShell as Administrator")
-			}
-			return errors.Errorf("failed to replace binary: %v", err)
-		}
-		return nil
 	}
 	if err := os.Rename(latestBinaryPath, localBinaryPath); err != nil {
 		if os.IsPermission(err) {
+			if runtime.GOOS == osWindows {
+				return errors.New("permission denied: run PowerShell as Administrator")
+			}
 			return errors.New("permission denied: run 'sudo viam update'")
 		}
 		return errors.Errorf("failed to replace binary: %v", err)
