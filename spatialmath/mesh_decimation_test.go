@@ -49,6 +49,21 @@ func makeNonConvexLShapeMesh() *Mesh {
 	return NewMesh(NewZeroPose(), tris, "L-shape")
 }
 
+// closedMeshVolume computes the volume of a closed triangle mesh using the
+// divergence theorem (signed tetrahedron volumes). Only valid for closed,
+// consistently-oriented meshes (e.g., convex hulls).
+func closedMeshVolume(m *Mesh) float64 {
+	vol := 0.0
+	for _, tri := range m.triangles {
+		pts := tri.Points()
+		vol += pts[0].Dot(pts[1].Cross(pts[2]))
+	}
+	if vol < 0 {
+		vol = -vol
+	}
+	return vol / 6.0
+}
+
 func makeLargeTestTriangles(nx, ny int) []*Triangle {
 	triangles := make([]*Triangle, 0, 2*nx*ny)
 	for x := range nx {
@@ -275,11 +290,11 @@ func TestSlicedHullSmallerVolumeThanSingleHull(t *testing.T) {
 func TestDecimatePicksSmallerVolume(t *testing.T) {
 	// ConservativeDecimate should pick the strategy with smaller volume.
 	lShape := makeNonConvexLShapeMesh()
-	originalVol := lShape.Volume()
+	originalVol := closedMeshVolume(lShape)
 
 	decimated, err := lShape.ConservativeDecimate(48)
 	test.That(t, err, test.ShouldBeNil)
-	decimatedVol := decimated.Volume()
+	decimatedVol := closedMeshVolume(decimated)
 
 	// The L-shape original has volume 10*100*10 + 100*10*10 - 10*10*10 = 19000
 	test.That(t, originalVol, test.ShouldAlmostEqual, 19000, 1000)
@@ -295,7 +310,7 @@ func TestMeshVolume(t *testing.T) {
 	// Volume() sums each closed surface independently, so overlap is double-counted:
 	// vertical box (10*100*10) + horizontal box (100*10*10) = 20000.
 	lShape := makeNonConvexLShapeMesh()
-	vol := lShape.Volume()
+	vol := closedMeshVolume(lShape)
 	test.That(t, vol, test.ShouldAlmostEqual, 20000, 100)
 }
 
