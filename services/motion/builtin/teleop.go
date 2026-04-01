@@ -141,6 +141,14 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	for k, v := range planningHead {
 		mergedInputs[k] = v
 	}
+	// Overlay planning heads from other active teleop pipelines so that this
+	// planner collision-checks against where the other arms are heading, not
+	// just where they currently are.
+	for _, head := range ms.otherPlanningHeads(tp.moveReqBase.ComponentName) {
+		for k, v := range head {
+			mergedInputs[k] = v
+		}
+	}
 
 	// Build a MoveReq with start_state set to the merged config.
 	req := tp.buildMoveReq(pose, mergedInputs)
@@ -315,12 +323,14 @@ func (tp *teleopPipeline) stop(ctx context.Context, ms *builtIn) {
 	tp.workers.Stop()
 }
 
-// startTeleopPipeline creates and starts a new teleop pipeline.
+// startTeleopPipeline creates and starts a new teleop pipeline for the given component.
+// If a pipeline already exists for that component, it is stopped first. Other component pipelines are unaffected.
 func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveReq) error {
-	// Stop any existing pipeline first.
 	ms.teleopMu.Lock()
-	if ms.teleopPipeline != nil {
-		ms.teleopPipeline.stop(cmdCtx, ms)
+	// Stop only the pipeline for this component, if one exists.
+	if existing, ok := ms.teleopPipelines[req.ComponentName]; ok {
+		existing.stop(cmdCtx, ms)
+		delete(ms.teleopPipelines, req.ComponentName)
 	}
 	defer ms.teleopMu.Unlock()
 
@@ -348,8 +358,8 @@ func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveRe
 	}
 	ms.mu.RUnlock()
 
-	ms.teleopPipeline = &teleopPipeline{
-		logger:         ms.logger.Sublogger("teleop"),
+	tp := &teleopPipeline{
+		logger:         ms.logger.Sublogger("teleop." + req.ComponentName),
 		moveReqBase:    req,
 		cachedFrameSys: frameSys,
 		poseCh:         make(chan *referenceframe.PoseInFrame, 1),
@@ -357,13 +367,74 @@ func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveRe
 		planningHead:   fsInputs,
 	}
 
-	ms.teleopPipeline.poseCh <- req.Destination
-	ms.teleopPipeline.workers = goutils.NewBackgroundStoppableWorkers(
-		func(pipelineCtx context.Context) { ms.teleopPipeline.runPlanner(pipelineCtx, ms) },
-		func(pipelineCtx context.Context) { ms.teleopPipeline.runExecutor(pipelineCtx, ms) },
+	tp.poseCh <- req.Destination
+	tp.workers = goutils.NewBackgroundStoppableWorkers(
+		func(pipelineCtx context.Context) { tp.runPlanner(pipelineCtx, ms) },
+		func(pipelineCtx context.Context) { tp.runExecutor(pipelineCtx, ms) },
 	)
 
+	ms.teleopPipelines[req.ComponentName] = tp
+
 	return nil
+}
+
+// otherPlanningHeads returns the planning heads of all active teleop pipelines
+// except the one for the given component. This allows each pipeline's planner to
+// collision-check against where other arms are heading.
+func (ms *builtIn) otherPlanningHeads(self string) map[string]referenceframe.FrameSystemInputs {
+	ms.teleopMu.RLock()
+	defer ms.teleopMu.RUnlock()
+
+	result := make(map[string]referenceframe.FrameSystemInputs, len(ms.teleopPipelines)-1)
+	for name, tp := range ms.teleopPipelines {
+		if name == self {
+			continue
+		}
+		tp.planningHeadMu.RLock()
+		result[name] = tp.planningHead
+		tp.planningHeadMu.RUnlock()
+	}
+	return result
+}
+
+// lookupPipeline finds the teleop pipeline for the given DoCommand map.
+// It uses the "component_name" key if present; otherwise, if exactly one pipeline
+// exists, it returns that one (backward compat for single-arm teleop).
+func (ms *builtIn) lookupPipeline(cmd map[string]interface{}) *teleopPipeline {
+	componentName, _ := cmd["component_name"].(string)
+
+	ms.teleopMu.RLock()
+	defer ms.teleopMu.RUnlock()
+
+	if componentName != "" {
+		return ms.teleopPipelines[componentName]
+	}
+	// Backward compat: if no component_name and exactly one pipeline, use it.
+	if len(ms.teleopPipelines) == 1 {
+		for _, tp := range ms.teleopPipelines {
+			return tp
+		}
+	}
+	return nil
+}
+
+// buildPipelineStatus returns a status map for a single teleop pipeline.
+func buildPipelineStatus(tp *teleopPipeline) map[string]any {
+	status := map[string]any{
+		"running":           true,
+		"queued_poses":      len(tp.poseCh),
+		"queued_plans":      len(tp.trajCh),
+		"last_inputs_ms":    float64(tp.lastInputsNanos.Load()) / 1e6,
+		"last_plan_ms":      float64(tp.lastPlanNanos.Load()) / 1e6,
+		"last_exec_ms":      float64(tp.lastExecNanos.Load()) / 1e6,
+		"last_exec_wait_ms": float64(tp.lastExecWaitNanos.Load()) / 1e6,
+		"plan_count":        tp.planCount.Load(),
+		"exec_count":        tp.execCount.Load(),
+	}
+	if lastErr := tp.lastErr.Load(); lastErr != nil {
+		status["error"] = (*lastErr).Error()
+	}
+	return status
 }
 
 // handleTeleopCommand handles teleop DoCommand requests.
@@ -409,9 +480,7 @@ func (ms *builtIn) handleTeleopCommand(
 	}
 
 	if req, ok := cmd[DoTeleopMove]; ok {
-		ms.teleopMu.RLock()
-		tp := ms.teleopPipeline
-		ms.teleopMu.RUnlock()
+		tp := ms.lookupPipeline(cmd)
 		if tp == nil {
 			return nil, true, fmt.Errorf("teleop pipeline is not running; call %s first", DoTeleopStart)
 		}
@@ -437,10 +506,20 @@ func (ms *builtIn) handleTeleopCommand(
 	}
 
 	if _, ok := cmd[DoTeleopStop]; ok {
+		componentName, _ := cmd["component_name"].(string)
+
 		ms.teleopMu.Lock()
-		if ms.teleopPipeline != nil {
-			ms.teleopPipeline.stop(ctx, ms)
-			ms.teleopPipeline = nil
+		if componentName == "" {
+			// Backward compat: stop ALL pipelines.
+			for name, tp := range ms.teleopPipelines {
+				tp.stop(ctx, ms)
+				delete(ms.teleopPipelines, name)
+			}
+		} else {
+			if tp, ok := ms.teleopPipelines[componentName]; ok {
+				tp.stop(ctx, ms)
+				delete(ms.teleopPipelines, componentName)
+			}
 		}
 		ms.teleopMu.Unlock()
 
@@ -449,32 +528,29 @@ func (ms *builtIn) handleTeleopCommand(
 	}
 
 	if _, ok := cmd[DoTeleopStatus]; ok {
+		componentName, _ := cmd["component_name"].(string)
+
 		ms.teleopMu.RLock()
-		tp := ms.teleopPipeline
-		ms.teleopMu.RUnlock()
+		defer ms.teleopMu.RUnlock()
 
-		if tp == nil {
-			return map[string]any{
-				"running": tp != nil,
-			}, true, nil
+		if componentName != "" {
+			tp, exists := ms.teleopPipelines[componentName]
+			if !exists {
+				return map[string]any{
+					"running": false,
+				}, true, nil
+			}
+			resp[DoTeleopStatus] = buildPipelineStatus(tp)
+			return resp, true, nil
 		}
 
-		status := map[string]any{
-			"queued_poses":      len(tp.poseCh),
-			"queued_plans":      len(tp.trajCh),
-			"last_inputs_ms":    float64(tp.lastInputsNanos.Load()) / 1e6,
-			"last_plan_ms":      float64(tp.lastPlanNanos.Load()) / 1e6,
-			"last_exec_ms":      float64(tp.lastExecNanos.Load()) / 1e6,
-			"last_exec_wait_ms": float64(tp.lastExecWaitNanos.Load()) / 1e6,
-			"plan_count":        tp.planCount.Load(),
-			"exec_count":        tp.execCount.Load(),
+		// No component_name: return status of all pipelines.
+		allStatus := make(map[string]any, len(ms.teleopPipelines)+1)
+		allStatus["pipeline_count"] = len(ms.teleopPipelines)
+		for name, tp := range ms.teleopPipelines {
+			allStatus[name] = buildPipelineStatus(tp)
 		}
-		if lastErr := tp.lastErr.Load(); lastErr != nil {
-			status["error"] = (*lastErr).Error()
-		}
-
-		resp[DoTeleopStatus] = status
-
+		resp[DoTeleopStatus] = allStatus
 		return resp, true, nil
 	}
 

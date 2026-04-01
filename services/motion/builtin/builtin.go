@@ -147,9 +147,9 @@ type builtIn struct {
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
 
-	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
-	teleopMu       sync.RWMutex
-	teleopPipeline *teleopPipeline
+	// Teleop pipelines keyed by component name. Protected by teleopMu (separate from mu to simplify lock ordering).
+	teleopMu        sync.RWMutex
+	teleopPipelines map[string]*teleopPipeline
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -160,6 +160,7 @@ func NewBuiltIn(
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
 		configuredDefaultExtras: make(map[string]any),
+		teleopPipelines:         make(map[string]*teleopPipeline),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
@@ -174,11 +175,11 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
+	// Stop all teleop pipelines before acquiring write lock (goroutines may hold RLock).
 	ms.teleopMu.Lock()
-	if ms.teleopPipeline != nil {
-		ms.teleopPipeline.stop(ctx, ms)
-		ms.teleopPipeline = nil
+	for name, tp := range ms.teleopPipelines {
+		tp.stop(ctx, ms)
+		delete(ms.teleopPipelines, name)
 	}
 	ms.teleopMu.Unlock()
 
@@ -226,9 +227,9 @@ func (ms *builtIn) Reconfigure(
 
 func (ms *builtIn) Close(ctx context.Context) error {
 	ms.teleopMu.Lock()
-	if ms.teleopPipeline != nil {
-		ms.teleopPipeline.stop(ctx, ms)
-		ms.teleopPipeline = nil
+	for name, tp := range ms.teleopPipelines {
+		tp.stop(ctx, ms)
+		delete(ms.teleopPipelines, name)
 	}
 	ms.teleopMu.Unlock()
 
