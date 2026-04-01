@@ -4049,9 +4049,12 @@ var getLatestReleaseVersionFunc = func() (string, error) {
 
 func localVersion() (*semver.Version, error) {
 	appVersion := rconfig.Version
+	if appVersion == "" {
+		return nil, errors.New("local build has no version set (dev build or missing ldflags)")
+	}
 	localVersion, err := semver.NewVersion(appVersion)
 	if err != nil {
-		return nil, errors.New("failed to parse local build version")
+		return nil, errors.Errorf("failed to parse local build version %q: %v", appVersion, err)
 	}
 	return localVersion, nil
 }
@@ -4312,6 +4315,7 @@ const (
 
 // isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
 func isViamManagedByBrew() bool {
+	return false
 	if runtime.GOOS != "darwin" {
 		return false
 	}

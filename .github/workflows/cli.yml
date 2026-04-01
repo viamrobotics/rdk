@@ -24,11 +24,14 @@ jobs:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
       uses: actions/checkout@v4
+      with:
+        fetch-tags: true
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+        fetch-tags: true
 
     - uses: actions/setup-go@v5
       with:
