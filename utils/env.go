@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -176,7 +177,9 @@ func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "windows" {
 		if wd, err := os.Getwd(); err != nil {
 			return "", err
-		} else if filepath.VolumeName(wd) != "C:" {
+		} else if filepath.VolumeName(wd) != "C:" && !testing.Testing() {
+			// testing.Testing() because this breaks file path limit in CI.
+
 			// because we put socket paths in the temp dir, and because socket paths are
 			// posix paths (leading slash) for grpc-go reasons, we can't use the normal
 			// temp dir (which is on C:) when working directory is not on C:.
