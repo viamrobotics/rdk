@@ -18,8 +18,8 @@ import (
 
 	rdkConfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/testutils/inject"
 	rtestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestConfigureModule(t *testing.T) {
@@ -315,15 +315,16 @@ func TestRestartModule(t *testing.T) {
 	ctx := context.Background()
 
 	partFqdn := uuid.NewString()
-	const (
-		testPartID  = "cli-restart-part"
-		testRobotID = "cli-restart-robot"
-	)
+	const testPartID = "cli-restart-part"
 	simplePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/simplemodule")
 	modName := "cli-restart-module"
 	robotCfg := &rdkConfig.Config{
 		Modules: []rdkConfig.Module{
-			{Name: modName, ExePath: simplePath, Type: rdkConfig.ModuleTypeLocal},
+			{
+				Name:    modName,
+				ExePath: simplePath,
+				Type:    rdkConfig.ModuleTypeLocal,
+			},
 		},
 	}
 	emptyConf, err := structpb.NewStruct(map[string]any{"modules": []any{}})
@@ -336,30 +337,19 @@ func TestRestartModule(t *testing.T) {
 			test.That(t, req.Id, test.ShouldEqual, testPartID)
 			return &apppb.GetRobotPartResponse{
 				Part: &apppb.RobotPart{
-					Id:          testPartID,
-					Robot:       testRobotID,
-					Fqdn:        partFqdn,
+					Id:   testPartID,
+					Fqdn: partFqdn,
 					RobotConfig: emptyConf,
 					LastUpdated: timestamppb.New(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
 				},
 				ConfigJson: ``,
 			}, nil
 		},
-		GetRobotAPIKeysFunc: func(ctx context.Context, in *apppb.GetRobotAPIKeysRequest,
-			opts ...grpc.CallOption,
-		) (*apppb.GetRobotAPIKeysResponse, error) {
-			test.That(t, in.RobotId, test.ShouldEqual, testRobotID)
-			return &apppb.GetRobotAPIKeysResponse{ApiKeys: []*apppb.APIKeyWithAuthorizations{
-				{ApiKey: &apppb.APIKey{Id: "keyid", Key: "keysecret", Name: "test"}},
-			}}, nil
-		},
 	}
 
-	noManifestPath := filepath.Join(t.TempDir(), "no-meta.json")
 	flags := map[string]any{
 		generalFlagPartID: testPartID,
 		generalFlagName:   modName,
-		moduleFlagPath:    noManifestPath,
 	}
 
 	cCtx, vc, _, _ := setupWithRunningPartAndConfig(
