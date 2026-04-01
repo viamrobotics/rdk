@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -97,6 +98,11 @@ type Config struct {
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
+
+	// TeleopSmallMoveRad is the joint-space L-inf displacement threshold (radians)
+	// below which execute() uses interpolate=true for smoother servo tracking.
+	// 0 disables adaptive behavior. Suggested starting value: 0.1 (~5.7 degrees).
+	TeleopSmallMoveRad float64 `json:"teleop_small_move_rad,omitempty"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -688,6 +694,29 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if err != nil {
 				return err
 			}
+
+			// Adaptive interpolation: for small movements on arms, use interpolate=true
+			// for smooth servo tracking instead of the default fast-streaming GoToInputs.
+			if threshold := ms.conf.TeleopSmallMoveRad; threshold > 0 && len(inputs) >= 2 {
+				if maxLinfDisplacement(inputs) < threshold {
+					if armComp, ok := r.(arm.Arm); ok {
+						err := armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
+							"waitAtEnd":   false,
+							"interpolate": true,
+						})
+						if err != nil {
+							if actuator, ok := r.(inputEnabledActuator); ok {
+								if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
+									return errors.Wrap(err, stopErr.Error())
+								}
+							}
+							return err
+						}
+						continue
+					}
+				}
+			}
+
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
@@ -699,6 +728,19 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
+}
+
+// maxLinfDisplacement returns the max L-inf joint displacement (radians) across
+// consecutive pairs of input steps.
+func maxLinfDisplacement(steps [][]referenceframe.Input) float64 {
+	maxDisp := 0.0
+	for i := 1; i < len(steps); i++ {
+		d := referenceframe.InputsLinfDistance(steps[i-1], steps[i])
+		if d > maxDisp {
+			maxDisp = d
+		}
+	}
+	return maxDisp
 }
 
 // applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
