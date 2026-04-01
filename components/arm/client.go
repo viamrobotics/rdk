@@ -221,7 +221,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	return c.MoveThroughJointPositions(ctx, inputSteps, nil, map[string]interface{}{
-		"waitAtEnd":   true,
+		"waitAtEnd":   false,
 		"interpolate": false,
 	})
 }
