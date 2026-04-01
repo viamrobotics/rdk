@@ -93,6 +93,24 @@ func (sfs *FrameSystem) ComponentSchemaNames() []string {
 	return names
 }
 
+// resolveFrameInputs is a fallback for when linearInputs.Get(frameName) returns nil.
+// It checks if frameName belongs to a flattened model and, if so, extracts the right
+// slice from a component-name-keyed entry in the LinearInputs.
+func (sfs *FrameSystem) resolveFrameInputs(li *LinearInputs, frameName string) []Input {
+	for componentName, schema := range sfs.componentSchemas {
+		componentInputs := li.Get(componentName)
+		if componentInputs == nil {
+			continue
+		}
+		for _, meta := range schema.metas {
+			if meta.frameName == frameName && meta.dof > 0 {
+				return componentInputs[meta.offset : meta.offset+meta.dof]
+			}
+		}
+	}
+	return nil
+}
+
 // ComponentInputsFromLinear converts a LinearInputs (which may contain per-frame keys from
 // flattened models) into a FrameSystemInputs with component-level keys. For flattened models,
 // individual frame inputs are gathered back into a flat slice under the component name.
@@ -626,6 +644,9 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 			// Mimic frame: derive input from the source frame's input
 			sourceInputs := linearInputs.Get(wrapper.sourceFrameName)
 			if len(sourceInputs) == 0 {
+				sourceInputs = sfs.resolveFrameInputs(linearInputs, wrapper.sourceFrameName)
+			}
+			if len(sourceInputs) == 0 {
 				return ret, fmt.Errorf("mimic source frame %q has no inputs", wrapper.sourceFrameName)
 			}
 			derived := []Input{wrapper.multiplier*sourceInputs[0] + wrapper.offset}
@@ -640,6 +661,9 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 			}
 		} else {
 			frameInputs := linearInputs.Get(frame.Name())
+			if frameInputs == nil {
+				frameInputs = sfs.resolveFrameInputs(linearInputs, frame.Name())
+			}
 			numMoveableFrames++
 			if len(frame.DoF()) != len(frameInputs) {
 				return ret, NewIncorrectDoFError(len(frameInputs), len(frame.DoF()))
@@ -881,7 +905,14 @@ func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInpu
 			}
 		} else {
 			inputs, err := linearInputs.GetFrameInputs(frame)
-			if err != nil {
+			if err != nil && len(frame.DoF()) > 0 {
+				// Fallback: try resolving from component-keyed inputs
+				inputs = fs.resolveFrameInputs(linearInputs, frame.Name())
+				if inputs == nil {
+					errAll = multierr.Append(errAll, err)
+					continue
+				}
+			} else if err != nil {
 				errAll = multierr.Append(errAll, err)
 				continue
 			}

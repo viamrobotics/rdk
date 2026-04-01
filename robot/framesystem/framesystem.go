@@ -320,65 +320,40 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 	if err != nil {
 		return nil, err
 	}
-	li := referenceframe.NewZeroLinearInputs(fs)
+	input := referenceframe.NewZeroInputs(fs)
 
-	// First, handle flattened models: use the FS's stored component schemas
-	// to distribute flat component inputs to individual namespaced frames.
+	// For flattened models, replace per-frame entries with a single component-keyed entry.
+	// The FS transparently resolves component-keyed inputs to individual frames.
 	for _, componentName := range fs.ComponentSchemaNames() {
-		component, ok := svc.components[componentName]
-		if !ok {
-			return nil, DependencyNotFoundError(componentName)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
-		}
-
-		flatInputs, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-
 		schema := fs.ComponentSchema(componentName)
-		distributed, err := schema.FloatsToInputs(flatInputs)
-		if err != nil {
-			return nil, err
-		}
-		for name, inputs := range distributed.Items() {
-			li.Put(name, inputs)
+		for _, name := range schema.FrameNamesInOrder() {
+			delete(input, name)
 		}
 	}
 
-	// Then, handle non-flattened frames with non-zero DoF
-	handledComponents := map[string]bool{}
-	for _, name := range fs.ComponentSchemaNames() {
-		handledComponents[name] = true
-	}
-	for name, original := range li.ToFrameSystemInputs() {
-		if len(original) == 0 || handledComponents[name] {
-			continue
-		}
-		// Skip frames that belong to flattened models (already handled above)
-		if fs.ComponentSchema(name) != nil {
+	// Build maps of relevant components and inputs
+	for name, original := range input {
+		if len(original) == 0 {
 			continue
 		}
 
 		component, ok := svc.components[name]
 		if !ok {
-			continue
+			return nil, DependencyNotFoundError(name)
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
 			return nil, NotInputEnabledError(component)
 		}
+
 		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err
 		}
-		li.Put(name, pos)
+		input[name] = pos
 	}
 
-	return li.ToFrameSystemInputs(), nil
+	return input, nil
 }
 
 // NewFromService creates a referenceframe.FrameSystem from the given Service's FrameSystemConfig and returns it.
