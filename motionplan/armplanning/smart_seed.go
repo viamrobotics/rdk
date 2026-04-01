@@ -444,14 +444,7 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 
 	// For flattened models, use the component schema to gather/distribute inputs.
 	schema := ssc.fs.ComponentSchema(movingFrame)
-	var startInputs []referenceframe.Input
-	if schema != nil {
-		for _, name := range schema.FrameNamesInOrder() {
-			startInputs = append(startInputs, start.Get(name)...)
-		}
-	} else {
-		startInputs = start.Get(movingFrame)
-	}
+	startInputs := start.GatherComponentInputs(movingFrame, schema)
 
 	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
 	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, startInputs, movingPose, maxSeeds, logger)
@@ -465,31 +458,15 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		for k, v := range start.Items() {
 			i.Put(k, v)
 		}
-		if schema != nil {
-			distributed, err := schema.FloatsToInputs(s)
-			if err != nil {
-				return nil, nil, err
-			}
-			for name, inputs := range distributed.Items() {
-				i.Put(name, inputs)
-			}
-		} else {
-			i.Put(movingFrame, s)
+		if err := i.DistributeComponentInputs(movingFrame, s, schema); err != nil {
+			return nil, nil, err
 		}
 		fullSeeds = append(fullSeeds, i)
 	}
 
 	fullDivisors := start.CopyWithZeros()
-	if schema != nil {
-		distributed, err := schema.FloatsToInputs(divisors)
-		if err != nil {
-			return nil, nil, err
-		}
-		for name, inputs := range distributed.Items() {
-			fullDivisors.Put(name, inputs)
-		}
-	} else {
-		fullDivisors.Put(movingFrame, divisors)
+	if err := fullDivisors.DistributeComponentInputs(movingFrame, divisors, schema); err != nil {
+		return nil, nil, err
 	}
 
 	return fullSeeds, fullDivisors.GetLinearizedInputs(), nil
@@ -776,7 +753,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 			continue
 		}
 
-		hash := model.(referenceframe.Frame).Hash()
+		hash := model.Hash()
 
 		sscCacheLock.Lock()
 		ccf, ok := sscCache[hash]
@@ -785,7 +762,7 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 		if !ok {
 			start := time.Now()
 			var err error
-			ccf, err = newCacheForFrame(model.(referenceframe.Frame), logger)
+			ccf, err = newCacheForFrame(model, logger)
 			if err != nil {
 				return fmt.Errorf("cannot build cache for flattened model: %s %w", componentName, err)
 			}

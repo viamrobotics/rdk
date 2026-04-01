@@ -871,7 +871,7 @@ func (mf *mimicFrameWrapper) Hash() int {
 }
 
 // MarshalJSON serializes the mimic frame wrapper.
-func (mf mimicFrameWrapper) MarshalJSON() ([]byte, error) {
+func (mf *mimicFrameWrapper) MarshalJSON() ([]byte, error) {
 	innerJSON, err := frameToJSON(mf.inner)
 	if err != nil {
 		return nil, err

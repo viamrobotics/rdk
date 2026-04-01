@@ -273,6 +273,36 @@ func (li *LinearInputs) ToFrameSystemInputs() FrameSystemInputs {
 	return ret
 }
 
+// GatherComponentInputs collects per-frame inputs into a flat slice using schema ordering.
+// If schema is nil, returns li.Get(frameName) directly.
+func (li *LinearInputs) GatherComponentInputs(frameName string, schema *LinearInputsSchema) []Input {
+	if schema == nil {
+		return li.Get(frameName)
+	}
+	var result []Input
+	for _, name := range schema.FrameNamesInOrder() {
+		result = append(result, li.Get(name)...)
+	}
+	return result
+}
+
+// DistributeComponentInputs distributes a flat input slice into per-frame entries using schema ordering.
+// If schema is nil, puts inputs directly under frameName.
+func (li *LinearInputs) DistributeComponentInputs(frameName string, inputs []Input, schema *LinearInputsSchema) error {
+	if schema == nil {
+		li.Put(frameName, inputs)
+		return nil
+	}
+	distributed, err := schema.FloatsToInputs(inputs)
+	if err != nil {
+		return err
+	}
+	for name, frameInputs := range distributed.Items() {
+		li.Put(name, frameInputs)
+	}
+	return nil
+}
+
 // CopyWithZeros makes a new copy with everything zero
 func (li *LinearInputs) CopyWithZeros() *LinearInputs {
 	return &LinearInputs{
