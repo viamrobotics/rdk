@@ -138,8 +138,7 @@ func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
 		already := "Already l"
 		if !alreadyLoggedIn {
 			already = "L"
-			// Q: Typo? Should this be "interactive"
-			// only print the viam logo if we are in an interative terminal
+			// only print the viam logo if we are in an interactive terminal
 			if term.IsTerminal(int(os.Stdout.Fd())) {
 				viamLogo(cmd.Root().Writer)
 			}
