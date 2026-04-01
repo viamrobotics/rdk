@@ -226,24 +226,15 @@ func meshTriangleVolume(triangles []*Triangle) float64 {
 	return vol / 6.0
 }
 
-// vectorKey uses exact bit-pattern comparison for deduplication,
-// avoiding string formatting overhead and locale-dependent formatting.
-type vectorKey struct{ x, y, z uint64 }
-
-func makeVectorKey(v r3.Vector) vectorKey {
-	return vectorKey{math.Float64bits(v.X), math.Float64bits(v.Y), math.Float64bits(v.Z)}
-}
-
 func uniqueTriangleVertices(triangles []*Triangle) []r3.Vector {
-	pointMap := make(map[vectorKey]r3.Vector)
+	pointMap := make(map[r3.Vector]struct{})
 	for _, tri := range triangles {
 		for _, pt := range tri.Points() {
-			key := makeVectorKey(pt)
-			pointMap[key] = pt
+			pointMap[pt] = struct{}{}
 		}
 	}
 	out := make([]r3.Vector, 0, len(pointMap))
-	for _, v := range pointMap {
+	for v := range pointMap {
 		out = append(out, v)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -275,10 +266,10 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		{X: 0, Y: 0, Z: 1},
 		{X: 0, Y: 0, Z: -1},
 	}
-	selectedMap := make(map[vectorKey]bool)
+	selectedMap := make(map[r3.Vector]bool)
 	selected := make([]r3.Vector, 0, maxPoints)
 	addVertex := func(v r3.Vector) bool {
-		key := makeVectorKey(v)
+		key := v
 		if selectedMap[key] {
 			return false
 		}
@@ -309,7 +300,7 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 			bestDist := -1.0
 			bestVert := r3.Vector{}
 			for _, v := range vertices {
-				if selectedMap[makeVectorKey(v)] {
+				if selectedMap[v] {
 					continue
 				}
 				d := v.Sub(center).Norm2()
@@ -335,7 +326,7 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		bestVert := r3.Vector{}
 		found := false
 		for _, v := range vertices {
-			if selectedMap[makeVectorKey(v)] {
+			if selectedMap[v] {
 				continue
 			}
 			for fi := range faces {
