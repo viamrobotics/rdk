@@ -29,8 +29,9 @@ type teleopPipeline struct {
 	logger logging.Logger
 
 	// Immutable after creation.
-	moveReqBase    motion.MoveReq
-	cachedFrameSys *referenceframe.FrameSystem // built once at pipeline start
+	moveReqBase      motion.MoveReq
+	cachedFrameSys   *referenceframe.FrameSystem    // built once at pipeline start
+	cachedBaseInputs referenceframe.FrameSystemInputs // snapshot at pipeline start, avoids blocking CurrentInputs calls
 
 	// Channels.
 	poseCh chan *referenceframe.PoseInFrame // buffer 1, latest-value semantics
@@ -117,24 +118,12 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 	planningHead := tp.planningHead
 	tp.planningHeadMu.RUnlock()
 
-	// Merge live inputs with the planning head: use fresh CurrentInputs for
-	// all components (including the other arm in bimanual setups), then overlay
-	// the planning head for the teleop'd component so trajectory chaining works.
-	// Timing includes RLock acquisition — intentional: wall-clock latency is what
-	// matters for diagnosing stutter; lock contention is a real part of that latency.
+	// Build merged inputs from cached base inputs (snapshot at pipeline start) and
+	// planning heads. This avoids calling CurrentInputs() which would block on arms
+	// that are mid-execution, causing stuttery alternating movement in multi-arm setups.
 	inputsStart := time.Now()
-	ms.mu.RLock()
-	liveInputs, err := ms.fsService.CurrentInputs(ctx)
-	ms.mu.RUnlock()
-	inputsDur := time.Since(inputsStart)
-	tp.lastInputsNanos.Store(inputsDur.Nanoseconds())
-	if err != nil {
-		tp.lastErr.Store(&err)
-		tp.logger.CWarnf(ctx, "teleop planner: failed to get current inputs: %v", err)
-		return
-	}
-	mergedInputs := make(referenceframe.FrameSystemInputs, len(liveInputs))
-	for k, v := range liveInputs {
+	mergedInputs := make(referenceframe.FrameSystemInputs, len(tp.cachedBaseInputs))
+	for k, v := range tp.cachedBaseInputs {
 		mergedInputs[k] = v
 	}
 	// Overlay planning head entries for the teleop'd arm's frames.
@@ -149,6 +138,8 @@ func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn, pose *refer
 			mergedInputs[k] = v
 		}
 	}
+	inputsDur := time.Since(inputsStart)
+	tp.lastInputsNanos.Store(inputsDur.Nanoseconds())
 
 	// Build a MoveReq with start_state set to the merged config.
 	req := tp.buildMoveReq(pose, mergedInputs)
@@ -359,12 +350,13 @@ func (ms *builtIn) startTeleopPipeline(cmdCtx context.Context, req motion.MoveRe
 	ms.mu.RUnlock()
 
 	tp := &teleopPipeline{
-		logger:         ms.logger.Sublogger("teleop." + req.ComponentName),
-		moveReqBase:    req,
-		cachedFrameSys: frameSys,
-		poseCh:         make(chan *referenceframe.PoseInFrame, 1),
-		trajCh:         make(chan motionplan.Trajectory, 1),
-		planningHead:   fsInputs,
+		logger:           ms.logger.Sublogger("teleop." + req.ComponentName),
+		moveReqBase:      req,
+		cachedFrameSys:   frameSys,
+		cachedBaseInputs: fsInputs,
+		poseCh:           make(chan *referenceframe.PoseInFrame, 1),
+		trajCh:           make(chan motionplan.Trajectory, 1),
+		planningHead:     fsInputs,
 	}
 
 	tp.poseCh <- req.Destination
