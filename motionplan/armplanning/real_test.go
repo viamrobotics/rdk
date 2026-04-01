@@ -16,7 +16,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	vizClient "github.com/viam-labs/motion-tools/client/client"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/ik"
@@ -601,64 +600,4 @@ func BenchmarkPlanningOnMeshes(b *testing.B) {
 		_, _, err := PlanMotion(context.Background(), mpLogger, req)
 		test.That(b, err, test.ShouldBeNil)
 	}
-}
-
-func TestSaladRobots(t *testing.T) {
-	req, err := ReadRequestFromFile("data/salad.json")
-	_ = req
-	test.That(t, err, test.ShouldBeNil)
-
-	vizClient.RemoveAllSpatialObjects()
-
-	leftArm, err := referenceframe.ParseModelXMLFile("/home/nick/viam-ufactory-xarm/arm/uf850.urdf", "left-arm", []float64{0.01, 0.01, 0.05, 0.05, 0.05, 0.05, 0.05})
-	test.That(t, err, test.ShouldBeNil)
-	err = req.FrameSystem.ReplaceFrame(leftArm)
-	test.That(t, err, test.ShouldBeNil)
-	gifs, err := leftArm.Geometries(make([]float64, 6))
-	test.That(t, err, test.ShouldBeNil)
-	for _, g := range gifs.Geometries() {
-		fmt.Println(g.Label())
-		fmt.Println(g.(*spatialmath.Mesh).String())
-	}
-	fmt.Println(" ")
-	fmt.Println(" ")
-
-	rightArm, err := referenceframe.ParseModelXMLFile("/home/nick/viam-ufactory-xarm/arm/uf850.urdf", "right-arm", []float64{0.01, 0.01, 0.05, 0.05, 0.05, 0.05, 0.05})
-	test.That(t, err, test.ShouldBeNil)
-	err = req.FrameSystem.ReplaceFrame(rightArm)
-	test.That(t, err, test.ShouldBeNil)
-	gifs, err = rightArm.Geometries(make([]float64, 6))
-	test.That(t, err, test.ShouldBeNil)
-	for _, g := range gifs.Geometries() {
-		fmt.Println(g.Label())
-		fmt.Println(g.(*spatialmath.Mesh).String())
-	}
-	fmt.Println(" ")
-	fmt.Println(" ")
-
-	littleArm, err := referenceframe.ParseModelXMLFile("/home/nick/viam-ufactory-xarm/arm/lite6.urdf", "little-arm", []float64{0.05, 0.05, 0.05, 0.05, 0.01, 0.01, 0.1})
-	test.That(t, err, test.ShouldBeNil)
-	err = req.FrameSystem.ReplaceFrame(littleArm)
-	test.That(t, err, test.ShouldBeNil)
-	gifs, err = littleArm.Geometries(make([]float64, 6))
-	test.That(t, err, test.ShouldBeNil)
-	for _, g := range gifs.Geometries() {
-		fmt.Println(g.Label())
-		fmt.Println(g.(*spatialmath.Mesh).String())
-	}
-	fmt.Println(" ")
-	fmt.Println(" ")
-
-	vizClient.DrawFrameSystem(req.FrameSystem, req.StartState.structuredConfiguration)
-
-	mpLogger := newChattyMotionPlanTestLogger(t)
-	now := time.Now()
-	_, _, err = PlanMotion(context.Background(), mpLogger, req)
-	fmt.Println("took: ", time.Since(now))
-	test.That(t, err, test.ShouldBeNil)
-
-	b1, _ := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "a")
-	b2, _ := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{1, 1, 1}, "a")
-
-	fmt.Println(b1.EncompassedBy(b2))
 }

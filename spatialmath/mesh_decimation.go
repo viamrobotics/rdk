@@ -29,6 +29,11 @@ func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 	// Try two strategies and pick the one with smaller volume.
 	// 1. Single convex hull (tight for convex shapes)
 	// 2. Sliced convex hulls along longest axis (tight for non-convex shapes)
+	//
+	// Note: meshTriangleVolume slightly overestimates the sliced hull volume because
+	// the slab hulls overlap at boundaries and the divergence theorem double-counts
+	// the overlapping region. This biases the comparison conservatively toward the
+	// single hull, which is acceptable.
 	hullTris, hullErr := conservativeHullDecimateTriangles(m.triangles, targetTriangles)
 	slicedTris, slicedErr := slicedConvexHullDecimate(m.triangles, targetTriangles)
 
@@ -122,6 +127,12 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 // slicedConvexHullDecimate splits the mesh along its longest AABB axis into
 // 2+ slabs, builds the convex hull of each slab, and merges them. This produces
 // a tighter (non-convex) enclosure for shapes with concavities.
+//
+// Encapsulation is guaranteed at the vertex level: every original vertex is inside
+// at least one slab hull. Vertices near slab boundaries are duplicated into adjacent
+// slabs (10% overlap) to cover triangle edges that cross boundaries. The convex hull
+// of each slab contains all linear interpolations between its vertices, so triangle
+// interiors between vertices in the same slab are also covered.
 func slicedConvexHullDecimate(triangles []*Triangle, targetTriangles int) ([]*Triangle, error) {
 	vertices := uniqueTriangleVertices(triangles)
 	if len(vertices) < 4 {
@@ -257,9 +268,12 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 	// Seed with the 6 axis-aligned extremes to guarantee the hull's AABB
 	// matches the original mesh's.
 	axisDirections := []r3.Vector{
-		{X: 1, Y: 0, Z: 0}, {X: -1, Y: 0, Z: 0},
-		{X: 0, Y: 1, Z: 0}, {X: 0, Y: -1, Z: 0},
-		{X: 0, Y: 0, Z: 1}, {X: 0, Y: 0, Z: -1},
+		{X: 1, Y: 0, Z: 0},
+		{X: -1, Y: 0, Z: 0},
+		{X: 0, Y: 1, Z: 0},
+		{X: 0, Y: -1, Z: 0},
+		{X: 0, Y: 0, Z: 1},
+		{X: 0, Y: 0, Z: -1},
 	}
 	selectedMap := make(map[vectorKey]bool)
 	selected := make([]r3.Vector, 0, maxPoints)
@@ -353,29 +367,6 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		return selected[i].Z < selected[j].Z
 	})
 	return selected
-}
-
-func fibonacciSphereDirections(n int) []r3.Vector {
-	if n <= 0 {
-		return nil
-	}
-	if n == 1 {
-		return []r3.Vector{{X: 0, Y: 0, Z: 1}}
-	}
-
-	goldenAngle := math.Pi * (3 - math.Sqrt(5))
-	dirs := make([]r3.Vector, n)
-	for i := range n {
-		y := 1 - (2 * float64(i) / float64(n-1))
-		radius := math.Sqrt(math.Max(0, 1-y*y))
-		theta := goldenAngle * float64(i)
-		dirs[i] = r3.Vector{
-			X: math.Cos(theta) * radius,
-			Y: y,
-			Z: math.Sin(theta) * radius,
-		}
-	}
-	return dirs
 }
 
 // edgeToFaceMap tracks which active face owns each directed half-edge,

@@ -57,16 +57,11 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	// The stack solution has a sign error, which we correct
 	// These (ugly) variable names were chosen to match those in the stack exchange answer, for easy reference
 
-	// Cache common direction vectors to avoid redundant subtractions
-	r1 := a2.Sub(a1) // segment A direction
-	r2 := b2.Sub(b1) // segment B direction
-	d := b1.Sub(a1)  // vector from a1 to b1
-
-	d3121 := d.Dot(r1)
-	d4321 := r2.Dot(r1)
-	d4331 := r2.Dot(d)
-	r1pow2 := r1.Norm2()
-	r2pow2 := r2.Norm2()
+	d3121 := b1.Sub(a1).Dot(a2.Sub(a1))
+	d4321 := b2.Sub(b1).Dot(a2.Sub(a1))
+	d4331 := b2.Sub(b1).Dot(b1.Sub(a1))
+	r1pow2 := a2.Sub(a1).Norm2()
+	r2pow2 := b2.Sub(b1).Norm2()
 
 	denom := r1pow2*r2pow2 - d4321*d4321
 	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
@@ -77,8 +72,8 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 		s := (d3121*r2pow2 - d4331*d4321) / denom
 		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
-			bestSeg1Pt := a1.Add(r1.Mul(s))
-			bestSeg2Pt := b1.Add(r2.Mul(t))
+			bestSeg1Pt := a1.Add(a2.Sub(a1).Mul(s))
+			bestSeg2Pt := b1.Add(b2.Sub(b1).Mul(t))
 			return bestSeg1Pt, bestSeg2Pt
 		}
 	}
