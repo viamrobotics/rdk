@@ -89,24 +89,6 @@ func (lis *LinearInputsSchema) FrameNamesInOrder() []string {
 	return ret
 }
 
-// GatherInputs reads per-frame inputs from a source LinearInputs and assembles them
-// into a flat []Input in schema order. This is the inverse of FloatsToInputs.
-func (lis *LinearInputsSchema) GatherInputs(source *LinearInputs) []Input {
-	var result []Input
-	for _, meta := range lis.metas {
-		if meta.dof == 0 {
-			continue
-		}
-		inputs := source.Get(meta.frameName)
-		if inputs != nil {
-			result = append(result, inputs...)
-		} else {
-			result = append(result, make([]Input, meta.dof)...)
-		}
-	}
-	return result
-}
-
 // GetLimits returns the limits associated with the frames in the linearized order expected by
 // nlopt.
 func (lis *LinearInputsSchema) GetLimits() []Limit {

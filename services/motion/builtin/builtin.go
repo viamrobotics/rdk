@@ -386,53 +386,67 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
-	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
+	fsCfg, err := ms.fsService.FrameSystemConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// Apply InputRangeOverride to copies of parts BEFORE building the FS.
+	// This way the model is modified before flattening, so the flattened frames
+	// naturally have the correct limits. We copy the parts slice to avoid mutating
+	// the shared config.
+	parts := fsCfg.Parts
+	if len(ms.conf.InputRangeOverride) > 0 {
+		parts = make([]*referenceframe.FrameSystemPart, len(fsCfg.Parts))
+		copy(parts, fsCfg.Parts)
+	}
 	for fName, mods := range ms.conf.InputRangeOverride {
-		f := frameSys.Frame(fName)
-		if f == nil {
-			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
-		}
+		found := false
+		for i, part := range parts {
+			if part.FrameConfig.Name() != fName || part.ModelFrame == nil {
+				continue
+			}
+			sm, ok := part.ModelFrame.(*referenceframe.SimpleModel)
+			if !ok {
+				return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", part.ModelFrame)
+			}
 
-		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+			ms.logger.Debugf("limit override f: %v mods: %v", fName, mods)
 
-		sm, ok := f.(*referenceframe.SimpleModel)
-		if !ok {
-			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
-		}
-
-		// Resolve override keys: match by name first, then by stringified moveable-frame index
-		resolved := make(map[string]referenceframe.Limit, len(mods))
-		moveableNames := sm.MoveableFrameNames()
-		for key, limit := range mods {
-			matched := false
-			for i, name := range moveableNames {
-				if key == name || key == strconv.Itoa(i) {
-					resolved[name] = limit
-					matched = true
-					break
+			// Resolve override keys: match by name first, then by stringified moveable-frame index
+			resolved := make(map[string]referenceframe.Limit, len(mods))
+			moveableNames := sm.MoveableFrameNames()
+			for key, limit := range mods {
+				matched := false
+				for j, name := range moveableNames {
+					if key == name || key == strconv.Itoa(j) {
+						resolved[name] = limit
+						matched = true
+						break
+					}
+				}
+				if !matched {
+					return nil, fmt.Errorf("can't find mod (%s)", key)
 				}
 			}
-			if !matched {
-				return nil, fmt.Errorf("can't find mod (%s)", key)
+
+			newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
+			if err != nil {
+				return nil, err
 			}
+			// Replace with a shallow copy of the part so we don't mutate the original
+			newPart := *part
+			newPart.ModelFrame = newModel
+			parts[i] = &newPart
+			found = true
+			break
 		}
-
-		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
-		if err != nil {
-			return nil, err
-		}
-
-		err = frameSys.ReplaceFrame(newModel)
-		if err != nil {
-			return nil, err
+		if !found {
+			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
 		}
 	}
 
-	return frameSys, nil
+	return referenceframe.NewFrameSystem(ms.fsService.Name().ShortName(), parts, transforms)
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {

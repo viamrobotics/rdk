@@ -121,7 +121,11 @@ func (sfs *FrameSystem) ComponentInputsFromLinear(li *LinearInputs) FrameSystemI
 
 	// Gather flattened model inputs into component entries
 	for componentName, schema := range sfs.componentSchemas {
-		fsi[componentName] = schema.GatherInputs(li)
+		var flat []Input
+		for _, name := range schema.FrameNamesInOrder() {
+			flat = append(flat, li.Get(name)...)
+		}
+		fsi[componentName] = flat
 	}
 
 	return fsi

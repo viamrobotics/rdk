@@ -138,8 +138,11 @@ func TestFlattenDistributeGatherRoundTrip(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, distributed.Get("arm1:shoulder_pan_joint"), test.ShouldResemble, original)
 
-	// Gather via GatherInputs
-	gathered := schema.GatherInputs(distributed)
+	// Gather by iterating schema frame names
+	var gathered []Input
+	for _, name := range schema.FrameNamesInOrder() {
+		gathered = append(gathered, distributed.Get(name)...)
+	}
 	test.That(t, gathered, test.ShouldResemble, original)
 }
 

@@ -446,7 +446,9 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 	schema := ssc.fs.ComponentSchema(movingFrame)
 	var startInputs []referenceframe.Input
 	if schema != nil {
-		startInputs = schema.GatherInputs(start)
+		for _, name := range schema.FrameNamesInOrder() {
+			startInputs = append(startInputs, start.Get(name)...)
+		}
 	} else {
 		startInputs = start.Get(movingFrame)
 	}
