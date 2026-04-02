@@ -699,12 +699,16 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 }
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
+	var allowedOrgIDs *apppb.AllowedOrgIDs
+	if len(appComponent.AllowedOrgIDs) > 0 {
+		allowedOrgIDs = &apppb.AllowedOrgIDs{Ids: appComponent.AllowedOrgIDs}
+	}
 	app := &apppb.App{
 		Name:          appComponent.Name,
 		Type:          appComponent.Type,
 		Entrypoint:    appComponent.Entrypoint,
 		FragmentIds:   appComponent.FragmentIDs,
-		AllowedOrgIds: appComponent.AllowedOrgIDs,
+		AllowedOrgIds: allowedOrgIDs,
 	}
 
 	if appComponent.LogoPath != "" {
