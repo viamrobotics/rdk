@@ -166,11 +166,13 @@ func expandAABB(minPt, maxPt, pt r3.Vector) (r3.Vector, r3.Vector) {
 }
 
 // rotatedAABBExtents computes world-space AABB extents using Arvo's abs(R) * extents.
+// Note: RotationMatrix stores R^T (transpose) in row-major order, so we read columns of rm
+// to get rows of R: R[i][j] = rm.At(j, i).
 func rotatedAABBExtents(rm *RotationMatrix, extents r3.Vector) r3.Vector {
 	return r3.Vector{
-		X: math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(0, 1))*extents.Y + math.Abs(rm.At(0, 2))*extents.Z,
-		Y: math.Abs(rm.At(1, 0))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(1, 2))*extents.Z,
-		Z: math.Abs(rm.At(2, 0))*extents.X + math.Abs(rm.At(2, 1))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z,
+		X: math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(1, 0))*extents.Y + math.Abs(rm.At(2, 0))*extents.Z,
+		Y: math.Abs(rm.At(0, 1))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(2, 1))*extents.Z,
+		Z: math.Abs(rm.At(0, 2))*extents.X + math.Abs(rm.At(1, 2))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z,
 	}
 }
 
