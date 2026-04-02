@@ -1,3 +1,4 @@
+// Package worksheet provides an interactive CLI game for learning spatialmath transformations.
 package worksheet
 
 import (
@@ -44,7 +45,8 @@ func printFmt(format string, a ...any) { fmt.Printf(format, a...) }
 func printPrompt(s string) { fmt.Print(s) }
 
 func waitForEnter(reader *bufio.Reader) {
-	_, _ = reader.ReadString('\n')
+	//nolint:errcheck
+	reader.ReadString('\n')
 }
 
 // inputPoseLegend builds a human-readable legend mapping colors to variables.

@@ -109,11 +109,11 @@ func makeLevel2() Level {
 	}
 
 	return Level{
-		Number:      2,
-		Title:       "Rotation from Origin",
+		Number: 2,
+		Title:  "Rotation from Origin",
 		Description: "How orientation affects where a subsequent translation ends up.\n" +
 			"The first pose rotates the frame, the second translates in the rotated frame.",
-		Questions:   questions,
+		Questions: questions,
 	}
 }
 
@@ -151,11 +151,11 @@ func makeLevel3() Level {
   a := spatialmath.NewPose(r3.Vector{X: 100, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})
   b := spatialmath.NewPose(r3.Vector{X: 50, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 30, OX: 0, OY: 0, OZ: 1})
   result := spatialmath.Compose(b, a)  // NOTE: b first, then a!`,
-				Answer:      FormatPose(r2),
+				Answer: FormatPose(r2),
 				Explanation: "Compose(a,b) != Compose(b,a)! Spatial composition is NOT commutative.\n" +
 					"  The first pose's orientation rotates the second's translation differently.",
-				InputPoses:  map[string]spatialmath.Pose{"a": a1, "b": b1},
-				ResultPose:  r2,
+				InputPoses: map[string]spatialmath.Pose{"a": a1, "b": b1},
+				ResultPose: r2,
 			},
 			{
 				Setup: fmt.Sprintf(
@@ -206,22 +206,22 @@ func makeLevel4() Level {
 				Setup: `  a := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 100}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0})
   b := spatialmath.NewPose(r3.Vector{X: 50, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 1, OZ: 0})
   result := spatialmath.Compose(a, b)`,
-				Answer:      FormatPose(r1),
+				Answer: FormatPose(r1),
 				Explanation: "a points along X (OX=1), b along Y (OY=1).\n" +
 					"  a's orientation rotates b's translation into a different direction.",
-				InputPoses:  map[string]spatialmath.Pose{"a": a1, "b": b1},
-				ResultPose:  r1,
+				InputPoses: map[string]spatialmath.Pose{"a": a1, "b": b1},
+				ResultPose: r1,
 			},
 			{
 				Setup: `  a := spatialmath.NewPose(r3.Vector{X: 100, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
   c := spatialmath.NewPose(r3.Vector{X: 100, Y: 100, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1})
   result := spatialmath.PoseBetween(a, c)
   // What transform b makes Compose(a, b) = c?`,
-				Answer:      FormatPose(r2),
+				Answer: FormatPose(r2),
 				Explanation: "PoseBetween finds the relative transform between two poses.\n" +
 					"  Think of it as: 'what do I apply from a's frame to reach c?'",
-				InputPoses:  map[string]spatialmath.Pose{"a": a2, "b": c2},
-				ResultPose:  r2,
+				InputPoses: map[string]spatialmath.Pose{"a": a2, "b": c2},
+				ResultPose: r2,
 			},
 			{
 				Setup: "  a := spatialmath.NewPose(\n" +
