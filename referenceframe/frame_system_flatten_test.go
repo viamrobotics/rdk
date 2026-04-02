@@ -143,15 +143,15 @@ func TestFlattenIntermediateParenting(t *testing.T) {
 	fs, err := NewFrameSystem("test", parts, []*LinkInFrame{cameraLif})
 	test.That(t, err, test.ShouldBeNil)
 
-	// The camera should be parented to the intermediate base_link
+	// The camera should be parented to the arm component (Parent masks internal frames)
 	test.That(t, fs.Frame("camera"), test.ShouldNotBeNil)
 	cameraParent, err := fs.Parent(fs.Frame("camera"))
 	test.That(t, err, test.ShouldBeNil)
-	// camera_origin → arm1:base_link
 	test.That(t, cameraParent.Name(), test.ShouldEqual, "camera_origin")
+	// camera_origin's raw parent is arm1:base_link, but Parent() returns the SimpleModel
 	originParent, err := fs.Parent(fs.Frame("camera_origin"))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, originParent.Name(), test.ShouldEqual, "arm1:base_link")
+	test.That(t, originParent.Name(), test.ShouldEqual, "arm1")
 
 	// Verify the camera's world transform depends on the arm's base link
 	li := NewZeroLinearInputs(fs)

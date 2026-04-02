@@ -188,14 +188,27 @@ func (sfs *FrameSystem) World() Frame {
 }
 
 // Parent returns the parent Frame of the given Frame. It will return nil if the given frame is World.
+// Parent returns the parent of the given frame. When the raw parent is an internal
+// frame of a flattened model, the component's SimpleModel is returned instead so that
+// public callers see component-level structure only.
 func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 	if !sfs.frameExists(frame.Name()) {
 		return nil, NewFrameMissingError(frame.Name())
 	}
-	if parentName, exists := sfs.parents[frame.Name()]; exists {
-		return sfs.Frame(parentName), nil
+	parentName, exists := sfs.parents[frame.Name()]
+	if !exists {
+		return nil, NewParentFrameNilError(frame.Name())
 	}
-	return nil, NewParentFrameNilError(frame.Name())
+
+	// If the raw parent is an internal flattened frame, return the component's
+	// SimpleModel instead so callers see component-level names.
+	if componentName := sfs.componentForInternalFrame(parentName); componentName != "" {
+		if sm := sfs.Frame(componentName); sm != nil {
+			return sm, nil
+		}
+	}
+
+	return sfs.Frame(parentName), nil
 }
 
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
@@ -235,6 +248,10 @@ func (sfs *FrameSystem) Frame(name string) Frame {
 
 // TracebackFrame traces the parentage of the given frame up to the world, and returns the full list of frames in between.
 // The list will include both the query frame and the world referenceframe, and is ordered from query to world.
+//
+// When the raw parent is an internal frame of a flattened model, the entire internal
+// chain is skipped and the component's SimpleModel is inserted instead. This ensures
+// callers see component-level frames rather than internal per-joint frames.
 func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !sfs.frameExists(query.Name()) {
 		return nil, NewFrameMissingError(query.Name())
@@ -246,11 +263,47 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	if !exists {
 		return nil, NewParentFrameNilError(query.Name())
 	}
-	parents, err := sfs.TracebackFrame(sfs.Frame(parentName))
+
+	// If the raw parent is an internal flattened frame, skip the entire internal
+	// chain and jump to the component's SimpleModel.
+	var nextParent Frame
+	if componentName := sfs.componentForInternalFrame(parentName); componentName != "" {
+		nextParent = sfs.Frame(componentName)
+	} else {
+		nextParent = sfs.Frame(parentName)
+	}
+
+	parents, err := sfs.TracebackFrame(nextParent)
 	if err != nil {
 		return nil, err
 	}
 	return append([]Frame{query}, parents...), nil
+}
+
+// isInternalFlattenedFrame returns true if the given frame name is an internal frame
+// of any flattened model in this frame system.
+func (sfs *FrameSystem) isInternalFlattenedFrame(name string) bool {
+	for _, schema := range sfs.componentSchemas {
+		for _, meta := range schema.metas {
+			if meta.frameName == name {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// componentForInternalFrame returns the component name that owns the given internal
+// frame, or "" if the frame is not part of any flattened model.
+func (sfs *FrameSystem) componentForInternalFrame(name string) string {
+	for componentName, schema := range sfs.componentSchemas {
+		for _, meta := range schema.metas {
+			if meta.frameName == name {
+				return componentName
+			}
+		}
+	}
+	return ""
 }
 
 // FrameNames returns the list of frame names registered in the frame system.
@@ -394,12 +447,14 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 		if child == nil {
 			continue
 		}
-		parent, err := systemToMerge.Parent(child)
-		if err != nil {
-			if errors.Is(err, NewParentFrameNilError(child.Name())) {
-				continue
-			}
-			return err
+		// Use raw parents map to preserve internal frame structure (Parent() masks internal frames).
+		rawParentName, exists := systemToMerge.parents[name]
+		if !exists {
+			continue
+		}
+		parent := systemToMerge.Frame(rawParentName)
+		if parent == nil {
+			continue
 		}
 		childrenMap[parent.Name()] = append(childrenMap[parent.Name()], child)
 	}
@@ -437,7 +492,20 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 
 // FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it. The original frame system is unchanged.
+//
+// When the root is a SimpleModel with flattened internal frames, the subset is expanded to
+// the component's origin frame so that sibling internal frames (and anything parented to
+// them) are included in the subset.
 func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
+	// If the root is a flattened SimpleModel, expand to the component's origin
+	// frame so that sibling internal frames and their descendants are included.
+	if _, isFlattenedComponent := sfs.flattenedModels[newRoot.Name()]; isFlattenedComponent {
+		originName := sfs.parents[newRoot.Name()]
+		if originFrame := sfs.Frame(originName); originFrame != nil {
+			newRoot = originFrame
+		}
+	}
+
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &FrameSystem{
 		name:             newRoot.Name() + "_FS",
@@ -546,11 +614,12 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		return errors.New("cannot replace the World frame of a frame system")
 	}
 
-	// get replaceMe's parent
-	replaceMeParent, err := sfs.Parent(replaceMe)
-	if err != nil {
-		return err
+	// get replaceMe's raw parent (not the masked Parent() which hides internal frames)
+	rawParentName, exists := sfs.parents[replaceMe.Name()]
+	if !exists {
+		return NewParentFrameNilError(replaceMe.Name())
 	}
+	replaceMeParent := sfs.Frame(rawParentName)
 
 	// remove replaceMe from the frame system
 	delete(sfs.frames, replaceMe.Name())
@@ -1140,11 +1209,12 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 func bfsFrameNames(fs *FrameSystem) []string {
 	childrenOf := map[string][]string{}
 	for name := range fs.frames {
-		parent, err := fs.Parent(fs.Frame(name))
-		if err != nil || parent == nil {
+		// Use raw parents map to preserve internal frame structure (Parent() masks internal frames).
+		rawParentName, exists := fs.parents[name]
+		if !exists {
 			continue
 		}
-		childrenOf[parent.Name()] = append(childrenOf[parent.Name()], name)
+		childrenOf[rawParentName] = append(childrenOf[rawParentName], name)
 	}
 	for k := range childrenOf {
 		sort.Strings(childrenOf[k])
