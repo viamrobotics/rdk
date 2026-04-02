@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/movementsensor"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -99,10 +98,6 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
-	// TeleopSmallMoveRad is the joint-space L-inf displacement threshold (radians)
-	// below which execute() uses interpolate=true for smoother servo tracking.
-	// 0 disables adaptive behavior. Suggested starting value: 0.1 (~5.7 degrees).
-	TeleopSmallMoveRad float64 `json:"teleop_small_move_rad,omitempty"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -538,74 +533,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	return plan, err
 }
 
-// planTeleop is a low-latency variant of plan() for the teleop pipeline.
-// It uses a pre-built frame system and caller-provided fsInputs (merged from
-// live CurrentInputs + planning head) to avoid per-call overhead.
-func (ms *builtIn) planTeleop(
-	ctx context.Context,
-	req motion.MoveReq,
-	frameSys *referenceframe.FrameSystem,
-	fsInputs referenceframe.FrameSystemInputs,
-	logger logging.Logger,
-) (motionplan.Plan, error) {
-	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleop")
-	defer span.End()
-
-	movingFrame := frameSys.Frame(req.ComponentName)
-	if movingFrame == nil {
-		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
-	}
-
-	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
-	if err != nil {
-		return nil, err
-	}
-	if len(waypoints) == 0 {
-		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
-	}
-
-	if req.Extra != nil {
-		req.Extra["waypoints"] = nil
-	}
-
-	// Re-evaluate goal poses to be in the frame of World.
-	worldWaypoints := []*armplanning.PlanState{}
-	solvingFrame := referenceframe.World
-	for _, wp := range waypoints {
-		if wp.Poses() != nil {
-			step := referenceframe.FrameSystemPoses{}
-			for fName, destination := range wp.Poses() {
-				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
-				if err != nil {
-					return nil, err
-				}
-				goalPose, _ := tf.(*referenceframe.PoseInFrame)
-				step[fName] = goalPose
-			}
-			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
-		} else {
-			worldWaypoints = append(worldWaypoints, wp)
-		}
-	}
-
-	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
-	if err != nil {
-		return nil, err
-	}
-
-	planRequest := &armplanning.PlanRequest{
-		FrameSystem:    frameSys,
-		Goals:          worldWaypoints,
-		StartState:     startState,
-		WorldState:     req.WorldState,
-		Constraints:    req.Constraints,
-		PlannerOptions: planOpts,
-	}
-
-	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
-	return plan, err
-}
-
 // planTeleopMulti plans a trajectory for multiple components simultaneously.
 // It builds a multi-frame goal from the given poses map, allowing the planner
 // to find collision-free paths for all arms jointly.
@@ -739,28 +666,6 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 				return err
 			}
 
-			// Adaptive interpolation: for small movements on arms, use interpolate=true
-			// for smooth servo tracking instead of the default fast-streaming GoToInputs.
-			if threshold := ms.conf.TeleopSmallMoveRad; threshold > 0 && len(inputs) >= 2 {
-				if maxLinfDisplacement(inputs) < threshold {
-					if armComp, ok := r.(arm.Arm); ok {
-						err := armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
-							"waitAtEnd":   false,
-							"interpolate": true,
-						})
-						if err != nil {
-							if actuator, ok := r.(inputEnabledActuator); ok {
-								if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
-									return errors.Wrap(err, stopErr.Error())
-								}
-							}
-							return err
-						}
-						continue
-					}
-				}
-			}
-
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
@@ -772,19 +677,6 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 		}
 	}
 	return nil
-}
-
-// maxLinfDisplacement returns the max L-inf joint displacement (radians) across
-// consecutive pairs of input steps.
-func maxLinfDisplacement(steps [][]referenceframe.Input) float64 {
-	maxDisp := 0.0
-	for i := 1; i < len(steps); i++ {
-		d := referenceframe.InputsLinfDistance(steps[i-1], steps[i])
-		if d > maxDisp {
-			maxDisp = d
-		}
-	}
-	return maxDisp
 }
 
 // applyDefaultExtras iterates through the list of default extras configured on the builtIn motion service and adds them to the
