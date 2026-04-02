@@ -280,19 +280,6 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	return append([]Frame{query}, parents...), nil
 }
 
-// isInternalFlattenedFrame returns true if the given frame name is an internal frame
-// of any flattened model in this frame system.
-func (sfs *FrameSystem) isInternalFlattenedFrame(name string) bool {
-	for _, schema := range sfs.componentSchemas {
-		for _, meta := range schema.metas {
-			if meta.frameName == name {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // componentForInternalFrame returns the component name that owns the given internal
 // frame, or "" if the frame is not part of any flattened model.
 func (sfs *FrameSystem) componentForInternalFrame(name string) string {
