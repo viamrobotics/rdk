@@ -62,8 +62,8 @@ func inputPoseLegend(poses map[string]spatialmath.Pose) string {
 
 	parts := make([]string, 0, len(names)+1)
 	parts = append(parts, "white = origin")
-	for _, name := range names {
-		color := PoseColor(name)
+	for i, name := range names {
+		color := PoseColorByIndex(i)
 		parts = append(parts, color+" = "+name)
 	}
 	return strings.Join(parts, ", ")
@@ -132,10 +132,11 @@ func RunAllLevels(reader *bufio.Reader, levels []Level) {
 	printLine("3D Visualization (requires motion-tools running):")
 	printLine("  - Poses drawn as 10x20x30 mm boxes (asymmetric)")
 	printLine("  - white  = origin (reference)")
-	printLine("  - blue   = first input (a)")
-	printLine("  - green  = second input (b)")
-	printLine("  - yellow = third input (c)")
+	printLine("  - blue   = 1st input pose")
+	printLine("  - green  = 2nd input pose")
+	printLine("  - yellow = 3rd input pose")
 	printLine("  - red    = result (after reveal)")
+	printLine("  Variable names shown in each question's legend.")
 	printLine()
 	printPrompt("Press Enter to begin...")
 	waitForEnter(reader)

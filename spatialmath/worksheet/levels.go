@@ -103,7 +103,7 @@ func makeLevel2() Level {
 			Setup:       setup,
 			Answer:      FormatPose(result),
 			Explanation: fmt.Sprintf("Rotating %g° around X, then translating 100 along local X.", deg),
-			InputPoses:  map[string]spatialmath.Pose{"a": rot, "b": point},
+			InputPoses:  map[string]spatialmath.Pose{"rot": rot, "point": point},
 			ResultPose:  result,
 		})
 	}
@@ -170,7 +170,7 @@ func makeLevel3() Level {
 				Explanation: "PoseBetween(a, target) recovers b" +
 					" -- the transform from a to target.",
 				InputPoses: map[string]spatialmath.Pose{
-					"a": a3, "b": r3target,
+					"a": a3, "target": r3target,
 				},
 				ResultPose: r3between,
 			},
@@ -220,7 +220,7 @@ func makeLevel4() Level {
 				Answer: FormatPose(r2),
 				Explanation: "PoseBetween finds the relative transform between two poses.\n" +
 					"  Think of it as: 'what do I apply from a's frame to reach c?'",
-				InputPoses: map[string]spatialmath.Pose{"a": a2, "b": c2},
+				InputPoses: map[string]spatialmath.Pose{"a": a2, "c": c2},
 				ResultPose: r2,
 			},
 			{
@@ -309,7 +309,7 @@ func makeLevel5() Level {
 				Explanation: "Chain the transforms: world->endEffector->camera->object.\n" +
 					"  Each Compose moves from one frame to the next.",
 				InputPoses: map[string]spatialmath.Pose{
-					"a": endEffector, "b": cameraInWorld, "c": objectInCamera,
+					"endEffector": endEffector, "cameraInWorld": cameraInWorld, "objectInCamera": objectInCamera,
 				},
 				ResultPose: objectInWorld,
 			},
@@ -329,7 +329,7 @@ func makeLevel5() Level {
 				Explanation: "To express B in A's frame: Compose(PoseInverse(A), B).\n" +
 					"  PoseInverse(arm) 'undoes' the arm's transform, then objectWorld applies.",
 				InputPoses: map[string]spatialmath.Pose{
-					"a": armPose, "b": objectWorld,
+					"armPose": armPose, "objectWorld": objectWorld,
 				},
 				ResultPose: objectRelative,
 			},
@@ -352,7 +352,7 @@ func makeLevel5() Level {
 				Explanation: "Forward kinematics: chain Compose from base to end effector.\n" +
 					"  Each joint's orientation changes subsequent translation directions.",
 				InputPoses: map[string]spatialmath.Pose{
-					"a": basePose, "b": shoulderOffset, "c": elbowOffset,
+					"basePose": basePose, "shoulderOffset": shoulderOffset, "elbowOffset": elbowOffset,
 				},
 				ResultPose: handInWorld,
 			},

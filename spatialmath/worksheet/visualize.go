@@ -2,6 +2,7 @@ package worksheet
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/golang/geo/r3"
 	viz "github.com/viam-labs/motion-tools/client/client"
@@ -12,17 +13,13 @@ import (
 // boxDims is the asymmetric box dimensions (10x20x30) so orientation is visually obvious.
 var boxDims = r3.Vector{X: 10, Y: 20, Z: 30}
 
-// poseColors maps pose names to visualization colors.
-var poseColors = map[string]string{
-	"a": "blue",
-	"b": "green",
-	"c": "yellow",
-}
+// orderedColors are assigned to poses by sorted key order.
+var orderedColors = []string{"blue", "green", "yellow", "purple", "cyan"}
 
-// PoseColor returns the visualization color for a given pose name.
-func PoseColor(name string) string {
-	if color, ok := poseColors[name]; ok {
-		return color
+// PoseColorByIndex returns the color for the nth pose (0-indexed).
+func PoseColorByIndex(i int) string {
+	if i < len(orderedColors) {
+		return orderedColors[i]
 	}
 	return "purple"
 }
@@ -51,8 +48,15 @@ func DrawInputPoses(poses map[string]spatialmath.Pose) {
 		}
 	}
 
-	for name, pose := range poses {
-		color := PoseColor(name)
+	names := make([]string, 0, len(poses))
+	for name := range poses {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for i, name := range names {
+		pose := poses[name]
+		color := PoseColorByIndex(i)
 		box, err := spatialmath.NewBox(pose, boxDims, name)
 		if err != nil {
 			continue
