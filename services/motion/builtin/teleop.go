@@ -236,29 +236,44 @@ func (tp *teleopPipeline) buildMoveReq(
 	return req
 }
 
-// filterTrajectoryForComponent returns a copy of the trajectory containing only
-// entries for the named component. This prevents a teleop pipeline from sending
-// GoToInputs to components owned by other pipelines.
-func filterTrajectoryForComponent(traj motionplan.Trajectory, componentName string, logger logging.Logger) motionplan.Trajectory {
+// filterTrajectoryMovingFrames returns a copy of the trajectory containing only
+// entries for frames whose inputs actually change across the trajectory. The planner
+// outputs entries for ALL frames, but only the teleop'd arm's inputs change — static
+// entries for other arms must be excluded to prevent conflicting GoToInputs calls
+// from concurrent pipelines.
+func filterTrajectoryMovingFrames(traj motionplan.Trajectory) motionplan.Trajectory {
+	if len(traj) < 2 {
+		return traj
+	}
+
+	// Identify which frames change between the first and last step.
+	first := traj[0]
+	last := traj[len(traj)-1]
+	moving := make(map[string]bool)
+	for name, firstInputs := range first {
+		lastInputs, ok := last[name]
+		if !ok || len(firstInputs) != len(lastInputs) {
+			moving[name] = true
+			continue
+		}
+		for i := range firstInputs {
+			if firstInputs[i] != lastInputs[i] {
+				moving[name] = true
+				break
+			}
+		}
+	}
+
+	// Build filtered trajectory with only moving frames.
 	filtered := make(motionplan.Trajectory, len(traj))
 	for i, step := range traj {
-		filteredStep := make(referenceframe.FrameSystemInputs, 1)
+		filteredStep := make(referenceframe.FrameSystemInputs, len(moving))
 		for name, inputs := range step {
-			if name == componentName && len(inputs) > 0 {
+			if moving[name] {
 				filteredStep[name] = inputs
 			}
 		}
 		filtered[i] = filteredStep
-	}
-	// Log if no matching entries found — likely a name mismatch.
-	if len(traj) > 0 {
-		if _, ok := traj[0][componentName]; !ok {
-			keys := make([]string, 0, len(traj[0]))
-			for k := range traj[0] {
-				keys = append(keys, k)
-			}
-			logger.Warnf("filterTrajectoryForComponent: component %q not found in trajectory keys %v", componentName, keys)
-		}
 	}
 	return filtered
 }
@@ -282,7 +297,7 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			// Without filtering, the trajectory includes all frame system components,
 			// and the executor would send GoToInputs to other arms — causing them
 			// to fight with their own pipelines.
-			traj = filterTrajectoryForComponent(traj, tp.moveReqBase.ComponentName, tp.logger)
+			traj = filterTrajectoryMovingFrames(traj)
 
 			execStart := time.Now()
 			// Skip start-position check (math.MaxFloat64) because the arm
