@@ -41,9 +41,6 @@ func TestFlattenSerialModel(t *testing.T) {
 		test.That(t, name, test.ShouldNotEqual, "arm1:shoulder_pan_joint")
 	}
 
-	// FlattenedModel returns the original model
-	test.That(t, fs.FlattenedModel("arm1"), test.ShouldNotBeNil)
-
 	// NewZeroInputs returns component-level entry
 	zeroInputs := NewZeroInputs(fs)
 	armInputs, ok := zeroInputs["arm1"]
@@ -128,36 +125,6 @@ func TestFlattenBranchingMimicModel(t *testing.T) {
 	gripperFrame := fs.Frame("gripper1")
 	test.That(t, gripperFrame, test.ShouldNotBeNil)
 	test.That(t, len(gripperFrame.DoF()), test.ShouldEqual, 1)
-}
-
-func TestFlattenDistributeGatherRoundTrip(t *testing.T) {
-	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
-	test.That(t, err, test.ShouldBeNil)
-
-	// Build a flattened FS to get the component schema
-	lif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
-	parts := []*FrameSystemPart{
-		{FrameConfig: lif, ModelFrame: model},
-	}
-	fs, err := NewFrameSystem("test", parts, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	schema := fs.ComponentSchema("arm1")
-	test.That(t, schema, test.ShouldNotBeNil)
-
-	original := []Input{1.5}
-
-	// Distribute via FloatsToInputs
-	distributed, err := schema.FloatsToInputs(original)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, distributed.Get("arm1:shoulder_pan_joint"), test.ShouldResemble, original)
-
-	// Gather by iterating schema frame names
-	var gathered []Input
-	for _, name := range schema.FrameNamesInOrder() {
-		gathered = append(gathered, distributed.Get(name)...)
-	}
-	test.That(t, gathered, test.ShouldResemble, original)
 }
 
 func TestFlattenIntermediateParenting(t *testing.T) {

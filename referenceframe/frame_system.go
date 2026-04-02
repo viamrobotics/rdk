@@ -68,59 +68,6 @@ func NewEmptyFrameSystem(name string) *FrameSystem {
 	}
 }
 
-// FlattenedModel returns the original SimpleModel for a flattened component, or nil.
-func (sfs *FrameSystem) FlattenedModel(componentName string) Model {
-	if m, ok := sfs.flattenedModels[componentName]; ok {
-		return m
-	}
-	return nil
-}
-
-// ComponentSchema returns the namespaced LinearInputsSchema for a flattened model component.
-// The schema frame names use the namespaced convention (e.g., "arm1:joint1").
-// Returns nil if the component is not a flattened model.
-func (sfs *FrameSystem) ComponentSchema(componentName string) *LinearInputsSchema {
-	return sfs.componentSchemas[componentName]
-}
-
-// ComponentSchemaNames returns the component names that have associated schemas.
-func (sfs *FrameSystem) ComponentSchemaNames() []string {
-	names := make([]string, 0, len(sfs.componentSchemas))
-	for name := range sfs.componentSchemas {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-// ExpandComponentInputs converts a FrameSystemInputs that may contain component-name keys
-// (e.g., "pieceArm" → [0,0,0,0,0,0]) into one with per-frame keys
-// (e.g., "pieceArm:joint1" → [0], "pieceArm:joint2" → [0], ...).
-// Non-flattened entries are passed through unchanged. This should be called at API boundaries
-// where external callers provide component-keyed inputs before passing them to the planner.
-func (sfs *FrameSystem) ExpandComponentInputs(fsi FrameSystemInputs) (FrameSystemInputs, error) {
-	if len(sfs.componentSchemas) == 0 {
-		return fsi, nil
-	}
-	result := make(FrameSystemInputs, len(fsi))
-	for name, inputs := range fsi {
-		schema := sfs.componentSchemas[name]
-		if schema == nil || len(inputs) == 0 {
-			// Not a flattened model, or empty inputs (e.g., the 0-DoF backward-compat alias)
-			result[name] = inputs
-			continue
-		}
-		distributed, err := schema.FloatsToInputs(inputs)
-		if err != nil {
-			return nil, err
-		}
-		for frameName, frameInputs := range distributed.Items() {
-			result[frameName] = frameInputs
-		}
-	}
-	return result, nil
-}
-
 // resolveFrameInputs is a fallback for when linearInputs.Get(frameName) returns nil.
 // It checks if frameName belongs to a flattened model and, if so, extracts the right
 // slice from a component-name-keyed entry in the LinearInputs.
@@ -137,53 +84,6 @@ func (sfs *FrameSystem) resolveFrameInputs(li *LinearInputs, frameName string) [
 		}
 	}
 	return nil
-}
-
-// ComponentInputsFromLinear converts a LinearInputs (which may contain per-frame keys from
-// flattened models) into a FrameSystemInputs with component-level keys. For flattened models,
-// individual frame inputs are gathered back into a flat slice under the component name.
-// Non-flattened frame inputs are passed through unchanged.
-func (sfs *FrameSystem) ComponentInputsFromLinear(li *LinearInputs) FrameSystemInputs {
-	if len(sfs.componentSchemas) == 0 {
-		return li.ToFrameSystemInputs()
-	}
-
-	// Build set of per-frame keys that belong to flattened models
-	flattenedFrames := map[string]bool{}
-	for _, schema := range sfs.componentSchemas {
-		for _, name := range schema.FrameNamesInOrder() {
-			flattenedFrames[name] = true
-		}
-	}
-
-	fsi := make(FrameSystemInputs)
-
-	// Pass through non-flattened entries
-	for name, inputs := range li.Items() {
-		if !flattenedFrames[name] {
-			fsi[name] = inputs
-		}
-	}
-
-	// Gather flattened model inputs into component entries.
-	// If per-frame keys are present, gather them. Otherwise, a component-keyed
-	// entry may already exist in fsi from the pass-through above — leave it.
-	for componentName, schema := range sfs.componentSchemas {
-		var flat []Input
-		found := false
-		for _, name := range schema.FrameNamesInOrder() {
-			frameInputs := li.Get(name)
-			if frameInputs != nil {
-				found = true
-			}
-			flat = append(flat, frameInputs...)
-		}
-		if found {
-			fsi[componentName] = flat
-		}
-	}
-
-	return fsi
 }
 
 // NewFrameSystem assembles a frame system from a set of parts and additional transforms.
