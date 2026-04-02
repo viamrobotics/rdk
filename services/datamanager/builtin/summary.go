@@ -50,9 +50,9 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	// For each dirElement, sum up the size of the files in this directory
 	// call self func on all directories and add result to return
 	var (
-		fileSize      int64
-		fileCount     int64
-		summary       []DirSummary
+		fileSize                  int64
+		fileCount                 int64
+		summary                   []DirSummary
 		dirPaths                  []string
 		dataTimeRange             *DataTimeRange
 		completedCaptureTimeRange *DataTimeRange
@@ -90,10 +90,10 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	// if there were files in this directory, record the size
 	if fileCount != 0 || dataTimeRange != nil {
 		summary = append(summary, DirSummary{
-			Path:          rootPath,
-			FileSize:      fileSize,
-			FileCount:     fileCount,
-			Err:           rootErr,
+			Path:                      rootPath,
+			FileSize:                  fileSize,
+			FileCount:                 fileCount,
+			Err:                       rootErr,
 			DataTimeRange:             dataTimeRange,
 			CompletedCaptureTimeRange: completedCaptureTimeRange,
 		})

@@ -180,8 +180,8 @@ func TestCalculateAndSetSummaryStaleWarningOnlyCaptureFiles(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		files       []testFile
+		name          string
+		files         []testFile
 		expectWarning bool
 	}{
 		{"stale .prog only, no warning", []testFile{{staleTime, data.InProgressCaptureFileExt}}, false},
