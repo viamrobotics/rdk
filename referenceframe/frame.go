@@ -841,13 +841,11 @@ func (mf *mimicFrameWrapper) Interpolate(from, to []Input, by float64) ([]Input,
 	return []Input{}, nil
 }
 
-// Geometries delegates to the inner frame with a zero input so geometry shapes are preserved.
+// Geometries returns empty geometries. The mimic wrapper cannot compute correct
+// geometries because it lacks access to the source frame's input. Correct geometry
+// for mimic links is provided by the SimpleModel's own Geometries method.
 func (mf *mimicFrameWrapper) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	innerGeo, err := mf.inner.Geometries([]Input{0})
-	if err != nil {
-		return nil, err
-	}
-	return NewGeometriesInFrame(mf.name, innerGeo.geometries), nil
+	return NewGeometriesInFrame(mf.name, nil), nil
 }
 
 // InputFromProtobuf returns empty inputs (0-DoF).
