@@ -1150,8 +1150,7 @@ func TopologicallySortParts(parts []*FrameSystemPart) ([]*FrameSystemPart, []*Fr
 
 // flattenModelIntoFS unpacks a SimpleModel's internal frames into the outer FrameSystem.
 // Each internal frame is renamed with a namespace prefix (componentName:internalName).
-// Mimic frames are wrapped in mimicFrameWrapper (0-DoF).
-// A backward-compat zero-pose static frame named componentName is added at the primaryOutputFrame.
+// Mimic joint info is stored in the FS's mimicFrames map for use by composeTransforms.
 func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName string, attachTo Frame) error {
 	internalFS := model.internalFS
 	internalNames := bfsFrameNames(internalFS)

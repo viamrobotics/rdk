@@ -802,10 +802,6 @@ func PoseToInputs(p spatial.Pose) []Input {
 	}
 }
 
-// mimicFrameWrapper wraps a joint frame and presents it as 0-DoF to the FrameSystem.
-// The actual joint transform is computed by composeTransforms, which type-asserts to
-// this wrapper and uses the mimic fields to derive the input from the source frame.
-
 // framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.
 // For now, we only support implementers of the Frame interface that are registered (see register.go).
 // Future implementations within this package should extend this function and add support.
