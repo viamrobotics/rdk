@@ -222,12 +222,14 @@ func (tp *teleopPipeline) buildExtra(
 	}
 	extra["start_state"] = map[string]interface{}{"configuration": confMap}
 
-	// Apply teleop-optimized planner defaults.
+	// Apply teleop-optimized planner defaults. These are aggressive because
+	// teleop movements are tiny and frequent — we trade solution optimality
+	// for speed.
 	teleopDefaults := map[string]interface{}{
 		"timeout":          5.0,
-		"max_ik_solutions": 20,
-		"min_ik_score":     0.05,
-		"frame_step":       0.05,
+		"max_ik_solutions": 10,  // fewer solutions = faster (was 20)
+		"min_ik_score":     0.1, // accept worse solutions faster (was 0.05)
+		"frame_step":       0.1, // fewer trajectory steps (was 0.05)
 	}
 	for k, v := range teleopDefaults {
 		if _, ok := extra[k]; !ok {
