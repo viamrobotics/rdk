@@ -53,6 +53,17 @@ type FrameSystem struct {
 	// The schema frame names use the namespaced convention (e.g., "arm1:joint1").
 	// Used to convert between flat component inputs and per-frame LinearInputs.
 	componentSchemas map[string]*LinearInputsSchema
+
+	// mimicFrames maps namespaced frame name → mimic info for flattened mimic joints.
+	// composeTransforms uses this to derive inputs from the source frame.
+	mimicFrames map[string]*mimicInfo
+}
+
+// mimicInfo describes a mimic joint relationship for a flattened frame.
+type mimicInfo struct {
+	sourceFrameName string  // namespaced source frame (e.g., "arm1:left_joint")
+	multiplier      float64 // value multiplier
+	offset          float64 // value offset
 }
 
 // NewEmptyFrameSystem creates a graph of Frames that have.
@@ -65,6 +76,7 @@ func NewEmptyFrameSystem(name string) *FrameSystem {
 		parents:          map[string]string{},
 		flattenedModels:  map[string]*SimpleModel{},
 		componentSchemas: map[string]*LinearInputsSchema{},
+		mimicFrames:      map[string]*mimicInfo{},
 	}
 }
 
@@ -475,6 +487,9 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 		sfs.flattenedModels[componentName] = model
 		sfs.componentSchemas[componentName] = systemToMerge.componentSchemas[componentName]
 	}
+	for frameName, mi := range systemToMerge.mimicFrames {
+		sfs.mimicFrames[frameName] = mi
+	}
 
 	return nil
 }
@@ -503,6 +518,7 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		parents:          map[string]string{},
 		flattenedModels:  map[string]*SimpleModel{},
 		componentSchemas: map[string]*LinearInputsSchema{},
+		mimicFrames:      map[string]*mimicInfo{},
 	}
 
 	rootFrame := sfs.Frame(newRoot.Name())
@@ -549,6 +565,11 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		if newFS.frameExists(componentName) {
 			newFS.flattenedModels[componentName] = model
 			newFS.componentSchemas[componentName] = sfs.componentSchemas[componentName]
+		}
+	}
+	for frameName, mi := range sfs.mimicFrames {
+		if newFS.frameExists(frameName) {
+			newFS.mimicFrames[frameName] = mi
 		}
 	}
 
@@ -672,17 +693,17 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		var pose spatial.Pose
 		var err error
 
-		if wrapper, ok := frame.(*mimicFrameWrapper); ok {
+		if mi, isMimic := sfs.mimicFrames[frame.Name()]; isMimic {
 			// Mimic frame: derive input from the source frame's input
-			sourceInputs := linearInputs.Get(wrapper.sourceFrameName)
+			sourceInputs := linearInputs.Get(mi.sourceFrameName)
 			if len(sourceInputs) == 0 {
-				sourceInputs = sfs.resolveFrameInputs(linearInputs, wrapper.sourceFrameName)
+				sourceInputs = sfs.resolveFrameInputs(linearInputs, mi.sourceFrameName)
 			}
 			if len(sourceInputs) == 0 {
-				return ret, fmt.Errorf("mimic source frame %q has no inputs", wrapper.sourceFrameName)
+				return ret, fmt.Errorf("mimic source frame %q has no inputs", mi.sourceFrameName)
 			}
-			derived := []Input{wrapper.multiplier*sourceInputs[0] + wrapper.offset}
-			pose, err = wrapper.transformDerived(derived)
+			derived := []Input{mi.multiplier*sourceInputs[0] + mi.offset}
+			pose, err = frame.Transform(derived)
 			if err != nil {
 				return ret, err
 			}
@@ -1155,18 +1176,14 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 			}
 		}
 
-		// Wrap the frame: mimic frames become 0-DoF wrappers, others get renamed
-		var wrappedFrame Frame
+		// All frames get a namespaced rename. Mimic info is stored on the FS.
+		wrappedFrame := NewNamedFrame(innerFrame, namespacedName)
 		if mm := model.mimicMappings[internalName]; mm != nil {
-			wrappedFrame = &mimicFrameWrapper{
-				inner:           innerFrame,
-				name:            namespacedName,
+			outerFS.mimicFrames[namespacedName] = &mimicInfo{
 				sourceFrameName: componentName + ":" + mm.sourceFrameName,
 				multiplier:      mm.valueMultiplier,
 				offset:          mm.valueOffset,
 			}
-		} else {
-			wrappedFrame = NewNamedFrame(innerFrame, namespacedName)
 		}
 
 		if err := outerFS.AddFrame(wrappedFrame, parentFrame); err != nil {

@@ -805,113 +805,6 @@ func PoseToInputs(p spatial.Pose) []Input {
 // mimicFrameWrapper wraps a joint frame and presents it as 0-DoF to the FrameSystem.
 // The actual joint transform is computed by composeTransforms, which type-asserts to
 // this wrapper and uses the mimic fields to derive the input from the source frame.
-type mimicFrameWrapper struct {
-	inner           Frame   // the real joint frame (rotational/translational)
-	name            string  // namespaced name (e.g., "arm1:right_joint")
-	sourceFrameName string  // namespaced source frame name
-	multiplier      float64 // value multiplier for the mimic mapping
-	offset          float64 // value offset for the mimic mapping
-}
-
-// Name returns the namespaced name.
-func (mf *mimicFrameWrapper) Name() string { return mf.name }
-
-// DoF returns empty limits — mimic frames are invisible to IK solvers and NewZeroInputs.
-func (mf *mimicFrameWrapper) DoF() []Limit { return []Limit{} }
-
-// Transform returns the identity pose. The real transform is computed via type assertion
-// in composeTransforms, which calls transformDerived with the derived input.
-func (mf *mimicFrameWrapper) Transform(inputs []Input) (spatial.Pose, error) {
-	if len(inputs) != 0 {
-		return nil, NewIncorrectDoFError(len(inputs), 0)
-	}
-	return spatial.NewZeroPose(), nil
-}
-
-// transformDerived computes the real joint transform using derived mimic inputs.
-func (mf *mimicFrameWrapper) transformDerived(inputs []Input) (spatial.Pose, error) {
-	return mf.inner.Transform(inputs)
-}
-
-// Interpolate delegates to the base interpolation (which is a no-op for 0-DoF).
-func (mf *mimicFrameWrapper) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if len(from) != 0 || len(to) != 0 {
-		return nil, NewIncorrectDoFError(len(from), 0)
-	}
-	return []Input{}, nil
-}
-
-// Geometries returns empty geometries. The mimic wrapper cannot compute correct
-// geometries because it lacks access to the source frame's input. Correct geometry
-// for mimic links is provided by the SimpleModel's own Geometries method.
-func (mf *mimicFrameWrapper) Geometries(inputs []Input) (*GeometriesInFrame, error) {
-	return NewGeometriesInFrame(mf.name, nil), nil
-}
-
-// InputFromProtobuf returns empty inputs (0-DoF).
-func (mf *mimicFrameWrapper) InputFromProtobuf(jp *pb.JointPositions) []Input {
-	return []Input{}
-}
-
-// ProtobufFromInput returns empty joint positions (0-DoF).
-func (mf *mimicFrameWrapper) ProtobufFromInput(input []Input) *pb.JointPositions {
-	return &pb.JointPositions{}
-}
-
-// Hash returns a hash incorporating the inner frame and mimic parameters.
-func (mf *mimicFrameWrapper) Hash() int {
-	h := mf.inner.Hash()
-	h += hashString(mf.name)
-	h += hashString(mf.sourceFrameName)
-	h += int(mf.multiplier*1000) * 41
-	h += int(mf.offset*1000) * 43
-	return h
-}
-
-// MarshalJSON serializes the mimic frame wrapper.
-func (mf *mimicFrameWrapper) MarshalJSON() ([]byte, error) {
-	innerJSON, err := frameToJSON(mf.inner)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(struct {
-		Name            string          `json:"name"`
-		Inner           json.RawMessage `json:"inner"`
-		SourceFrameName string          `json:"source_frame_name"`
-		Multiplier      float64         `json:"multiplier"`
-		Offset          float64         `json:"offset"`
-	}{
-		Name:            mf.name,
-		Inner:           innerJSON,
-		SourceFrameName: mf.sourceFrameName,
-		Multiplier:      mf.multiplier,
-		Offset:          mf.offset,
-	})
-}
-
-// UnmarshalJSON deserializes a mimic frame wrapper.
-func (mf *mimicFrameWrapper) UnmarshalJSON(data []byte) error {
-	var temp struct {
-		Name            string          `json:"name"`
-		Inner           json.RawMessage `json:"inner"`
-		SourceFrameName string          `json:"source_frame_name"`
-		Multiplier      float64         `json:"multiplier"`
-		Offset          float64         `json:"offset"`
-	}
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-	inner, err := jsonToFrame(temp.Inner)
-	if err != nil {
-		return err
-	}
-	mf.name = temp.Name
-	mf.inner = inner
-	mf.sourceFrameName = temp.SourceFrameName
-	mf.multiplier = temp.Multiplier
-	mf.offset = temp.Offset
-	return nil
-}
 
 // framesAlmostEqual is a helper used in testing that determines whether two Frame instances are (nearly) identical.
 // For now, we only support implementers of the Frame interface that are registered (see register.go).
@@ -999,14 +892,6 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, nil
 			}
 		}
-	case *mimicFrameWrapper:
-		f2 := frame2.(*mimicFrameWrapper)
-		if f1.sourceFrameName != f2.sourceFrameName ||
-			math.Abs(f1.multiplier-f2.multiplier) > epsilon ||
-			math.Abs(f1.offset-f2.offset) > epsilon {
-			return false, nil
-		}
-		return framesAlmostEqual(f1.inner, f2.inner, epsilon)
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}

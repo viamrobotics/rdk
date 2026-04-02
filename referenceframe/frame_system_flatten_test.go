@@ -107,19 +107,15 @@ func TestFlattenBranchingMimicModel(t *testing.T) {
 	fs, err := NewFrameSystem("test", parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Verify mimic frame is 0-DoF in the outer FS
+	// Mimic frame is a real joint (DoF=1) — mimic info lives on the FS, not the frame
 	rightJoint := fs.Frame("gripper1:right_joint")
 	test.That(t, rightJoint, test.ShouldNotBeNil)
-	test.That(t, len(rightJoint.DoF()), test.ShouldEqual, 0) // mimic wrapper
+	test.That(t, len(rightJoint.DoF()), test.ShouldEqual, 1)
 
 	// Verify left_joint has DoF
 	leftJoint := fs.Frame("gripper1:left_joint")
 	test.That(t, leftJoint, test.ShouldNotBeNil)
 	test.That(t, len(leftJoint.DoF()), test.ShouldEqual, 1)
-
-	// Check that the mimic frame wrapper is correctly typed
-	_, isMimic := rightJoint.(*mimicFrameWrapper)
-	test.That(t, isMimic, test.ShouldBeTrue)
 
 	// The gripper SimpleModel is in the FS with its full DoF
 	gripperFrame := fs.Frame("gripper1")
