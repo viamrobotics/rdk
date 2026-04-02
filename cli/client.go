@@ -4315,7 +4315,6 @@ const (
 
 // isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
 func isViamManagedByBrew() bool {
-	return false
 	if runtime.GOOS != "darwin" {
 		return false
 	}
