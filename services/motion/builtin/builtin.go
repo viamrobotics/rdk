@@ -147,9 +147,9 @@ type builtIn struct {
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
 
-	// Teleop pipelines keyed by component name. Protected by teleopMu (separate from mu to simplify lock ordering).
-	teleopMu        sync.RWMutex
-	teleopPipelines map[string]*teleopPipeline
+	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
+	teleopMu       sync.RWMutex
+	teleopPipeline *teleopPipeline
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -160,7 +160,6 @@ func NewBuiltIn(
 		Named:                   conf.ResourceName().AsNamed(),
 		logger:                  logger,
 		configuredDefaultExtras: make(map[string]any),
-		teleopPipelines:         make(map[string]*teleopPipeline),
 	}
 
 	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
@@ -175,11 +174,11 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	// Stop all teleop pipelines before acquiring write lock (goroutines may hold RLock).
+	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
 	ms.teleopMu.Lock()
-	for name, tp := range ms.teleopPipelines {
-		tp.stop(ctx, ms)
-		delete(ms.teleopPipelines, name)
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
 
@@ -227,9 +226,9 @@ func (ms *builtIn) Reconfigure(
 
 func (ms *builtIn) Close(ctx context.Context) error {
 	ms.teleopMu.Lock()
-	for name, tp := range ms.teleopPipelines {
-		tp.stop(ctx, ms)
-		delete(ms.teleopPipelines, name)
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
 	}
 	ms.teleopMu.Unlock()
 
@@ -600,6 +599,50 @@ func (ms *builtIn) planTeleop(
 		StartState:     startState,
 		WorldState:     req.WorldState,
 		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	return plan, err
+}
+
+// planTeleopMulti plans a trajectory for multiple components simultaneously.
+// It builds a multi-frame goal from the given poses map, allowing the planner
+// to find collision-free paths for all arms jointly.
+func (ms *builtIn) planTeleopMulti(
+	ctx context.Context,
+	goals referenceframe.FrameSystemPoses,
+	extra map[string]interface{},
+	frameSys *referenceframe.FrameSystem,
+	fsInputs referenceframe.FrameSystemInputs,
+	logger logging.Logger,
+) (motionplan.Plan, error) {
+	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleopMulti")
+	defer span.End()
+
+	// Transform all goal poses to world frame.
+	worldGoals := make(referenceframe.FrameSystemPoses, len(goals))
+	for fName, destination := range goals {
+		tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, referenceframe.World)
+		if err != nil {
+			return nil, err
+		}
+		goalPose, _ := tf.(*referenceframe.PoseInFrame)
+		worldGoals[fName] = goalPose
+	}
+
+	startState := armplanning.NewPlanState(nil, fsInputs)
+	goalState := armplanning.NewPlanState(worldGoals, nil)
+
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(extra)
+	if err != nil {
+		return nil, err
+	}
+
+	planRequest := &armplanning.PlanRequest{
+		FrameSystem:    frameSys,
+		Goals:          []*armplanning.PlanState{goalState},
+		StartState:     startState,
 		PlannerOptions: planOpts,
 	}
 
