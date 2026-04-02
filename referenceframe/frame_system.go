@@ -98,7 +98,6 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 		allParts = append(allParts, transformPart)
 	}
 
-	// ensure that at least one frame connects to world if the frame system is not empty
 	if len(allParts) != 0 {
 		hasWorld := false
 		for _, part := range allParts {
@@ -119,67 +118,70 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
-		// Always create model frame + static offset (same as main-branch behavior)
-		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
-		if err != nil {
+		if err := addPartToFS(fs, part); err != nil {
 			return nil, err
-		}
-		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
-			return nil, err
-		}
-		if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
-			return nil, err
-		}
-
-		// Additionally flatten multi-DoF SimpleModels for intermediate frame parenting
-		if sm, ok := part.ModelFrame.(*SimpleModel); ok && len(sm.DoF()) > 0 {
-			if err = flattenModelIntoFS(fs, sm, part.FrameConfig.Name(), staticOffsetFrame); err != nil {
-				return nil, err
-			}
 		}
 	}
 
-	// Second pass: try to add unlinked parts whose parents are now in the FS
+	// Second pass: try to add unlinked parts whose parents now exist in the FS
 	// (e.g., frames parented to flattened internal frames like "arm1:base_link").
-	if len(unlinkedParts) > 0 {
-		stillUnlinked := make([]*FrameSystemPart, 0)
-		// Keep trying until no more progress is made
-		for {
-			progress := false
-			for _, part := range unlinkedParts {
-				if fs.Frame(part.FrameConfig.Parent()) != nil {
-					modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
-					if err != nil {
-						return nil, err
-					}
-					if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
-						return nil, err
-					}
-					if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
-						return nil, err
-					}
-					progress = true
-				} else {
-					stillUnlinked = append(stillUnlinked, part)
-				}
-			}
-			if !progress || len(stillUnlinked) == 0 {
-				break
-			}
-			unlinkedParts = stillUnlinked
-			stillUnlinked = make([]*FrameSystemPart, 0)
+	if err := addUnlinkedParts(fs, unlinkedParts); err != nil {
+		return nil, err
+	}
+
+	return fs, nil
+}
+
+// addPartToFS creates the model and static offset frames for a part, adds them to the
+// frame system, and flattens multi-DoF SimpleModels for intermediate frame parenting.
+func addPartToFS(fs *FrameSystem, part *FrameSystemPart) error {
+	modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
+	if err != nil {
+		return err
+	}
+	if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
+		return err
+	}
+	if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
+		return err
+	}
+
+	// Additionally flatten multi-DoF SimpleModels for intermediate frame parenting
+	if sm, ok := part.ModelFrame.(*SimpleModel); ok && len(sm.DoF()) > 0 {
+		if err = flattenModelIntoFS(fs, sm, part.FrameConfig.Name(), staticOffsetFrame); err != nil {
+			return err
 		}
-		if len(stillUnlinked) > 0 {
+	}
+	return nil
+}
+
+// addUnlinkedParts retries adding parts whose parents weren't available during the first
+// pass (e.g., they reference flattened internal frames). Keeps retrying until no more
+// progress is made.
+func addUnlinkedParts(fs *FrameSystem, unlinked []*FrameSystemPart) error {
+	for len(unlinked) > 0 {
+		var stillUnlinked []*FrameSystemPart
+		for _, part := range unlinked {
+			if fs.Frame(part.FrameConfig.Parent()) != nil {
+				if err := addPartToFS(fs, part); err != nil {
+					return err
+				}
+			} else {
+				stillUnlinked = append(stillUnlinked, part)
+			}
+		}
+		if len(stillUnlinked) == len(unlinked) {
+			// No progress — remaining parts can't be linked.
 			strs := make([]string, len(stillUnlinked))
 			for idx, part := range stillUnlinked {
 				strs[idx] = part.FrameConfig.Name()
 			}
-			return nil, fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
+			return fmt.Errorf("Cannot construct frame system. Some parts are not linked to the world frame. Parts: %v",
 				strs)
 		}
+		unlinked = stillUnlinked
 	}
-
-	return fs, nil
+	return nil
 }
 
 // World returns the root of the frame system, which is always named "world".
