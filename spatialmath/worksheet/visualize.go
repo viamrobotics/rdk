@@ -36,6 +36,7 @@ func DrawInputPoses(poses map[string]spatialmath.Pose) {
 		return
 	}
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
+		//nolint:forbidigo
 		fmt.Println("  (motion-tools not available, continuing text-only)")
 		vizEnabled = false
 		return

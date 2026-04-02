@@ -111,7 +111,8 @@ func makeLevel2() Level {
 	return Level{
 		Number:      2,
 		Title:       "Rotation from Origin",
-		Description: "How orientation affects where a subsequent translation ends up.\nThe first pose rotates the frame, the second translates in the rotated frame.",
+		Description: "How orientation affects where a subsequent translation ends up.\n" +
+			"The first pose rotates the frame, the second translates in the rotated frame.",
 		Questions:   questions,
 	}
 }
@@ -151,19 +152,27 @@ func makeLevel3() Level {
   b := spatialmath.NewPose(r3.Vector{X: 50, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 30, OX: 0, OY: 0, OZ: 1})
   result := spatialmath.Compose(b, a)  // NOTE: b first, then a!`,
 				Answer:      FormatPose(r2),
-				Explanation: "Compose(a,b) != Compose(b,a)! Spatial composition is NOT commutative.\n  The orientation of the first pose rotates the second's translation differently.",
+				Explanation: "Compose(a,b) != Compose(b,a)! Spatial composition is NOT commutative.\n" +
+					"  The first pose's orientation rotates the second's translation differently.",
 				InputPoses:  map[string]spatialmath.Pose{"a": a1, "b": b1},
 				ResultPose:  r2,
 			},
 			{
-				Setup: fmt.Sprintf(`  a := spatialmath.NewPose(r3.Vector{X: 100, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})
-  target := <the result from question 1>  // %s
-  result := spatialmath.PoseBetween(a, target)
-  // PoseBetween finds b such that Compose(a, b) = target`, FormatPoint(r3target.Point())),
-				Answer:      FormatPose(r3between),
-				Explanation: "PoseBetween(a, target) recovers b — the transform that takes you from a to target.",
-				InputPoses:  map[string]spatialmath.Pose{"a": a3, "b": r3target},
-				ResultPose:  r3between,
+				Setup: fmt.Sprintf(
+					"  a := spatialmath.NewPose(\n"+
+						"      r3.Vector{X: 100, Y: 0, Z: 0},\n"+
+						"      &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})\n"+
+						"  target := <the result from question 1>  // %s\n"+
+						"  result := spatialmath.PoseBetween(a, target)\n"+
+						"  // PoseBetween finds b such that Compose(a, b) = target",
+					FormatPoint(r3target.Point())),
+				Answer: FormatPose(r3between),
+				Explanation: "PoseBetween(a, target) recovers b" +
+					" -- the transform from a to target.",
+				InputPoses: map[string]spatialmath.Pose{
+					"a": a3, "b": r3target,
+				},
+				ResultPose: r3between,
 			},
 		},
 	}
@@ -198,7 +207,8 @@ func makeLevel4() Level {
   b := spatialmath.NewPose(r3.Vector{X: 50, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 1, OZ: 0})
   result := spatialmath.Compose(a, b)`,
 				Answer:      FormatPose(r1),
-				Explanation: "a points along X-axis (OX=1), b points along Y-axis (OY=1).\n  a's orientation rotates b's translation into a different direction.",
+				Explanation: "a points along X (OX=1), b along Y (OY=1).\n" +
+					"  a's orientation rotates b's translation into a different direction.",
 				InputPoses:  map[string]spatialmath.Pose{"a": a1, "b": b1},
 				ResultPose:  r1,
 			},
@@ -208,21 +218,27 @@ func makeLevel4() Level {
   result := spatialmath.PoseBetween(a, c)
   // What transform b makes Compose(a, b) = c?`,
 				Answer:      FormatPose(r2),
-				Explanation: "PoseBetween finds the relative transform between two poses.\n  Think of it as: 'what do I need to apply from a's frame to reach c?'",
+				Explanation: "PoseBetween finds the relative transform between two poses.\n" +
+					"  Think of it as: 'what do I apply from a's frame to reach c?'",
 				InputPoses:  map[string]spatialmath.Pose{"a": a2, "b": c2},
 				ResultPose:  r2,
 			},
 			{
-				Setup: `  a := spatialmath.NewPose(r3.Vector{X: 50, Y: 50, Z: 50}, &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})
-  result := spatialmath.PoseInverse(a)`,
-				Answer:      FormatPose(r3inv),
-				Explanation: "PoseInverse of an oriented pose is NOT just negating the point!\n  The inverse orientation also rotates the negated translation.",
-				InputPoses:  map[string]spatialmath.Pose{"a": a3},
-				ResultPose:  r3inv,
+				Setup: "  a := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 50, Y: 50, Z: 50},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})\n" +
+					"  result := spatialmath.PoseInverse(a)",
+				Answer: FormatPose(r3inv),
+				Explanation: "PoseInverse of an oriented pose is NOT just negating the point!\n" +
+					"  The inverse orientation also rotates the negated translation.",
+				InputPoses: map[string]spatialmath.Pose{"a": a3},
+				ResultPose: r3inv,
 			},
 			{
-				Setup: `  a := spatialmath.NewPose(r3.Vector{X: 50, Y: 50, Z: 50}, &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})
-  result := spatialmath.Compose(a, spatialmath.PoseInverse(a))`,
+				Setup: "  a := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 50, Y: 50, Z: 50},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 45, OX: 0, OY: 0, OZ: 1})\n" +
+					"  result := spatialmath.Compose(a, spatialmath.PoseInverse(a))",
 				Answer:      FormatPose(r4),
 				Explanation: "Always true: Compose(a, PoseInverse(a)) = zero pose, regardless of orientation.",
 				InputPoses:  map[string]spatialmath.Pose{"a": a3},
@@ -273,46 +289,72 @@ func makeLevel5() Level {
 		Description: "Real-world robotics problems using the same Compose/PoseInverse/PoseBetween operations.",
 		Questions: []Question{
 			{
-				Setup: `  // A robot arm's end effector is at this world pose:
-  endEffector := spatialmath.NewPose(r3.Vector{X: 500, Y: 0, Z: 300}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
-  // A camera is mounted on the end effector with this offset:
-  cameraOffset := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 50}, &spatialmath.OrientationVectorDegrees{Theta: 180, OX: 0, OY: 0, OZ: 1})
-  // The camera sees an object at this relative pose:
-  objectInCamera := spatialmath.NewPose(r3.Vector{X: 100, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
-
-  // Where is the object in world frame?
-  cameraInWorld := spatialmath.Compose(endEffector, cameraOffset)
-  result := spatialmath.Compose(cameraInWorld, objectInCamera)`,
-				Answer:      FormatPose(objectInWorld),
-				Explanation: "Chain the transforms: world->endEffector->camera->object.\n  Each Compose moves from one frame to the next.",
-				InputPoses:  map[string]spatialmath.Pose{"a": endEffector, "b": cameraInWorld, "c": objectInCamera},
-				ResultPose:  objectInWorld,
+				Setup: "  // A robot arm's end effector is at this world pose:\n" +
+					"  endEffector := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 500, Y: 0, Z: 300},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})\n" +
+					"  // A camera is mounted on the end effector with this offset:\n" +
+					"  cameraOffset := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 0, Y: 0, Z: 50},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 180, OX: 0, OY: 0, OZ: 1})\n" +
+					"  // The camera sees an object at this relative pose:\n" +
+					"  objectInCamera := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 100, Y: 0, Z: 0},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})\n" +
+					"\n" +
+					"  // Where is the object in world frame?\n" +
+					"  cameraInWorld := spatialmath.Compose(endEffector, cameraOffset)\n" +
+					"  result := spatialmath.Compose(cameraInWorld, objectInCamera)",
+				Answer: FormatPose(objectInWorld),
+				Explanation: "Chain the transforms: world->endEffector->camera->object.\n" +
+					"  Each Compose moves from one frame to the next.",
+				InputPoses: map[string]spatialmath.Pose{
+					"a": endEffector, "b": cameraInWorld, "c": objectInCamera,
+				},
+				ResultPose: objectInWorld,
 			},
 			{
-				Setup: `  // An arm is at this world pose:
-  armPose := spatialmath.NewPose(r3.Vector{X: 200, Y: 0, Z: 400}, &spatialmath.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1})
-  // An object is at this world pose:
-  objectWorld := spatialmath.NewPose(r3.Vector{X: 300, Y: 100, Z: 400}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
-
-  // What is the object's pose RELATIVE to the arm?
-  result := spatialmath.Compose(spatialmath.PoseInverse(armPose), objectWorld)`,
-				Answer:      FormatPose(objectRelative),
-				Explanation: "To express B in A's frame: Compose(PoseInverse(A), B).\n  PoseInverse(arm) 'undoes' the arm's transform, then objectWorld applies.",
-				InputPoses:  map[string]spatialmath.Pose{"a": armPose, "b": objectWorld},
-				ResultPose:  objectRelative,
+				Setup: "  // An arm is at this world pose:\n" +
+					"  armPose := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 200, Y: 0, Z: 400},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 90, OX: 0, OY: 0, OZ: 1})\n" +
+					"  // An object is at this world pose:\n" +
+					"  objectWorld := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 300, Y: 100, Z: 400},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})\n" +
+					"\n" +
+					"  // What is the object's pose RELATIVE to the arm?\n" +
+					"  result := spatialmath.Compose(spatialmath.PoseInverse(armPose), objectWorld)",
+				Answer: FormatPose(objectRelative),
+				Explanation: "To express B in A's frame: Compose(PoseInverse(A), B).\n" +
+					"  PoseInverse(arm) 'undoes' the arm's transform, then objectWorld applies.",
+				InputPoses: map[string]spatialmath.Pose{
+					"a": armPose, "b": objectWorld,
+				},
+				ResultPose: objectRelative,
 			},
 			{
-				Setup: `  // A robot arm has joints connected in a chain:
-  basePose := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 100}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
-  shoulderOffset := spatialmath.NewPose(r3.Vector{X: 0, Y: 0, Z: 200}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0})
-  elbowOffset := spatialmath.NewPose(r3.Vector{X: 150, Y: 0, Z: 0}, &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})
-
-  // Where is the hand (after elbow) in world frame?
-  result := spatialmath.Compose(spatialmath.Compose(basePose, shoulderOffset), elbowOffset)`,
-				Answer:      FormatPose(handInWorld),
-				Explanation: "Forward kinematics in a nutshell: chain Compose from base to end effector.\n  Each joint's orientation changes the direction of all subsequent translations.",
-				InputPoses:  map[string]spatialmath.Pose{"a": basePose, "b": shoulderOffset, "c": elbowOffset},
-				ResultPose:  handInWorld,
+				Setup: "  // A robot arm has joints connected in a chain:\n" +
+					"  basePose := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 0, Y: 0, Z: 100},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})\n" +
+					"  shoulderOffset := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 0, Y: 0, Z: 200},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 1, OY: 0, OZ: 0})\n" +
+					"  elbowOffset := spatialmath.NewPose(\n" +
+					"      r3.Vector{X: 150, Y: 0, Z: 0},\n" +
+					"      &spatialmath.OrientationVectorDegrees{Theta: 0, OX: 0, OY: 0, OZ: 1})\n" +
+					"\n" +
+					"  // Where is the hand (after elbow) in world frame?\n" +
+					"  result := spatialmath.Compose(\n" +
+					"      spatialmath.Compose(basePose, shoulderOffset), elbowOffset)",
+				Answer: FormatPose(handInWorld),
+				Explanation: "Forward kinematics: chain Compose from base to end effector.\n" +
+					"  Each joint's orientation changes subsequent translation directions.",
+				InputPoses: map[string]spatialmath.Pose{
+					"a": basePose, "b": shoulderOffset, "c": elbowOffset,
+				},
+				ResultPose: handInWorld,
 			},
 		},
 	}

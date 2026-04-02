@@ -18,7 +18,7 @@ type Question struct {
 	// Explanation describes why the answer is what it is.
 	Explanation string
 	// InputPoses are the named poses to visualize before the answer is revealed.
-	// Keys should match variable names in Setup (e.g. "a", "b", "rot", "endEffector").
+	// Keys should match variable names in Setup (e.g. "a", "b").
 	InputPoses map[string]spatialmath.Pose
 	// ResultPose is the result to visualize after the answer is revealed.
 	ResultPose spatialmath.Pose
@@ -32,12 +32,26 @@ type Level struct {
 	Questions   []Question
 }
 
-// inputPoseLegend builds a human-readable legend of which color represents which variable.
+// print helpers — this is a CLI tool, stdout output is intentional.
+
+//nolint:forbidigo
+func printLine(a ...any) { fmt.Println(a...) }
+
+//nolint:forbidigo
+func printFmt(format string, a ...any) { fmt.Printf(format, a...) }
+
+//nolint:forbidigo
+func printPrompt(s string) { fmt.Print(s) }
+
+func waitForEnter(reader *bufio.Reader) {
+	_, _ = reader.ReadString('\n')
+}
+
+// inputPoseLegend builds a human-readable legend mapping colors to variables.
 func inputPoseLegend(poses map[string]spatialmath.Pose) string {
 	if len(poses) == 0 {
 		return ""
 	}
-	// Sort keys for deterministic output.
 	names := make([]string, 0, len(poses))
 	for name := range poses {
 		names = append(names, name)
@@ -48,91 +62,89 @@ func inputPoseLegend(poses map[string]spatialmath.Pose) string {
 	parts = append(parts, "white = origin")
 	for _, name := range names {
 		color := PoseColor(name)
-		parts = append(parts, fmt.Sprintf("%s = %s", color, name))
+		parts = append(parts, color+" = "+name)
 	}
 	return strings.Join(parts, ", ")
 }
 
 // RunLevel runs a single level interactively.
 func RunLevel(reader *bufio.Reader, level Level, totalLevels int) {
-	fmt.Printf("\n=== Level %d: %s (%d/%d) ===\n", level.Number, level.Title, level.Number, totalLevels)
-	fmt.Println(level.Description)
-	fmt.Println()
+	printFmt("\n=== Level %d: %s (%d/%d) ===\n",
+		level.Number, level.Title, level.Number, totalLevels)
+	printLine(level.Description)
+	printLine()
 
 	for i, q := range level.Questions {
-		fmt.Printf("--- Question %d of %d ---\n\n", i+1, len(level.Questions))
+		printFmt("--- Question %d of %d ---\n\n",
+			i+1, len(level.Questions))
 
-		// Visualize inputs and print legend
 		if len(q.InputPoses) > 0 {
 			DrawInputPoses(q.InputPoses)
 			legend := inputPoseLegend(q.InputPoses)
-			fmt.Printf("  3D view: %s\n", legend)
-			fmt.Println("  Each pose is shown as a 10x20x30 box so you can see its orientation.")
-			fmt.Println()
+			printFmt("  3D view: %s\n", legend)
+			printLine("  Each pose is a 10x20x30 box so you can see orientation.")
+			printLine()
 		}
 
-		// Show the code
-		fmt.Println(q.Setup)
-		fmt.Println()
-		fmt.Println("What is the result?")
-		fmt.Println()
-		fmt.Print("Press Enter when you've thought about it...")
-		reader.ReadString('\n')
+		printLine(q.Setup)
+		printLine()
+		printLine("What is the result?")
+		printLine()
+		printPrompt("Press Enter when you've thought about it...")
+		waitForEnter(reader)
 
-		// Reveal answer
-		fmt.Println()
-		fmt.Printf("  Answer:\n    %s\n", q.Answer)
+		printLine()
+		printFmt("  Answer:\n    %s\n", q.Answer)
 
-		// Visualize result
 		if q.ResultPose != nil {
 			DrawResult(q.ResultPose)
-			fmt.Println()
-			fmt.Println("  3D view: red = result (added to the scene)")
+			printLine()
+			printLine("  3D view: red = result (added to the scene)")
 		}
 
-		// Explanation
 		if q.Explanation != "" {
-			fmt.Println()
-			fmt.Printf("  %s\n", q.Explanation)
+			printLine()
+			printFmt("  %s\n", q.Explanation)
 		}
 
-		fmt.Println()
+		printLine()
 		if i < len(level.Questions)-1 {
-			fmt.Print("Press Enter for next question...")
+			printPrompt("Press Enter for next question...")
 		} else {
-			fmt.Print("Press Enter to finish this level...")
+			printPrompt("Press Enter to finish this level...")
 		}
-		reader.ReadString('\n')
-		fmt.Println()
+		waitForEnter(reader)
+		printLine()
 	}
 
 	ClearVisualization()
-	fmt.Printf("=== Level %d Complete! ===\n\n", level.Number)
+	printFmt("=== Level %d Complete! ===\n\n", level.Number)
 }
 
 // RunAllLevels runs all levels sequentially.
 func RunAllLevels(reader *bufio.Reader, levels []Level) {
-	fmt.Println("=== Spatialmath Worksheet Game ===")
-	fmt.Printf("Learn spatial transformations through %d levels of exercises.\n", len(levels))
-	fmt.Println()
-	fmt.Println("3D Visualization (requires motion-tools running):")
-	fmt.Println("  - Each pose is drawn as a 10x20x30 mm box (asymmetric so you can see orientation)")
-	fmt.Println("  - white  = origin (always shown for reference)")
-	fmt.Println("  - blue   = first input pose (a)")
-	fmt.Println("  - green  = second input pose (b)")
-	fmt.Println("  - yellow = third input pose (c)")
-	fmt.Println("  - red    = result (shown after you reveal the answer)")
-	fmt.Println()
-	fmt.Print("Press Enter to begin...")
-	reader.ReadString('\n')
+	printLine("=== Spatialmath Worksheet Game ===")
+	printFmt("Learn spatial transformations through %d levels.\n",
+		len(levels))
+	printLine()
+	printLine("3D Visualization (requires motion-tools running):")
+	printLine("  - Poses drawn as 10x20x30 mm boxes (asymmetric)")
+	printLine("  - white  = origin (reference)")
+	printLine("  - blue   = first input (a)")
+	printLine("  - green  = second input (b)")
+	printLine("  - yellow = third input (c)")
+	printLine("  - red    = result (after reveal)")
+	printLine()
+	printPrompt("Press Enter to begin...")
+	waitForEnter(reader)
 
 	for _, level := range levels {
 		RunLevel(reader, level, len(levels))
 		if level.Number < len(levels) {
-			fmt.Print("Press Enter to continue to next level...")
-			reader.ReadString('\n')
+			printPrompt("Press Enter to continue to next level...")
+			waitForEnter(reader)
 		}
 	}
 
-	fmt.Println("=== All levels complete! ===")
+	printLine("=== All levels complete! ===")
 }
