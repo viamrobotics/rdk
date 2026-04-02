@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,6 +16,8 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
 )
@@ -243,8 +244,63 @@ func (tp *teleopPipeline) buildExtra(
 	return extra
 }
 
+// executeTeleop executes a trajectory by calling GoToInputs on all components
+// in parallel. Unlike ms.execute, it skips the step-0 position check (which
+// blocks on CurrentInputs gRPC calls) and sends commands to all arms concurrently
+// rather than sequentially.
+func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj motionplan.Trajectory) error {
+	if len(traj) < 2 {
+		return nil
+	}
+
+	// Group inputs per component across all trajectory steps (skip step 0 = start position).
+	perComponent := make(map[string][][]referenceframe.Input)
+	for i := 1; i < len(traj); i++ {
+		for name, inputs := range traj[i] {
+			if len(inputs) == 0 {
+				continue
+			}
+			perComponent[name] = append(perComponent[name], inputs)
+		}
+	}
+
+	// Execute GoToInputs on all components in parallel.
+	var wg sync.WaitGroup
+	errs := make([]error, len(perComponent))
+	idx := 0
+	for name, inputs := range perComponent {
+		r, ok := ms.components[name]
+		if !ok {
+			continue
+		}
+		ie, err := utils.AssertType[framesystem.InputEnabled](r)
+		if err != nil {
+			continue
+		}
+		wg.Add(1)
+		go func(i int, ie framesystem.InputEnabled, inputs [][]referenceframe.Input, r resource.Resource) {
+			defer wg.Done()
+			if err := ie.GoToInputs(ctx, inputs...); err != nil {
+				if actuator, ok := r.(inputEnabledActuator); ok {
+					_ = actuator.Stop(ctx, nil)
+				}
+				errs[i] = err
+			}
+		}(idx, ie, inputs, r)
+		idx++
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // runExecutor is the executor goroutine. It reads trajectories from trajCh
-// and executes them via ms.execute, which calls GoToInputs on all components.
+// and executes them in parallel across all components.
 func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 	var lastExecEnd time.Time
 	var totalCycle time.Duration
@@ -259,10 +315,8 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			tp.lastExecWaitNanos.Store(waitDur.Nanoseconds())
 
 			execStart := time.Now()
-			// Skip start-position check (math.MaxFloat64) because the arm
-			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
-			err := ms.execute(ctx, traj, math.MaxFloat64)
+			err := tp.executeTeleop(ctx, ms, traj)
 			ms.mu.RUnlock()
 			execDur := time.Since(execStart)
 			tp.lastExecNanos.Store(execDur.Nanoseconds())
