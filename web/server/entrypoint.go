@@ -283,7 +283,7 @@ func (s *robotServer) runServer(ctx context.Context) error {
 		s.configLogger.CInfo(ctx, "Getting up-to-date config from cloud...")
 	}
 	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
-		s.configLogger.Errorw("error creating viam dir at %q, startup will likely fail", rutils.ViamDotDir)
+		s.configLogger.Errorw("error creating viam dir, startup will likely fail", "path", rutils.ViamDotDir)
 	}
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
 	cfg, err := config.Read(ctx, s.args.ConfigFile, s.configLogger, s.conn)
