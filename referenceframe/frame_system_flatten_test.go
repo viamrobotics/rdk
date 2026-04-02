@@ -24,26 +24,35 @@ func TestFlattenSerialModel(t *testing.T) {
 	fs, err := NewFrameSystem("test", parts, nil)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Verify flattened structure
-	t.Log("Frame names:", fs.FrameNames())
-	test.That(t, fs.Frame("arm1"), test.ShouldNotBeNil) // backward-compat alias
+	// Verify the SimpleModel is in the FS with its full DoF
+	arm1Frame := fs.Frame("arm1")
+	test.That(t, arm1Frame, test.ShouldNotBeNil)
+	test.That(t, len(arm1Frame.DoF()), test.ShouldEqual, 1) // original SimpleModel DoF
+
+	// Verify flattened internal frames are accessible
 	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
 	test.That(t, fs.Frame("arm1:shoulder_pan_joint"), test.ShouldNotBeNil)
 	test.That(t, fs.Frame("arm1_origin"), test.ShouldNotBeNil)
 
-	// backward-compat alias is 0-DoF static
-	test.That(t, len(fs.Frame("arm1").DoF()), test.ShouldEqual, 0)
-
-	// Individual joint has DoF
-	test.That(t, len(fs.Frame("arm1:shoulder_pan_joint").DoF()), test.ShouldEqual, 1)
-
-	// backward-compat alias is parented to the primary output frame
-	parent, err := fs.Parent(fs.Frame("arm1"))
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, parent.Name(), test.ShouldEqual, "arm1:shoulder_pan_joint")
+	// Internal frames are hidden from FrameNames()
+	frameNames := fs.FrameNames()
+	for _, name := range frameNames {
+		test.That(t, name, test.ShouldNotEqual, "arm1:base_link")
+		test.That(t, name, test.ShouldNotEqual, "arm1:shoulder_pan_joint")
+	}
 
 	// FlattenedModel returns the original model
 	test.That(t, fs.FlattenedModel("arm1"), test.ShouldNotBeNil)
+
+	// NewZeroInputs returns component-level entry
+	zeroInputs := NewZeroInputs(fs)
+	armInputs, ok := zeroInputs["arm1"]
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, len(armInputs), test.ShouldEqual, 1)
+
+	// No per-frame entries in NewZeroInputs
+	_, hasPerFrame := zeroInputs["arm1:shoulder_pan_joint"]
+	test.That(t, hasPerFrame, test.ShouldBeFalse)
 }
 
 func TestFlattenTransformEquivalence(t *testing.T) {
@@ -73,11 +82,11 @@ func TestFlattenTransformEquivalence(t *testing.T) {
 		fs, err := NewFrameSystem("test", parts, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Set up inputs for the flattened FS
+		// Set up component-level inputs for the FS
 		li := NewZeroLinearInputs(fs)
-		li.Put("arm1:shoulder_pan_joint", inputs)
+		li.Put("arm1", inputs)
 
-		// Transform from backward-compat alias to world
+		// Transform from arm1 to world — uses SimpleModel's Transform
 		pif := NewPoseInFrame("arm1", spatial.NewZeroPose())
 		result, err := fs.Transform(li, pif, World)
 		test.That(t, err, test.ShouldBeNil)
@@ -114,6 +123,11 @@ func TestFlattenBranchingMimicModel(t *testing.T) {
 	// Check that the mimic frame wrapper is correctly typed
 	_, isMimic := rightJoint.(*mimicFrameWrapper)
 	test.That(t, isMimic, test.ShouldBeTrue)
+
+	// The gripper SimpleModel is in the FS with its full DoF
+	gripperFrame := fs.Frame("gripper1")
+	test.That(t, gripperFrame, test.ShouldNotBeNil)
+	test.That(t, len(gripperFrame.DoF()), test.ShouldEqual, 1)
 }
 
 func TestFlattenDistributeGatherRoundTrip(t *testing.T) {
@@ -184,4 +198,40 @@ func TestFlattenIntermediateParenting(t *testing.T) {
 	baseLinkPose, err := fs.Frame("arm1:base_link").Transform([]Input{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(resultPose, baseLinkPose), test.ShouldBeTrue)
+}
+
+func TestFlattenComponentLevelTransform(t *testing.T) {
+	// Verify that Transform works with component-level LinearInputs (resolveFrameInputs path)
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	lif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
+	cameraLif := NewLinkInFrame("arm1:base_link", spatial.NewZeroPose(), "camera", nil)
+
+	parts := []*FrameSystemPart{
+		{FrameConfig: lif, ModelFrame: model},
+	}
+	fs, err := NewFrameSystem("test", parts, []*LinkInFrame{cameraLif})
+	test.That(t, err, test.ShouldBeNil)
+
+	// Create component-level LinearInputs (what external code would produce)
+	li := NewZeroLinearInputs(fs)
+	li.Put("arm1", []Input{math.Pi / 4})
+
+	// Transform from camera to world (goes through individual flattened frames)
+	// This exercises the resolveFrameInputs path for arm1:base_link
+	pif := NewPoseInFrame("camera", spatial.NewZeroPose())
+	result, err := fs.Transform(li, pif, World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldNotBeNil)
+
+	// Also verify Transform from arm1 to world (goes through SimpleModel)
+	pifArm := NewPoseInFrame("arm1", spatial.NewZeroPose())
+	resultArm, err := fs.Transform(li, pifArm, World)
+	test.That(t, err, test.ShouldBeNil)
+
+	// arm1 result should match the model's FK
+	expectedPose, err := model.Transform([]Input{math.Pi / 4})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostCoincident(resultArm.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
 }

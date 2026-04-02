@@ -76,13 +76,7 @@ func NewSimplePlanFromTrajectory(
 		path = append(path, poseMap)
 	}
 
-	// Build trajectory with component-level keys, gathering per-frame inputs
-	// from flattened models back into flat component-keyed entries.
-	traj := make(Trajectory, len(trajAsInputs))
-	for i, inp := range trajAsInputs {
-		traj[i] = fs.ComponentInputsFromLinear(inp)
-	}
-	return &SimplePlan{path: path, traj: traj}, nil
+	return &SimplePlan{path: path, traj: TrajectoryFromLinearInputs(trajAsInputs)}, nil
 }
 
 // NewGeoPlan returns a Plan containing a Path with GPS coordinates smuggled into the Pose struct. Each GPS point is created using:

@@ -386,67 +386,53 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 }
 
 func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referenceframe.LinkInFrame) (*referenceframe.FrameSystem, error) {
-	fsCfg, err := ms.fsService.FrameSystemConfig(ctx)
+	frameSys, err := framesystem.NewFromService(ctx, ms.fsService, transforms)
 	if err != nil {
 		return nil, err
 	}
 
-	// Apply InputRangeOverride to copies of parts BEFORE building the FS.
-	// This way the model is modified before flattening, so the flattened frames
-	// naturally have the correct limits. We copy the parts slice to avoid mutating
-	// the shared config.
-	parts := fsCfg.Parts
-	if len(ms.conf.InputRangeOverride) > 0 {
-		parts = make([]*referenceframe.FrameSystemPart, len(fsCfg.Parts))
-		copy(parts, fsCfg.Parts)
-	}
 	for fName, mods := range ms.conf.InputRangeOverride {
-		found := false
-		for i, part := range parts {
-			if part.FrameConfig.Name() != fName || part.ModelFrame == nil {
-				continue
-			}
-			sm, ok := part.ModelFrame.(*referenceframe.SimpleModel)
-			if !ok {
-				return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", part.ModelFrame)
-			}
-
-			ms.logger.Debugf("limit override f: %v mods: %v", fName, mods)
-
-			// Resolve override keys: match by name first, then by stringified moveable-frame index
-			resolved := make(map[string]referenceframe.Limit, len(mods))
-			moveableNames := sm.MoveableFrameNames()
-			for key, limit := range mods {
-				matched := false
-				for j, name := range moveableNames {
-					if key == name || key == strconv.Itoa(j) {
-						resolved[name] = limit
-						matched = true
-						break
-					}
-				}
-				if !matched {
-					return nil, fmt.Errorf("can't find mod (%s)", key)
-				}
-			}
-
-			newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
-			if err != nil {
-				return nil, err
-			}
-			// Replace with a shallow copy of the part so we don't mutate the original
-			newPart := *part
-			newPart.ModelFrame = newModel
-			parts[i] = &newPart
-			found = true
-			break
-		}
-		if !found {
+		f := frameSys.Frame(fName)
+		if f == nil {
 			return nil, fmt.Errorf("frame (%s) in input_range_override doesn't exist", fName)
 		}
+
+		ms.logger.Debugf("limit override f: %v mods: %v", fName, mods, f)
+
+		sm, ok := f.(*referenceframe.SimpleModel)
+		if !ok {
+			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
+		}
+
+		// Resolve override keys: match by name first, then by stringified moveable-frame index
+		resolved := make(map[string]referenceframe.Limit, len(mods))
+		moveableNames := sm.MoveableFrameNames()
+		for key, limit := range mods {
+			matched := false
+			for i, name := range moveableNames {
+				if key == name || key == strconv.Itoa(i) {
+					resolved[name] = limit
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return nil, fmt.Errorf("can't find mod (%s)", key)
+			}
+		}
+
+		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
+		if err != nil {
+			return nil, err
+		}
+
+		err = frameSys.ReplaceFrame(newModel)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return referenceframe.NewFrameSystem(ms.fsService.Name().ShortName(), parts, transforms)
+	return frameSys, nil
 }
 
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
@@ -473,12 +459,6 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	}
 	if len(waypoints) == 0 {
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
-	}
-
-	// Expand component-keyed inputs to per-frame keys for flattened models.
-	startState, waypoints, err = expandPlanStates(frameSys, startState, waypoints)
-	if err != nil {
-		return nil, err
 	}
 
 	// The contents of waypoints can be gigantic, and if so, making copies of `extra` becomes the majority of motion planning runtime.
@@ -578,11 +558,6 @@ func (ms *builtIn) planTeleop(
 		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
 	}
 
-	startState, waypoints, err = expandPlanStates(frameSys, startState, waypoints)
-	if err != nil {
-		return nil, err
-	}
-
 	if req.Extra != nil {
 		req.Extra["waypoints"] = nil
 	}
@@ -626,15 +601,6 @@ func (ms *builtIn) planTeleop(
 }
 
 func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
-	// Consolidate per-frame trajectory entries into per-component flat vectors for GoToInputs.
-	fs, err := ms.getFrameSystem(ctx, nil)
-	if err != nil {
-		return err
-	}
-	for i, step := range trajectory {
-		trajectory[i] = fs.ComponentInputsFromLinear(step.ToLinearInputs())
-	}
-
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -747,36 +713,6 @@ func (ms *builtIn) applyDefaultExtras(extras map[string]any) {
 			extras[key] = val
 		}
 	}
-}
-
-// expandPlanStates expands component-keyed inputs in PlanStates to per-frame keys
-// for flattened models. This is the API boundary between external callers (who use
-// component names) and the planner (which uses per-frame names).
-func expandPlanStates(
-	fs *referenceframe.FrameSystem,
-	startState *armplanning.PlanState,
-	waypoints []*armplanning.PlanState,
-) (*armplanning.PlanState, []*armplanning.PlanState, error) {
-	if len(fs.ComponentSchemaNames()) == 0 {
-		return startState, waypoints, nil
-	}
-	if cfg := startState.Configuration(); len(cfg) > 0 {
-		expanded, err := fs.ExpandComponentInputs(cfg)
-		if err != nil {
-			return nil, nil, err
-		}
-		startState = armplanning.NewPlanState(startState.Poses(), expanded)
-	}
-	for i, wp := range waypoints {
-		if cfg := wp.Configuration(); len(cfg) > 0 {
-			expanded, err := fs.ExpandComponentInputs(cfg)
-			if err != nil {
-				return nil, nil, err
-			}
-			waypoints[i] = armplanning.NewPlanState(wp.Poses(), expanded)
-		}
-	}
-	return startState, waypoints, nil
 }
 
 func waypointsFromRequest(

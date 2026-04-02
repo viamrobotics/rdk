@@ -309,10 +309,6 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 		if len(frame.DoF()) > 0 {
 			break
 		}
-		// Check if this is a backward-compat alias of a flattened model
-		if ssc.fs.ComponentSchema(frame.Name()) != nil {
-			break
-		}
 		if frame == ssc.fs.World() {
 			return "", nil, fmt.Errorf("hit world, and no moving parts when looking to move %s", goalFrame)
 		}
@@ -322,12 +318,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 		}
 	}
 
-	// Check if the moving frame is a flattened model (backward-compat alias).
-	// The componentName is used for cache lookup and input gather/distribute.
-	// The fsFrameName is used for FS transform lookups (it exists in the FS as a zero-pose alias).
-	componentName := frame.Name()
-	if ssc.fs.ComponentSchema(componentName) == nil {
-		// Standard check: ensure no parent also moves
+	{
 		p, err := ssc.fs.Parent(frame)
 		if err != nil {
 			return "", nil, err
@@ -348,7 +339,6 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// 1) the frame the goal is specified in
 	// 2) the frame of the thing we want to move
 	// 3) the frame of the actuating component
-	// For flattened models, componentName is the backward-compat alias in the FS.
 
 	f2w1DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(goalPIF.Parent()))
 	if err != nil {
@@ -358,8 +348,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	if err != nil {
 		return "", nil, err
 	}
-	// Use componentName for FS lookup (it's the backward-compat alias in the FS)
-	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(componentName))
+	f2w3DQ, err := ssc.fs.GetFrameToWorldTransform(inputs, ssc.fs.Frame(frame.Name()))
 	if err != nil {
 		return "", nil, err
 	}
@@ -375,12 +364,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 	// The smart seed cache stores FK results from frame.Transform(), which are in the frame's
 	// parent coordinate system. Transform newPose from world coordinates to that system so the
 	// norm check and distance comparisons in findSeedsForFrame are correct.
-	// Use componentName (the FS frame name) to find the parent in the FS.
-	fsFrame := ssc.fs.Frame(componentName)
-	if fsFrame == nil {
-		return "", nil, fmt.Errorf("frame %s not found in FS", componentName)
-	}
-	parentFrame, err := ssc.fs.Parent(fsFrame)
+	parentFrame, err := ssc.fs.Parent(frame)
 	if err != nil {
 		return "", nil, err
 	}
@@ -392,7 +376,7 @@ func (ssc *smartSeedCache) findMovingInfo(inputs *referenceframe.LinearInputs,
 		newPose = spatialmath.PoseBetween(&spatialmath.DualQuaternion{parentWorldDQ}, newPose)
 	}
 
-	return componentName, newPose, nil
+	return frame.Name(), newPose, nil
 }
 
 func (ssc *smartSeedCache) findSeed(ctx context.Context,
@@ -442,12 +426,8 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		return nil, nil, err
 	}
 
-	// For flattened models, use the component schema to gather/distribute inputs.
-	schema := ssc.fs.ComponentSchema(movingFrame)
-	startInputs := start.GatherComponentInputs(movingFrame, schema)
-
 	logger.Debugf("goalPIF: %v movingFrame: %v movingPose: %v", goalPIF, movingFrame, movingPose)
-	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, startInputs, movingPose, maxSeeds, logger)
+	seeds, divisors, err := ssc.findSeedsForFrame(movingFrame, start.Get(movingFrame), movingPose, maxSeeds, logger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -458,16 +438,12 @@ func (ssc *smartSeedCache) findSeeds(ctx context.Context,
 		for k, v := range start.Items() {
 			i.Put(k, v)
 		}
-		if err := i.DistributeComponentInputs(movingFrame, s, schema); err != nil {
-			return nil, nil, err
-		}
+		i.Put(movingFrame, s)
 		fullSeeds = append(fullSeeds, i)
 	}
 
 	fullDivisors := start.CopyWithZeros()
-	if err := fullDivisors.DistributeComponentInputs(movingFrame, divisors, schema); err != nil {
-		return nil, nil, err
-	}
+	fullDivisors.Put(movingFrame, divisors)
 
 	return fullSeeds, fullDivisors.GetLinearizedInputs(), nil
 }
@@ -545,13 +521,7 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 	maxSeeds int,
 	logger logging.Logger,
 ) ([][]referenceframe.Input, []float64, error) {
-	// For flattened models, use the original model (which has combined DoF and proper Transform)
-	var frame referenceframe.Frame
-	if model := ssc.fs.FlattenedModel(frameName); model != nil {
-		frame = model
-	} else {
-		frame = ssc.fs.Frame(frameName)
-	}
+	frame := ssc.fs.Frame(frameName)
 	if frame == nil {
 		return nil, nil, fmt.Errorf("no frame %s", frameName)
 	}
@@ -744,37 +714,6 @@ func (ssc *smartSeedCache) buildCache(logger logging.Logger) error {
 		if err != nil {
 			return fmt.Errorf("cannot build cache for frame: %s %w", frameName, err)
 		}
-	}
-
-	// Build cache entries for flattened models using the original combined SimpleModel
-	for _, componentName := range ssc.fs.ComponentSchemaNames() {
-		model := ssc.fs.FlattenedModel(componentName)
-		if model == nil || len(model.DoF()) == 0 {
-			continue
-		}
-
-		hash := model.Hash()
-
-		sscCacheLock.Lock()
-		ccf, ok := sscCache[hash]
-		sscCacheLock.Unlock()
-
-		if !ok {
-			start := time.Now()
-			var err error
-			ccf, err = newCacheForFrame(model, logger)
-			if err != nil {
-				return fmt.Errorf("cannot build cache for flattened model: %s %w", componentName, err)
-			}
-
-			cacheBuildLogger.Infof("time to build: %v for: %v (flattened) size: %d", time.Since(start), componentName, ccf.totalSize)
-
-			sscCacheLock.Lock()
-			sscCache[hash] = ccf
-			sscCacheLock.Unlock()
-		}
-
-		ssc.rawCache[componentName] = ccf
 	}
 
 	return nil

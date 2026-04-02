@@ -314,9 +314,7 @@ func (svc *frameSystemService) TransformPointCloud(ctx context.Context, srcpc po
 }
 
 // CurrentInputs will get present inputs for a framesystem from a robot and return a map of those inputs, as well as a map of the
-// InputEnabled resources that those inputs came from. For flattened models, inputs are returned under the
-// component name (e.g., "pieceArm" → [0,0,0,0,0,0]) rather than per-frame — the FrameSystem
-// transparently resolves these to individual frames when computing transforms.
+// InputEnabled resources that those inputs came from.
 func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referenceframe.FrameSystemInputs, error) {
 	fs, err := NewFromService(ctx, svc, nil)
 	if err != nil {
@@ -324,46 +322,24 @@ func (svc *frameSystemService) CurrentInputs(ctx context.Context) (referencefram
 	}
 	input := referenceframe.NewZeroInputs(fs)
 
-	// For flattened models, remove per-frame entries and add a single component-keyed entry.
-	for _, componentName := range fs.ComponentSchemaNames() {
-		schema := fs.ComponentSchema(componentName)
-		for _, name := range schema.FrameNamesInOrder() {
-			delete(input, name)
-		}
-
-		component, ok := svc.components[componentName]
-		if !ok {
-			return nil, DependencyNotFoundError(componentName)
-		}
-		inputEnabled, ok := component.(InputEnabled)
-		if !ok {
-			return nil, NotInputEnabledError(component)
-		}
-		pos, err := inputEnabled.CurrentInputs(ctx)
-		if err != nil {
-			return nil, err
-		}
-		input[componentName] = pos
-	}
-
-	// Handle non-flattened frames with non-zero DoF.
+	// build maps of relevant components and inputs from initial inputs
 	for name, original := range input {
+		// skip frames with no input
 		if len(original) == 0 {
 			continue
 		}
-		if fs.ComponentSchema(name) != nil {
-			continue // already handled above
-		}
 
+		// add component to map
 		component, ok := svc.components[name]
 		if !ok {
-			continue
+			return nil, DependencyNotFoundError(name)
 		}
 		inputEnabled, ok := component.(InputEnabled)
 		if !ok {
 			return nil, NotInputEnabledError(component)
 		}
 
+		// add input to map
 		pos, err := inputEnabled.CurrentInputs(ctx)
 		if err != nil {
 			return nil, err

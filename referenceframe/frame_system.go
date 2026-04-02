@@ -219,37 +219,21 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 
 	fs := NewEmptyFrameSystem(name)
 	for _, part := range sortedParts {
-		// Check if this part has a SimpleModel with non-zero DoF that should be flattened
-		sm, shouldFlatten := part.ModelFrame.(*SimpleModel)
-		if shouldFlatten && len(sm.DoF()) == 0 {
-			shouldFlatten = false
+		// Always create model frame + static offset (same as main-branch behavior)
+		modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
+		if err != nil {
+			return nil, err
+		}
+		if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
+			return nil, err
+		}
+		if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
+			return nil, err
 		}
 
-		if shouldFlatten {
-			// Flatten: add the static origin frame, then unpack the model's internal frames
-			staticOriginFrame, err := part.FrameConfig.ToStaticFrame(part.FrameConfig.Name() + "_origin")
-			if err != nil {
-				return nil, err
-			}
-			if err = fs.AddFrame(
-				&tailGeometryStaticFrame{staticOriginFrame.(*staticFrame)},
-				fs.Frame(part.FrameConfig.Parent()),
-			); err != nil {
-				return nil, err
-			}
-			if err = flattenModelIntoFS(fs, sm, part.FrameConfig.Name(), fs.Frame(part.FrameConfig.Name()+"_origin")); err != nil {
-				return nil, err
-			}
-		} else {
-			// Non-flattened path: 0-DoF models, no model, or non-SimpleModel
-			modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
-			if err != nil {
-				return nil, err
-			}
-			if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
-				return nil, err
-			}
-			if err = fs.AddFrame(modelFrame, staticOffsetFrame); err != nil {
+		// Additionally flatten multi-DoF SimpleModels for intermediate frame parenting
+		if sm, ok := part.ModelFrame.(*SimpleModel); ok && len(sm.DoF()) > 0 {
+			if err = flattenModelIntoFS(fs, sm, part.FrameConfig.Name(), staticOffsetFrame); err != nil {
 				return nil, err
 			}
 		}
@@ -370,8 +354,31 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 }
 
 // FrameNames returns the list of frame names registered in the frame system.
+// Internal frames from flattened models (namespaced with ":") are hidden from this list.
+// Use cachedBFSNames directly for internal operations that need all frames.
 func (sfs *FrameSystem) FrameNames() []string {
-	return sfs.cachedBFSNames
+	if len(sfs.flattenedModels) == 0 {
+		return sfs.cachedBFSNames
+	}
+	internal := sfs.internalFrameNameSet()
+	result := make([]string, 0, len(sfs.cachedBFSNames)-len(internal))
+	for _, name := range sfs.cachedBFSNames {
+		if !internal[name] {
+			result = append(result, name)
+		}
+	}
+	return result
+}
+
+// internalFrameNameSet returns the set of namespaced frame names belonging to flattened models.
+func (sfs *FrameSystem) internalFrameNameSet() map[string]bool {
+	result := make(map[string]bool)
+	for _, schema := range sfs.componentSchemas {
+		for _, name := range schema.FrameNamesInOrder() {
+			result[name] = true
+		}
+	}
+	return result
 }
 
 // AddFrame sets an already defined Frame into the system.
@@ -480,9 +487,13 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 	}
 
 	// make a map where the parent frame name is the key and the slice of children frames is the value
+	// Use cachedBFSNames to include internal flattened frames that are hidden from FrameNames().
 	childrenMap := map[string][]Frame{}
-	for _, name := range systemToMerge.FrameNames() {
+	for _, name := range systemToMerge.cachedBFSNames {
 		child := systemToMerge.Frame(name)
+		if child == nil {
+			continue
+		}
 		parent, err := systemToMerge.Parent(child)
 		if err != nil {
 			if errors.Is(err, NewParentFrameNilError(child.Name())) {
@@ -514,6 +525,13 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 			}
 		}
 	}
+
+	// Copy flattening metadata from the merged system
+	for componentName, model := range systemToMerge.flattenedModels {
+		sfs.flattenedModels[componentName] = model
+		sfs.componentSchemas[componentName] = systemToMerge.componentSchemas[componentName]
+	}
+
 	return nil
 }
 
@@ -566,6 +584,14 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		if addNew {
 			newFS.frames[frame.Name()] = frame
 			newFS.parents[frame.Name()] = parent.Name()
+		}
+	}
+
+	// Copy flattening metadata for components whose frame exists in the subset
+	for componentName, model := range sfs.flattenedModels {
+		if newFS.frameExists(componentName) {
+			newFS.flattenedModels[componentName] = model
+			newFS.componentSchemas[componentName] = sfs.componentSchemas[componentName]
 		}
 	}
 
@@ -639,7 +665,18 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	}
 
 	// add replacementFrame to frame system with parent of replaceMe
-	return sfs.AddFrame(replacementFrame, replaceMeParent)
+	if err := sfs.AddFrame(replacementFrame, replaceMeParent); err != nil {
+		return err
+	}
+
+	// If replacing a flattened model's component, update the stored model
+	if sm, ok := replacementFrame.(*SimpleModel); ok {
+		if _, exists := sfs.flattenedModels[replacementFrame.Name()]; exists {
+			sfs.flattenedModels[replacementFrame.Name()] = sm
+		}
+	}
+
+	return nil
 }
 
 // Returns the relative pose between the parent and the destination frame.
@@ -829,7 +866,7 @@ func NewNeutralFrameSystemInputs(fs *FrameSystem) FrameSystemInputs {
 // NewZeroLinearInputs returns a zeroed LinearInputs ensuring all frames have inputs.
 func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 	positions := NewLinearInputs()
-	for _, fn := range fs.cachedBFSNames {
+	for _, fn := range fs.FrameNames() {
 		frame := fs.Frame(fn)
 		if frame != nil {
 			positions.Put(fn, make([]Input, len(frame.DoF())))
@@ -843,7 +880,7 @@ func NewZeroLinearInputs(fs *FrameSystem) *LinearInputs {
 // Zero is used when it falls within [min, max]; otherwise the nearest bound is chosen.
 func NewNeutralLinearInputs(fs *FrameSystem) *LinearInputs {
 	inputs := NewLinearInputs()
-	for _, fn := range fs.cachedBFSNames {
+	for _, fn := range fs.FrameNames() {
 		frame := fs.Frame(fn)
 		if frame == nil {
 			continue
@@ -922,43 +959,16 @@ func FrameSystemGeometriesLinearInputs(fs *FrameSystem, linearInputs *LinearInpu
 	allGeometries := make(map[string]*GeometriesInFrame, 0)
 	for _, name := range fs.FrameNames() {
 		frame := fs.Frame(name)
+		inputs, err := linearInputs.GetFrameInputs(frame)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
+		}
 
-		var geosInFrame *GeometriesInFrame
-		if wrapper, ok := frame.(*mimicFrameWrapper); ok {
-			// Mimic frame: compute derived input and get geometries from the inner frame
-			sourceInputs := linearInputs.Get(wrapper.sourceFrameName)
-			if len(sourceInputs) > 0 {
-				derived := []Input{wrapper.multiplier*sourceInputs[0] + wrapper.offset}
-				var err error
-				geosInFrame, err = wrapper.inner.Geometries(derived)
-				if err != nil {
-					errAll = multierr.Append(errAll, err)
-					continue
-				}
-				// Re-label with the namespaced name
-				geosInFrame = NewGeometriesInFrame(wrapper.name, geosInFrame.geometries)
-			} else {
-				geosInFrame = NewGeometriesInFrame(wrapper.name, nil)
-			}
-		} else {
-			inputs, err := linearInputs.GetFrameInputs(frame)
-			if err != nil && len(frame.DoF()) > 0 {
-				// Fallback: try resolving from component-keyed inputs
-				inputs = fs.resolveFrameInputs(linearInputs, frame.Name())
-				if inputs == nil {
-					errAll = multierr.Append(errAll, err)
-					continue
-				}
-			} else if err != nil {
-				errAll = multierr.Append(errAll, err)
-				continue
-			}
-
-			geosInFrame, err = frame.Geometries(inputs)
-			if err != nil {
-				errAll = multierr.Append(errAll, err)
-				continue
-			}
+		geosInFrame, err := frame.Geometries(inputs)
+		if err != nil {
+			errAll = multierr.Append(errAll, err)
+			continue
 		}
 
 		if len(geosInFrame.Geometries()) > 0 {
@@ -1206,18 +1216,7 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 		}
 	}
 
-	// Add backward-compat alias: a zero-pose static frame with the component name
-	// parented to the primary output frame
-	primaryOutputNamespaced := componentName + ":" + model.primaryOutputFrame
-	primaryOutputParent := outerFS.Frame(primaryOutputNamespaced)
-	if primaryOutputParent == nil {
-		return fmt.Errorf("primary output frame %q not found after flattening", primaryOutputNamespaced)
-	}
-	if err := outerFS.AddFrame(NewZeroStaticFrame(componentName), primaryOutputParent); err != nil {
-		return err
-	}
-
-	// Store the original model for smart seeding and other code that needs combined DoF
+	// Store the original model for code that needs combined DoF (e.g., resolveFrameInputs)
 	outerFS.flattenedModels[componentName] = model
 
 	// Build a namespaced schema: copy the model's inputSchema with prefixed frame names.

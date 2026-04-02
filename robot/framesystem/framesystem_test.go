@@ -91,7 +91,7 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 	emptyIn := []referenceframe.Input{}
 	zeroIn := []referenceframe.Input{0.0}
 	blankPos := referenceframe.NewLinearInputs()
-	blankPos.Put("pieceArm:shoulder_pan_joint", zeroIn)
+	blankPos.Put("pieceArm", zeroIn)
 	logger := logging.NewTestLogger(t)
 	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -118,24 +118,17 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 
 	fs, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, additionalTransforms)
 	test.That(t, err, test.ShouldBeNil)
-	// 4 frames defined + 5 from transforms, 20 frames when including the offset and flattened arm internal frames
-	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 20)
+	// 4 frames defined + 5 from transforms, 18 frames when including the offset,
+	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 18)
 
 	// see if all frames are present and if their frames are correct
 	test.That(t, fs.Frame("world"), test.ShouldNotBeNil)
 
-	t.Log("pieceArm (backward-compat alias — zero static frame)")
+	t.Log("pieceArm")
 	test.That(t, fs.Frame("pieceArm"), test.ShouldNotBeNil)
-	// After flattening, "pieceArm" is a 0-DoF static frame at the primary output
-	pose, err := fs.Frame("pieceArm").Transform(emptyIn)
+	pose, err := fs.Frame("pieceArm").Transform(zeroIn)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose.Point().ApproxEqual(r3.Vector{}), test.ShouldBeTrue)
-
-	// The flattened internal frames are accessible with namespaced names
-	t.Log("pieceArm:base_link")
-	test.That(t, fs.Frame("pieceArm:base_link"), test.ShouldNotBeNil)
-	t.Log("pieceArm:shoulder_pan_joint")
-	test.That(t, fs.Frame("pieceArm:shoulder_pan_joint"), test.ShouldNotBeNil)
+	test.That(t, pose.Point().ApproxEqual(r3.Vector{500, 0, 300}), test.ShouldBeTrue)
 
 	t.Log("pieceArm_origin")
 	test.That(t, fs.Frame("pieceArm_origin"), test.ShouldNotBeNil)
