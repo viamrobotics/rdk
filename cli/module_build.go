@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -737,6 +738,63 @@ func (c *viamClient) loadGitignorePatterns(repoPath string) (gitignore.Matcher, 
 func (c *viamClient) shouldIgnore(relPath string, matcher gitignore.Matcher, isDir bool) bool {
 	normalizedPath := filepath.ToSlash(relPath)
 	return matcher.Match(strings.Split(normalizedPath, "/"), isDir)
+}
+
+//nolint:unused
+func (c *viamClient) ensureModuleRegisteredInCloud(
+	ctx context.Context, cmd *cli.Command, moduleID moduleID, pm *ProgressManager,
+) error {
+	_, err := c.getModule(ctx, moduleID)
+	if err != nil {
+		// Module is not registered in the cloud, prompt user for confirmation
+		// Stop the spinner before prompting for user input to avoid interference
+		// with the interactive prompt.
+		if pm != nil {
+			pm.Stop()
+		}
+
+		red := "\033[1;31m%s\033[0m"
+		printf(cmd.Root().Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
+
+		yellow := "\033[1;33m%s\033[0m"
+		printf(cmd.Root().Writer, yellow, "Info: The reloading process requires the module to first be registered in the cloud. "+
+			"Do you want to proceed with module registration?")
+		printf(cmd.Root().Writer, "Continue: y/n: ")
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		input := strings.ToUpper(strings.TrimSpace(rawInput))
+		if input != "Y" {
+			return errors.New("module reload aborted - module not registered in cloud")
+		}
+
+		// If user confirmed, we'll proceed with the reload which will register the module
+		// The registration happens implicitly through the cloud build process
+		// Restart the spinner after user input
+		if pm != nil {
+			if err := pm.Start("register"); err != nil {
+				return err
+			}
+		}
+
+		org, err := getOrgByModuleIDPrefix(ctx, c, moduleID.prefix)
+		if err != nil {
+			return err
+		}
+		// Create the module in the cloud
+		_, err = c.createModule(ctx, moduleID.name, org.GetId())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *viamClient) getOrgIDForPart(ctx context.Context, part *apppb.RobotPart) (string, error) {
