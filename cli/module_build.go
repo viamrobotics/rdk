@@ -826,6 +826,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	args reloadModuleArgs,
 	manifest ModuleManifest,
 	archivePath, partID string,
+	reloadUnixTs int64,
 ) (string, error) {
 	stream, err := c.buildClient.StartReloadBuild(ctx)
 	if err != nil {
@@ -880,7 +881,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
 		Name:           moduleID.name,
-		Version:        getReloadVersion(reloadSourceVersionPrefix, partID),
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTs),
 		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 	}
 	reqInner := &v1.CreatePackageRequest{
@@ -943,6 +944,7 @@ func (c *viamClient) moduleCloudReload(
 	manifest ModuleManifest,
 	partID string,
 	pm *ProgressManager,
+	reloadUnixTs int64,
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
@@ -976,7 +978,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("upload-source"); err != nil {
 		return nil, err
 	}
-	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID)
+	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTs)
 	if err != nil {
 		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
@@ -1028,7 +1030,7 @@ func (c *viamClient) moduleCloudReload(
 	return &moduleCloudBuildInfo{
 		ModuleID:    manifest.ModuleID,
 		OrgID:       orgID,
-		Version:     getReloadVersion(reloadVersionPrefix, partID),
+		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTs),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
@@ -1068,8 +1070,8 @@ func reloadModuleAction(ctx context.Context, cmd *cli.Command, args reloadModule
 	return reloadModuleActionInner(ctx, cmd, vc, args, logger, cloudBuild)
 }
 
-func getReloadVersion(versionPrefix, partID string) string {
-	return versionPrefix + "-" + partID
+func getReloadVersion(versionPrefix, partID string, unixTs int64) string {
+	return fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTs)
 }
 
 // reload with cloudbuild was supported starting in 0.90.0
@@ -1136,6 +1138,8 @@ func reloadModuleActionInner(
 			environment[parts[0]] = parts[1]
 		}
 	}
+	// Compute reload time once, used for both the package version and config reload_time
+	reloadTime := time.Now().UTC()
 
 	// note: configureModule and restartModule signal the robot via different channels.
 	// Running this command in rapid succession can cause an extra restart because the
@@ -1178,7 +1182,7 @@ func reloadModuleActionInner(
 			err = moduleBuildLocalAction(ctx, cmd, manifest, environment)
 			buildPath = manifest.Build.Path
 		} else {
-			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm)
+			buildInfo, err = vc.moduleCloudReload(ctx, cmd, args, platform, *manifest, partID, pm, reloadTime.Unix())
 			if err != nil {
 				return err
 			}
@@ -1318,7 +1322,7 @@ func reloadModuleActionInner(
 		return err
 	}
 	var newPart *apppb.RobotPart
-	newPart, needsRestart, err = configureModule(ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf))
+	newPart, needsRestart, err = configureModule(ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), reloadTime.Unix())
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {

@@ -250,7 +250,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // dirty means config was changed and needs to be written back.
 // needsRestart means the module needs an explicit restart (the reload path was already correct).
 func applyModuleConfigToPartMap(
-	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local bool, cloudReload bool, reloadUser string,
+	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local bool, cloudReload bool, reloadUser string, reloadUnixTs int64,
 ) ([]ModuleMap, bool, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
@@ -263,7 +263,7 @@ func applyModuleConfigToPartMap(
 		return nil, false, false, err
 	}
 
-	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser)
+	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser, reloadUnixTs)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -281,13 +281,14 @@ func applyModuleConfigToPartMap(
 // Mutates the passed part.RobotConfig.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func configureModule(
-	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool, cloudReload bool, reloadUser string,
+	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart,
+	local bool, cloudReload bool, reloadUser string, reloadUnixTs int64,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, cloudReload, reloadUser)
+	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, cloudReload, reloadUser, reloadUnixTs)
 	if err != nil {
 		return part, false, err
 	}
@@ -307,7 +308,7 @@ func configureModule(
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
-			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser)
+			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser, reloadUnixTs)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
@@ -348,6 +349,7 @@ func mutateModuleConfig(
 	local bool,
 	cloudReload bool,
 	reloadUser string,
+	reloadUnixTs int64,
 ) ([]ModuleMap, bool, bool, error) {
 	var dirty bool
 	var needsRestart bool
@@ -377,7 +379,7 @@ func mutateModuleConfig(
 		return nil, false, false, err
 	}
 
-	reloadTime := time.Now().UTC().Format(time.RFC3339)
+	reloadTime := time.Unix(reloadUnixTs, 0).UTC().Format(time.RFC3339)
 
 	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
