@@ -7,9 +7,12 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func TestFakeVision(t *testing.T) {
@@ -22,7 +25,11 @@ func TestFakeVision(t *testing.T) {
 	srv, err := registerFake(name, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
-	img := image.NewRGBA(image.Rect(0, 0, 100, 200))
+	namedImg, err := camera.NamedImageFromImage(
+		image.NewRGBA(image.Rect(0, 0, 100, 200)), "", utils.MimeTypeJPEG, data.Annotations{},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	img := &namedImg
 
 	// Test properties
 	props, err := srv.GetProperties(ctx, nil)
