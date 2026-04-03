@@ -4431,7 +4431,7 @@ func newViamClient(ctx context.Context, cmd *cli.Command) (*viamClient, error) {
 }
 
 func isTLSLocalhost(url *url.URL) bool {
-	if url.Scheme != "https" {
+	if url.Scheme != "https" || url.Port() == "443" {
 		return false
 	}
 	return strings.HasPrefix(url.Host, "0.0.0.0") || strings.HasPrefix(url.Host, "localhost")
