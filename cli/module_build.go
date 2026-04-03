@@ -1208,57 +1208,8 @@ func reloadModuleActionInner(
 				return err
 			}
 
-			// Download the build artifact with a spinner
-			if err := pm.Start("reload"); err != nil {
-				return err
-			}
-			if err := pm.Start("download"); err != nil {
-				return err
-			}
-			downloadArgs := downloadModuleFlags{
-				ModuleID:    buildInfo.ModuleID,
-				OrgID:       buildInfo.OrgID,
-				Version:     buildInfo.Version,
-				Platform:    buildInfo.Platform,
-				Destination: ".",
-			}
-			downloadedPath, err := vc.downloadModuleAction(ctx, cmd, downloadArgs)
-			if err != nil {
-				_ = pm.Fail("download", err)                             //nolint:errcheck
-				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-				return err
-			}
-
-			// Move the downloaded artifact to reload-dist/{platform}.tar.gz
-			platformFile := strings.ReplaceAll(buildInfo.Platform, "/", "-") + ".tar.gz"
-			reloadDistPath := filepath.Join("reload-dist", platformFile)
-
-			// Ensure reload-dist directory exists
-			if err := os.MkdirAll("reload-dist", 0o750); err != nil {
-				_ = pm.Fail("download", err)                             //nolint:errcheck
-				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-				return fmt.Errorf("failed to create reload-dist directory: %w", err)
-			}
-
-			// Move the file to the new location
-			if err := os.Rename(downloadedPath, reloadDistPath); err != nil {
-				_ = pm.Fail("download", err)                             //nolint:errcheck
-				_ = pm.FailWithMessage("reload", "Reloading to part...") //nolint:errcheck
-				return fmt.Errorf("failed to move artifact to reload-dist: %w", err)
-			}
-
-			buildPath = reloadDistPath
-
-			// Clean up the version directory that was created
-			downloadDir := filepath.Dir(downloadedPath)
-			if downloadDir != "." && downloadDir != "" {
-				// Try to remove the version directory - if it fails, it's not critical
-				_ = os.RemoveAll(downloadDir) //nolint:errcheck
-			}
-
-			if err := pm.Complete("download"); err != nil {
-				return err
-			}
+			// For cloud builds, the machine downloads the package directly from the cloud.
+			// No need to download the artifact or copy it via shell service.
 
 			// Delete the archive we created
 			if err := os.Remove(buildInfo.ArchivePath); err != nil {
