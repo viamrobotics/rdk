@@ -4444,7 +4444,7 @@ func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpe
 	}
 	if isTLSLocalhost(baseURL) {
 		warningf(
-			c.App.ErrWriter,
+			cmd.Root().ErrWriter,
 			"you are trying to log into localhost with a TLS connection."+
 				" This will likely result in a hang; please try logging in to http localhost instead")
 	}
