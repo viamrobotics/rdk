@@ -3788,8 +3788,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
-	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
-	# and configure or restart it.
+	# A full reload command. This will build your module in the cloud, and the machine will
+	# download the package directly.
 	viam module reload --part-id UUID
 
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
@@ -3812,19 +3812,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagPath,
 							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
-						},
-						&cli.BoolFlag{
-							Name:  moduleBuildFlagNoBuild,
-							Usage: "don't do build step, reuse existing downloaded artifact",
-						},
-						&cli.BoolFlag{
-							Name:  generalFlagNoProgress,
-							Usage: "hide progress of the file transfer",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagHomeDir,
-							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "~",
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
