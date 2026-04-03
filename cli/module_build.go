@@ -2,7 +2,6 @@ package cli
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -740,62 +739,6 @@ func (c *viamClient) shouldIgnore(relPath string, matcher gitignore.Matcher, isD
 	return matcher.Match(strings.Split(normalizedPath, "/"), isDir)
 }
 
-func (c *viamClient) ensureModuleRegisteredInCloud(
-	ctx context.Context, cmd *cli.Command, moduleID moduleID, pm *ProgressManager,
-) error {
-	_, err := c.getModule(ctx, moduleID)
-	if err != nil {
-		// Module is not registered in the cloud, prompt user for confirmation
-		// Stop the spinner before prompting for user input to avoid interference
-		// with the interactive prompt.
-		if pm != nil {
-			pm.Stop()
-		}
-
-		red := "\033[1;31m%s\033[0m"
-		printf(cmd.Root().Writer, red, "Error: module not registered in cloud or you lack permissions to edit it.")
-
-		yellow := "\033[1;33m%s\033[0m"
-		printf(cmd.Root().Writer, yellow, "Info: The reloading process requires the module to first be registered in the cloud. "+
-			"Do you want to proceed with module registration?")
-		printf(cmd.Root().Writer, "Continue: y/n: ")
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		rawInput, err := bufio.NewReader(cmd.Root().Reader).ReadString('\n')
-		if err != nil {
-			return err
-		}
-
-		input := strings.ToUpper(strings.TrimSpace(rawInput))
-		if input != "Y" {
-			return errors.New("module reload aborted - module not registered in cloud")
-		}
-
-		// If user confirmed, we'll proceed with the reload which will register the module
-		// The registration happens implicitly through the cloud build process
-		// Restart the spinner after user input
-		if pm != nil {
-			if err := pm.Start("register"); err != nil {
-				return err
-			}
-		}
-
-		org, err := getOrgByModuleIDPrefix(ctx, c, moduleID.prefix)
-		if err != nil {
-			return err
-		}
-		// Create the module in the cloud
-		_, err = c.createModule(ctx, moduleID.name, org.GetId())
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (c *viamClient) getOrgIDForPart(ctx context.Context, part *apppb.RobotPart) (string, error) {
 	robot, err := c.client.GetRobot(ctx, &apppb.GetRobotRequest{
 		Id: part.GetRobot(),
@@ -826,7 +769,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	args reloadModuleArgs,
 	manifest ModuleManifest,
 	archivePath, partID string,
-	reloadUnixTs int64,
+	reloadUnixTS int64,
 ) (string, error) {
 	stream, err := c.buildClient.StartReloadBuild(ctx)
 	if err != nil {
@@ -881,7 +824,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
 		Name:           moduleID.name,
-		Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTs),
+		Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
 		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
 	}
 	reqInner := &v1.CreatePackageRequest{
@@ -944,7 +887,7 @@ func (c *viamClient) moduleCloudReload(
 	manifest ModuleManifest,
 	partID string,
 	pm *ProgressManager,
-	reloadUnixTs int64,
+	reloadUnixTS int64,
 ) (*moduleCloudBuildInfo, error) {
 	// Start the "Preparing for build..." parent step (prints as header)
 	if err := pm.Start("prepare"); err != nil {
@@ -978,7 +921,7 @@ func (c *viamClient) moduleCloudReload(
 	if err := pm.Start("upload-source"); err != nil {
 		return nil, err
 	}
-	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTs)
+	buildID, err := c.triggerCloudReloadBuild(ctx, cmd, args, manifest, archivePath, partID, reloadUnixTS)
 	if err != nil {
 		_ = pm.FailWithMessage("upload-source", "Upload failed")    //nolint:errcheck
 		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
@@ -1030,7 +973,7 @@ func (c *viamClient) moduleCloudReload(
 	return &moduleCloudBuildInfo{
 		ModuleID:    manifest.ModuleID,
 		OrgID:       orgID,
-		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTs),
+		Version:     getReloadVersion(reloadVersionPrefix, partID, reloadUnixTS),
 		Platform:    platform,
 		ArchivePath: archivePath,
 	}, nil
@@ -1070,8 +1013,8 @@ func reloadModuleAction(ctx context.Context, cmd *cli.Command, args reloadModule
 	return reloadModuleActionInner(ctx, cmd, vc, args, logger, cloudBuild)
 }
 
-func getReloadVersion(versionPrefix, partID string, unixTs int64) string {
-	return fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTs)
+func getReloadVersion(versionPrefix, partID string, unixTS int64) string {
+	return fmt.Sprintf("%s-%s-%d", versionPrefix, partID, unixTS)
 }
 
 // reload with cloudbuild was supported starting in 0.90.0
@@ -1322,7 +1265,8 @@ func reloadModuleActionInner(
 		return err
 	}
 	var newPart *apppb.RobotPart
-	newPart, needsRestart, err = configureModule(ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), reloadTime.Unix())
+	newPart, needsRestart, err = configureModule(
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), reloadTime.Unix())
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
