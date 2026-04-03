@@ -25,6 +25,7 @@ import (
 	"go.viam.com/utils/testutils"
 	"go.viam.com/utils/trace"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/cloud"
@@ -4422,6 +4423,45 @@ func TestModuleLogging(t *testing.T) {
 	resp, err = startsAtDebugRes.DoCommand(context.Background(), map[string]interface{}{"command": "get_trace_id"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp["trace_id"], test.ShouldNotEqual, traceID)
+}
+
+func TestModuleCanGetViamClientInfo(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	logger.SetLevel(logging.INFO)
+	helperModel := resource.NewModel("rdk", "test", "helper")
+	testPath := rtestutils.BuildTempModule(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:  "helper",
+				API:   generic.API,
+				Model: helperModel,
+				LogConfiguration: &resource.LogConfig{
+					Level: logging.DEBUG,
+				},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	lr := setupLocalRobot(t, ctx, cfg, logger)
+
+	res, err := lr.ResourceByName(generic.Named("helper"))
+	test.That(t, err, test.ShouldBeNil)
+
+	md := make(metadata.MD)
+	md.Append("viam_client", t.Name())
+	ctx = metadata.NewOutgoingContext(ctx, md)
+	resp, err := res.DoCommand(ctx, map[string]interface{}{"command": "get_viam_client_info"})
+	test.That(t, resp["viam_client_info"], test.ShouldEqual, t.Name())
+	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestLogPropagation(t *testing.T) {

@@ -458,12 +458,13 @@ func TestPropertiesPointToPixel(t *testing.T) {
 	})
 
 	t.Run("translated camera", func(t *testing.T) {
-		// ExtrinsicParams is the translation applied to points before projection.
+		// ExtrinsicParams represents the camera's position in the reference frame.
+		// To transform a point to camera coordinates, we subtract the camera's position.
 		props := &camera.Properties{
 			IntrinsicParams: intrinsics,
-			ExtrinsicParams: &camera.ExtrinsicParams{Translation: r3.Vector{X: -100, Y: 0, Z: 0}},
+			ExtrinsicParams: &camera.ExtrinsicParams{Translation: r3.Vector{X: 100, Y: 0, Z: 0}},
 		}
-		// A world point at (100, 0, 1000) becomes (0, 0, 1000) after adding (-100, 0, 0)
+		// Camera at (100, 0, 0): world point at (100, 0, 1000) becomes (0, 0, 1000) after subtracting camera position
 		px, py, err := props.PointToPixel(r3.Vector{X: 100, Y: 0, Z: 1000})
 		test.That(t, err, test.ShouldBeNil)
 		expectedPx, expectedPy := intrinsics.PointToPixel(0, 0, 1000)
@@ -485,10 +486,11 @@ func TestPropertiesPointToPixel(t *testing.T) {
 		// Test point in world frame
 		worldPt := r3.Vector{X: 0, Y: 0, Z: 1000}
 
-		// Apply extrinsics manually to verify
+		// Apply inverse of extrinsics manually to verify (point from world to camera frame)
 		extrinsicPose := spatialmath.NewPose(props.ExtrinsicParams.Translation, orientation)
+		extrinsicInverse := spatialmath.PoseInverse(extrinsicPose)
 		pointPose := spatialmath.NewPoseFromPoint(worldPt)
-		transformed := spatialmath.Compose(extrinsicPose, pointPose)
+		transformed := spatialmath.Compose(extrinsicInverse, pointPose)
 		expectedPt := transformed.Point()
 
 		// Get pixel coordinates

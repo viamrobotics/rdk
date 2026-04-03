@@ -129,6 +129,21 @@ func TestClient(t *testing.T) {
 		test.That(t, count, test.ShouldEqual, 2)
 		test.That(t, labels, test.ShouldResemble, []string{"position 1", "position 2"})
 
+		// Status - default empty status
+		statusResult, err := client1.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectSwitch.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = client1.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectSwitch.StatusFunc = nil
+
 		test.That(t, client1.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

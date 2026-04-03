@@ -3,10 +3,12 @@ package mlmodel
 import (
 	"context"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/mlmodel/v1"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -63,4 +65,13 @@ func (server *serviceServer) Metadata(
 		return nil, err
 	}
 	return &pb.MetadataResponse{Metadata: metadata}, nil
+}
+
+// GetStatus returns the status of the mlmodel service.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, res, req)
 }

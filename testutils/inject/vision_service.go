@@ -37,7 +37,8 @@ type VisionService struct {
 	) (viscapture.VisCapture, error)
 	DoCommandFunc func(ctx context.Context,
 		cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func(ctx context.Context) error
 }
 
 // NewVisionService returns a new injected vision service.
@@ -130,6 +131,17 @@ func (vs *VisionService) DoCommand(ctx context.Context,
 		return vs.Service.DoCommand(ctx, cmd)
 	}
 	return vs.DoCommandFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (vs *VisionService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if vs.StatusFunc != nil {
+		return vs.StatusFunc(ctx)
+	}
+	if vs.Service != nil {
+		return vs.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

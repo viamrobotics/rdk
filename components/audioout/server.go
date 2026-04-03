@@ -69,3 +69,12 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	}
 	return protoutils.DoFromResourceServer(ctx, audioOut, req)
 }
+
+// GetStatus returns the status of the audioout.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+}

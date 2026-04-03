@@ -191,3 +191,12 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 	}
 	return protoutils.DoFromResourceServer(ctx, motor, req)
 }
+
+// GetStatus returns the status of the motor.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+}

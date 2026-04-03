@@ -2,6 +2,7 @@ package shell_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -46,4 +47,40 @@ func TestServerDoCommand(t *testing.T) {
 	respMap := doCommandResponse.Result.AsMap()
 	test.That(t, respMap["command"], test.ShouldResemble, "test")
 	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
+}
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	injectShell := &inject.ShellService{}
+	resourceMap := map[resource.Name]shell.Service{
+		testSvcName1: injectShell,
+	}
+	server, err := newServer(resourceMap, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSvcName1.ShortName()})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectShell.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSvcName1.ShortName()})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectShell.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSvcName1.ShortName()})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectShell.StatusFunc = nil
 }

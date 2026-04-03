@@ -116,6 +116,21 @@ func TestClient(t *testing.T) {
 		poseTester(t, bodyToPoseInFrame, zeroPoseBody)
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody)
 		poseTester(t, bodyToPoseInFrame, nonZeroPoseBody2)
+
+		// Status - default empty status
+		statusResult, err := workingPTClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		workingPT.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = workingPTClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		workingPT.StatusFunc = nil
 	})
 
 	t.Run("dialed client tests for working pose tracker", func(t *testing.T) {

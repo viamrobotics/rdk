@@ -132,7 +132,7 @@ func installPackage(
 		}
 		utils.UncheckedError(writeStatusFile(p, statusFile, packagesDir))
 		utils.UncheckedError(cleanup(packagesDir, p))
-		return err
+		return fmt.Errorf("failed to unzip archive, please try a different version: %w", err)
 	}
 
 	renameDest := p.LocalDataDirectory(packagesDir)

@@ -46,6 +46,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
 
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+}
+
 func (c *client) Properties(ctx context.Context, extra map[string]interface{}) (rutils.Properties, error) {
 	ext, err := utils.StructToStructPb(extra)
 	if err != nil {

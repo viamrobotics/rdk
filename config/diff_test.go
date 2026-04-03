@@ -474,17 +474,11 @@ func TestDiffNetworkingCfg(t *testing.T) {
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
 		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
-		},
 	}
 	tls3 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg3}}
 	tlsCfg4 := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
-		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
 		},
 	}
@@ -494,21 +488,8 @@ func TestDiffNetworkingCfg(t *testing.T) {
 		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
 		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{Certificate: [][]byte{[]byte("abc")}}, nil
-		},
 	}
 	tls5 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg5}}
-	tlsCfg6 := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{Certificate: [][]byte{[]byte("abcd")}}, nil
-		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			return &tls.Certificate{Certificate: [][]byte{[]byte("xyz")}}, nil
-		},
-	}
-	tls6 := config.NetworkConfig{NetworkConfigData: config.NetworkConfigData{TLSConfig: tlsCfg6}}
 
 	cloud1 := &config.Cloud{ID: "1"}
 	cloud2 := &config.Cloud{ID: "2"}
@@ -553,12 +534,6 @@ func TestDiffNetworkingCfg(t *testing.T) {
 			"diff tls cert",
 			config.Config{Network: tls3},
 			config.Config{Network: tls5},
-			false,
-		},
-		{
-			"diff tls client cert",
-			config.Config{Network: tls3},
-			config.Config{Network: tls6},
 			false,
 		},
 		{

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -56,7 +56,7 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 
 // ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
 // TODO(RSDK-7812): maybe move shared code to common location.
-func ConfigFromCache(c *cli.Context) (*Config, error) {
+func ConfigFromCache(c *cli.Command) (*Config, error) {
 	var configPath string
 	var whichProf *string
 	var profileSpecified bool
@@ -85,7 +85,7 @@ func ConfigFromCache(c *cli.Context) (*Config, error) {
 		// A profile has been set as an env var but not specified by flag. Since the env var
 		// is relatively persistent, it's more reasonable to assume a user would want to fall
 		// back to default login behavior.
-		warningf(c.App.ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
+		warningf(c.Root().ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
 	}
 
 	return configFromCacheInner(rutils.GetCLICachePath())

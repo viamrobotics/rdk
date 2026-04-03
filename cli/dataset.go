@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	datasetpb "go.viam.com/api/app/dataset/v1"
@@ -31,11 +31,11 @@ type datasetCreateArgs struct {
 }
 
 // DatasetCreateAction is the corresponding action for 'dataset create'.
-func DatasetCreateAction(c *cli.Context, args datasetCreateArgs) error {
+func DatasetCreateAction(ctx context.Context, cmd *cli.Command, args datasetCreateArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to create a dataset")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (c *viamClient) createDataset(orgID, datasetName string) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "Created dataset %s with dataset ID: %s", datasetName, resp.GetId())
+	printf(c.c.Root().Writer, "Created dataset %s with dataset ID: %s", datasetName, resp.GetId())
 	return nil
 }
 
@@ -62,8 +62,8 @@ type datasetRenameArgs struct {
 }
 
 // DatasetRenameAction is the corresponding action for 'dataset rename'.
-func DatasetRenameAction(c *cli.Context, args datasetRenameArgs) error {
-	client, err := newViamClient(c)
+func DatasetRenameAction(ctx context.Context, cmd *cli.Command, args datasetRenameArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (c *viamClient) renameDataset(datasetID, newDatasetName string) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "Dataset with ID %s renamed to %s", datasetID, newDatasetName)
+	printf(c.c.Root().Writer, "Dataset with ID %s renamed to %s", datasetID, newDatasetName)
 	return nil
 }
 
@@ -91,11 +91,11 @@ type datasetMergeArgs struct {
 }
 
 // DatasetMergeAction is the corresponding action for 'dataset merge'.
-func DatasetMergeAction(c *cli.Context, args datasetMergeArgs) error {
+func DatasetMergeAction(ctx context.Context, cmd *cli.Command, args datasetMergeArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID to merge datasets")
 	}
-	client, err := newViamClient(c)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (c *viamClient) mergeDatasets(orgID, newDatasetName string, datasetIDs []st
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
+	printf(c.c.Root().Writer, "Successfully merged %d datasets into new dataset '%s' with ID: %s",
 		len(datasetIDs), newDatasetName, resp.GetDatasetId())
 	return nil
 }
@@ -125,8 +125,8 @@ type datasetListArgs struct {
 }
 
 // DatasetListAction is the corresponding action for 'dataset list'.
-func DatasetListAction(c *cli.Context, args datasetListArgs) error {
-	client, err := newViamClient(c)
+func DatasetListAction(ctx context.Context, cmd *cli.Command, args datasetListArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -154,7 +154,7 @@ func (c *viamClient) listDatasetByIDs(datasetIDs []string) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	for _, dataset := range resp.GetDatasets() {
-		printf(c.c.App.Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
+		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
 	}
 	return nil
 }
@@ -167,7 +167,7 @@ func (c *viamClient) listDatasetByOrg(orgID string) error {
 		return errors.Wrapf(err, "received error from server")
 	}
 	for _, dataset := range resp.GetDatasets() {
-		printf(c.c.App.Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
+		printf(c.c.Root().Writer, "\t%s (ID: %s, Organization ID: %s)", dataset.Name, dataset.Id, dataset.OrganizationId)
 	}
 	return nil
 }
@@ -177,8 +177,8 @@ type datasetDeleteArgs struct {
 }
 
 // DatasetDeleteAction is the corresponding action for 'dataset delete'.
-func DatasetDeleteAction(c *cli.Context, args datasetDeleteArgs) error {
-	client, err := newViamClient(c)
+func DatasetDeleteAction(ctx context.Context, cmd *cli.Command, args datasetDeleteArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func (c *viamClient) deleteDataset(datasetID string) error {
 	if err != nil {
 		return errors.Wrapf(err, "received error from server")
 	}
-	printf(c.c.App.Writer, "Dataset with ID %s deleted", datasetID)
+	printf(c.c.Root().Writer, "Dataset with ID %s deleted", datasetID)
 	return nil
 }
 
@@ -209,12 +209,12 @@ type datasetDownloadArgs struct {
 }
 
 // DatasetDownloadAction is the corresponding action for 'dataset export'.
-func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
-	client, err := newViamClient(c)
+func DatasetDownloadAction(ctx context.Context, cmd *cli.Command, args datasetDownloadArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
-	if err := client.downloadDataset(args.Destination, args.DatasetID,
+	if err := client.downloadDataset(ctx, args.Destination, args.DatasetID,
 		args.OnlyJSONl, args.ForceLinuxPath, args.Parallel, args.Timeout); err != nil {
 		return err
 	}
@@ -222,7 +222,9 @@ func DatasetDownloadAction(c *cli.Context, args datasetDownloadArgs) error {
 }
 
 // downloadDataset downloads a dataset with the specified ID.
-func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines, forceLinuxPath bool, parallelDownloads, timeout uint) error {
+func (c *viamClient) downloadDataset(
+	ctx context.Context, dst, datasetID string, onlyJSONLines, forceLinuxPath bool, parallelDownloads, timeout uint,
+) error {
 	var datasetFile *os.File
 	var err error
 	datasetPath := filepath.Join(dst, "dataset.jsonl")
@@ -236,7 +238,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines, force
 	}
 	defer func() {
 		if err := datasetFile.Close(); err != nil {
-			Errorf(c.c.App.ErrWriter, "failed to close dataset file %q", datasetFile.Name())
+			Errorf(c.c.Root().ErrWriter, "failed to close dataset file %q", datasetFile.Name())
 		}
 	}()
 
@@ -254,10 +256,10 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines, force
 			var downloadErr error
 			var datasetFilePath string
 			if !onlyJSONLines {
-				downloadErr = c.downloadBinary(dst, timeout, id)
+				downloadErr = c.downloadBinary(ctx, dst, timeout, id)
 				datasetFilePath = filepath.Join(dst, dataDir)
 			}
-			datasetErr := binaryDataToJSONLines(c.c.Context, c.dataClient, datasetFilePath, datasetFile, id, forceLinuxPath)
+			datasetErr := binaryDataToJSONLines(ctx, c.dataClient, datasetFilePath, datasetFile, id, forceLinuxPath)
 
 			return multierr.Combine(downloadErr, datasetErr)
 		},
@@ -265,7 +267,7 @@ func (c *viamClient) downloadDataset(dst, datasetID string, onlyJSONLines, force
 			DatasetId: datasetID,
 		}, parallelDownloads,
 		func(i int32) {
-			printf(c.c.App.Writer, "Downloaded %d files", i)
+			printf(c.c.Root().Writer, "Downloaded %d files", i)
 		},
 	)
 }
