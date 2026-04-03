@@ -7,10 +7,10 @@ package vision
 
 import (
 	"context"
-	"image"
 
 	servicepb "go.viam.com/api/service/vision/v1"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -183,7 +183,7 @@ type Service interface {
 	DetectionsFromCamera(ctx context.Context, cameraName string, extra map[string]interface{}) ([]objectdetection.Detection, error)
 
 	// Detections returns a list of detections from a given image using a configured detector.
-	Detections(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error)
+	Detections(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error)
 
 	// ClassificationsFromCamera returns a list of classifications from the next image from a specified camera using a configured classifier.
 	ClassificationsFromCamera(
@@ -196,7 +196,7 @@ type Service interface {
 	// Classifications returns a list of classifications from a given image using a configured classifier.
 	Classifications(
 		ctx context.Context,
-		img image.Image,
+		img *camera.NamedImage,
 		n int,
 		extra map[string]interface{},
 	) (classification.Classifications, error)
