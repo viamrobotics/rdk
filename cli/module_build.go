@@ -960,26 +960,7 @@ func (c *viamClient) moduleCloudReload(
 	if err != nil {
 		return nil, err
 	}
-
-	// ensure that the module has been registered in the cloud
-	moduleID, err := parseModuleID(manifest.ModuleID)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := pm.Start("register"); err != nil {
-		return nil, err
-	}
-	err = c.ensureModuleRegisteredInCloud(ctx, cmd, moduleID, pm)
-	if err != nil {
-		_ = pm.FailWithMessage("register", "Registration failed")   //nolint:errcheck
-		_ = pm.FailWithMessage("prepare", "Preparing for build...") //nolint:errcheck
-		return nil, err
-	}
-	if err := pm.Complete("register"); err != nil {
-		return nil, err
-	}
-
+	
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
