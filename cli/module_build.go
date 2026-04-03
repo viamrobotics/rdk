@@ -960,7 +960,6 @@ func (c *viamClient) moduleCloudReload(
 	if err != nil {
 		return nil, err
 	}
-	
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
