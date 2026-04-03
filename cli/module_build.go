@@ -1318,7 +1318,7 @@ func reloadModuleActionInner(
 		return err
 	}
 	var newPart *apppb.RobotPart
-	newPart, needsRestart, err = configureModule(ctx, cmd, vc, manifest, part.Part, args.Local, reloadUser(vc.conf))
+	newPart, needsRestart, err = configureModule(ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf))
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
