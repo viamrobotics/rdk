@@ -488,7 +488,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				frameInputs = []Input{mm.valueMultiplier*inputs[mm.sourceInputIdx] + mm.valueOffset}
 			} else {
 				frameInputs = inputs[offset : offset+dof]
-				if err := frame.validInputs(frameInputs); err != nil {
+				if err := frame.validInputs(frameInputs, offset); err != nil {
 					return &composedTransformation, err
 				}
 			}

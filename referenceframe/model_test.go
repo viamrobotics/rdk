@@ -22,9 +22,9 @@ func TestModelLoading(t *testing.T) {
 
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}, 0)
 	test.That(t, err, test.ShouldBeNil)
-	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	err = simpleM.validInputs([]Input{0.1, 0.1, 0.1, 0.1, 0.1, 99.1}, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
@@ -32,7 +32,7 @@ func TestModelLoading(t *testing.T) {
 	orig[4] -= math.Pi * 4
 
 	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.validInputs(randpos), test.ShouldBeNil)
+	test.That(t, simpleM.validInputs(randpos, 0), test.ShouldBeNil)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)

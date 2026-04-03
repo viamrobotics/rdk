@@ -261,11 +261,11 @@ func (bf *baseFrame) DoF() []Limit {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	err := bf.validInputs(from)
+	err := bf.validInputs(from, 0)
 	if err != nil {
 		return nil, err
 	}
-	err = bf.validInputs(to)
+	err = bf.validInputs(to, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,8 @@ func (bf *baseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) 
 }
 
 // validInputs checks whether the given array of joint positions violates any joint limits.
-func (bf *baseFrame) validInputs(inputs []Input) error {
+// jointOffset is added to the index when reporting which joint is out of bounds.
+func (bf *baseFrame) validInputs(inputs []Input, jointOffset int) error {
 	var errAll error
 	if len(inputs) != len(bf.limits) {
 		return NewIncorrectDoFError(len(inputs), len(bf.limits))
@@ -282,7 +283,7 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
+			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(jointOffset+i),
 				OOBErrString, "input", inputs[i], "needs to be within range", lim))
 		}
 	}
@@ -518,7 +519,7 @@ func (pf *translationalFrame) Hash() int {
 
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	if err := pf.validInputs(input); err != nil {
+	if err := pf.validInputs(input, 0); err != nil {
 		return nil, err
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
@@ -608,7 +609,7 @@ func (rf *rotationalFrame) Hash() int {
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	if err := rf.validInputs(input); err != nil {
+	if err := rf.validInputs(input, 0); err != nil {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
@@ -704,7 +705,7 @@ func (pf *poseFrame) Hash() int {
 // Transform on the poseFrame acts as the identity function. Whatever inputs are given are directly translated
 // in a 7DoF pose. We note that theta should be in radians.
 func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
-	if err := pf.baseFrame.validInputs(inputs); err != nil {
+	if err := pf.baseFrame.validInputs(inputs, 0); err != nil {
 		return nil, err
 	}
 	return spatial.NewPose(
@@ -720,10 +721,10 @@ func (pf *poseFrame) Transform(inputs []Input) (spatial.Pose, error) {
 
 // Interpolate interpolates the given amount between the two sets of inputs.
 func (pf *poseFrame) Interpolate(from, to []Input, by float64) ([]Input, error) {
-	if err := pf.baseFrame.validInputs(from); err != nil {
+	if err := pf.baseFrame.validInputs(from, 0); err != nil {
 		return nil, NewIncorrectDoFError(len(from), len(pf.DoF()))
 	}
-	if err := pf.baseFrame.validInputs(to); err != nil {
+	if err := pf.baseFrame.validInputs(to, 0); err != nil {
 		return nil, NewIncorrectDoFError(len(to), len(pf.DoF()))
 	}
 	fromPose, err := pf.Transform(from)
