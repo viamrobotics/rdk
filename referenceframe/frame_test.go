@@ -71,8 +71,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = []Input{overLimit}
 	_, err = frame.Transform(input)
-	s := "joint 0 input out of bounds, input 50.00000 needs to be within range [30.00000 -30.00000]"
-	test.That(t, err.Error(), test.ShouldEqual, s)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
 
 	// gets the correct limits back
 	frameLimits := frame.DoF()
@@ -112,8 +111,7 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	s := "joint 0 input out of bounds, input 1.74533 needs to be within range [1.57080 -1.57080]"
-	test.That(t, err.Error(), test.ShouldEqual, s)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}

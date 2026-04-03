@@ -282,8 +282,8 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i], "needs to be within range", lim))
+			multierr.AppendInto(&errAll, fmt.Errorf("%s, input %.5f needs to be within range %.5f",
+				OOBErrString, inputs[i], lim))
 		}
 	}
 

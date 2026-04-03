@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/golang/geo/r3"
@@ -452,10 +450,7 @@ func (m *SimpleModel) buildTransformChainOffsets() []int {
 }
 
 // emptyInputs is a pre-allocated empty slice used for 0-DoF frame transforms.
-var (
-	emptyInputs      = []Input{}
-	jointIndexRegexp = regexp.MustCompile(`joint \d+`)
-)
+var emptyInputs = []Input{}
 
 // Transform returns the pose of the primary output frame given the flat input vector.
 // When inputs are out of bounds, Transform returns both the computed pose and an OOB error.
@@ -494,7 +489,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			} else {
 				frameInputs = inputs[offset : offset+dof]
 				if err := frame.validInputs(frameInputs); err != nil {
-					return &composedTransformation, rewriteJointIndicesInError(err, offset)
+					return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
 				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
@@ -518,7 +513,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
-				return &composedTransformation, rewriteJointIndicesInError(err, offset)
+				return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
 			}
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),
@@ -527,21 +522,6 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	}
 
 	return &composedTransformation, nil
-}
-
-// rewriteJointIndicesInError adjusts joint indices in OOB error messages by adding the given offset.
-// This corrects the joint numbering when validInputs is called on a sub-slice of the full input vector.
-func rewriteJointIndicesInError(err error, offset int) error {
-	if offset == 0 {
-		return err
-	}
-	return fmt.Errorf("%s", jointIndexRegexp.ReplaceAllStringFunc(err.Error(), func(match string) string {
-		idx, parseErr := strconv.Atoi(match[len("joint "):])
-		if parseErr != nil {
-			return match
-		}
-		return fmt.Sprintf("joint %d", idx+offset)
-	}))
 }
 
 // Interpolate interpolates the given amount between the two sets of inputs.
