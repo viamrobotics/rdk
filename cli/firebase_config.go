@@ -31,10 +31,6 @@ func SetFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args setFire
 		return fmt.Errorf("failed to read firebase config file %q: %w", args.FirebaseConfigPath, err)
 	}
 
-	if err := client.ensureLoggedIn(ctx); err != nil {
-		return err
-	}
-
 	_, err = client.client.SetFirebaseConfig(ctx, &apppb.SetFirebaseConfigRequest{
 		OrgId:      args.OrgID,
 		AppId:      args.AppID,
@@ -59,10 +55,6 @@ func ReadFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args readFi
 		return err
 	}
 
-	if err := client.ensureLoggedIn(ctx); err != nil {
-		return err
-	}
-
 	resp, err := client.client.GetFirebaseConfig(ctx, &apppb.GetFirebaseConfigRequest{
 		OrgId: args.OrgID,
 	})
@@ -84,10 +76,6 @@ type deleteFirebaseConfigArgs struct {
 func DeleteFirebaseConfigAction(ctx context.Context, cmd *cli.Command, args deleteFirebaseConfigArgs) error {
 	client, err := newViamClient(ctx, cmd)
 	if err != nil {
-		return err
-	}
-
-	if err := client.ensureLoggedIn(ctx); err != nil {
 		return err
 	}
 
