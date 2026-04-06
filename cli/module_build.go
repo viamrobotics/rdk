@@ -1206,34 +1206,11 @@ func reloadModuleActionInner(
 			return err
 		}
 	} else {
-		// --no-build flag is set, look for existing artifact
-		if !cloudBuild {
-			// For local builds, use manifest build path if available
-			if manifest == nil || manifest.Build == nil {
-				return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
-			}
-			buildPath = manifest.Build.Path
-		} else {
-			// For cloud builds, look for artifact in reload-dist directory
-			if platform == "" {
-				return errors.New("unable to determine platform for part")
-			}
-			platformFile := strings.ReplaceAll(platform, "/", "-") + ".tar.gz"
-			artifactPath := filepath.Join("reload-dist", platformFile)
-
-			// Check if file exists
-			if _, err := os.Stat(artifactPath); os.IsNotExist(err) {
-				// Show command to run without --no-build
-				errorf(cmd.Root().ErrWriter, "No existing artifact found for platform %s at %s", platform, artifactPath)
-				infof(cmd.Root().ErrWriter, "To build and reload, run: viam module reload --part-id %s", partID)
-				return fmt.Errorf("no existing artifact found for platform %s", platform)
-			} else if err != nil {
-				return fmt.Errorf("error checking for artifact: %w", err)
-			}
-
-			buildPath = artifactPath
-			infof(cmd.Root().ErrWriter, "Starting reload onto part with existing artifact at: %s...", artifactPath)
+		// --no-build flag is set, look for existing artifact (only for reload-local)
+		if manifest == nil || manifest.Build == nil {
+			return fmt.Errorf(`manifest not found at "%s". manifest required for reload`, moduleFlagPath)
 		}
+		buildPath = manifest.Build.Path
 	}
 
 	// For cloud builds, the machine downloads the package directly from the cloud.

@@ -396,7 +396,9 @@ func mutateModuleConfig(
 				foundMod["reload_enabled"] = true
 			} else {
 				debugf(cmd.Root().Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
-				if !cloudReload {
+				if cloudReload {
+					delete(foundMod, "reload_path")
+				} else {
 					foundMod["reload_path"] = absEntrypoint
 				}
 				foundMod["reload_enabled"] = true
