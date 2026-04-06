@@ -4309,13 +4309,13 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 type brewUpdateResult int
 
 const (
-	brewUpdated      brewUpdateResult = iota
-	brewNotAvailable brewUpdateResult = iota
+	brewUpdated brewUpdateResult = iota
+	brewNotAvailable
 )
 
 // isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
 func isViamManagedByBrew() bool {
-	if runtime.GOOS != "darwin" {
+	if runtime.GOOS == osWindows {
 		return false
 	}
 	if _, err := exec.LookPath("brew"); err != nil {
