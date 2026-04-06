@@ -591,6 +591,7 @@ type AppBranding struct {
 	LogoPath           string
 	TextCustomizations map[string]TextOverrides
 	FragmentIDs        []string
+	AllowedOrgIDs      []string
 }
 
 // TextOverrides contains the text Viam App developers want displayed on the Viam Apps "machine picker" page.
@@ -3927,6 +3928,7 @@ func appBrandingFromProto(resp *pb.GetAppBrandingResponse) *AppBranding {
 		LogoPath:           logoPath,
 		TextCustomizations: textCustomizations,
 		FragmentIDs:        resp.GetFragmentIds(),
+		AllowedOrgIDs:      resp.GetAllowedOrgIds(),
 	}
 }
 

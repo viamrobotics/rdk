@@ -865,6 +865,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 				Platform: platform,
 				Workdir:  &args.Workdir,
 				ModuleId: manifest.ModuleID,
+				Distro:   &manifest.Build.Distro,
 			},
 		},
 	}

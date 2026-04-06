@@ -71,15 +71,6 @@ func logViamEnvVariables(logger logging.Logger) {
 	if rutils.PlatformHomeDir() != "" {
 		viamEnvVariables["HOME"] = rutils.PlatformHomeDir()
 	}
-	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
-	value, alreadySet := os.LookupEnv(rutils.HomeEnvVar)
-	err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir)
-	// if we successfully overwrite VIAM_HOME, log
-	if err == nil && alreadySet {
-		logger.Infof("Environment variable %v was overwritten from %v to %v", rutils.HomeEnvVar, value, rutils.ViamDotDir)
-	} else if err != nil && !alreadySet {
-		logger.Infof("Unable to set %v environment variable, continuing with startup", rutils.HomeEnvVar)
-	}
 	rutils.LogViamEnvVariables("Started with the following Viam environment variables", viamEnvVariables, logger)
 }
 
@@ -290,6 +281,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 func (s *robotServer) runServer(ctx context.Context) error {
 	if s.conn != nil {
 		s.configLogger.CInfo(ctx, "Getting up-to-date config from cloud...")
+	}
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
+		s.configLogger.Errorw("error creating viam dir, startup will likely fail", "path", rutils.ViamDotDir)
 	}
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
 	cfg, err := config.Read(ctx, s.args.ConfigFile, s.configLogger, s.conn)

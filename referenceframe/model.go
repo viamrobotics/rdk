@@ -489,7 +489,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 			} else {
 				frameInputs = inputs[offset : offset+dof]
 				if err := frame.validInputs(frameInputs); err != nil {
-					return &composedTransformation, err
+					return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
 				}
 			}
 			orientation := frame.InputToOrientation(frameInputs[0])
@@ -513,7 +513,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 				pose, err = chainFrame.Transform(inputs[offset : offset+dof])
 			}
 			if err != nil {
-				return &composedTransformation, err
+				return &composedTransformation, fmt.Errorf("joint %d: %w", offset, err)
 			}
 			composedTransformation = spatialmath.DualQuaternion{
 				Number: composedTransformation.Transformation(pose.(*spatialmath.DualQuaternion).Number),

@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils/rpc"
 	gtestutils "go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -60,7 +61,7 @@ func TestMultipleModules(t *testing.T) {
 	}
 	test.That(t, success, test.ShouldBeTrue)
 
-	rc, err := connect(port, logger)
+	rc, err := connect(port, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
@@ -157,13 +158,78 @@ func TestMultipleModules(t *testing.T) {
 	})
 }
 
-func connect(port int, logger logging.Logger) (robot.Robot, error) {
+// TestWebRTCSpans verifies that gRPC calls made over WebRTC connections generate
+// spans.
+func TestWebRTCSpans(t *testing.T) {
+	logger, observer := logging.NewObservedTestLogger(t)
+	testViamHome := t.TempDir()
+	var port int
+	success := false
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		portLocal, err := goutils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		port = portLocal
+
+		cfgJSON := fmt.Sprintf(`{
+			"components": [{"name": "motor-1", "type": "motor", "model": "fake"}],
+			"network": {"bind_address": "localhost:%d"},
+			"tracing": {"enabled": true, "disk": true}
+		}`, port)
+		cfgFile, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = cfgFile.WriteString(cfgJSON)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cfgFile.Close(), test.ShouldBeNil)
+
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFile.Name(), logger,
+			robottestutils.WithViamHome(testViamHome))
+
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if robottestutils.WaitForServing(observer, port) {
+			success = true
+			defer func() {
+				test.That(t, server.Stop(), test.ShouldBeNil)
+			}()
+			break
+		}
+		server.Stop()
+	}
+	test.That(t, success, test.ShouldBeTrue)
+
+	rc, err := connect(port, logger, rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	t.Run("Test WebRTC spans", func(t *testing.T) {
+		m, err := motor.FromProvider(rc, "motor-1")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = m.IsMoving(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		gtestutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+			checkTraceContents(t, testViamHome,
+				spanExpectation{
+					service:    "rdk",
+					kind:       otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService: "viam.component.motor.v1.MotorService",
+					rpcMethod:  "IsMoving",
+				},
+			)
+		})
+	})
+}
+
+func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
 		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
-			client.WithDialOptions(rpc.WithForceDirectGRPC()),
+			client.WithDialOptions(dialOpts...),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()

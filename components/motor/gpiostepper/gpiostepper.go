@@ -187,6 +187,21 @@ type gpioStepper struct {
 	stepPosition       atomic.Int64
 	targetStepPosition atomic.Int64
 	trackingCancel     context.CancelFunc
+	trackingDone       <-chan struct{} // closed when tracking goroutine exits
+}
+
+// stopTracking cancels the tracking goroutine and waits for it to fully exit.
+func (m *gpioStepper) stopTracking() {
+	m.lock.Lock()
+	cancel := m.trackingCancel
+	done := m.trackingDone
+	m.lock.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
 }
 
 // rpmToFreqHz converts RPM to step frequency in Hz, clamped by minDelay.
@@ -337,9 +352,14 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 	}
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
+	trackingDone := make(chan struct{})
+	m.trackingDone = trackingDone
 	m.lock.Unlock()
 
-	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, nil, target, forward, actualFreq) })
+	utils.PanicCapturingGo(func() {
+		defer close(trackingDone)
+		m.trackPosition(trackCtx, nil, target, forward, actualFreq)
+	})
 	return nil
 }
 
@@ -380,10 +400,15 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	}
 	trackCtx, cancel := context.WithCancel(ctx)
 	m.trackingCancel = cancel
+	trackingDone := make(chan struct{})
+	m.trackingDone = trackingDone
 	m.lock.Unlock()
 
 	doneCh := make(chan error, 1)
-	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, doneCh, target, forward, actualFreq) })
+	utils.PanicCapturingGo(func() {
+		defer close(trackingDone)
+		m.trackPosition(trackCtx, doneCh, target, forward, actualFreq)
+	})
 	err = <-doneCh
 	if ctx.Err() != nil {
 		// Context was cancelled (external cancel or opMgr interrupt) — clean up
@@ -444,20 +469,20 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 	}
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
+	trackingDone := make(chan struct{})
+	m.trackingDone = trackingDone
 	m.lock.Unlock()
 
-	utils.PanicCapturingGo(func() { m.trackPosition(trackCtx, nil, target, forward, actualFreq) })
+	utils.PanicCapturingGo(func() {
+		defer close(trackingDone)
+		m.trackPosition(trackCtx, nil, target, forward, actualFreq)
+	})
 	return nil
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
 func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64, extra map[string]interface{}) error {
-	m.lock.Lock()
-	if m.trackingCancel != nil {
-		m.trackingCancel()
-	}
-	m.lock.Unlock()
-	// stopHardware is needed because the cancelled tracking goroutine skips it.
+	m.stopTracking()
 	if err := m.stopHardware(ctx); err != nil {
 		return err
 	}
@@ -488,11 +513,7 @@ func (m *gpioStepper) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.lock.Lock()
-	if m.trackingCancel != nil {
-		m.trackingCancel()
-	}
-	m.lock.Unlock()
+	m.stopTracking()
 	m.targetStepPosition.Store(m.stepPosition.Load())
 	return m.stopHardware(ctx)
 }
@@ -513,10 +534,6 @@ func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{
 }
 
 func (m *gpioStepper) Close(ctx context.Context) error {
-	m.lock.Lock()
-	if m.trackingCancel != nil {
-		m.trackingCancel()
-	}
-	m.lock.Unlock()
+	m.stopTracking()
 	return m.stopHardware(ctx)
 }
