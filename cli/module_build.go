@@ -963,6 +963,7 @@ func (c *viamClient) moduleCloudReload(
 	if err != nil {
 		return nil, err
 	}
+
 	if err := pm.Start("archive"); err != nil {
 		return nil, err
 	}
@@ -1235,7 +1236,13 @@ func reloadModuleActionInner(
 		}
 	}
 
-	if !args.Local {
+	// For cloud builds, the machine downloads the package directly from the cloud.
+	// Skip the shell copy and go straight to configure.
+	if cloudBuild {
+		if err := pm.Start("reload"); err != nil {
+			return err
+		}
+	} else if !args.Local {
 		if manifest == nil || manifest.Build == nil || buildPath == "" {
 			return errors.New(
 				"remote reloading requires a meta.json with the 'build.path' field set. " +
@@ -1243,18 +1250,11 @@ func reloadModuleActionInner(
 			)
 		}
 		if err := validateReloadableArchive(cmd, manifest.Build); err != nil {
-			// if it is a cloud build then it makes sense that we might not have a reloadable
-			// archive locally, so we can safely ignore the error
-			if !cloudBuild {
-				return err
-			}
+			return err
 		}
 
-		// Start the "Reloading to part..." parent step if not already started (for local builds with cloud-built artifacts)
-		if !cloudBuild {
-			if err := pm.Start("reload"); err != nil {
-				return err
-			}
+		if err := pm.Start("reload"); err != nil {
+			return err
 		}
 		if err := pm.Start("shell"); err != nil {
 			return err
