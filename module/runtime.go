@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func moduleStart(
@@ -77,12 +78,16 @@ func moduleStart(
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
-		if len(os.Args) < 2 {
-			return errors.New("need socket path as command line argument")
+		moduleAddress := os.Getenv(rutils.ViamModuleAddress)
+		if moduleAddress == "" {
+			if len(os.Args) < 2 {
+				return errors.New("need socket path as command line argument or env var")
+			}
+			moduleAddress = os.Args[1]
 		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		mod, err := moduleStart(os.Args[1], models...)(ctx, args, cancel, NewLoggerFromArgs(""))
+		mod, err := moduleStart(moduleAddress, models...)(ctx, args, cancel, NewLoggerFromArgs(""))
 		if err != nil {
 			return err
 		}

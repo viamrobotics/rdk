@@ -198,7 +198,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	//nolint:staticcheck
 	conn, err := grpc.Dial(
-		"unix://"+addr,
+		"unix:"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -490,7 +490,7 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
 		//nolint:staticcheck
 		conn, err := grpc.Dial(
-			"unix://"+addr,
+			"unix:"+addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 			grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),

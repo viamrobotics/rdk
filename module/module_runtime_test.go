@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestModularMain(t *testing.T) {
@@ -86,8 +85,6 @@ func TestModularMain(t *testing.T) {
 				var port int
 				if tc.UdsMode {
 					modAddr, err = CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
-					test.That(t, err, test.ShouldBeNil)
-					modAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, modAddr)
 					test.That(t, err, test.ShouldBeNil)
 				} else {
 					port, err = utils.TryReserveRandomPort()

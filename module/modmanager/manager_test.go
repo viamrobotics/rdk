@@ -511,7 +511,7 @@ func TestModManagerKill(t *testing.T) {
 	// maybe related to https://github.com/golang/go/issues/18874
 	pid, err := mod.process.UnixPid()
 	test.That(t, err, test.ShouldBeNil)
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+	if err := kill(pid, syscall.SIGTERM); err != nil {
 		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
 	}
 }
