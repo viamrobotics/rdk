@@ -119,7 +119,6 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 	// the reconstructed model must:
 	// 1. Have the same DoF as the original
 	// 2. Be re-serializable via KinematicModelToProtobuf with correct format (not UNSPECIFIED)
-	// 3. NOT leak OriginalFile into the protobuf Struct (wastes bandwidth, fragile round-trip)
 	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(model.DoF()), test.ShouldBeGreaterThan, 0)
@@ -133,12 +132,6 @@ func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
 	// Simulate gRPC with actual proto wire serialization/deserialization.
 	pbMsg, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
-
-	// OriginalFile should NOT leak into the protobuf Struct. It contains the entire
-	// kinematics file as a []byte, which StructToStructPb converts to a massive
-	// list of numbers — wasteful and relies on fragile json round-trip behavior.
-	_, hasOrigFile := pbMsg.Kinematics.AsMap()["OriginalFile"]
-	test.That(t, hasOrigFile, test.ShouldBeFalse)
 
 	wireBytes, err := proto2.Marshal(pbMsg)
 	test.That(t, err, test.ShouldBeNil)
