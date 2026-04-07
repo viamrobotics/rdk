@@ -56,6 +56,21 @@ type Service interface {
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
 	UploadImageToDatasets(ctx context.Context, image image.Image, datasetIDs, tags []string,
 		mimeType datasyncpb.MimeType, extra map[string]interface{}) error
+	// UploadPath uploads a file or directory at the given path to the cloud.
+	// onProgress is called with per-file progress updates and a final completion message per file.
+	// For directories, all files are attempted; errors are surfaced via the completion message.
+	UploadPath(ctx context.Context, path string, tags, datasetIDs []string, onProgress func(UploadPathProgress), extra map[string]interface{}) error
+}
+
+// UploadPathProgress reports the upload progress of a single file.
+// Intermediate progress messages have Success=false and Err=nil.
+// The final message per file has Success=true on success, or Err set on failure.
+type UploadPathProgress struct {
+	Path          string
+	BytesUploaded uint64
+	BytesTotal    uint64
+	Success       bool
+	Err           error
 }
 
 // SubtypeName is the name of the type of service.

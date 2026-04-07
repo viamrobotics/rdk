@@ -8,6 +8,7 @@ import (
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 
 	datasyncpb "go.viam.com/api/app/datasync/v1"
 	pb "go.viam.com/api/service/datamanager/v1"
@@ -61,6 +62,45 @@ func (c *client) Sync(ctx context.Context, extra map[string]interface{}) error {
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
+}
+
+func (c *client) UploadPath(ctx context.Context, path string, tags, datasetIDs []string, onProgress func(UploadPathProgress), extra map[string]interface{}) error {
+	extraPb, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+	stream, err := c.client.UploadPath(ctx, &pb.UploadPathRequest{
+		Name:       c.name,
+		Path:       path,
+		Tags:       tags,
+		DatasetIds: datasetIDs,
+		Extra:      extraPb,
+	})
+	if err != nil {
+		return err
+	}
+	for {
+		resp, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if onProgress != nil {
+			var progressErr error
+			if resp.GetError() != "" {
+				progressErr = errors.New(resp.GetError())
+			}
+			onProgress(UploadPathProgress{
+				Path:          resp.GetPath(),
+				BytesUploaded: resp.GetBytesUploaded(),
+				BytesTotal:    resp.GetBytesTotal(),
+				Success:       resp.GetSuccess(),
+				Err:           progressErr,
+			})
+		}
+	}
 }
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
