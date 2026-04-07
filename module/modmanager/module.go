@@ -272,6 +272,7 @@ func (m *module) startProcess(
 	// compatibility while passing the "real" path via an environment variable.
 	// Modules built with the latest version of rdk will prefer the variable over
 	// the argument.
+	//nolint:staticcheck
 	windowsAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
 	if err != nil {
 		return err

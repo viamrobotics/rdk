@@ -1913,22 +1913,27 @@ func TestFirstRun(t *testing.T) {
 
 func TestCleanWindowsSocketPath(t *testing.T) {
 	// uppercase and lowercase
+	//nolint:staticcheck
 	clean, err := rutils.CleanWindowsSocketPath("windows", "C:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "c:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// no disk
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// linux
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
