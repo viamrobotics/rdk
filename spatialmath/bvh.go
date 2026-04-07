@@ -166,11 +166,13 @@ func expandAABB(minPt, maxPt, pt r3.Vector) (r3.Vector, r3.Vector) {
 }
 
 // rotatedAABBExtents computes world-space AABB extents using Arvo's abs(R) * extents.
+// Note: RotationMatrix stores R^T (transpose) in row-major order, so we read columns of rm
+// to get rows of R: R[i][j] = rm.At(j, i).
 func rotatedAABBExtents(rm *RotationMatrix, extents r3.Vector) r3.Vector {
 	return r3.Vector{
-		X: math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(0, 1))*extents.Y + math.Abs(rm.At(0, 2))*extents.Z,
-		Y: math.Abs(rm.At(1, 0))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(1, 2))*extents.Z,
-		Z: math.Abs(rm.At(2, 0))*extents.X + math.Abs(rm.At(2, 1))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z,
+		X: math.Abs(rm.At(0, 0))*extents.X + math.Abs(rm.At(1, 0))*extents.Y + math.Abs(rm.At(2, 0))*extents.Z,
+		Y: math.Abs(rm.At(0, 1))*extents.X + math.Abs(rm.At(1, 1))*extents.Y + math.Abs(rm.At(2, 1))*extents.Z,
+		Z: math.Abs(rm.At(0, 2))*extents.X + math.Abs(rm.At(1, 2))*extents.Y + math.Abs(rm.At(2, 2))*extents.Z,
 	}
 }
 
@@ -386,13 +388,14 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 // Geometries are stored in local space and transformed on-demand using the provided poses.
 func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
 	minDist := math.Inf(1)
+	// Pre-transform geoms2 once to avoid redundant transforms in inner loop.
+	worldGeoms2 := make([]Geometry, len(geoms2))
+	for i, g := range geoms2 {
+		worldGeoms2[i] = g.Transform(pose2)
+	}
 	for _, g1 := range geoms1 {
-		// Transform geometry to world space.
 		worldG1 := g1.Transform(pose1)
-		for _, g2 := range geoms2 {
-			// Transform geometry to world space.
-			worldG2 := g2.Transform(pose2)
-			// Use the Geometry interface's CollidesWith method
+		for _, worldG2 := range worldGeoms2 {
 			collides, dist, err := worldG1.CollidesWith(worldG2, collisionBufferMM)
 			if err != nil {
 				return false, 0, err

@@ -3095,6 +3095,58 @@ func RobotsPartStatusAction(ctx context.Context, cmd *cli.Command, args robotsPa
 	return nil
 }
 
+type machinesPartHistoryArgs struct {
+	Organization  string
+	Location      string
+	Machine       string
+	Part          string
+	FilterByEmail string
+}
+
+// machinesPartHistoryAction is the corresponding action for 'machines part history'.
+func machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+	return client.machinesPartHistoryAction(ctx, cmd, args)
+}
+
+func (c *viamClient) machinesPartHistoryAction(ctx context.Context, cmd *cli.Command, args machinesPartHistoryArgs) error {
+	part, err := c.robotPart(ctx, args.Organization, args.Location, args.Machine, args.Part)
+	if err != nil {
+		return errors.Wrap(err, "could not get machine part")
+	}
+
+	resp, err := c.client.GetRobotPartHistory(ctx, &apppb.GetRobotPartHistoryRequest{Id: part.Id})
+	if err != nil {
+		return err
+	}
+
+	history := resp.History
+	if len(history) == 0 {
+		printf(cmd.Root().Writer, "no history found for part %s", part.Name)
+		return nil
+	}
+
+	for i, entry := range history {
+		if args.FilterByEmail != "" && (entry.EditedBy == nil || entry.EditedBy.Value != args.FilterByEmail) {
+			continue
+		}
+		when := "<unknown time>"
+		if entry.When != nil {
+			when = entry.When.AsTime().Format(time.UnixDate)
+		}
+		editedBy := "<unknown>"
+		if entry.EditedBy != nil && entry.EditedBy.Value != "" {
+			editedBy = entry.EditedBy.Value
+		}
+		printf(cmd.Root().Writer, "[%d] %s — edited by %s", i+1, when, editedBy)
+	}
+
+	return nil
+}
+
 type robotsPartAddFragmentArgs struct {
 	Organization string
 	Location     string
@@ -3772,7 +3824,9 @@ func (c *viamClient) machinesPartCopyFilesAction(
 	if err != nil {
 		return err
 	}
-	var pm *ProgressManager
+	pm := NewProgressManager([]*Step{
+		{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
+	}, WithProgressOutput(!flagArgs.NoProgress))
 	doCopy := func() (int, error) {
 		var copyFunc func() error
 		if isFrom {
@@ -3809,15 +3863,10 @@ func (c *viamClient) machinesPartCopyFilesAction(
 				)
 			}
 		}
-		if !flagArgs.NoProgress {
-			pm = NewProgressManager([]*Step{
-				{ID: "copy", Message: "Copying files...", CompletedMsg: "Files copied", IndentLevel: 0},
-			})
-			if err := pm.Start("copy"); err != nil {
-				return 0, err
-			}
-			defer pm.Stop()
+		if err := pm.Start("copy"); err != nil {
+			return 0, err
 		}
+		defer pm.Stop()
 		attemptCount, err := c.retryableCopy(
 			cmd,
 			pm,
@@ -4052,9 +4101,12 @@ var getLatestReleaseVersionFunc = func() (string, error) {
 
 func localVersion() (*semver.Version, error) {
 	appVersion := rconfig.Version
+	if appVersion == "" {
+		return nil, errors.New("local build has no version set (dev build or missing ldflags)")
+	}
 	localVersion, err := semver.NewVersion(appVersion)
 	if err != nil {
-		return nil, errors.New("failed to parse local build version")
+		return nil, errors.Errorf("failed to parse local build version %q: %v", appVersion, err)
 	}
 	return localVersion, nil
 }
@@ -4151,91 +4203,190 @@ func (conf *Config) checkUpdate(cmd *cli.Command) error {
 	return nil
 }
 
+type updateArgs struct {
+	NoProgress bool
+}
+
 // UpdateCLIAction updates the CLI to the latest version.
-func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args emptyArgs) error {
+func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) error {
+	pm := NewProgressManager([]*Step{
+		{ID: "check", Message: "Checking for updates", IndentLevel: 0},
+		{ID: "update", Message: "Updating...", IndentLevel: 0},
+		{ID: "brew-upgrade", Message: "Updating via Homebrew", IndentLevel: 1},
+		{ID: "download", Message: "Downloading latest CLI", IndentLevel: 1},
+		{ID: "install", Message: "Installing update", IndentLevel: 1},
+	}, WithProgressOutput(!args.NoProgress))
+
 	// 1. check CLI to see if update needed, if this fails then try update anyways
+	if err := pm.Start("check"); err != nil {
+		return err
+	}
 	latestVersion, latestVersionErr := latestVersion()
 	if latestVersionErr != nil {
-		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get latest release information: %w", latestVersionErr)
+		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get latest release information: %v", latestVersionErr)
 	}
 	localVersion, localVersionErr := localVersion()
 	if localVersionErr != nil {
-		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get local release information: %w", localVersionErr)
+		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get local release information: %v", localVersionErr)
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
-			infof(cmd.Root().Writer, "Your CLI is already up to date (version %s)", localVersion.Original())
+			msg := fmt.Sprintf("Already up to date (version %s)", localVersion.Original())
+			if err := pm.CompleteWithMessage("check", msg); err != nil {
+				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, msg)
+			}
 			return nil
 		}
 	}
-	// 2. check if cli managed by brew, if so attempt update. If it fails
+	checkMsg := "Update available"
+	if latestVersion != nil {
+		checkMsg = fmt.Sprintf("Update available: %s", latestVersion.Original())
+	}
+	if err := pm.CompleteWithMessage("check", checkMsg); err != nil {
+		return err
+	}
+
+	// 2. start the update parent step, which wraps all install work
+	if err := pm.Start("update"); err != nil {
+		return err
+	}
+	updatedMsg := "Updated successfully"
+	if latestVersion != nil {
+		updatedMsg = fmt.Sprintf("Updated to %s", latestVersion.Original())
+	}
+
+	// 3. check if cli managed by brew, if so attempt update. If it fails
 	// dont continue with binary replacement to avoid putting brew out of sync
-	managedByBrew, err := checkAndTryBrewUpdate()
-	if err != nil {
-		return errors.Errorf("CLI update failed: %v", err)
-	}
-	// try the binary replacement process because not managed by brew
-	if !managedByBrew {
-		// 3. get the local version binary path (use full path if no symlinks)
-		execPath, err := os.Executable()
-		if err != nil {
-			return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+	if isViamManagedByBrew() {
+		if err := pm.Start("brew-upgrade"); err != nil {
+			return err
 		}
-		localBinaryPath, err := filepath.EvalSymlinks(execPath)
-		if err != nil {
-			localBinaryPath = execPath
-		}
-		directoryPath := filepath.Dir(localBinaryPath)
-
-		// 4. get the latest binary (from storage.googleapis.com) and write it into a temp file
-		binaryURL := binaryURL()
-		latestBinaryPath, err := downloadBinaryIntoDir(binaryURL, directoryPath)
-		defer os.Remove(latestBinaryPath) //nolint:errcheck
-		if err != nil {
-			return errors.Errorf("CLI update failed: failed to download binary: %v", err)
-		}
-
-		// 5. replace the old binary with the new one
-		if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
-			return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
-		}
-
-		// 6. on Windows, ensure the CLI directory is in the user's PATH
-		if runtime.GOOS == osWindows {
-			if err := addToWindowsUserPATH(cmd, directoryPath); err != nil {
-				warningf(cmd.Root().ErrWriter, "Failed to add CLI to user PATH. "+
-					"To add manually, run the following in PowerShell:\n"+
-					`  [Environment]::SetEnvironmentVariable("Path", `+
-					`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
-					"\nThen restart your terminal for the change to take effect."+
-					"\nError: %v", directoryPath, err)
+		pm.UpdateText("  → Updating via Homebrew — do not cancel. To recover if deleted: brew reinstall viam")
+		updated, brewErr := tryBrewUpgrade()
+		if brewErr != nil {
+			if failErr := pm.Fail("brew-upgrade", brewErr); failErr != nil {
+				return failErr
 			}
+			return errors.Errorf("CLI update failed: %v", brewErr)
+		}
+		switch updated {
+		case brewUpdated:
+			if err := pm.CompleteWithMessage("brew-upgrade", "Updated via Homebrew"); err != nil {
+				return err
+			}
+			if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
+				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, updatedMsg)
+			}
+			return nil
+		case brewNotAvailable:
+			const brewNotAvailableMsg = "Latest version not yet available on Homebrew, try again later"
+			if err := pm.FailWithMessage("update", brewNotAvailableMsg); err != nil {
+				return err
+			}
+			if args.NoProgress {
+				infof(cmd.Root().Writer, brewNotAvailableMsg)
+			}
+			return nil
 		}
 	}
-	infof(cmd.Root().Writer, "Your CLI has been successfully updated")
+
+	// 4. get the local version binary path (use full path if no symlinks)
+	execPath, err := os.Executable()
+	if err != nil {
+		return errors.Errorf("CLI update failed: failed to get executable path: %v", err)
+	}
+	localBinaryPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		localBinaryPath = execPath
+	}
+	directoryPath := filepath.Dir(localBinaryPath)
+
+	// 5. get the latest binary (from storage.googleapis.com) and write it into a temp file
+	if err := pm.Start("download"); err != nil {
+		return err
+	}
+	binaryURL := binaryURL()
+	latestBinaryPath, downloadErr := downloadBinaryIntoDir(binaryURL, directoryPath)
+	defer os.Remove(latestBinaryPath) //nolint:errcheck
+	if downloadErr != nil {
+		if failErr := pm.Fail("download", downloadErr); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: failed to download binary: %v", downloadErr)
+	}
+	if err := pm.Complete("download"); err != nil {
+		return err
+	}
+
+	// 6. replace the old binary with the new one
+	if err := pm.Start("install"); err != nil {
+		return err
+	}
+	if err := replaceBinary(localBinaryPath, latestBinaryPath); err != nil {
+		if failErr := pm.Fail("install", err); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: failed to replace binary: %v", err)
+	}
+	if err := pm.Complete("install"); err != nil {
+		return err
+	}
+
+	// 7. on Windows, ensure the CLI directory is in the user's PATH
+	if runtime.GOOS == osWindows {
+		if err := addToWindowsUserPATH(cmd, directoryPath); err != nil {
+			warningf(cmd.Root().ErrWriter, "Failed to add CLI to user PATH. "+
+				"To add manually, run the following in PowerShell:\n"+
+				`  [Environment]::SetEnvironmentVariable("Path", `+
+				`[Environment]::GetEnvironmentVariable("Path", "User") + ";%s", "User")`+
+				"\nThen restart your terminal for the change to take effect."+
+				"\nError: %v", directoryPath, err)
+		}
+	}
+	if err := pm.CompleteWithMessage("update", updatedMsg); err != nil {
+		return err
+	}
+	if args.NoProgress {
+		infof(cmd.Root().Writer, updatedMsg)
+	}
 	return nil
 }
 
-func checkAndTryBrewUpdate() (bool, error) {
-	if runtime.GOOS == "darwin" {
-		if _, err := exec.LookPath("brew"); err == nil {
-			// Check if viam is actually managed by brew
-			err := exec.Command("brew", "list", "viam").Run()
-			if err == nil {
-				// viam is managed by brew - try upgrade
-				out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
-				if err == nil {
-					if strings.Contains(string(out), "already installed") {
-						// edge case: latest version released but brew has not updated yet
-						return false, errors.New("the latest version is not on brew yet")
-					}
-					return true, nil
-				}
-				return false, errors.Errorf("failed to upgrade CLI via brew: %v", err)
-			}
-		}
+type brewUpdateResult int
+
+const (
+	brewUpdated brewUpdateResult = iota
+	brewNotAvailable
+)
+
+// isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
+func isViamManagedByBrew() bool {
+	if runtime.GOOS == osWindows {
+		return false
 	}
-	return false, nil
+	if _, err := exec.LookPath("brew"); err != nil {
+		return false
+	}
+	return exec.Command("brew", "list", "viam").Run() == nil
+}
+
+// tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called
+// after confirming viam is brew-managed via isViamManagedByBrew.
+func tryBrewUpgrade() (brewUpdateResult, error) {
+	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
+	if err != nil {
+		return brewUpdated, errors.Errorf("failed to upgrade CLI via brew: %v", err)
+	}
+	if strings.Contains(string(out), "already installed") {
+		return brewNotAvailable, nil
+	}
+	return brewUpdated, nil
 }
 
 func binaryURL() string {
@@ -4430,10 +4581,23 @@ func newViamClient(ctx context.Context, cmd *cli.Command) (*viamClient, error) {
 	return client, nil
 }
 
+func isTLSLocalhost(url *url.URL) bool {
+	if url.Scheme != "https" || url.Port() == "443" {
+		return false
+	}
+	return strings.HasPrefix(url.Host, "0.0.0.0") || strings.HasPrefix(url.Host, "localhost")
+}
+
 func newViamClientInner(ctx context.Context, cmd *cli.Command, disableBrowserOpen bool) (*viamClient, error) {
 	baseURL, conf, err := getBaseURL(cmd)
 	if err != nil {
 		return nil, err
+	}
+	if isTLSLocalhost(baseURL) {
+		warningf(
+			cmd.Root().ErrWriter,
+			"you are trying to log into localhost with a TLS connection."+
+				" This will likely result in a hang; please try logging in to http localhost instead")
 	}
 
 	if err = conf.checkUpdate(cmd); err != nil {

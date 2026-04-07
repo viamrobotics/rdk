@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
@@ -625,6 +626,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
+	unaryInterceptors = append(unaryInterceptors, grpc.ResourceNameTaggingUnaryServerInterceptor)
+
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 		unaryInterceptors = append(unaryInterceptors, func(
@@ -871,6 +874,12 @@ func (svc *webService) foreignServiceHandler(srv interface{}, stream googlegrpc.
 	if err != nil {
 		svc.logger.Errorw("unable to route foreign message", "error", err)
 		return err
+	}
+
+	// foreignServiceHandler is invoked as a stream handler, so unary interceptors never run here.
+	// To have the spans of custom API calls attributed with resource names, tag it here directly.
+	if span := trace.FromContext(stream.Context()); span.IsRecording() {
+		span.SetAttributes(attribute.String("viam.resource.name", fqName.Name))
 	}
 
 	if fqName.ContainsRemoteNames() {

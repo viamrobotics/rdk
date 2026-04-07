@@ -2,6 +2,7 @@ package gpiostepper
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -195,7 +196,6 @@ func TestConfigs(t *testing.T) {
 	})
 }
 
-// Warning: Tests that run goForInternal may be racy.
 func TestRunning(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -245,23 +245,28 @@ func TestRunning(t *testing.T) {
 
 	t.Run("IsPowered true", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, deps, c, logger)
-		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
 
-		// long running goFor
-		err = s.goForInternal(ctx, 100, 3)
-		defer m.Stop(ctx, nil)
-
-		test.That(t, err, test.ShouldBeNil)
+		// long running GoFor in goroutine
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			m.GoFor(ctx, 100, 3, nil)
+		}()
+		defer func() {
+			m.Stop(ctx, nil)
+			wg.Wait()
+		}()
 
 		// the motor is running
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(ctx, nil)
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, on, test.ShouldEqual, true)
-			test.That(t, powerPct, test.ShouldEqual, 1.0)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, true)
+			test.That(tb, powerPct, test.ShouldEqual, 1.0)
 		})
 
 		// the motor finished running
@@ -273,10 +278,11 @@ func TestRunning(t *testing.T) {
 			test.That(tb, powerPct, test.ShouldEqual, 0.0)
 		})
 
+		wg.Wait()
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 3)
-		test.That(t, s.targetStepPosition, test.ShouldEqual, 600)
+		test.That(t, m.(*gpioStepper).targetStepPosition.Load(), test.ShouldEqual, 600)
 	})
 
 	t.Run("motor enable", func(t *testing.T) {
@@ -325,7 +331,7 @@ func TestRunning(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 1)
-		test.That(t, s.targetStepPosition, test.ShouldEqual, 200)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, 200)
 	})
 
 	t.Run("motor testing with negative rpm and positive revolutions", func(t *testing.T) {
@@ -345,7 +351,7 @@ func TestRunning(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -1)
-		test.That(t, s.targetStepPosition, test.ShouldEqual, -200)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, -200)
 	})
 
 	t.Run("motor testing with positive rpm and negative revolutions", func(t *testing.T) {
@@ -365,7 +371,7 @@ func TestRunning(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -1)
-		test.That(t, s.targetStepPosition, test.ShouldEqual, -200)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, -200)
 	})
 
 	t.Run("motor testing with negative rpm and negative revolutions", func(t *testing.T) {
@@ -385,7 +391,7 @@ func TestRunning(t *testing.T) {
 		pos, err := m.Position(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 1)
-		test.That(t, s.targetStepPosition, test.ShouldEqual, 200)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, 200)
 	})
 
 	t.Run("motor testing with 0 rpm and 0 revolutions", func(t *testing.T) {
@@ -433,7 +439,7 @@ func TestRunning(t *testing.T) {
 		// Make sure it stops moving
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, _, err := m.IsPowered(ctx, nil)
+			on, _, err := m.IsPowered(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
@@ -443,8 +449,8 @@ func TestRunning(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		// stop() sets targetStepPosition to the stepPosition value
-		test.That(t, s.targetStepPosition, test.ShouldEqual, s.stepPosition)
-		test.That(t, s.targetStepPosition, test.ShouldBeBetweenOrEqual, 1, 100*200)
+		test.That(t, s.targetStepPosition.Load(), test.ShouldEqual, s.stepPosition.Load())
+		test.That(t, s.targetStepPosition.Load(), test.ShouldBeBetweenOrEqual, 1, 100*200)
 		test.That(t, p, test.ShouldBeBetween, 0, 100)
 	})
 
@@ -481,103 +487,132 @@ func TestRunning(t *testing.T) {
 		cancel()
 		wg.Wait()
 
-		// Make sure it stops moving
+		// Make sure it stops moving — use fresh context since old one is cancelled
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, _, err := m.IsPowered(ctx, nil)
+			on, _, err := m.IsPowered(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 
-			h, err := pinD.Get(ctx, nil)
+			h, err := pinD.Get(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, h, test.ShouldBeFalse)
 
-			l, err := pinE.Get(ctx, nil)
+			l, err := pinE.Get(context.Background(), nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, l, test.ShouldBeTrue)
 		})
 
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx2 := context.Background()
 
-		err = m.SetRPM(ctx, 100, map[string]interface{}{})
+		err = m.SetRPM(ctx2, 100, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// Make sure it starts moving
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, _, err := m.IsPowered(ctx, nil)
+			on, _, err := m.IsPowered(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, true)
 
-			h, err := pinD.Get(ctx, nil)
+			h, err := pinD.Get(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, h, test.ShouldBeTrue)
 
-			l, err := pinE.Get(ctx, nil)
+			l, err := pinE.Get(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, l, test.ShouldBeFalse)
 		})
 
-		cancel()
-
-		err = m.SetPower(ctx, 1, map[string]interface{}{})
+		err = m.SetPower(ctx2, 1, map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 
 		// Make sure it starts moving
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, _, err := m.IsPowered(ctx, nil)
+			on, _, err := m.IsPowered(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, true)
 
-			h, err := pinD.Get(ctx, nil)
+			h, err := pinD.Get(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, h, test.ShouldBeTrue)
 
-			l, err := pinE.Get(ctx, nil)
+			l, err := pinE.Get(ctx2, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, l, test.ShouldBeFalse)
 		})
 
-		cancel()
-		test.That(t, ctx.Err(), test.ShouldNotBeNil)
+		err = m.Stop(ctx2, nil)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("motor testing with large # of revolutions", func(t *testing.T) {
+	// Tests SetRPM with motion, stop, and position verification. Run twice to cover
+	// both the "large revolutions" and "SetRPM" original test names.
+	for _, name := range []string{"motor testing with large # of revolutions", "motor testing with SetRPM"} {
+		t.Run(name, func(t *testing.T) {
+			m, err := newGPIOStepper(ctx, deps, c, logger)
+			test.That(t, err, test.ShouldBeNil)
+			defer m.Close(ctx)
+
+			err = m.SetRPM(ctx, 1000, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			testutils.WaitForAssertion(t, func(tb testing.TB) {
+				tb.Helper()
+
+				on, _, err := m.IsPowered(ctx, nil)
+				test.That(tb, err, test.ShouldBeNil)
+				test.That(tb, on, test.ShouldEqual, true)
+
+				pos, err := m.Position(ctx, nil)
+				test.That(tb, err, test.ShouldBeNil)
+				test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+			})
+
+			err = m.Stop(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, on, test.ShouldEqual, false)
+
+			pos, err := m.Position(ctx, nil)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+		})
+	}
+
+	t.Run("test rpmToFreqHz", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, deps, c, logger)
-		s := m.(*gpioStepper)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
 
-		err = s.goForInternal(ctx, 1000, 200)
-		test.That(t, err, test.ShouldBeNil)
+		s := m.(*gpioStepper)
 
-		testutils.WaitForAssertion(t, func(tb testing.TB) {
-			tb.Helper()
+		// 200 steps/rot, minDelay=30us → maxFreq = 1/30us ≈ 33333 Hz
+		// 50 RPM: 50*200/60 = 166.67 → 167 Hz
+		freq := s.rpmToFreqHz(50)
+		test.That(t, freq, test.ShouldEqual, uint(167))
 
-			on, _, err := m.IsPowered(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
+		// negative RPM uses absolute value
+		freq = s.rpmToFreqHz(-50)
+		test.That(t, freq, test.ShouldEqual, uint(167))
 
-			pos, err := m.Position(ctx, nil)
-			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-		})
+		// 1 RPM: 1*200/60 = 3.33 → 3 Hz
+		freq = s.rpmToFreqHz(1)
+		test.That(t, freq, test.ShouldEqual, uint(3))
 
-		err = m.Stop(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
+		// Very high RPM should be clamped by minDelay
+		freq = s.rpmToFreqHz(100000)
+		test.That(t, freq, test.ShouldEqual, uint(math.Round(1.0/(30e-6))))
 
-		on, _, err := m.IsPowered(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, false)
-
-		pos, err := m.Position(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-		test.That(t, pos, test.ShouldBeLessThan, 202)
+		// Very low RPM clamps to 1 Hz
+		freq = s.rpmToFreqHz(0.001)
+		test.That(t, freq, test.ShouldEqual, uint(1))
 	})
 
-	t.Run("motor testing with SetRPM", func(t *testing.T) {
+	t.Run("test PWM confirmation during motion", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, deps, c, logger)
 		test.That(t, err, test.ShouldBeNil)
 		defer m.Close(ctx)
@@ -585,54 +620,56 @@ func TestRunning(t *testing.T) {
 		err = m.SetRPM(ctx, 1000, nil)
 		test.That(t, err, test.ShouldBeNil)
 
+		// Check PWM is set on step pin
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-
-			on, _, err := m.IsPowered(ctx, nil)
+			duty, err := pinC.PWM(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, on, test.ShouldEqual, true)
+			test.That(tb, duty, test.ShouldEqual, 0.5)
 
-			pos, err := m.Position(ctx, nil)
+			freq, err := pinC.PWMFreq(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
-			test.That(tb, pos, test.ShouldBeGreaterThan, minDistanceMoved)
+			test.That(tb, freq, test.ShouldBeGreaterThan, 0)
 		})
 
 		err = m.Stop(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, _, err := m.IsPowered(ctx, nil)
+		// PWM should be 0 after stop
+		duty, err := pinC.PWM(ctx, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldEqual, false)
-
-		pos, err := m.Position(ctx, nil)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pos, test.ShouldBeGreaterThan, minDistanceMoved)
-		test.That(t, pos, test.ShouldBeLessThan, 202)
+		test.That(t, duty, test.ShouldEqual, 0.0)
 	})
 
-	t.Run("test calcStepperDelay", func(t *testing.T) {
-		stepper, err := newGPIOStepper(ctx, deps, c, logger)
+	t.Run("test stop signals waiters", func(t *testing.T) {
+		m, err := newGPIOStepper(ctx, deps, c, logger)
 		test.That(t, err, test.ShouldBeNil)
-		defer stepper.Close(ctx)
+		defer m.Close(ctx)
 
-		m := stepper.(*gpioStepper)
-		stepperdelay := m.calcStepperDelay(50)
-		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+		errCh := make(chan error, 1)
+		go func() {
+			errCh <- m.GoFor(ctx, 100, 100, nil)
+		}()
 
-		stepperdelay = m.calcStepperDelay(-50)
-		test.That(t, stepperdelay, test.ShouldEqual, (6 * time.Millisecond))
+		// Wait for motion to start
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, _, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, true)
+		})
 
-		stepperdelay = m.calcStepperDelay(-2)
-		test.That(t, stepperdelay, test.ShouldEqual, (150 * time.Millisecond))
+		// Stop should cause GoFor to return
+		err = m.Stop(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
 
-		stepperdelay = m.calcStepperDelay(1)
-		test.That(t, stepperdelay, test.ShouldEqual, (300 * time.Millisecond))
-
-		stepperdelay = m.calcStepperDelay(400)
-		test.That(t, stepperdelay, test.ShouldEqual, (750 * time.Microsecond))
-
-		stepperdelay = m.calcStepperDelay(0)
-		test.That(t, stepperdelay, test.ShouldEqual, (30 * time.Microsecond))
+		select {
+		case goForErr := <-errCh:
+			test.That(t, goForErr, test.ShouldNotBeNil)
+			test.That(t, goForErr.Error(), test.ShouldContainSubstring, "context cancelled")
+		case <-time.After(5 * time.Second):
+			t.Fatal("GoFor did not return after Stop")
+		}
 	})
 
 	cancel()

@@ -25,6 +25,7 @@ const (
 var (
 	errPlayFailed       = errors.New("can't play audio")
 	errPropertiesFailed = errors.New("can't get properties")
+	errGetStatusFailed  = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.AudioOutServiceServer, *inject.AudioOut, *inject.AudioOut, error) {
@@ -133,5 +134,31 @@ func TestServer(t *testing.T) {
 		respMap := doCommandResponse.Result.AsMap()
 		test.That(t, respMap["command"], test.ShouldEqual, "test")
 		test.That(t, respMap["data"], test.ShouldEqual, 500)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := audioOutServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "audio_out3"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		resp, err := audioOutServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioOutName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectAudioOut.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = audioOutServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioOutName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectAudioOut.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = audioOutServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testAudioOutName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectAudioOut.StatusFunc = nil
 	})
 }

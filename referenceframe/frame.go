@@ -99,6 +99,12 @@ func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
 }
 
+// IsRotational returns true if this limit appears to be for a rotational joint,
+// i.e. both min and max are multiples of pi and 0 is within range.
+func (l *Limit) IsRotational() bool {
+	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
+}
+
 // AreInputsValid checks if all values are within limit ranges
 func AreInputsValid(ls []Limit, values []float64) bool {
 	if len(ls) != len(values) {
@@ -276,8 +282,8 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i], "needs to be within range", lim))
+			multierr.AppendInto(&errAll, fmt.Errorf("%s, input %.5f needs to be within range %.5f",
+				OOBErrString, inputs[i], lim))
 		}
 	}
 

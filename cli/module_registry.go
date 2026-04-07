@@ -80,6 +80,7 @@ type AppComponent struct {
 	Type           string             `json:"type"`
 	Entrypoint     string             `json:"entrypoint"`
 	FragmentIDs    []string           `json:"fragmentIds,omitempty"`
+	AllowedOrgIDs  []string           `json:"allowedOrgIds,omitempty"`
 	LogoPath       string             `json:"logoPath,omitempty"`
 	Customizations *AppCustomizations `json:"customizations,omitempty"`
 }
@@ -698,11 +699,16 @@ func moduleComponentToProto(moduleComponent ModuleComponent) *apppb.Model {
 }
 
 func appComponentToProto(appComponent AppComponent) *apppb.App {
+	var allowedOrgIDs *apppb.AllowedOrgIDs
+	if len(appComponent.AllowedOrgIDs) > 0 {
+		allowedOrgIDs = &apppb.AllowedOrgIDs{Ids: appComponent.AllowedOrgIDs}
+	}
 	app := &apppb.App{
-		Name:        appComponent.Name,
-		Type:        appComponent.Type,
-		Entrypoint:  appComponent.Entrypoint,
-		FragmentIds: appComponent.FragmentIDs,
+		Name:          appComponent.Name,
+		Type:          appComponent.Type,
+		Entrypoint:    appComponent.Entrypoint,
+		FragmentIds:   appComponent.FragmentIDs,
+		AllowedOrgIds: allowedOrgIDs,
 	}
 
 	if appComponent.LogoPath != "" {

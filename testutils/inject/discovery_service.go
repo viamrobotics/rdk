@@ -13,6 +13,7 @@ type DiscoveryService struct {
 	name                  resource.Name
 	DiscoverResourcesFunc func(ctx context.Context, extra map[string]any) ([]resource.Config, error)
 	DoFunc                func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc            func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc             func(ctx context.Context) error
 }
 
@@ -40,6 +41,17 @@ func (disSvc *DiscoveryService) DoCommand(ctx context.Context, cmd map[string]in
 		return disSvc.Service.DoCommand(ctx, cmd)
 	}
 	return disSvc.DoFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (disSvc *DiscoveryService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if disSvc.StatusFunc != nil {
+		return disSvc.StatusFunc(ctx)
+	}
+	if disSvc.Service != nil {
+		return disSvc.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

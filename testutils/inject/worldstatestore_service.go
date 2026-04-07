@@ -20,6 +20,7 @@ type WorldStateStoreService struct {
 	GetTransformFunc           func(ctx context.Context, uuid []byte, extra map[string]any) (*commonpb.Transform, error)
 	StreamTransformChangesFunc func(ctx context.Context, extra map[string]any) (*worldstatestore.TransformChangeStream, error)
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc                 func(ctx context.Context) (map[string]interface{}, error)
 }
 
 // NewWorldStateStoreService returns a new injected world state store service.
@@ -54,6 +55,14 @@ func (wosSvc *WorldStateStoreService) DoCommand(ctx context.Context, cmd map[str
 		return nil, errors.New("DoCommandFunc not set")
 	}
 	return wosSvc.DoFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (wosSvc *WorldStateStoreService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if wosSvc.StatusFunc == nil {
+		return nil, errors.New("StatusFunc not set")
+	}
+	return wosSvc.StatusFunc(ctx)
 }
 
 // StreamTransformChanges calls the injected StreamTransformChangesFunc or the real version.

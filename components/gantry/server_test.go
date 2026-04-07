@@ -35,6 +35,7 @@ var (
 	errGantryNotFound          = errors.New("not found")
 	errKinematicsUnimplemented = errors.New("Kinematics unimplemented")
 	errGeometriesUnimplemented = errors.New("Geometries unimplemented")
+	errGetStatusFailed         = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error) {
@@ -276,6 +277,32 @@ func TestServer(t *testing.T) {
 			),
 			test.ShouldBeTrue,
 		)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := gantryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGantryNotFound.Error())
+
+		resp, err := gantryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectGantry.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = gantryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectGantry.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = gantryServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectGantry.StatusFunc = nil
 	})
 }
 

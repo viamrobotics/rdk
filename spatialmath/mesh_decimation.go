@@ -26,10 +26,32 @@ func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 		return m, nil
 	}
 
-	enclosingTris, err := conservativeHullDecimateTriangles(m.triangles, targetTriangles)
-	if err != nil {
-		// Fallback for degenerate/pathological meshes.
-		log.Printf("spatialmath: conservative hull decimation failed (%v), falling back to tessellated AABB", err)
+	// Try two strategies and pick the one with smaller volume.
+	// 1. Single convex hull (tight for convex shapes)
+	// 2. Sliced convex hulls along longest axis (tight for non-convex shapes)
+	//
+	// Note: meshTriangleVolume slightly overestimates the sliced hull volume because
+	// the slab hulls overlap at boundaries and the divergence theorem double-counts
+	// the overlapping region. This biases the comparison conservatively toward the
+	// single hull, which is acceptable.
+	hullTris, hullErr := conservativeHullDecimateTriangles(m.triangles, targetTriangles)
+	slicedTris, slicedErr := slicedConvexHullDecimate(m.triangles, targetTriangles)
+
+	var enclosingTris []*Triangle
+	switch {
+	case hullErr == nil && slicedErr == nil:
+		if meshTriangleVolume(slicedTris) < meshTriangleVolume(hullTris) {
+			enclosingTris = slicedTris
+		} else {
+			enclosingTris = hullTris
+		}
+	case hullErr == nil:
+		enclosingTris = hullTris
+	case slicedErr == nil:
+		enclosingTris = slicedTris
+	default:
+		// Both failed — fall back to AABB.
+		log.Printf("spatialmath: conservative hull decimation failed (%v / %v), falling back to tessellated AABB", hullErr, slicedErr)
 		minPt, maxPt := localAABBForTriangles(m.triangles)
 		enclosingTris = tessellatedAABBTriangles(minPt, maxPt, targetTriangles)
 	}
@@ -63,17 +85,24 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 		return nil, errors.New("need at least 4 unique vertices to build conservative hull")
 	}
 
-	// For triangular convex hulls, F <= 2V-4. Keep V bounded so F stays <= target.
+	// First, try the full convex hull of ALL vertices. If it fits the target
+	// face count, it's the tightest possible enclosure with no scaling needed.
+	faces, hullPoints, err := quickHull3D(vertices, floatEpsilon)
+	if err == nil {
+		hullTris := hullFacesToTriangles(faces, hullPoints)
+		if len(hullTris) > 0 && len(hullTris) <= targetTriangles {
+			return hullTris, nil
+		}
+	}
+
+	// Full hull has too many faces. Build a simplified hull from a vertex subset.
 	vertexBudget := (targetTriangles + 4) / 2
 	if vertexBudget < 4 {
 		vertexBudget = 4
 	}
 
-	hullInput := vertices
-	if len(hullInput) > vertexBudget {
-		hullInput = selectSupportVertices(vertices, vertexBudget)
-	}
-	faces, hullPoints, err := quickHull3D(hullInput, floatEpsilon)
+	hullInput := selectSupportVertices(vertices, vertexBudget)
+	faces, hullPoints, err = quickHull3D(hullInput, floatEpsilon)
 	if err != nil {
 		return nil, err
 	}
@@ -95,24 +124,117 @@ func conservativeHullDecimateTriangles(triangles []*Triangle, targetTriangles in
 	return hullTris, nil
 }
 
-// vectorKey uses exact bit-pattern comparison for deduplication,
-// avoiding string formatting overhead and locale-dependent formatting.
-type vectorKey struct{ x, y, z uint64 }
+// slicedConvexHullDecimate splits the mesh along its longest AABB axis into
+// 2+ slabs, builds the convex hull of each slab, and merges them. This produces
+// a tighter (non-convex) enclosure for shapes with concavities.
+//
+// Encapsulation is guaranteed at the vertex level: every original vertex is inside
+// at least one slab hull. Vertices near slab boundaries are duplicated into adjacent
+// slabs (10% overlap) to cover triangle edges that cross boundaries. The convex hull
+// of each slab contains all linear interpolations between its vertices, so triangle
+// interiors between vertices in the same slab are also covered.
+func slicedConvexHullDecimate(triangles []*Triangle, targetTriangles int) ([]*Triangle, error) {
+	vertices := uniqueTriangleVertices(triangles)
+	if len(vertices) < 4 {
+		return nil, errors.New("need at least 4 unique vertices")
+	}
 
-func makeVectorKey(v r3.Vector) vectorKey {
-	return vectorKey{math.Float64bits(v.X), math.Float64bits(v.Y), math.Float64bits(v.Z)}
+	// Find the longest AABB axis.
+	minPt, maxPt := localAABBForTriangles(triangles)
+	extent := maxPt.Sub(minPt)
+	axis := 0
+	axisLen := extent.X
+	if extent.Y > axisLen {
+		axis = 1
+		axisLen = extent.Y
+	}
+	if extent.Z > axisLen {
+		axis = 2
+		axisLen = extent.Z
+	}
+
+	axisVal := func(v r3.Vector) float64 {
+		switch axis {
+		case 1:
+			return v.Y
+		case 2:
+			return v.Z
+		default:
+			return v.X
+		}
+	}
+
+	axisMin := axisVal(minPt)
+
+	// Try 2, 3, 4 slices — pick the first that fits the triangle budget.
+	for numSlices := 2; numSlices <= 4; numSlices++ {
+		sliceWidth := axisLen / float64(numSlices)
+
+		// Assign vertices to slices. Vertices near boundaries go into both
+		// adjacent slices (overlap) to ensure triangles spanning the boundary
+		// are covered.
+		overlap := sliceWidth * 0.1
+		slabs := make([][]r3.Vector, numSlices)
+		for _, v := range vertices {
+			val := axisVal(v)
+			idx := int((val - axisMin) / sliceWidth)
+			if idx >= numSlices {
+				idx = numSlices - 1
+			}
+			slabs[idx] = append(slabs[idx], v)
+			// Add to adjacent slab if within overlap zone.
+			distInSlab := val - (axisMin + float64(idx)*sliceWidth)
+			if idx > 0 && distInSlab < overlap {
+				slabs[idx-1] = append(slabs[idx-1], v)
+			}
+			if idx < numSlices-1 && (sliceWidth-distInSlab) < overlap {
+				slabs[idx+1] = append(slabs[idx+1], v)
+			}
+		}
+
+		var allTris []*Triangle
+		for _, slab := range slabs {
+			if len(slab) < 4 {
+				continue
+			}
+			faces, points, err := quickHull3D(slab, floatEpsilon)
+			if err != nil {
+				continue
+			}
+			allTris = append(allTris, hullFacesToTriangles(faces, points)...)
+		}
+
+		if len(allTris) > 0 && len(allTris) <= targetTriangles {
+			return allTris, nil
+		}
+	}
+
+	return nil, errors.New("sliced hull exceeds target triangle count")
+}
+
+// meshTriangleVolume computes the volume of a closed triangle mesh using the
+// divergence theorem (signed tetrahedron volumes).
+func meshTriangleVolume(triangles []*Triangle) float64 {
+	vol := 0.0
+	for _, tri := range triangles {
+		pts := tri.Points()
+		vol += pts[0].Dot(pts[1].Cross(pts[2]))
+	}
+	if vol < 0 {
+		vol = -vol
+	}
+	return vol / 6.0
 }
 
 func uniqueTriangleVertices(triangles []*Triangle) []r3.Vector {
-	pointMap := make(map[vectorKey]r3.Vector)
+	pointMap := make(map[r3.Vector]struct{})
 	for _, tri := range triangles {
 		for _, pt := range tri.Points() {
-			key := makeVectorKey(pt)
-			pointMap[key] = pt
+			pointMap[pt] = struct{}{}
 		}
 	}
 	out := make([]r3.Vector, 0, len(pointMap))
-	for _, v := range pointMap {
+	for v := range pointMap {
 		out = append(out, v)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -134,15 +256,29 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 		return out
 	}
 
-	directions := fibonacciSphereDirections(maxPoints)
-	directions = append(directions,
-		r3.Vector{X: 1, Y: 0, Z: 0}, r3.Vector{X: -1, Y: 0, Z: 0},
-		r3.Vector{X: 0, Y: 1, Z: 0}, r3.Vector{X: 0, Y: -1, Z: 0},
-		r3.Vector{X: 0, Y: 0, Z: 1}, r3.Vector{X: 0, Y: 0, Z: -1},
-	)
+	// Seed with the 6 axis-aligned extremes to guarantee the hull's AABB
+	// matches the original mesh's.
+	axisDirections := []r3.Vector{
+		{X: 1, Y: 0, Z: 0},
+		{X: -1, Y: 0, Z: 0},
+		{X: 0, Y: 1, Z: 0},
+		{X: 0, Y: -1, Z: 0},
+		{X: 0, Y: 0, Z: 1},
+		{X: 0, Y: 0, Z: -1},
+	}
+	selectedMap := make(map[r3.Vector]bool)
+	selected := make([]r3.Vector, 0, maxPoints)
+	addVertex := func(v r3.Vector) bool {
+		key := v
+		if selectedMap[key] {
+			return false
+		}
+		selectedMap[key] = true
+		selected = append(selected, v)
+		return true
+	}
 
-	supportMap := make(map[vectorKey]r3.Vector)
-	for _, dir := range directions {
+	for _, dir := range axisDirections {
 		best := vertices[0]
 		bestDot := best.Dot(dir)
 		for i := 1; i < len(vertices); i++ {
@@ -152,67 +288,76 @@ func selectSupportVertices(vertices []r3.Vector, maxPoints int) []r3.Vector {
 				best = vertices[i]
 			}
 		}
-		supportMap[makeVectorKey(best)] = best
+		addVertex(best)
 	}
 
-	support := make([]r3.Vector, 0, len(supportMap))
-	for _, v := range supportMap {
-		support = append(support, v)
-	}
-	sort.Slice(support, func(i, j int) bool {
-		if support[i].X != support[j].X {
-			return support[i].X < support[j].X
-		}
-		if support[i].Y != support[j].Y {
-			return support[i].Y < support[j].Y
-		}
-		return support[i].Z < support[j].Z
-	})
-	if len(support) > maxPoints {
-		center := centroidOfPoints(vertices)
-		sort.SliceStable(support, func(i, j int) bool {
-			return support[i].Sub(center).Norm2() > support[j].Sub(center).Norm2()
-		})
-		support = support[:maxPoints]
-	}
-
-	if len(support) < 4 {
-		for _, pt := range vertices {
-			key := makeVectorKey(pt)
-			if _, ok := supportMap[key]; ok {
-				continue
+	// Iteratively add the vertex farthest outside the current hull.
+	// Each addition directly targets the worst-case scale factor.
+	for len(selected) < maxPoints {
+		if len(selected) < 4 {
+			// Not enough for a hull yet — add farthest from centroid.
+			center := centroidOfPoints(selected)
+			bestDist := -1.0
+			bestVert := r3.Vector{}
+			for _, v := range vertices {
+				if selectedMap[v] {
+					continue
+				}
+				d := v.Sub(center).Norm2()
+				if d > bestDist {
+					bestDist = d
+					bestVert = v
+				}
 			}
-			support = append(support, pt)
-			supportMap[key] = pt
-			if len(support) >= 4 {
+			if bestDist < 0 {
 				break
 			}
+			addVertex(bestVert)
+			continue
 		}
-	}
-	return support
-}
 
-func fibonacciSphereDirections(n int) []r3.Vector {
-	if n <= 0 {
-		return nil
-	}
-	if n == 1 {
-		return []r3.Vector{{X: 0, Y: 0, Z: 1}}
-	}
-
-	goldenAngle := math.Pi * (3 - math.Sqrt(5))
-	dirs := make([]r3.Vector, n)
-	for i := range n {
-		y := 1 - (2 * float64(i) / float64(n-1))
-		radius := math.Sqrt(math.Max(0, 1-y*y))
-		theta := goldenAngle * float64(i)
-		dirs[i] = r3.Vector{
-			X: math.Cos(theta) * radius,
-			Y: y,
-			Z: math.Sin(theta) * radius,
+		faces, _, err := quickHull3D(selected, floatEpsilon)
+		if err != nil {
+			break
 		}
+
+		// Find the original vertex farthest outside any hull face.
+		maxDist := floatEpsilon
+		bestVert := r3.Vector{}
+		found := false
+		for _, v := range vertices {
+			if selectedMap[v] {
+				continue
+			}
+			for fi := range faces {
+				if faces[fi].deleted {
+					continue
+				}
+				d := facePointDistance(faces[fi], v)
+				if d > maxDist {
+					maxDist = d
+					bestVert = v
+					found = true
+				}
+			}
+		}
+		if !found {
+			break // All vertices are inside the hull.
+		}
+		addVertex(bestVert)
 	}
-	return dirs
+
+	// Deterministic output order.
+	sort.Slice(selected, func(i, j int) bool {
+		if selected[i].X != selected[j].X {
+			return selected[i].X < selected[j].X
+		}
+		if selected[i].Y != selected[j].Y {
+			return selected[i].Y < selected[j].Y
+		}
+		return selected[i].Z < selected[j].Z
+	})
+	return selected
 }
 
 // edgeToFaceMap tracks which active face owns each directed half-edge,

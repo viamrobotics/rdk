@@ -33,6 +33,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -883,6 +884,93 @@ func TestGetRobotPartLogs(t *testing.T) {
 		err := ac.robotsPartLogsAction(context.Background(), cCtx, parseStructFromCtx[robotsPartLogsArgs](cCtx))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(`provided too high of a "count" value. Maximum is 10000`))
+	})
+}
+
+func TestMachinesPartHistoryAction(t *testing.T) {
+	partID := "test-part-id"
+	partName := "test-part"
+
+	ts1 := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+	ts2 := time.Date(2026, 1, 14, 9, 0, 0, 0, time.UTC)
+
+	getRobotPartFunc := func(ctx context.Context, in *apppb.GetRobotPartRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartResponse, error) {
+		return &apppb.GetRobotPartResponse{Part: &apppb.RobotPart{Id: partID, Name: partName}}, nil
+	}
+
+	getRobotPartHistoryFunc := func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.GetRobotPartHistoryResponse, error) {
+		test.That(t, in.Id, test.ShouldEqual, partID)
+		return &apppb.GetRobotPartHistoryResponse{
+			History: []*apppb.RobotPartHistoryEntry{
+				{
+					Part:     partID,
+					When:     timestamppb.New(ts1),
+					EditedBy: &apppb.AuthenticatorInfo{Value: "alice@viam.com"},
+				},
+				{
+					Part:     partID,
+					When:     timestamppb.New(ts2),
+					EditedBy: &apppb.AuthenticatorInfo{Value: "bob@viam.com"},
+				},
+			},
+		}, nil
+	}
+
+	// ListOrganizationsFunc returns an error so robotPartInner fails gracefully
+	// and robotPart falls back to direct ID lookup via GetRobotPartFunc.
+	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
+		opts ...grpc.CallOption,
+	) (*apppb.ListOrganizationsResponse, error) {
+		return nil, errors.New("not used in this test")
+	}
+
+	asc := &inject.AppServiceClient{
+		ListOrganizationsFunc:   listOrganizationsFunc,
+		GetRobotPartFunc:        getRobotPartFunc,
+		GetRobotPartHistoryFunc: getRobotPartHistoryFunc,
+	}
+
+	t.Run("all entries", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 2)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "[1]")
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "[2]")
+		test.That(t, out.messages[1], test.ShouldContainSubstring, "bob@viam.com")
+	})
+
+	t.Run("filter by email", func(t *testing.T) {
+		cCtx, ac, out, errOut := setup(asc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID, FilterByEmail: "alice@viam.com"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "alice@viam.com")
+	})
+
+	t.Run("empty history", func(t *testing.T) {
+		emptyAsc := &inject.AppServiceClient{
+			ListOrganizationsFunc: listOrganizationsFunc,
+			GetRobotPartFunc:      getRobotPartFunc,
+			GetRobotPartHistoryFunc: func(ctx context.Context, in *apppb.GetRobotPartHistoryRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetRobotPartHistoryResponse, error) {
+				return &apppb.GetRobotPartHistoryResponse{}, nil
+			},
+		}
+		cCtx, ac, out, errOut := setup(emptyAsc, nil, nil, nil, "token")
+		err := ac.machinesPartHistoryAction(context.Background(), cCtx, machinesPartHistoryArgs{Part: partID})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, len(out.messages), test.ShouldEqual, 1)
+		test.That(t, out.messages[0], test.ShouldContainSubstring, "no history found")
 	})
 }
 

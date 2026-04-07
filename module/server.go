@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 
+	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/discovery"
@@ -40,6 +41,7 @@ func NewServer(opts ...grpc.ServerOption) rpc.Server {
 	)
 	grpcHandler := grpc.StatsHandler(otelHandler)
 	opts = append(opts, grpcHandler)
+	opts = append(opts, grpc.ChainUnaryInterceptor(viamgrpc.ResourceNameTaggingUnaryServerInterceptor))
 
 	s := &Server{server: grpc.NewServer(opts...)}
 	reflection.Register(s.server)

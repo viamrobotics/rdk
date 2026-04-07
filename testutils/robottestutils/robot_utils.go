@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"runtime"
 	"testing"
 	"time"
 
@@ -119,9 +120,19 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 
 	testTempHome := cfg.viamHome
 	if testTempHome == "" {
-		// use a temporary home directory so that it doesn't collide with
-		// the user's/other tests' viam home directory
-		testTempHome = t.TempDir()
+		if runtime.GOOS == "windows" {
+			// these end up very long in CI for windows, overriding to avoid 103-char limit.
+			shortTmp := "c:/tmp"
+			err := os.MkdirAll(shortTmp, 0o700)
+			test.That(t, err, test.ShouldBeNil)
+			testTempHome, err = os.MkdirTemp(shortTmp, "viam-test-*")
+			test.That(t, err, test.ShouldBeNil)
+			t.Cleanup(func() { os.RemoveAll(testTempHome) }) //nolint:errcheck
+		} else {
+			// use a temporary home directory so that it doesn't collide with
+			// the user's/other tests' viam home directory
+			testTempHome = t.TempDir()
+		}
 	}
 	args := []string{"-config", cfgFileName}
 

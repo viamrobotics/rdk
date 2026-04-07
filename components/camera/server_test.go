@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	goprotoutils "go.viam.com/utils/protoutils"
@@ -33,6 +34,7 @@ var (
 	errCameraProjectorFailed    = errors.New("can't get camera properties")
 	errGetImageFailed           = errors.New("can't get image")
 	errCameraUnimplemented      = errors.New("not found")
+	errGetStatusFailed          = errors.New("can't get camera status")
 )
 
 func newServer(logger logging.Logger) (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
@@ -355,6 +357,37 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp2.FrameRate, test.ShouldBeNil)
 		test.That(t, resp2.ExtrinsicParameters, test.ShouldBeNil)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
+
+		// default status: resource.Named default returns empty map
+		resp, err := cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		// camera with custom Status implementation
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		// camera with Status returning error
+		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+		// reset
+		injectCamera.StatusFunc = nil
 	})
 
 	t.Run("GetImages with extra", func(t *testing.T) {

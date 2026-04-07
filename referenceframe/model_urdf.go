@@ -51,7 +51,7 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 	links := []linkXML{{Name: World}}
 	joints := make([]jointXML, 0)
 	emptyFS := NewEmptyFrameSystem("")
-	gf, err := ws.ObstaclesInWorldFrame(emptyFS, NewZeroInputs(emptyFS))
+	gf, err := ws.ObstaclesInWorldFrame(emptyFS, NewNeutralFrameSystemInputs(emptyFS))
 	if err != nil {
 		return nil, err
 	}

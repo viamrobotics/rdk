@@ -1078,6 +1078,69 @@ Note: There is no progress meter while copying is in progress.
 						},
 					},
 				},
+				{
+					Name: "firebase-config",
+					Usage: "manage Firebase configurations for push notifications " +
+						"(organization owner only)",
+					UsageText:       createUsageText("organizations firebase-config", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:  "set",
+							Usage: "upload a Firebase config JSON for a specific app ID",
+							UsageText: createUsageText("organizations firebase-config set",
+								[]string{generalFlagOrgID, "app-id", firebaseConfigFlagPath}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+								&cli.StringFlag{
+									Name:     "app-id",
+									Required: true,
+									Usage:    "app ID (e.g., com.example.myapp)",
+								},
+								&cli.StringFlag{
+									Name:     firebaseConfigFlagPath,
+									Required: true,
+									Usage:    "path to the Firebase config JSON file",
+								},
+							},
+							Action: createActionCommandWithT[setFirebaseConfigArgs](SetFirebaseConfigAction),
+						},
+						{
+							Name:  "read",
+							Usage: "read Firebase config metadata for an organization",
+							UsageText: createUsageText("organizations firebase-config read",
+								[]string{generalFlagOrgID}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+							},
+							Action: createActionCommandWithT[readFirebaseConfigArgs](ReadFirebaseConfigAction),
+						},
+						{
+							Name:  "delete",
+							Usage: "delete a Firebase config for a specific app ID",
+							UsageText: createUsageText("organizations firebase-config delete",
+								[]string{generalFlagOrgID, "app-id"}, false, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:  generalFlagOrgID,
+									Usage: "organization ID",
+								},
+								&cli.StringFlag{
+									Name:     "app-id",
+									Required: true,
+									Usage:    "app ID (e.g., com.example.myapp)",
+								},
+							},
+							Action: createActionCommandWithT[deleteFirebaseConfigArgs](DeleteFirebaseConfigAction),
+						},
+					},
+				},
 			},
 		},
 		{
@@ -2626,6 +2689,16 @@ Note: There is no progress meter while copying is in progress.
 							Action: createActionCommandWithT[robotsPartStatusArgs](RobotsPartStatusAction),
 						},
 						{
+							Name:      "history",
+							Usage:     "display configuration history for a machine part",
+							UsageText: createUsageText("machines part history", []string{generalFlagPart}, true, false),
+							Flags: append(commonPartFlags, &cli.StringFlag{
+								Name:  "filter-by-email",
+								Usage: "show only history entries saved by this email address",
+							}),
+							Action: createActionCommandWithT[machinesPartHistoryArgs](machinesPartHistoryAction),
+						},
+						{
 							Name:      "logs",
 							Aliases:   []string{"log"},
 							Usage:     "display part logs",
@@ -3788,8 +3861,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
-	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
-	# and configure or restart it.
+	# A full reload command. This will build your module in the cloud, and the machine will
+	# download the package directly.
 	viam module reload --part-id UUID
 
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
@@ -3812,19 +3885,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagPath,
 							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
-						},
-						&cli.BoolFlag{
-							Name:  moduleBuildFlagNoBuild,
-							Usage: "don't do build step, reuse existing downloaded artifact",
-						},
-						&cli.BoolFlag{
-							Name:  generalFlagNoProgress,
-							Usage: "hide progress of the file transfer",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagHomeDir,
-							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "~",
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
@@ -4179,7 +4239,13 @@ NOTES:
 			Name:      "update",
 			Usage:     "update the CLI to the latest version",
 			UsageText: createUsageText("update", nil, false, false),
-			Action:    createActionCommandWithT[emptyArgs](UpdateCLIAction),
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  generalFlagNoProgress,
+					Usage: "hide progress during update",
+				},
+			},
+			Action: createActionCommandWithT[updateArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",

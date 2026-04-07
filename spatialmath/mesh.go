@@ -45,6 +45,11 @@ type Mesh struct {
 	// Built lazily on first collision check via ensureBVH().
 	bvh     *bvhNode
 	bvhOnce sync.Once
+
+	// uniqueVerts is a deduplicated list of triangle vertices in local space.
+	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
+	uniqueVerts     []r3.Vector
+	uniqueVertsOnce sync.Once
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -294,7 +299,8 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              m.bvh,
+		bvh:              m.ensureBVH(),
+		uniqueVerts:      m.ensureUniqueVertices(),
 	}
 }
 
@@ -310,7 +316,9 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 			return true, -1, nil
 		}
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
-	case *capsule, *point, *sphere, *Mesh:
+	case *Mesh:
+		return m.collidesWithMesh(other, collisionBufferMM)
+	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
@@ -370,24 +378,36 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	}
 }
 
+// ensureUniqueVertices lazily computes the deduplicated vertex list.
+func (m *Mesh) ensureUniqueVertices() []r3.Vector {
+	m.uniqueVertsOnce.Do(func() {
+		if m.uniqueVerts == nil && len(m.triangles) > 0 {
+			seen := make(map[r3.Vector]struct{})
+			verts := []r3.Vector{}
+			for _, tri := range m.triangles {
+				for _, pt := range tri.Points() {
+					if _, ok := seen[pt]; ok {
+						continue
+					}
+					seen[pt] = struct{}{}
+					verts = append(verts, pt)
+				}
+			}
+			m.uniqueVerts = verts
+		}
+	})
+	return m.uniqueVerts
+}
+
 // Returns true if any triangle vertex of the mesh intersects the box.
 func (m *Mesh) boxIntersectsVertex(b *box) bool {
-	// Use map to deduplicate vertices
-	pointMap := make(map[string]r3.Vector)
-	// Add all triangle vertices, formatting as a string for map deduplication
-	for _, tri := range m.triangles {
-		for _, pt := range tri.Points() {
-			// If this is a shared vertex we can skip the math after the first time
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
-			if _, ok := pointMap[key]; ok {
-				continue
-			}
-			pointMap[key] = pt
-			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
-			if c {
-				return true
-			}
+	q := m.pose.Orientation().Quaternion()
+	t := m.pose.Point()
+	for _, pt := range m.ensureUniqueVertices() {
+		worldPt := TransformPoint(q, t, pt)
+		c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
+		if c {
+			return true
 		}
 	}
 	return false

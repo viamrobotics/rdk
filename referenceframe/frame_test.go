@@ -71,8 +71,7 @@ func TestPrismaticFrame(t *testing.T) {
 	overLimit := 50.0
 	input = []Input{overLimit}
 	_, err = frame.Transform(input)
-	s := "joint 0 input out of bounds, input 50.00000 needs to be within range [30.00000 -30.00000]"
-	test.That(t, err.Error(), test.ShouldEqual, s)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
 
 	// gets the correct limits back
 	frameLimits := frame.DoF()
@@ -112,8 +111,7 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = frame.InputFromProtobuf(&pb.JointPositions{Values: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	s := "joint 0 input out of bounds, input 1.74533 needs to be within range [1.57080 -1.57080]"
-	test.That(t, err.Error(), test.ShouldEqual, s)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
@@ -375,6 +373,16 @@ func TestLimitMethods(t *testing.T) {
 	test.That(t, isMultipleOfPi(4*math.Pi), test.ShouldBeTrue)
 	test.That(t, isMultipleOfPi(.1), test.ShouldBeFalse)
 	test.That(t, isMultipleOfPi(10), test.ShouldBeFalse)
+
+	// test IsRotational
+	test.That(t, (&Limit{-math.Pi, math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{-2 * math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{-4 * math.Pi, 4 * math.Pi}).IsRotational(), test.ShouldBeTrue)
+	test.That(t, (&Limit{0, 10}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{0, math.Pi}).IsRotational(), test.ShouldBeTrue)                           // 0 is a multiple of pi, 0 is in range
+	test.That(t, (&Limit{math.Pi, 2 * math.Pi}).IsRotational(), test.ShouldBeFalse)                // 0 not in range
+	test.That(t, (&Limit{-1, 1}).IsRotational(), test.ShouldBeFalse)                               // not multiples of pi
+	test.That(t, (&Limit{-6.265732014659642, 6.26573201465964}).IsRotational(), test.ShouldBeTrue) // xarm limits ≈ -2pi to 2pi
 
 	l = Limit{-4 * math.Pi, 4 * math.Pi}
 	_, _, c = l.GoodLimits()

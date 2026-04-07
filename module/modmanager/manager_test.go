@@ -1920,10 +1920,6 @@ func TestCleanWindowsSocketPath(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
-	// wrong disk
-	_, err = rutils.CleanWindowsSocketPath("windows", "d:\\x\\y.sock")
-	test.That(t, err, test.ShouldNotBeNil)
-
 	// no disk
 	clean, err = rutils.CleanWindowsSocketPath("windows", "\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)

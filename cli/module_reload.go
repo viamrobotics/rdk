@@ -250,7 +250,7 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // dirty means config was changed and needs to be written back.
 // needsRestart means the module needs an explicit restart (the reload path was already correct).
 func applyModuleConfigToPartMap(
-	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local bool, reloadUser string,
+	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local, cloudReload bool, reloadUser string, reloadUnixTS int64,
 ) ([]ModuleMap, bool, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
@@ -263,7 +263,7 @@ func applyModuleConfigToPartMap(
 		return nil, false, false, err
 	}
 
-	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, reloadUser)
+	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser, reloadUnixTS)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -281,13 +281,14 @@ func applyModuleConfigToPartMap(
 // Mutates the passed part.RobotConfig.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func configureModule(
-	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart, local bool, reloadUser string,
+	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart,
+	local, cloudReload bool, reloadUser string, reloadUnixTS int64,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, reloadUser)
+	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, cloudReload, reloadUser, reloadUnixTS)
 	if err != nil {
 		return part, false, err
 	}
@@ -307,7 +308,7 @@ func configureModule(
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
-			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, reloadUser)
+			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser, reloadUnixTS)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
@@ -346,7 +347,9 @@ func mutateModuleConfig(
 	modules []ModuleMap,
 	manifest ModuleManifest,
 	local bool,
+	cloudReload bool,
 	reloadUser string,
+	reloadUnixTS int64,
 ) ([]ModuleMap, bool, bool, error) {
 	var dirty bool
 	var needsRestart bool
@@ -376,7 +379,7 @@ func mutateModuleConfig(
 		return nil, false, false, err
 	}
 
-	reloadTime := time.Now().UTC().Format(time.RFC3339)
+	reloadTime := time.Unix(reloadUnixTS, 0).UTC().Format(time.RFC3339)
 
 	if foundMod != nil && getMapString(foundMod, "type") == string(rdkConfig.ModuleTypeRegistry) {
 		samePath, err := samePath(getMapString(foundMod, "reload_path"), absEntrypoint)
@@ -393,7 +396,11 @@ func mutateModuleConfig(
 				foundMod["reload_enabled"] = true
 			} else {
 				debugf(cmd.Root().Writer, args.Debug, "updating ReloadPath and ReloadEnabled")
-				foundMod["reload_path"] = absEntrypoint
+				if cloudReload {
+					delete(foundMod, "reload_path")
+				} else {
+					foundMod["reload_path"] = absEntrypoint
+				}
 				foundMod["reload_enabled"] = true
 			}
 		}
@@ -407,23 +414,25 @@ func mutateModuleConfig(
 		} else {
 			debugf(cmd.Root().Writer, args.Debug, "found local module, inserting registry module")
 		}
-		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime)
+		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime, cloudReload)
 		modules = append(modules, newMod)
 	}
 	return modules, dirty, needsRestart, nil
 }
 
-func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime string) ModuleMap {
+func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime string, cloudReload bool) ModuleMap {
 	localName := localizeModuleID(moduleID)
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
 		"module_id":      moduleID,
 		"name":           localName,
-		"reload_path":    entryPoint,
 		"reload_enabled": true,
 		"version":        "latest-with-prerelease",
 		"reload_user":    reloadUser,
 		"reload_time":    reloadTime,
 	})
+	if !cloudReload {
+		newMod["reload_path"] = entryPoint
+	}
 	return newMod
 }

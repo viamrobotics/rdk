@@ -20,6 +20,7 @@ import (
 	"go.viam.com/utils/rpc"
 	gtestutils "go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -60,7 +61,7 @@ func TestMultipleModules(t *testing.T) {
 	}
 	test.That(t, success, test.ShouldBeTrue)
 
-	rc, err := connect(port, logger)
+	rc, err := connect(port, logger, rpc.WithForceDirectGRPC())
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
@@ -72,44 +73,20 @@ func TestMultipleModules(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		giz := res.(gizmoapi.Gizmo)
-		ret1, err := giz.DoOne(context.Background(), "1.0")
+		retDoTwo, err := giz.DoTwo(context.Background(), true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret1, test.ShouldBeTrue)
-
-		// also tests that the ForeignServiceHandler does not drop the first message
-		ret2, err := giz.DoOneClientStream(context.Background(), []string{"1.0", "2.0", "3.0"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret2, test.ShouldBeFalse)
-
-		ret2, err = giz.DoOneClientStream(context.Background(), []string{"0", "2.0", "3.0"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret2, test.ShouldBeTrue)
-
-		ret3, err := giz.DoOneServerStream(context.Background(), "1.0")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, false, true, false})
-
-		ret3, err = giz.DoOneBiDiStream(context.Background(), []string{"1.0", "2.0", "3.0"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret3, test.ShouldResemble, []bool{true, true, true})
-
-		ret4, err := giz.DoTwo(context.Background(), true)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret4, test.ShouldEqual, "sum=4")
-
-		ret4, err = giz.DoTwo(context.Background(), false)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, ret4, test.ShouldEqual, "sum=5")
+		test.That(t, retDoTwo, test.ShouldEqual, "sum=4")
 
 		// Test that spans from both modules are sent to viam-server and eventually
 		// exported to its traces file on disk.
 		gtestutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
 			checkTraceContents(t, testViamHome,
 				spanExpectation{
-					service:    "rdk",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.component.gizmo.v1.GizmoService",
-					rpcMethod:  "DoTwo",
+					service:      "rdk",
+					kind:         otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService:   "acme.component.gizmo.v1.GizmoService",
+					rpcMethod:    "DoTwo",
+					resourceName: "gizmo1",
 				},
 				spanExpectation{
 					service:    "rdk",
@@ -118,10 +95,11 @@ func TestMultipleModules(t *testing.T) {
 					rpcMethod:  "DoTwo",
 				},
 				spanExpectation{
-					service:    "GizmoModule",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.component.gizmo.v1.GizmoService",
-					rpcMethod:  "DoTwo",
+					service:      "GizmoModule",
+					kind:         otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService:   "acme.component.gizmo.v1.GizmoService",
+					rpcMethod:    "DoTwo",
+					resourceName: "gizmo1",
 				},
 				spanExpectation{
 					service:    "GizmoModule",
@@ -130,19 +108,52 @@ func TestMultipleModules(t *testing.T) {
 					rpcMethod:  "Sum",
 				},
 				spanExpectation{
+					service:      "rdk",
+					kind:         otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService:   "acme.service.summation.v1.SummationService",
+					rpcMethod:    "Sum",
+					resourceName: "adder",
+				},
+				spanExpectation{
 					service:    "rdk",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
+					kind:       otlpv1.Span_SPAN_KIND_CLIENT,
 					rpcService: "acme.service.summation.v1.SummationService",
 					rpcMethod:  "Sum",
 				},
 				spanExpectation{
-					service:    "SummationModule",
-					kind:       otlpv1.Span_SPAN_KIND_SERVER,
-					rpcService: "acme.service.summation.v1.SummationService",
-					rpcMethod:  "Sum",
+					service:      "SummationModule",
+					kind:         otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService:   "acme.service.summation.v1.SummationService",
+					rpcMethod:    "Sum",
+					resourceName: "adder",
 				},
 			)
 		})
+
+		retDoTwo, err = giz.DoTwo(context.Background(), false)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retDoTwo, test.ShouldEqual, "sum=5")
+
+		retDoOne, err := giz.DoOne(context.Background(), "1.0")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retDoOne, test.ShouldBeTrue)
+
+		// also tests that the ForeignServiceHandler does not drop the first message
+		retClientStream, err := giz.DoOneClientStream(context.Background(), []string{"1.0", "2.0", "3.0"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retClientStream, test.ShouldBeFalse)
+
+		retClientStream, err = giz.DoOneClientStream(context.Background(), []string{"0", "2.0", "3.0"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retClientStream, test.ShouldBeTrue)
+
+		retServerStream, err := giz.DoOneServerStream(context.Background(), "1.0")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retServerStream, test.ShouldResemble, []bool{true, false, true, false})
+
+		retBiDiStream, err := giz.DoOneBiDiStream(context.Background(), []string{"1.0", "2.0", "3.0"})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, retBiDiStream, test.ShouldResemble, []bool{true, true, true})
 	})
 
 	// Summation is a custom service model and API.
@@ -157,13 +168,79 @@ func TestMultipleModules(t *testing.T) {
 	})
 }
 
-func connect(port int, logger logging.Logger) (robot.Robot, error) {
+// TestWebRTCSpans verifies that gRPC calls made over WebRTC connections generate
+// spans.
+func TestWebRTCSpans(t *testing.T) {
+	logger, observer := logging.NewObservedTestLogger(t)
+	testViamHome := t.TempDir()
+	var port int
+	success := false
+	for portTryNum := 0; portTryNum < 10; portTryNum++ {
+		portLocal, err := goutils.TryReserveRandomPort()
+		test.That(t, err, test.ShouldBeNil)
+		port = portLocal
+
+		cfgJSON := fmt.Sprintf(`{
+			"components": [{"name": "motor-1", "type": "motor", "model": "fake"}],
+			"network": {"bind_address": "localhost:%d"},
+			"tracing": {"enabled": true, "disk": true}
+		}`, port)
+		cfgFile, err := os.CreateTemp(t.TempDir(), "viam-test-config-*")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = cfgFile.WriteString(cfgJSON)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cfgFile.Close(), test.ShouldBeNil)
+
+		server := robottestutils.ServerAsSeparateProcess(t, cfgFile.Name(), logger,
+			robottestutils.WithViamHome(testViamHome))
+
+		err = server.Start(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		if robottestutils.WaitForServing(observer, port) {
+			success = true
+			defer func() {
+				test.That(t, server.Stop(), test.ShouldBeNil)
+			}()
+			break
+		}
+		server.Stop()
+	}
+	test.That(t, success, test.ShouldBeTrue)
+
+	rc, err := connect(port, logger, rpc.WithDisableDirectGRPC())
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, rc.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	t.Run("Test WebRTC spans", func(t *testing.T) {
+		m, err := motor.FromProvider(rc, "motor-1")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = m.IsMoving(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+
+		gtestutils.WaitForAssertionWithSleep(t, time.Millisecond*500, 20, func(t testing.TB) {
+			checkTraceContents(t, testViamHome,
+				spanExpectation{
+					service:      "rdk",
+					kind:         otlpv1.Span_SPAN_KIND_SERVER,
+					rpcService:   "viam.component.motor.v1.MotorService",
+					rpcMethod:    "IsMoving",
+					resourceName: "motor-1",
+				},
+			)
+		})
+	})
+}
+
+func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot.Robot, error) {
 	connectCtx, cancelConn := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancelConn()
 	for {
 		dialCtx, dialCancel := context.WithTimeout(context.Background(), time.Millisecond*500)
 		rc, err := client.New(dialCtx, fmt.Sprintf("localhost:%d", port), logger,
-			client.WithDialOptions(rpc.WithForceDirectGRPC()),
+			client.WithDialOptions(dialOpts...),
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
@@ -211,10 +288,11 @@ func modifyCfg(t *testing.T, cfgIn string, logger logging.Logger) (string, int, 
 }
 
 type spanExpectation struct {
-	service    string
-	rpcService string
-	rpcMethod  string
-	kind       otlpv1.Span_SpanKind
+	service      string
+	rpcService   string
+	rpcMethod    string
+	kind         otlpv1.Span_SpanKind
+	resourceName string // viam.resource.name attribute, if expected
 }
 
 // Check that all the specified services exist in the viam trace file
@@ -266,6 +344,9 @@ func checkTraceContents(t testing.TB, viamHome string, expectations ...spanExpec
 				return false
 			}
 			if exp.rpcService != attrs[string(semconv.RPCServiceKey)] {
+				return false
+			}
+			if exp.resourceName != "" && exp.resourceName != attrs["viam.resource.name"] {
 				return false
 			}
 			return true

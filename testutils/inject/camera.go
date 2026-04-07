@@ -27,6 +27,7 @@ type Camera struct {
 	NextPointCloudFunc func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error)
 	ProjectorFunc      func(ctx context.Context) (transform.Projector, error)
 	PropertiesFunc     func(ctx context.Context) (camera.Properties, error)
+	StatusFunc         func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc          func(ctx context.Context) error
 	GeometriesFunc     func(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error)
 }
@@ -75,6 +76,17 @@ func (c *Camera) Images(
 	}
 
 	return nil, resource.ResponseMetadata{}, errors.New("Images unimplemented")
+}
+
+// Status calls the injected Status or the real version.
+func (c *Camera) Status(ctx context.Context) (map[string]interface{}, error) {
+	if c.StatusFunc != nil {
+		return c.StatusFunc(ctx)
+	}
+	if c.Camera != nil {
+		return c.Camera.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

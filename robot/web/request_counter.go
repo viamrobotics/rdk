@@ -660,7 +660,7 @@ func buildRCKey(clientMsg any, method apiMethod) string {
 
 func buildResourceLimitKey(clientMsg any, method apiMethod) string {
 	if method.shortPath == "" {
-		// Ignore for nun-Viam APIs
+		// Ignore for non-Viam APIs
 		return ""
 	}
 	if name := method.getResourceName(clientMsg); name != "" {

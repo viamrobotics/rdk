@@ -208,3 +208,35 @@ func DoFromResourceServer(
 	}
 	return &commonpb.DoCommandResponse{Result: pbRes}, nil
 }
+
+// ClientGetStatuser is a gRPC client that allows the execution of GetStatus.
+type ClientGetStatuser interface {
+	GetStatus(ctx context.Context, in *commonpb.GetStatusRequest,
+		opts ...grpc.CallOption) (*commonpb.GetStatusResponse, error)
+}
+
+// GetStatusFromResourceClient is a helper to allow Status() calls from any client.
+func GetStatusFromResourceClient(ctx context.Context, svc ClientGetStatuser, name string) (map[string]interface{}, error) {
+	resp, err := svc.GetStatus(ctx, &commonpb.GetStatusRequest{Name: name})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
+}
+
+// GetStatusFromResourceServer is a helper to allow GetStatus() calls from any server.
+func GetStatusFromResourceServer(
+	ctx context.Context,
+	res resource.Resource,
+	req *commonpb.GetStatusRequest,
+) (*commonpb.GetStatusResponse, error) {
+	status, err := res.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result, err := structpb.NewStruct(status)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetStatusResponse{Result: result}, nil
+}

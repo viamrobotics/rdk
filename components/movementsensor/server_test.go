@@ -21,7 +21,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var errReadingsFailed = errors.New("can't get readings")
+var (
+	errReadingsFailed  = errors.New("can't get readings")
+	errGetStatusFailed = errors.New("can't get status")
+)
 
 func newServer(logger logging.Logger) (pb.MovementSensorServiceServer, *inject.MovementSensor, *inject.MovementSensor, error) {
 	injectMovementSensor := &inject.MovementSensor{}
@@ -297,5 +300,31 @@ func TestServer(t *testing.T) {
 		test.That(t, math.IsNaN(float64(*uacc.CompassDegreesError)), test.ShouldBeTrue)
 		// zero is an invlaid fix, and our default fix if accuracy is implemented
 		test.That(t, *uacc.PositionNmeaGgaFix, test.ShouldResemble, int32(0))
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := gpsServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		resp, err := gpsServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMovementSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectMovementSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = gpsServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMovementSensorName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectMovementSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = gpsServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMovementSensorName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectMovementSensor.StatusFunc = nil
 	})
 }

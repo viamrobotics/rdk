@@ -29,6 +29,10 @@ func (f *frameSystemClient) DoCommand(ctx context.Context, cmd map[string]interf
 	return nil, resource.ErrDoUnimplemented
 }
 
+func (f *frameSystemClient) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
 func (f *frameSystemClient) FrameSystemConfig(ctx context.Context) (*framesystem.Config, error) {
 	return f.robotClient.FrameSystemConfig(ctx)
 }
