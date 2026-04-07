@@ -1509,7 +1509,7 @@ func resolvePartID(partIDFromFlag, cloudJSON string) (string, error) {
 	conf, err := config.ReadLocalConfig(cloudJSON, logging.NewLogger("config"))
 	if err != nil {
 		return "", fmt.Errorf("did not receive part ID and no cloud config found at %s. "+
-			"Provide --part-id or run this command on a machine with a cloud config", cloudJSON)
+			"Provide --part-id or run this on a machine where viam-server has stored its cloud config", cloudJSON)
 	}
 	if conf.Cloud == nil {
 		return "", fmt.Errorf("unknown failure opening viam.json at: %s", cloudJSON)
