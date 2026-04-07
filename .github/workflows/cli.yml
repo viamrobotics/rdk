@@ -34,17 +34,6 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Debug tree state before build (REMOVE BEFORE MERGE)
-      run: |
-        echo "=== git status ==="
-        git status -s
-        echo "=== dev-version.sh output ==="
-        ./etc/dev-version.sh || echo "(script exited with no output)"
-        echo "=== git describe ==="
-        git describe --tags --match="v*" --exclude="*-rc*" --long 2>&1 || echo "(no tags reachable)"
-        echo "=== GITHUB_REF_NAME ==="
-        echo "$GITHUB_REF_NAME"
-
     - name: build
       env:
         CI_RELEASE: ${{ inputs.release_type }}
