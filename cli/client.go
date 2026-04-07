@@ -4630,7 +4630,6 @@ func getBaseURL(cmd *cli.Command) (*url.URL, *Config, error) {
 	if err != nil {
 		if !os.IsNotExist(err) {
 			debugf(cmd.Root().Writer, globalArgs.Debug, "Cached config parse error: %v", err)
-			return nil, nil, errors.New("failed to parse cached config. Please log in again")
 		}
 		conf = &Config{}
 		whichProfile, _ := whichProfile(globalArgs)
