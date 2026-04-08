@@ -98,7 +98,7 @@ const (
 	// ViamTCPSocketsEnvVar if set to a true-like value, indicates that TCP sockets should be used
 	// in lieu of Unix sockets.
 	ViamTCPSocketsEnvVar = "VIAM_TCP_SOCKETS"
-	
+
 	// ViamModuleAddress is used to pass the address a module should listen on to
 	// the module process.
 	ViamModuleAddress = "VIAM_MODULE_ADDRESS"

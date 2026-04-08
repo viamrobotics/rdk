@@ -262,9 +262,9 @@ func (m *module) startProcess(
 	stdoutLogger := m.logger.Sublogger("StdOut")
 	stderrLogger := m.logger.Sublogger("StdErr")
 	stderrLogger.NeverDeduplicate()
-	
+
 	moduleEnvironment[rutils.ViamModuleAddress] = m.addr
-	
+
 	// Previous versions of rdk passed `unix://<address>` to gRPC, which does not
 	// work with Windows paths that include a drive letter. Modules built with
 	// that old version of the code depend on receiving a "cleaned" version of
