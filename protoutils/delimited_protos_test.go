@@ -21,7 +21,7 @@ type countingWriter struct {
 
 // Write implements [io.Writer].
 func (c *countingWriter) Write(p []byte) (n int, err error) {
-	c.writeCalls += 1
+	c.writeCalls++
 	return c.buffer.Write(p)
 }
 
