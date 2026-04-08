@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 	"testing"
@@ -340,43 +341,62 @@ func TestSimpleModelProtoRoundTrip(t *testing.T) {
 	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
 }
 
-func TestKinematicModelFromProtobufUnspecifiedWithData(t *testing.T) {
-	// When kinematics data is round-tripped across gRPC module boundaries,
-	// the format field can arrive as UNSPECIFIED even though valid data is present.
-	// KinematicModelFromProtobuf should infer the format from the data content.
+func TestOriginalFilePreservedThroughJSON(t *testing.T) {
+	// Verify that OriginalFile (extension + raw bytes) survives JSON serialization,
+	// which is the mechanism used by FrameSystemPart.ToProtobuf/ProtobufToFrameSystemPart.
 
-	t.Run("unspecified format with valid SVA JSON data", func(t *testing.T) {
-		// Load a real arm model to get valid SVA JSON bytes.
+	t.Run("SVA model preserves original file through JSON round-trip", func(t *testing.T) {
 		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 		test.That(t, err, test.ShouldBeNil)
 
-		proto := KinematicModelToProtobuf(original)
-		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "json")
 
-		// Simulate the gRPC round-trip bug: format lost, data preserved.
-		proto.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
-
-		restored, err := KinematicModelFromProtobuf("xArm6", proto)
+		// Round-trip through JSON (same path as ToProtobuf → ProtobufToFrameSystemPart).
+		bytes, err := original.MarshalJSON()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, restored, test.ShouldNotBeNil)
-		test.That(t, len(restored.DoF()), test.ShouldEqual, len(original.DoF()))
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "json")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		// The restored model should produce a valid proto with correct format.
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
 	})
 
-	t.Run("unspecified format with valid URDF data", func(t *testing.T) {
-		// Load a real URDF model to get valid URDF bytes.
+	t.Run("URDF model preserves original file through JSON round-trip", func(t *testing.T) {
 		original, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
 		test.That(t, err, test.ShouldBeNil)
 
-		proto := KinematicModelToProtobuf(original)
-		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
 
-		// Simulate the gRPC round-trip bug: format lost, data preserved.
-		proto.Format = commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_UNSPECIFIED
-
-		restored, err := KinematicModelFromProtobuf("ur5e", proto)
+		bytes, err := original.MarshalJSON()
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, restored, test.ShouldNotBeNil)
-		test.That(t, len(restored.DoF()), test.ShouldEqual, len(original.DoF()))
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
 	})
 }
 

@@ -47,15 +47,6 @@ func KinematicModelFromProtobuf(name string, resp *commonpb.GetKinematicsRespons
 			// compatibility with older modules that return GetKinematics without a format.
 			return NewSimpleModel(name), nil
 		}
-		// Format lost during gRPC round-trip but data is present — infer from content.
-		// Try JSON/SVA first (more common for modular arms), then URDF.
-		if model, err := UnmarshalModelJSON(data, name); err == nil {
-			return model, nil
-		}
-		meshMap := resp.GetMeshesByUrdfFilepath()
-		if modelconf, err := UnmarshalModelXML(data, name, meshMap, nil); err == nil {
-			return modelconf.ParseConfig(name)
-		}
 		fallthrough
 	default:
 		if formatName, ok := commonpb.KinematicsFileFormat_name[int32(format)]; ok {
