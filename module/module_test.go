@@ -209,13 +209,13 @@ func TestModuleFunctions(t *testing.T) {
 
 	m.SetReady(false)
 
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+	resp, err := client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeFalse)
 
 	m.SetReady(true)
 
-	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+	resp, err = client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeTrue)
 
@@ -499,7 +499,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		client := pb.NewModuleServiceClient(conn)
 		m.SetReady(true)
-		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readyResp.Ready, test.ShouldBeTrue)
 

@@ -121,7 +121,7 @@ func TestModularMain(t *testing.T) {
 			// been established.
 			logger.Infof("calling Ready on module server")
 			modClient := pb.NewModuleServiceClient(conn)
-			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
+			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{RawParentAddress: robotServerListener.Addr().String()})
 			test.That(t, err, test.ShouldBeNil)
 			logger.Infof("Ready response received from module server")
 			gServer.Stop()

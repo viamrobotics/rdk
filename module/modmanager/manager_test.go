@@ -243,7 +243,7 @@ func TestModManagerFunctions(t *testing.T) {
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
 
 				// check that we're still able to use the old client
-				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{RawParentAddress: parentAddr})
 				test.That(t, err, test.ShouldBeNil)
 			}
 
