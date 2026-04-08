@@ -7,8 +7,10 @@ go 1.25.1
 // We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
-// TODO: remove this when the corresponding goutils PR is merged
+// TODO: remove these when the corresponding goutils PR is merged
 replace go.viam.com/utils => github.com/viamrobotics/goutils v0.4.19-0.20260408145521-efb2c92ee1fa
+
+replace go.viam.com/api => github.com/jmatth/viam-api v0.0.0-20260408195056-1001810cb8c2
 
 require (
 	github.com/AlekSi/gocov-xml v1.0.0

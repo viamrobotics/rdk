@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+
 	// Register service APIs.
 	_ "go.viam.com/rdk/services/register_apis"
 	rutils "go.viam.com/rdk/utils"
@@ -447,7 +448,11 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	// we start the module without connecting to a parent since we
 	// are only concerned with validation and extracting metadata.
 	if os.Getenv(NoModuleParentEnvVar) != "true" {
-		m.parentAddr = req.GetParentAddress()
+		m.parentAddr = req.GetRawParentAddress()
+		if m.parentAddr == "" {
+			//nolint:staticcheck
+			m.parentAddr = req.GetParentAddress()
+		}
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module
 			// -> parent. Something is wrong in that case and the module should not be

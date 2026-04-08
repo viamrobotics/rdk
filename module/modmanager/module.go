@@ -127,10 +127,19 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 	m.logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 
-	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+	// Maintain backwards compatibility with old modules.
+	//nolint:staticcheck
+	legacyParentAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
+	if err != nil {
+		return err
+	}
+
+	req := &pb.ReadyRequest{
+		ParentAddress: legacyParentAddr,
+		RawParentAddress: parentAddr,
+	}
 
 	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
-	var err error
 	req.WebrtcOffer, err = m.sharedConn.GenerateEncodedOffer()
 	if err != nil {
 		m.logger.CWarnw(ctx, "Unable to generate offer for module PeerConnection. Ignoring.", "err", err)
