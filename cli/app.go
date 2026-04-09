@@ -392,6 +392,9 @@ func parseStructFromCtx[T any](cmd *cli.Command) T {
 }
 
 func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
+	if cmd == nil {
+		return &globalArgs{}, nil
+	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
