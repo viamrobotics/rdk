@@ -251,18 +251,13 @@ func (tp *teleopPipeline) buildExtra(
 // shouldInterpolate returns true if the max single-joint displacement
 // across the trajectory is below the threshold, meaning the arm's
 // built-in trapezoidal interpolation should be used for smooth motion.
-func maxJointDisplacement(inputs [][]referenceframe.Input) float64 {
-	if len(inputs) < 2 {
-		return 0
-	}
-	first := inputs[0]
-	last := inputs[len(inputs)-1]
-	if len(first) != len(last) {
+func maxJointDisplacement(start, goal []referenceframe.Input) float64 {
+	if len(start) != len(goal) || len(start) == 0 {
 		return 0
 	}
 	var maxDisp float64
-	for j := range first {
-		if d := math.Abs(last[j] - first[j]); d > maxDisp {
+	for j := range start {
+		if d := math.Abs(goal[j] - start[j]); d > maxDisp {
 			maxDisp = d
 		}
 	}
@@ -278,14 +273,20 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		return nil
 	}
 
-	// Group inputs per component across all trajectory steps (skip step 0 = start position).
+	// Group inputs per component across all trajectory steps (skip step 0 for execution,
+	// but record it for displacement calculation).
+	startInputs := make(map[string][]referenceframe.Input)
 	perComponent := make(map[string][][]referenceframe.Input)
-	for i := 1; i < len(traj); i++ {
+	for i := 0; i < len(traj); i++ {
 		for name, inputs := range traj[i] {
 			if len(inputs) == 0 {
 				continue
 			}
-			perComponent[name] = append(perComponent[name], inputs)
+			if i == 0 {
+				startInputs[name] = inputs
+			} else {
+				perComponent[name] = append(perComponent[name], inputs)
+			}
 		}
 	}
 
@@ -314,13 +315,14 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			continue
 		}
 		wg.Add(1)
-		go func(i int, ie framesystem.InputEnabled, inputs [][]referenceframe.Input, r resource.Resource) {
+		go func(i int, ie framesystem.InputEnabled, inputs [][]referenceframe.Input, r resource.Resource, start []referenceframe.Input) {
 			defer wg.Done()
 			var err error
 			// For arms, call MoveThroughJointPositions directly with teleop-specific
 			// extras (no wait, no interpolation) to avoid changing core GoToInputs behavior.
 			if armComp, ok := r.(arm.Arm); ok {
-				disp := maxJointDisplacement(inputs)
+				goal := inputs[len(inputs)-1]
+				disp := maxJointDisplacement(start, goal)
 				interp := interpolateOverride || disp < smallMoveRad
 				tp.logger.CInfof(ctx, "teleop exec: interpolate=%v override=%v maxDisp=%f threshold=%f steps=%d",
 					interp, interpolateOverride, disp, smallMoveRad, len(inputs))
@@ -338,7 +340,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 				}
 				errs[i] = err
 			}
-		}(idx, ie, inputs, r)
+		}(idx, ie, inputs, r, startInputs[name])
 		idx++
 	}
 	wg.Wait()
