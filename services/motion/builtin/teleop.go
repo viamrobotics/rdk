@@ -251,14 +251,14 @@ func (tp *teleopPipeline) buildExtra(
 // shouldInterpolate returns true if the max single-joint displacement
 // across the trajectory is below the threshold, meaning the arm's
 // built-in trapezoidal interpolation should be used for smooth motion.
-func shouldInterpolate(inputs [][]referenceframe.Input, threshold float64) bool {
+func maxJointDisplacement(inputs [][]referenceframe.Input) float64 {
 	if len(inputs) < 2 {
-		return true
+		return 0
 	}
 	first := inputs[0]
 	last := inputs[len(inputs)-1]
 	if len(first) != len(last) {
-		return false
+		return 0
 	}
 	var maxDisp float64
 	for j := range first {
@@ -266,7 +266,7 @@ func shouldInterpolate(inputs [][]referenceframe.Input, threshold float64) bool 
 			maxDisp = d
 		}
 	}
-	return maxDisp < threshold
+	return maxDisp
 }
 
 // executeTeleop executes a trajectory by calling GoToInputs on all components
@@ -321,9 +321,13 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			// For arms, call MoveThroughJointPositions directly with teleop-specific
 			// extras (no wait, no interpolation) to avoid changing core GoToInputs behavior.
 			if armComp, ok := r.(arm.Arm); ok {
+				disp := maxJointDisplacement(inputs)
+				interp := interpolateOverride || disp < smallMoveRad
+				tp.logger.CDebugf(ctx, "teleop exec: interpolate=%v override=%v maxDisp=%f threshold=%f steps=%d",
+					interp, interpolateOverride, disp, smallMoveRad, len(inputs))
 				err = armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
 					"waitAtEnd":   false,
-					"interpolate": interpolateOverride || shouldInterpolate(inputs, smallMoveRad),
+					"interpolate": interp,
 				})
 			} else {
 				err = ie.GoToInputs(ctx, inputs...)
