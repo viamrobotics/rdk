@@ -3,7 +3,6 @@ package builtin
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -24,7 +23,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const defaultTeleopSmallMoveRad = 0.005
+const defaultTeleopSmoothAlpha = 0.5
 
 // teleopComponent tracks a single component being teleop'd within the pipeline.
 type teleopComponent struct {
@@ -71,6 +70,9 @@ type teleopPipeline struct {
 	lastExecWaitNanos atomic.Int64
 	planCount         atomic.Int64
 	execCount         atomic.Int64
+
+	// EMA-smoothed joint positions per component. Only accessed by executor goroutine.
+	smoothedJoints map[string][]referenceframe.Input
 
 	// Lifecycle.
 	workers *goutils.StoppableWorkers
@@ -248,20 +250,20 @@ func (tp *teleopPipeline) buildExtra(
 	return extra
 }
 
-// shouldInterpolate returns true if the max single-joint displacement
-// across the trajectory is below the threshold, meaning the arm's
-// built-in trapezoidal interpolation should be used for smooth motion.
-func maxJointDisplacement(start, goal []referenceframe.Input) float64 {
-	if len(start) != len(goal) || len(start) == 0 {
-		return 0
+// emaSmooth applies exponential moving average smoothing to joint positions.
+// alpha controls responsiveness: 0 = frozen, 1 = no smoothing.
+func emaSmooth(target, previous []referenceframe.Input, alpha float64) []referenceframe.Input {
+	if previous == nil || len(previous) != len(target) || alpha >= 1.0 {
+		result := make([]referenceframe.Input, len(target))
+		copy(result, target)
+		return result
 	}
-	var maxDisp float64
-	for j := range start {
-		if d := math.Abs(goal[j] - start[j]); d > maxDisp {
-			maxDisp = d
-		}
+	b := 1.0 - alpha
+	result := make([]referenceframe.Input, len(target))
+	for j := range target {
+		result[j] = alpha*target[j] + b*previous[j]
 	}
-	return maxDisp
+	return result
 }
 
 // executeTeleop executes a trajectory by calling GoToInputs on all components
@@ -273,30 +275,24 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		return nil
 	}
 
-	// Group inputs per component across all trajectory steps (skip step 0 for execution,
-	// but record it for displacement calculation).
-	startInputs := make(map[string][]referenceframe.Input)
+	// Group inputs per component across all trajectory steps (skip step 0 = start position).
 	perComponent := make(map[string][][]referenceframe.Input)
-	for i := 0; i < len(traj); i++ {
+	for i := 1; i < len(traj); i++ {
 		for name, inputs := range traj[i] {
 			if len(inputs) == 0 {
 				continue
 			}
-			if i == 0 {
-				startInputs[name] = inputs
-			} else {
-				perComponent[name] = append(perComponent[name], inputs)
-			}
+			perComponent[name] = append(perComponent[name], inputs)
 		}
 	}
 
-	// Read teleop interpolation config.
+	// Read teleop config.
 	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
-	smallMoveRad := defaultTeleopSmallMoveRad
+	smoothAlpha := defaultTeleopSmoothAlpha
 	interpolateOverride := false
 	if ms.conf != nil {
-		if ms.conf.TeleopSmallMoveRad > 0 {
-			smallMoveRad = ms.conf.TeleopSmallMoveRad
+		if ms.conf.TeleopSmoothAlpha > 0 {
+			smoothAlpha = ms.conf.TeleopSmoothAlpha
 		}
 		interpolateOverride = ms.conf.TeleopInterpolateOverride
 	}
@@ -314,25 +310,34 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 		if err != nil {
 			continue
 		}
+
+		// Apply EMA smoothing to joint positions before sending (main goroutine only).
+		smoothed := make([][]referenceframe.Input, len(inputs))
+		prev := tp.smoothedJoints[name]
+		for k, step := range inputs {
+			smoothed[k] = emaSmooth(step, prev, smoothAlpha)
+			prev = smoothed[k]
+		}
+		tp.smoothedJoints[name] = prev
+
 		wg.Add(1)
-		go func(i int, ie framesystem.InputEnabled, inputs [][]referenceframe.Input, r resource.Resource, start []referenceframe.Input) {
+		go func(i int, ie framesystem.InputEnabled, smoothed [][]referenceframe.Input, r resource.Resource) {
 			defer wg.Done()
 			var err error
-			// For arms, call MoveThroughJointPositions directly with teleop-specific
-			// extras (no wait, no interpolation) to avoid changing core GoToInputs behavior.
 			if armComp, ok := r.(arm.Arm); ok {
-				goal := inputs[len(inputs)-1]
-				disp := maxJointDisplacement(start, goal)
-				smallMove := interpolateOverride || disp < smallMoveRad
-				tp.logger.CInfof(ctx, "teleop exec: smallMove=%v override=%v maxDisp=%f threshold=%f steps=%d",
-					smallMove, interpolateOverride, disp, smallMoveRad, len(inputs))
-				err = armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
-					"waitAtEnd":   smallMove,
-					"interpolate": smallMove,
-				})
+				if interpolateOverride {
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+						"waitAtEnd":   true,
+						"interpolate": true,
+					})
+				} else {
+					err = armComp.MoveThroughJointPositions(ctx, smoothed, nil, map[string]interface{}{
+						"waitAtEnd":   false,
+						"interpolate": false,
+					})
+				}
 			} else {
-				tp.logger.CInfof(ctx, "teleop exec: component is not arm.Arm (type %T), falling back to GoToInputs", r)
-				err = ie.GoToInputs(ctx, inputs...)
+				err = ie.GoToInputs(ctx, smoothed...)
 			}
 			if err != nil {
 				if actuator, ok := r.(inputEnabledActuator); ok {
@@ -340,7 +345,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 				}
 				errs[i] = err
 			}
-		}(idx, ie, inputs, r, startInputs[name])
+		}(idx, ie, smoothed, r)
 		idx++
 	}
 	wg.Wait()
@@ -461,6 +466,7 @@ func (ms *builtIn) addTeleopComponent(cmdCtx context.Context, req motion.MoveReq
 			notify:           make(chan struct{}, 1),
 			trajCh:           make(chan motionplan.Trajectory, 1),
 			planningHead:     fsInputs,
+			smoothedJoints:   make(map[string][]referenceframe.Input),
 		}
 
 		comp := &teleopComponent{

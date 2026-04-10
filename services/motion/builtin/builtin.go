@@ -104,6 +104,10 @@ type Config struct {
 	// TeleopInterpolateOverride when true forces interpolation ON for all teleop
 	// movements regardless of size. Useful for testing.
 	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
+	// TeleopSmoothAlpha is the EMA smoothing factor for joint positions (0-1).
+	// Lower = smoother but more latency, higher = more responsive but less smooth.
+	// 0 = frozen, 1 = no smoothing. Default 0.5.
+	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
