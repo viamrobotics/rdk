@@ -98,6 +98,12 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
+	// TeleopSmallMoveRad is the max joint displacement (radians) below which
+	// the arm's built-in interpolation is enabled for smooth motion. Default 0.005.
+	TeleopSmallMoveRad float64 `json:"teleop_small_move_rad"`
+	// TeleopInterpolateOverride when true forces interpolation ON for all teleop
+	// movements regardless of size. Useful for testing.
+	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {

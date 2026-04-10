@@ -3,6 +3,7 @@ package builtin
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,8 @@ import (
 	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/utils"
 )
+
+const defaultTeleopSmallMoveRad = 0.005
 
 // teleopComponent tracks a single component being teleop'd within the pipeline.
 type teleopComponent struct {
@@ -245,6 +248,27 @@ func (tp *teleopPipeline) buildExtra(
 	return extra
 }
 
+// shouldInterpolate returns true if the max single-joint displacement
+// across the trajectory is below the threshold, meaning the arm's
+// built-in trapezoidal interpolation should be used for smooth motion.
+func shouldInterpolate(inputs [][]referenceframe.Input, threshold float64) bool {
+	if len(inputs) < 2 {
+		return true
+	}
+	first := inputs[0]
+	last := inputs[len(inputs)-1]
+	if len(first) != len(last) {
+		return false
+	}
+	var maxDisp float64
+	for j := range first {
+		if d := math.Abs(last[j] - first[j]); d > maxDisp {
+			maxDisp = d
+		}
+	}
+	return maxDisp < threshold
+}
+
 // executeTeleop executes a trajectory by calling GoToInputs on all components
 // in parallel. Unlike ms.execute, it skips the step-0 position check (which
 // blocks on CurrentInputs gRPC calls) and sends commands to all arms concurrently
@@ -264,6 +288,18 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			perComponent[name] = append(perComponent[name], inputs)
 		}
 	}
+
+	// Read teleop interpolation config.
+	smallMoveRad := defaultTeleopSmallMoveRad
+	interpolateOverride := false
+	ms.mu.RLock()
+	if ms.conf != nil {
+		if ms.conf.TeleopSmallMoveRad > 0 {
+			smallMoveRad = ms.conf.TeleopSmallMoveRad
+		}
+		interpolateOverride = ms.conf.TeleopInterpolateOverride
+	}
+	ms.mu.RUnlock()
 
 	// Execute GoToInputs on all components in parallel.
 	var wg sync.WaitGroup
@@ -287,7 +323,7 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			if armComp, ok := r.(arm.Arm); ok {
 				err = armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
 					"waitAtEnd":   false,
-					"interpolate": false,
+					"interpolate": interpolateOverride || shouldInterpolate(inputs, smallMoveRad),
 				})
 			} else {
 				err = ie.GoToInputs(ctx, inputs...)
