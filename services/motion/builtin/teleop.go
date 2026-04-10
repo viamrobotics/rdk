@@ -323,13 +323,14 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 			if armComp, ok := r.(arm.Arm); ok {
 				disp := maxJointDisplacement(inputs)
 				interp := interpolateOverride || disp < smallMoveRad
-				tp.logger.CDebugf(ctx, "teleop exec: interpolate=%v override=%v maxDisp=%f threshold=%f steps=%d",
+				tp.logger.CInfof(ctx, "teleop exec: interpolate=%v override=%v maxDisp=%f threshold=%f steps=%d",
 					interp, interpolateOverride, disp, smallMoveRad, len(inputs))
 				err = armComp.MoveThroughJointPositions(ctx, inputs, nil, map[string]interface{}{
 					"waitAtEnd":   false,
 					"interpolate": interp,
 				})
 			} else {
+				tp.logger.CInfof(ctx, "teleop exec: component is not arm.Arm (type %T), falling back to GoToInputs", r)
 				err = ie.GoToInputs(ctx, inputs...)
 			}
 			if err != nil {
