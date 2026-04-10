@@ -74,16 +74,23 @@ func moduleStart(
 	}
 }
 
+func getModuleAddress() (string, error) {
+	if moduleAddress := os.Getenv(rutils.ViamModuleAddress); moduleAddress != "" {
+		return moduleAddress, nil
+	}
+	if len(os.Args) >= 2 {
+		return os.Args[1], nil
+	}
+	return "", errors.New("need socket path as command line argument or env var")
+}
+
 // ModularMain can be called as the main function from a module. It will start up a module with all
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
-		moduleAddress := os.Getenv(rutils.ViamModuleAddress)
-		if moduleAddress == "" {
-			if len(os.Args) < 2 {
-				return errors.New("need socket path as command line argument or env var")
-			}
-			moduleAddress = os.Args[1]
+		moduleAddress, err := getModuleAddress()
+		if err != nil {
+			return err
 		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()

@@ -146,10 +146,11 @@ type Module struct {
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context) (*Module, error) {
-	if len(os.Args) < 2 {
-		return nil, errors.New("need socket path as command line argument")
+	moduleAddress, err := getModuleAddress()
+	if err != nil {
+		return nil, err
 	}
-	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
+	return NewModule(ctx, moduleAddress, NewLoggerFromArgs(""))
 }
 
 // NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
