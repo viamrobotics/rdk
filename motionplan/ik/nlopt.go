@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-nlopt/nlopt"
@@ -40,6 +41,8 @@ type NloptIK struct {
 	// If true, this will terminate solving when nlopt alg iterations change the distance to goal by less than some proportion of calculated
 	// distance. This can cause premature terminations when the distances are large.
 	useRelTol bool
+
+	maxTime time.Duration
 }
 
 // CreateNloptSolver creates an nloptIK object that can perform gradient descent on functions. The parameters are the limits
@@ -49,6 +52,7 @@ func CreateNloptSolver(
 	logger logging.Logger,
 	iter int,
 	exact, useRelTol bool,
+	maxTime time.Duration,
 ) (*NloptIK, error) {
 	// if debugIkMinFunc {
 	//  	// DONT COMMIT. Assert this works w.r.t registry. We might be omitting prior debug log lines
@@ -66,6 +70,7 @@ func CreateNloptSolver(
 	ik.maxIterations = iter
 	ik.exact = exact
 	ik.useRelTol = useRelTol
+	ik.maxTime = maxTime
 
 	return ik, nil
 }
@@ -157,7 +162,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 				}
 			}
 		}
-		nss.logger.Debugf("\n\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
+		nss.logger.Debugf("\t minfunc seed:%s vals: %v dist: %0.2f gradient: %v",
 			nss.meta, logging.FloatArrayFormat{"%0.5f", checkVals}, dist, logging.FloatArrayFormat{"", gradient})
 		return dist
 	}
@@ -166,6 +171,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 // Solve runs the actual solver and sends any solutions found to the given channel.
 func (ik *NloptIK) Solve(ctx context.Context,
 	solutionChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
 	minFunc CostFunc,
@@ -208,12 +214,15 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
-	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < time.Second)) && ctx.Err() == nil {
+	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
 		iterations++
 
 		seedNumberRanged := seedNumber % len(seedStates)
 		ss := seedStates[seedNumberRanged]
 		meta[seedNumberRanged].Attempts++
+		if totalAttempts != nil {
+			totalAttempts.Add(1)
+		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
 		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",

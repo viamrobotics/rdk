@@ -30,6 +30,8 @@ type config struct {
 type component struct {
 	resource.Named
 	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+
 	logger logging.Logger
 	cfg    *config
 }
@@ -68,27 +70,17 @@ func newComponent(_ context.Context,
 	if err != nil {
 		return nil, errors.Wrap(err, "create component failed due to config parsing")
 	}
+	if VERSION == "v3" {
+		// Version 3 should have a motor in the deps
+		if _, err := motor.FromProvider(deps, newConf.Motor); err != nil {
+			return nil, errors.Wrapf(err, "failed to resolve motor %q for version 3", newConf.Motor)
+		}
+	}
 	return &component{
 		Named:  conf.ResourceName().AsNamed(),
 		cfg:    newConf,
 		logger: logger,
 	}, nil
-}
-
-// Reconfigure swaps the config to the new conf.
-func (c *component) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
-	newConf, err := resource.NativeConfig[*config](conf)
-	if err != nil {
-		return err
-	}
-	if VERSION == "v3" {
-		// Version 3 should have a motor in the deps
-		if _, err := motor.FromProvider(deps, "motor1"); err != nil {
-			return errors.Wrapf(err, "failed to resolve motor %q for version 3", "motor1")
-		}
-	}
-	c.cfg = newConf
-	return nil
 }
 
 // DoCommand does nothing for now.

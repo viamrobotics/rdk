@@ -302,9 +302,6 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 	for idx := range conf.Services {
 		conf.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
 	}
-	for idx := range conf.Remotes {
-		conf.Remotes[idx].adjustPartialNames()
-	}
 
 	c.Cloud = conf.Cloud
 	c.Modules = conf.Modules
@@ -335,9 +332,6 @@ func (c Config) MarshalJSON() ([]byte, error) {
 	}
 	for idx := range c.Services {
 		c.Services[idx].AdjustPartialNames(resource.APITypeServiceName)
-	}
-	for idx := range c.Remotes {
-		c.Remotes[idx].adjustPartialNames()
 	}
 
 	return json.Marshal(configData{
@@ -515,18 +509,7 @@ func (conf *Remote) Validate(path string) ([]string, []string, error) {
 	return nil, nil, conf.cachedErr
 }
 
-// adjustPartialNames assumes this config comes from a place where the associated
-// config type names are partially stored (JSON/Proto/Database) and will
-// fix them up to the builtin values they are intended for.
-func (conf *Remote) adjustPartialNames() {
-	for idx := range conf.AssociatedResourceConfigs {
-		conf.AssociatedResourceConfigs[idx].RemoteName = conf.Name
-	}
-}
-
 func (conf *Remote) validate(path string) error {
-	conf.adjustPartialNames()
-
 	if conf.Name == "" {
 		return resource.NewConfigValidationFieldRequiredError(path, "name")
 	}
@@ -1082,19 +1065,13 @@ func CreateTLSWithCert(cfg *Config) (*tls.Config, error) {
 			// always return same cert
 			return &cert, nil
 		},
-		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			// always return same cert
-			return &cert, nil
-		},
 	}, nil
 }
 
 // ProcessConfig processes robot configs.
 func ProcessConfig(in *Config) (*Config, error) {
 	out := *in
-	var selfCreds *rpc.Credentials
-	var selfAuthEntity string
-	if in.Cloud != nil {
+	if in.Cloud != nil && !in.Network.NoTLS {
 		// We expect a cloud config from app to always contain a non-empty `TLSCertificate` field.
 		// We do this empty string check just to cope with unexpected input, such as cached configs
 		// that are hand altered to have their `TLSCertificate` removed.
@@ -1105,32 +1082,10 @@ func ProcessConfig(in *Config) (*Config, error) {
 			}
 			out.Network.TLSConfig = tlsConfig
 		}
-		if in.Cloud.APIKey.IsFullySet() {
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeAPIKey, in.Cloud.APIKey.Key}
-			selfAuthEntity = in.Cloud.APIKey.ID
-		} else {
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-			selfAuthEntity = in.Cloud.ID
-		}
 	}
 
 	out.Remotes = make([]Remote, len(in.Remotes))
 	copy(out.Remotes, in.Remotes)
-	for idx, remote := range out.Remotes {
-		remoteCopy := remote
-		if in.Cloud == nil {
-			remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
-		} else {
-			if remote.ManagedBy != in.Cloud.ManagedBy {
-				continue
-			}
-			remoteCopy.Auth.Managed = true
-			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-			remoteCopy.Auth.SignalingAuthEntity = selfAuthEntity
-			remoteCopy.Auth.SignalingCreds = selfCreds
-		}
-		out.Remotes[idx] = remoteCopy
-	}
 	return &out, nil
 }
 

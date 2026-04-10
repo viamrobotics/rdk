@@ -8,8 +8,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/components/encoder"
-	fakeencoder "go.viam.com/rdk/components/encoder/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
 	fakemotor "go.viam.com/rdk/components/motor/fake"
@@ -22,7 +20,7 @@ import (
 
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -52,17 +50,10 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 				Attributes:          utils.AttributeMap{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
-			{
-				Name:                "encoder1",
-				Model:               resource.DefaultModelFamily.WithModel("fake"),
-				API:                 encoder.API,
-				Attributes:          utils.AttributeMap{},
-				ConvertedAttributes: &fakeencoder.Config{},
-			},
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, nil, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger, robotimpl.WithDisableCompleteConfigWorker())
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
@@ -99,7 +90,7 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -129,17 +120,10 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 				Attributes:          utils.AttributeMap{},
 				ConvertedAttributes: &fakemotor.Config{},
 			},
-			{
-				Name:                "encoder1",
-				Model:               resource.DefaultModelFamily.WithModel("fake"),
-				API:                 encoder.API,
-				Attributes:          utils.AttributeMap{},
-				ConvertedAttributes: &fakeencoder.Config{},
-			},
 		},
 	}
 
-	robot, err := robotimpl.New(ctx, cfg, nil, logger)
+	robot, err := robotimpl.New(ctx, cfg, nil, logger, robotimpl.WithDisableCompleteConfigWorker())
 	test.That(t, err, test.ShouldBeNil)
 	defer robot.Close(ctx)
 
@@ -180,4 +164,133 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 	robot.Reconfigure(ctx, cfg)
 	_, err = robot.ResourceByName(generic.Named("generic1"))
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
+	test.That(t, err, test.ShouldBeNil)
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "AcmeModule",
+				ExePath:  absPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "generic1",
+				Model:               resource.NewModel("acme", "demo", "multiversionmodule"),
+				API:                 generic.API,
+				Attributes:          utils.AttributeMap{"motor": "motor1"},
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	robot, err := robotimpl.New(ctx, cfg, nil, logger, robotimpl.WithDisableCompleteConfigWorker())
+	test.That(t, err, test.ShouldBeNil)
+	defer robot.Close(ctx)
+
+	// Assert that generic1 was added.
+	_, err = robot.ResourceByName(generic.Named("generic1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that there were no validation or component building errors
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
+
+	// Swap in `run_version3.sh`. Version 3 requires `generic1` to have a `motor` in its
+	// attributes. This config change should result in `generic1` continuing to be available, as `motor1` is already in the config.
+	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version3.sh")
+	robot.Reconfigure(ctx, cfg)
+
+	_, err = robot.ResourceByName(generic.Named("generic1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that there were no validation or component building errors
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
+}
+
+func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO(RSDK-12871): get this working on win")
+	}
+	ctx := context.Background()
+	logger, logs := logging.NewObservedTestLogger(t)
+
+	absPath, err := filepath.Abs("multiversionmodule/run_version3.sh")
+	test.That(t, err, test.ShouldBeNil)
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:     "AcmeModule",
+				ExePath:  absPath,
+				LogLevel: "debug",
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "generic1",
+				Model:               resource.NewModel("acme", "demo", "multiversionmodule"),
+				API:                 generic.API,
+				Attributes:          utils.AttributeMap{"motor": "motor1"},
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+			{
+				Name:                "motor1",
+				Model:               resource.DefaultModelFamily.WithModel("fake"),
+				API:                 motor.API,
+				Attributes:          utils.AttributeMap{},
+				ConvertedAttributes: &fakemotor.Config{},
+			},
+		},
+	}
+
+	robot, err := robotimpl.New(ctx, cfg, nil, logger, robotimpl.WithDisableCompleteConfigWorker())
+	test.That(t, err, test.ShouldBeNil)
+	defer robot.Close(ctx)
+
+	// Assert that generic1 was added.
+	_, err = robot.ResourceByName(generic.Named("generic1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that there were no validation or component building errors
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
+
+	// Swap in `run_version1.sh` and remove `motor1`. Version 1 does not require `generic1` to have a `motor` in its
+	// attributes, so `generic1` should build and continue working.
+	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version1.sh")
+	for i, c := range cfg.Components {
+		if c.Name == "motor1" {
+			cfg.Components[i].Name = "motor2"
+		}
+	}
+	robot.Reconfigure(ctx, cfg)
+
+	_, err = robot.ResourceByName(generic.Named("generic1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Assert that there were no validation or component building errors
+	test.That(t, logs.FilterMessageSnippet(
+		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 }

@@ -110,7 +110,7 @@ type localRobot struct {
 	reconfigureWorkers         sync.WaitGroup
 	cancelBackgroundWorkers    func()
 	closeContext               context.Context
-	triggerConfig              chan struct{}
+	triggerConfig              chan string
 	configTicker               *time.Ticker
 	revealSensitiveConfigDiffs bool
 	shutdownCallback           func()
@@ -368,7 +368,7 @@ func (r *localRobot) sendTriggerConfig(caller string) {
 	select {
 	case <-r.closeContext.Done():
 		return
-	case r.triggerConfig <- struct{}{}:
+	case r.triggerConfig <- caller:
 	default:
 		r.Logger().CDebugw(
 			r.closeContext,
@@ -409,9 +409,8 @@ func (r *localRobot) completeConfigWorker() {
 			return
 		case <-r.configTicker.C:
 			trigger = "ticker"
-		case <-r.triggerConfig:
-			trigger = "remote"
-			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by remote")
+		case trigger = <-r.triggerConfig:
+			r.logger.CDebugw(r.closeContext, "configuration attempt triggered by caller", "trigger", trigger)
 		}
 		anyChanges := r.updateRemotesAndRetryResourceConfigure()
 		if anyChanges {
@@ -494,7 +493,7 @@ func newWithResources(
 		cancelBackgroundWorkers: cancel,
 		// triggerConfig buffers 1 message so that we can queue up to 1 reconfiguration attempt
 		// (as long as there is 1 queued, further messages can be safely discarded).
-		triggerConfig:              make(chan struct{}, 1),
+		triggerConfig:              make(chan string, 1),
 		configTicker:               nil,
 		revealSensitiveConfigDiffs: rOpts.revealSensitiveConfigDiffs,
 		cloudConnSvc:               icloud.NewCloudConnectionService(cfg.Cloud, conn, logger),
@@ -681,6 +680,7 @@ func (r *localRobot) handleOrphanedResources(ctx context.Context,
 	// crashed and thus do not need to be closed.
 	r.manager.markRebuildResources(rNames)
 	r.updateWeakAndOptionalDependents(ctx)
+	r.sendTriggerConfig("module crash/restart handler")
 }
 
 // getDependencies derives a collection of dependencies from a robot for a given
@@ -778,38 +778,44 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 
 func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
 	optDeps := make(resource.Dependencies)
-
+	found := make([]resource.Name, 0)
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
-		matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
-		switch len(matchingResourceNames) {
-		case 0:
-			r.logger.Infow(
-				"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
-				"dependency", optionalDepNameString,
-				"resource", conf.ResourceName().String(),
-			)
-			continue
-		case 1:
-			if matchingResourceNames[0].String() == conf.ResourceName().String() {
-				r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
+		// If the name string is a fully qualified resource name, skip trying to match
+		// by simple name.
+		//
+		// Not checking whether the resource actually exists because that is done later in the function.
+		resolvedOptionalDepName, err := resource.NewFromString(optionalDepNameString)
+		if err != nil {
+			matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
+			switch len(matchingResourceNames) {
+			case 0:
+				r.logger.Infow(
+					"Optional dependency for resource does not exist; not passing to constructor or reconfigure yet",
+					"dependency", optionalDepNameString,
+					"resource", conf.ResourceName().String(),
+				)
+				continue
+			case 1:
+				if matchingResourceNames[0].String() == conf.ResourceName().String() {
+					r.logger.Errorw("Resource cannot optionally depend on itself", "resource", conf.ResourceName().String())
+					continue
+				}
+			default:
+				r.logger.Errorw(
+					"Cannot resolve optional dependency for resource due to multiple matching names",
+					"resource", conf.ResourceName().String(),
+					"conflicts", resource.NamesToStrings(matchingResourceNames),
+				)
 				continue
 			}
-		default:
-			r.logger.Errorw(
-				"Cannot resolve optional dependency for resource due to multiple matching names",
-				"resource", conf.ResourceName().String(),
-				"conflicts", resource.NamesToStrings(matchingResourceNames),
-			)
-			continue
+			resolvedOptionalDepName = matchingResourceNames[0]
+
+			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
+			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
+			// dependency map in a resource constructor.
+			resolvedOptionalDepName.Name = optionalDepNameString
+			resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 		}
-
-		resolvedOptionalDepName := matchingResourceNames[0]
-
-		// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
-		// Pop the remote name off since callers won't be expecting it when accessing it in the resource
-		// dependency map in a resource constructor.
-		resolvedOptionalDepName.Name = optionalDepNameString
-		resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 
 		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
 		if err != nil {
@@ -823,6 +829,14 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		}
 
 		optDeps[resolvedOptionalDepName] = optionalDep
+		found = append(found, resolvedOptionalDepName)
+	}
+	if len(conf.ImplicitOptionalDependsOn) > 0 {
+		r.logger.Infow(
+			"Found optional dependencies for resource",
+			"resource", conf.ResourceName().String(),
+			"dependencies", resource.NamesToStrings(found),
+		)
 	}
 
 	return optDeps
@@ -914,7 +928,13 @@ func (r *localRobot) newResource(
 	return res, nil
 }
 
+// updateWeakAndOptionalDependents will return early if no resource has been updated since the last
+// time we updated weak and optional dependents, otherwise it will reconfigure every resource that
+// has weak or optional dependents, regardless of whether anything has changed.
 func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
+	if r.lastWeakAndOptionalDependentsRound.Load() >= r.manager.resources.CurrLogicalClockValue() {
+		return
+	}
 	// Track the current value of the resource graph's logical clock. This will later be
 	// used to determine if updateWeakAndOptionalDependents should be called during
 	// completeConfig.
@@ -1439,6 +1459,13 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	var allErrs error
 
+	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
+	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
+	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
+	// can unpack it into a fresh directory rather than reusing the previous one.
+	//
+	// This is done before diffing so that local modules in newConfig will not cause a diff if nothing has changed.
+	r.applyLocalModuleVersions(newConfig)
 	initialDiff, err := config.DiffConfigs(*r.Config(), *newConfig, r.revealSensitiveConfigDiffs)
 	if err != nil {
 		r.logger.CErrorw(ctx, "error diffing configs", "error", err)
@@ -1461,21 +1488,27 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		// The returned error is rich, detailing each individual packages error. The underlying
 		// `Sync` call is responsible for logging those errors in a readable way. We only need to
 		// log that reconfiguration is exited. To minimize the distraction of reading a list of
-		// verbose errors that was arleady logged.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because cloud modules or packages download failed")
+		// verbose errors that was already logged.
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because cloud modules or packages download and/or unzip failed. falling back to last config where "+
+				"all modules were fully downloaded and unzipped, and completed its first run script. "+
+				"currently running modules will not be shutdown",
+		)
 		return
 	}
-	// For local tarball modules, we create synthetic versions for package management. The `localRobot` keeps track of these because
-	// config reader would overwrite if we just stored it in config. Here, we copy the synthetic version from the `localRobot` into the
-	// appropriate `config.Module` object inside the `cfg.Modules` slice. Thus, when a local tarball module is reloaded, the viam-server
-	// can unpack it into a fresh directory rather than reusing the previous one.
-	r.applyLocalModuleVersions(newConfig)
+
 	err = r.localPackages.Sync(ctx, newConfig.Packages, newConfig.Modules)
 	if err != nil {
 		// Same as the above `Sync` call error handling. The returned error is rich, detailing each
 		// individual packages error. The underlying `Sync` call is responsible for logging those
 		// errors in a readable way.
-		r.Logger().CErrorw(ctx, "reconfiguration aborted because local modules or packages sync failed")
+		r.Logger().CErrorw(
+			ctx,
+			"reconfiguration aborted because local modules or packages sync failed. "+
+				"falling back to last config where all modules were fully downloaded and unzipped, "+
+				"and completed its first run script. currently running modules will not be shutdown",
+		)
 		return
 	}
 
@@ -1483,7 +1516,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	mods := slices.Concat[[]config.Module](initialDiff.Added.Modules, initialDiff.Modified.Modules)
 	for _, mod := range mods {
 		if err := r.manager.moduleManager.FirstRun(ctx, mod); err != nil {
-			r.logger.CErrorw(ctx, "error executing first run", "module", mod.Name, "error", err)
+			r.logger.CErrorw(
+				ctx,
+				"reconfiguration aborted because of error executing first run. falling back to last config "+
+					"where all modules were fully downloaded and unzipped, and completed its first run script. "+
+					"currently running modules will not be shutdown",
+				"module", mod.Name,
+				"error", err,
+			)
 			return
 		}
 	}
@@ -1568,9 +1608,11 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		return
 	}
 
-	revision := diff.NewRevision()
-	for _, res := range diff.UnmodifiedResources {
-		r.manager.updateRevision(res.ResourceName(), revision)
+	if existingConfig.Revision != newConfig.Revision {
+		revision := diff.NewRevision()
+		for _, res := range diff.UnmodifiedResources {
+			r.manager.updateRevision(res.ResourceName(), revision)
+		}
 	}
 
 	// this check is deferred because it has to happen at the end of reconfigure.
@@ -1604,9 +1646,9 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.logger.CDebugf(ctx, "%ving with %+v", logVerb, diff)
 	}
 
-	// First we mark diff.Removed resources and their children for removal. Modular resources removed this way
-	// will only have their children marked for update, since there is a chance that the resource is served by
-	// a different module.
+	// First we mark diff.Removed resources and their children for removal. Modular resources removed through
+	// module closure will only have their children marked for update, since there is a chance that the resource
+	// is served by a different module.
 	resourcesToCloseBeforeComplete, _, resourcesToRebuild := r.manager.markRemoved(ctx, diff.Removed)
 
 	// Second we attempt to Close resources.
@@ -1836,12 +1878,20 @@ func (r *localRobot) restartSingleModule(ctx context.Context, mod *config.Module
 		}
 	}
 
+	cfg := r.Config()
+
+	// resource configs were not modified, so add them all to the unmodified list. The list is used to
+	// determine which resources need to re-resolve their dependencies.
+	unmod := make([]resource.Config, len(cfg.Components), len(cfg.Components)+len(cfg.Services))
+	copy(unmod, cfg.Components)
+	unmod = append(unmod, cfg.Services...)
 	diff := config.Diff{
-		Left:     r.Config(),
-		Right:    r.Config(),
-		Added:    &config.Config{},
-		Modified: &config.ModifiedConfigDiff{},
-		Removed:  &config.Config{},
+		Left:                cfg,
+		Right:               cfg,
+		Added:               &config.Config{},
+		Modified:            &config.ModifiedConfigDiff{},
+		Removed:             &config.Config{},
+		UnmodifiedResources: unmod,
 	}
 
 	r.reconfigurationLock.Lock()

@@ -57,6 +57,11 @@ const (
 	DoPlan              = "plan"
 	DoExecute           = "execute"
 	DoExecuteCheckStart = "executeCheckStart"
+
+	DoTeleopStart  = "teleop_start"
+	DoTeleopMove   = "teleop_move"
+	DoTeleopStop   = "teleop_stop"
+	DoTeleopStatus = "teleop_status"
 )
 
 const (
@@ -135,6 +140,10 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+
+	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
+	teleopMu       sync.RWMutex
+	teleopPipeline *teleopPipeline
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -159,9 +168,16 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-
 	config, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -203,6 +219,13 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
+
 	return nil
 }
 
@@ -273,6 +296,11 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	// Handle teleop commands first (they manage their own locking).
+	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
@@ -376,38 +404,29 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 			return nil, fmt.Errorf("can only override joints for SimpleModel for now, not %T", f)
 		}
 
-		smCloned, err := referenceframe.Clone(sm)
+		// Resolve override keys: match by name first, then by stringified moveable-frame index
+		resolved := make(map[string]referenceframe.Limit, len(mods))
+		moveableNames := sm.MoveableFrameNames()
+		for key, limit := range mods {
+			matched := false
+			for i, name := range moveableNames {
+				if key == name || key == strconv.Itoa(i) {
+					resolved[name] = limit
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return nil, fmt.Errorf("can't find mod (%s)", key)
+			}
+		}
+
+		newModel, err := referenceframe.NewModelWithLimitOverrides(sm, resolved)
 		if err != nil {
 			return nil, err
 		}
-		smClonedTyped := smCloned.(*referenceframe.SimpleModel)
 
-		sub := smClonedTyped.OrdTransforms()
-
-		for modString, l := range mods {
-			idx := 0
-
-			found := false
-			for _, ss := range sub {
-				if len(ss.DoF()) > 0 && (modString == ss.Name() || modString == strconv.Itoa(idx)) {
-					found = true
-					ss.DoF()[0] = l
-					break
-				}
-
-				if len(ss.DoF()) > 0 {
-					idx++
-				}
-			}
-
-			if !found {
-				return nil, fmt.Errorf("can't find mod (%s)", modString)
-			}
-		}
-
-		smClonedTyped.SetOrdTransforms(sub)
-
-		err = frameSys.ReplaceFrame(smClonedTyped)
+		err = frameSys.ReplaceFrame(newModel)
 		if err != nil {
 			return nil, err
 		}
@@ -497,11 +516,87 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			traceID = span.SpanContext().TraceID().String()
 		}
 
-		err := ms.writePlanRequest(planRequest, plan, start, traceID, err)
+		// Extract plan tag from extra if provided
+		var planTag string
+		if req.Extra != nil {
+			if tag, ok := req.Extra["plan_tag"].(string); ok {
+				planTag = tag
+			}
+		}
+
+		err := ms.writePlanRequest(planRequest, plan, start, traceID, planTag, err)
 		if err != nil {
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
 	}
+	return plan, err
+}
+
+// planTeleop is a low-latency variant of plan() for the teleop pipeline.
+// It uses a pre-built frame system and caller-provided fsInputs (merged from
+// live CurrentInputs + planning head) to avoid per-call overhead.
+func (ms *builtIn) planTeleop(
+	ctx context.Context,
+	req motion.MoveReq,
+	frameSys *referenceframe.FrameSystem,
+	fsInputs referenceframe.FrameSystemInputs,
+	logger logging.Logger,
+) (motionplan.Plan, error) {
+	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleop")
+	defer span.End()
+
+	movingFrame := frameSys.Frame(req.ComponentName)
+	if movingFrame == nil {
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
+	}
+
+	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
+
+	if req.Extra != nil {
+		req.Extra["waypoints"] = nil
+	}
+
+	// Re-evaluate goal poses to be in the frame of World.
+	worldWaypoints := []*armplanning.PlanState{}
+	solvingFrame := referenceframe.World
+	for _, wp := range waypoints {
+		if wp.Poses() != nil {
+			step := referenceframe.FrameSystemPoses{}
+			for fName, destination := range wp.Poses() {
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
+				if err != nil {
+					return nil, err
+				}
+				goalPose, _ := tf.(*referenceframe.PoseInFrame)
+				step[fName] = goalPose
+			}
+			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
+		} else {
+			worldWaypoints = append(worldWaypoints, wp)
+		}
+	}
+
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	planRequest := &armplanning.PlanRequest{
+		FrameSystem:    frameSys,
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	return plan, err
 }
 
@@ -681,7 +776,7 @@ func waypointsFromRequest(
 }
 
 func (ms *builtIn) writePlanRequest(
-	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID string, planError error,
+	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID, planTag string, planError error,
 ) error {
 	planExtra := fmt.Sprintf("-goals-%d", len(req.Goals))
 
@@ -703,10 +798,15 @@ func (ms *builtIn) writePlanRequest(
 		planExtra += fmt.Sprintf("-traj-%d-l2-%0.2f", len(t), totalL2)
 	}
 
+	// Add plan tag to filename if provided
+	if planTag != "" {
+		planExtra += fmt.Sprintf("-%s", planTag)
+	}
+
 	fn := fmt.Sprintf("plan-%s-ms-%d-%s.json",
 		time.Now().Format(time.RFC3339), int(time.Since(start).Milliseconds()), planExtra)
 	if ms.conf.PlanDirectoryIncludeTraceID && traceID != "" {
-		fn = filepath.Join(ms.conf.PlanFilePath, traceID, fn)
+		fn = filepath.Join(ms.conf.PlanFilePath, fmt.Sprint("tag=", traceID), fn)
 	} else {
 		fn = filepath.Join(ms.conf.PlanFilePath, fn)
 	}

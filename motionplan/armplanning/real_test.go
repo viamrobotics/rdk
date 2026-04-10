@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
@@ -24,6 +25,7 @@ import (
 )
 
 func TestOrbOneSeed(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -53,6 +55,7 @@ func TestOrbOneSeed(t *testing.T) {
 }
 
 func TestOrbManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -83,6 +86,7 @@ func TestOrbManySeeds(t *testing.T) {
 }
 
 func TestPourManySeeds(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -108,6 +112,7 @@ func TestPourManySeeds(t *testing.T) {
 }
 
 func TestWineCrazyTouch1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -117,6 +122,8 @@ func TestWineCrazyTouch1(t *testing.T) {
 
 	req, err := ReadRequestFromFile("data/wine-crazy-touch.json")
 	test.That(t, err, test.ShouldBeNil)
+
+	req.myTestOptions.doNotCloseObstacles = true
 
 	plan, _, err := PlanMotion(context.Background(), logger, req)
 	test.That(t, err, test.ShouldBeNil)
@@ -134,6 +141,7 @@ func TestWineCrazyTouch1(t *testing.T) {
 }
 
 func TestWineCrazyTouch2(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -155,6 +163,23 @@ func TestWineCrazyTouch2(t *testing.T) {
 			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
 		}
 
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
+	})
+
+	t.Run("regular-noclose", func(t *testing.T) {
+		req.myTestOptions.doNotCloseObstacles = true
+		plan, _, err := PlanMotion(context.Background(), logger, req)
+		req.myTestOptions.doNotCloseObstacles = false
+		test.That(t, err, test.ShouldBeNil)
+
+		orig := plan.Trajectory()[0]["arm-right"]
+		for _, tt := range plan.Trajectory() {
+			now := tt["arm-right"]
+			logger.Info(now)
+			test.That(t, referenceframe.InputsL2Distance(orig, now), test.ShouldBeLessThan, 0.0001)
+		}
+
 		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
 	})
 
@@ -164,11 +189,13 @@ func TestWineCrazyTouch2(t *testing.T) {
 
 		plan, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 6)
+		// Smoothing produces ~3 waypoints, addCloseObstacleWaypoints may add more where path is close to obstacles
+		test.That(t, len(plan.Trajectory()), test.ShouldBeLessThan, 10)
 	})
 }
 
 func TestSandingLargeMove1(t *testing.T) {
+	t.Parallel()
 	name := "ur20-modular"
 
 	if IsTooSmallForCache() {
@@ -261,6 +288,7 @@ func TestSandingLargeMove1(t *testing.T) {
 }
 
 func TestBadSpray1(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -295,6 +323,7 @@ func TestBadSpray1(t *testing.T) {
 }
 
 func TestPirouette(t *testing.T) {
+	t.Parallel()
 	if IsTooSmallForCache() {
 		t.Skip()
 		return
@@ -383,6 +412,7 @@ func TestPirouette(t *testing.T) {
 }
 
 func TestBadPlanNoCrash(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/bad-sand-plan.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -391,6 +421,7 @@ func TestBadPlanNoCrash(t *testing.T) {
 }
 
 func TestOrbPlanTooManySteps(t *testing.T) {
+	t.Parallel()
 	logger := logging.NewTestLogger(t)
 	req, err := ReadRequestFromFile("data/sanding-too-many-steps.json")
 	test.That(t, err, test.ShouldBeNil)
@@ -410,6 +441,121 @@ func TestOrbPlanTooManySteps(t *testing.T) {
 	test.That(t, zeros, test.ShouldBeLessThanOrEqualTo, 0)
 }
 
+func TestSandingWallCollision(t *testing.T) {
+	t.Parallel()
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t).Sublogger("mp")
+	ctx := context.Background()
+
+	start := time.Now()
+	req, err := ReadRequestFromFile("data/sanding-collision-with-wall.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
+	plan, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("check trajectory length", func(t *testing.T) {
+		test.That(t, len(plan.Trajectory()), test.ShouldBeGreaterThan, 3)
+	})
+
+	t.Run("check collision checks pass with smaller resolution", func(t *testing.T) {
+		// Create plan context to validate the path
+		pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+		test.That(t, err, test.ShouldBeNil)
+
+		psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+		test.That(t, err, test.ShouldBeNil)
+
+		trajectory := plan.Trajectory()
+		smallResolution := 0.001
+
+		for j := 0; j < len(trajectory)-1; j++ {
+			start := trajectory[j].ToLinearInputs()
+			end := trajectory[j+1].ToLinearInputs()
+
+			// Default resolution passes
+			err := psc.checkPath(ctx, start, end, false)
+			test.That(t, err, test.ShouldBeNil)
+
+			// Small resolution noticed the collision when we had large jumps
+			_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
+				ctx,
+				&motionplan.SegmentFS{
+					StartConfiguration: start,
+					EndConfiguration:   end,
+					FS:                 pc.fs,
+				},
+				smallResolution,
+				true,
+			)
+			test.That(t, err, test.ShouldBeNil)
+		}
+	})
+}
+
+func TestTeleOpTwoMove(t *testing.T) {
+	t.Parallel()
+	req, err := ReadRequestFromFile("data/plan-2026-02-12-left-arm-collision-avoidance.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for i := 0; i < 5; i++ {
+		t.Run(fmt.Sprintf("seed-%d", i), func(t *testing.T) {
+			logger := newChattyMotionPlanTestLogger(t)
+
+			req.PlannerOptions.RandomSeed = i
+			plan, _, err := PlanMotion(context.Background(), logger, req)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(plan.Trajectory()), test.ShouldEqual, 2)
+
+			a := plan.Trajectory()[0]["right-arm"]
+			b := plan.Trajectory()[1]["right-arm"]
+
+			test.That(t, len(a), test.ShouldEqual, 6)
+
+			test.That(t, referenceframe.InputsL2Distance(a, b), test.ShouldBeLessThan, .01)
+		})
+	}
+}
+
+func TestWineBadBottleMoveGoodCost(t *testing.T) {
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	req, err := ReadRequestFromFile("data/wine-bad-bottle-move.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	test.That(t, err, test.ShouldBeNil)
+
+	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	test.That(t, err, test.ShouldBeNil)
+
+	sss, err := newSolutionSolvingState(ctx, psc, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger.Infof("goodCost: %0.4f", sss.goodCost)
+	test.That(t, sss.goodCost, test.ShouldBeLessThan, 3)
+
+	plan, _, err := PlanMotion(ctx, logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	a := plan.Trajectory()[0]["right-arm"]
+	b := plan.Trajectory()[1]["right-arm"]
+	dist := referenceframe.InputsL2Distance(a, b)
+	logger.Infof("L2 distance: %0.4f", dist)
+	test.That(t, dist, test.ShouldBeLessThan, 2)
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()
@@ -424,5 +570,34 @@ func BenchmarkBigPlanRequest(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		test.That(b, req.WriteToFile(filepath.Join(dir, "tmp.json")), test.ShouldBeNil)
+	}
+}
+
+func BenchmarkPlanningOnMeshes(b *testing.B) {
+	ur20Model, err := referenceframe.KinematicModelFromFile(artifact.MustPath("urdfs/ur20.urdf"), "ur20URDF")
+	test.That(b, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(ur20Model, fs.World())
+	test.That(b, err, test.ShouldBeNil)
+
+	goalState := NewPlanState(nil,
+		map[string][]referenceframe.Input{
+			ur20Model.Name(): make([]float64, len(ur20Model.DoF())),
+		},
+	)
+	startState := goalState
+
+	req := &PlanRequest{
+		FrameSystem: fs,
+		Goals:       []*PlanState{goalState},
+		StartState:  startState,
+	}
+
+	mpLogger := newChattyMotionPlanTestLogger(b)
+
+	b.ResetTimer() // Reset timer after setup
+	for i := 0; i < b.N; i++ {
+		_, _, err := PlanMotion(context.Background(), mpLogger, req)
+		test.That(b, err, test.ShouldBeNil)
 	}
 }

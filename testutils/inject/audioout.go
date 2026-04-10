@@ -13,8 +13,10 @@ type AudioOut struct {
 	audioout.AudioOut
 	name           resource.Name
 	DoFunc         func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc     func(ctx context.Context) (map[string]interface{}, error)
 	PlayFunc       func(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
 	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
+	CloseFunc      func(ctx context.Context) error
 }
 
 // NewAudioOut returns a new injected AudioOut.
@@ -49,4 +51,26 @@ func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo,
 		return a.AudioOut.Play(ctx, data, info, extra)
 	}
 	return a.PlayFunc(ctx, data, info, extra)
+}
+
+// Close calls the injected Close or the real version.
+func (a *AudioOut) Close(ctx context.Context) error {
+	if a.CloseFunc == nil {
+		if a.AudioOut == nil {
+			return nil
+		}
+		return a.AudioOut.Close(ctx)
+	}
+	return a.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (a *AudioOut) Status(ctx context.Context) (map[string]interface{}, error) {
+	if a.StatusFunc != nil {
+		return a.StatusFunc(ctx)
+	}
+	if a.AudioOut != nil {
+		return a.AudioOut.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

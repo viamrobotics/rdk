@@ -127,7 +127,6 @@ func (cr *CaptureResult) ToProto() []*datasyncPB.SensorData {
 				Metadata: &datasyncPB.SensorMetadata{
 					TimeRequested: timestamppb.New(ts.TimeRequested.UTC()),
 					TimeReceived:  timestamppb.New(ts.TimeReceived.UTC()),
-					MimeType:      b.MimeType.ToProto(),
 					Annotations:   b.Annotations.ToProto(),
 				},
 				Data: &datasyncPB.SensorData_Binary{
@@ -227,85 +226,12 @@ type Timestamps struct {
 	TimeReceived time.Time
 }
 
-// MimeType represents the mime type of the sensor data.
-type MimeType int
-
-// This follows the MIME types supported in
-// https://github.com/viamrobotics/api/blob/d7436a969cbc03bf7e84bb456b6dbfeb51f664d7/proto/viam/app/datasync/v1/data_sync.proto#L69
-const (
-	// MimeTypeUnspecified means that the MIME type was not specified.
-	MimeTypeUnspecified MimeType = iota
-	// MimeTypeImageJpeg is image/jpeg.
-	MimeTypeImageJpeg
-	// MimeTypeImagePng is image/png.
-	MimeTypeImagePng
-	// MimeTypeApplicationPcd is pointcloud/pcd.
-	MimeTypeApplicationPcd
-	// MimeTypeVideoMP4 is video/mp4.
-	MimeTypeVideoMP4
-)
-
-// ToProto converts MimeType to datasyncPB.
-func (mt MimeType) ToProto() datasyncPB.MimeType {
-	switch mt {
-	case MimeTypeUnspecified:
-		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
-	case MimeTypeImageJpeg:
-		return datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG
-	case MimeTypeImagePng:
-		return datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG
-	case MimeTypeApplicationPcd:
-		return datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD
-	case MimeTypeVideoMP4:
-		return datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4
-	default:
-		return datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED
-	}
-}
-
-// MimeTypeFromProto converts a datasyncPB.MimeType to a data.MimeType.
-func MimeTypeFromProto(mt datasyncPB.MimeType) MimeType {
-	switch mt {
-	case datasyncPB.MimeType_MIME_TYPE_UNSPECIFIED:
-		return MimeTypeUnspecified
-	case datasyncPB.MimeType_MIME_TYPE_IMAGE_JPEG:
-		return MimeTypeImageJpeg
-	case datasyncPB.MimeType_MIME_TYPE_IMAGE_PNG:
-		return MimeTypeImagePng
-	case datasyncPB.MimeType_MIME_TYPE_APPLICATION_PCD:
-		return MimeTypeApplicationPcd
-	case datasyncPB.MimeType_MIME_TYPE_VIDEO_MP4:
-		return MimeTypeVideoMP4
-
-	default:
-		return MimeTypeUnspecified
-	}
-}
-
-// MimeTypeStringToMimeType converts a string mime type to a MimeType.
-func MimeTypeStringToMimeType(mimeType string) MimeType {
-	switch mimeType {
-	case rutils.MimeTypeJPEG:
-		return MimeTypeImageJpeg
-	case rutils.MimeTypePNG:
-		return MimeTypeImagePng
-	case rutils.MimeTypeRawRGBA:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	case rutils.MimeTypeRawDepth:
-		// TODO: https://viam.atlassian.net/browse/DATA-3497
-		fallthrough
-	default:
-		return MimeTypeUnspecified
-	}
-}
-
 // Binary represents an element of a binary capture result response.
 type Binary struct {
 	// Payload contains the binary payload
 	Payload []byte
 	// MimeType  descibes the payload's MimeType
-	MimeType MimeType
+	MimeType string
 	// Annotations provide metadata about the Payload
 	Annotations Annotations
 }

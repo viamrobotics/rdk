@@ -378,8 +378,8 @@ type signalingBuffer struct {
 	wrote chan struct{}
 }
 
-func (b *signalingBuffer) WriteBinary(items []*v1.SensorData) error {
-	ret := b.bw.WriteBinary(items)
+func (b *signalingBuffer) WriteBinary(item *v1.SensorData, mimeType string) error {
+	ret := b.bw.WriteBinary(item, mimeType)
 	select {
 	case b.wrote <- struct{}{}:
 	case <-b.ctx.Done():

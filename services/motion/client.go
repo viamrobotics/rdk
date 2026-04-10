@@ -194,3 +194,7 @@ func (c *client) PlanHistory(
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
 	return protoutils.DoFromResourceClient(ctx, c.client, c.name, cmd)
 }
+
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+}

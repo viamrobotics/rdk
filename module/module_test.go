@@ -138,7 +138,7 @@ func TestAddModelFromRegistry(t *testing.T) {
 
 func TestModuleFunctions(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("todo: get this working on win")
+		t.Skip("TODO(RSDK-12871): get this working on win")
 	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -536,7 +536,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -575,7 +575,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -635,7 +635,7 @@ func TestAttributeConversion(t *testing.T) {
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 
@@ -676,7 +676,7 @@ func TestAttributeConversion(t *testing.T) {
 	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("todo: get this working on win")
+			t.Skip("TODO(RSDK-12871): get this working on win")
 		}
 		ctx := context.Background()
 

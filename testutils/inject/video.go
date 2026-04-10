@@ -18,7 +18,8 @@ type Video struct {
 		videoCodec, videoContainer string,
 		extra map[string]interface{},
 	) (chan *video.Chunk, error)
-	DoFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
 }
 
 // NewVideo returns a new injected video service.
@@ -50,6 +51,17 @@ func (v *Video) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[
 		return v.Service.DoCommand(ctx, cmd)
 	}
 	return v.DoFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (v *Video) Status(ctx context.Context) (map[string]interface{}, error) {
+	if v.StatusFunc != nil {
+		return v.StatusFunc(ctx)
+	}
+	if v.Service != nil {
+		return v.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Ensure the mock implements the interface.

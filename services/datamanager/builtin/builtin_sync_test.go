@@ -34,6 +34,7 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -832,16 +833,27 @@ func TestStreamingDCUpload(t *testing.T) {
 			// MaximumCaptureFileSizeBytes is set to 1 so that each reading becomes its own capture file
 			// and we can confidently read the capture file without it's contents being modified by the collector
 			c.MaximumCaptureFileSizeBytes = 1
+			// Fix the number of sync threads. For 1. consistency when running on different machines
+			// and 2. so we can ensure the file count doesn't exceed it. If there are more files than workers Sync() may block.
+			const numSyncThreads = 2
+			c.MaximumNumSyncThreads = numSyncThreads
 			b, err := New(context.Background(), deps, config, datasync.NoOpCloudClientConstructor, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Capture an image, then close.
-			waitForCaptureFilesToExceedNFiles(tmpDir, 0, logger)
+			waitForCaptureFilesToExceedNFiles(tmpDir, numSyncThreads, logger)
 			err = b.Close(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
-			// Get all captured data.
+			// Get all captured data and trim to at most numSyncThreads files
+			// so that Sync won't block on the unbuffered filesToSync channel.
 			filePaths := getAllFilePaths(tmpDir)
+			for len(filePaths) > numSyncThreads {
+				logger.Info("Too many files generated, deleting some to match sync count.")
+				err = os.Remove(filePaths[len(filePaths)-1])
+				test.That(t, err, test.ShouldBeNil)
+				filePaths = filePaths[:len(filePaths)-1]
+			}
 			_, capturedData, err := getCapturedData(filePaths)
 			test.That(t, err, test.ShouldBeNil)
 			t.Logf("capturedData len: %d", len(capturedData))
@@ -1204,16 +1216,8 @@ func populateFileContents(fileContents []byte) []byte {
 	return fileContents
 }
 
-func newImageBytesResp(ctx context.Context, img image.Image, mimeType string) ([]byte, camera.ImageMetadata, error) {
-	outBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, camera.ImageMetadata{}, err
-	}
-	return outBytes, camera.ImageMetadata{MimeType: mimeType}, nil
-}
-
-// newMockCameraWithImages creates a mock camera that implements both ImageFunc and ImagesFunc
-// ImageFunc will fail the test if called, ImagesFunc returns a single JPEG image.
+// newMockCameraWithImages creates a mock camera that implements ImagesFunc.
+// ImagesFunc returns a single JPEG image.
 func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 	return &inject.Camera{
 		ImagesFunc: func(
@@ -1222,9 +1226,9 @@ func newMockCameraWithImages(t *testing.T, imgPng image.Image) *inject.Camera {
 			extra map[string]interface{},
 		) ([]camera.NamedImage, resource.ResponseMetadata, error) {
 			t.Helper()
-			imgBytes, metadata, err := newImageBytesResp(ctx, imgPng, "image/jpeg")
+			imgBytes, err := rimage.EncodeImage(ctx, imgPng, utils.MimeTypeJPEG)
 			test.That(t, err, test.ShouldBeNil)
-			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", metadata.MimeType, data.Annotations{})
+			namedImg, err := camera.NamedImageFromBytes(imgBytes, "", utils.MimeTypeJPEG, data.Annotations{})
 			test.That(t, err, test.ShouldBeNil)
 			return []camera.NamedImage{namedImg}, resource.ResponseMetadata{CapturedAt: time.Now()}, nil
 		},

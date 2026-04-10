@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -30,14 +33,15 @@ type linkXML struct {
 
 // jointXML is a struct which details the XML used in a URDF jointXML element.
 type jointXML struct {
-	XMLName xml.Name `xml:"joint"`
-	Name    string   `xml:"name,attr"`
-	Type    string   `xml:"type,attr"`
-	Parent  frame    `xml:"parent"`
-	Child   frame    `xml:"child"`
-	Origin  *pose    `xml:"origin,omitempty"`
-	Axis    *axis    `xml:"axis,omitempty"`
-	Limit   *limit   `xml:"limit,omitempty"`
+	XMLName xml.Name  `xml:"joint"`
+	Name    string    `xml:"name,attr"`
+	Type    string    `xml:"type,attr"`
+	Parent  frame     `xml:"parent"`
+	Child   frame     `xml:"child"`
+	Origin  *pose     `xml:"origin,omitempty"`
+	Axis    *axis     `xml:"axis,omitempty"`
+	Limit   *limit    `xml:"limit,omitempty"`
+	Mimic   *mimicXML `xml:"mimic,omitempty"`
 }
 
 // NewModelFromWorldState creates a ModelConfigURDF struct which can be marshalled into xml and will be a
@@ -47,24 +51,25 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 	links := []linkXML{{Name: World}}
 	joints := make([]jointXML, 0)
 	emptyFS := NewEmptyFrameSystem("")
-	gf, err := ws.ObstaclesInWorldFrame(emptyFS, NewZeroInputs(emptyFS))
+	gf, err := ws.ObstaclesInWorldFrame(emptyFS, NewNeutralFrameSystemInputs(emptyFS))
 	if err != nil {
 		return nil, err
 	}
 	for _, g := range gf.Geometries() {
-		coll, err := newCollision(g)
+		colls, err := newCollisions(g)
 		if err != nil {
 			return nil, err
 		}
 		links = append(links, linkXML{
 			Name:      g.Label(),
-			Collision: []collision{*coll},
+			Collision: colls,
 		})
 		joints = append(joints, jointXML{
 			Name:   g.Label() + "_joint",
 			Type:   "fixed",
 			Parent: frame{gf.Parent()},
 			Child:  frame{g.Label()},
+			Origin: newPose(spatialmath.NewZeroPose()),
 		})
 	}
 	return &ModelConfigURDF{
@@ -77,7 +82,17 @@ func NewModelFromWorldState(ws *WorldState, name string) (*ModelConfigURDF, erro
 // UnmarshalModelXML will transfer the given URDF XML data into an equivalent ModelConfig. Direct unmarshaling in the
 // same fashion as ModelJSON is not possible, as URDF data will need to be evaluated to accommodate differences
 // between the two kinematics encoding schemes.
-func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, error) {
+// The meshMap parameter provides mesh proto messages keyed by URDF file path (e.g., "meshes/base.stl" -> proto Mesh).
+// The meshDecimationRatios parameter controls per-mesh decimation: meshDecimationRatios[i] is the fraction of
+// triangles to keep for the i-th mesh collision geometry in the URDF (in document order, skipping capsules and
+// non-mesh collisions). Values must be in (0, 1] where 1.0 means no decimation. If nil or shorter than the
+// number of mesh collisions, unspecified meshes are left undecimated.
+func UnmarshalModelXML(
+	xmlData []byte,
+	modelName string,
+	meshMap map[string]*commonpb.Mesh,
+	meshDecimationRatios []float64,
+) (*ModelConfigJSON, error) {
 	// Unmarshal into a URDF ModelConfig
 	urdf := &ModelConfigURDF{}
 	err := xml.Unmarshal(xmlData, urdf)
@@ -92,6 +107,7 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 
 	// Read all links first
 	links := make(map[string]*LinkConfig, 0)
+	meshIndex := 0
 	for _, linkElem := range urdf.Links {
 		// Skip any world links
 		if linkElem.Name == World {
@@ -100,10 +116,33 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 
 		link := &LinkConfig{ID: linkElem.Name}
 		if len(linkElem.Collision) > 0 {
-			geometry, err := linkElem.Collision[0].toGeometry()
+			var geometry spatialmath.Geometry
+			var err error
+
+			// Try to detect capsule pattern (cylinder + 2 spheres)
+			geometry, err = tryParseCapsuleFromCollisions(linkElem.Collision)
 			if err != nil {
-				return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
+				return nil, fmt.Errorf("failed to parse capsule from collision geometries %v: %w", linkElem.Name, err)
 			}
+
+			// If not a capsule, fall back to first collision element
+			if geometry == nil {
+				// Look up per-mesh decimation ratio if this is a mesh collision.
+				// Only mesh geometries support decimation; boxes, spheres, and cylinders are skipped.
+				// meshIndex tracks position in the meshDecimationRatios array across mesh collisions only.
+				decimationRatio := 1.0 // 1.0 = keep all triangles (no decimation)
+				if linkElem.Collision[0].Geometry.Mesh != nil {
+					if meshIndex < len(meshDecimationRatios) {
+						decimationRatio = meshDecimationRatios[meshIndex]
+					}
+					meshIndex++
+				}
+				geometry, err = linkElem.Collision[0].toGeometry(meshMap, decimationRatio)
+				if err != nil {
+					return nil, fmt.Errorf("failed to convert collision geometry %v to geometry config: %w", linkElem.Name, err)
+				}
+			}
+
 			geoCfg, err := spatialmath.NewGeometryConfig(geometry)
 			if err != nil {
 				return nil, err
@@ -139,6 +178,17 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 				thisJoint.Min, thisJoint.Max = utils.RadToDeg(jointElem.Limit.Lower), utils.RadToDeg(jointElem.Limit.Upper)
 			default:
 				return nil, err
+			}
+			if jointElem.Mimic != nil {
+				thisJoint.Mimic = &MimicConfig{
+					Joint:           jointElem.Mimic.Joint,
+					ValueMultiplier: jointElem.Mimic.ValueMultiplier,
+					ValueOffset:     jointElem.Mimic.ValueOffset,
+				}
+				// URDF requires <limit> on revolute/prismatic joints, but limits are
+				// meaningless for mimic joints. Clear them so buildMimicMappings
+				// validation passes; the source joint's limits govern the range.
+				thisJoint.Min, thisJoint.Max = 0, 0
 			}
 			joints = append(joints, thisJoint)
 
@@ -215,15 +265,85 @@ func UnmarshalModelXML(xmlData []byte, modelName string) (*ModelConfigJSON, erro
 	}, nil
 }
 
+// buildMeshMapFromURDF extracts mesh file paths from URDF and loads their bytes from disk.
+// It resolves paths relative to the URDF file's directory and handles package:// URIs.
+// Note: This function is only used when we are reading a URDF file, not when a URDF is sent over the wire.
+func buildMeshMapFromURDF(xmlData []byte, urdfDir string) (map[string]*commonpb.Mesh, error) {
+	// Parse URDF to find mesh references
+	urdf := &ModelConfigURDF{}
+	if err := xml.Unmarshal(xmlData, urdf); err != nil {
+		return nil, errors.Wrap(err, "failed to parse URDF for mesh extraction")
+	}
+
+	meshMap := make(map[string]*commonpb.Mesh)
+
+	// Iterate through all links and their collision geometries
+	for _, link := range urdf.Links {
+		for _, collision := range link.Collision {
+			if collision.Geometry.Mesh == nil {
+				continue
+			}
+
+			originalPath := collision.Geometry.Mesh.Filename
+			meshPath := normalizeURDFMeshPath(originalPath)
+
+			// Check if we've already loaded this mesh
+			if _, exists := meshMap[meshPath]; exists {
+				continue
+			}
+
+			// Resolve path relative to URDF directory
+			var absolutePath string
+			if filepath.IsAbs(meshPath) {
+				absolutePath = meshPath
+			} else {
+				absolutePath = filepath.Join(urdfDir, meshPath)
+			}
+
+			// Load mesh file bytes
+			//nolint:gosec
+			meshBytes, err := os.ReadFile(absolutePath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load mesh file %s (referenced as %s): %w", absolutePath, originalPath, err)
+			}
+
+			// Determine mesh content type from file extension
+			var contentType string
+			if strings.HasSuffix(strings.ToLower(meshPath), ".ply") {
+				contentType = "ply"
+			} else if strings.HasSuffix(strings.ToLower(meshPath), ".stl") {
+				contentType = "stl"
+			} else {
+				return nil, fmt.Errorf("unsupported mesh file type (only .ply and .stl supported): %s", meshPath)
+			}
+
+			meshMap[meshPath] = &commonpb.Mesh{
+				Mesh:        meshBytes,
+				ContentType: contentType,
+			}
+		}
+	}
+
+	return meshMap, nil
+}
+
 // ParseModelXMLFile will read a given file and parse the contained URDF XML data into an equivalent Model.
-func ParseModelXMLFile(filename, modelName string) (Model, error) {
+// It automatically loads mesh files referenced in the URDF from the local filesystem.
+func ParseModelXMLFile(filename, modelName string, meshDecimationRatios []float64) (Model, error) {
 	//nolint:gosec
 	xmlData, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read URDF file")
 	}
 
-	mc, err := UnmarshalModelXML(xmlData, modelName)
+	// Build mesh map by loading mesh files from disk
+	urdfDir := filepath.Dir(filename)
+	meshMap, err := buildMeshMapFromURDF(xmlData, urdfDir)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to build mesh map")
+	}
+
+	mc, err := UnmarshalModelXML(xmlData, modelName, meshMap, meshDecimationRatios)
 	if err != nil {
 		return nil, err
 	}

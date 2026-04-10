@@ -4,7 +4,9 @@ import (
 	"context"
 	"math"
 	"runtime"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
@@ -25,7 +27,7 @@ func TestCombinedIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(logger, nCPU, defaultGoalThreshold)
+	ik, err := CreateCombinedIKSolver(logger, nCPU, defaultGoalThreshold, time.Second)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test ability to arrive at another position
@@ -34,7 +36,8 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.79, OY: -1.32, OZ: -1.11},
 	)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	solution, _, err := DoSolve(context.Background(), ik, solveFunc, home, [][]frame.Limit{m.DoF()})
+	var totalAttempts atomic.Int32
+	solution, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, home, [][]frame.Limit{m.DoF()})
 	test.That(t, err, test.ShouldBeNil)
 
 	// Test moving forward 20 in X direction from previous position
@@ -43,7 +46,7 @@ func TestCombinedIKinematics(t *testing.T) {
 		&spatial.OrientationVectorDegrees{OX: 1.78, OY: -3.3, OZ: -1.11},
 	)
 	solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
-	_, _, err = DoSolve(context.Background(), ik, solveFunc, solution, [][]frame.Limit{m.DoF()})
+	_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, solution, [][]frame.Limit{m.DoF()})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -52,13 +55,14 @@ func TestUR5NloptIKinematics(t *testing.T) {
 
 	m, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	ik, err := CreateCombinedIKSolver(logger, nCPU, defaultGoalThreshold)
+	ik, err := CreateCombinedIKSolver(logger, nCPU, defaultGoalThreshold, time.Second)
 	test.That(t, err, test.ShouldBeNil)
 
 	goalJP := frame.JointPositionsFromRadians([]float64{-4.128, 2.71, 2.798, 2.3, 1.291, 0.62})
 	goal, err := m.Transform(m.InputFromProtobuf(goalJP))
 	test.That(t, err, test.ShouldBeNil)
 	solveFunc := NewMetricMinFunc(motionplan.NewSquaredNormMetric(goal), m, logger)
-	_, _, err = DoSolve(context.Background(), ik, solveFunc, home, [][]frame.Limit{m.DoF()})
+	var totalAttempts atomic.Int32
+	_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, home, [][]frame.Limit{m.DoF()})
 	test.That(t, err, test.ShouldBeNil)
 }

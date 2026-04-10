@@ -45,10 +45,15 @@ var (
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (*Manager, error) {
-	var err error
-	parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
-	if err != nil {
-		return nil, err
+	if use, _ := rutils.OnlyUseViamTCPSockets(); !use {
+		var err error
+		parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if options.HandleOrphanedResources == nil {
+		return nil, errors.New("Cannot construct modmanager without a handleOrphanedResources function")
 	}
 	restartCtx, restartCtxCancel := context.WithCancel(ctx)
 	ret := &Manager{
@@ -727,10 +732,46 @@ func (mgr *Manager) ValidateConfig(ctx context.Context, conf resource.Config) ([
 	return requiredImplicitDeps, optionalImplicitDeps, nil
 }
 
-// ResolveImplicitDependenciesInConfig mutates the passed in diff to add modular implicit dependencies to added
+// unmodifiedConfigsToValidate finds all unmodified resources that are provided by new/modified modules.
+func (mgr *Manager) unmodifiedConfigsToValidate(conf *config.Diff) ([]resource.Config, []resource.Config) {
+	// create a set of add/modified modules
+	changedMods := make(map[string]bool, len(conf.Added.Modules)+len(conf.Modified.Modules))
+	for _, mod := range conf.Added.Modules {
+		changedMods[mod.Name] = true
+	}
+	for _, mod := range conf.Modified.Modules {
+		changedMods[mod.Name] = true
+	}
+
+	compConfs := make([]resource.Config, 0)
+	serviceConfs := make([]resource.Config, 0)
+
+	for _, c := range conf.UnmodifiedResources {
+		mod, ok := mgr.getModule(c)
+		if !ok {
+			// continue if this resource is not being provided by a module.
+			continue
+		}
+		if _, ok := changedMods[mod.cfg.Name]; !ok {
+			// continue if it is not provided by a new/modified module.
+			continue
+		}
+		if c.API.IsComponent() {
+			compConfs = append(compConfs, c)
+		}
+		if c.API.IsService() {
+			serviceConfs = append(serviceConfs, c)
+		}
+	}
+	return compConfs, serviceConfs
+}
+
+// ResolveImplicitDependencies mutates the passed in diff to add modular implicit dependencies to added
 // and modified resources.
-func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	// If something was added or modified, go through components and services in
+// Unmodified resources provided by added/modified modules will also be re-evaluated to
+// make sure implicit dependencies are up-to-date.
+func (mgr *Manager) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
+	// If a module was added or modified, go through components and services in
 	// diff.Added and diff.Modified, call Validate on all those that are modularized,
 	// and store implicit dependencies.
 	validateModularResources := func(confs []resource.Config) {
@@ -748,15 +789,18 @@ func (mgr *Manager) ResolveImplicitDependenciesInConfig(ctx context.Context, con
 			}
 		}
 	}
-	if conf.Added != nil {
-		validateModularResources(conf.Added.Components)
-		validateModularResources(conf.Added.Services)
-	}
-	if conf.Modified != nil {
-		validateModularResources(conf.Modified.Components)
-		validateModularResources(conf.Modified.Services)
-	}
-	return nil
+	validateModularResources(conf.Added.Components)
+	validateModularResources(conf.Added.Services)
+
+	validateModularResources(conf.Modified.Components)
+	validateModularResources(conf.Modified.Services)
+
+	componentConfs, serviceConfs := mgr.unmodifiedConfigsToValidate(conf)
+
+	validateModularResources(componentConfs)
+	conf.Modified.Components = append(conf.Modified.Components, componentConfs...)
+	validateModularResources(serviceConfs)
+	conf.Modified.Services = append(conf.Modified.Services, serviceConfs...)
 }
 
 func (mgr *Manager) getModule(conf resource.Config) (foundMod *module, exists bool) {
@@ -924,61 +968,23 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
-		mod.logger.Infow("Module successfully restarted, re-adding resources", "module", mod.cfg.Name)
 
-		var orphanedResourceNames []resource.Name
-		var restoredResourceNamesStr []string
-		for name, res := range mod.resources {
-			confProto, err := config.ComponentConfigToProto(&res.conf)
-			if err != nil {
-				mod.logger.Errorw(
-					"Failed to re-add resource after module restarted due to config conversion error",
-					"module",
-					mod.cfg.Name,
-					"resource",
-					name.String(),
-					"error",
-					err,
-				)
-				orphanedResourceNames = append(orphanedResourceNames, name)
-				continue
-			}
-			_, err = mod.client.AddResource(ctx, &pb.AddResourceRequest{Config: confProto, Dependencies: res.deps})
-			if err != nil {
-				mod.logger.Errorw(
-					"Failed to re-add resource after module restarted",
-					"module",
-					mod.cfg.Name,
-					"resource",
-					name.String(),
-					"error",
-					err,
-				)
-				orphanedResourceNames = append(orphanedResourceNames, name)
-
-				// At this point, the modmanager is no longer managing this resource and should remove it
-				// from its state.
-				mgr.rMap.Delete(name)
-				delete(mod.resources, name)
-				continue
-			}
-			restoredResourceNamesStr = append(restoredResourceNamesStr, name.String())
+		// If a handleOrphanedResources function is provided, we defer all re-adding to it.
+		// using an external handler gives us the ability to re-add dependencies in the correct order.
+		orphanedResourceNames := make([]resource.Name, 0, len(mod.resources))
+		orphanedResourceNamesStr := make([]string, 0, len(mod.resources))
+		for resourceName := range mod.resources {
+			orphanedResourceNames = append(orphanedResourceNames, resourceName)
+			orphanedResourceNamesStr = append(orphanedResourceNamesStr, resourceName.String())
+			// let resource manager re-add instead of manually doing it here.
+			mgr.rMap.Delete(resourceName)
+			delete(mod.resources, resourceName)
 		}
-		if len(orphanedResourceNames) > 0 && mgr.handleOrphanedResources != nil {
-			orphanedResourceNamesStr := make([]string, len(orphanedResourceNames))
-			for _, n := range orphanedResourceNames {
-				orphanedResourceNamesStr = append(orphanedResourceNamesStr, n.String())
-			}
-			mod.logger.Warnw("Some resources failed to re-add after crashed module restart and will be rebuilt",
-				"module", mod.cfg.Name,
-				"resources_to_be_rebuilt", orphanedResourceNamesStr)
-			unlock()
-			mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
-		}
-
-		mod.logger.Infow("Module resources successfully re-added after module restart",
+		mod.logger.Infow("Module resources to be re-added after module restart",
 			"module", mod.cfg.Name,
-			"resources", restoredResourceNamesStr)
+			"resources", orphanedResourceNamesStr)
+		unlock()
+		mgr.handleOrphanedResources(mgr.restartCtx, orphanedResourceNames)
 		return
 	}
 }

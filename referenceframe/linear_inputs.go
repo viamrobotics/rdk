@@ -61,7 +61,9 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 }
 
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
-// if the wrong number of floats are provided.
+// if the wrong number of floats are provided. The returned LinearInputs shares the schema pointer
+// with the original. Callers that need to mutate the schema (e.g. via Put for new frames) must call
+// ForkSchema first.
 func (lis *LinearInputsSchema) FloatsToInputs(inps []float64) (*LinearInputs, error) {
 	totDoF := 0
 	for idx := range lis.metas {
@@ -112,17 +114,7 @@ func (lis *LinearInputsSchema) Jog(linearizedInputIdx int, val, percentJog float
 		metas = metas[1:]
 	}
 
-	//nolint: revive
-	_, max, r := metas[0].frame.DoF()[linearizedInputIdx].GoodLimits()
-	x := r * percentJog
-
-	val += x
-	if val > max {
-		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
-		val -= (2 * x)
-	}
-
-	return val
+	return metas[0].frame.DoF()[linearizedInputIdx].Jog(val, percentJog)
 }
 
 type linearInputMeta struct {
@@ -153,6 +145,16 @@ func NewLinearInputs() *LinearInputs {
 		schema: &LinearInputsSchema{},
 		inputs: make([]Input, 0, 8),
 	}
+}
+
+// forkSchema replaces this LinearInputs' schema with an independent copy so that subsequent
+// mutations (e.g. Put appending new frame entries) do not affect the original schema. This
+// must be called before mutating the schema when the LinearInputs was created via FloatsToInputs,
+// which shares the schema pointer for performance.
+func (li *LinearInputs) forkSchema() {
+	clonedMetas := make([]linearInputMeta, len(li.schema.metas))
+	copy(clonedMetas, li.schema.metas)
+	li.schema = &LinearInputsSchema{metas: clonedMetas}
 }
 
 // Len returns how many frames (included 0-DoF frames) are in the LinearInputs.
@@ -277,4 +279,14 @@ func (li *LinearInputs) CopyWithZeros() *LinearInputs {
 		schema: li.schema,
 		inputs: make([]Input, len(li.inputs)),
 	}
+}
+
+// Copy makes a new copy
+func (li *LinearInputs) Copy() *LinearInputs {
+	n := &LinearInputs{
+		schema: li.schema,
+		inputs: make([]Input, len(li.inputs)),
+	}
+	copy(n.inputs, li.inputs)
+	return n
 }

@@ -61,3 +61,15 @@ func (o *Object) Distance() (float64, error) {
 	dist = math.Sqrt(dist)
 	return dist, nil
 }
+
+// NormalizeScore checks to see if the score is between 0 and 1 and if not, changes it
+func NormalizeScore(score float64) float64 {
+	if score < 0.0 {
+		return 0.0
+	}
+	// if the score is greater than 1.0, assume it is in units of percentage
+	if score > 1.0 {
+		score /= 100.0
+	}
+	return score
+}

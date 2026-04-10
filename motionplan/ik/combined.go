@@ -3,6 +3,8 @@ package ik
 import (
 	"context"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -24,13 +26,14 @@ func CreateCombinedIKSolver(
 	logger logging.Logger,
 	nCPU int,
 	goalThreshold float64,
+	maxTime time.Duration,
 ) (*CombinedIK, error) {
 	ik := &CombinedIK{
 		logger: logger,
 	}
 
 	for i := 1; i <= nCPU; i++ {
-		nloptSolver, err := CreateNloptSolver(logger, -1, true, true)
+		nloptSolver, err := CreateNloptSolver(logger, -1, true, true, maxTime)
 		if err != nil {
 			return nil, err
 		}
@@ -43,6 +46,7 @@ func CreateCombinedIKSolver(
 // positions. If unable to solve, the returned error will be non-nil.
 func (ik *CombinedIK) Solve(ctx context.Context,
 	retChan chan<- *Solution,
+	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
 	costFunc CostFunc,
@@ -65,7 +69,7 @@ func (ik *CombinedIK) Solve(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
 
-			n, m, err := thisSolver.Solve(ctx, retChan, seeds, limits, costFunc, myseed)
+			n, m, err := thisSolver.Solve(ctx, retChan, totalAttempts, seeds, limits, costFunc, myseed)
 
 			solveResultLock.Lock()
 			defer solveResultLock.Unlock()

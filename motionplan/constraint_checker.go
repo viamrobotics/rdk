@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -20,7 +19,7 @@ const (
 	orientationConstraintDescription = "orientation constraint"
 	planarConstraintDescription      = "planar constraint"
 
-	// various collision constraints that have different names in order to be unique keys in maps of constraints that are created.
+	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
 	obstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
@@ -38,10 +37,17 @@ type StateFSConstraint func(*StateFS) error
 // first return is closest target
 type CollisionConstraintFunc func(*StateFS) (float64, error)
 
+// CollisionConstraints holds the three types of collision constraints that may be active during planning.
+type CollisionConstraints struct {
+	Obstacle      CollisionConstraintFunc // moving geometries vs world obstacles
+	RobotToRobot  CollisionConstraintFunc // moving robot component vs stationary robot component
+	SelfCollision CollisionConstraintFunc // moving geometries vs themselves
+}
+
 // ConstraintChecker is a convenient wrapper for constraint handling which is likely to be common among most motion
 // planners. Including a constraint handler as an anonymous struct member allows reuse.
 type ConstraintChecker struct {
-	collisionConstraints map[string]CollisionConstraintFunc
+	collisionConstraints CollisionConstraints
 	topoConstraint       StateFSConstraint
 
 	logger logging.Logger
@@ -118,7 +124,7 @@ func NewConstraintChecker(
 }
 
 // SetCollisionConstraints set the collision constraints explicitly
-func (c *ConstraintChecker) SetCollisionConstraints(cs map[string]CollisionConstraintFunc) {
+func (c *ConstraintChecker) SetCollisionConstraints(cs CollisionConstraints) {
 	c.collisionConstraints = cs
 }
 
@@ -269,12 +275,21 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 
 	closest := math.Inf(1)
 
-	for name, cFunc := range c.collisionConstraints {
-		d, err := cFunc(state)
+	for _, pair := range []struct {
+		name string
+		fn   CollisionConstraintFunc
+	}{
+		{obstacleConstraintDescription, c.collisionConstraints.Obstacle},
+		{robotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
+		{selfCollisionConstraintDescription, c.collisionConstraints.SelfCollision},
+	} {
+		if pair.fn == nil {
+			continue
+		}
+		d, err := pair.fn(state)
 		closest = min(closest, d)
 		if err != nil {
-			// for better logging, parse out the name of the constraint which is guaranteed to be before the underscore
-			return -1, errors.Wrap(err, strings.SplitN(name, "_", 2)[0])
+			return -1, errors.Wrap(err, pair.name)
 		}
 	}
 
@@ -291,38 +306,9 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 // configuration of a segment at a given resolution value.
 func InterpolateSegmentFS(ci *SegmentFS, resolution float64) ([]*referenceframe.LinearInputs, error) {
 	// Find the frame with the most steps by calculating steps for each frame
-	maxSteps := defaultMinStepCount
-	for frameName, startConfig := range ci.StartConfiguration.Items() {
-		if len(startConfig) == 0 {
-			// No need to interpolate 0dof frames
-			continue
-		}
-		endConfig := ci.EndConfiguration.Get(frameName)
-		if endConfig == nil {
-			return nil, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
-		}
-
-		// Get frame from FrameSystem
-		frame := ci.FS.Frame(frameName)
-		if frame == nil {
-			return nil, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
-		}
-
-		// Calculate positions for this frame's start and end configs
-		startPos, err := frame.Transform(startConfig)
-		if err != nil {
-			return nil, err
-		}
-		endPos, err := frame.Transform(endConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		// Calculate steps needed for this frame
-		steps := CalculateStepCount(startPos, endPos, resolution)
-		if steps > maxSteps {
-			maxSteps = steps
-		}
+	maxSteps, err := segmentStepCount(ci, resolution)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create interpolated configurations for all frames
@@ -399,89 +385,80 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
-	allowedCollisions []*Collision,
+	allowedCollisions []Collision,
 	collisionBufferMM float64,
-) (map[string]CollisionConstraintFunc, error) {
-	constraintFSMap := map[string]CollisionConstraintFunc{}
+) (CollisionConstraints, error) {
+	var constraints CollisionConstraints
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
-		obstacleConstraintFS, err := NewCollisionConstraintFS("world", fs,
+		obstacleConstraintFS, err := NewCollisionConstraintFS(
+			fs,
 			movingRobotGeometries,
 			worldGeometries,
 			allowedCollisions,
-			false,
 			collisionBufferMM,
+			false,
 		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[obstacleConstraintDescription] = obstacleConstraintFS
+		constraints.Obstacle = obstacleConstraintFS
 	}
 
 	if len(staticRobotGeometries) > 0 {
-		robotConstraintFS, err := NewCollisionConstraintFS("static", fs,
+		robotConstraintFS, err := NewCollisionConstraintFS(
+			fs,
 			movingRobotGeometries,
 			staticRobotGeometries,
 			allowedCollisions,
+			collisionBufferMM,
 			false,
-			collisionBufferMM)
+		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[robotCollisionConstraintDescription] = robotConstraintFS
+		constraints.RobotToRobot = robotConstraintFS
 	}
 
 	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
-		selfCollisionConstraintFS, err := NewCollisionConstraintFS("self", fs,
-			movingRobotGeometries, nil, allowedCollisions, false, collisionBufferMM)
+		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
+			fs,
+			movingRobotGeometries,
+			movingRobotGeometries,
+			allowedCollisions,
+			collisionBufferMM,
+			true,
+		)
 		if err != nil {
-			return nil, err
+			return CollisionConstraints{}, err
 		}
-		constraintFSMap[selfCollisionConstraintDescription] = selfCollisionConstraintFS
+		constraints.SelfCollision = selfCollisionConstraintFS
 	}
-	return constraintFSMap, nil
-}
-
-func setupZeroCG(
-	fs *referenceframe.FrameSystem,
-	moving, static []spatialmath.Geometry,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
-	collisionBufferMM float64,
-) (*collisionGraph, error) {
-	// create the reference collisionGraph
-	zeroCG, err := newCollisionGraph(fs, moving, static, nil, reportDistances, collisionBufferMM)
-	if err != nil {
-		return nil, err
-	}
-	for _, specification := range collisionSpecifications {
-		zeroCG.addCollisionSpecification(specification)
-	}
-	return zeroCG, nil
+	return constraints, nil
 }
 
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
-// If reportDistances is false, this check will be done as fast as possible, if true maximum information will be available for debugging.
 func NewCollisionConstraintFS(
-	n string,
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
-	collisionSpecifications []*Collision,
-	reportDistances bool,
+	collisionSpecifications []Collision,
 	collisionBufferMM float64,
+	isSelfCollision bool,
 ) (CollisionConstraintFunc, error) {
-	zeroCG, err := setupZeroCG(fs, moving, static, collisionSpecifications, true, collisionBufferMM)
+	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
+		collisionSpecifications, collisionBufferMM)
 	if err != nil {
 		return nil, err
 	}
 
-	movingMap := map[string]spatialmath.Geometry{}
-	for _, geom := range moving {
-		movingMap[geom.Label()] = geom
+	// Build a label set for filtering frame system geometries to only those in `moving`
+	movingLabels := map[string]bool{}
+	for _, g := range moving {
+		movingLabels[g.Label()] = true
 	}
 
 	// create constraint from reference collision graph
@@ -496,28 +473,133 @@ func NewCollisionConstraintFS(
 		var internalGeoms []spatialmath.Geometry
 		for _, geosInFrame := range internalGeometries {
 			if len(geosInFrame.Geometries()) > 0 {
-				if _, ok := movingMap[geosInFrame.Geometries()[0].Label()]; ok {
+				if movingLabels[geosInFrame.Geometries()[0].Label()] {
 					internalGeoms = append(internalGeoms, geosInFrame.Geometries()...)
 				}
 			}
 		}
 
-		return collisionCheckFinish(state.FS, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+		// For self-collision, compare moving geometries against themselves
+		staticToCheck := static
+		if isSelfCollision {
+			staticToCheck = internalGeoms
+		}
+
+		collisions, minDist, err := CheckCollisions(
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		if err != nil {
+			return minDist, err
+		}
+		if len(collisions) != 0 {
+			return minDist, fmt.Errorf(
+				"violation between %s and %s geometries",
+				collisions[0].name1,
+				collisions[0].name2,
+			)
+		}
+		return minDist, nil
 	}
 	return constraint, nil
 }
 
-func collisionCheckFinish(fs *referenceframe.FrameSystem, internalGeoms, static []spatialmath.Geometry, zeroCG *collisionGraph,
-	reportDistances bool, collisionBufferMM float64,
-) (float64, error) {
-	cg, err := newCollisionGraph(fs, internalGeoms, static, zeroCG, reportDistances, collisionBufferMM)
+func computeInitialCollisionsToIgnore(
+	fs *referenceframe.FrameSystem,
+	group1, group2 []spatialmath.Geometry,
+	collisionSpecifications []Collision,
+	collisionBufferMM float64,
+) ([]Collision, error) {
+	// Geometries in collision at move start should thereafter be ignored
+	initialCollisions, _, err := CheckCollisions(
+		group1, group2, collisionSpecifications, collisionBufferMM, true)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	cs := cg.collisions(collisionBufferMM)
-	if len(cs) != 0 {
-		// we could choose to amalgamate all the collisions into one error but its probably saner not to and choose just the first
-		return -1, fmt.Errorf("violation between %s and %s geometries (total collisions: %d)", cs[0].name1, cs[0].name2, len(cs))
+
+	// Add collision specifications
+	initialCollisions = append(initialCollisions, collisionSpecifications...)
+
+	// Add coparented static frames that could never be brought into collision
+	initialCollisions = append(initialCollisions, findCoparentedStaticFrames(fs, group1, group2)...)
+
+	return initialCollisions, nil
+}
+
+func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
+	skipList := []Collision{}
+
+	for _, g1 := range group1 {
+		g1Name := g1.Label()
+		for _, g2 := range group2 {
+			g2Name := g2.Label()
+			if g1Name == g2Name {
+				continue
+			}
+
+			x := fs.Frame(g1Name)
+			y := fs.Frame(g2Name)
+
+			if x == nil || y == nil {
+				// Geometry not in frame system (e.g. internal to a component), must check for collision
+				continue
+			}
+
+			xFirstMoving := firstMovingParentOrself(fs, x)
+			yFirstMoving := firstMovingParentOrself(fs, y)
+
+			if xFirstMoving == yFirstMoving {
+				skipList = append(skipList, Collision{name1: g1Name, name2: g2Name})
+			}
+		}
 	}
-	return cg.minDistance, nil
+	return skipList
+}
+
+// Computes the quantity of intermediate constraint check steps that should be performed across a segment
+func segmentStepCount(ci *SegmentFS, resolution float64) (int, error) {
+	// Find the frame with the most steps by calculating steps for each frame
+	maxSteps := defaultMinStepCount
+	for frameName, startConfig := range ci.StartConfiguration.Items() {
+		if len(startConfig) == 0 {
+			// No need to interpolate 0dof frames
+			continue
+		}
+		endConfig := ci.EndConfiguration.Get(frameName)
+		if endConfig == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in end config", frameName)
+		}
+
+		// Get frame from FrameSystem
+		frame := ci.FS.Frame(frameName)
+		if frame == nil {
+			return -1, fmt.Errorf("frame %s exists in start config but not in framesystem", frameName)
+		}
+
+		// Calculate positions for this frame's start and end configs
+		startPos, err := frame.Transform(startConfig)
+		if err != nil {
+			return -1, err
+		}
+		endPos, err := frame.Transform(endConfig)
+		if err != nil {
+			return -1, err
+		}
+
+		// Compute joint step size from the largest limit range, divided by 1000
+		jointStepSize := jointStepSizeFromLimits(frame.DoF())
+
+		maxSteps = max(maxSteps, CalculateStepCount(startPos, endPos, resolution))
+		maxSteps = max(maxSteps, calculateJointStepCount(startConfig, endConfig, jointStepSize))
+	}
+	return maxSteps, nil
+}
+
+// jointStepSizeFromLimits computes the joint step size as 1/1000 of the largest limit range.
+func jointStepSizeFromLimits(limits []referenceframe.Limit) float64 {
+	var maxRange float64
+
+	for _, limit := range limits {
+		_, _, r := limit.GoodLimits()
+		maxRange = max(maxRange, r)
+	}
+	return maxRange / 1000
 }

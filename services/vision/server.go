@@ -199,10 +199,14 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 		if err != nil {
 			return nil, err
 		}
+		geoms := []*commonpb.Geometry{}
+		if seg.Geometry != nil {
+			geoms = append(geoms, seg.Geometry.ToProtobuf())
+		}
 		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
-				Geometries:     []*commonpb.Geometry{seg.Geometry.ToProtobuf()},
+				Geometries:     geoms,
 				ReferenceFrame: frame,
 			},
 		}
@@ -327,4 +331,13 @@ func (server *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return rprotoutils.DoFromResourceServer(ctx, svc, req)
+}
+
+// GetStatus returns the status of the vision service.
+func (server *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := server.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
 }

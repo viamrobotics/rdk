@@ -433,10 +433,7 @@ func (m *dummyModMan) ValidateConfig(ctx context.Context, cfg resource.Config) (
 	return nil, nil, nil
 }
 
-func (m *dummyModMan) ResolveImplicitDependenciesInConfig(ctx context.Context, conf *config.Diff) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return nil
+func (m *dummyModMan) ResolveImplicitDependencies(ctx context.Context, conf *config.Diff) {
 }
 
 func (m *dummyModMan) CleanModuleDataDirectory() error {

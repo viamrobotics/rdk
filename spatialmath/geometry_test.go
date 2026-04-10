@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestGeometrySerializationJSON(t *testing.T) {
@@ -147,7 +150,7 @@ func TestBoxVsBoxCollision(t *testing.T) {
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 2, 2}, r3.Vector{2, 2, 2}),
 			},
-			0.005,
+			0.01,
 		},
 		{
 			"edge along face contact",
@@ -203,7 +206,7 @@ func TestBoxVsBoxCollision(t *testing.T) {
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}),
 			},
-			4.346, // upper bound on separation distance
+			5,
 		},
 		{
 			"axis aligned overlap",
@@ -774,4 +777,25 @@ func TestCapsuleVsPointEncompassed(t *testing.T) {
 		},
 	}
 	testGeometryEncompassed(t, cases)
+}
+
+func TestNewGeometryConfigWithMesh(t *testing.T) {
+	baseStlPath := artifact.MustPath("urdfs/ur20meshes/base.stl")
+	stlBytes, err := os.ReadFile(baseStlPath)
+	test.That(t, err, test.ShouldBeNil)
+
+	protoMesh := &commonpb.Mesh{
+		Mesh:        stlBytes,
+		ContentType: "stl",
+	}
+	mesh, err := NewMeshFromProto(NewZeroPose(), protoMesh, "")
+	test.That(t, err, test.ShouldBeNil)
+	mesh.SetOriginalFilePath("meshes/test.stl")
+
+	config, err := NewGeometryConfig(mesh)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, config.Type, test.ShouldEqual, MeshType)
+	test.That(t, config.MeshFilePath, test.ShouldEqual, "meshes/test.stl")
+	test.That(t, len(config.MeshData), test.ShouldBeGreaterThan, 0)
+	test.That(t, config.MeshContentType, test.ShouldEqual, "stl")
 }

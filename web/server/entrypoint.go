@@ -41,7 +41,6 @@ type Arguments struct {
 	ConfigFile                 string `flag:"config,usage=machine configuration file"`
 	CPUProfile                 string `flag:"cpuprofile,usage=write cpu profile to file"`
 	Debug                      bool   `flag:"debug"`
-	SharedDir                  string `flag:"shareddir,usage=web resource directory"`
 	Version                    bool   `flag:"version,usage=print version"`
 	WebProfile                 bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC                     bool   `flag:"webrtc,default=true,usage=force webrtc connections instead of direct"`
@@ -65,40 +64,14 @@ type robotServer struct {
 }
 
 func logViamEnvVariables(logger logging.Logger) {
-	var viamEnvVariables []interface{}
-	if value, exists := os.LookupEnv("VIAM_MODULE_ROOT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_ROOT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_RESOURCE_CONFIGURATION_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_RESOURCE_CONFIGURATION_TIMEOUT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_MODULE_STARTUP_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_MODULE_STARTUP_TIMEOUT", value)
-	}
-	if value, exists := os.LookupEnv("VIAM_CONFIG_READ_TIMEOUT"); exists {
-		viamEnvVariables = append(viamEnvVariables, "VIAM_CONFIG_READ_TIMEOUT", value)
-	}
+	viamEnvVariables := make(map[string]string)
 	if value, exists := os.LookupEnv("CWD"); exists {
-		viamEnvVariables = append(viamEnvVariables, "CWD", value)
+		viamEnvVariables["CWD"] = value
 	}
 	if rutils.PlatformHomeDir() != "" {
-		viamEnvVariables = append(viamEnvVariables, "HOME", rutils.PlatformHomeDir())
+		viamEnvVariables["HOME"] = rutils.PlatformHomeDir()
 	}
-	// Always attempt to overwrite VIAM_HOME because we do not currently support user-defined home directories.
-	value, alreadySet := os.LookupEnv(rutils.HomeEnvVar)
-	err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir)
-	// if we successfully overwrite VIAM_HOME, log
-	if err == nil && alreadySet {
-		logger.Infof("Environment variable %v was overwritten from %v to %v", rutils.HomeEnvVar, value, rutils.ViamDotDir)
-	} else if err != nil && !alreadySet {
-		logger.Infof("Unable to set %v environment variable, continuing with startup", rutils.HomeEnvVar)
-	}
-	if value, exists := os.LookupEnv(rutils.HomeEnvVar); exists {
-		viamEnvVariables = append(viamEnvVariables, rutils.HomeEnvVar, value)
-	}
-	if len(viamEnvVariables) != 0 {
-		logger.Infow("Starting viam-server with following environment variables", viamEnvVariables...)
-	}
+	rutils.LogViamEnvVariables("Started with the following Viam environment variables", viamEnvVariables, logger)
 }
 
 func logVersion(logger logging.Logger) {
@@ -309,12 +282,21 @@ func (s *robotServer) runServer(ctx context.Context) error {
 	if s.conn != nil {
 		s.configLogger.CInfo(ctx, "Getting up-to-date config from cloud...")
 	}
+	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
+		s.configLogger.Errorw("error creating viam dir, startup will likely fail", "path", rutils.ViamDotDir)
+	}
 	// config.Read will add a timeout using contextutils.GetTimeoutCtx, so no need to add a separate timeout.
 	cfg, err := config.Read(ctx, s.args.ConfigFile, s.configLogger, s.conn)
 	if err != nil {
 		return err
 	}
-	config.UpdateFileConfigDebug(cfg.Debug)
+	// If the "file" config debug flag is set here when the config has a cloud connection, the flag will never be unset.
+	// Then, logging_level.go/refreshLogLevelInLock will always set the log level to debug even if the cloud config
+	// does not have debug set (because it ORs the file and cloud debug flags).
+	// So, only touch this flag if we do not have a cloud connection.
+	if s.conn == nil {
+		config.UpdateFileConfigDebug(cfg.Debug)
+	}
 
 	err = s.serveWeb(ctx, cfg)
 	if err != nil {
@@ -330,7 +312,6 @@ func (s *robotServer) createWebOptions(cfg *config.Config) (weboptions.Options, 
 		return weboptions.Options{}, err
 	}
 	options.Pprof = s.args.WebProfile || cfg.EnableWebProfile
-	options.SharedDir = s.args.SharedDir
 	options.Debug = s.args.Debug || cfg.Debug
 	options.PreferWebRTC = s.args.WebRTC
 	options.DisableMulticastDNS = s.args.DisableMulticastDNS
@@ -368,6 +349,17 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 	out.FromCommand = true
 	out.AllowInsecureCreds = s.args.AllowInsecureCreds
 	out.UntrustedEnv = s.args.UntrustedEnv
+
+	// Propagate the top-level debug flag into the module log levels.
+	// This will trigger modules to be restarted with `--log-level=debug`
+	// if they don't already have a log level set
+	if out.Debug {
+		for i, moduleCfg := range out.Modules {
+			if moduleCfg.LogLevel == "" {
+				out.Modules[i].LogLevel = "debug"
+			}
+		}
+	}
 
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
@@ -566,7 +558,7 @@ func (s *robotServer) serveWeb(ctx context.Context, cfg *config.Config) (err err
 	// updates to the registry will be handled by the config watcher goroutine.
 	//
 	// This functionality is tested in `TestLogPropagation` in `local_robot_test.go`.
-	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.configLogger)
+	config.UpdateLoggerRegistryFromConfig(s.registry, fullProcessedConfig, s.rootLogger)
 
 	// Only start cloud restart checker if cloud config is non-nil, and viam-agent is not
 	// handling restart checking for us (relevant environment variable is unset).

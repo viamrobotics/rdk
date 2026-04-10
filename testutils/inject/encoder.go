@@ -12,6 +12,7 @@ type Encoder struct {
 	encoder.Encoder
 	name              resource.Name
 	DoFunc            func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc        func(ctx context.Context) (map[string]interface{}, error)
 	ResetPositionFunc func(ctx context.Context, extra map[string]interface{}) error
 	PositionFunc      func(ctx context.Context,
 		positionType encoder.PositionType,
@@ -76,4 +77,15 @@ func (e *Encoder) Close(ctx context.Context) error {
 		return e.Encoder.Close(ctx)
 	}
 	return e.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (e *Encoder) Status(ctx context.Context) (map[string]interface{}, error) {
+	if e.StatusFunc != nil {
+		return e.StatusFunc(ctx)
+	}
+	if e.Encoder != nil {
+		return e.Encoder.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

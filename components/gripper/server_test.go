@@ -23,6 +23,7 @@ var (
 	errCantGrab          = errors.New("can't grab")
 	errStopUnimplemented = errors.New("stop unimplemented")
 	errGripperNotFound   = errors.New("not found")
+	errGetStatusFailed   = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
@@ -144,5 +145,31 @@ func TestServer(t *testing.T) {
 
 		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldBeError, gripper.ErrGeometriesNil(testGripperName2))
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := gripperServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: missingGripperName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
+
+		resp, err := gripperServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectGripper.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = gripperServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectGripper.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = gripperServer.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectGripper.StatusFunc = nil
 	})
 }

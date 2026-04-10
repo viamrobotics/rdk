@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,8 +16,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/testutils"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
@@ -38,41 +37,28 @@ func CreateBaseOptionsAndListener(tb testing.TB) (weboptions.Options, net.Listen
 }
 
 // NewRobotClient creates a new robot client with a certain address.
-func NewRobotClient(tb testing.TB, logger logging.Logger, addr string, dur time.Duration) *client.RobotClient {
+func NewRobotClient(
+	tb testing.TB, logger logging.Logger, addr string, dur time.Duration, opts ...client.RobotClientOption,
+) *client.RobotClient {
 	tb.Helper()
 	// start robot client
 	ctx := context.Background()
+	defaultOpts := []client.RobotClientOption{
+		client.WithRefreshEvery(dur),
+		client.WithCheckConnectedEvery(5 * dur),
+		client.WithReconnectEvery(dur),
+	}
 	robotClient, err := client.New(
 		ctx,
 		addr,
 		logger,
-		client.WithRefreshEvery(dur),
-		client.WithCheckConnectedEvery(5*dur),
-		client.WithReconnectEvery(dur),
+		append(defaultOpts, opts...)...,
 	)
 	test.That(tb, err, test.ShouldBeNil)
 	tb.Cleanup(func() {
 		test.That(tb, robotClient.Close(ctx), test.ShouldBeNil)
 	})
 	return robotClient
-}
-
-// Connect creates a new grpc.ClientConn server running on localhost:port.
-func Connect(port int) (*grpc.ClientConn, error) {
-	ctxTimeout, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
-	defer cancelFunc()
-
-	var conn *grpc.ClientConn
-	conn, err := grpc.DialContext(ctxTimeout, //nolint:staticcheck
-		fmt.Sprintf("dns:///localhost:%d", port),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(), //nolint:staticcheck
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return conn, nil
 }
 
 // MakeTempConfig writes a config.Config object to a temporary file for testing.
@@ -134,9 +120,19 @@ func ServerAsSeparateProcess(t *testing.T, cfgFileName string, logger logging.Lo
 
 	testTempHome := cfg.viamHome
 	if testTempHome == "" {
-		// use a temporary home directory so that it doesn't collide with
-		// the user's/other tests' viam home directory
-		testTempHome = t.TempDir()
+		if runtime.GOOS == "windows" {
+			// these end up very long in CI for windows, overriding to avoid 103-char limit.
+			shortTmp := "c:/tmp"
+			err := os.MkdirAll(shortTmp, 0o700)
+			test.That(t, err, test.ShouldBeNil)
+			testTempHome, err = os.MkdirTemp(shortTmp, "viam-test-*")
+			test.That(t, err, test.ShouldBeNil)
+			t.Cleanup(func() { os.RemoveAll(testTempHome) }) //nolint:errcheck
+		} else {
+			// use a temporary home directory so that it doesn't collide with
+			// the user's/other tests' viam home directory
+			testTempHome = t.TempDir()
+		}
 	}
 	args := []string{"-config", cfgFileName}
 

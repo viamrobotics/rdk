@@ -38,6 +38,7 @@ type CloudConfig struct {
 	ID         string
 	Secret     string
 	AppAddress string
+	APIKey     *APIKey
 }
 
 // ProvisioningClient is a gRPC client for method calls to the Provisioning API.
@@ -127,6 +128,16 @@ func getSmartMachineStatusResponseFromProto(resp *pb.GetSmartMachineStatusRespon
 	}
 }
 
+func apiKeyToProto(apiKey *APIKey) *pb.APIKey {
+	if apiKey == nil {
+		return nil
+	}
+	return &pb.APIKey{
+		Id:  apiKey.ID,
+		Key: apiKey.Key,
+	}
+}
+
 func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
 	if config == nil {
 		return nil
@@ -135,5 +146,6 @@ func cloudConfigToProto(config *CloudConfig) *pb.CloudConfig {
 		Id:         config.ID,
 		Secret:     config.Secret,
 		AppAddress: config.AppAddress,
+		ApiKey:     apiKeyToProto(config.APIKey),
 	}
 }

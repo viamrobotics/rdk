@@ -61,6 +61,11 @@ func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]inter
 	return vs.VideoSource.DoCommand(ctx, cmd)
 }
 
+// Define Status to resolve ambiguity between VideoSource and resource.Named.
+func (vs *sourceBasedCamera) Status(ctx context.Context) (map[string]interface{}, error) {
+	return vs.VideoSource.Status(ctx)
+}
+
 func (vs *sourceBasedCamera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
@@ -214,25 +219,6 @@ func (vs *videoSource) Stream(ctx context.Context, errHandlers ...gostream.Error
 	return vs.videoSource.Stream(ctx, errHandlers...)
 }
 
-func (vs *videoSource) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	if sourceCam, ok := vs.actualSource.(Camera); ok {
-		return sourceCam.Image(ctx, mimeType, extra)
-	}
-	img, release, err := ReadImage(ctx, vs.videoSource)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	defer release()
-	if mimeType == "" {
-		mimeType = utils.MimeTypePNG // default to lossless mimetype such as PNG
-	}
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	return imgBytes, ImageMetadata{MimeType: mimeType}, nil
-}
-
 // Images is for getting simultaneous images from different sensors
 // If the underlying source did not specify an Images function, a default is applied.
 // The default returns a list of 1 image from ReadImage, and the current time.
@@ -321,6 +307,10 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	}
 
 	return result, nil
+}
+
+func (vs *videoSource) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 }
 
 func (vs *videoSource) Close(ctx context.Context) error {

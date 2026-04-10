@@ -4,12 +4,15 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
+	"path/filepath"
 	"runtime/pprof"
 	"slices"
 	"sort"
@@ -20,13 +23,18 @@ import (
 	viz "github.com/viam-labs/motion-tools/client/client"
 	otelresource "go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.viam.com/utils"
 	"go.viam.com/utils/perf"
 	"go.viam.com/utils/trace"
 
+	"go.viam.com/rdk/cli"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robot/client"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -48,6 +56,11 @@ func realMain() error {
 	loop := flag.Int("loop", 1, "loop")
 	cpu := flag.String("cpu", "", "cpu profiling")
 	interactive := flag.Bool("i", false, "interactive")
+	host := flag.String("host", "", "host to execute on")
+	forceMotion := flag.Bool("force-move", false, "")
+	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
+	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
+	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
 
 	flag.Parse()
 
@@ -96,6 +109,10 @@ func realMain() error {
 				Pattern: "*.mp.*",
 				Level:   "INFO",
 			},
+			{
+				Pattern: "*.networking.*",
+				Level:   "INFO",
+			},
 		}, logger)
 	}
 
@@ -135,13 +152,13 @@ func realMain() error {
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 
-	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
+	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
 	metricsExporter.Stop()
 	if *interactive {
-		if interactiveErr := doInteractive(req, plan, err, mylog); interactiveErr != nil {
+		if interactiveErr := doInteractive(req, plan, err, mylog, *showPoses); interactiveErr != nil {
 			logger.Fatal("Interactive mode failed:", interactiveErr)
 		}
 		return nil
@@ -164,6 +181,34 @@ func realMain() error {
 			return err
 		}
 		mylog.Printf("extra plan took %v", time.Since(ss))
+	}
+
+	if *tryManySeeds > 1 {
+		minDistance := 10000.0
+		maxDistance := 0.0
+
+		for i := 1; i < *tryManySeeds; i++ {
+			req.PlannerOptions.RandomSeed = i
+			seedPlan, _, err := armplanning.PlanMotion(ctx, logger, req)
+			if err != nil {
+				return fmt.Errorf("planning for seed %d failed %w", i, err)
+			}
+
+			seedTotalL2 := 0.0
+			t := seedPlan.Trajectory()
+			for idx := 1; idx < len(t); idx++ {
+				for k := range t[idx] {
+					myl2n := referenceframe.InputsL2Distance(t[idx-1][k], t[idx][k])
+					seedTotalL2 += myl2n
+				}
+			}
+
+			minDistance = min(minDistance, seedTotalL2)
+			maxDistance = max(maxDistance, seedTotalL2)
+
+			mylog.Printf("tryManySeeds seed %4d: traj_len=%d l2=%0.4f", i, len(t), seedTotalL2)
+		}
+		mylog.Printf("tryManySeeds result min: %0.2f max:%0.2f", minDistance, maxDistance)
 	}
 
 	relevantParts := []string{}
@@ -207,8 +252,19 @@ func realMain() error {
 					myl2n,
 					referenceframe.InputsLinfDistance(p, t[c]),
 					cart)
+
+				deltas := []float64{}
+				for i, a := range t[c] {
+					deltas = append(deltas, a-p[i])
+				}
+
+				mylog.Printf("\t\t\t\t deltas: %v", logging.FloatArrayFormat{"%0.5f", deltas})
 			}
 		}
+	}
+
+	if meta.PartialError != nil {
+		mylog.Printf("partial results, error: %v", meta.PartialError)
 	}
 
 	mylog.Printf("planning took %v for %d goals => trajectory length: %d",
@@ -216,18 +272,42 @@ func realMain() error {
 	mylog.Printf("totalCartesion: %0.4f\n", totalCartesion)
 	mylog.Printf("totalL2: %0.4f\n", totalL2)
 
+	// Print delta statistics if trajectory has more than 5 points
+	if len(plan.Trajectory()) > 5 {
+		stats := armplanning.TrajectoryDeltaStats(plan.Trajectory())
+		mylog.Printf("\nDelta Statistics (trajectory length: %d):", len(plan.Trajectory()))
+		for _, s := range stats {
+			mylog.Printf("  %s:%d: avg=%0.5f stddev=%0.5f outside1=%d outside2=%d (n=%d)",
+				s.Component, s.JointIdx, s.Mean, s.StdDev, s.Outside1, s.Outside2, s.Count)
+		}
+	}
+
 	for i := 0; i < *loop; i++ {
-		err = visualize(req, plan, mylog)
+		err = visualize(req, plan, mylog, *showPoses)
 		if err != nil {
 			mylog.Println("Couldn't visualize motion plan. Motion-tools server is probably not running. Skipping. Err:", err)
 			break
 		}
 	}
 
+	if *waypointsFile != "" {
+		err := writeWaypointsToFile(ctx, plan, *waypointsFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	if *host != "" {
+		err := executeOnArm(ctx, *host, plan, *forceMotion, logger)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger) error {
+func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Logger, showPoses bool) error {
 	renderFramePeriod := 5 * time.Millisecond
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -250,6 +330,68 @@ func visualize(req *armplanning.PlanRequest, plan motionplan.Plan, mylog *log.Lo
 		return err
 	}
 
+	if showPoses {
+		// Helper to check if a frame or any ancestor has DOF (is moving)
+		isMovingFrame := func(frameName string) bool {
+			frame := req.FrameSystem.Frame(frameName)
+			if frame == nil {
+				return false
+			}
+			// Check if this frame has DOF
+			if len(frame.DoF()) > 0 {
+				return true
+			}
+			// Walk up the parent chain to see if any ancestor has DOF
+			parent, err := req.FrameSystem.Parent(frame)
+			for parent != nil && err == nil {
+				if len(parent.DoF()) > 0 {
+					return true
+				}
+				parent, err = req.FrameSystem.Parent(parent)
+			}
+			return false
+		}
+
+		// Draw shadows for path positions - moving components and their descendants
+		// Alternate colors to distinguish different path positions
+		shadowColors := []string{"blue", "red"}
+		for idx := range plan.Path() {
+			gifs, err := referenceframe.FrameSystemGeometries(req.FrameSystem, plan.Trajectory()[idx])
+			if err != nil {
+				return err
+			}
+			// Pick color for this path position (alternating)
+			shadowColor := shadowColors[idx%len(shadowColors)]
+
+			// Draw shadows only for moving frames and their descendants
+			for frameName, gif := range gifs {
+				// Skip if this frame and all ancestors are static
+				if !isMovingFrame(frameName) {
+					continue
+				}
+
+				// Create copies with unique labels to not interfere with animation
+				shadowGeometries := make([]spatialmath.Geometry, len(gif.Geometries()))
+				for i, geom := range gif.Geometries() {
+					// Copy geometry without additional transformation (identity transform)
+					shadowGeom := geom.Transform(spatialmath.NewZeroPose())
+					shadowGeom.SetLabel(fmt.Sprintf("shadow_%d_%s_%d", idx, geom.Label(), i))
+					shadowGeometries[i] = shadowGeom
+				}
+				// Use the original parent frame from gif
+				shadowGIF := referenceframe.NewGeometriesInFrame(gif.Parent(), shadowGeometries)
+				colors := make([]string, len(shadowGeometries))
+				for i := range colors {
+					colors[i] = shadowColor
+				}
+				if err := viz.DrawGeometries(shadowGIF, colors); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Now animate through the path
 	for idx := range plan.Path() {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
@@ -314,7 +456,7 @@ func drawGoalPoses(req *armplanning.PlanRequest) error {
 	return nil
 }
 
-func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger) error {
+func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr error, logger *log.Logger, showPoses bool) error {
 	var ikErr *armplanning.IkConstraintError
 	errors.As(planErr, &ikErr)
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
@@ -348,7 +490,7 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 	for {
 		if render {
 			if planErr == nil {
-				if err := visualize(req, plan, logger); err != nil {
+				if err := visualize(req, plan, logger, showPoses); err != nil {
 					return err
 				}
 			} else {
@@ -383,6 +525,9 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("de, detailed errors")
 			logger.Println("-  If there were no IK solutions that satisfied constraints,",
 				"this will list the configuration for each failed solution.")
+			logger.Println()
+			logger.Println("sg, show goals")
+			logger.Println("-  show the goals in viz tool")
 			logger.Println()
 			logger.Println("re, render error <number>")
 			logger.Println("-  Renders the configuration of a failed solution.")
@@ -420,6 +565,27 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 					idxCounter++
 				}
 			}
+		case cmd == "show goals" || cmd == "sg":
+			for gi, goalPlanState := range req.Goals {
+				poses, err := goalPlanState.ComputePoses(context.Background(), req.FrameSystem)
+				if err != nil {
+					return err
+				}
+				for pi, poseValue := range poses {
+					poseInWorldFrame := poseValue.Transform(
+						referenceframe.NewPoseInFrame(
+							req.FrameSystem.World().Name(),
+							spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+					sphere, err := spatialmath.NewSphere(poseInWorldFrame.Pose(), 10, fmt.Sprintf("goal-%d-%v", gi, pi))
+					if err != nil {
+						return err
+					}
+					if err := viz.DrawGeometry(sphere, "blue"); err != nil {
+						return err
+					}
+				}
+			}
+
 		case strings.HasPrefix(cmd, "render error ") || strings.HasPrefix(cmd, "re "):
 			pieces := strings.Split(cmd, " ")
 			errorNumberStr := pieces[len(pieces)-1]
@@ -454,4 +620,124 @@ func doInteractive(req *armplanning.PlanRequest, plan motionplan.Plan, planErr e
 			logger.Println("Unknown command. Type `h` for help.")
 		}
 	}
+}
+
+func getFullTrajectoryByComponent(plan motionplan.Plan) map[string][][]referenceframe.Input {
+	byComponent := map[string][][]referenceframe.Input{}
+
+	for _, s := range plan.Trajectory() {
+		for cName, inputs := range s {
+			if len(inputs) > 0 {
+				byComponent[cName] = append(byComponent[cName], inputs)
+			}
+		}
+	}
+
+	return byComponent
+}
+
+func executeOnArm(ctx context.Context, host string, plan motionplan.Plan, force bool, logger logging.Logger) error {
+	byComponent := getFullTrajectoryByComponent(plan)
+
+	if len(byComponent) > 1 {
+		return fmt.Errorf("executeOnArm only supports one component moving right now, not: %d", len(byComponent))
+	}
+
+	c, err := cli.ConfigFromCache(nil)
+	if err != nil {
+		return err
+	}
+
+	dopts, err := c.DialOptions()
+	if err != nil {
+		return err
+	}
+
+	theRobot, err := client.New(
+		ctx,
+		host,
+		logger,
+		client.WithDialOptions(dopts...),
+	)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := theRobot.Close(ctx)
+		if err != nil {
+			logger.Errorf("cannot close robot: %v", err)
+		}
+	}()
+
+	for cName, allInputs := range byComponent {
+		r, err := robot.ResourceByName(theRobot, cName)
+		if err != nil {
+			return err
+		}
+
+		ie, ok := r.(framesystem.InputEnabled)
+		if !ok {
+			return fmt.Errorf("%s is not InputEnabled, is %T", cName, r)
+		}
+
+		cur, err := ie.CurrentInputs(ctx)
+		if err != nil {
+			return err
+		}
+
+		for j, v := range cur {
+			delta := math.Abs(v - allInputs[0][j])
+			if delta > .01 {
+				err = fmt.Errorf("joint %d for resource %s too far start: %0.5f go: %0.5f delta: %0.5f",
+					j, cName, v, allInputs[0][j], delta)
+				if force {
+					logger.Warnf("ignoring %v", err)
+				} else {
+					return err
+				}
+			}
+		}
+
+		logger.Infof("sending %d positions to %s", len(allInputs), cName)
+
+		err = ie.GoToInputs(ctx, allInputs...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func writeWaypointsToFile(ctx context.Context, plan motionplan.Plan, fileName string) error {
+	byComponent := getFullTrajectoryByComponent(plan)
+	if len(byComponent) != 1 {
+		return fmt.Errorf("to output waypointsFile need exactly one component moving, not %d", len(byComponent))
+	}
+
+	ff := &waypointsFileFormat{}
+	for _, v := range byComponent {
+		ff.Waypoints = v
+	}
+
+	file, err := os.OpenFile(filepath.Clean(fileName), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := json.Marshal(ff)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type waypointsFileFormat struct {
+	Waypoints [][]float64 `json:"waypoints_rad"`
 }

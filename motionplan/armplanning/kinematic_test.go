@@ -75,20 +75,10 @@ func TestForwardKinematics(t *testing.T) {
 	)
 	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 
-	// Test out of bounds. Note that m.Transform will return error on OOB.
+	// Test out of bounds
 	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 999}}
 	_, err = m.Transform(m.InputFromProtobuf(newPos))
 	test.That(t, err, test.ShouldNotBeNil)
-
-	// Test out of bounds. Note that ComputeOOBPosition will NOT return nil on OOB.
-	newPos = &pb.JointPositions{Values: []float64{-45, 0, 0, 0, 0, 999}}
-	pos, err = frame.ComputeOOBPosition(m, m.InputFromProtobuf(newPos))
-	expect = spatial.NewPose(
-		r3.Vector{X: 146.37, Y: -146.37, Z: 112},
-		&spatial.R4AA{Theta: math.Pi, RX: 0.31, RY: -0.95, RZ: 0},
-	)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostEqualEps(expect, pos, 0.01), test.ShouldBeTrue)
 }
 
 // Test dynamic frame systems
@@ -100,7 +90,7 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
-	positions := frame.NewZeroLinearInputs(fs)
+	positions := frame.NewNeutralLinearInputs(fs)
 
 	// World point of xArm at 0 position
 	poseWorld1 := spatial.NewPoseFromPoint(r3.Vector{207, 0, 112})
@@ -148,7 +138,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(urCamera, modelUR5e)
 
-	positions := frame.NewZeroLinearInputs(fs)
+	positions := frame.NewNeutralLinearInputs(fs)
 
 	poseUR5e := spatial.NewPoseFromPoint(r3.Vector{-717.2, -132.9, 262.8})
 	// Camera translates by 30, gripper is pointed at -Y
@@ -222,7 +212,7 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 
 	mJSON, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "")
+	mURDF, err := frame.ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(50))
@@ -234,26 +224,4 @@ func TestKinematicsJSONvsURDF(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, spatial.PoseAlmostEqual(posJSON, posURDF), test.ShouldBeTrue)
 	}
-}
-
-func TestComputeOOBPosition(t *testing.T) {
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "foo")
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, model.Name(), test.ShouldEqual, "foo")
-
-	jointPositions := []frame.Input{1.1, 2.2, 3.3, 1.1, 2.2, 3.3}
-
-	t.Run("succeed", func(t *testing.T) {
-		pose, err := frame.ComputeOOBPosition(model, jointPositions)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pose, test.ShouldNotBeNil)
-	})
-
-	t.Run("fail when model frame is nil", func(t *testing.T) {
-		var NilModel frame.Model
-
-		pose, err := frame.ComputeOOBPosition(NilModel, jointPositions)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, pose, test.ShouldBeNil)
-	})
 }

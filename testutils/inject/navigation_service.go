@@ -30,6 +30,7 @@ type NavigationService struct {
 	PropertiesFunc func(ctx context.Context) (navigation.Properties, error)
 
 	DoCommandFunc func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc    func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc     func(ctx context.Context) error
 }
 
@@ -123,6 +124,17 @@ func (ns *NavigationService) DoCommand(ctx context.Context,
 		return ns.Service.DoCommand(ctx, cmd)
 	}
 	return ns.DoCommandFunc(ctx, cmd)
+}
+
+// Status calls the injected Status or the real version.
+func (ns *NavigationService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if ns.StatusFunc != nil {
+		return ns.StatusFunc(ctx)
+	}
+	if ns.Service != nil {
+		return ns.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

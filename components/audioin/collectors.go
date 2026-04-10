@@ -151,15 +151,19 @@ func buildPayload(audioData []byte, sr, ch int32, codec string) (data.Binary, er
 	case rutils.CodecPCM16, rutils.CodecPCM32, rutils.CodecPCM32Float:
 		var err error
 		payload, err = CreateWAVFile(audioData, sr, ch, codec)
+		binary.MimeType = rutils.MimeTypeAudioWAV
 		if err != nil {
 			return data.Binary{}, fmt.Errorf("error writing wav file: %w", err)
 		}
+	case rutils.CodecMP3:
+		binary.MimeType = rutils.MimeTypeAudioMPEG
+		payload = audioData
 	default:
+		binary.MimeType = rutils.MimeTypeDefault
 		payload = audioData
 	}
 
 	binary.Payload = payload
-	binary.MimeType = data.MimeTypeUnspecified
 	return binary, nil
 }
 

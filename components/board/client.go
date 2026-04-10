@@ -94,6 +94,10 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 	return rprotoutils.DoFromResourceClient(ctx, c.client, c.boardName, cmd)
 }
 
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.boardName)
+}
+
 // analogClient satisfies a gRPC based board.AnalogReader. Refer to the interface
 // for descriptions of its methods.
 type analogClient struct {

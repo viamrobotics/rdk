@@ -35,7 +35,6 @@ Example with a dummy configuration: `go run ./web/cmd/server -config etc/configs
 
 ### Examples
 * [CustomResources](https://pkg.go.dev/go.viam.com/rdk/examples/customresources) - example for creating custom resources.
-* [SimpleServer](https://pkg.go.dev/go.viam.com/rdk/examples/simpleserver) - example for creating a simple custom server.
 
 ### SDKs
 

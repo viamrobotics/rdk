@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 
 	"github.com/benbjohnson/clock"
 	"github.com/pkg/errors"
@@ -28,6 +29,7 @@ func deleteExcessFilesOnSchedule(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
+	deletedFileCount *atomic.Int64,
 ) {
 	if runtime.GOOS == "android" {
 		logger.Debug("file deletion if disk is full is not currently supported on Android")
@@ -44,7 +46,9 @@ func deleteExcessFilesOnSchedule(
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			maybeDeleteExcessFiles(ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger)
+			maybeDeleteExcessFiles(
+				ctx, fileTracker, captureDir, deleteEveryNth, diskUsageThreshold, captureDirThreshold, clock, logger, deletedFileCount,
+			)
 		}
 	}
 }
@@ -58,11 +62,10 @@ func maybeDeleteExcessFiles(
 	captureDirThreshold float64,
 	clock clock.Clock,
 	logger logging.Logger,
+	deletedFileCount *atomic.Int64,
 ) {
 	start := clock.Now()
-	logger.Debug("checking disk usage")
 	usage, err := diskusage.Statfs(captureDir)
-	logger.Debugf("disk usage: %s", usage)
 	if err != nil {
 		logger.Error(errors.Wrap(err, "error checking file system stats"))
 		return
@@ -72,7 +75,7 @@ func maybeDeleteExcessFiles(
 		logger.Error("captureDir partition has size zero")
 		return
 	}
-	deletedFileCount, err := deleteExcessFiles(
+	count, err := deleteExcessFiles(
 		ctx,
 		fileTracker,
 		usage,
@@ -87,10 +90,10 @@ func maybeDeleteExcessFiles(
 	switch {
 	case err != nil:
 		logger.Errorw("error deleting cached datacapture files", "error", err, "execution time", duration.String())
-	case deletedFileCount > 0:
-		logger.Infof("%d files have been deleted to avoid the disk filling up, execution time: %s", deletedFileCount, duration.String())
-	default:
-		logger.Debugf("no files deleted, execution time: %s", duration)
+	case count > 0:
+		if deletedFileCount != nil {
+			deletedFileCount.Add(int64(count))
+		}
 	}
 }
 

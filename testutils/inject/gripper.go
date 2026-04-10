@@ -14,6 +14,7 @@ type Gripper struct {
 	gripper.Gripper
 	name                   resource.Name
 	DoFunc                 func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc             func(ctx context.Context) (map[string]interface{}, error)
 	OpenFunc               func(ctx context.Context, extra map[string]interface{}) error
 	GrabFunc               func(ctx context.Context, extra map[string]interface{}) (bool, error)
 	StopFunc               func(ctx context.Context, extra map[string]interface{}) error
@@ -107,4 +108,15 @@ func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) 
 		return g.Gripper.Kinematics(ctx)
 	}
 	return g.KinematicsFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (g *Gripper) Status(ctx context.Context) (map[string]interface{}, error) {
+	if g.StatusFunc != nil {
+		return g.StatusFunc(ctx)
+	}
+	if g.Gripper != nil {
+		return g.Gripper.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

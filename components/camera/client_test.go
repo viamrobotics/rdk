@@ -24,7 +24,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -253,6 +252,21 @@ func TestClient(t *testing.T) {
 		for i, geometry := range geometries {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
+
+		// Status - default empty status
+		statusResult, err := camera1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"streaming": true, "fps": float64(30)}
+		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = camera1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectCamera.StatusFunc = nil
 
 		test.That(t, camera1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
@@ -567,6 +581,22 @@ func TestClientProperties(t *testing.T) {
 			},
 		},
 		{
+			name: "with extrinsic params",
+			props: camera.Properties{
+				SupportsPCD:     true,
+				IntrinsicParams: fakeIntrinsics,
+				ExtrinsicParams: &camera.ExtrinsicParams{Translation: r3.Vector{X: 1, Y: 2, Z: 3}},
+			},
+		},
+		{
+			name: "nil extrinsic params",
+			props: camera.Properties{
+				SupportsPCD:     true,
+				IntrinsicParams: fakeIntrinsics,
+				ExtrinsicParams: nil,
+			},
+		},
+		{
 			name:  "empty properties",
 			props: camera.Properties{},
 		},
@@ -717,7 +747,6 @@ func setupRealRobot(
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
 	// audio stream data.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
@@ -742,7 +771,6 @@ func setupRealRobotWithOptions(
 	// We initialize with a stream config such that the stream server is capable of creating video stream and
 	// audio stream data.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	err = webSvc.Start(ctx, options)

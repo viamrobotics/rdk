@@ -10,10 +10,11 @@ import (
 // Button implements button.Button for testing.
 type Button struct {
 	button.Button
-	name      resource.Name
-	PushFunc  func(ctx context.Context, extra map[string]interface{}) error
-	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func(ctx context.Context) error
+	name       resource.Name
+	PushFunc   func(ctx context.Context, extra map[string]interface{}) error
+	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func(ctx context.Context) error
 }
 
 // NewButton returns a new injected button.
@@ -48,4 +49,15 @@ func (b *Button) Close(ctx context.Context) error {
 		return b.Button.Close(ctx)
 	}
 	return b.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (b *Button) Status(ctx context.Context) (map[string]interface{}, error) {
+	if b.StatusFunc != nil {
+		return b.StatusFunc(ctx)
+	}
+	if b.Button != nil {
+		return b.Button.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

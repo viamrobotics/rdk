@@ -263,7 +263,7 @@ func diffComponents(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			componentDifferent := diffComponent(l, r, diff)
 			different = componentDifferent || different
-			if !componentDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !componentDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -392,7 +392,7 @@ func diffServices(left, right []resource.Config, diff *Diff) bool {
 		if ok {
 			serviceDifferent := diffService(l, r, diff)
 			different = serviceDifferent || different
-			if !serviceDifferent && diff.Left.Revision != diff.Right.Revision {
+			if !serviceDifferent {
 				diff.UnmodifiedResources = append(diff.UnmodifiedResources, r)
 			}
 			continue
@@ -476,17 +476,6 @@ func diffTLS(leftTLS, rightTLS *tls.Config) bool {
 		return true
 	}
 	if !reflect.DeepEqual(leftCert, rightCert) {
-		return true
-	}
-	leftClientCert, err := leftTLS.GetClientCertificate(nil)
-	if err != nil {
-		return true
-	}
-	rightClientCert, err := rightTLS.GetClientCertificate(nil)
-	if err != nil {
-		return true
-	}
-	if !reflect.DeepEqual(leftClientCert, rightClientCert) {
 		return true
 	}
 	return false

@@ -15,27 +15,12 @@ func StreamVideoSource(ctx context.Context, vs VideoSource, stream Stream, logge
 	}, stream.InputVideoFrames, logger)
 }
 
-// StreamAudioSource streams the given video source to the stream forever until context signals cancellation.
-func StreamAudioSource(ctx context.Context, as AudioSource, stream Stream, logger logging.Logger) error {
-	return streamMediaSource(ctx, as, stream, func(ctx context.Context, frameErr error) {
-		logger.Debugw("error getting frame", "error", frameErr)
-	}, stream.InputAudioChunks, logger)
-}
-
 // StreamVideoSourceWithErrorHandler streams the given video source to the stream forever
 // until context signals cancellation, frame errors are sent via the error handler.
 func StreamVideoSourceWithErrorHandler(
 	ctx context.Context, vs VideoSource, stream Stream, errHandler ErrorHandler, logger logging.Logger,
 ) error {
 	return streamMediaSource(ctx, vs, stream, errHandler, stream.InputVideoFrames, logger)
-}
-
-// StreamAudioSourceWithErrorHandler streams the given audio source to the stream forever
-// until context signals cancellation, audio errors are sent via the error handler.
-func StreamAudioSourceWithErrorHandler(
-	ctx context.Context, as AudioSource, stream Stream, errHandler ErrorHandler, logger logging.Logger,
-) error {
-	return streamMediaSource(ctx, as, stream, errHandler, stream.InputAudioChunks, logger)
 }
 
 // streamMediaSource will stream a source of media forever to the stream until the given context tells it to cancel.

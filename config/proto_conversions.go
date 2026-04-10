@@ -540,8 +540,6 @@ func FrameConfigFromProto(proto *pb.Frame) (*referenceframe.LinkConfig, error) {
 
 // RemoteConfigToProto converts Remote to the proto equivalent.
 func RemoteConfigToProto(remote *Remote) (*pb.RemoteConfig, error) {
-	remote.adjustPartialNames()
-
 	serviceConfigs, err := mapSliceWithErrors(remote.AssociatedResourceConfigs, AssociatedResourceConfigToProto)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert service configs")

@@ -547,7 +547,7 @@ func TestSafeLink(t *testing.T) {
 	validate("sub/dir", "sub/dir", nil)
 	validate("sub/../dir", "sub/../dir", nil)
 	validate("sub/../../dir", "", errors.New("unsafe path join"))
-	validate("/root", "", errors.New("unsafe path link"))
+	validate("/root", "", errors.New("cannot link"))
 }
 
 func TestMissingDirEntry(t *testing.T) {

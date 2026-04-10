@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/camera/v1"
 	"go.viam.com/test"
 	goprotoutils "go.viam.com/utils/protoutils"
@@ -32,6 +34,7 @@ var (
 	errCameraProjectorFailed    = errors.New("can't get camera properties")
 	errGetImageFailed           = errors.New("can't get image")
 	errCameraUnimplemented      = errors.New("not found")
+	errGetStatusFailed          = errors.New("can't get camera status")
 )
 
 func newServer(logger logging.Logger) (pb.CameraServiceServer, *inject.Camera, *inject.Camera, *inject.Camera, error) {
@@ -78,10 +81,12 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	extrinsics := &camera.ExtrinsicParams{Translation: r3.Vector{X: 1, Y: 2, Z: 3}}
 	injectCamera.PropertiesFunc = func(ctx context.Context) (camera.Properties, error) {
 		return camera.Properties{
 			SupportsPCD:     true,
 			IntrinsicParams: intrinsics,
+			ExtrinsicParams: extrinsics,
 			MimeTypes:       []string{utils.MimeTypeJPEG, utils.MimeTypePNG, utils.MimeTypeH264},
 			FrameRate:       float32(10.0),
 		}, nil
@@ -341,11 +346,48 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.MimeTypes, test.ShouldContain, utils.MimeTypeH264)
 		test.That(t, resp.FrameRate, test.ShouldNotBeNil)
 		test.That(t, *resp.FrameRate, test.ShouldEqual, 10.0)
+		test.That(t, resp.ExtrinsicParameters, test.ShouldNotBeNil)
+		test.That(t, resp.ExtrinsicParameters.Translation, test.ShouldNotBeNil)
+		test.That(t, resp.ExtrinsicParameters.Translation.X, test.ShouldEqual, 1)
+		test.That(t, resp.ExtrinsicParameters.Translation.Y, test.ShouldEqual, 2)
+		test.That(t, resp.ExtrinsicParameters.Translation.Z, test.ShouldEqual, 3)
 
 		// test property when we don't set frame rate
 		resp2, err := cameraServer.GetProperties(context.Background(), &pb.GetPropertiesRequest{Name: depthCameraName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp2.FrameRate, test.ShouldBeNil)
+		test.That(t, resp2.ExtrinsicParameters, test.ShouldBeNil)
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errCameraUnimplemented.Error())
+
+		// default status: resource.Named default returns empty map
+		resp, err := cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		// camera with custom Status implementation
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		// camera with Status returning error
+		injectCamera.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = cameraServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testCameraName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+		// reset
+		injectCamera.StatusFunc = nil
 	})
 
 	t.Run("GetImages with extra", func(t *testing.T) {

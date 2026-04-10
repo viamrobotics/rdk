@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -71,6 +72,10 @@ func (c *client) Metadata(ctx context.Context) (MLMetadata, error) {
 		return MLMetadata{}, err
 	}
 	return protoToMetadata(resp.Metadata), nil
+}
+
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
 }
 
 // protoToMetadata takes a pb.Metadata protobuf message and turns it into an MLMetadata struct.

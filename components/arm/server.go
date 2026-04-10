@@ -244,3 +244,12 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 	s.logger.Debugw("DoCommand", "res", req.Name, "req", req)
 	return protoutils.DoFromResourceServer(ctx, arm, req)
 }
+
+// GetStatus returns the status of the arm.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, res, req)
+}

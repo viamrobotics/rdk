@@ -10,7 +10,6 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
-	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -23,6 +22,15 @@ import (
 
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
+
+// finiteOrZero returns v when finite, or 0 otherwise. Used when marshaling
+// frame limits to JSON, which cannot represent ±Inf.
+func finiteOrZero(v float64) float64 {
+	if math.IsInf(v, 0) {
+		return 0
+	}
+	return v
+}
 
 // Limit represents the limits of motion for a Frame.
 type Limit struct {
@@ -45,6 +53,34 @@ func (l *Limit) Hash() int {
 
 const rangeLimit = 999
 
+func isMultipleOfPi(v float64) bool {
+	v = math.Abs(v)
+	v -= math.Floor(v/math.Pi) * math.Pi
+	for v > 0 {
+		v -= math.Pi
+	}
+	return v > -.02
+}
+
+// Jog returns a value that's one "jog" away from its current value. Where a jog is a fraction
+// (`percentJog`) of the total range of the input.
+// Unless it's rotational, then the range is 2 * math.Pi
+func (l *Limit) Jog(val, percentJog float64) float64 {
+	_, mm, r := l.GoodLimits()
+	if r > 2*math.Pi && isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) {
+		r = 2 * math.Pi
+	}
+	x := r * percentJog
+
+	val += x
+	if val > mm {
+		// If we've gone too far, wrap around. This assumes the input is a rotational joint.
+		val -= (2 * x)
+	}
+
+	return val
+}
+
 // GoodLimits gives min, max, range, but capped to -999,999.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min
@@ -61,6 +97,12 @@ func (l *Limit) GoodLimits() (float64, float64, float64) {
 // IsValid return if the value is in the range
 func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
+}
+
+// IsRotational returns true if this limit appears to be for a rotational joint,
+// i.e. both min and max are multiples of pi and 0 is within range.
+func (l *Limit) IsRotational() bool {
+	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
 }
 
 // AreInputsValid checks if all values are within limit ranges
@@ -165,14 +207,8 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's
 	// reference frame.
 	//
-	// If the transform cannot be computed, the returned pose will be nil and the error will not be
-	// nil.
-	//
-	// If the transform _can_ be computed, but one or more of the inputs is outside of the
-	// prescribed frame limits, both a pose _and_ an "out of bounds" error will be returned. Callers
-	// that need to avoid propagating out of bounds (OOB) inputs errors can simply error
-	// check. Callers that do not want to terminate on OOB errors must check if the pose is
-	// returned.
+	// If the transform cannot be computed (including if inputs are out of bounds), the returned
+	// pose will be nil and the error will not be nil.
 	Transform([]Input) (spatial.Pose, error)
 
 	// Interpolate interpolates the given amount between the two sets of inputs.
@@ -246,8 +282,8 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i], "needs to be within range", lim))
+			multierr.AppendInto(&errAll, fmt.Errorf("%s, input %.5f needs to be within range %.5f",
+				OOBErrString, inputs[i], lim))
 		}
 	}
 
@@ -482,12 +518,10 @@ func (pf *translationalFrame) Hash() int {
 
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := pf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+	if err := pf.validInputs(input); err != nil {
 		return nil, err
 	}
-	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), err
+	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0])), nil
 }
 
 // InputFromProtobuf converts pb.JointPosition to inputs.
@@ -506,10 +540,10 @@ func (pf *translationalFrame) Geometries(input []Input) (*GeometriesInFrame, err
 		return NewGeometriesInFrame(pf.Name(), nil), nil
 	}
 	pose, err := pf.Transform(input)
-	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+	if err != nil {
 		return nil, err
 	}
-	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), err
+	return NewGeometriesInFrame(pf.name, []spatial.Geometry{pf.geometry.Transform(pose)}), nil
 }
 
 func (pf translationalFrame) MarshalJSON() ([]byte, error) {
@@ -520,8 +554,8 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   pf.name,
 		Type: PrismaticJoint,
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
-		Max:  pf.limits[0].Max,
-		Min:  pf.limits[0].Min,
+		Max:  finiteOrZero(pf.limits[0].Max),
+		Min:  finiteOrZero(pf.limits[0].Min),
 	}
 	if pf.geometry != nil {
 		var err error
@@ -574,13 +608,11 @@ func (rf *rotationalFrame) Hash() int {
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
 // of inputs that has length equal to the degrees of freedom of the Frame.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
-	err := rf.validInputs(input)
-	// We allow out-of-bounds calculations, but will return a non-nil error
-	if err != nil && !strings.Contains(err.Error(), OOBErrString) {
+	if err := rf.validInputs(input); err != nil {
 		return nil, err
 	}
 	// Create a copy of the r4aa for thread safety
-	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
+	return spatial.NewPoseFromOrientation(&spatial.R4AA{input[0], rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), nil
 }
 
 func (rf *rotationalFrame) InputToOrientation(input Input) spatial.R4AA {
@@ -619,8 +651,8 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   rf.name,
 		Type: RevoluteJoint,
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
-		Max:  utils.RadToDeg(rf.limits[0].Max),
-		Min:  utils.RadToDeg(rf.limits[0].Min),
+		Max:  finiteOrZero(utils.RadToDeg(rf.limits[0].Max)),
+		Min:  finiteOrZero(utils.RadToDeg(rf.limits[0].Min)),
 	}
 
 	return json.Marshal(temp)
@@ -826,19 +858,34 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 		}
 	case *SimpleModel:
 		f2 := frame2.(*SimpleModel)
-		ordTransforms1 := f1.OrdTransforms()
-		ordTransforms2 := f2.OrdTransforms()
-		if len(ordTransforms1) != len(ordTransforms2) {
+		frames1 := f1.framesInOrder()
+		frames2 := f2.framesInOrder()
+		if len(frames1) != len(frames2) {
 			return false, nil
-		} else {
-			for i, f := range ordTransforms1 {
-				frameEquality, err := framesAlmostEqual(f, ordTransforms2[i], epsilon)
-				if err != nil {
-					return false, err
-				}
-				if !frameEquality {
-					return false, nil
-				}
+		}
+		for i, f := range frames1 {
+			frameEquality, err := framesAlmostEqual(f, frames2[i], epsilon)
+			if err != nil {
+				return false, err
+			}
+			if !frameEquality {
+				return false, nil
+			}
+		}
+		// Compare mimic mappings
+		if len(f1.mimicMappings) != len(f2.mimicMappings) {
+			return false, nil
+		}
+		for name, mm1 := range f1.mimicMappings {
+			mm2, ok := f2.mimicMappings[name]
+			if !ok {
+				return false, nil
+			}
+			if mm1.sourceFrameName != mm2.sourceFrameName ||
+				mm1.sourceInputIdx != mm2.sourceInputIdx ||
+				math.Abs(mm1.valueMultiplier-mm2.valueMultiplier) > epsilon ||
+				math.Abs(mm1.valueOffset-mm2.valueOffset) > epsilon {
+				return false, nil
 			}
 		}
 	default:
@@ -847,8 +894,8 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 	return true, nil
 }
 
-// Clone makes a copy of a Frame.
-func Clone(f Frame) (Frame, error) {
+// clone makes a copy of a Frame.
+func clone(f Frame) (Frame, error) {
 	t := reflect.TypeOf(f)
 	var newFrame Frame
 

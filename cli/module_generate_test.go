@@ -3,12 +3,14 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 
 	"go.viam.com/rdk/cli/module_generate/modulegen"
 	modgen "go.viam.com/rdk/cli/module_generate/scripts"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -205,7 +208,7 @@ func TestGenerateModuleAction(t *testing.T) {
 				return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 			},
 		}, map[string]any{}, "token")
-		_, err := createModuleAndManifest(cCtx, ac, testModule, globalArgs)
+		_, err := createModuleAndManifest(context.Background(), cCtx, ac, testModule, globalArgs)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -225,5 +228,134 @@ func TestGenerateModuleAction(t *testing.T) {
 		err = json.Unmarshal(bytes, &manifest)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(manifest.Models), test.ShouldEqual, 0)
+	})
+
+	t.Run("test generate cpp stubs", func(t *testing.T) {
+		cppModule := testModule
+		cppModule.Language = "cpp"
+		cppModule.ResourceType = "component"
+		cppModule.ResourceSubtype = "camera"
+		cppModule.ResourceSubtypeSnake = "camera"
+		cppModule.ModelSnake = "my_model"
+		cppModule.ModelPascal = "MyModel"
+
+		setupDirectories(cCtx, cppModule.ModuleName, globalArgs)
+
+		mockTemplates := map[string]string{
+			"main.cpp.in":       "// main {{ .ModuleName }}",
+			"CMakeLists.txt.in": "# cmake {{ .ModuleName }}",
+			"conanfile.py.in":   "# conan {{ .ModuleName }}",
+			"camera.cpp.in":     "// camera impl {{ .ModelPascal }}",
+			"camera.hpp.in":     "// camera header {{ .ModelPascal }}",
+			"conan.lock":        `{"version": "0.5"}`,
+		}
+		modgen.FetchRawTemplate = func(url string) (string, error) {
+			for filename, content := range mockTemplates {
+				if strings.HasSuffix(url, filename) {
+					return content, nil
+				}
+			}
+			return "", fmt.Errorf("unexpected template URL: %s", url)
+		}
+
+		err := generateCppStubs(cppModule)
+		test.That(t, err, test.ShouldBeNil)
+
+		// top-level files
+		for _, tc := range []struct {
+			file    string
+			content string
+		}{
+			{"main.cpp", "// main " + cppModule.ModuleName},
+			{"CMakeLists.txt", "# cmake " + cppModule.ModuleName},
+			{"conanfile.py", "# conan " + cppModule.ModuleName},
+			{"conan.lock", `{"version": "0.5"}`},
+		} {
+			b, err := os.ReadFile(filepath.Join(modulePath, tc.file))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, string(b), test.ShouldEqual, tc.content)
+		}
+
+		// type-specific files in src/
+		for _, tc := range []struct {
+			file    string
+			content string
+		}{
+			{cppModule.ModelSnake + ".cpp", "// camera impl " + cppModule.ModelPascal},
+			{cppModule.ModelSnake + ".hpp", "// camera header " + cppModule.ModelPascal},
+		} {
+			b, err := os.ReadFile(filepath.Join(modulePath, "src", tc.file))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, string(b), test.ShouldEqual, tc.content)
+		}
+	})
+
+	t.Run("test check version", func(t *testing.T) {
+		checkPython := func(output string) error {
+			return checkVersionCompatible(output, "Python", minPythonVersion)
+		}
+		checkGo := func(output string) error {
+			return checkVersionCompatible(output, "Go", minGoVersion)
+		}
+
+		// supported versions
+		test.That(t, checkPython("Python 4.0.0\n"), test.ShouldBeNil)
+		test.That(t, checkGo("go version go1.24.0 linux/amd64\n"), test.ShouldBeNil)
+
+		// unsupported versions
+		err := checkPython("Python 3.8.10\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "3.8")
+		test.That(t, err.Error(), test.ShouldContainSubstring, ">= "+minPythonVersion)
+
+		err = checkGo("go version go1.22.5 darwin/arm64\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "1.22")
+		test.That(t, err.Error(), test.ShouldContainSubstring, ">= "+minGoVersion)
+
+		// unparseable output
+		err = checkPython("not a version\n")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cannot parse")
+	})
+
+	t.Run("test all resources are included or excluded explicitly from module generation", func(t *testing.T) {
+		// Build combined set directly from available + excluded resources
+		combinedSet := make(map[string]bool)
+		for _, res := range modulegen.Resources {
+			combinedSet[res] = true
+		}
+		for _, res := range modulegen.ExcludedResources {
+			combinedSet[res] = true
+		}
+
+		// Build registered set directly from registered APIs, updating the string format to match resource list format
+		registeredSet := make(map[string]bool)
+		for api := range resource.RegisteredAPIs() {
+			resourceStr := api.SubtypeName
+			if api.SubtypeName == "generic" {
+				resourceStr = "generic_" + api.Type.Name
+			}
+			if api.SubtypeName == "input_controller" {
+				resourceStr = "input"
+			}
+			resourceStr += " " + api.Type.Name
+			registeredSet[resourceStr] = true
+		}
+
+		// Verify resources in combined list that are not in registered APIs
+		for res := range combinedSet {
+			if !registeredSet[res] {
+				t.Errorf("Resource %q is in the module generator list (available + excluded) but is not a registered API", res)
+			}
+		}
+
+		// Check: registered APIs that are not in combined list
+		for res := range registeredSet {
+			if !combinedSet[res] {
+				t.Errorf("Registered API %q is not in the module generator list (available + excluded). It must be either added to "+
+					"the Resources or ExcludedResources list in inputs.go file", res)
+			}
+		}
 	})
 }

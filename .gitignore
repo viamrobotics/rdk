@@ -96,3 +96,7 @@ web/cmd/server/*.core
 
 # codegpt
 .codegpt/*
+
+# Claude Code
+.claude/worktrees
+.claude/settings.local.json

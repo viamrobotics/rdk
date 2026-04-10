@@ -1,0 +1,326 @@
+name: Build Semi-Static Binary (Build)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        required: true
+        default: pr
+        type: choice
+        options: [pr, latest, stable, rc]
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+    outputs:
+      date:
+        value: ${{ jobs.static.outputs.date }}
+
+jobs:
+  static:
+    name: Antique Build Linux and Windows
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            platform: linux/amd64
+            target: static-release
+          - arch: ubuntu-large-arm
+            image: ghcr.io/viamrobotics/antique2:arm64-cache
+            platform: linux/arm64
+            target: static-release
+          - arch: ubuntu-large
+            image: ghcr.io/viamrobotics/antique2:amd64-cache
+            platform: linux/amd64
+            target: static-release-win
+    runs-on: ${{ matrix.arch }}
+    container:
+      image: ${{ matrix.image }}
+      options: --platform ${{ matrix.platform }}
+      volumes:
+      # otherwise we get a 'read-only filesystem' error when symlinking over this
+      - /tmp/node20:/__e/node20
+    timeout-minutes: 15
+    outputs:
+      date: ${{ steps.build_date.outputs.date }}
+      channel: ${{ steps.build_date.outputs.channel }}
+    env:
+      ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: 'true'
+
+    steps:
+    - name: override nodejs
+      # note: the antique image intentionally has an old ubuntu with old GLIBC; github's node requires a newer one.
+      # actions require this /__e/node20/bin/node file, so we override it.
+      run: |
+        mkdir -p /__e/node20/bin/
+        ln --force --symbolic $(which node) /__e/node20/bin/node
+        /__e/node20/bin/node --version
+
+    - name: Check out code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Clean and Fix Permissions
+      run: |
+        chown -R testbot:testbot .
+        sudo -Hu testbot bash -lc 'make clean-all'
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target }}'
+
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target }}'
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Build (Latest)
+      if: inputs.release_type == 'latest'
+      run: |
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.target }}'
+
+    - name: Build (Tagged)
+      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
+      run: |
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target }}'
+
+    - name: Set Date and Channel
+      id: build_date
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        # extract channel from built filename for use by smoke tests
+        f=$(ls etc/packaging/static/deploy/viam-server-* | grep -v windows | head -1)
+        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-[^-]*$//')" >> $GITHUB_OUTPUT
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Upload Manifest (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/manifest/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+  mac:
+    name: Build MacOS
+    runs-on: macos-latest
+    timeout-minutes: 15
+    outputs:
+      date: ${{ steps.build_date.outputs.date }}
+      channel: ${{ steps.build_date.outputs.channel }}
+
+    steps:
+    - name: Check out code
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # needed for dev-version.sh to work
+
+    - name: Check out PR branch code
+      if: github.event_name == 'pull_request_target'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+
+    - name: Install dependencies
+      run: |
+        brew update
+        brew tap viamrobotics/brews
+        brew install nlopt-static
+        brew install x264
+
+    - name: Build (Test)
+      if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
+      run: |
+        make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" static-release-macos
+
+    - name: Build (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      run: |
+        make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" static-release-macos
+
+    - name: Upload Files (PR)
+      if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Build (Latest)
+      if: inputs.release_type == 'latest'
+      run: |
+        make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" static-release-macos
+
+    - name: Build (Tagged)
+      if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
+      run: |
+        make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" static-release-macos
+
+    - name: Set Date and Channel
+      id: build_date
+      run: |
+        echo "date=`date +%F`" >> $GITHUB_OUTPUT
+        # extract channel from built filename for use by smoke tests
+        f=$(ls etc/packaging/static/deploy/viam-server-*-darwin-* | head -1)
+        echo "channel=$(basename "$f" | sed 's/^viam-server-//;s/-darwin-.*$//')" >> $GITHUB_OUTPUT
+
+    - name: Upload Files (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/testing/static/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+    - name: Upload Manifest (Testing)
+      if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+      uses: google-github-actions/upload-cloud-storage@v2
+      with:
+        headers: "cache-control: no-cache"
+        path: 'etc/packaging/static/manifest/'
+        destination: 'packages.viam.com/apps/viam-subsystems/testing/viam-server/${{ steps.build_date.outputs.date }}/${{ github.sha }}/'
+        glob: 'viam-server-*'
+        parent: false
+        gzip: false
+
+  static_test:
+    name: Static Test
+    needs: static
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [[ubuntu-latest], [ubuntu-small-arm], [pi4], [pi5]]
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 15
+
+    steps:
+    - name: Clean Workspace
+      run: |
+        shopt -s dotglob
+        sudo chown -R `whoami` ./
+        rm -rf ./*
+
+    - name: Test Static Binary
+      run: |
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -f -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.static.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.static.outputs.channel }}-`uname -m`
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
+  mac_test:
+    name: Mac Test
+    needs: mac
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Test MacOS Binary
+      run: |
+        export TEST_DIR=`mktemp -d -t test-viam-server-XXXXXX`
+        cd $TEST_DIR
+
+        curl -o viam-server https://storage.googleapis.com/packages.viam.com/apps/viam-server/testing/static/${{ needs.mac.outputs.date }}/${{ github.sha }}/viam-server-${{ needs.mac.outputs.channel }}-darwin-aarch64
+        chmod 755 viam-server
+
+        export RAND_PORT=$((30000 + $RANDOM))
+        echo "{\"network\": {\"bind_address\":\"localhost:${RAND_PORT}\"}}" > test.json
+
+        ./viam-server -config test.json &
+        curl --retry 5 --retry-delay 5 --retry-connrefused localhost:$RAND_PORT
+        export RET1=$?
+        kill %%
+        wait $!
+        export RET2=$?
+        cd - && rm -rf $TEST_DIR
+        [ $RET1 == 0 ] && [ $RET1 == 0 ]
+
+  output_summary:
+    name: Output Summary
+    runs-on: ubuntu-latest
+    needs: [static, mac]
+    if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
+    steps:
+    - name: Output Summary
+      run: |
+        channel="pr-${{ github.event.pull_request.number }}"
+        echo "### Built Static Binaries for ${channel}" >> $GITHUB_STEP_SUMMARY
+        echo "- arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "- x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- windows x86_64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-windows-x86_64" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS arm64: https://storage.googleapis.com/packages.viam.com/apps/viam-server/viam-server-${channel}-darwin-aarch64" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY

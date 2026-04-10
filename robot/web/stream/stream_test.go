@@ -16,7 +16,6 @@ import (
 	"go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/gostream"
-	"go.viam.com/rdk/gostream/codec/opus"
 	"go.viam.com/rdk/gostream/codec/x264"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
@@ -39,10 +38,8 @@ func setupRealRobot(t *testing.T, robotConfig *config.Config, logger logging.Log
 	robot, err := robotimpl.RobotFromConfig(ctx, robotConfig, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// We initialize with a stream config such that the stream server is capable of creating video stream and
-	// audio stream data.
+	// We initialize with a stream config such that the stream server is capable of creating video stream.
 	webSvc := web.New(robot, logger, web.WithStreamConfig(gostream.StreamConfig{
-		AudioEncoderFactory: opus.NewEncoderFactory(),
 		VideoEncoderFactory: x264.NewEncoderFactory(),
 	}))
 	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)

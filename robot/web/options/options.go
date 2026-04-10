@@ -2,8 +2,6 @@
 package weboptions
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
@@ -18,9 +16,6 @@ import (
 type Options struct {
 	// Pprof turns on the pprof profiler accessible at /debug
 	Pprof bool
-
-	// SharedDir is the location of static web assets.
-	SharedDir string
 
 	// StaticHost is a url to use for static assets, like app.viam.com
 	StaticHost string
@@ -102,9 +97,6 @@ func FromConfig(cfg *config.Config) (Options, error) {
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 
 		if cfg.Cloud.TLSCertificate != "" {
-			// override
-			options.Network.TLSConfig = cfg.Network.TLSConfig
-
 			// NOTE(RDK-148):
 			// when we are managed and no explicit bind address is set,
 			// we will listen everywhere on 8080. We assume this to be
@@ -119,19 +111,13 @@ func FromConfig(cfg *config.Config) (Options, error) {
 				options.Network.BindAddress = ":8080"
 			}
 
-			// This will only happen if we're switching from a local config to a cloud config.
-			if cfg.Network.TLSConfig == nil {
-				return Options{}, errors.New("switching from local config to cloud config not currently supported")
+			if !cfg.Network.NoTLS {
+				// This will only happen if we're switching from a local config to a cloud config.
+				if cfg.Network.TLSConfig == nil {
+					return Options{}, errors.New("switching from local config to cloud config not currently supported")
+				}
+				options.Network.TLSConfig = cfg.Network.TLSConfig
 			}
-			cert, err := cfg.Network.TLSConfig.GetCertificate(&tls.ClientHelloInfo{})
-			if err != nil {
-				return Options{}, err
-			}
-			leaf, err := x509.ParseCertificate(cert.Certificate[0])
-			if err != nil {
-				return Options{}, err
-			}
-			options.Auth.TLSAuthEntities = leaf.DNSNames
 		}
 
 		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))

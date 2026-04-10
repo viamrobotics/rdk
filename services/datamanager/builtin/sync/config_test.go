@@ -211,28 +211,28 @@ func TestConfig(t *testing.T) {
 		}
 	})
 
-	t.Run("schedulerEnabled()", func(t *testing.T) {
+	t.Run("SchedulerEnabled()", func(t *testing.T) {
 		t.Run("true by default", func(t *testing.T) {
-			test.That(t, Config{}.schedulerEnabled(), test.ShouldBeTrue)
+			test.That(t, Config{}.SchedulerEnabled(), test.ShouldBeTrue)
 		})
 
 		t.Run("false if ScheduledSyncDisabled", func(t *testing.T) {
-			test.That(t, Config{ScheduledSyncDisabled: true}.schedulerEnabled(), test.ShouldBeFalse)
-			test.That(t, Config{ScheduledSyncDisabled: true, SyncIntervalMins: 1.0}.schedulerEnabled(), test.ShouldBeFalse)
+			test.That(t, Config{ScheduledSyncDisabled: true}.SchedulerEnabled(), test.ShouldBeFalse)
+			test.That(t, Config{ScheduledSyncDisabled: true, SyncIntervalMins: 1.0}.SchedulerEnabled(), test.ShouldBeFalse)
 		})
 
 		t.Run("false if SelectiveSyncSensorEnabled is true and SelectiveSyncSensor is nil", func(t *testing.T) {
-			test.That(t, Config{SelectiveSyncSensorEnabled: true}.schedulerEnabled(), test.ShouldBeFalse)
-			test.That(t, Config{SelectiveSyncSensorEnabled: true, SyncIntervalMins: 1.0}.schedulerEnabled(), test.ShouldBeFalse)
+			test.That(t, Config{SelectiveSyncSensorEnabled: true}.SchedulerEnabled(), test.ShouldBeFalse)
+			test.That(t, Config{SelectiveSyncSensorEnabled: true, SyncIntervalMins: 1.0}.SchedulerEnabled(), test.ShouldBeFalse)
 		})
 
 		t.Run("true otherwise", func(t *testing.T) {
-			test.That(t, Config{SyncIntervalMins: 1.0}.schedulerEnabled(), test.ShouldBeTrue)
+			test.That(t, Config{SyncIntervalMins: 1.0}.SchedulerEnabled(), test.ShouldBeTrue)
 			test.That(t, Config{
 				SyncIntervalMins:           1.0,
 				SelectiveSyncSensorEnabled: true,
 				SelectiveSyncSensor:        &inject.Sensor{},
-			}.schedulerEnabled(), test.ShouldBeTrue)
+			}.SchedulerEnabled(), test.ShouldBeTrue)
 		})
 	})
 

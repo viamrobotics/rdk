@@ -152,7 +152,6 @@ type AssociatedResourceConfig struct {
 	API                 API
 	Attributes          utils.AttributeMap
 	ConvertedAttributes interface{}
-	RemoteName          string
 }
 
 // NOTE: This data must be maintained with what is in AssociatedResourceConfig.

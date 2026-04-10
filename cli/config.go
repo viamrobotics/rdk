@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -20,10 +20,6 @@ import (
 	robotClient "go.viam.com/rdk/robot/client"
 	rutils "go.viam.com/rdk/utils"
 )
-
-func getCLICachePath() string {
-	return filepath.Join(rutils.ViamDotDir, "cached_cli_config.json")
-}
 
 func getCLIProfilesPath() string {
 	return filepath.Join(rutils.ViamDotDir, "cli_profiles.json")
@@ -60,7 +56,7 @@ func configFromCacheInner(configPath string) (_ *Config, err error) {
 
 // ConfigFromCache parses the cached json into a Config. Removes the config from cache on any error.
 // TODO(RSDK-7812): maybe move shared code to common location.
-func ConfigFromCache(c *cli.Context) (*Config, error) {
+func ConfigFromCache(c *cli.Command) (*Config, error) {
 	var configPath string
 	var whichProf *string
 	var profileSpecified bool
@@ -89,14 +85,14 @@ func ConfigFromCache(c *cli.Context) (*Config, error) {
 		// A profile has been set as an env var but not specified by flag. Since the env var
 		// is relatively persistent, it's more reasonable to assume a user would want to fall
 		// back to default login behavior.
-		warningf(c.App.ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
+		warningf(c.Root().ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
 	}
 
-	return configFromCacheInner(getCLICachePath())
+	return configFromCacheInner(rutils.GetCLICachePath())
 }
 
 func removeConfigFromCache() error {
-	return os.Remove(getCLICachePath())
+	return os.Remove(rutils.GetCLICachePath())
 }
 
 func (conf *Config) updateLastUpdateCheck() error {
@@ -110,7 +106,7 @@ func storeConfigToCache(cfg *Config) error {
 	if cfg.profile != "" {
 		path = getCLIProfilePath(cfg.profile)
 	} else {
-		path = getCLICachePath()
+		path = rutils.GetCLICachePath()
 	}
 	if err := os.MkdirAll(rutils.ViamDotDir, 0o700); err != nil {
 		return err
@@ -162,7 +158,7 @@ func (conf *Config) tryUnmarshallWithAPIKey(configBytes []byte) error {
 
 // DialOptions constructs an rpc.DialOption slice from config.
 func (conf *Config) DialOptions() ([]rpc.DialOption, error) {
-	_, opts, err := parseBaseURL(conf.BaseURL, true)
+	_, opts, err := rutils.ParseBaseURL(conf.BaseURL, true)
 	if err != nil {
 		return nil, err
 	}

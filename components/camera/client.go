@@ -8,10 +8,12 @@ import (
 	"image"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/golang/geo/r3"
 	"github.com/pion/rtp"
 	"github.com/viamrobotics/webrtc/v3"
 	commonpb "go.viam.com/api/common/v1"
@@ -72,9 +74,6 @@ type client struct {
 	subGenerationID  int
 	associatedSubs   map[int][]rtppassthrough.SubscriptionID
 	trackClosed      <-chan struct{}
-
-	// lastImageDeprecationLogNanos stores Unix nanoseconds of last Image deprecation log (atomic)
-	lastImageDeprecationLogNanos atomic.Int64
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
@@ -178,55 +177,6 @@ func (c *client) Stream(
 	return stream, nil
 }
 
-func (c *client) Image(ctx context.Context, mimeType string, extra map[string]interface{}) ([]byte, ImageMetadata, error) {
-	now := time.Now()
-	lastLog := c.lastImageDeprecationLogNanos.Load()
-	if now.UnixNano()-lastLog >= int64(10*time.Minute) {
-		// Try to update the timestamp; if another goroutine updates it first, that's fine.
-		if c.lastImageDeprecationLogNanos.CompareAndSwap(lastLog, now.UnixNano()) {
-			if moduleName := grpc.GetModuleName(ctx); moduleName != "" {
-				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
-					"camera name: %s, caller module name: %s",
-					c.Name(), moduleName)
-			} else {
-				c.logger.CWarnf(ctx, "camera client: Image is deprecated; please use Images instead; "+
-					"camera name: %s",
-					c.Name())
-			}
-		}
-	}
-	ctx, span := trace.StartSpan(ctx, "camera::client::Image")
-	defer span.End()
-	expectedType, _ := utils.CheckLazyMIMEType(mimeType)
-
-	convertedExtra, err := goprotoutils.StructToStructPb(extra)
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	resp, err := c.client.GetImage(ctx, &pb.GetImageRequest{
-		Name:     c.name,
-		MimeType: expectedType,
-		Extra:    convertedExtra,
-	})
-	if err != nil {
-		return nil, ImageMetadata{}, err
-	}
-	if len(resp.Image) == 0 {
-		return nil, ImageMetadata{}, errors.New("received empty bytes from client GetImage")
-	}
-
-	if expectedType != "" && resp.MimeType != expectedType {
-		c.logger.CDebugw(ctx, "got different MIME type than what was asked for", "sent", expectedType, "received", resp.MimeType)
-		if resp.MimeType == "" {
-			// if the user expected a mime_type and the successful response didn't have a mime type, assume the
-			// response's mime_type was what the user requested
-			resp.MimeType = mimeType
-		}
-	}
-
-	return resp.Image, ImageMetadata{MimeType: resp.MimeType}, nil
-}
-
 func (c *client) Images(
 	ctx context.Context,
 	filterSourceNames []string,
@@ -318,6 +268,20 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 	if resp.FrameRate != nil {
 		result.FrameRate = *resp.FrameRate
 	}
+	if ext := resp.ExtrinsicParameters; ext != nil && ext.Translation != nil {
+		result.ExtrinsicParams = &ExtrinsicParams{
+			Translation: r3.Vector{X: ext.Translation.X, Y: ext.Translation.Y, Z: ext.Translation.Z},
+		}
+		if ext.Orientation != nil {
+			result.ExtrinsicParams.Orientation = &spatialmath.OrientationVector{
+				OX:    ext.Orientation.OX,
+				OY:    ext.Orientation.OY,
+				OZ:    ext.Orientation.OZ,
+				Theta: ext.Orientation.Theta,
+			}
+		}
+	}
+
 	// if no distortion model present, return result with no model
 	if resp.DistortionParameters == nil {
 		return result, nil
@@ -326,13 +290,18 @@ func (c *client) Properties(ctx context.Context) (Properties, error) {
 		return result, nil
 	}
 	// switch distortion model based on model name
-	model := transform.DistortionType(resp.DistortionParameters.Model)
+	// Parse the model as a lowercase string
+	model := transform.DistortionType(strings.ToLower(resp.DistortionParameters.Model))
 	distorter, err := transform.NewDistorter(model, resp.DistortionParameters.Parameters)
 	if err != nil {
 		return Properties{}, err
 	}
 	result.DistortionParams = distorter
 	return result, nil
+}
+
+func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
+	return protoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
 }
 
 func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {

@@ -160,6 +160,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	unaries := []grpc.UnaryServerInterceptor{
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
+		client.ViamClientInfoUnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
@@ -258,20 +259,25 @@ func (m *Module) OperationManager() *operation.Manager {
 
 // Start starts the module service and grpc server.
 func (m *Module) Start(ctx context.Context) error {
-	var lis net.Listener
 	prot := "unix"
 	if rutils.TCPRegex.MatchString(m.addr) {
 		prot = "tcp"
 	}
-	if err := MakeSelfOwnedFilesFunc(func() error {
-		var err error
-		lis, err = net.Listen(prot, m.addr)
+
+	lis, err := net.Listen(prot, m.addr)
+	if err != nil {
+		return fmt.Errorf("failed to listen: %w", err)
+	}
+	if prot == "unix" {
+		// If we are listening via a Unix socket, update the restrictions on the created sock
+		// file to allow viam-server to access it. viam-server sometimes runs as a different
+		// user than a module (e.g. if the module uses `sudo` to switch users in its
+		// entrypoint script).
+		//nolint:gosec
+		err = os.Chmod(m.addr, 0o776)
 		if err != nil {
-			return fmt.Errorf("failed to listen: %w", err)
+			return fmt.Errorf("failed to update socket file permissions: %w", err)
 		}
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	m.activeBackgroundWorkers.Add(1)
@@ -328,7 +334,9 @@ func (m *Module) connectParent(ctx context.Context) error {
 
 	fullAddr := m.parentAddr
 	if !rutils.TCPRegex.MatchString(m.parentAddr) {
-		if err := CheckSocketOwner(m.parentAddr); err != nil {
+		// If connecting over UDS, verify that the parent address actually exists before
+		// attempting to connect.
+		if _, err := os.Stat(m.parentAddr); err != nil {
 			return err
 		}
 		fullAddr = "unix://" + m.parentAddr
