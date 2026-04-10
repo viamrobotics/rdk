@@ -290,16 +290,15 @@ func (tp *teleopPipeline) executeTeleop(ctx context.Context, ms *builtIn, traj m
 	}
 
 	// Read teleop interpolation config.
+	// NOTE: caller (runExecutor) already holds ms.mu.RLock, so safe to read ms.conf directly.
 	smallMoveRad := defaultTeleopSmallMoveRad
 	interpolateOverride := false
-	ms.mu.RLock()
 	if ms.conf != nil {
 		if ms.conf.TeleopSmallMoveRad > 0 {
 			smallMoveRad = ms.conf.TeleopSmallMoveRad
 		}
 		interpolateOverride = ms.conf.TeleopInterpolateOverride
 	}
-	ms.mu.RUnlock()
 
 	// Execute GoToInputs on all components in parallel.
 	var wg sync.WaitGroup
