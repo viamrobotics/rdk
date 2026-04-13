@@ -2,8 +2,6 @@ package module_test
 
 import (
 	"context"
-	"path/filepath"
-	"runtime"
 	"testing"
 
 	"go.viam.com/test"
@@ -15,23 +13,26 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
+func multiVersionModulePath(t *testing.T, version string) string {
+	t.Helper()
+	return rtestutils.BuildTempModuleWithOpts(
+		t, "module/multiversionmodule", version, "-X main.VERSION="+version,
+	)
+}
+
 func TestValidationFailureDuringReconfiguration(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
-	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  absPath,
+				ExePath:  multiVersionModulePath(t, "v1"),
 				LogLevel: "debug",
 			},
 		},
@@ -66,9 +67,9 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Read the config, swap to `run_version2.sh`, and overwrite the config, triggering a
+	// Read the config, swap to the v2 build, and overwrite the config, triggering a
 	// reconfigure where `generic1` will fail validation.
-	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version2.sh")
+	cfg.Modules[0].ExePath = multiVersionModulePath(t, "v2")
 	robot.Reconfigure(ctx, cfg)
 
 	// Check that generic1 now has a config validation error.
@@ -89,19 +90,14 @@ func TestValidationFailureDuringReconfiguration(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
-	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  absPath,
+				ExePath:  multiVersionModulePath(t, "v1"),
 				LogLevel: "debug",
 			},
 		},
@@ -136,9 +132,9 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Swap in `run_version3.sh`. Version 3 requires `generic1` to have a `motor` in its
+	// Swap in the v3 build. Version 3 requires `generic1` to have a `motor` in its
 	// attributes. This config change should result in `generic1` becoming unavailable.
-	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version3.sh")
+	cfg.Modules[0].ExePath = multiVersionModulePath(t, "v3")
 	robot.Reconfigure(ctx, cfg)
 
 	_, err = robot.ResourceByName(generic.Named("generic1"))
@@ -167,19 +163,14 @@ func TestVersionBumpWithNewImplicitDeps(t *testing.T) {
 }
 
 func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	absPath, err := filepath.Abs("multiversionmodule/run_version1.sh")
-	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  absPath,
+				ExePath:  multiVersionModulePath(t, "v1"),
 				LogLevel: "debug",
 			},
 		},
@@ -214,9 +205,9 @@ func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Swap in `run_version3.sh`. Version 3 requires `generic1` to have a `motor` in its
+	// Swap in the v3 build. Version 3 requires `generic1` to have a `motor` in its
 	// attributes. This config change should result in `generic1` continuing to be available, as `motor1` is already in the config.
-	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version3.sh")
+	cfg.Modules[0].ExePath = multiVersionModulePath(t, "v3")
 	robot.Reconfigure(ctx, cfg)
 
 	_, err = robot.ResourceByName(generic.Named("generic1"))
@@ -229,19 +220,14 @@ func TestVersionBumpWithNewImplicitDepsWithoutConfigChange(t *testing.T) {
 }
 
 func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger, logs := logging.NewObservedTestLogger(t)
 
-	absPath, err := filepath.Abs("multiversionmodule/run_version3.sh")
-	test.That(t, err, test.ShouldBeNil)
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:     "AcmeModule",
-				ExePath:  absPath,
+				ExePath:  multiVersionModulePath(t, "v3"),
 				LogLevel: "debug",
 			},
 		},
@@ -276,9 +262,9 @@ func TestVersionBumpWithLessImplicitDepsWithoutConfigChange(t *testing.T) {
 		"Modular config validation error found in resource: generic1").Len(), test.ShouldEqual, 0)
 	test.That(t, logs.FilterMessageSnippet("error building component").Len(), test.ShouldEqual, 0)
 
-	// Swap in `run_version1.sh` and remove `motor1`. Version 1 does not require `generic1` to have a `motor` in its
+	// Swap in the v1 build and remove `motor1`. Version 1 does not require `generic1` to have a `motor` in its
 	// attributes, so `generic1` should build and continue working.
-	cfg.Modules[0].ExePath = utils.ResolveFile("module/multiversionmodule/run_version1.sh")
+	cfg.Modules[0].ExePath = multiVersionModulePath(t, "v1")
 	for i, c := range cfg.Components {
 		if c.Name == "motor1" {
 			cfg.Components[i].Name = "motor2"
