@@ -45,7 +45,7 @@ func TestDelimitedProtoWriter(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		messages = append(messages, reqBytes)
 	}
-	
+
 	// Test that we called write exactly once for each message. Making multiple
 	// calls per message could create corrupt trace files if rotation occurs
 	// between calls.
