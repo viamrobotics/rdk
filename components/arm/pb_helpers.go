@@ -23,7 +23,7 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 	var vel, acc float64
 	// the proto indicates MaxVelDegsPerSec and MaxAccDegsPerSec2 are ignored when either/both MaxVelDegsPerSecJoints
 	// MaxAccDegsPerSec2Joints are set. We deliberately don't do it here as this is a translation layer
-	// it's up the the implementer to return such error
+	// it's up the implementer to return such error
 	if protobuf.MaxVelDegsPerSec != nil {
 		vel = *protobuf.MaxVelDegsPerSec
 	}
