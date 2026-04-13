@@ -129,12 +129,16 @@ func planningHeadEqual(a, b referenceframe.FrameSystemInputs) bool {
 }
 
 func (tp *teleopPipeline) planOnce(ctx context.Context, ms *builtIn) {
-	// Snapshot the planning head.
+	// Snapshot the planning head under RLock. We need both a copy for safe iteration
+	// and for the stale-check after planning completes (line ~195).
 	tp.planningHeadMu.RLock()
-	planningHead := tp.planningHead
+	planningHead := make(referenceframe.FrameSystemInputs, len(tp.planningHead))
+	for k, v := range tp.planningHead {
+		planningHead[k] = v
+	}
 	tp.planningHeadMu.RUnlock()
 
-	// Build merged inputs from cached base + planning head.
+	// Build merged inputs from cached base + planning head snapshot.
 	inputsStart := time.Now()
 	mergedInputs := make(referenceframe.FrameSystemInputs, len(tp.cachedBaseInputs))
 	for k, v := range tp.cachedBaseInputs {
