@@ -399,6 +399,13 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 				tp.resetPlanningHead(ctx, ms)
 			} else {
 				tp.lastErr.Store(nil)
+				// Update planning head to smoothed positions (what was actually
+				// sent to the arm) so the next plan starts from reality.
+				tp.planningHeadMu.Lock()
+				for name, joints := range tp.smoothedJoints {
+					tp.planningHead[name] = joints
+				}
+				tp.planningHeadMu.Unlock()
 			}
 		}
 	}
