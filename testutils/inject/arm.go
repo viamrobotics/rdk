@@ -75,7 +75,7 @@ func (a *Arm) MoveThroughJointPositions(
 	options *arm.MoveOptions,
 	extra map[string]interface{},
 ) error {
-	if a.MoveToJointPositionsFunc == nil {
+	if a.MoveThroughJointPositionsFunc == nil {
 		return a.Arm.MoveThroughJointPositions(ctx, positions, options, extra)
 	}
 	return a.MoveThroughJointPositionsFunc(ctx, positions, options, extra)
