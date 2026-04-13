@@ -263,6 +263,15 @@ func (t TriviallyCloseable) Close(ctx context.Context) error {
 	return nil
 }
 
+// TrivialStatus is to be embedded by any resource that does not care about
+// returning a status.
+type TrivialStatus struct{}
+
+// Status always returns an empty status map.
+func (t TrivialStatus) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
 // TriviallyValidateConfig is to be embedded by any resource config that does not care about
 // its validation or implicit dependencies; use this carefully.
 type TriviallyValidateConfig struct{}
