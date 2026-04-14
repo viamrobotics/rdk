@@ -97,6 +97,11 @@ func (c *collector) Close() {
 	// `Wait` on them before acquiring the lock to avoid deadlock.
 	c.captureWorkers.Wait()
 
+	// Drain any results that were pushed into the channel after writeCaptureResults
+	// exited but before the capture goroutine finished. At this point both goroutines
+	// are done, so no new items will appear.
+	c.drainCaptureResults()
+
 	c.Flush()
 
 	close(c.captureErrors)
@@ -202,13 +207,16 @@ func (c *collector) validateReadingType(t CaptureType) error {
 }
 
 func (c *collector) getAndPushNextReading() {
-	result, err := c.captureFunc(c.cancelCtx, c.params)
-
-	if c.cancelCtx.Err() != nil {
-		return
-	}
+	// Use context.WithoutCancel so that an in-flight capture call is not
+	// interrupted when Close cancels c.cancelCtx. The capture loop already
+	// stops starting new calls once the context is cancelled, so at most one
+	// extra call completes after Close.
+	result, err := c.captureFunc(context.WithoutCancel(c.cancelCtx), c.params)
 
 	if err != nil {
+		if c.cancelCtx.Err() != nil {
+			return
+		}
 		if IsNoCaptureToStoreError(err) {
 			c.logger.Debug("capture filtered out by modular resource")
 			return
@@ -227,13 +235,9 @@ func (c *collector) getAndPushNextReading() {
 		return
 	}
 
-	select {
-	// If c.captureResults is full, c.captureResults <- a can block indefinitely.
-	// This additional select block allows cancel to
-	// still work when this happens.
-	case <-c.cancelCtx.Done():
-	case c.captureResults <- result:
-	}
+	// Always push the result. The channel is buffered and drainCaptureResults
+	// in Close ensures all queued results are written before shutdown.
+	c.captureResults <- result
 }
 
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
@@ -273,48 +277,66 @@ func NewCollector(captureFunc CaptureFunc, params CollectorParams) (Collector, e
 func (c *collector) writeCaptureResults() {
 	for {
 		if c.cancelCtx.Err() != nil {
+			c.drainCaptureResults()
 			return
 		}
 
 		select {
 		case <-c.cancelCtx.Done():
+			c.drainCaptureResults()
 			return
 		case msg := <-c.captureResults:
-			proto := msg.ToProto()
-
-			switch msg.Type {
-			case CaptureTypeTabular:
-				if len(proto) != 1 {
-					// This is impossible and could only happen if a future code change breaks CaptureResult.ToProto()
-					err := errors.New("tabular CaptureResult returned more than one tabular result")
-					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
-					return
-				}
-				if err := c.target.WriteTabular(proto[0]); err != nil {
-					c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
-					return
-				}
-			case CaptureTypeBinary:
-
-				for i, binary := range msg.Binaries {
-					mimeType := binary.MimeType
-					if err := c.target.WriteBinary(proto[i], mimeType); err != nil {
-						c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
-						return
-					}
-				}
-
-			case CaptureTypeUnspecified:
-				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
-				return
-			default:
-				c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
-				return
-			}
-
-			c.maybeWriteToMongo(msg)
+			c.writeCaptureResult(msg)
 		}
 	}
+}
+
+// drainCaptureResults writes any remaining items in the captureResults channel
+// to disk. Called during Close to avoid dropping data that was polled from a
+// component but not yet written.
+func (c *collector) drainCaptureResults() {
+	for {
+		select {
+		case msg := <-c.captureResults:
+			c.writeCaptureResult(msg)
+		default:
+			return
+		}
+	}
+}
+
+func (c *collector) writeCaptureResult(msg CaptureResult) {
+	proto := msg.ToProto()
+
+	switch msg.Type {
+	case CaptureTypeTabular:
+		if len(proto) != 1 {
+			// This is impossible and could only happen if a future code change breaks CaptureResult.ToProto()
+			err := errors.New("tabular CaptureResult returned more than one tabular result")
+			c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+			return
+		}
+		if err := c.target.WriteTabular(proto[0]); err != nil {
+			c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write tabular data to prog file %s", c.target.Path())).Error())
+			return
+		}
+	case CaptureTypeBinary:
+		for i, binary := range msg.Binaries {
+			mimeType := binary.MimeType
+			if err := c.target.WriteBinary(proto[i], mimeType); err != nil {
+				c.logger.Error(errors.Wrap(err, fmt.Sprintf("failed to write binary data to prog file %s", c.target.Path())).Error())
+				return
+			}
+		}
+	case CaptureTypeUnspecified:
+		c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
+		return
+	default:
+		c.logger.Errorf("collector returned invalid result type: %d", msg.Type)
+		return
+	}
+
+	c.maybeWriteToMongo(msg)
 }
 
 // maybeWriteToMongo will write to the mongoCollection
