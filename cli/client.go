@@ -4385,13 +4385,10 @@ func isRunningBrewBinary() (bool, error) {
 	if runtime.GOOS == osWindows {
 		return false, nil
 	}
-	if _, err := exec.LookPath("brew"); err != nil {
-		return false, nil
-	}
 	if exec.Command("brew", "list", "viam").Run() != nil {
 		return false, nil
 	}
-	// From here, brew has viam installed. Errors are unexpected and should be surfaced.
+	// brew has viam installed, now we compare brew binary and running binary
 	execPath, err := os.Executable()
 	if err != nil {
 		return false, errors.Errorf("failed to get executable path: %v", err)
