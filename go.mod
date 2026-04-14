@@ -7,11 +7,6 @@ go 1.25.1
 // We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
-// TODO: remove these when the corresponding goutils PR is merged
-replace go.viam.com/utils => github.com/viamrobotics/goutils v0.4.19-0.20260408145521-efb2c92ee1fa
-
-replace go.viam.com/api => github.com/jmatth/viam-api v0.0.0-20260408195056-1001810cb8c2
-
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.1
@@ -105,9 +100,9 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.537
+	go.viam.com/api v0.1.539
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.4.17
+	go.viam.com/utils v0.4.19
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
