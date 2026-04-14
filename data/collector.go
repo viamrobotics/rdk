@@ -145,21 +145,22 @@ func (c *collector) capture(started chan struct{}) {
 
 func (c *collector) sleepBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
-	until := c.clock.Until(next)
-
+	// Register the first timer before closing started. Collect() blocks on <-started,
+	// so this guarantees that by the time Collect() returns, the mock clock (in tests)
+	// already has a pending timer. mockClock.Add() can then never race with the goroutine
+	// registering its sleep.
+	ch := c.clock.After(c.clock.Until(next))
 	close(started)
 	for {
-		if err := c.cancelCtx.Err(); err != nil {
+		select {
+		case <-c.cancelCtx.Done():
 			return
-		}
-		c.clock.Sleep(until)
-		if err := c.cancelCtx.Err(); err != nil {
-			return
+		case <-ch:
 		}
 
 		c.getAndPushNextReading()
 		next = next.Add(c.interval)
-		until = c.clock.Until(next)
+		ch = c.clock.After(c.clock.Until(next))
 	}
 }
 
