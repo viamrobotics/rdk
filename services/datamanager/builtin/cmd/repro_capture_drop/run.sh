@@ -1,8 +1,8 @@
 #!/bin/bash
 # Reproduces data loss during collector reinitialization.
 # Starts a viam-server with a counter sensor module capturing at high
-# frequency, triggers a reconfigure by editing the config file, then
-# analyzes capture files for gaps in the counter sequence.
+# frequency, triggers multiple reconfigures by editing the config file,
+# then analyzes capture files for gaps in the counter sequence.
 #
 # The counter sensor returns {"count": N} where N increments by 1 on
 # each Readings call. If the captured sequence skips a value (e.g.
@@ -19,9 +19,10 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../../../.." && pwd)"
 
 CAPTURE_DIR=$(mktemp -d)/capture
 CONFIG_FILE=$(mktemp).json
-CAPTURE_HZ=100
-CAPTURE_DURATION=5
-POST_RECONFIG_DURATION=3
+CAPTURE_HZ=1000
+INITIAL_CAPTURE_DURATION=3
+NUM_RECONFIGURES=5
+BETWEEN_RECONFIG_DURATION=2
 
 # Build counter sensor module
 echo "Building counter sensor module..."
@@ -90,6 +91,7 @@ EOF
 echo "Config:      $CONFIG_FILE"
 echo "Capture dir: $CAPTURE_DIR"
 echo "Frequency:   ${CAPTURE_HZ}Hz"
+echo "Reconfigures: $NUM_RECONFIGURES"
 echo ""
 
 # Start server
@@ -99,21 +101,23 @@ echo "Starting viam-server (log: $LOG_FILE)..."
 SERVER_PID=$!
 trap 'kill $SERVER_PID 2>/dev/null; wait $SERVER_PID 2>/dev/null' EXIT
 
-# Capture data
-echo "Capturing for ${CAPTURE_DURATION}s..."
-sleep "$CAPTURE_DURATION"
+# Initial capture period
+echo "Capturing for ${INITIAL_CAPTURE_DURATION}s..."
+sleep "$INITIAL_CAPTURE_DURATION"
 
-# Trigger reconfigure
-NEW_HZ=$((CAPTURE_HZ - 1))
-echo "Triggering reconfigure (${CAPTURE_HZ}Hz -> ${NEW_HZ}Hz)..."
-if [[ "$(uname)" == "Darwin" ]]; then
-    sed -i '' "s/\"capture_frequency_hz\": $CAPTURE_HZ/\"capture_frequency_hz\": $NEW_HZ/" "$CONFIG_FILE"
-else
-    sed -i "s/\"capture_frequency_hz\": $CAPTURE_HZ/\"capture_frequency_hz\": $NEW_HZ/" "$CONFIG_FILE"
-fi
-
-echo "Capturing for ${POST_RECONFIG_DURATION}s after reconfigure..."
-sleep "$POST_RECONFIG_DURATION"
+# Trigger multiple reconfigures
+CURRENT_HZ=$CAPTURE_HZ
+for i in $(seq 1 "$NUM_RECONFIGURES"); do
+    NEW_HZ=$((CURRENT_HZ - 1))
+    echo "Reconfigure $i/$NUM_RECONFIGURES (${CURRENT_HZ}Hz -> ${NEW_HZ}Hz)..."
+    if [[ "$(uname)" == "Darwin" ]]; then
+        sed -i '' "s/\"capture_frequency_hz\": $CURRENT_HZ/\"capture_frequency_hz\": $NEW_HZ/" "$CONFIG_FILE"
+    else
+        sed -i "s/\"capture_frequency_hz\": $CURRENT_HZ/\"capture_frequency_hz\": $NEW_HZ/" "$CONFIG_FILE"
+    fi
+    CURRENT_HZ=$NEW_HZ
+    sleep "$BETWEEN_RECONFIG_DURATION"
+done
 
 # Stop server
 echo "Stopping server..."
