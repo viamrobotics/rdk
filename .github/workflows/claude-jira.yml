@@ -1,0 +1,114 @@
+name: Claude Jira Implementation
+
+# Triggered by Jira webhook via middleware that calls GitHub repository_dispatch API.
+# Expected payload:
+#   curl -X POST -H "Authorization: token $GITHUB_PAT" \
+#     https://api.github.com/repos/viamrobotics/rdk/dispatches \
+#     -d '{
+#       "event_type": "jira-ticket",
+#       "client_payload": {
+#         "ticket_id": "APP-1234",
+#         "summary": "...",
+#         "description": "...",
+#         "scope": "viam-cli",
+#         "task_complexity": "medium",
+#         "assignee": "John Doe",
+#         "assignee_email": "jdoe@viam.com"
+#       }
+#     }'
+#
+# The "scope" field selects which area of the rdk monorepo Claude works in.
+# Valid values: "viam-cli" (work in cli/), "gosdk" (work in Go SDK paths).
+
+on:
+  repository_dispatch:
+    types: [jira-ticket]
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Jira ticket ID (e.g., RSDK-1234, APP-5678)'
+        required: true
+      summary:
+        description: 'Ticket summary'
+        required: true
+      description:
+        description: 'Ticket description'
+        required: true
+      scope:
+        description: 'Ticket scope — determines which area of rdk Claude works in'
+        required: true
+        type: choice
+        options:
+          - viam-cli
+          - gosdk
+      task_complexity:
+        description: 'Task complexity: small (50 turns), medium (75), large (100)'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+      assignee:
+        description: 'Atlassian display name of the responsible engineer'
+        required: false
+        default: ''
+      assignee_email:
+        description: 'Atlassian email of the responsible engineer'
+        required: false
+        default: ''
+
+jobs:
+  call-jira:
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@3ad96b0ccbb5ee0d7e2cde98653fae0c453e68bb
+    with:
+      ticket_id: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
+      summary: ${{ github.event.client_payload.summary || inputs.summary }}
+      description: ${{ github.event.client_payload.description || inputs.description }}
+      install_command: 'go mod download'
+      container: 'golang:1.25'
+      allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(go *),Bash(gofmt *),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make lint*),Bash(make cli*),Bash(make generate-go*),Bash(golangci-lint *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git -C * diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *),Bash(gh pr create*),Bash(gh pr view*),Bash(gh pr diff*),Bash(gh api repos/*/pulls/*/comments*)'
+      task_complexity: ${{ github.event.client_payload.task_complexity || inputs.task_complexity || 'medium' }}
+      assignee: ${{ github.event.client_payload.assignee || inputs.assignee || '' }}
+      assignee_email: ${{ github.event.client_payload.assignee_email || inputs.assignee_email || '' }}
+      jira_base_url: 'https://viam.atlassian.net'
+      jira_user_email: 'ale.paredes@viam.com'
+      extra_prompt: |
+        This ticket has scope label: **${{ github.event.client_payload.scope || inputs.scope }}**
+
+        Apply ONLY the instructions for the matching scope label below. Do not mix scopes.
+
+        ---
+
+        **If scope is `viam-cli`** — Viam CLI (`viam` command, `cli/` folder, module generator, CLI subcommands and flags):
+        - Read `cli/CLAUDE.md` for commands, conventions, and file organization.
+        - Work only in `cli/`. Do not modify packages outside `cli/` unless strictly required — if you must, state the reason in the PR description.
+        - Follow the typed-argument pattern: use `createActionCommandWithT[T]()` for new commands.
+        - For entity flags (org, location, machine, part, fragment), use `AliasStringFlag` with `-id` and `-name` variants. See `commonPartFlags` in `cli/app.go` as the canonical example.
+        - Verify with: `go build ./cli/...`, `TEST_TARGET=./cli/... make test-go-no-race`, `make lint-go`.
+
+        ---
+
+        **If scope is `gosdk`** — Go SDK (client code for components/services/robot, interacting with the Viam app/machine APIs from Go):
+        - Read the root `CLAUDE.md` for repo-wide conventions.
+        - Relevant paths: `components/<type>/client.go`, `robot/client/`, `services/<type>/client.go`, `resource/`.
+        - Follow existing client patterns: methods take `ctx context.Context` as the first parameter after the receiver and return typed Go values converted from proto responses.
+        - Do not store `context.Context` in structs — it's a Go anti-pattern.
+        - Server-side implementations (`components/<type>/server.go`) are for the gRPC handler, not the Go SDK client. Only edit them if the ticket explicitly requires it.
+        - Verify with: `go build ./...`, `make test-go-no-race`, `make lint-go`.
+
+        ---
+
+        **Scope rules that apply to both**:
+        - Do not edit `api/**` (generated proto stubs, auto-generated from the `viamrobotics/api` repo), `.github/**`, `Makefile`, `go.mod`, or `go.sum` — these are denied at the settings level.
+        - Add or update unit tests for changed behavior. Verify edge cases and error paths.
+        - Follow existing code patterns. Do not introduce new abstractions or refactor outside the ticket's scope.
+        - If the ticket is ambiguous or the scope label doesn't match what the ticket text asks for, state your interpretation in the PR description before making changes.
+      show_full_output: true
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CI_GITHUB_APP_ID: ${{ secrets.CI_GITHUB_APP_ID }}
+      CI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+      SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL: ${{ secrets.SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}

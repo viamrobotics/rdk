@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(file_path=.github/**)",
+      "Write(file_path=.github/**)",
+      "Edit(file_path=api/**)",
+      "Write(file_path=api/**)",
+      "Edit(file_path=Makefile)",
+      "Write(file_path=Makefile)",
+      "Edit(file_path=go.mod)",
+      "Edit(file_path=go.sum)"
+    ]
+  }
+}
