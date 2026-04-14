@@ -1,0 +1,42 @@
+name: Claude CI Fix
+
+# Triggered when the "Test" workflow fails on a claude/* branch — Claude
+# attempts to fix the failure automatically. Also supports manual dispatch
+# for fixing arbitrary failed runs.
+
+on:
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Failed workflow run ID (from gh run list)'
+        required: true
+      branch:
+        description: 'PR branch name (e.g., claude/APP-1234)'
+        required: true
+
+jobs:
+  call-ci-fix:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'failure' &&
+        startsWith(github.event.workflow_run.head_branch, 'claude/')
+      )
+    # viamrobotics/claude-ci-workflows@v1.17.3
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-ci-fix.yml@3ad96b0ccbb5ee0d7e2cde98653fae0c453e68bb
+    with:
+      run_id: ${{ github.event.workflow_run.id || inputs.run_id }}
+      branch: ${{ github.event.workflow_run.head_branch || inputs.branch }}
+      install_command: 'go mod download'
+      container: 'golang:1.25'
+      allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(go *),Bash(gofmt *),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make lint*),Bash(make cli*),Bash(make generate-go*),Bash(golangci-lint *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git -C * diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *),Bash(gh api repos/*/pulls/*/comments*)'
+      team_mention: '@viamrobotics/core-rdk'
+      extra_prompt: |
+        - Run `go build ./...`, `make test-go-no-race`, and `make lint-go` to verify your fix before committing. Fix any errors.
+        - Do not edit `api/**`, `.github/**`, `Makefile`, `go.mod`, or `go.sum` — these are denied at the settings level.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}
