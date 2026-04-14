@@ -1,10 +1,14 @@
-// Package main analyzes capture files for data loss during collector reinitialization.
-// It reads all .capture and .prog files in the given directory, counts readings,
-// and reports gaps between files that indicate dropped data.
+// Package main analyzes capture files from the counter sensor module for
+// dropped readings during collector reinitialization.
+//
+// The counter sensor returns {"count": N} where N increments by 1 on each
+// Readings call. This tool reads all capture files, extracts the counter
+// values in file order, and reports any gaps in the sequence. A gap means
+// data was polled from the sensor but never written to disk.
 //
 // Usage:
 //
-//	go run analyze.go <capture_dir> [expected_hz]
+//	go run analyze.go <capture_dir>
 package main
 
 import (
@@ -12,34 +16,23 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
-	"time"
 
 	"go.viam.com/rdk/data"
 )
 
-type captureFileInfo struct {
-	name    string
-	count   int
-	firstTS time.Time
-	lastTS  time.Time
+type fileEntry struct {
+	name   string
+	counts []int64
 }
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s <capture_dir> [expected_hz]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "usage: %s <capture_dir>\n", os.Args[0])
 		os.Exit(1)
 	}
 	dir := os.Args[1]
-	hz := 100.0
-	if len(os.Args) >= 3 {
-		if v, err := strconv.ParseFloat(os.Args[2], 64); err == nil {
-			hz = v
-		}
-	}
 
-	var files []captureFileInfo
-	var total int
+	var files []fileEntry
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
@@ -54,13 +47,27 @@ func main() {
 			fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
 			return nil
 		}
-		fi := captureFileInfo{name: filepath.Base(path), count: len(readings)}
-		if len(readings) > 0 {
-			fi.firstTS = readings[0].GetMetadata().GetTimeRequested().AsTime()
-			fi.lastTS = readings[len(readings)-1].GetMetadata().GetTimeRequested().AsTime()
+		fe := fileEntry{name: filepath.Base(path)}
+		for _, r := range readings {
+			s := r.GetStruct()
+			if s == nil {
+				continue
+			}
+			readingsField := s.GetFields()["readings"]
+			if readingsField == nil {
+				continue
+			}
+			inner := readingsField.GetStructValue()
+			if inner == nil {
+				continue
+			}
+			countField := inner.GetFields()["count"]
+			if countField == nil {
+				continue
+			}
+			fe.counts = append(fe.counts, int64(countField.GetNumberValue()))
 		}
-		files = append(files, fi)
-		total += len(readings)
+		files = append(files, fe)
 		return nil
 	})
 	if err != nil {
@@ -68,45 +75,99 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(files) == 0 {
-		fmt.Println("No capture files found.")
+	// Sort files by their first counter value so pre-reconfig comes before post-reconfig.
+	sort.Slice(files, func(i, j int) bool {
+		if len(files[i].counts) == 0 {
+			return true
+		}
+		if len(files[j].counts) == 0 {
+			return false
+		}
+		return files[i].counts[0] < files[j].counts[0]
+	})
+
+	// Concatenate counts in file order without sorting individual readings.
+	var allCounts []int64
+	fmt.Println("Files:")
+	for _, f := range files {
+		if len(f.counts) > 0 {
+			fmt.Printf("  %s: %d readings, count range [%d -> %d]\n",
+				f.name, len(f.counts), f.counts[0], f.counts[len(f.counts)-1])
+		} else {
+			fmt.Printf("  %s: 0 readings\n", f.name)
+		}
+		allCounts = append(allCounts, f.counts...)
+	}
+
+	if len(allCounts) == 0 {
+		fmt.Println("No readings found.")
 		return
 	}
 
-	sort.Slice(files, func(i, j int) bool { return files[i].firstTS.Before(files[j].firstTS) })
-
-	fmt.Println("Files:")
-	for _, f := range files {
-		fmt.Printf("  %s: %d readings [%s -> %s]\n",
-			f.name, f.count,
-			f.firstTS.Format("15:04:05.000"),
-			f.lastTS.Format("15:04:05.000"))
+	// Walk the sequence linearly and report anomalies.
+	fmt.Println("\nSequence analysis:")
+	type gap struct {
+		after   int64
+		before  int64
+		missing int
 	}
+	var gaps []gap
+	var duplicates int
+	var outOfOrder int
 
-	fmt.Println("\nGaps:")
-	var totalGap time.Duration
-	var potentialLoss int
-	for i := 1; i < len(files); i++ {
-		gap := files[i].firstTS.Sub(files[i-1].lastTS)
-		missed := int(gap.Seconds() * hz)
-		fmt.Printf("  Between file %d and %d: %v", i, i+1, gap)
-		if gap > time.Duration(float64(time.Second)/hz)*2 {
-			fmt.Printf("  *** ~%d readings missing ***", missed)
-			potentialLoss += missed
-			totalGap += gap
+	for i := 1; i < len(allCounts); i++ {
+		diff := allCounts[i] - allCounts[i-1]
+		switch {
+		case diff > 1:
+			gaps = append(gaps, gap{
+				after:   allCounts[i-1],
+				before:  allCounts[i],
+				missing: int(diff - 1),
+			})
+		case diff == 0:
+			duplicates++
+			fmt.Printf("  WARNING: duplicate count %d at position %d\n", allCounts[i], i)
+		case diff < 0:
+			outOfOrder++
+			fmt.Printf("  WARNING: out-of-order at position %d: %d followed by %d\n",
+				i, allCounts[i-1], allCounts[i])
 		}
-		fmt.Println()
 	}
 
-	totalDuration := files[len(files)-1].lastTS.Sub(files[0].firstTS)
-	expected := int(totalDuration.Seconds() * hz)
+	totalMissing := 0
+	if len(gaps) > 0 {
+		fmt.Println("  GAPS DETECTED (data polled from sensor but never written to disk):")
+		for _, g := range gaps {
+			totalMissing += g.missing
+			if g.missing <= 20 {
+				fmt.Printf("    after count %d, before count %d: missing %d values (",
+					g.after, g.before, g.missing)
+				for j := 0; j < g.missing; j++ {
+					if j > 0 {
+						fmt.Print(", ")
+					}
+					fmt.Printf("%d", g.after+int64(j)+1)
+				}
+				fmt.Println(")")
+			} else {
+				fmt.Printf("    after count %d, before count %d: missing %d values (%d..%d)\n",
+					g.after, g.before, g.missing, g.after+1, g.before-1)
+			}
+		}
+	} else {
+		fmt.Println("  No gaps found - counter sequence is contiguous.")
+	}
 
+	expectedCount := allCounts[len(allCounts)-1] - allCounts[0] + 1
 	fmt.Printf("\nSummary:\n")
-	fmt.Printf("  Total duration:       %v\n", totalDuration)
-	fmt.Printf("  Total readings:       %d\n", total)
-	fmt.Printf("  Expected at %.0fHz:    ~%d\n", hz, expected)
-	fmt.Printf("  Difference:           %d\n", expected-total)
-	if potentialLoss > 0 {
-		fmt.Printf("  Gap-based loss est:   ~%d readings across %v of gaps\n", potentialLoss, totalGap)
+	fmt.Printf("  Counter range:   %d to %d\n", allCounts[0], allCounts[len(allCounts)-1])
+	fmt.Printf("  Expected:        %d readings\n", expectedCount)
+	fmt.Printf("  Actual:          %d readings\n", len(allCounts))
+	fmt.Printf("  Dropped:         %d readings across %d gap(s)\n", totalMissing, len(gaps))
+	if duplicates > 0 {
+		fmt.Printf("  Duplicates:      %d\n", duplicates)
+	}
+	if outOfOrder > 0 {
+		fmt.Printf("  Out-of-order:    %d\n", outOfOrder)
 	}
 }

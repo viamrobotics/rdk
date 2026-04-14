@@ -1,8 +1,12 @@
 #!/bin/bash
 # Reproduces data loss during collector reinitialization.
-# Starts a viam-server with a fake arm capturing at high frequency,
-# triggers a reconfigure by editing the config file, then analyzes
-# capture files for gaps.
+# Starts a viam-server with a counter sensor module capturing at high
+# frequency, triggers a reconfigure by editing the config file, then
+# analyzes capture files for gaps in the counter sequence.
+#
+# The counter sensor returns {"count": N} where N increments by 1 on
+# each Readings call. If the captured sequence skips a value (e.g.
+# 1, 2, 3, 5) then reading 4 was polled but never written to disk.
 #
 # Usage:
 #   ./run.sh [path/to/viam-server]
@@ -18,6 +22,12 @@ CONFIG_FILE=$(mktemp).json
 CAPTURE_HZ=100
 CAPTURE_DURATION=5
 POST_RECONFIG_DURATION=3
+
+# Build counter sensor module
+echo "Building counter sensor module..."
+MODULE_BIN="$(mktemp -d)/countersensor"
+(cd "$REPO_ROOT" && go build -o "$MODULE_BIN" ./services/datamanager/builtin/cmd/repro_capture_drop/countersensor)
+echo "Built module: $MODULE_BIN"
 
 # Build or locate viam-server
 if [ -n "${1:-}" ]; then
@@ -35,18 +45,25 @@ cat > "$CONFIG_FILE" <<EOF
     "network": {
         "bind_address": "localhost:18080"
     },
+    "modules": [
+        {
+            "name": "counter_module",
+            "executable_path": "$MODULE_BIN"
+        }
+    ],
     "components": [
         {
-            "name": "arm1",
-            "type": "arm",
-            "model": "fake",
+            "name": "counter1",
+            "type": "sensor",
+            "model": "repro:test:countersensor",
+            "depends_on": [],
             "service_configs": [
                 {
                     "type": "data_manager",
                     "attributes": {
                         "capture_methods": [
                             {
-                                "method": "EndPosition",
+                                "method": "Readings",
                                 "capture_frequency_hz": $CAPTURE_HZ
                             }
                         ]
@@ -111,7 +128,7 @@ echo ""
 
 # Analyze
 echo "=== Analysis ==="
-go run "$SCRIPT_DIR/analyze.go" "$CAPTURE_DIR" "$CAPTURE_HZ"
+go run "$SCRIPT_DIR/analyze.go" "$CAPTURE_DIR"
 echo ""
 
 # Show reconfigure log lines
