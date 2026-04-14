@@ -135,7 +135,7 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 	}
 
 	req := &pb.ReadyRequest{
-		ParentAddress: legacyParentAddr,
+		ParentAddress:    legacyParentAddr,
 		RawParentAddress: parentAddr,
 	}
 
