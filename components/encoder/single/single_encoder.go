@@ -125,14 +125,14 @@ func NewSingleEncoder(
 		position:     0,
 		positionType: encoder.PositionTypeTicks,
 	}
-	if err := e.reconfigure(ctx, deps, conf); err != nil {
+	if err := e.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-// reconfigure atomically reconfigures this encoder in place based on the new config.
-func (e *Encoder) reconfigure(
+// Reconfigure atomically reconfigures this encoder in place based on the new config.
+func (e *Encoder) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,

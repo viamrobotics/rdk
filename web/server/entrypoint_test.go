@@ -205,8 +205,7 @@ func TestShutdown(t *testing.T) {
 		testLogger.Info("Issuing shutdown.")
 		err = rc.Shutdown(context.Background())
 
-		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
-		gtestutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 50, func(tb testing.TB) {
+		gtestutils.WaitForAssertionWithSleep(t, 50*time.Millisecond, 50, func(tb testing.TB) {
 			tb.Helper()
 			rdkStatus := server.Status()
 			// Asserting not nil here to ensure process is dead
@@ -746,8 +745,7 @@ func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	// to make sure we always wait long enough for a reconfigure to happen
 	waitForAssertionLongerThanRefreshInterval := func(t *testing.T, assertion func(tb testing.TB)) {
 		t.Helper()
-		// flake on Windows with original 50ms x 50 attempts after replacing reconfigure with rebuild (slower shutdown, unclear why)
-		retryInterval := 200 * time.Millisecond
+		retryInterval := 50 * time.Millisecond
 		nRuns := int(refreshInterval * 3 / retryInterval)
 		gtestutils.WaitForAssertionWithSleep(t, retryInterval, nRuns, assertion)
 	}
