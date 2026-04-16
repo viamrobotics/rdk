@@ -156,7 +156,7 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 	case "app":
 		return c.generateApp(ctx, cmd, args, shared)
 	case "both":
-		return errors.New("app generation is not yet implemented")
+		return c.generateBoth(ctx, cmd, args, shared)
 	default:
 		return fmt.Errorf("invalid generate type %q: must be module, app, or both", generateType)
 	}
@@ -169,6 +169,25 @@ type appInputs struct {
 	PackageManager string
 }
 
+func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
+	// Module-specific prompts
+	newModule := &modulegen.ModuleInputs{}
+	if err := promptModuleInputs(newModule); err != nil {
+		return err
+	}
+	newModule.Visibility = shared.Visibility
+	newModule.Namespace = shared.Namespace
+	newModule.RegisterOnApp = shared.RegisterOnApp
+
+	// App-specific prompts
+	app := &appInputs{}
+	if err := promptAppUser(app); err != nil {
+		return err
+	}
+
+	return errors.New("combined module + app generation is not yet implemented")
+}
+
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{}
 
@@ -176,7 +195,6 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		return err
 	}
 
-	printf(cmd.Root().Writer, "App form completed: %+v", app)
 	return errors.New("app template generation is not yet implemented")
 }
 
