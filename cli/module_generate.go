@@ -179,9 +179,9 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 	newModule.Namespace = shared.Namespace
 	newModule.RegisterOnApp = shared.RegisterOnApp
 
-	// App-specific prompts
+	// App-specific prompts — local server availability depends on module language
 	app := &appInputs{}
-	if err := promptAppUser(app); err != nil {
+	if err := promptAppUser(app, newModule.Language); err != nil {
 		return err
 	}
 
@@ -191,14 +191,31 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{}
 
-	if err := promptAppUser(app); err != nil {
+	if err := promptAppUser(app, ""); err != nil {
 		return err
 	}
 
 	return errors.New("app template generation is not yet implemented")
 }
 
-func promptAppUser(app *appInputs) error {
+func promptAppUser(app *appInputs, moduleLanguage string) error {
+	var localServerWidget huh.Field
+	if moduleLanguage == "" || moduleLanguage == golang {
+		localServerWidget = huh.NewConfirm().
+			Title("Enable local server?").
+			Description("A local server allows the app to be served directly from the machine\n"+
+				"on your local network, without requiring internet access.").
+			Value(&app.LocalServer)
+	} else {
+		localServerWidget = huh.NewSelect[bool]().
+			Title("Enable local server?").
+			Description("Local server is only available for Go modules. Coming soon for other languages.").
+			Options(
+				huh.NewOption("Not available", false),
+			).
+			Value(&app.LocalServer)
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -233,11 +250,7 @@ func promptAppUser(app *appInputs) error {
 					huh.NewOption("Multi Machine", "multi_machine"),
 				).
 				Value(&app.AppType),
-			huh.NewConfirm().
-				Title("Enable local server?").
-				Description("A local server allows the app to be served directly from the machine\n"+
-					"on your local network, without requiring internet access.").
-				Value(&app.LocalServer),
+			localServerWidget,
 			huh.NewSelect[string]().
 				Title("Package manager:").
 				Description("Select the package manager for your web app's frontend dependencies.").
