@@ -21,6 +21,12 @@ import (
 )
 
 func TestConfigureModule(t *testing.T) {
+	origGitHub := githubRefExists
+	githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		return true, nil
+	}
+	t.Cleanup(func() { githubRefExists = origGitHub })
+
 	manifestPath := createTestManifest(t, "", nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
