@@ -149,12 +149,109 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 	case "module", "":
 		return c.generateModule(ctx, cmd, args)
 	case "app":
-		return errors.New("app generation is not yet implemented")
+		return c.generateApp(ctx, cmd, args)
 	case "both":
 		return errors.New("app generation is not yet implemented")
 	default:
 		return fmt.Errorf("invalid generate type %q: must be module, app, or both", generateType)
 	}
+}
+
+type appInputs struct {
+	AppName        string
+	AppType        string
+	LocalServer    bool
+	PackageManager string
+	Visibility     string
+	Namespace      string
+}
+
+func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+	app := &appInputs{}
+
+	if err := promptAppUser(app); err != nil {
+		return err
+	}
+
+	printf(cmd.Root().Writer, "App form completed: %+v", app)
+	return errors.New("app template generation is not yet implemented")
+}
+
+func promptAppUser(app *appInputs) error {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Generate a new Viam app").
+				Description("This will generate a web app module that connects to your machine via the Viam SDK.\n"+
+					"For more details, view the documentation at \nhttps://docs.viam.com/registry/"),
+			huh.NewInput().
+				Title("Set an app name:").
+				Description("The app name can contain only alphanumeric characters, dashes, and underscores.").
+				Value(&app.AppName).
+				Placeholder("my-app").
+				Suggestions([]string{"my-app"}).
+				Validate(func(s string) error {
+					if s == "" {
+						return errors.New("app name must not be empty")
+					}
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
+					if !match || err != nil {
+						return errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+					}
+					if _, err := os.Stat(s); err == nil {
+						return errors.New("this app directory already exists")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().
+				Title("App type:").
+				Description("Single machine apps connect to one machine.\n"+
+					"Multi machine apps can connect to multiple machines in your fleet.").
+				Options(
+					huh.NewOption("Single Machine", "single_machine"),
+					huh.NewOption("Multi Machine", "multi_machine"),
+				).
+				Value(&app.AppType),
+			huh.NewConfirm().
+				Title("Enable local server?").
+				Description("A local server allows the app to be served directly from the machine\n"+
+					"on your local network, without requiring internet access.").
+				Value(&app.LocalServer),
+			huh.NewSelect[string]().
+				Title("Package manager:").
+				Description("Select the package manager for your web app's frontend dependencies.").
+				Options(
+					huh.NewOption("npm", "npm"),
+					huh.NewOption("pnpm", "pnpm"),
+					huh.NewOption("yarn", "yarn"),
+					huh.NewOption("bun", "bun"),
+				).
+				Value(&app.PackageManager),
+			huh.NewSelect[string]().
+				Title("Visibility:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&app.Visibility),
+			huh.NewInput().
+				Title("Namespace/Organization ID").
+				Value(&app.Namespace).
+				Placeholder("my-namespace").
+				Validate(func(s string) error {
+					if s == "" {
+						return errors.New("namespace or org ID must not be empty")
+					}
+					return nil
+				}),
+		),
+	).WithHeight(25).WithWidth(88)
+	if err := form.Run(); err != nil {
+		return errors.Wrap(err, "encountered an error generating app")
+	}
+
+	return nil
 }
 
 func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
