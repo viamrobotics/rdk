@@ -117,6 +117,9 @@ func (c *viamClient) validateRefExists(ctx context.Context, cmd *cli.Command, re
 		return nil
 	}
 	if !exists {
+		if token == "" {
+			return fmt.Errorf("ref %q not found on %s (if this is a private repo, pass a token with --token)", ref, repoURL)
+		}
 		return fmt.Errorf("ref %q not found on %s", ref, repoURL)
 	}
 	return nil
