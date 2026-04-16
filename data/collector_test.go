@@ -81,8 +81,8 @@ func TestNewCollector(t *testing.T) {
 // Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
 	l := logging.NewTestLogger(t)
-	tickerInterval := sleepCaptureCutoff + 1
-	sleepInterval := sleepCaptureCutoff - 1
+	tickerInterval := timerCaptureCutoff + 1
+	timerInterval := timerCaptureCutoff - 1
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
@@ -111,7 +111,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		{
 			name:           "Sleep based struct writer.",
 			captureFunc:    structCapturer,
-			interval:       sleepInterval,
+			interval:       timerInterval,
 			expectReadings: 2,
 			expFiles:       1,
 			datatype:       CaptureTypeTabular,
@@ -127,7 +127,7 @@ func TestSuccessfulWrite(t *testing.T) {
 		{
 			name:           "Sleep based binary writer.",
 			captureFunc:    binaryCapturer,
-			interval:       sleepInterval,
+			interval:       timerInterval,
 			expectReadings: 2,
 			expFiles:       2,
 			datatype:       CaptureTypeBinary,
