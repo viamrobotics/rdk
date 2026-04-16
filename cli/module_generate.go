@@ -145,11 +145,16 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		}
 	}
 
+	shared := &sharedInputs{}
+	if err := promptSharedInputs(shared); err != nil {
+		return err
+	}
+
 	switch generateType {
 	case "module", "":
-		return c.generateModule(ctx, cmd, args)
+		return c.generateModule(ctx, cmd, args, shared)
 	case "app":
-		return c.generateApp(ctx, cmd, args)
+		return c.generateApp(ctx, cmd, args, shared)
 	case "both":
 		return errors.New("app generation is not yet implemented")
 	default:
@@ -162,11 +167,9 @@ type appInputs struct {
 	AppType        string
 	LocalServer    bool
 	PackageManager string
-	Visibility     string
-	Namespace      string
 }
 
-func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{}
 
 	if err := promptAppUser(app); err != nil {
@@ -227,24 +230,6 @@ func promptAppUser(app *appInputs) error {
 					huh.NewOption("bun", "bun"),
 				).
 				Value(&app.PackageManager),
-			huh.NewSelect[string]().
-				Title("Visibility:").
-				Options(
-					huh.NewOption("Public", moduleVisibilityPublic),
-					huh.NewOption("Private", moduleVisibilityPrivate),
-					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
-				).
-				Value(&app.Visibility),
-			huh.NewInput().
-				Title("Namespace/Organization ID").
-				Value(&app.Namespace).
-				Placeholder("my-namespace").
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.New("namespace or org ID must not be empty")
-					}
-					return nil
-				}),
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
@@ -254,7 +239,7 @@ func promptAppUser(app *appInputs) error {
 	return nil
 }
 
-func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -273,10 +258,12 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	}
 
 	if newModule.HasEmptyInput() {
-		err = promptUser(newModule)
-		if err != nil {
+		if err := promptModuleInputs(newModule); err != nil {
 			return err
 		}
+		newModule.Visibility = shared.Visibility
+		newModule.Namespace = shared.Namespace
+		newModule.RegisterOnApp = shared.RegisterOnApp
 	}
 	if err := checkLanguageVersion(newModule.Language); err != nil {
 		return err
@@ -397,9 +384,65 @@ func modelName(module *modulegen.ModuleInputs) string {
 	return resourceName
 }
 
-// Prompt the user for information regarding the module they want to create
-// returns the modulegen.ModuleInputs struct that contains the information the user entered.
-func promptUser(module *modulegen.ModuleInputs) error {
+// sharedInputs holds fields common to both module and app generation.
+type sharedInputs struct {
+	Visibility    string
+	Namespace     string
+	RegisterOnApp bool
+}
+
+// promptSharedInputs prompts for visibility, namespace, and registration — shared across module and app flows.
+func promptSharedInputs(shared *sharedInputs) error {
+	var registerWidget huh.Field
+	if unauthenticatedMode {
+		registerWidget = huh.NewSelect[bool]().
+			Title("Register with Viam").
+			Description("You are unauthenticated and cannot register with Viam.\n\nThis will be local-only.").
+			Options(
+				huh.NewOption("Continue", false),
+			).
+			Value(&shared.RegisterOnApp)
+	} else {
+		registerWidget = huh.NewConfirm().
+			Title("Register with Viam").
+			Description("Register with Viam.\nIf selected, "+
+				"this will associate with your organization.\n"+
+				"Otherwise, this will be local-only.",
+			).
+			Value(&shared.RegisterOnApp)
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Visibility:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&shared.Visibility),
+			huh.NewInput().
+				Title("Namespace/Organization ID").
+				Value(&shared.Namespace).
+				Placeholder("my-namespace").
+				Validate(func(s string) error {
+					if s == "" {
+						return errors.New("namespace or org ID must not be empty")
+					}
+					return nil
+				}),
+			registerWidget,
+		),
+	).WithHeight(25).WithWidth(88)
+	if err := form.Run(); err != nil {
+		return errors.Wrap(err, "encountered an error in shared prompts")
+	}
+	return nil
+}
+
+// promptModuleInputs prompts for module-specific fields: name, language, resource subtype, model name.
+func promptModuleInputs(module *modulegen.ModuleInputs) error {
 	titleCaser := cases.Title(language.Und)
 	resourceOptions := []huh.Option[string]{}
 	for _, resource := range modulegen.Resources {
@@ -428,25 +471,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 			resType = strings.Join(words, " ")
 		}
 		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
-	}
-
-	var registerWidget huh.Field
-	if unauthenticatedMode {
-		registerWidget = huh.NewSelect[bool]().
-			Title("Register module").
-			Description("You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module.").
-			Options(
-				huh.NewOption("Continue", false),
-			).
-			Value(&module.RegisterOnApp)
-	} else {
-		registerWidget = huh.NewConfirm().
-			Title("Register module").
-			Description("Register this module with Viam.\nIf selected, " +
-				"this will associate the module with your organization.\n" +
-				"Otherwise, this will be a local-only module.",
-			).
-			Value(&module.RegisterOnApp)
 	}
 
 	form := huh.NewForm(
@@ -484,24 +508,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
-				Title("Visibility:").
-				Options(
-					huh.NewOption("Public", moduleVisibilityPublic),
-					huh.NewOption("Private", moduleVisibilityPrivate),
-					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
-				).
-				Value(&module.Visibility),
-			huh.NewInput().
-				Title("Namespace/Organization ID").
-				Value(&module.Namespace).
-				Placeholder("my-namespace").
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.New("namespace or org ID must not be empty")
-					}
-					return nil
-				}),
-			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
 				Description("A resource is a component or service that provides functionality to your machine.\n"+
 					"You can navigate and scroll this list with arrow keys and vim bindings,\n"+
@@ -530,14 +536,11 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					}
 					return nil
 				}),
-			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
-	err := form.Run()
-	if err != nil {
+	if err := form.Run(); err != nil {
 		return errors.Wrap(err, "encountered an error generating module")
 	}
-
 	return nil
 }
 
