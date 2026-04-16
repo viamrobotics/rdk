@@ -65,6 +65,7 @@ var (
 var unauthenticatedMode = false
 
 type generateModuleArgs struct {
+	GenerateType    string
 	Name            string
 	Language        string
 	Visibility      string
@@ -114,7 +115,49 @@ func promptUnauthenticated() bool {
 	return true
 }
 
+func promptGenerateType() (string, error) {
+	var generateType string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What would you like to generate?").
+				Options(
+					huh.NewOption("Module", "module"),
+					huh.NewOption("App", "app"),
+					huh.NewOption("Module and App", "both"),
+				).
+				Value(&generateType),
+		),
+	).WithWidth(77)
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+	return generateType, nil
+}
+
 func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+	generateType := args.GenerateType
+	if generateType == "" {
+		var err error
+		generateType, err = promptGenerateType()
+		if err != nil {
+			return err
+		}
+	}
+
+	switch generateType {
+	case "module", "":
+		return c.generateModule(ctx, cmd, args)
+	case "app":
+		return errors.New("app generation is not yet implemented")
+	case "both":
+		return errors.New("app generation is not yet implemented")
+	default:
+		return fmt.Errorf("invalid generate type %q: must be module, app, or both", generateType)
+	}
+}
+
+func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
 	var newModule *modulegen.ModuleInputs
 	var err error
 

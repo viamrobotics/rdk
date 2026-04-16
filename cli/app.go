@@ -97,6 +97,7 @@ const (
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
+	moduleFlagGenerateType    = "generate-type"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -3437,6 +3438,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Usage:     "generate a new modular resource via prompts",
 					UsageText: createUsageText("module generate", nil, true, false),
 					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:  moduleFlagGenerateType,
+							Usage: formatAcceptedValues("type of project to generate", "module", "app", "both"),
+						},
 						&cli.StringFlag{
 							Name:  generalFlagName,
 							Usage: "name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
