@@ -86,7 +86,7 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	u, parseErr := url.Parse(repoURL)
 	// not a github link: skip validation, the build action may still succeed on a non-github host
 	if parseErr != nil || u.Host != "github.com" {
-		return "", "", false, nil
+		return "", "", false, nil //nolint:nilerr
 	}
 	// strip leading / from path and then get first three parts (owner, repo, path)
 	parts := strings.SplitN(strings.TrimPrefix(u.Path, "/"), "/", 3)
