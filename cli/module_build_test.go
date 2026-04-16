@@ -132,7 +132,7 @@ func TestStartBuild(t *testing.T) {
 		StartBuildFunc: func(ctx context.Context, in *v1.StartBuildRequest, opts ...grpc.CallOption) (*v1.StartBuildResponse, error) {
 			return &v1.StartBuildResponse{BuildId: "xyz123"}, nil
 		},
-	}, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3", moduleBuildFlagRef: "main"}, "token")
+	}, map[string]any{moduleFlagPath: manifest, generalFlagVersion: "1.2.3"}, "token")
 	path, err := ac.moduleBuildStartAction(context.Background(), cCtx, parseStructFromCtx[moduleBuildStartArgs](cCtx))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, path, test.ShouldEqual, "xyz123")
