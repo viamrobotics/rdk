@@ -109,7 +109,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			datatype:       CaptureTypeTabular,
 		},
 		{
-			name:           "Sleep based struct writer.",
+			name:           "Timer based struct writer.",
 			captureFunc:    structCapturer,
 			interval:       timerInterval,
 			expectReadings: 2,
@@ -125,7 +125,7 @@ func TestSuccessfulWrite(t *testing.T) {
 			datatype:       CaptureTypeBinary,
 		},
 		{
-			name:           "Sleep based binary writer.",
+			name:           "Timer based binary writer.",
 			captureFunc:    binaryCapturer,
 			interval:       timerInterval,
 			expectReadings: 2,
