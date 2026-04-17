@@ -50,28 +50,6 @@ func (server *serviceServer) UploadBinaryDataToDatasets(
 	return &pb.UploadBinaryDataToDatasetsResponse{}, nil
 }
 
-func (server *serviceServer) UploadPath(req *pb.UploadPathRequest, stream pb.DataManagerService_UploadPathServer) error {
-	svc, err := server.coll.Resource(req.Name)
-	if err != nil {
-		return err
-	}
-	return svc.UploadPath(stream.Context(), req.GetPath(), req.GetTags(), req.GetDatasetIds(),
-		func(p UploadPathProgress) {
-			errStr := ""
-			if p.Err != nil {
-				errStr = p.Err.Error()
-			}
-			//nolint:errcheck
-			stream.Send(&pb.UploadPathResponse{
-				Path:          p.Path,
-				BytesUploaded: p.BytesUploaded,
-				BytesTotal:    p.BytesTotal,
-				Success:       p.Success,
-				Error:         errStr,
-			})
-		}, req.Extra.AsMap())
-}
-
 // DoCommand receives arbitrary commands.
 func (server *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
