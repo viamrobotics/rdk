@@ -102,6 +102,9 @@ const (
 	// ViamModuleAddress is used to pass the address a module should listen on to
 	// the module process.
 	ViamModuleAddress = "VIAM_MODULE_ADDRESS"
+
+	// ViamNoWindowsEventLoggerEnvVar if set will not write logs to the Windows Event Logger.
+	ViamNoWindowsEventLoggerEnvVar = "VIAM_NO_WINDOWS_EVENT_LOGGER"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.

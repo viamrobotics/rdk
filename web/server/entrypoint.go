@@ -138,7 +138,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
+		logging.RegisterEventLogger(rootLogger, "viam-server")
+	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
