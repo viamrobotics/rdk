@@ -24,29 +24,18 @@ jobs:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
 
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
-
-    - uses: actions/setup-python@v5
-      with:
-        python-version: 3.12
-        cache-dependency-path: cli/test-requirements.txt
-
-    - run: |
-        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
-        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
-        python -m venv .venv
-        source .venv/bin/activate
-        pip install -r cli/test-requirements.txt
-        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
-        rm meta.json meta2.json
 
     - name: build
       shell: bash
@@ -89,3 +78,17 @@ jobs:
         glob: 'viam-cli-*'
         destination: 'packages.viam.com/apps/viam-cli/'
         parent: false
+
+    - name: Validate module schema
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+        cache-dependency-path: cli/test-requirements.txt
+    - run: |
+        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r cli/test-requirements.txt
+        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
+        rm meta.json meta2.json

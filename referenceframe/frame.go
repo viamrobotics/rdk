@@ -359,6 +359,44 @@ func (nf *namedFrame) Hash() int {
 	return nf.Frame.Hash() + hashString(nf.name)
 }
 
+// namedFrameJSON is the on-disk representation of a namedFrame. The wrapped inner
+// frame is stored as a raw message so it can be dispatched through frameToJSON /
+// jsonToFrame the same way any other Frame implementation would be.
+type namedFrameJSON struct {
+	Name       string          `json:"name"`
+	InnerFrame json.RawMessage `json:"inner_frame"`
+}
+
+// MarshalJSON serializes a namedFrame by recording the overriding name and
+// delegating serialization of the wrapped frame to frameToJSON so the wrapped
+// frame's concrete type is preserved.
+func (nf *namedFrame) MarshalJSON() ([]byte, error) {
+	innerJSON, err := frameToJSON(nf.Frame)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(&namedFrameJSON{
+		Name:       nf.name,
+		InnerFrame: innerJSON,
+	})
+}
+
+// UnmarshalJSON reconstructs a namedFrame, dispatching the wrapped inner frame
+// back through jsonToFrame so the correct concrete type is rebuilt.
+func (nf *namedFrame) UnmarshalJSON(data []byte) error {
+	var j namedFrameJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	inner, err := jsonToFrame(j.InnerFrame)
+	if err != nil {
+		return err
+	}
+	nf.Frame = inner
+	nf.name = j.Name
+	return nil
+}
+
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
 func NewNamedFrame(frame Frame, name string) Frame {
 	return &namedFrame{Frame: frame, name: name}

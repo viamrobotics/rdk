@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/robot/client"
 	"go.viam.com/rdk/robot/server"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
 
 func TestModularMain(t *testing.T) {
@@ -87,8 +86,6 @@ func TestModularMain(t *testing.T) {
 				if tc.UdsMode {
 					modAddr, err = CreateSocketAddress(t.TempDir(), utils.RandomAlphaString(5))
 					test.That(t, err, test.ShouldBeNil)
-					modAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, modAddr)
-					test.That(t, err, test.ShouldBeNil)
 				} else {
 					port, err = utils.TryReserveRandomPort()
 					test.That(t, err, test.ShouldBeNil)
@@ -124,7 +121,7 @@ func TestModularMain(t *testing.T) {
 			// been established.
 			logger.Infof("calling Ready on module server")
 			modClient := pb.NewModuleServiceClient(conn)
-			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{ParentAddress: robotServerListener.Addr().String()})
+			_, err = modClient.Ready(context.Background(), &pb.ReadyRequest{RawParentAddress: robotServerListener.Addr().String()})
 			test.That(t, err, test.ShouldBeNil)
 			logger.Infof("Ready response received from module server")
 			gServer.Stop()

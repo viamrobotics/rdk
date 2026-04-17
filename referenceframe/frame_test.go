@@ -207,6 +207,60 @@ func TestSerializationRotations(t *testing.T) {
 	test.That(t, f2, test.ShouldResemble, f)
 }
 
+func TestSerializationNamed(t *testing.T) {
+	// A namedFrame wraps another frame and overrides its name. Roundtripping
+	// must preserve both the override name and the wrapped frame's type/data.
+	inner, err := NewStaticFrame("inner", spatial.NewPose(r3.Vector{1, 2, 3}, &spatial.R4AA{math.Pi / 2, 4, 5, 6}))
+	test.That(t, err, test.ShouldBeNil)
+
+	nf := NewNamedFrame(inner, "outer")
+
+	data, err := frameToJSON(nf)
+	test.That(t, err, test.ShouldBeNil)
+
+	got, err := jsonToFrame(data)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, got.Name(), test.ShouldEqual, "outer")
+
+	// The wrapped inner frame should roundtrip back to the same concrete type,
+	// preserving its own name and pose.
+	gotNamed, ok := got.(*namedFrame)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, gotNamed.Frame.Name(), test.ShouldEqual, "inner")
+
+	p1, err := nf.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	p2, err := got.Transform(nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostEqual(p1, p2), test.ShouldBeTrue)
+}
+
+func TestFrameSystemMarshalWithNamedFrame(t *testing.T) {
+	// Regression test: building a FrameSystem that contains a namedFrame used
+	// to fail to marshal because *namedFrame was not a registered Frame type.
+	fs := NewEmptyFrameSystem("test")
+
+	inner, err := NewStaticFrame("inner", spatial.NewPoseFromPoint(r3.Vector{1, 2, 3}))
+	test.That(t, err, test.ShouldBeNil)
+
+	renamed := NewNamedFrame(inner, "renamed")
+	err = fs.AddFrame(renamed, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := json.Marshal(fs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(data), test.ShouldBeGreaterThan, 0)
+
+	var fs2 FrameSystem
+	err = json.Unmarshal(data, &fs2)
+	test.That(t, err, test.ShouldBeNil)
+
+	got := fs2.Frame("renamed")
+	test.That(t, got, test.ShouldNotBeNil)
+	test.That(t, got.Name(), test.ShouldEqual, "renamed")
+}
+
 func TestRandomFrameInputs(t *testing.T) {
 	frame, _ := NewTranslationalFrame("", r3.Vector{X: 1}, Limit{-10, 10})
 	seed := rand.New(rand.NewSource(23))

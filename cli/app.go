@@ -392,6 +392,9 @@ func parseStructFromCtx[T any](cmd *cli.Command) T {
 }
 
 func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
+	if cmd == nil {
+		return &globalArgs{}, nil
+	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
@@ -3497,7 +3500,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
-					UsageText: createUsageText("module update-models", []string{moduleFlagBinary}, true, false),
+					UsageText: createUsageText("module update-models", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -3506,9 +3509,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     moduleFlagBinary,
-							Usage:    "binary for the module to run (has to work on this os/processor)",
-							Required: true,
+							Name: moduleFlagBinary,
+							Usage: "binary for the module to run (has to work on this os/processor) like ./dist/main; " +
+								"if omitted, uses entrypoint from meta.json",
+							TakesFile: true,
 						},
 					},
 					Action: createActionCommandWithT[updateModelsArgs](UpdateModelsAction),
@@ -3861,8 +3865,8 @@ This won't work unless you have an existing installation of our GitHub app on yo
 					UsageText: createUsageText("module reload", nil, true, false),
 					Description: `Example invocations:
 
-	# A full reload command. This will build your module, send the tarball to the machine with given part ID,
-	# and configure or restart it.
+	# A full reload command. This will build your module in the cloud, and the machine will
+	# download the package directly.
 	viam module reload --part-id UUID
 
 	# Run viam module reload on a mac and use the downloaded viam.json file instead of --part-id
@@ -3885,19 +3889,6 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagPath,
 							Usage: "relative path to a meta.json from workdir (default: ./). used for module ID. can be overridden with --id or --name",
 							Value: "meta.json",
-						},
-						&cli.BoolFlag{
-							Name:  moduleBuildFlagNoBuild,
-							Usage: "don't do build step, reuse existing downloaded artifact",
-						},
-						&cli.BoolFlag{
-							Name:  generalFlagNoProgress,
-							Usage: "hide progress of the file transfer",
-						},
-						&cli.StringFlag{
-							Name:  moduleFlagHomeDir,
-							Usage: "remote user's home directory. only necessary if you're targeting a remote machine where $HOME is not /root",
-							Value: "~",
 						},
 						&cli.StringFlag{
 							Name:      moduleBuildFlagCloudConfig,
@@ -4252,7 +4243,13 @@ NOTES:
 			Name:      "update",
 			Usage:     "update the CLI to the latest version",
 			UsageText: createUsageText("update", nil, false, false),
-			Action:    createActionCommandWithT[emptyArgs](UpdateCLIAction),
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  generalFlagNoProgress,
+					Usage: "hide progress during update",
+				},
+			},
+			Action: createActionCommandWithT[updateArgs](UpdateCLIAction),
 		},
 		{
 			Name:  "parse-ftdc",

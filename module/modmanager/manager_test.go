@@ -243,7 +243,7 @@ func TestModManagerFunctions(t *testing.T) {
 				test.That(t, mod.addr, test.ShouldNotEqual, oldAddr)
 
 				// check that we're still able to use the old client
-				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{ParentAddress: parentAddr})
+				_, err = oldClient.Ready(ctx, &v1.ReadyRequest{RawParentAddress: parentAddr})
 				test.That(t, err, test.ShouldBeNil)
 			}
 
@@ -511,7 +511,7 @@ func TestModManagerKill(t *testing.T) {
 	// maybe related to https://github.com/golang/go/issues/18874
 	pid, err := mod.process.UnixPid()
 	test.That(t, err, test.ShouldBeNil)
-	if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
+	if err := kill(pid, syscall.SIGTERM); err != nil {
 		test.That(t, errors.Is(err, os.ErrProcessDone), test.ShouldBeFalse)
 	}
 }
@@ -1913,22 +1913,27 @@ func TestFirstRun(t *testing.T) {
 
 func TestCleanWindowsSocketPath(t *testing.T) {
 	// uppercase and lowercase
+	//nolint:staticcheck
 	clean, err := rutils.CleanWindowsSocketPath("windows", "C:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "c:\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// no disk
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "\\x\\y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("windows", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")
 
 	// linux
+	//nolint:staticcheck
 	clean, err = rutils.CleanWindowsSocketPath("linux", "/x/y.sock")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, clean, test.ShouldResemble, "/x/y.sock")

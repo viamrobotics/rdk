@@ -13,6 +13,7 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	proto2 "google.golang.org/protobuf/proto"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -110,6 +111,47 @@ func TestFrameModelPart(t *testing.T) {
 		test.ShouldEqual,
 		len(part.ModelFrame.DoF()),
 	)
+}
+
+func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
+	// When a FrameSystemPart is serialized via ToProtobuf() and deserialized via
+	// ProtobufToFrameSystemPart() (simulating the gRPC path between modules),
+	// the reconstructed model must:
+	// 1. Have the same DoF as the original
+	// 2. Be re-serializable via KinematicModelToProtobuf with correct format (not UNSPECIFIED)
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldBeGreaterThan, 0)
+
+	lc := &LinkConfig{ID: "xarm6", Parent: "world", Translation: r3.Vector{1, 2, 3}}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	part := &FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+
+	// Simulate gRPC with actual proto wire serialization/deserialization.
+	pbMsg, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+
+	wireBytes, err := proto2.Marshal(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	received := &robotpb.FrameSystemConfig{}
+	err = proto2.Unmarshal(wireBytes, received)
+	test.That(t, err, test.ShouldBeNil)
+
+	restored, err := ProtobufToFrameSystemPart(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(restored.ModelFrame.DoF()), test.ShouldEqual, len(model.DoF()))
+
+	// The reconstructed model must be re-serializable with valid format.
+	kinResp := KinematicModelToProtobuf(restored.ModelFrame)
+	test.That(t, kinResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	test.That(t, len(kinResp.KinematicsData), test.ShouldBeGreaterThan, 0)
+
+	// And that response must parse back into a working model.
+	finalModel, err := KinematicModelFromProtobuf("xarm6", kinResp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(finalModel.DoF()), test.ShouldEqual, len(model.DoF()))
 }
 
 func TestFramesFromPart(t *testing.T) {

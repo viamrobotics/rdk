@@ -28,14 +28,14 @@ type ModelConfigJSON struct {
 	Joints       []JointConfig   `json:"joints,omitempty"`
 	DHParams     []DHParamConfig `json:"dhParams,omitempty"`
 	OutputFrames []string        `json:"output_frames,omitempty"`
-	OriginalFile *ModelFile
+	OriginalFile *ModelFile      `json:"original_file,omitempty"`
 }
 
 // ModelFile is a struct that stores the raw bytes of the file used to create the model as well as its extension,
 // which is useful for knowing how to unmarhsal it.
 type ModelFile struct {
-	Bytes     []byte
-	Extension string
+	Bytes     []byte `json:"bytes"`
+	Extension string `json:"extension"`
 }
 
 // UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,

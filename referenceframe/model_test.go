@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 	"testing"
@@ -338,6 +339,65 @@ func TestSimpleModelProtoRoundTrip(t *testing.T) {
 	test.That(t, restored, test.ShouldNotBeNil)
 	test.That(t, restored.Name(), test.ShouldEqual, "test")
 	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
+}
+
+func TestOriginalFilePreservedThroughJSON(t *testing.T) {
+	// Verify that OriginalFile (extension + raw bytes) survives JSON serialization,
+	// which is the mechanism used by FrameSystemPart.ToProtobuf/ProtobufToFrameSystemPart.
+
+	t.Run("SVA model preserves original file through JSON round-trip", func(t *testing.T) {
+		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "json")
+
+		// Round-trip through JSON (same path as ToProtobuf → ProtobufToFrameSystemPart).
+		bytes, err := original.MarshalJSON()
+		test.That(t, err, test.ShouldBeNil)
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "json")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		// The restored model should produce a valid proto with correct format.
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	})
+
+	t.Run("URDF model preserves original file through JSON round-trip", func(t *testing.T) {
+		original, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
+
+		bytes, err := original.MarshalJSON()
+		test.That(t, err, test.ShouldBeNil)
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+	})
 }
 
 // TestMimicGripperModel loads a branching gripper with mimic joints and verifies:

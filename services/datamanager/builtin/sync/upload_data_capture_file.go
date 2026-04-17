@@ -438,6 +438,10 @@ func getFileExtFromStringMimeType(mimeType string) string {
 		return data.ExtPcd
 	case utils.MimeTypeVideoMP4:
 		return data.ExtMP4
+	case utils.MimeTypeAudioWAV:
+		return data.ExtWav
+	case utils.MimeTypeAudioMPEG:
+		return data.ExtMP3
 	case utils.MimeTypeDefault:
 		fallthrough
 	default:

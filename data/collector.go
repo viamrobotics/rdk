@@ -24,8 +24,8 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// The cutoff at which if interval < cutoff, a sleep based capture func is used instead of a ticker.
-var sleepCaptureCutoff = 2 * time.Millisecond
+// The cutoff at which if interval < cutoff, a timer based capture func is used instead of a ticker.
+var timerCaptureCutoff = 2 * time.Millisecond
 
 // FromDMString is used to access the 'fromDataManagement' value from a request's Extra struct.
 const FromDMString = "fromDataManagement"
@@ -125,41 +125,42 @@ func (c *collector) Collect() {
 	c.logRoutine.Add(1)
 	utils.ManagedGo(c.logCaptureErrs, c.logRoutine.Done)
 
-	// We must wait on `started` before returning. The sleep/ticker based captures rely on the clock
+	// We must wait on `started` before returning. The timer/ticker based captures rely on the clock
 	// advancing to do their first "tick". They must make an initial clock reading before unittests
 	// add an "interval". Lest the ticker never fires and a reading is never made.
 	<-started
 }
 
-// Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
+// Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a timer based approach
 // when the configured capture interval is below 2ms. A Ticker based approach is kept for longer capture intervals to
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
 // [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture(started chan struct{}) {
-	if c.interval < sleepCaptureCutoff {
-		c.sleepBasedCapture(started)
+	if c.interval < timerCaptureCutoff {
+		c.timerBasedCapture(started)
 	} else {
 		c.tickerBasedCapture(started)
 	}
 }
 
-func (c *collector) sleepBasedCapture(started chan struct{}) {
+func (c *collector) timerBasedCapture(started chan struct{}) {
 	next := c.clock.Now().Add(c.interval)
-	until := c.clock.Until(next)
-
+	// Register the first timer before closing started. Collect() blocks on <-started,
+	// so this guarantees that by the time Collect() returns, the mock clock (in tests)
+	// already has a pending timer. mockClock.Add() can then never race with the goroutine
+	// registering its sleep.
+	ch := c.clock.After(c.clock.Until(next))
 	close(started)
 	for {
-		if err := c.cancelCtx.Err(); err != nil {
+		select {
+		case <-c.cancelCtx.Done():
 			return
-		}
-		c.clock.Sleep(until)
-		if err := c.cancelCtx.Err(); err != nil {
-			return
+		case <-ch:
 		}
 
 		c.getAndPushNextReading()
 		next = next.Add(c.interval)
-		until = c.clock.Until(next)
+		ch = c.clock.After(c.clock.Until(next))
 	}
 }
 
