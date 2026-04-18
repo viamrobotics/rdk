@@ -454,10 +454,11 @@ func formatAcceptedValues(description string, values ...string) string {
 }
 
 var app = &cli.Command{
-	Name:            "viam",
-	Usage:           "interact with your Viam machines",
-	UsageText:       "viam [global options] <command> [command options]",
-	HideHelpCommand: true,
+	Name:                  "viam",
+	Usage:                 "interact with your Viam machines",
+	UsageText:             "viam [global options] <command> [command options]",
+	EnableShellCompletion: true,
+	HideHelpCommand:       true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
