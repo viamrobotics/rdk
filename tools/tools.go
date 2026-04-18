@@ -12,6 +12,7 @@ import (
 	_ "github.com/rhysd/actionlint"
 	_ "golang.org/x/mobile/cmd/gomobile"
 	_ "golang.org/x/tools/cmd/stringer" // generates `String` methods for enums
+	_ "golang.org/x/vuln/cmd/govulncheck"
 	_ "gotest.tools/gotestsum"
 
 	// only needed for proto building in examples/customresources/apis/proto

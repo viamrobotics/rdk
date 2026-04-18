@@ -335,6 +335,10 @@ jobs:
       - name: Run CLI linter tests
         run: go run ./cli/internal/cli_lint ./cli
 
+      - name: Run govulncheck (warn-only)
+        continue-on-error: true
+        run: make govulncheck
+
   test_win:
     name: windows
     needs: [check-changes]

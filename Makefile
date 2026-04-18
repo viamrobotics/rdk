@@ -65,6 +65,9 @@ lint: lint-go actionlint
 actionlint:
 	PATH=$(PATH_WITH_TOOLS) actionlint
 
+govulncheck:
+	go run golang.org/x/vuln/cmd/govulncheck ./...
+
 generate-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) go generate ./...
 
