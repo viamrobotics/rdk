@@ -74,6 +74,10 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
+	AppName        string
+	AppType        string
+	LocalServer    bool
+	PackageManager string
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -145,9 +149,15 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		}
 	}
 
-	shared := &sharedInputs{}
-	if err := promptSharedInputs(shared); err != nil {
-		return err
+	shared := &sharedInputs{
+		Visibility: args.Visibility,
+		Namespace:  args.PublicNamespace,
+		RegisterOnApp: args.Register,
+	}
+	if shared.Visibility == "" || shared.Namespace == "" {
+		if err := promptSharedInputs(shared); err != nil {
+			return err
+		}
 	}
 
 	switch generateType {
@@ -201,10 +211,17 @@ type appTemplateData struct {
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
-	app := &appInputs{}
+	app := &appInputs{
+		AppName:        args.AppName,
+		AppType:        args.AppType,
+		LocalServer:    args.LocalServer,
+		PackageManager: args.PackageManager,
+	}
 
-	if err := promptAppUser(app, ""); err != nil {
-		return err
+	if app.AppName == "" || app.AppType == "" || app.PackageManager == "" {
+		if err := promptAppUser(app, ""); err != nil {
+			return err
+		}
 	}
 
 	gArgs, err := getGlobalArgs(cmd)

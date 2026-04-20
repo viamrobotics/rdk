@@ -98,6 +98,10 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagGenerateType    = "generate-type"
+	moduleFlagAppName         = "app-name"
+	moduleFlagAppType         = "app-type"
+	moduleFlagLocalServer     = "local-server"
+	moduleFlagPackageManager  = "package-manager"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -3483,6 +3487,26 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.BoolFlag{
 							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
+						},
+						&cli.StringFlag{
+							Name:   moduleFlagAppName,
+							Usage:  "name for the app",
+							Hidden: true,
+						},
+						&cli.StringFlag{
+							Name:   moduleFlagAppType,
+							Usage:  formatAcceptedValues("app type", "single_machine", "multi_machine"),
+							Hidden: true,
+						},
+						&cli.BoolFlag{
+							Name:   moduleFlagLocalServer,
+							Usage:  "enable local server for serving the app on the local network",
+							Hidden: true,
+						},
+						&cli.StringFlag{
+							Name:   moduleFlagPackageManager,
+							Usage:  formatAcceptedValues("package manager for frontend", "npm", "pnpm", "yarn", "bun"),
 							Hidden: true,
 						},
 					},
