@@ -43,6 +43,11 @@ func cppSDKBaseURL(version string) string {
 	return fmt.Sprintf("https://raw.githubusercontent.com/viamrobotics/viam-cpp-sdk/refs/tags/releases/v%s", version)
 }
 
+// We upload the conan.lock as a release artifact but it does not exist in the repo itself, so we need a different URL
+func cppSDKReleaseURL(version string) string {
+	return fmt.Sprintf("https://github.com/viamrobotics/viam-cpp-sdk/releases/download/releases/v%s", version)
+}
+
 // FetchRawTemplate fetches the content at url and returns it as a string.
 // It is a package-level var to allow overriding in tests.
 var FetchRawTemplate = func(url string) (string, error) {
@@ -585,7 +590,7 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 		return modulegen.CppRenderedFiles{}, err
 	}
 
-	conanLockRaw, err := FetchRawTemplate(base + "/etc/conan/conan.lock")
+	conanLockRaw, err := FetchRawTemplate(cppSDKReleaseURL(module.SDKVersion) + "/conan.lock")
 	if err != nil {
 		return modulegen.CppRenderedFiles{}, err
 	}
