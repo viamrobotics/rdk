@@ -188,6 +188,18 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 	return errors.New("combined module + app generation is not yet implemented")
 }
 
+// appTemplateData is the struct passed to app template rendering.
+type appTemplateData struct {
+	ModuleName     string
+	ModuleLowercase string
+	AppName        string
+	AppType        string
+	Namespace      string
+	Visibility     string
+	PackageManager string
+	SDKVersion     string
+}
+
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{}
 
@@ -195,7 +207,139 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		return err
 	}
 
-	return errors.New("app template generation is not yet implemented")
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	// Use app name as the module name (the app module wraps the webapp)
+	moduleName := app.AppName
+	data := appTemplateData{
+		ModuleName:      moduleName,
+		ModuleLowercase: strings.ReplaceAll(strings.ToLower(moduleName), "-", ""),
+		AppName:         app.AppName,
+		AppType:         app.AppType,
+		Namespace:       shared.Namespace,
+		Visibility:      shared.Visibility,
+		PackageManager:  app.PackageManager,
+	}
+
+	// Get latest SDK version
+	version, err := getLatestSDKTag(ctx, cmd, golang, globalArgs)
+	if err != nil {
+		return err
+	}
+	data.SDKVersion = version[1:]
+
+	// Create root directory
+	if err := setupDirectories(cmd, moduleName, globalArgs); err != nil {
+		return err
+	}
+
+	// Copy non-template files and render template files
+	if err := copyAppTemplate(cmd, moduleName, globalArgs); err != nil {
+		return err
+	}
+	if err := renderAppTemplate(cmd, moduleName, data, globalArgs); err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	printf(cmd.Root().Writer, "App module successfully generated at %s%s%s", cwd, string(os.PathSeparator), moduleName)
+	return nil
+}
+
+// copyAppTemplate copies non-template files from _templates/app/ into the output directory.
+func copyAppTemplate(cmd *cli.Command, moduleName string, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Copying app template files")
+	appPath := path.Join(templatesPath, "app")
+	tempDir, err := fs.Sub(templates, appPath)
+	if err != nil {
+		return err
+	}
+	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if filePath != "." {
+				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCreating directory %s", filePath)
+				if err := os.MkdirAll(filepath.Join(moduleName, filePath), 0o750); err != nil {
+					return err
+				}
+			}
+		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying file %s", filePath)
+			srcFile, err := templates.Open(path.Join(appPath, filePath))
+			if err != nil {
+				return errors.Wrapf(err, "error opening file %s", filePath)
+			}
+			defer utils.UncheckedErrorFunc(srcFile.Close)
+
+			destPath := filepath.Join(moduleName, filePath)
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return errors.Wrapf(err, "failed to create file %s", destPath)
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
+
+			if _, err := io.Copy(destFile, srcFile); err != nil {
+				return errors.Wrapf(err, "error copying file %s", destPath)
+			}
+		}
+		return nil
+	})
+}
+
+// renderAppTemplate renders tmpl- prefixed files from _templates/app/ with app-specific data.
+func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering app template files")
+	appPath := path.Join(templatesPath, "app")
+	tempDir, err := fs.Sub(templates, appPath)
+	if err != nil {
+		return err
+	}
+	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
+			destPath := filepath.Join(moduleName, strings.ReplaceAll(filePath, templatePrefix, ""))
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\tRendering file %s", destPath)
+
+			tFile, err := templates.Open(path.Join(appPath, filePath))
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(tFile.Close)
+			tBytes, err := io.ReadAll(tFile)
+			if err != nil {
+				return err
+			}
+
+			tmpl, err := template.New(filePath).Parse(string(tBytes))
+			if err != nil {
+				return err
+			}
+
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
+
+			if err := tmpl.Execute(destFile, data); err != nil {
+				return errors.Wrapf(err, "error rendering template %s", destPath)
+			}
+		}
+		return nil
+	})
 }
 
 func promptAppUser(app *appInputs, moduleLanguage string) error {
