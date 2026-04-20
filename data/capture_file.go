@@ -331,7 +331,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		// added by future server versions.
 		if wireType != protowire.BytesType {
 			var skipErr error
-			switch wireType {
+			switch wireType { //nolint:exhaustive
 			case protowire.VarintType:
 				_, skipErr = binary.ReadUvarint(inner)
 			case protowire.Fixed32Type:
@@ -352,7 +352,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			return nil, 0, nil, fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err)
 		}
 
-		switch fieldNum {
+		switch fieldNum { //nolint:exhaustive
 		case 1: // SensorMetadata
 			metaBytes := make([]byte, fieldLen)
 			if _, err := io.ReadFull(inner, metaBytes); err != nil {

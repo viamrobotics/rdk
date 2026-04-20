@@ -94,7 +94,8 @@ func uploadBinaryPayloads(
 		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
 		if payloadLen > MaxUnaryFileSize {
 			logger.Debugf("streaming large binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
-			if err := uploadLargeBinaryFromReader(ctx, conn.client, clonedMD, sensorMeta, r, f.GetPath(), logger, bytesUploadingCounter); err != nil {
+			if err := uploadLargeBinaryFromReader(ctx, conn.client, clonedMD, sensorMeta, r, f.GetPath(),
+				logger, bytesUploadingCounter); err != nil {
 				return 0, false, err
 			}
 		} else {
@@ -510,7 +511,6 @@ func sendStreamingDCRequests(
 			if err != nil {
 				return err
 			}
-
 		}
 	}
 }
