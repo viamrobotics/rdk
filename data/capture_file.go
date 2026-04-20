@@ -2,6 +2,8 @@ package data
 
 import (
 	"bufio"
+	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,6 +14,8 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	v1 "go.viam.com/api/app/datasync/v1"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"go.viam.com/rdk/resource"
@@ -272,6 +276,156 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 		ret = append(ret, next)
 	}
 	return ret, nil
+}
+
+// BinaryPayloadReader parses the next SensorData message in f without loading the binary
+// payload into memory. It returns the SensorMetadata, the exact byte length of the binary
+// payload, and an io.Reader that streams the raw binary bytes directly from the file.
+//
+// BinaryPayloadReader advances the read position on each call, so it can be called in a
+// loop to iterate over all SensorData messages in the file. Call f.Reset() before the
+// loop to start from the beginning.
+//
+// The returned io.Reader is backed by an io.SectionReader over the underlying os.File, so
+// it remains valid after BinaryPayloadReader returns and does not require the caller to hold
+// any lock. It returns io.EOF when there are no more messages.
+//
+// f must be a DATA_TYPE_BINARY_SENSOR capture file whose SensorData contains a binary oneof
+// field (field 3). It is not suitable for legacy camera.GetImages files, which store tabular
+// data despite the binary metadata type.
+func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reader, error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	if err := f.writer.Flush(); err != nil {
+		return nil, 0, nil, err
+	}
+
+	seekOffset := f.readOffset
+	if _, err := f.file.Seek(seekOffset, io.SeekStart); err != nil {
+		return nil, 0, nil, err
+	}
+
+	cr := &countingByteReader{r: f.file}
+
+	// Read the outer length-prefix varint (total SensorData message byte count).
+	// We use the value to advance readOffset past the full message so the next
+	// call picks up where this one left off.
+	outerLen, err := binary.ReadUvarint(cr)
+	if err != nil {
+		return nil, nil, err // io.EOF means no more messages
+	}
+	// Advance readOffset past this full outer-delimited message.
+	f.readOffset = seekOffset + cr.count + int64(outerLen)
+
+	var sensorMeta *v1.SensorMetadata
+	// binaryPayloadOffset/Len are set when we encounter field 3 before field 1.
+	// Proto spec does not guarantee field ordering, so we handle both orderings.
+	binaryPayloadOffset := int64(-1)
+	binaryPayloadLen := int64(0)
+
+	for {
+		tagVal, err := binary.ReadUvarint(cr)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, 0, nil, fmt.Errorf("reading SensorData field tag: %w", err)
+		}
+
+		fieldNum := protowire.Number(tagVal >> 3)
+		wireType := protowire.Type(tagVal & 0x7)
+
+		// Skip non-bytes wire type fields to remain forward-compatible with fields
+		// added by future server versions.
+		if wireType != protowire.BytesType {
+			var skipErr error
+			switch wireType {
+			case protowire.VarintType:
+				_, skipErr = binary.ReadUvarint(cr)
+			case protowire.Fixed32Type:
+				_, skipErr = io.CopyN(io.Discard, cr, 4)
+			case protowire.Fixed64Type:
+				_, skipErr = io.CopyN(io.Discard, cr, 8)
+			default:
+				return nil, 0, nil, fmt.Errorf("unsupported wire type %d for field %d in SensorData", wireType, fieldNum)
+			}
+			if skipErr != nil {
+				return nil, 0, nil, fmt.Errorf("skipping field %d (wire type %d): %w", fieldNum, wireType, skipErr)
+			}
+			continue
+		}
+
+		fieldLen, err := binary.ReadUvarint(cr)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err)
+		}
+
+		switch fieldNum {
+		case 1: // SensorMetadata
+			metaBytes := make([]byte, fieldLen)
+			if _, err := io.ReadFull(cr, metaBytes); err != nil {
+				return nil, 0, nil, fmt.Errorf("reading SensorMetadata bytes: %w", err)
+			}
+			sensorMeta = &v1.SensorMetadata{}
+			if err := proto.Unmarshal(metaBytes, sensorMeta); err != nil {
+				return nil, 0, nil, fmt.Errorf("unmarshaling SensorMetadata: %w", err)
+			}
+			// If we already encountered the binary field (field 3 before field 1),
+			// we now have everything we need.
+			if binaryPayloadOffset >= 0 {
+				return sensorMeta, binaryPayloadLen, io.NewSectionReader(f.file, binaryPayloadOffset, binaryPayloadLen), nil
+			}
+		case 3: // binary payload (SensorData.binary oneof field)
+			// cr.count is the number of bytes consumed since we seeked to seekOffset.
+			// The binary payload starts at this absolute file offset.
+			binaryPayloadOffset = seekOffset + cr.count
+			binaryPayloadLen = int64(fieldLen)
+			if sensorMeta != nil {
+				// Common case: metadata was field 1, came first.
+				return sensorMeta, binaryPayloadLen, io.NewSectionReader(f.file, binaryPayloadOffset, binaryPayloadLen), nil
+			}
+			// Metadata not yet seen; skip past the binary bytes and keep parsing.
+			if _, err := io.CopyN(io.Discard, cr, int64(fieldLen)); err != nil {
+				return nil, 0, nil, fmt.Errorf("skipping binary payload while seeking SensorMetadata: %w", err)
+			}
+		default:
+			// Skip any unrecognised fields (e.g. struct oneof, future fields).
+			if _, err := io.CopyN(io.Discard, cr, int64(fieldLen)); err != nil {
+				return nil, 0, nil, fmt.Errorf("skipping SensorData field %d: %w", fieldNum, err)
+			}
+		}
+	}
+
+	// Return whatever we found. If binaryPayloadOffset is still -1, no binary field
+	// exists (e.g. this is a tabular or legacy GetImages file).
+	if binaryPayloadOffset >= 0 {
+		return sensorMeta, binaryPayloadLen, io.NewSectionReader(f.file, binaryPayloadOffset, binaryPayloadLen), nil
+	}
+	return nil, 0, nil, errors.New("binary payload field not found in capture file")
+}
+
+// countingByteReader wraps an io.Reader and tracks the total number of bytes read.
+// It implements io.ByteReader so it can be passed to binary.ReadUvarint.
+type countingByteReader struct {
+	r     io.Reader
+	count int64
+}
+
+func (c *countingByteReader) ReadByte() (byte, error) {
+	var b [1]byte
+	n, err := c.r.Read(b[:])
+	c.count += int64(n)
+	if n == 1 {
+		return b[0], nil
+	}
+	return 0, err
+}
+
+func (c *countingByteReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.count += int64(n)
+	return n, err
 }
 
 // CaptureFilePathWithReplacedReservedChars returns the filepath with substitutions

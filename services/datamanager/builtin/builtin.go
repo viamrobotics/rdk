@@ -426,12 +426,12 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
 
-func (b *builtIn) UploadPath(ctx context.Context, path string, tags, datasetIDs []string, onProgress func(datamanager.UploadPathProgress), _ map[string]interface{}) error {
-	b.logger.Debug("UploadPath START")
-	defer b.logger.Debug("UploadPath END")
+func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, isSequence bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error) {
+	b.logger.Debug("UploadDataFromPath START")
+	defer b.logger.Debug("UploadDataFromPath END")
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return b.sync.UploadPathNow(ctx, path, tags, datasetIDs, onProgress)
+	return b.sync.UploadDataFromPath(ctx, path, uploadMetadata, isSequence)
 }
 
 type dataManagerStats struct {

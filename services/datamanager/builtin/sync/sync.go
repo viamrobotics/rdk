@@ -599,116 +599,73 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 	return <-errChan
 }
 
-// UploadPathNow uploads a file or directory at path to the cloud, streaming per-file progress
-// via onProgress. For directories, all files are attempted and errors collected with multierr.
-// Each file is deleted on success and moved to the failed directory on terminal error.
-func (s *Sync) UploadPathNow(ctx context.Context, path string, tags, datasetIDs []string, onProgress func(datamanager.UploadPathProgress)) error {
+// UploadDataFromPath uploads a file or directory at path to the cloud.
+// For directories, all files are attempted; errors are collected per-file.
+// Returns aggregate counts of files and bytes uploaded/failed.
+func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, _ bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error) {
 	select {
 	case <-s.cloudConn.ready:
 	default:
-		return errors.New("not connected to the cloud")
+		return 0, 0, 0, 0, errors.New("not connected to the cloud")
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return err
+		return 0, 0, 0, 0, err
 	}
 
 	s.configMu.Lock()
 	captureDir := s.config.CaptureDir
 	s.configMu.Unlock()
 
+	tags := uploadMetadata.GetTags()
+
+	uploadOne := func(filePath string) {
+		fi, statErr := os.Stat(filePath)
+		if statErr != nil {
+			filesFailed++
+			return
+		}
+		bytesTotal += uint64(fi.Size())
+
+		//nolint:gosec
+		f, openErr := os.Open(filePath)
+		if openErr != nil {
+			filesFailed++
+			return
+		}
+
+		var perFileCounter atomic.Uint64
+		if data.IsDataCaptureFile(f) {
+			if syncErr := s.syncDataCaptureFile(ctx, f, captureDir, s.logger); syncErr != nil {
+				filesFailed++
+			} else {
+				filesUploaded++
+				bytesUploaded += uint64(fi.Size())
+			}
+		} else {
+			if syncErr := s.syncArbitraryFile(ctx, f, tags, nil, 0, s.logger, &perFileCounter); syncErr != nil {
+				filesFailed++
+			} else {
+				filesUploaded++
+				bytesUploaded += perFileCounter.Load()
+			}
+		}
+	}
+
 	if info.IsDir() {
-		var errs []error
-		err := filepath.Walk(path, func(filePath string, fi os.FileInfo, err error) error {
-			if err != nil {
+		filepath.Walk(path, func(filePath string, fi os.FileInfo, walkErr error) error { //nolint:errcheck
+			if walkErr != nil || fi.IsDir() {
 				return nil
 			}
-			if fi.IsDir() {
-				return nil
-			}
-			if uploadErr := s.uploadPathNow(ctx, filePath, captureDir, tags, datasetIDs, onProgress); uploadErr != nil {
-				s.logger.Errorw("failed to upload file", "path", filePath, "error", uploadErr)
-				errs = append(errs, uploadErr)
-			}
+			uploadOne(filePath)
 			return ctx.Err()
 		})
-		return multierr.Combine(append(errs, err)...)
-	}
-	return s.uploadPathNow(ctx, path, captureDir, tags, datasetIDs, onProgress)
-}
-
-func (s *Sync) uploadPathNow(ctx context.Context, path, captureDir string, tags, datasetIDs []string, onProgress func(datamanager.UploadPathProgress)) error {
-	if filepath.Ext(path) == data.InProgressCaptureFileExt {
-		return errors.Errorf("cannot upload in-progress capture file: %s", path)
+	} else {
+		uploadOne(path)
 	}
 
-	if !s.fileTracker.markInProgress(path) {
-		return errors.Errorf("file is already being synced: %s", path)
-	}
-	defer s.fileTracker.unmarkInProgress(path)
-
-	info, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	bytesTotal := uint64(info.Size())
-
-	//nolint:gosec
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-
-	if data.IsDataCaptureFile(f) {
-		// capture files don't support intermediate progress — emit a single completion message
-		err := s.syncDataCaptureFile(ctx, f, captureDir, s.logger)
-		if onProgress != nil {
-			onProgress(datamanager.UploadPathProgress{
-				Path:       path,
-				BytesTotal: bytesTotal,
-				Success:    err == nil,
-				Err:        err,
-			})
-		}
-		return err
-	}
-
-	// for arbitrary files, poll the per-file bytes counter and stream progress
-	var perFileCounter atomic.Uint64
-	progressCtx, stopProgress := context.WithCancel(ctx)
-	defer stopProgress()
-	if onProgress != nil {
-		go func() {
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-progressCtx.Done():
-					return
-				case <-ticker.C:
-					onProgress(datamanager.UploadPathProgress{
-						Path:          path,
-						BytesUploaded: perFileCounter.Load(),
-						BytesTotal:    bytesTotal,
-					})
-				}
-			}
-		}()
-	}
-
-	err = s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, &perFileCounter)
-	stopProgress()
-	if onProgress != nil {
-		onProgress(datamanager.UploadPathProgress{
-			Path:          path,
-			BytesUploaded: bytesTotal,
-			BytesTotal:    bytesTotal,
-			Success:       err == nil,
-			Err:           err,
-		})
-	}
-	return err
+	return filesUploaded, filesFailed, bytesUploaded, bytesTotal, nil
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and

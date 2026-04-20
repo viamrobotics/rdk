@@ -24,6 +24,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/utils"
@@ -1334,6 +1335,19 @@ func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceS
 	req := &pb.SendTracesRequest{ResourceSpans: spans}
 	_, err := rc.client.SendTraces(ctx, req)
 	return err
+}
+
+// UploadDataFromPath uploads a file or directory to the cloud via the robot's data manager.
+func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, isSequence bool) (filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, err error) {
+	resp, err := rc.client.UploadDataFromPath(ctx, &pb.UploadDataFromPathRequest{
+		Path:           path,
+		UploadMetadata: uploadMetadata,
+		IsSequence:     isSequence,
+	})
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	return resp.GetFilesUploaded(), resp.GetFilesFailed(), resp.GetBytesUploaded(), resp.GetBytesTotal(), nil
 }
 
 // Tunnel tunnels data to/from the read writer from/to the destination port on the server. This
