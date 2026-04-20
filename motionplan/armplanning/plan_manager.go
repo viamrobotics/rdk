@@ -209,6 +209,13 @@ func (pm *planManager) planSingleGoal(
 		return nil, fmt.Errorf("linear with cbirrt not allowed and no direct solutions found")
 	}
 
+	// Try midpoint optimization before falling back to full CBiRRT
+	result, err := pm.tryMidpointOptimization(ctx, start, psc.startPoses, goal)
+	if err == nil {
+		return result, nil
+	}
+	pm.logger.Debugf("midpoint optimization failed: %v", err)
+
 	pm.logger.Debugf("initRRTSolutions goalMap size: %d", len(planSeed.maps.goalMap))
 	pathPlanner, err := newCBiRRTMotionPlanner(ctx, pm.pc, psc, pm.logger.Sublogger("cbirrt"))
 	if err != nil {
@@ -226,6 +233,108 @@ func (pm *planManager) planSingleGoal(
 	}
 
 	return finalSteps.steps, nil
+}
+
+// tryMidpointOptimization attempts to split the path at the midpoint and solve each half directly.
+// It first tries a normal midpoint (interpolating x, y, z, orientation at 0.5).
+// If the second half needs CBiRRT, it tries a constant-Z midpoint (keeping Z from start).
+// Returns combined path if both halves can be solved directly, error otherwise.
+func (pm *planManager) tryMidpointOptimization(
+	ctx context.Context,
+	start *referenceframe.LinearInputs,
+	startPoses referenceframe.FrameSystemPoses,
+	goal referenceframe.FrameSystemPoses,
+) ([]*referenceframe.LinearInputs, error) {
+
+	ctx, span := trace.StartSpan(ctx, "tryMidpointOptimization")
+	defer span.End()
+
+	
+	// Compute normal midpoint (interpolate all coordinates)
+	midGoal := referenceframe.FrameSystemPoses{}
+	for frameName, goalPIF := range goal {
+		startPIF := startPoses[frameName]
+		midPose := spatialmath.Interpolate(startPIF.Pose(), goalPIF.Pose(), 0.5)
+		midGoal[frameName] = referenceframe.NewPoseInFrame(goalPIF.Parent(), midPose)
+	}
+
+	// Try direct path to normal midpoint
+	pscMid, err := newPlanSegmentContext(ctx, pm.pc, start, midGoal)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plan context for midpoint: %w", err)
+	}
+	pscMid.ikSearchTimeMax = 100 * time.Millisecond
+	
+	seedMid, err := initRRTSolutions(ctx, pscMid, pm.logger.Sublogger("solve-mid"))
+	if err != nil || seedMid == nil || seedMid.steps == nil {
+		return nil, fmt.Errorf("no direct path to normal midpoint")
+	}
+
+	pm.logger.Debugf("midpoint optimization: found direct path to mid")
+	midConfig := seedMid.steps[len(seedMid.steps)-1]
+
+	// Try direct path from mid to goal
+	pscGoal, err := newPlanSegmentContext(ctx, pm.pc, midConfig, goal)
+	if err == nil {
+		pscGoal.ikSearchTimeMax = 100 * time.Millisecond
+		seedGoal, err := initRRTSolutions(ctx, pscGoal, pm.logger.Sublogger("solve-goal"))
+		if err == nil && seedGoal.steps != nil {
+			// Both halves work with normal midpoint!
+			pm.logger.Debugf("midpoint optimization: both halves direct, returning %d steps",
+				len(seedMid.steps)+len(seedGoal.steps))
+			combined := make([]*referenceframe.LinearInputs, 0, len(seedMid.steps)+len(seedGoal.steps))
+			combined = append(combined, seedMid.steps...)
+			combined = append(combined, seedGoal.steps...)
+			return combined, nil
+		}
+	}
+
+	// Second half failed - try alternative midpoint at goal's X,Y with start's Z
+	pm.logger.Debugf("second half failed, trying midpoint at goal's X,Y with start's Z")
+
+	// Create alternative midpoint: goal's X, Y position with start's Z
+	altMidGoal := referenceframe.FrameSystemPoses{}
+	for frameName, goalPIF := range goal {
+		startPIF := startPoses[frameName]
+		// Use goal's X, Y and orientation, but start's Z
+		goalPoint := goalPIF.Pose().Point()
+		startPoint := startPIF.Pose().Point()
+		altMidPoint := goalPoint
+		altMidPoint.Z = startPoint.Z
+		// Interpolate orientation between start and goal at 0.5
+		altMidPose := spatialmath.Interpolate(startPIF.Pose(), goalPIF.Pose(), 0.5)
+		altMidPoseWithZ := spatialmath.NewPose(altMidPoint, altMidPose.Orientation())
+		altMidGoal[frameName] = referenceframe.NewPoseInFrame(goalPIF.Parent(), altMidPoseWithZ)
+	}
+
+	// Try: start → alternative mid (goal X,Y with start Z)
+	pscAltMid, err := newPlanSegmentContext(ctx, pm.pc, start, altMidGoal)
+	if err == nil {
+		pscAltMid.ikSearchTimeMax = 100 * time.Millisecond
+		seedAltMid, err := initRRTSolutions(ctx, pscAltMid, pm.logger.Sublogger("solve-altmid"))
+		if err == nil && seedAltMid.steps != nil {
+			pm.logger.Debugf("alternative mid: found direct path to mid")
+			altMidConfig := seedAltMid.steps[len(seedAltMid.steps)-1]
+
+			// Try: alternative mid → goal
+			pscGoalFromAltMid, err := newPlanSegmentContext(ctx, pm.pc, altMidConfig, goal)
+			if err == nil {
+				pscGoalFromAltMid.ikSearchTimeMax = 100 * time.Millisecond
+				seedGoalFromAltMid, err := initRRTSolutions(ctx, pscGoalFromAltMid, pm.logger.Sublogger("solve-goal-from-altmid"))
+				if err == nil && seedGoalFromAltMid.steps != nil {
+					// Success! Return start → alternative mid → goal
+					pm.logger.Debugf("alternative mid: both halves direct, returning %d steps",
+						len(seedAltMid.steps)+len(seedGoalFromAltMid.steps))
+					combined := make([]*referenceframe.LinearInputs, 0, len(seedAltMid.steps)+len(seedGoalFromAltMid.steps))
+					combined = append(combined, seedAltMid.steps...)
+					combined = append(combined, seedGoalFromAltMid.steps...)
+					return combined, nil
+				}
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("midpoint optimization failed: alternative midpoint strategy did not work")
 }
 
 // generateWaypoints will return the list of atomic waypoints that correspond to a specific goal in a plan request.
