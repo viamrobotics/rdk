@@ -40,6 +40,27 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 	return protoutils.StructToStructPb(field)
 }
 
+func CallerFromProto(caller *structpb.Struct) zapcore.EntryCaller {
+	ret := zapcore.EntryCaller{}
+	if defined, ok := caller.Fields["Defined"]; ok {
+		ret.Defined = defined.GetBoolValue()
+	}
+
+	if file, ok := caller.Fields["File"]; ok {
+		ret.File = file.GetStringValue()
+	}
+
+	if fn, ok := caller.Fields["Function"]; ok {
+		ret.Function = fn.GetStringValue()
+	}
+
+	if ln, ok := caller.Fields["Line"]; ok {
+		ret.Line = int(ln.GetNumberValue())
+	}
+
+	return ret
+}
+
 // FieldFromProto unmarshals a proto-encoded zap.Field.
 func FieldFromProto(field *structpb.Struct) (zap.Field, error) {
 	fieldJSON, err := json.Marshal(field)
