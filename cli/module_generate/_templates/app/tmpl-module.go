@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 
-	"github.com/erh/vmodutils"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -32,9 +32,8 @@ type webApp struct {
 	resource.AlwaysRebuild
 
 	name   resource.Name
-	srv    resource.Resource
+	server *http.Server
 	logger logging.Logger
-	cfg    *Config
 }
 
 func init() {
@@ -45,38 +44,52 @@ func init() {
 	)
 }
 
-func NewServer(ctx context.Context, deps resource.Dependencies, rawConf resource.Config, logger logging.Logger) (resource.Resource, error) {
+func NewServer(_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger) (resource.Resource, error) {
 	conf, err := resource.NativeConfig[*Config](rawConf)
 	if err != nil {
 		return nil, err
 	}
-	return newWebApp(ctx, deps, rawConf.ResourceName(), conf, logger)
+	return newWebApp(rawConf.ResourceName(), conf, logger)
 }
 
-func newWebApp(ctx context.Context, deps resource.Dependencies, name resource.Name, conf *Config, logger logging.Logger) (resource.Resource, error) {
-	fs, err := distFS()
+func newWebApp(name resource.Name, conf *Config, logger logging.Logger) (resource.Resource, error) {
+	distFiles, err := distFS()
 	if err != nil {
 		return nil, err
 	}
 
-	server, err := vmodutils.NewWebModuleWithCookies(name, fs, logger, nil)
-	if err != nil {
-		return nil, err
+	mux := http.NewServeMux()
+	mux.Handle("/", http.FileServerFS(distFiles))
+
+	handler := &cookieSetter{
+		handler: mux,
+		logger:  logger,
 	}
+	handler.addEnvCookie("MACHINE_FQDN", "host")
+	handler.addEnvCookie("API_KEY_ID", "api-key-id")
+	handler.addEnvCookie("API_KEY", "api-key")
 
 	port := 8888
 	if conf.Port != nil {
 		port = *conf.Port
 	}
-	if err := server.Start(port); err != nil {
-		return nil, err
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handler,
 	}
+
+	logger.Infof("starting web app server on port %d", port)
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Errorf("web app server error: %v", err)
+		}
+	}()
 
 	return &webApp{
 		name:   name,
-		srv:    server,
+		server: server,
 		logger: logger,
-		cfg:    conf,
 	}, nil
 }
 
@@ -84,10 +97,36 @@ func (w *webApp) Name() resource.Name {
 	return w.name
 }
 
-func (w *webApp) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+func (w *webApp) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
 	return nil, nil
 }
 
-func (w *webApp) Close(ctx context.Context) error {
-	return w.srv.Close(ctx)
+func (w *webApp) Status(_ context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{"status": "running"}, nil
+}
+
+func (w *webApp) Close(_ context.Context) error {
+	return w.server.Close()
+}
+
+// cookieSetter is an http.Handler that injects credential cookies into every response.
+type cookieSetter struct {
+	handler http.Handler
+	cookies []*http.Cookie
+	logger  logging.Logger
+}
+
+func (cs *cookieSetter) addEnvCookie(envVar, cookieName string) {
+	v := os.Getenv(envVar)
+	if v == "" {
+		cs.logger.Warnf("no value for env var %s (cookie %s)", envVar, cookieName)
+	}
+	cs.cookies = append(cs.cookies, &http.Cookie{Name: cookieName, Value: v})
+}
+
+func (cs *cookieSetter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	for _, c := range cs.cookies {
+		http.SetCookie(w, c)
+	}
+	cs.handler.ServeHTTP(w, r)
 }
