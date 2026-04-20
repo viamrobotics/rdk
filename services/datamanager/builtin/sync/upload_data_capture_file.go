@@ -2,7 +2,9 @@ package sync
 
 import (
 	"bytes"
+	"bytes"
 	"context"
+	"io"
 	"io"
 	"sync/atomic"
 
@@ -415,6 +417,7 @@ func uploadLargeBinarySensorData(
 
 	// Then call the function to send the rest.
 	if err := sendStreamingDCRequests(ctx, c, bytes.NewReader(sd.GetBinary()), path, logger, bytesUploadingCounter); err != nil {
+	if err := sendStreamingDCRequests(ctx, c, bytes.NewReader(sd.GetBinary()), path, logger, bytesUploadingCounter); err != nil {
 		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
 	}
 
@@ -468,39 +471,100 @@ func uploadLargeBinaryFromReader(
 	return nil
 }
 
+// uploadLargeBinaryFromReader streams the binary payload from r without loading it
+// into memory. sensorMeta may be nil if the capture file had no SensorMetadata.
+func uploadLargeBinaryFromReader(
+	ctx context.Context,
+	client datasyncPB.DataSyncServiceClient,
+	md *datasyncPB.UploadMetadata,
+	sensorMeta *datasyncPB.SensorMetadata,
+	r io.Reader,
+	path string,
+	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
+) error {
+	c, err := client.StreamingDataCaptureUpload(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error creating StreamingDataCaptureUpload client")
+	}
+
+	fileExtensionFromMimeType := getFileExtFromStringMimeType(md.GetMimeType())
+	if fileExtensionFromMimeType != "" {
+		md.FileExtension = fileExtensionFromMimeType
+	}
+
+	if err := c.Send(&datasyncPB.StreamingDataCaptureUploadRequest{
+		UploadPacket: &datasyncPB.StreamingDataCaptureUploadRequest_Metadata{
+			Metadata: &datasyncPB.DataCaptureUploadMetadata{
+				UploadMetadata: md,
+				SensorMetadata: sensorMeta,
+			},
+		},
+	}); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata")
+	}
+
+	if err := sendStreamingDCRequests(ctx, c, r, path, logger, bytesUploadingCounter); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
+	}
+
+	if _, err = c.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed")
+	}
+	return nil
+}
+
 func sendStreamingDCRequests(
 	ctx context.Context,
 	stream datasyncPB.DataSyncService_StreamingDataCaptureUploadClient,
+	r io.Reader,
 	r io.Reader,
 	path string,
 	logger logging.Logger,
 	bytesUploadingCounter *atomic.Uint64,
 ) error {
 	buf := make([]byte, UploadChunkSize)
+	buf := make([]byte, UploadChunkSize)
 	chunkCount := 0
+	for {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
+		}
 
+		n, err := io.ReadFull(r, buf)
+		if n > 0 {
 		n, err := io.ReadFull(r, buf)
 		if n > 0 {
 			uploadReq := &datasyncPB.StreamingDataCaptureUploadRequest{
 				UploadPacket: &datasyncPB.StreamingDataCaptureUploadRequest_Data{
+					Data: buf[:n],
 					Data: buf[:n],
 				},
 			}
 			logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d for file: %s", chunkCount, path)
 			if sendErr := stream.Send(uploadReq); sendErr != nil {
 				return sendErr
+			logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d for file: %s", chunkCount, path)
+			if sendErr := stream.Send(uploadReq); sendErr != nil {
+				return sendErr
 			}
 			if bytesUploadingCounter != nil {
+				bytesUploadingCounter.Add(uint64(n))
 				bytesUploadingCounter.Add(uint64(n))
 			}
 			chunkCount++
 		}
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil
 		}
