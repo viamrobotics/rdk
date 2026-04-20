@@ -590,6 +590,7 @@ type reloadModuleArgs struct {
 	Workdir      string
 	ResourceName string
 	Path         string
+	Annotation   string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -879,6 +880,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	if err != nil {
 		return "", err
 	}
+
 	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
 		Name:           moduleID.name,
@@ -1321,7 +1323,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), reloadTime.Unix())
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix())
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {
