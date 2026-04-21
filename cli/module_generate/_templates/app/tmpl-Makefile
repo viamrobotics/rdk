@@ -58,6 +58,7 @@ frontend: node_modules
 dist/index.html: frontend
 
 setup:
+	go get github.com/erh/vmodutils@latest
 	go mod tidy
 	$(INSTALL_NODE)
 	$(INSTALL_PKG_MGR)
