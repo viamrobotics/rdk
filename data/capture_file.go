@@ -26,6 +26,14 @@ import (
 // file that stores tabular data in a BINARY_SENSOR-typed capture file.
 var ErrNoBinaryField = errors.New("binary payload field not found in capture file")
 
+// ErrSensorMetadataTooLarge is returned by BinaryPayloadReader when the SensorMetadata
+// field exceeds the size cap, indicating a corrupt or unexpected file.
+var ErrSensorMetadataTooLarge = errors.New("SensorMetadata field exceeds size limit")
+
+// ErrUnparsableBinaryCapture is returned by BinaryPayloadReader when the file cannot
+// be streamed due to an unexpected wire format (e.g. unknown wire type).
+var ErrUnparsableBinaryCapture = errors.New("capture file cannot be streamed due to unexpected wire format")
+
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 const (
@@ -287,7 +295,7 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 // the binary payload into memory. It returns the SensorMetadata, payload size,
 // and an io.Reader for streaming the payload.
 //
-// Binary capture files always contain exactly one SensorData message (WriteBinary
+// Binary capture files contain one SensorData message (WriteBinary
 // writes one message per file), so this is typically called once. The readOffset
 // is advanced past the message regardless, consistent with ReadNext.
 // Returns io.EOF when no messages remain.
@@ -312,16 +320,18 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 	}
 
 	// The capture file is a sequence of length-delimited protobuf records. Each record
-	// is: [outerLen varint] [SensorData proto bytes (outerLen bytes)].
+	// is: [outerLen varint] [SensorData proto bytes].
 	// Read outerLen so we know where this message ends and the next begins.
 	varintCR := &countingByteReader{r: f.file}
 	outerLen, err := binary.ReadUvarint(varintCR)
 	if err != nil {
 		return nil, 0, nil, err // io.EOF means no more messages
 	}
+
 	// msgStart is the absolute file offset of the first byte of the SensorData fields
 	// (i.e., just past the outerLen varint). We use this later to anchor the SectionReader.
 	msgStart := seekOffset + varintCR.count
+
 	// Advance readOffset past this entire record so the next call starts at the right place,
 	// regardless of how much of the payload the caller actually consumes.
 	f.readOffset = msgStart + int64(outerLen)
@@ -352,8 +362,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		wireType := protowire.Type(tagVal & 0x7)
 
 		// Skip any non-length-delimited field (varint, fixed32, fixed64) by consuming its
-		// fixed-width value and moving on. We don't expect these in SensorData today, but
-		// handling them keeps the parser forward-compatible.
+		// fixed-width value and moving on.
 		if wireType != protowire.BytesType {
 			var skipErr error
 			switch wireType { //nolint:exhaustive
@@ -364,7 +373,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			case protowire.Fixed64Type:
 				_, skipErr = io.CopyN(io.Discard, inner, 8)
 			default:
-				return nil, 0, nil, fmt.Errorf("unsupported wire type %d for field %d in SensorData", wireType, fieldNum)
+				return nil, 0, nil, fmt.Errorf("%w: unsupported wire type %d for field %d", ErrUnparsableBinaryCapture, wireType, fieldNum)
 			}
 			if skipErr != nil {
 				return nil, 0, nil, fmt.Errorf("skipping field %d (wire type %d): %w", fieldNum, wireType, skipErr)
@@ -382,7 +391,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 		case 1: // SensorMetadata — small proto message, safe to read fully into memory.
 			const maxSensorMetaBytes = 1024 * 1024 // 1 MiB; metadata is always tiny in practice
 			if fieldLen > maxSensorMetaBytes {
-				return nil, 0, nil, fmt.Errorf("SensorMetadata field length %d exceeds limit %d (corrupt file?)", fieldLen, maxSensorMetaBytes)
+				return nil, 0, nil, fmt.Errorf("%w: %d bytes (limit %d)", ErrSensorMetadataTooLarge, fieldLen, maxSensorMetaBytes)
 			}
 			metaBytes := make([]byte, fieldLen)
 			if _, err := io.ReadFull(inner, metaBytes); err != nil {
@@ -392,7 +401,7 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			if err := proto.Unmarshal(metaBytes, sensorMeta); err != nil {
 				return nil, 0, nil, fmt.Errorf("unmarshaling SensorMetadata: %w", err)
 			}
-		case 3: // binary payload (SensorData.binary oneof field) — potentially large, don't buffer.
+		case 3: // binary payload (SensorData.binary oneof field)
 			if sensorMeta == nil {
 				return nil, 0, nil, errors.New("binary payload field appeared before SensorMetadata in capture file")
 			}
