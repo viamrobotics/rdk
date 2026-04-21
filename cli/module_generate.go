@@ -418,8 +418,6 @@ func promptAppUser(app *appInputs, moduleLanguage string) error {
 				Options(
 					huh.NewOption("npm", "npm"),
 					huh.NewOption("pnpm", "pnpm"),
-					huh.NewOption("yarn", "yarn"),
-					huh.NewOption("bun", "bun"),
 				).
 				Value(&app.PackageManager),
 		),
