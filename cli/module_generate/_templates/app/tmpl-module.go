@@ -4,6 +4,9 @@ import (
 	"context"
 	"embed"
 	"io/fs"
+{{- if .LocalServer }}
+	"net/http"
+{{- end }}
 
 	"github.com/erh/vmodutils"
 	"go.viam.com/rdk/components/generic"
@@ -50,5 +53,19 @@ func NewServer(_ context.Context, _ resource.Dependencies, rawConf resource.Conf
 		port = *conf.Port
 	}
 
+{{- if .LocalServer }}
+
+	isLocalCookie := &http.Cookie{Name: "is_local", Value: "true"}
+	m, err := vmodutils.NewWebModuleWithCookies(rawConf.ResourceName(), fs, logger, []*http.Cookie{isLocalCookie})
+	if err != nil {
+		return nil, err
+	}
+	if err := m.Start(port); err != nil {
+		return nil, err
+	}
+	return m, nil
+{{- else }}
+
 	return vmodutils.NewWebModuleAndStart(rawConf.ResourceName(), fs, logger, port)
+{{- end }}
 }

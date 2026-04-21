@@ -200,14 +200,15 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 
 // appTemplateData is the struct passed to app template rendering.
 type appTemplateData struct {
-	ModuleName     string
+	ModuleName      string
 	ModuleLowercase string
-	AppName        string
-	AppType        string
-	Namespace      string
-	Visibility     string
-	PackageManager string
-	SDKVersion     string
+	AppName         string
+	AppType         string
+	Namespace       string
+	Visibility      string
+	PackageManager  string
+	SDKVersion      string
+	LocalServer     bool
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -263,6 +264,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		Namespace:       moduleInputs.Namespace,
 		Visibility:      shared.Visibility,
 		PackageManager:  app.PackageManager,
+		LocalServer:     app.LocalServer,
 	}
 
 	// Get latest SDK version

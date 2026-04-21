@@ -1,4 +1,5 @@
 import { createRobotClient } from '@viamrobotics/sdk';
+import { getCookie } from 'typescript-cookie';
 import { getHostAndCredentials } from './lib/auth';
 
 const statusEl = document.getElementById('status')!;
@@ -15,7 +16,7 @@ async function main() {
         const machine = await createRobotClient({
             host,
             credentials,
-            signalingAddress: 'https://app.viam.com:443',
+            signalingAddress: getCookie('is_local') ? 'http://localhost:8080' : 'https://app.viam.com',
         });
         statusEl.textContent = 'Connected to ' + host;
 
