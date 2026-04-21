@@ -66,7 +66,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/interceptor v0.1.42
 	github.com/pion/logging v0.2.4
-	github.com/pion/mediadevices v0.9.0
+	github.com/pion/mediadevices v0.10.0
 	github.com/pion/rtp v1.8.26
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
@@ -348,5 +348,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
-
-replace github.com/pion/mediadevices => ../sean-mediadevices
