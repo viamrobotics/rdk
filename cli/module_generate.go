@@ -232,12 +232,35 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 
 	// Use app name as the module name (the app module wraps the webapp)
 	moduleName := app.AppName
+
+	// Resolve org and optionally register with Viam
+	moduleInputs := &modulegen.ModuleInputs{
+		ModuleName:    moduleName,
+		Namespace:     shared.Namespace,
+		RegisterOnApp: shared.RegisterOnApp,
+	}
+	if !args.DryRun {
+		if err := wrapResolveOrg(ctx, cmd, c, moduleInputs); err != nil {
+			return err
+		}
+	}
+
+	var registryURL string
+	if shared.RegisterOnApp {
+		debugf(cmd.Root().Writer, globalArgs.Debug, "Registering app with Viam")
+		moduleResponse, err := c.createModule(ctx, moduleName, moduleInputs.OrgID)
+		if err != nil {
+			return errors.Wrap(err, "failed to register app")
+		}
+		registryURL = moduleResponse.GetUrl()
+	}
+
 	data := appTemplateData{
 		ModuleName:      moduleName,
 		ModuleLowercase: strings.ReplaceAll(strings.ToLower(moduleName), "-", ""),
 		AppName:         app.AppName,
 		AppType:         app.AppType,
-		Namespace:       shared.Namespace,
+		Namespace:       moduleInputs.Namespace,
 		Visibility:      shared.Visibility,
 		PackageManager:  app.PackageManager,
 	}
@@ -267,6 +290,9 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		cwd = "."
 	}
 	printf(cmd.Root().Writer, "App module successfully generated at %s%s%s", cwd, string(os.PathSeparator), moduleName)
+	if registryURL != "" {
+		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
+	}
 	return nil
 }
 

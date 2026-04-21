@@ -1,0 +1,26 @@
+# Node.js dependencies
+node_modules/
+
+# Build outputs
+dist/
+bin/
+
+# Archive files
+*.tar.gz
+.VIAM_RELOAD_ARCHIVE.tar.gz
+reload-*/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
