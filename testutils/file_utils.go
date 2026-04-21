@@ -114,10 +114,18 @@ func symlinkTempDir(tb testing.TB, realPath string) string {
 // resulting executable binary into a temporary directory. If successful, this function will
 // return the path to the executable binary.
 func BuildTempModule(tb testing.TB, modDir string) string {
+	return BuildTempModuleWithOpts(tb, modDir, "", "")
+}
+
+// BuildTempModuleWithOpts is like BuildTempModule but allows an ldflags string and a
+// variant suffix so the same source directory can be built into multiple distinct
+// binaries (e.g. for version-specific tests that set -X main.VERSION).
+func BuildTempModuleWithOpts(tb testing.TB, modDir, variant, ldflags string) string {
 	tb.Helper()
 
+	mutKey := modDir + "|" + variant
 	// todo: cross-test-process locking instead of per-package
-	mut := buildMutex.get(modDir)
+	mut := buildMutex.get(mutKey)
 	mut.Lock()
 	defer mut.Unlock()
 
@@ -127,8 +135,12 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 	// todo: clean this up at the beginning and end of each test run
 	// exePath is a stable temporary location for this temp module; it will be
 	// reused by all tests running in this process.
+	baseName := filepath.Base(modDir)
+	if variant != "" {
+		baseName += "-" + variant
+	}
 	exePath := filepath.Join(os.TempDir(), "rdk-build", strconv.Itoa(os.Getpid()),
-		dirHash, filepath.Base(modDir))
+		dirHash, baseName)
 	if runtime.GOOS == "windows" {
 		exePath += ".exe"
 	}
@@ -137,8 +149,13 @@ func BuildTempModule(tb testing.TB, modDir string) string {
 		return symlinkTempDir(tb, exePath)
 	}
 
+	buildArgs := []string{"build", "-o", exePath}
+	if ldflags != "" {
+		buildArgs = append(buildArgs, "-ldflags", ldflags)
+	}
+	buildArgs = append(buildArgs, ".")
 	//nolint:gosec
-	builder := exec.Command("go", "build", "-o", exePath, ".")
+	builder := exec.Command("go", buildArgs...)
 	builder.Dir = utils.ResolveFile(modDir)
 	out, err := builder.CombinedOutput()
 	// NOTE (Nick S): Workaround for the tickets below:

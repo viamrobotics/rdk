@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_type:
-        default: latest
+        default: pr
         required: true
         type: choice
-        options: [latest, stable, pr]
+        options: [pr, latest, stable]
   workflow_call:
     inputs:
       release_type:
@@ -19,55 +19,50 @@ on:
 
 jobs:
   viam-cli:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-large
     steps:
     - name: Check out code
       if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     - name: Check out PR branch code
       if: github.event_name == 'pull_request_target'
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: 0
 
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
 
-    - uses: actions/setup-python@v5
-      with:
-        python-version: 3.12
-        cache-dependency-path: cli/test-requirements.txt
-
-    - run: |
-        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
-        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
-        python -m venv .venv
-        source .venv/bin/activate
-        pip install -r cli/test-requirements.txt
-        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
-        rm meta.json meta2.json
-
     - name: build
+      shell: bash
       env:
         CI_RELEASE: ${{ inputs.release_type }}
       run: |
-        GOOS=linux GOARCH=amd64 make cli-ci
-        GOOS=linux GOARCH=arm64 make cli-ci
-        GOOS=darwin GOARCH=amd64 make cli-ci
-        GOOS=darwin GOARCH=arm64 make cli-ci
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
+        pids=()
+        GOOS=linux   GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=linux   GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe   make cli-ci & pids+=($!)
+        for pid in "${pids[@]}"; do wait "$pid" || exit 1; done
 
     - name: tagged alias
+      shell: bash
       env:
          CI_RELEASE: ${{ github.ref_name }}
       if: inputs.release_type == 'stable'
       run: |
-        GOOS=linux GOARCH=amd64 make cli-ci
-        GOOS=linux GOARCH=arm64 make cli-ci
-        GOOS=darwin GOARCH=amd64 make cli-ci
-        GOOS=darwin GOARCH=arm64 make cli-ci
-        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe make cli-ci
+        pids=()
+        GOOS=linux   GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=linux   GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=amd64                    make cli-ci & pids+=($!)
+        GOOS=darwin  GOARCH=arm64                    make cli-ci & pids+=($!)
+        GOOS=windows GOARCH=amd64 EXE_SUFFIX=.exe   make cli-ci & pids+=($!)
+        for pid in "${pids[@]}"; do wait "$pid" || exit 1; done
 
     - name: Authorize GCP Upload
       if: inputs.release_type != 'pr'
@@ -83,3 +78,17 @@ jobs:
         glob: 'viam-cli-*'
         destination: 'packages.viam.com/apps/viam-cli/'
         parent: false
+
+    - name: Validate module schema
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.12
+        cache-dependency-path: cli/test-requirements.txt
+    - run: |
+        go run -tags no_cgo ./cli/viam/ module create --local-only --name schematest --public-namespace ns
+        cat meta.json | jq '.models = [{"api": "x:y:z", "model": "x:y:z"}]' > meta2.json
+        python -m venv .venv
+        source .venv/bin/activate
+        pip install -r cli/test-requirements.txt
+        check-jsonschema --schemafile ./cli/module.schema.json meta2.json
+        rm meta.json meta2.json

@@ -13,6 +13,7 @@ type AudioIn struct {
 	audioin.AudioIn
 	name         resource.Name
 	DoFunc       func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc   func(ctx context.Context) (map[string]interface{}, error)
 	GetAudioFunc func(ctx context.Context, codec string, durationSeconds float32, previousTimestampNs int64, extra map[string]interface{}) (
 		chan *audioin.AudioChunk, error)
 	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
@@ -64,4 +65,15 @@ func (a *AudioIn) Close(ctx context.Context) error {
 		return a.AudioIn.Close(ctx)
 	}
 	return a.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (a *AudioIn) Status(ctx context.Context) (map[string]interface{}, error) {
+	if a.StatusFunc != nil {
+		return a.StatusFunc(ctx)
+	}
+	if a.AudioIn != nil {
+		return a.AudioIn.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

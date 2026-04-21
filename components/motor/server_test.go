@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/motor/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -26,6 +27,7 @@ var (
 	errIsPoweredFailed     = errors.New("could not determine if motor is on")
 	errGoToFailed          = errors.New("go to failed")
 	errSetRPMFailed        = errors.New("set rpm failed")
+	errGetStatusFailed     = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
@@ -308,4 +310,33 @@ func TestServerExtraParams(t *testing.T) {
 
 	test.That(t, actualExtra["foo"], test.ShouldEqual, expectedExtra["foo"])
 	test.That(t, actualExtra["baz"], test.ShouldResemble, expectedExtra["baz"])
+}
+
+func TestServerGetStatus(t *testing.T) {
+	motorServer, workingMotor, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = motorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: fakeMotorName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := motorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMotorName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingMotor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = motorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMotorName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingMotor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = motorServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMotorName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	workingMotor.StatusFunc = nil
 }

@@ -11,10 +11,11 @@ import (
 // PoseTracker is an injected pose tracker.
 type PoseTracker struct {
 	posetracker.PoseTracker
-	name      resource.Name
-	PosesFunc func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
-	DoFunc    func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	CloseFunc func() error
+	name       resource.Name
+	PosesFunc  func(ctx context.Context, bodyNames []string, extra map[string]interface{}) (referenceframe.FrameSystemPoses, error)
+	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc  func() error
 }
 
 // NewPoseTracker returns a new injected pose tracker.
@@ -54,4 +55,15 @@ func (pT *PoseTracker) Close(ctx context.Context) error {
 		return pT.PoseTracker.Close(ctx)
 	}
 	return pT.CloseFunc()
+}
+
+// Status calls the injected Status or the real version.
+func (pT *PoseTracker) Status(ctx context.Context) (map[string]interface{}, error) {
+	if pT.StatusFunc != nil {
+		return pT.StatusFunc(ctx)
+	}
+	if pT.PoseTracker != nil {
+		return pT.PoseTracker.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

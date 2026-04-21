@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	stderrors "errors"
 	"os"
 	"path"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"go.viam.com/utils/perf"
@@ -42,13 +43,13 @@ type traceImportLocalArgs struct {
 	Endpoint string
 }
 
-func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error {
-	client, err := newViamClient(ctx)
+func traceImportRemoteAction(ctx context.Context, cmd *cli.Command, args traceImportRemoteArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(ctx)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -61,6 +62,7 @@ func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error
 	defer os.RemoveAll(tmp)
 	if err := client.tracesGetRemoteAction(
 		ctx,
+		cmd,
 		traceGetRemoteArgs{
 			Organization: args.Organization,
 			Location:     args.Location,
@@ -75,7 +77,7 @@ func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error
 		return err
 	}
 
-	return traceImportLocal(ctx, traceImportLocalArgs{
+	return traceImportLocal(ctx, cmd, traceImportLocalArgs{
 		Endpoint: args.Endpoint,
 	},
 		filepath.Join(tmp, "traces"),
@@ -83,14 +85,15 @@ func traceImportRemoteAction(ctx *cli.Context, args traceImportRemoteArgs) error
 }
 
 func (c *viamClient) tracesGetRemoteAction(
-	ctx *cli.Context,
+	goCtx context.Context,
+	ctx *cli.Command,
 	flagArgs traceGetRemoteArgs,
 	target string,
 	getAll bool,
 	debug bool,
 	logger logging.Logger,
 ) error {
-	part, err := c.robotPart(flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
+	part, err := c.robotPart(goCtx, flagArgs.Organization, flagArgs.Location, flagArgs.Machine, flagArgs.Part)
 	if err != nil {
 		return err
 	}
@@ -108,9 +111,10 @@ func (c *viamClient) tracesGetRemoteAction(
 	var startTime time.Time
 	if !quiet {
 		startTime = time.Now()
-		printf(ctx.App.Writer, "Saving to %s ...", path.Join(target))
+		printf(ctx.Root().Writer, "Saving to %s ...", path.Join(target))
 	}
 	if err := c.copyFilesFromMachine(
+		goCtx,
 		flagArgs.Organization,
 		flagArgs.Location,
 		flagArgs.Machine,
@@ -130,21 +134,18 @@ func (c *viamClient) tracesGetRemoteAction(
 		return err
 	}
 	if !quiet {
-		printf(ctx.App.Writer, "Download finished in %s.", time.Since(startTime))
+		printf(ctx.Root().Writer, "Download finished in %s.", time.Since(startTime))
 	}
 	return nil
 }
 
-func tracePrintRemoteAction(
-	ctx *cli.Context,
-	args traceGetRemoteArgs,
-) error {
-	client, err := newViamClient(ctx)
+func tracePrintRemoteAction(ctx context.Context, cmd *cli.Command, args traceGetRemoteArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(ctx)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -157,6 +158,7 @@ func tracePrintRemoteAction(
 	defer os.RemoveAll(tmp)
 	if err := client.tracesGetRemoteAction(
 		ctx,
+		cmd,
 		args,
 		tmp,
 		false,
@@ -165,10 +167,10 @@ func tracePrintRemoteAction(
 	); err != nil {
 		return err
 	}
-	return tracePrintLocal(ctx, filepath.Join(tmp, "traces"))
+	return tracePrintLocal(ctx, cmd, filepath.Join(tmp, "traces"))
 }
 
-func getSingularArg(ctx *cli.Context) (string, error) {
+func getSingularArg(ctx *cli.Command) (string, error) {
 	cliArgs := ctx.Args().Slice()
 	var result string
 	switch numArgs := len(cliArgs); numArgs {
@@ -180,8 +182,8 @@ func getSingularArg(ctx *cli.Context) (string, error) {
 	return result, nil
 }
 
-func traceGetRemoteAction(ctx *cli.Context, args traceGetRemoteArgs) error {
-	cliArgs := ctx.Args().Slice()
+func traceGetRemoteAction(ctx context.Context, cmd *cli.Command, args traceGetRemoteArgs) error {
+	cliArgs := cmd.Args().Slice()
 	var targetPath string
 	switch numArgs := len(cliArgs); numArgs {
 	case 0:
@@ -196,40 +198,38 @@ func traceGetRemoteAction(ctx *cli.Context, args traceGetRemoteArgs) error {
 		return wrongNumArgsError{numArgs, 0, 1}
 	}
 
-	client, err := newViamClient(ctx)
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(ctx)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
 	logger := globalArgs.createLogger()
 
-	return client.tracesGetRemoteAction(ctx, args, targetPath, true, globalArgs.Debug, logger)
+	return client.tracesGetRemoteAction(ctx, cmd, args, targetPath, true, globalArgs.Debug, logger)
 }
 
-func tracePrintLocalAction(
-	ctx *cli.Context,
-	_ struct{},
-) error {
-	target, err := getSingularArg(ctx)
+func tracePrintLocalAction(ctx context.Context, cmd *cli.Command, _ struct{}) error {
+	target, err := getSingularArg(cmd)
 	if err != nil {
 		return err
 	}
-	return tracePrintLocal(ctx, target)
+	return tracePrintLocal(ctx, cmd, target)
 }
 
 func tracePrintLocal(
-	ctx *cli.Context,
+	ctx context.Context,
+	cmd *cli.Command,
 	source string,
 ) error {
 	//nolint: gosec
 	traceFile, err := os.Open(source)
 	if err != nil {
 		if os.IsNotExist(err) {
-			printf(ctx.App.Writer, "No traces found")
+			printf(cmd.Root().Writer, "No traces found")
 			return nil
 		}
 		return errors.Wrap(err, "failed to open trace file")
@@ -243,25 +243,23 @@ func tracePrintLocal(
 	err = nil
 	for resource := range traceReader.AllWithMemory(&msg) {
 		for _, scope := range resource.ScopeSpans {
-			err = stderrors.Join(err, devExporter.ExportOTLPSpans(ctx.Context, scope.Spans))
+			err = stderrors.Join(err, devExporter.ExportOTLPSpans(ctx, scope.Spans))
 		}
 	}
 	return err
 }
 
-func traceImportLocalAction(
-	ctx *cli.Context,
-	args traceImportLocalArgs,
-) error {
-	target, err := getSingularArg(ctx)
+func traceImportLocalAction(ctx context.Context, cmd *cli.Command, args traceImportLocalArgs) error {
+	target, err := getSingularArg(cmd)
 	if err != nil {
 		return err
 	}
-	return traceImportLocal(ctx, args, target)
+	return traceImportLocal(ctx, cmd, args, target)
 }
 
 func traceImportLocal(
-	ctx *cli.Context,
+	ctx context.Context,
+	cmd *cli.Command,
 	args traceImportLocalArgs,
 	source string,
 ) error {
@@ -269,7 +267,7 @@ func traceImportLocal(
 	traceFile, err := os.Open(source)
 	if err != nil {
 		if os.IsNotExist(err) {
-			printf(ctx.App.Writer, "No traces found")
+			printf(cmd.Root().Writer, "No traces found")
 			return nil
 		}
 		return errors.Wrap(err, "failed to open trace file")
@@ -286,24 +284,24 @@ func traceImportLocal(
 		opts = append(opts, otlptracegrpc.WithInsecure())
 	}
 	otlpClient := otlptracegrpc.NewClient(opts...)
-	if err := otlpClient.Start(ctx.Context); err != nil {
+	if err := otlpClient.Start(ctx); err != nil {
 		return err
 	}
 	//nolint: errcheck
-	defer otlpClient.Stop(ctx.Context)
+	defer otlpClient.Stop(ctx)
 	var msg tracepb.ResourceSpans
 	msgSuccess := 0
 	msgTotal := 0
-	printf(ctx.App.Writer, "Importing spans to %v...", endpoint)
+	printf(cmd.Root().Writer, "Importing spans to %v...", endpoint)
 	for span := range traceReader.AllWithMemory(&msg) {
 		msgTotal++
-		err := otlpClient.UploadTraces(ctx.Context, []*tracepb.ResourceSpans{span})
+		err := otlpClient.UploadTraces(ctx, []*tracepb.ResourceSpans{span})
 		if err != nil {
-			printf(ctx.App.Writer, "Error uploading trace: %v", err)
+			printf(cmd.Root().Writer, "Error uploading trace: %v", err)
 		} else {
 			msgSuccess++
 		}
 	}
-	printf(ctx.App.Writer, "Imported %d/%d messages", msgSuccess, msgTotal)
+	printf(cmd.Root().Writer, "Imported %d/%d messages", msgSuccess, msgTotal)
 	return nil
 }

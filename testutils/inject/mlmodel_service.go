@@ -14,6 +14,7 @@ type MLModelService struct {
 	name         resource.Name
 	InferFunc    func(ctx context.Context, tensors ml.Tensors) (ml.Tensors, error)
 	MetadataFunc func(ctx context.Context) (mlmodel.MLMetadata, error)
+	StatusFunc   func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc    func(ctx context.Context) error
 }
 
@@ -44,6 +45,17 @@ func (s *MLModelService) Metadata(ctx context.Context) (mlmodel.MLMetadata, erro
 		return s.Service.Metadata(ctx)
 	}
 	return s.MetadataFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (s *MLModelService) Status(ctx context.Context) (map[string]interface{}, error) {
+	if s.StatusFunc != nil {
+		return s.StatusFunc(ctx)
+	}
+	if s.Service != nil {
+		return s.Service.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
 
 // Close calls the injected Close or the real version.

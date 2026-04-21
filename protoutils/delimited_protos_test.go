@@ -14,8 +14,27 @@ import (
 	"go.viam.com/rdk/protoutils"
 )
 
+type countingWriter struct {
+	buffer     bytes.Buffer
+	writeCalls int
+}
+
+// Write implements [io.Writer].
+func (c *countingWriter) Write(p []byte) (n int, err error) {
+	c.writeCalls++
+	return c.buffer.Write(p)
+}
+
+func (c *countingWriter) Len() int {
+	return c.buffer.Len()
+}
+
+func (c *countingWriter) Bytes() []byte {
+	return c.buffer.Bytes()
+}
+
 func TestDelimitedProtoWriter(t *testing.T) {
-	buffer := &bytes.Buffer{}
+	buffer := &countingWriter{}
 	messages := [][]byte{}
 	delimetedProtos := protoutils.NewDelimitedProtoWriter[*webrtcpb.CallRequest](buffer)
 	reqs := []*webrtcpb.CallRequest{{Sdp: "hello"}, {Sdp: "world", DisableTrickle: true}}
@@ -26,6 +45,11 @@ func TestDelimitedProtoWriter(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		messages = append(messages, reqBytes)
 	}
+
+	// Test that we called write exactly once for each message. Making multiple
+	// calls per message could create corrupt trace files if rotation occurs
+	// between calls.
+	test.That(t, buffer.writeCalls, test.ShouldEqual, len(reqs))
 
 	delimitedBytes := make([]byte, buffer.Len())
 	copy(delimitedBytes, buffer.Bytes())

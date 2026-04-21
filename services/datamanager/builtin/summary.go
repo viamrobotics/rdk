@@ -22,6 +22,9 @@ type DirSummary struct {
 	FileCount     int64
 	Err           error
 	DataTimeRange *DataTimeRange
+	// CompletedCaptureTimeRange is the time range of only completed (.capture) files,
+	// excluding in-progress (.prog) files.
+	CompletedCaptureTimeRange *DataTimeRange
 }
 
 // DataTimeRange represents a time range from Start to End.
@@ -47,12 +50,13 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	// For each dirElement, sum up the size of the files in this directory
 	// call self func on all directories and add result to return
 	var (
-		fileSize      int64
-		fileCount     int64
-		summary       []DirSummary
-		dirPaths      []string
-		dataTimeRange *DataTimeRange
-		rootErr       error
+		fileSize                  int64
+		fileCount                 int64
+		summary                   []DirSummary
+		dirPaths                  []string
+		dataTimeRange             *DataTimeRange
+		completedCaptureTimeRange *DataTimeRange
+		rootErr                   error
 	)
 	for _, child := range children {
 		if ctx.Err() != nil {
@@ -64,6 +68,9 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 			dirPaths = append(dirPaths, path)
 		} else {
 			dataTimeRange = parseTimeRange(child.Name(), dataTimeRange)
+			if strings.HasSuffix(child.Name(), data.CompletedCaptureFileExt) {
+				completedCaptureTimeRange = parseTimeRange(child.Name(), completedCaptureTimeRange)
+			}
 			fileCount++
 			info, err := child.Info()
 			if errors.Is(err, fs.ErrNotExist) {
@@ -83,11 +90,12 @@ func DiskSummary(ctx context.Context, rootPath string) []DirSummary {
 	// if there were files in this directory, record the size
 	if fileCount != 0 || dataTimeRange != nil {
 		summary = append(summary, DirSummary{
-			Path:          rootPath,
-			FileSize:      fileSize,
-			FileCount:     fileCount,
-			Err:           rootErr,
-			DataTimeRange: dataTimeRange,
+			Path:                      rootPath,
+			FileSize:                  fileSize,
+			FileCount:                 fileCount,
+			Err:                       rootErr,
+			DataTimeRange:             dataTimeRange,
+			CompletedCaptureTimeRange: completedCaptureTimeRange,
 		})
 	}
 	// do the same for all children

@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/protoutils"
 
 	"go.viam.com/rdk/logging"
+	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
@@ -38,4 +39,13 @@ func (s *serviceServer) DoCommand(ctx context.Context, req *commonpb.DoCommandRe
 		return nil, err
 	}
 	return &commonpb.DoCommandResponse{Result: res}, nil
+}
+
+// GetStatus returns the status of the generic service.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
 }

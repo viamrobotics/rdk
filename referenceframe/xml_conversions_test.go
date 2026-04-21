@@ -39,7 +39,7 @@ func TestGeometrySerialization(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			var urdf2 collision
 			xml.Unmarshal(bytes, &urdf2)
-			g2, err := urdf2.toGeometry(nil)
+			g2, err := urdf2.toGeometry(nil, 1.0)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, spatialmath.GeometriesAlmostEqual(tc.g, g2), test.ShouldBeTrue)
 		})
@@ -159,7 +159,7 @@ func TestMeshGeometrySerialization(t *testing.T) {
 		err = xml.Unmarshal(xmlBytes, &urdfCollision2)
 		test.That(t, err, test.ShouldBeNil)
 
-		mesh2, err := urdfCollision2.toGeometry(map[string]*commonpb.Mesh{filePath: protoMesh})
+		mesh2, err := urdfCollision2.toGeometry(map[string]*commonpb.Mesh{filePath: protoMesh}, 1.0)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Verify round-trip preservation
@@ -191,7 +191,7 @@ func TestMeshGeometrySerialization(t *testing.T) {
 	t.Run("mesh with nil meshMap fails", func(t *testing.T) {
 		urdfCollision := &collision{}
 		urdfCollision.Geometry.Mesh = &mesh{Filename: "meshes/test.stl"}
-		_, err := urdfCollision.toGeometry(nil)
+		_, err := urdfCollision.toGeometry(nil, 1.0)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "mesh map to be provided")
 	})
@@ -200,7 +200,7 @@ func TestMeshGeometrySerialization(t *testing.T) {
 		urdfCollision := &collision{}
 		urdfCollision.Geometry.Mesh = &mesh{Filename: "meshes/missing.stl"}
 		meshMap := map[string]*commonpb.Mesh{"meshes/other.stl": {Mesh: stlBytes, ContentType: "stl"}}
-		_, err := urdfCollision.toGeometry(meshMap)
+		_, err := urdfCollision.toGeometry(meshMap, 1.0)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "mesh file not found in mesh map")
 	})
@@ -210,7 +210,7 @@ func TestMeshGeometrySerialization(t *testing.T) {
 		urdfCollision.Geometry.Mesh = &mesh{Filename: urdfPackagePrefix + "some_package/meshes/base.stl"}
 		meshMap := map[string]*commonpb.Mesh{"meshes/base.stl": {Mesh: stlBytes, ContentType: "stl"}}
 
-		geom, err := urdfCollision.toGeometry(meshMap)
+		geom, err := urdfCollision.toGeometry(meshMap, 1.0)
 		test.That(t, err, test.ShouldBeNil)
 		mesh, _ := geom.(*spatialmath.Mesh)
 		test.That(t, mesh.OriginalFilePath(), test.ShouldEqual, "meshes/base.stl")

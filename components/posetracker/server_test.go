@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/posetracker/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -17,7 +18,10 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var errPoseFailed = errors.New("failure to get poses")
+var (
+	errPoseFailed      = errors.New("failure to get poses")
+	errGetStatusFailed = errors.New("can't get status")
+)
 
 const (
 	workingPTName = "workingPT"
@@ -116,4 +120,33 @@ func TestGetPoses(t *testing.T) {
 			test.That(t, pose.GetOZ(), test.ShouldEqual, 1)
 		})
 	}
+}
+
+func TestGetStatus(t *testing.T) {
+	ptServer, workingPT, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = ptServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missingPT"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := ptServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPTName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingPT.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = ptServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPTName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingPT.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = ptServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: workingPTName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	workingPT.StatusFunc = nil
 }

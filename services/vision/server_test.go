@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -203,4 +204,41 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 	test.That(t, len(captAllResp.Extra.AsMap()), test.ShouldEqual, 0)
 
 	test.ShouldResemble(captAllResp.Detections, getDetectionsResp.Detections)
+}
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectVS := &inject.VisionService{}
+	m := map[resource.Name]vision.Service{
+		visName1: injectVS,
+	}
+	server, err := newServer(m, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectVS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectVS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectVS.StatusFunc = nil
 }

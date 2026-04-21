@@ -127,10 +127,19 @@ func (m *module) checkReady(ctx context.Context, parentAddr string) error {
 
 	m.logger.CInfow(ctx, "Waiting for module to respond to ready request", "module", m.cfg.Name)
 
-	req := &pb.ReadyRequest{ParentAddress: parentAddr}
+	// Maintain backwards compatibility with old modules.
+	//nolint:staticcheck
+	legacyParentAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr)
+	if err != nil {
+		return err
+	}
+
+	req := &pb.ReadyRequest{
+		ParentAddress:    legacyParentAddr,
+		RawParentAddress: parentAddr,
+	}
 
 	// Wait for gathering to complete. Pass the entire SDP as an offer to the `ReadyRequest`.
-	var err error
 	req.WebrtcOffer, err = m.sharedConn.GenerateEncodedOffer()
 	if err != nil {
 		m.logger.CWarnw(ctx, "Unable to generate offer for module PeerConnection. Ignoring.", "err", err)
@@ -237,10 +246,6 @@ func (m *module) startProcess(
 			filepath.Dir(parentAddr), fmt.Sprintf("%s-%s", m.cfg.Name, utils.RandomAlphaString(5))); err != nil {
 			return err
 		}
-		m.addr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
-		if err != nil {
-			return err
-		}
 	}
 
 	// We evaluate the Module's ExePath absolutely in the viam-server process so that
@@ -267,10 +272,25 @@ func (m *module) startProcess(
 	stderrLogger := m.logger.Sublogger("StdErr")
 	stderrLogger.NeverDeduplicate()
 
+	moduleEnvironment[rutils.ViamModuleAddress] = m.addr
+
+	// Previous versions of rdk passed `unix://<address>` to gRPC, which does not
+	// work with Windows paths that include a drive letter. Modules built with
+	// that old version of the code depend on receiving a "cleaned" version of
+	// the path. We continue to pass that version of the path for backwards
+	// compatibility while passing the "real" path via an environment variable.
+	// Modules built with the latest version of rdk will prefer the variable over
+	// the argument.
+	//nolint:staticcheck
+	windowsAddr, err := rutils.CleanWindowsSocketPath(runtime.GOOS, m.addr)
+	if err != nil {
+		return err
+	}
+
 	pconf := pexec.ProcessConfig{
 		ID:               m.cfg.Name,
 		Name:             absoluteExePath,
-		Args:             []string{m.addr},
+		Args:             []string{windowsAddr},
 		CWD:              moduleWorkingDirectory,
 		Environment:      moduleEnvironment,
 		Log:              true,

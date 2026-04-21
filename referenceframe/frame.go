@@ -23,6 +23,15 @@ import (
 // OOBErrString is a string that all OOB errors should contain, so that they can be checked for distinct from other Transform errors.
 const OOBErrString = "input out of bounds"
 
+// finiteOrZero returns v when finite, or 0 otherwise. Used when marshaling
+// frame limits to JSON, which cannot represent ±Inf.
+func finiteOrZero(v float64) float64 {
+	if math.IsInf(v, 0) {
+		return 0
+	}
+	return v
+}
+
 // Limit represents the limits of motion for a Frame.
 type Limit struct {
 	Min float64
@@ -88,6 +97,12 @@ func (l *Limit) GoodLimits() (float64, float64, float64) {
 // IsValid return if the value is in the range
 func (l *Limit) IsValid(v float64) bool {
 	return v >= l.Min && v <= l.Max
+}
+
+// IsRotational returns true if this limit appears to be for a rotational joint,
+// i.e. both min and max are multiples of pi and 0 is within range.
+func (l *Limit) IsRotational() bool {
+	return isMultipleOfPi(l.Min) && isMultipleOfPi(l.Max) && l.Min <= 0 && l.Max >= 0
 }
 
 // AreInputsValid checks if all values are within limit ranges
@@ -267,8 +282,8 @@ func (bf *baseFrame) validInputs(inputs []Input) error {
 	for i := 0; i < len(bf.limits); i++ {
 		if inputs[i] < bf.limits[i].Min || inputs[i] > bf.limits[i].Max {
 			lim := []float64{bf.limits[i].Max, bf.limits[i].Min}
-			multierr.AppendInto(&errAll, fmt.Errorf("%s %s %s, %s %.5f %s %.5f", "joint", fmt.Sprint(i),
-				OOBErrString, "input", inputs[i], "needs to be within range", lim))
+			multierr.AppendInto(&errAll, fmt.Errorf("%s, input %.5f needs to be within range %.5f",
+				OOBErrString, inputs[i], lim))
 		}
 	}
 
@@ -342,6 +357,44 @@ func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 // Hash returns a hash value for this named frame.
 func (nf *namedFrame) Hash() int {
 	return nf.Frame.Hash() + hashString(nf.name)
+}
+
+// namedFrameJSON is the on-disk representation of a namedFrame. The wrapped inner
+// frame is stored as a raw message so it can be dispatched through frameToJSON /
+// jsonToFrame the same way any other Frame implementation would be.
+type namedFrameJSON struct {
+	Name       string          `json:"name"`
+	InnerFrame json.RawMessage `json:"inner_frame"`
+}
+
+// MarshalJSON serializes a namedFrame by recording the overriding name and
+// delegating serialization of the wrapped frame to frameToJSON so the wrapped
+// frame's concrete type is preserved.
+func (nf *namedFrame) MarshalJSON() ([]byte, error) {
+	innerJSON, err := frameToJSON(nf.Frame)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(&namedFrameJSON{
+		Name:       nf.name,
+		InnerFrame: innerJSON,
+	})
+}
+
+// UnmarshalJSON reconstructs a namedFrame, dispatching the wrapped inner frame
+// back through jsonToFrame so the correct concrete type is rebuilt.
+func (nf *namedFrame) UnmarshalJSON(data []byte) error {
+	var j namedFrameJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	inner, err := jsonToFrame(j.InnerFrame)
+	if err != nil {
+		return err
+	}
+	nf.Frame = inner
+	nf.name = j.Name
+	return nil
 }
 
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
@@ -539,8 +592,8 @@ func (pf translationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   pf.name,
 		Type: PrismaticJoint,
 		Axis: spatial.AxisConfig{pf.transAxis.X, pf.transAxis.Y, pf.transAxis.Z},
-		Max:  pf.limits[0].Max,
-		Min:  pf.limits[0].Min,
+		Max:  finiteOrZero(pf.limits[0].Max),
+		Min:  finiteOrZero(pf.limits[0].Min),
 	}
 	if pf.geometry != nil {
 		var err error
@@ -636,8 +689,8 @@ func (rf rotationalFrame) MarshalJSON() ([]byte, error) {
 		ID:   rf.name,
 		Type: RevoluteJoint,
 		Axis: spatial.AxisConfig{rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z},
-		Max:  utils.RadToDeg(rf.limits[0].Max),
-		Min:  utils.RadToDeg(rf.limits[0].Min),
+		Max:  finiteOrZero(utils.RadToDeg(rf.limits[0].Max)),
+		Min:  finiteOrZero(utils.RadToDeg(rf.limits[0].Min)),
 	}
 
 	return json.Marshal(temp)
@@ -854,6 +907,22 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, err
 			}
 			if !frameEquality {
+				return false, nil
+			}
+		}
+		// Compare mimic mappings
+		if len(f1.mimicMappings) != len(f2.mimicMappings) {
+			return false, nil
+		}
+		for name, mm1 := range f1.mimicMappings {
+			mm2, ok := f2.mimicMappings[name]
+			if !ok {
+				return false, nil
+			}
+			if mm1.sourceFrameName != mm2.sourceFrameName ||
+				mm1.sourceInputIdx != mm2.sourceInputIdx ||
+				math.Abs(mm1.valueMultiplier-mm2.valueMultiplier) > epsilon ||
+				math.Abs(mm1.valueOffset-mm2.valueOffset) > epsilon {
 				return false, nil
 			}
 		}

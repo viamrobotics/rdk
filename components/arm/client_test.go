@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -46,7 +47,12 @@ func TestClient(t *testing.T) {
 	pos1 := spatialmath.NewPoseFromPoint(r3.Vector{X: 1, Y: 2, Z: 3})
 	jointPos1 := []referenceframe.Input{1., 2., 3.}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
-	expectedMoveOptions := arm.MoveOptions{MaxVelRads: 1, MaxAccRads: 2}
+	expectedMoveOptions := arm.MoveOptions{
+		MaxVelRads:       1,
+		MaxAccRads:       2,
+		MaxVelRadsJoints: []float64{utils.DegToRad(10), utils.DegToRad(20), utils.DegToRad(30)},
+		MaxAccRadsJoints: []float64{utils.DegToRad(40), utils.DegToRad(50), utils.DegToRad(60)},
+	}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
 		extraOptions = extra
@@ -203,6 +209,21 @@ func TestClient(t *testing.T) {
 		for i, geometry := range geometries {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
+
+		// Status - default empty status
+		statusResult, err := arm1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectArm.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = arm1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectArm.StatusFunc = nil
 
 		test.That(t, arm1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

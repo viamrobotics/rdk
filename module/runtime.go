@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/client"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func moduleStart(
@@ -73,16 +74,27 @@ func moduleStart(
 	}
 }
 
+func getModuleAddress() (string, error) {
+	if moduleAddress := os.Getenv(rutils.ViamModuleAddress); moduleAddress != "" {
+		return moduleAddress, nil
+	}
+	if len(os.Args) >= 2 {
+		return os.Args[1], nil
+	}
+	return "", errors.New("need socket path as command line argument or env var")
+}
+
 // ModularMain can be called as the main function from a module. It will start up a module with all
 // the provided APIModels added to it.
 func ModularMain(models ...resource.APIModel) {
 	mainWithArgs := func(ctx context.Context, args []string, logger logging.Logger) error {
-		if len(os.Args) < 2 {
-			return errors.New("need socket path as command line argument")
+		moduleAddress, err := getModuleAddress()
+		if err != nil {
+			return err
 		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		mod, err := moduleStart(os.Args[1], models...)(ctx, args, cancel, NewLoggerFromArgs(""))
+		mod, err := moduleStart(moduleAddress, models...)(ctx, args, cancel, NewLoggerFromArgs(""))
 		if err != nil {
 			return err
 		}

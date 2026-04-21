@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/referenceframe"
@@ -27,25 +28,25 @@ type motionPrintArgs struct {
 	Part         string
 }
 
-func motionPrintConfigAction(c *cli.Context, args motionPrintArgs) error {
-	client, err := newViamClient(c)
+func motionPrintConfigAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
 
-	ctx, fqdn, rpcOpts, err := client.prepareDial(args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
 		return err
 	}
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(ctx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
 		return err
 	}
@@ -58,30 +59,30 @@ func motionPrintConfigAction(c *cli.Context, args motionPrintArgs) error {
 		return err
 	}
 
-	printf(c.App.Writer, "%v", frameSystem)
+	printf(cmd.Root().Writer, "%v", frameSystem)
 
 	return nil
 }
 
-func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
-	client, err := newViamClient(c)
+func motionPrintStatusAction(ctx context.Context, cmd *cli.Command, args motionPrintArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
 
-	ctx, fqdn, rpcOpts, err := client.prepareDial(args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
 		return err
 	}
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(ctx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
 		return err
 	}
@@ -107,7 +108,7 @@ func motionPrintStatusAction(c *cli.Context, args motionPrintArgs) error {
 			return err
 		}
 
-		printf(c.App.Writer, "%20s : %v", n, prettyString(pif.Pose()))
+		printf(cmd.Root().Writer, "%20s : %v", n, prettyString(pif.Pose()))
 	}
 
 	return nil
@@ -122,25 +123,25 @@ type motionGetPoseArgs struct {
 	Component string
 }
 
-func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
-	client, err := newViamClient(c)
+func motionGetPoseAction(ctx context.Context, cmd *cli.Command, args motionGetPoseArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
 
-	ctx, fqdn, rpcOpts, err := client.prepareDial(args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
 		return err
 	}
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(ctx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
 		return err
 	}
@@ -158,7 +159,7 @@ func motionGetPoseAction(c *cli.Context, args motionGetPoseArgs) error {
 		return err
 	}
 
-	printf(c.App.Writer, "%v", prettyString(pif.Pose()))
+	printf(cmd.Root().Writer, "%v", prettyString(pif.Pose()))
 
 	return nil
 }
@@ -174,25 +175,25 @@ type motionSetPoseArgs struct {
 	X, Y, Z, Ox, Oy, Oz, Theta []float64
 }
 
-func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
-	client, err := newViamClient(c)
+func motionSetPoseAction(ctx context.Context, cmd *cli.Command, args motionSetPoseArgs) error {
+	client, err := newViamClient(ctx, cmd)
 	if err != nil {
 		return err
 	}
 
-	globalArgs, err := getGlobalArgs(c)
+	globalArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
 
-	ctx, fqdn, rpcOpts, err := client.prepareDial(args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
+	dialCtx, fqdn, rpcOpts, err := client.prepareDial(ctx, args.Organization, args.Location, args.Machine, args.Part, globalArgs.Debug)
 	if err != nil {
 		return err
 	}
 
 	logger := globalArgs.createLogger()
 
-	robotClient, err := client.connectToRobot(ctx, fqdn, rpcOpts, globalArgs.Debug, logger)
+	robotClient, err := client.connectToRobot(dialCtx, fqdn, rpcOpts, globalArgs.Debug, logger)
 	if err != nil {
 		return err
 	}
@@ -210,7 +211,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 		return err
 	}
 
-	printf(c.App.Writer, "start pose %v", pose)
+	printf(cmd.Root().Writer, "start pose %v", pose)
 
 	pt := pose.Pose().Point()
 	o := pose.Pose().Orientation().OrientationVectorDegrees()
@@ -240,7 +241,7 @@ func motionSetPoseAction(c *cli.Context, args motionSetPoseArgs) error {
 
 	pose = referenceframe.NewPoseInFrame(pose.Parent(), spatialmath.NewPose(pt, o))
 
-	printf(c.App.Writer, "going to pose %v", pose)
+	printf(cmd.Root().Writer, "going to pose %v", pose)
 
 	req := motion.MoveReq{
 		ComponentName: args.Component,

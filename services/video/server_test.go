@@ -3,10 +3,12 @@ package video_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"testing"
 	"time"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/video/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
@@ -98,4 +100,36 @@ func TestServer(t *testing.T) {
 		err := videoServer.GetVideo(getVideoRequest, stream)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+}
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	videoServer, injectVideo, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = videoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := videoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "video1"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectVideo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = videoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "video1"})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectVideo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = videoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "video1"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectVideo.StatusFunc = nil
 }

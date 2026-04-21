@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/servo/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -19,6 +20,7 @@ var (
 	errMoveFailed         = errors.New("move failed")
 	errPositionUnreadable = errors.New("current angle not readable")
 	errStopFailed         = errors.New("stop failed")
+	errGetStatusFailed    = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
@@ -136,4 +138,33 @@ func TestServoStop(t *testing.T) {
 	req = pb.StopRequest{Name: fakeServoName}
 	_, err = servoServer.Stop(context.Background(), &req)
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestServoGetStatus(t *testing.T) {
+	servoServer, workingServo, _, err := newServer(logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = servoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: fakeServoName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := servoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testServoName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	workingServo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = servoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testServoName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	workingServo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = servoServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testServoName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+	workingServo.StatusFunc = nil
 }
