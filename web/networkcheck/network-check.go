@@ -22,6 +22,8 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+const udp4Network = "udp4"
+
 // RunNetworkChecks characterizes the network through a series of DNS, UDP STUN, TCP STUN,
 // and packet loss network checks. Can and should be run asynchronously with server startup
 // to avoid blocking. Specifying continueRunningTests as true will run DNS and packet loss
@@ -161,9 +163,10 @@ func openICMPConn() (*icmp.PacketConn, string, error) {
 	if err == nil {
 		return conn, "ip4:icmp", nil
 	}
-	conn, err = icmp.ListenPacket("udp4", "")
+
+	conn, err = icmp.ListenPacket(udp4Network, "")
 	if err == nil {
-		return conn, "udp4", nil
+		return conn, udp4Network, nil
 	}
 	return nil, "", fmt.Errorf("failed to open ICMP socket (requires root or CAP_NET_RAW): %w", err)
 }
@@ -218,7 +221,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		}
 
 		var dst net.Addr
-		if network == "udp4" {
+		if network == udp4Network {
 			dst = &net.UDPAddr{IP: targetIP.IP}
 		} else {
 			dst = &net.IPAddr{IP: targetIP.IP}
