@@ -106,7 +106,7 @@ func getSlowModule() (string, string) {
 	if runtime.GOOS == "windows" {
 		return "run.bat", "powershell.exe -Command 'Start-Sleep 2; exit 1'"
 	}
-	
+
 	return "run.sh", "#!/bin/sh\n\nsleep 2\nexit 1"
 }
 
