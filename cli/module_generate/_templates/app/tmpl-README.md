@@ -38,22 +38,28 @@ Edit `src/main.ts` or `index.html`, save, and changes appear instantly. No `make
 
 ## Deploy
 
-Upload to the Viam registry:
+1. Build the module:
+   ```
+   make
+   ```
 
-```
-viam module upload --platform=linux/amd64 module.tar.gz
-```
+2. Upload `module.tar.gz` (not the binary) to the Viam registry:
+   ```
+   viam module upload --upload=./module.tar.gz --platform=linux/amd64
+   ```
+   Important: upload the tar.gz, not `bin/{{ .ModuleName }}`. The tar contains both the binary and the frontend files (`dist/`).
 
-Then add the module to your machine on app.viam.com:
+   Note: after re-uploading a new version, use an incognito window or hard-refresh (Cmd+Shift+R) to avoid seeing a cached version of the old page.
 
-1. Go to app.viam.com → your machine → Config
-2. Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
-3. Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
-4. Save config
+3. Add the module to your machine on app.viam.com:
+   - Go to app.viam.com → your machine → Config
+   - Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
+   - Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
+   - Save config
 
 ## Access your app
 
-**Via app.viam.com:** Navigate to your machine on app.viam.com — your app will appear automatically.
+**Viam-hosted:** Go to `https://{{ .AppName }}_{{ .Namespace }}.viamapplications.com`
 
 **Via local network:** If local server is enabled, open `http://<machine-ip>:8888` from any device on the same network.
 
