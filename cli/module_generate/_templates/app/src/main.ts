@@ -1,4 +1,4 @@
-import { RobotClient } from '@viamrobotics/sdk';
+import { createRobotClient } from '@viamrobotics/sdk';
 import { getHostAndCredentials } from './lib/auth';
 
 const statusEl = document.getElementById('status')!;
@@ -12,10 +12,14 @@ async function main() {
     }
 
     try {
-        const machine = await RobotClient.atAddress(host, { credentials });
+        const machine = await createRobotClient({
+            host,
+            credentials,
+            signalingAddress: 'https://app.viam.com:443',
+        });
         statusEl.textContent = 'Connected to ' + host;
 
-        const names = machine.resourceNames();
+        const names = await machine.resourceNames();
         for (const name of names) {
             const li = document.createElement('li');
             li.textContent = `${name.namespace}:${name.type}:${name.subtype}/${name.name}`;

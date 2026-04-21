@@ -65,9 +65,9 @@ func newWebApp(name resource.Name, conf *Config, logger logging.Logger) (resourc
 		handler: mux,
 		logger:  logger,
 	}
-	handler.addEnvCookie("MACHINE_FQDN", "host")
-	handler.addEnvCookie("API_KEY_ID", "api-key-id")
-	handler.addEnvCookie("API_KEY", "api-key")
+	handler.addEnvCookie("VIAM_MACHINE_FQDN", "host")
+	handler.addEnvCookie("VIAM_API_KEY_ID", "api-key-id")
+	handler.addEnvCookie("VIAM_API_KEY", "api-key")
 
 	port := 8888
 	if conf.Port != nil {
