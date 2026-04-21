@@ -111,7 +111,7 @@ var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
-var ViamDotDir = filepath.Join(viamHomeDir(), ".viam")
+var ViamDotDir = viamDotDir()
 
 var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
 
@@ -149,12 +149,12 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	return defaultTimeout, true
 }
 
-// parent directory of ViamDotDir
-func viamHomeDir() string {
+// construct the .viam path from user's home directory, or $VIAM_HOME if available.
+func viamDotDir() string {
 	if viamHome := os.Getenv(HomeEnvVar); viamHome != "" {
 		return viamHome
 	}
-	return PlatformHomeDir()
+	return filepath.Join(PlatformHomeDir(), ".viam")
 }
 
 // PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
