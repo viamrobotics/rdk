@@ -49,23 +49,24 @@ func uploadDataCaptureFile(
 	md := f.ReadMetadata()
 
 	if md.GetType() == datasyncPB.DataType_DATA_TYPE_BINARY_SENSOR {
-		n, ok, err := uploadBinaryPayloads(ctx, f, conn, md, logger, bytesUploadingCounter)
-		if err != nil {
+		n, err := uploadBinaryPayloads(ctx, f, conn, md, logger, bytesUploadingCounter)
+		if err != nil && !errors.Is(err, data.ErrNoBinaryField) {
 			return 0, err
 		}
-		if ok {
+		if err == nil {
 			return n, nil
 		}
-		// ok=false: no binary payload field found (legacy camera.GetImages file storing
-		// tabular data in a BINARY_SENSOR-typed capture file) — fall through to in-memory path.
+		// ErrNoBinaryField: legacy camera.GetImages file storing tabular data in a
+		// BINARY_SENSOR-typed capture file — fall through to in-memory path.
 	}
 
 	return uploadFromMemory(ctx, f, conn, md, logger, bytesUploadingCounter)
 }
 
-// uploadBinaryPayloads streams each binary payload in f directly from disk without loading
-// it into memory. Returns ok=false if the first message has no binary field, which indicates
-// a legacy camera.GetImages file that must be handled by uploadFromMemory instead.
+// uploadBinaryPayload streams the single binary payload in f directly from disk without
+// loading it into memory. Returns ErrNoBinaryField if the message has no binary
+// field, which indicates a legacy camera.GetImages file that must be handled by
+// uploadFromMemory instead.
 func uploadBinaryPayloads(
 	ctx context.Context,
 	f *data.CaptureFile,
@@ -73,48 +74,41 @@ func uploadBinaryPayloads(
 	md *datasyncPB.DataCaptureMetadata,
 	logger logging.Logger,
 	bytesUploadingCounter *atomic.Uint64,
-) (n uint64, ok bool, err error) {
+) (uint64, error) {
 	f.Reset()
-	uploadMD := uploadMetadata(conn.partID, md)
-	msgIdx := 0
-	for {
-		sensorMeta, payloadLen, r, err := f.BinaryPayloadReader()
-		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-			break
-		}
-		if err != nil {
-			if msgIdx == 0 {
-				// No binary field on the first message means this is a legacy
-				// camera.GetImages file (tabular data in a BINARY_SENSOR-typed file).
-				logger.Debugf("BinaryPayloadReader failed on first message for %s, may be legacy GetImages file", f.GetPath())
-				return 0, false, nil
-			}
-			return 0, false, errors.Wrap(err, "reading binary payload from capture file")
-		}
-		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
-		if payloadLen > MaxUnaryFileSize {
-			logger.Debugf("streaming large binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
-			if err := uploadLargeBinaryFromReader(ctx, conn.client, clonedMD, sensorMeta, r, f.GetPath(),
-				logger, bytesUploadingCounter); err != nil {
-				return 0, false, err
-			}
-		} else {
-			logger.Debugf("uploading small binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
-			payload, err := io.ReadAll(r)
-			if err != nil {
-				return 0, false, errors.Wrap(err, "reading binary payload into memory")
-			}
-			sd := &datasyncPB.SensorData{
-				Metadata: sensorMeta,
-				Data:     &datasyncPB.SensorData_Binary{Binary: payload},
-			}
-			if err := uploadBinarySensorData(ctx, conn.client, clonedMD, sd, bytesUploadingCounter); err != nil {
-				return 0, false, err
-			}
-		}
-		msgIdx++
+	sensorMeta, payloadLen, r, err := f.BinaryPayloadReader()
+	if errors.Is(err, data.ErrNoBinaryField) {
+		// No binary field means this is a legacy camera.GetImages file
+		// (tabular data in a BINARY_SENSOR-typed file).
+		logger.Debugf("no binary payload in first message for %s, may be legacy GetImages file", f.GetPath())
+		return 0, data.ErrNoBinaryField
 	}
-	return uint64(f.Size()), msgIdx > 0, nil
+	if err != nil {
+		return 0, errors.Wrap(err, "reading binary payload from capture file")
+	}
+
+	uploadMD := uploadMetadata(conn.partID, md)
+	if payloadLen > MaxUnaryFileSize {
+		logger.Debugf("streaming large binary payload (%d bytes): %s", payloadLen, f.GetPath())
+		if err := uploadLargeBinaryFromReader(ctx, conn.client, uploadMD, sensorMeta, r, f.GetPath(),
+			logger, bytesUploadingCounter); err != nil {
+			return 0, err
+		}
+	} else {
+		logger.Debugf("uploading small binary payload (%d bytes): %s", payloadLen, f.GetPath())
+		payload, err := io.ReadAll(r)
+		if err != nil {
+			return 0, errors.Wrap(err, "reading binary payload into memory")
+		}
+		sd := &datasyncPB.SensorData{
+			Metadata: sensorMeta,
+			Data:     &datasyncPB.SensorData_Binary{Binary: payload},
+		}
+		if err := uploadBinarySensorData(ctx, conn.client, uploadMD, sd, bytesUploadingCounter); err != nil {
+			return 0, err
+		}
+	}
+	return uint64(f.Size()), nil
 }
 
 // uploadFromMemory loads all sensor data from f into memory and uploads it. It handles

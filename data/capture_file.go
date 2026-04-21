@@ -21,6 +21,11 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+// ErrNoBinaryField is returned by BinaryPayloadReader when a SensorData message
+// contains no binary payload field. This typically indicates a legacy camera.GetImages
+// file that stores tabular data in a BINARY_SENSOR-typed capture file.
+var ErrNoBinaryField = errors.New("binary payload field not found in capture file")
+
 // TODO Data-343: Reorganize this into a more standard interface/package, and add tests.
 
 const (
@@ -282,39 +287,57 @@ func SensorDataFromCaptureFile(f *CaptureFile) ([]*v1.SensorData, error) {
 // the binary payload into memory. It returns the SensorMetadata, payload size,
 // and an io.Reader for streaming the payload.
 //
-// Successive calls advance through the file; call f.Reset() to restart.
+// Binary capture files always contain exactly one SensorData message (WriteBinary
+// writes one message per file), so this is typically called once. The readOffset
+// is advanced past the message regardless, consistent with ReadNext.
 // Returns io.EOF when no messages remain.
 //
-// Assumes SensorMetadata (field 1) precedes the binary payload (field 3).
+// Each SensorData entry in the capture file is stored as a length-prefixed
+// protobuf message (standard protobuf framing). Rather than unmarshaling the
+// full message into memory, this function hand-parses the wire format to locate
+// the binary payload field and returns an io.SectionReader directly over that
+// region of the file. This lets callers stream large payloads without buffering.
+//
+// Assumes proto field 1 (SensorMetadata) precedes proto field 3 (binary payload)
+// within each SensorData message, which matches the encoding produced by our writers.
 func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reader, error) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	if err := f.writer.Flush(); err != nil {
-		return nil, 0, nil, err
-	}
-
+	// Seek to where we left off. seekOffset is captured before the seek so we can
+	// compute absolute file positions for the SectionReader later.
 	seekOffset := f.readOffset
 	if _, err := f.file.Seek(seekOffset, io.SeekStart); err != nil {
 		return nil, 0, nil, err
 	}
 
+	// The capture file is a sequence of length-delimited protobuf records. Each record
+	// is: [outerLen varint] [SensorData proto bytes (outerLen bytes)].
+	// Read outerLen so we know where this message ends and the next begins.
 	varintCR := &countingByteReader{r: f.file}
-
-	// Read the outer length-prefix varint to advance readOffset past the full message.
 	outerLen, err := binary.ReadUvarint(varintCR)
 	if err != nil {
 		return nil, 0, nil, err // io.EOF means no more messages
 	}
-	// msgStart is the absolute file offset of the first field in this SensorData message.
+	// msgStart is the absolute file offset of the first byte of the SensorData fields
+	// (i.e., just past the outerLen varint). We use this later to anchor the SectionReader.
 	msgStart := seekOffset + varintCR.count
+	// Advance readOffset past this entire record so the next call starts at the right place,
+	// regardless of how much of the payload the caller actually consumes.
 	f.readOffset = msgStart + int64(outerLen)
 
-	// Bound field parsing to exactly outerLen bytes so we can't read into the next message.
+	// inner is bounded to exactly outerLen bytes so field parsing can never stray into
+	// the next record, even if the file is malformed.
 	inner := &countingByteReader{r: io.LimitReader(f.file, int64(outerLen))}
 
 	var sensorMeta *v1.SensorMetadata
 
+	// Walk the SensorData fields in wire order. Each field starts with a tag varint that
+	// encodes both the field number (upper bits) and the wire type (lower 3 bits), followed
+	// by the field value. We only need two fields:
+	//   field 1 (BytesType) — SensorMetadata, decoded fully into memory (always small).
+	//   field 3 (BytesType) — binary payload, returned as a SectionReader without buffering.
+	// All other fields are skipped so we remain forward-compatible with future additions.
 	for {
 		tagVal, err := binary.ReadUvarint(inner)
 		if err != nil {
@@ -324,11 +347,13 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			return nil, 0, nil, fmt.Errorf("reading SensorData field tag: %w", err)
 		}
 
+		// Protobuf tag encoding: upper bits are the field number, lower 3 bits are the wire type.
 		fieldNum := protowire.Number(tagVal >> 3)
 		wireType := protowire.Type(tagVal & 0x7)
 
-		// Skip non-bytes wire type fields to remain forward-compatible with fields
-		// added by future server versions.
+		// Skip any non-length-delimited field (varint, fixed32, fixed64) by consuming its
+		// fixed-width value and moving on. We don't expect these in SensorData today, but
+		// handling them keeps the parser forward-compatible.
 		if wireType != protowire.BytesType {
 			var skipErr error
 			switch wireType { //nolint:exhaustive
@@ -347,13 +372,18 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			continue
 		}
 
+		// For BytesType fields the value is: [fieldLen varint] [fieldLen bytes].
 		fieldLen, err := binary.ReadUvarint(inner)
 		if err != nil {
 			return nil, 0, nil, fmt.Errorf("reading field length for SensorData field %d: %w", fieldNum, err)
 		}
 
 		switch fieldNum { //nolint:exhaustive
-		case 1: // SensorMetadata
+		case 1: // SensorMetadata — small proto message, safe to read fully into memory.
+			const maxSensorMetaBytes = 1024 * 1024 // 1 MiB; metadata is always tiny in practice
+			if fieldLen > maxSensorMetaBytes {
+				return nil, 0, nil, fmt.Errorf("SensorMetadata field length %d exceeds limit %d (corrupt file?)", fieldLen, maxSensorMetaBytes)
+			}
 			metaBytes := make([]byte, fieldLen)
 			if _, err := io.ReadFull(inner, metaBytes); err != nil {
 				return nil, 0, nil, fmt.Errorf("reading SensorMetadata bytes: %w", err)
@@ -362,17 +392,23 @@ func (f *CaptureFile) BinaryPayloadReader() (*v1.SensorMetadata, int64, io.Reade
 			if err := proto.Unmarshal(metaBytes, sensorMeta); err != nil {
 				return nil, 0, nil, fmt.Errorf("unmarshaling SensorMetadata: %w", err)
 			}
-		case 3: // binary payload (SensorData.binary oneof field)
-			// inner.count bytes consumed since msgStart; binary data starts here.
+		case 3: // binary payload (SensorData.binary oneof field) — potentially large, don't buffer.
+			if sensorMeta == nil {
+				return nil, 0, nil, errors.New("binary payload field appeared before SensorMetadata in capture file")
+			}
+			// inner.count is the number of bytes consumed from msgStart so far, so
+			// msgStart+inner.count is the absolute file offset where the payload bytes begin.
+			// SectionReader lets the caller read directly from the file at that window.
 			return sensorMeta, int64(fieldLen), io.NewSectionReader(f.file, msgStart+inner.count, int64(fieldLen)), nil
 		default:
+			// Unknown field — skip the value bytes and continue.
 			if _, err := io.CopyN(io.Discard, inner, int64(fieldLen)); err != nil {
 				return nil, 0, nil, fmt.Errorf("skipping SensorData field %d: %w", fieldNum, err)
 			}
 		}
 	}
 
-	return nil, 0, nil, errors.New("binary payload field not found in capture file")
+	return nil, 0, nil, ErrNoBinaryField
 }
 
 // countingByteReader wraps an io.Reader and tracks the total number of bytes read.
