@@ -7,6 +7,9 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// gatewayResultDescription is the Description value set on a PacketLossResult for the router probe.
+const gatewayResultDescription = "router"
+
 // PacketLossResult holds the results of a packet loss probe to a specific host.
 type PacketLossResult struct {
 	// Target is the IP address being probed.
@@ -38,23 +41,24 @@ func (r *PacketLossResult) LossPercent() float64 {
 }
 
 func stringifyPacketLossResults(results []*PacketLossResult) string {
-	ret := "["
+	var sb strings.Builder
+	sb.WriteString("[")
 	for i, r := range results {
-		comma := ","
-		if i == 0 {
-			comma = ""
+		if i > 0 {
+			sb.WriteString(",")
 		}
-		ret += fmt.Sprintf("%v{target: %s, description: %s, sent: %d, received: %d, loss_pct: %.0f%%",
-			comma, r.Target, r.Description, r.Sent, r.Received, r.LossPercent())
+		fmt.Fprintf(&sb, "{target: %s, description: %s, sent: %d, received: %d, loss_pct: %.0f%%",
+			r.Target, r.Description, r.Sent, r.Received, r.LossPercent())
 		if r.AvgRTTMS != nil {
-			ret += fmt.Sprintf(", avg_rtt_ms: %d", *r.AvgRTTMS)
+			fmt.Fprintf(&sb, ", avg_rtt_ms: %d", *r.AvgRTTMS)
 		}
 		if r.ErrorString != nil {
-			ret += fmt.Sprintf(", error: %s", *r.ErrorString)
+			fmt.Fprintf(&sb, ", error: %s", *r.ErrorString)
 		}
-		ret += "}"
+		sb.WriteString("}")
 	}
-	return ret + "]"
+	sb.WriteString("]")
+	return sb.String()
 }
 
 func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, verbose bool) {
@@ -70,10 +74,10 @@ func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, ve
 	// gateway is still routing traffic correctly — many routers drop ICMP ping by default.
 	var routerFullLoss, ispReachable bool
 	for _, r := range results {
-		if r.Description == "router" && r.LossPercent() == 100 && r.ErrorString == nil {
+		if r.Description == gatewayResultDescription && r.LossPercent() == 100 && r.ErrorString == nil {
 			routerFullLoss = true
 		}
-		if r.Description != "router" && r.LossPercent() == 0 {
+		if r.Description != gatewayResultDescription && r.LossPercent() == 0 {
 			ispReachable = true
 		}
 	}

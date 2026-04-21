@@ -76,6 +76,9 @@ const packetLossProbeCount = 10
 // Timeout per ICMP echo probe.
 const packetLossProbeTimeout = time.Second
 
+// Hard cap on total TestPacketLoss runtime (2 targets × 10 probes × 1 s/probe + 5 s buffer).
+const packetLossTestTimeout = 25 * time.Second
+
 // External IP used as a proxy for ISP connectivity. Cloudflare's anycast DNS is
 // positioned at ISP edge PoPs and responds reliably to ICMP.
 const ispProbeTarget = "1.1.1.1"
@@ -100,7 +103,12 @@ func getDefaultGatewayLinux() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("reading /proc/net/route: %w", err)
 	}
-	for _, line := range strings.Split(string(data), "\n")[1:] {
+	return parseDefaultGatewayLinux(string(data))
+}
+
+// parseDefaultGatewayLinux extracts the default gateway IP from /proc/net/route content.
+func parseDefaultGatewayLinux(data string) (string, error) {
+	for _, line := range strings.Split(data, "\n")[1:] {
 		fields := strings.Fields(line)
 		if len(fields) < 3 || fields[1] != "00000000" {
 			continue
@@ -174,7 +182,7 @@ func openICMPConn() (*icmp.PacketConn, string, error) {
 // probePacketLoss sends count ICMP echo requests to target and returns a PacketLossResult.
 // A separate connection per call prevents cross-test reply contamination.
 func probePacketLoss(ctx context.Context, target string, count int) *PacketLossResult {
-	result := &PacketLossResult{Target: target, Sent: count}
+	result := &PacketLossResult{Target: target}
 
 	targetIP, err := net.ResolveIPAddr("ip4", target)
 	if err != nil {
@@ -190,6 +198,9 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		return result
 	}
 
+	var closeOnce sync.Once
+	closeConn := func() { closeOnce.Do(func() { conn.Close() }) } //nolint:errcheck
+	defer closeConn()
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
@@ -197,16 +208,16 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		case <-ctx.Done():
 		case <-done:
 		}
-		conn.Close() //nolint:errcheck
+		closeConn()
 	}()
 
+	isUnprivileged := network == udp4Network
 	id := os.Getpid() & 0xffff
-	var received int
+	var sent, received int
 	var totalRTTMS int64
 
 	for seq := 0; seq < count; seq++ {
 		if ctx.Err() != nil {
-			result.Sent = seq
 			break
 		}
 
@@ -221,7 +232,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		}
 
 		var dst net.Addr
-		if network == udp4Network {
+		if isUnprivileged {
 			dst = &net.UDPAddr{IP: targetIP.IP}
 		} else {
 			dst = &net.IPAddr{IP: targetIP.IP}
@@ -231,6 +242,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		if _, err := conn.WriteTo(wb, dst); err != nil {
 			continue
 		}
+		sent++
 
 		if err := conn.SetReadDeadline(time.Now().Add(packetLossProbeTimeout)); err != nil {
 			continue
@@ -244,7 +256,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 			}
 
 			msgBytes := rb[:n]
-			if network == "ip4:icmp" && n > 20 {
+			if !isUnprivileged && n > 20 {
 				// Raw socket includes the IP header; strip it.
 				ihl := int(rb[0]&0x0f) * 4
 				if ihl < n {
@@ -265,7 +277,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 			}
 			// For raw sockets we also match on ID; for unprivileged ("udp4") the
 			// kernel rewrites the identifier so we skip that check.
-			if network != "udp4" && echo.ID != id {
+			if !isUnprivileged && echo.ID != id {
 				continue
 			}
 			received++
@@ -274,6 +286,7 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 		}
 	}
 
+	result.Sent = sent
 	result.Received = received
 	if received > 0 {
 		avg := totalRTTMS / int64(received)
@@ -286,6 +299,9 @@ func probePacketLoss(ctx context.Context, target string, count int) *PacketLossR
 // ispProbeTarget as an indicator of ISP/WAN connectivity. If verbose is true,
 // successful results are logged; otherwise only failures are logged.
 func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) {
+	ctx, cancel := context.WithTimeout(ctx, packetLossTestTimeout)
+	defer cancel()
+
 	type target struct{ ip, desc string }
 
 	var targets []target
@@ -293,7 +309,7 @@ func TestPacketLoss(ctx context.Context, logger logging.Logger, verbose bool) {
 	if err != nil {
 		logger.Warnw("Could not determine default gateway; skipping router packet loss test", "error", err)
 	} else {
-		targets = append(targets, target{gatewayIP, "router"})
+		targets = append(targets, target{gatewayIP, gatewayResultDescription})
 	}
 	targets = append(targets, target{ispProbeTarget, "ISP (" + ispProbeTarget + ")"})
 
