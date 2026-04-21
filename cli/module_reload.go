@@ -250,7 +250,14 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // dirty means config was changed and needs to be written back.
 // needsRestart means the module needs an explicit restart (the reload path was already correct).
 func applyModuleConfigToPartMap(
-	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local, cloudReload bool, reloadUser, annotation string, reloadUnixTS int64,
+	cmd *cli.Command,
+	partMap map[string]any,
+	manifest ModuleManifest,
+	local,
+	cloudReload bool,
+	reloadUser,
+	annotation string,
+	reloadUnixTS int64,
 ) ([]ModuleMap, bool, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
@@ -288,7 +295,8 @@ func configureModule(
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
+	_, dirty, needsRestart, err := applyModuleConfigToPartMap(
+		cmd, partMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 	if err != nil {
 		return part, false, err
 	}
