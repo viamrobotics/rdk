@@ -234,20 +234,14 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
 		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
-		if err != nil {
-			resLogger := logger.Sublogger(c.Components[idx].ResourceName().String())
-			resLogger.Errorw("Component config error; starting robot without component", "name", c.Components[idx].Name, "error", err.Error())
-		} else {
+		if err == nil {
 			c.Components[idx].ImplicitDependsOn = requiredDeps
 			c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
 	}
 	for idx := range len(c.Services) {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
-		if err != nil {
-			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
-			resLogger.Errorw("Service config error; starting robot without service", "name", c.Services[idx].Name, "error", err.Error())
-		} else {
+		if err == nil {
 			c.Services[idx].ImplicitDependsOn = requiredDeps
 			c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
