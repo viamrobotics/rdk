@@ -12,11 +12,11 @@ To connect to your machine, install the Viam SDK and cookie helper with your pac
 npm install @viamrobotics/sdk typescript-cookie
 ```
 
-A utility file is included at `src/lib/auth.ts` that reads machine credentials from cookies. Use it to connect:
+A utility file is included at `auth.ts` that reads machine credentials from cookies. Use it to connect:
 
 ```js
 import { createRobotClient } from '@viamrobotics/sdk';
-import { getHostAndCredentials } from './src/lib/auth';
+import { getHostAndCredentials } from './auth';
 
 const { host, credentials } = getHostAndCredentials();
 const machine = await createRobotClient({
