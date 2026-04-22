@@ -34,7 +34,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	err := setupDirectories(cCtx, testData.ModuleName, globalArgs)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = copyAppTemplate(cCtx, testData.ModuleName, globalArgs)
+	err = copyLanguageTemplate(cCtx, "app", testData.ModuleName, globalArgs)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = renderAppTemplate(cCtx, testData.ModuleName, testData, globalArgs)

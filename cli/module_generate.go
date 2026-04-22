@@ -270,7 +270,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 
 	// Copy non-template files and render template files (skip meta.json since we generated it above)
-	if err := copyAppTemplate(cmd, moduleName, globalArgs); err != nil {
+	if err := copyLanguageTemplate(cmd, "app", moduleName, globalArgs); err != nil {
 		return err
 	}
 	if err := renderAppTemplate(cmd, moduleName, data, globalArgs); err != nil {
@@ -288,49 +288,6 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
 	return nil
-}
-
-// copyAppTemplate copies non-template files from _templates/app/ into the output directory.
-func copyAppTemplate(cmd *cli.Command, moduleName string, globalArgs globalArgs) error {
-	debugf(cmd.Root().Writer, globalArgs.Debug, "Copying app template files")
-	appPath := path.Join(templatesPath, "app")
-	tempDir, err := fs.Sub(templates, appPath)
-	if err != nil {
-		return err
-	}
-	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if filePath != "." {
-				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCreating directory %s", filePath)
-				if err := os.MkdirAll(filepath.Join(moduleName, filePath), 0o750); err != nil {
-					return err
-				}
-			}
-		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying file %s", filePath)
-			srcFile, err := templates.Open(path.Join(appPath, filePath))
-			if err != nil {
-				return errors.Wrapf(err, "error opening file %s", filePath)
-			}
-			defer utils.UncheckedErrorFunc(srcFile.Close)
-
-			destPath := filepath.Join(moduleName, filePath)
-			//nolint:gosec
-			destFile, err := os.Create(destPath)
-			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", destPath)
-			}
-			defer utils.UncheckedErrorFunc(destFile.Close)
-
-			if _, err := io.Copy(destFile, srcFile); err != nil {
-				return errors.Wrapf(err, "error copying file %s", destPath)
-			}
-		}
-		return nil
-	})
 }
 
 // renderAppTemplate renders tmpl- prefixed files from _templates/app/ with app-specific data.
@@ -943,7 +900,7 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, filePath), 0o750)
+				err = os.MkdirAll(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
 					return err
 				}
