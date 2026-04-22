@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -156,9 +157,30 @@ func TestBuildCaptureMetadata(t *testing.T) {
 }
 
 func TestBinaryPayloadReader(t *testing.T) {
-	// writeRawCaptureFile builds a capture file with a manually constructed SensorData
+	// captureFileFromSensorData writes msgs to a new capture file, closes it (which
+	// renames it from .prog to .capture), then reopens it for reading.
+	captureFileFromSensorData := func(t *testing.T, msgs ...*v1.SensorData) *CaptureFile {
+		t.Helper()
+		dir := t.TempDir()
+		cf, err := NewCaptureFile(dir, &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_BINARY_SENSOR})
+		test.That(t, err, test.ShouldBeNil)
+		for _, msg := range msgs {
+			test.That(t, cf.WriteNext(msg), test.ShouldBeNil)
+		}
+		test.That(t, cf.Close(), test.ShouldBeNil)
+		entries, err := os.ReadDir(dir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(entries), test.ShouldEqual, 1)
+		f, err := os.Open(filepath.Join(dir, entries[0].Name()))
+		test.That(t, err, test.ShouldBeNil)
+		readCF, err := ReadCaptureFile(f)
+		test.That(t, err, test.ShouldBeNil)
+		return readCF
+	}
+
+	// captureFileFromRawBytes builds a capture file with a manually constructed SensorData
 	// body, allowing tests to inject arbitrary wire-format bytes.
-	writeRawCaptureFile := func(t *testing.T, body []byte) *CaptureFile {
+	captureFileFromRawBytes := func(t *testing.T, body []byte) *CaptureFile {
 		t.Helper()
 		f, err := os.CreateTemp(t.TempDir(), "*"+CompletedCaptureFileExt)
 		test.That(t, err, test.ShouldBeNil)
@@ -181,35 +203,29 @@ func TestBinaryPayloadReader(t *testing.T) {
 		name         string
 		setup        func(t *testing.T) *CaptureFile
 		wantPayloads [][]byte
-		wantErr      bool
+		wantErr      error
 	}{
 		{
 			name: "single message",
 			setup: func(t *testing.T) *CaptureFile {
-				cf, err := NewCaptureFile(t.TempDir(), &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_BINARY_SENSOR})
-				test.That(t, err, test.ShouldBeNil)
-				err = cf.WriteNext(&v1.SensorData{
+				return captureFileFromSensorData(t, &v1.SensorData{
 					Metadata: &v1.SensorMetadata{},
 					Data:     &v1.SensorData_Binary{Binary: []byte("single binary payload")},
 				})
-				test.That(t, err, test.ShouldBeNil)
-				return cf
 			},
 			wantPayloads: [][]byte{[]byte("single binary payload")},
 		},
 		{
 			name: "multiple messages",
 			setup: func(t *testing.T) *CaptureFile {
-				cf, err := NewCaptureFile(t.TempDir(), &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_BINARY_SENSOR})
-				test.That(t, err, test.ShouldBeNil)
-				for i := 0; i < 5; i++ {
-					err = cf.WriteNext(&v1.SensorData{
+				msgs := make([]*v1.SensorData, 5)
+				for i := range msgs {
+					msgs[i] = &v1.SensorData{
 						Metadata: &v1.SensorMetadata{},
 						Data:     &v1.SensorData_Binary{Binary: []byte(fmt.Sprintf("payload-%d", i))},
-					})
-					test.That(t, err, test.ShouldBeNil)
+					}
 				}
-				return cf
+				return captureFileFromSensorData(t, msgs...)
 			},
 			wantPayloads: [][]byte{
 				[]byte("payload-0"),
@@ -232,23 +248,19 @@ func TestBinaryPayloadReader(t *testing.T) {
 				body = protowire.AppendVarint(body, 42)
 				body = protowire.AppendTag(body, 3, protowire.BytesType)
 				body = protowire.AppendBytes(body, []byte("payload after unknown varint field"))
-				return writeRawCaptureFile(t, body)
+				return captureFileFromRawBytes(t, body)
 			},
 			wantPayloads: [][]byte{[]byte("payload after unknown varint field")},
 		},
 		{
 			name: "no binary field returns error",
 			setup: func(t *testing.T) *CaptureFile {
-				cf, err := NewCaptureFile(t.TempDir(), &v1.DataCaptureMetadata{Type: v1.DataType_DATA_TYPE_TABULAR_SENSOR})
-				test.That(t, err, test.ShouldBeNil)
-				err = cf.WriteNext(&v1.SensorData{
+				return captureFileFromSensorData(t, &v1.SensorData{
 					Metadata: &v1.SensorMetadata{},
 					Data:     &v1.SensorData_Struct{Struct: &structpb.Struct{}},
 				})
-				test.That(t, err, test.ShouldBeNil)
-				return cf
 			},
-			wantErr: true,
+			wantErr: ErrNoBinaryField,
 		},
 	}
 
@@ -257,9 +269,9 @@ func TestBinaryPayloadReader(t *testing.T) {
 			cf := tc.setup(t)
 			cf.Reset()
 
-			if tc.wantErr {
+			if tc.wantErr != nil {
 				_, _, _, err := cf.BinaryPayloadReader()
-				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err, test.ShouldBeError, tc.wantErr)
 				return
 			}
 
