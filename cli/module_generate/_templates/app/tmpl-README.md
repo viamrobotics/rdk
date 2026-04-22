@@ -6,6 +6,27 @@ A Viam app module that serves your web app from your machine via the Viam SDK.
 
 This module doesn't provide any frontend - bring your own using whatever framework you like.
 
+To connect to your machine, install the Viam SDK and cookie helper with your package manager:
+
+```
+npm install @viamrobotics/sdk typescript-cookie
+```
+
+A utility file is included at `src/lib/auth.ts` that reads machine credentials from cookies. Use it to connect:
+
+```js
+import { createRobotClient } from '@viamrobotics/sdk';
+import { getHostAndCredentials } from './src/lib/auth';
+
+const { host, credentials } = getHostAndCredentials();
+const machine = await createRobotClient({
+    host,
+    credentials,
+    signalingAddress: 'https://app.viam.com',
+});
+const resources = await machine.resourceNames();
+```
+
 Update the `"entrypoint"` in the applications section of `meta.json` to point to your frontend's main HTML file. The default is `dist/index.html`.
 
 After building your frontend, make sure to run:
