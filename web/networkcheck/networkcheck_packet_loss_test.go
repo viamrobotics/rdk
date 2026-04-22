@@ -64,6 +64,86 @@ func TestStringifyPacketLossResults(t *testing.T) {
 	})
 }
 
+func TestParseDefaultGatewayDarwin(t *testing.T) {
+	t.Run("parses gateway from normal output", func(t *testing.T) {
+		data := "   route to: default\n" +
+			"destination: default\n" +
+			"       mask: default\n" +
+			"    gateway: 192.168.1.1\n" +
+			"  interface: en0\n"
+		gw, err := parseDefaultGatewayDarwin(data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gw, test.ShouldEqual, "192.168.1.1")
+	})
+
+	t.Run("returns first gateway when multiple present", func(t *testing.T) {
+		data := "    gateway: 10.0.0.1\n" +
+			"    gateway: 10.0.0.2\n"
+		gw, err := parseDefaultGatewayDarwin(data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gw, test.ShouldEqual, "10.0.0.1")
+	})
+
+	t.Run("no gateway line returns error", func(t *testing.T) {
+		data := "   route to: default\n" +
+			"destination: default\n" +
+			"  interface: en0\n"
+		_, err := parseDefaultGatewayDarwin(data)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("empty input returns error", func(t *testing.T) {
+		_, err := parseDefaultGatewayDarwin("")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("gateway line with no value returns error", func(t *testing.T) {
+		data := "    gateway:\n"
+		_, err := parseDefaultGatewayDarwin(data)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+}
+
+func TestParseDefaultGatewayWindows(t *testing.T) {
+	t.Run("parses gateway from normal output", func(t *testing.T) {
+		data := "===========================================================================\n" +
+			"Active Routes:\n" +
+			"Network Destination        Netmask          Gateway       Interface  Metric\n" +
+			"          0.0.0.0          0.0.0.0      192.168.1.1    192.168.1.5      25\n" +
+			"        127.0.0.0        255.0.0.0        127.0.0.1      127.0.0.1     331\n"
+		gw, err := parseDefaultGatewayWindows(data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gw, test.ShouldEqual, "192.168.1.1")
+	})
+
+	t.Run("picks lowest metric route", func(t *testing.T) {
+		// 10.0.0.1 has metric 20, 10.0.0.2 has metric 10 — lower wins even though it appears second.
+		data := "          0.0.0.0          0.0.0.0         10.0.0.1        10.0.0.5      20\n" +
+			"          0.0.0.0          0.0.0.0         10.0.0.2        10.0.0.5      10\n"
+		gw, err := parseDefaultGatewayWindows(data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gw, test.ShouldEqual, "10.0.0.2")
+	})
+
+	t.Run("no default route returns error", func(t *testing.T) {
+		data := "Network Destination        Netmask          Gateway       Interface  Metric\n" +
+			"        127.0.0.0        255.0.0.0        127.0.0.1      127.0.0.1     331\n"
+		_, err := parseDefaultGatewayWindows(data)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("empty input returns error", func(t *testing.T) {
+		_, err := parseDefaultGatewayWindows("")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("destination matches but netmask does not", func(t *testing.T) {
+		data := "          0.0.0.0        255.0.0.0         10.0.0.1        10.0.0.5      10\n"
+		_, err := parseDefaultGatewayWindows(data)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+}
+
 func TestParseDefaultGatewayLinux(t *testing.T) {
 	// /proc/net/route stores gateway bytes in little-endian hex.
 	// FE01A8C0 → bytes [FE,01,A8,C0] → reversed → 192.168.1.254
@@ -91,9 +171,19 @@ func TestParseDefaultGatewayLinux(t *testing.T) {
 
 	t.Run("skips malformed hex gateway", func(t *testing.T) {
 		// First default route has bad hex, second has a valid one.
-		data := "Iface\tDestination\tGateway\n" +
-			"eth0\t00000000\tZZZZZZZZ\n" +
-			"eth0\t00000000\t0101A8C0\n"
+		data := "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\n" +
+			"eth0\t00000000\tZZZZZZZZ\t0003\t0\t0\t100\n" +
+			"eth0\t00000000\t0101A8C0\t0003\t0\t0\t50\n"
+		gw, err := parseDefaultGatewayLinux(data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, gw, test.ShouldEqual, "192.168.1.1")
+	})
+
+	t.Run("picks lowest metric route", func(t *testing.T) {
+		// 192.168.1.254 has metric 200, 192.168.1.1 has metric 50 — lower wins.
+		data := "Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask\tMTU\tWindow\tIRTT\n" +
+			"eth0\t00000000\tFE01A8C0\t0003\t0\t0\t200\t00000000\t0\t0\t0\n" +
+			"wlan0\t00000000\t0101A8C0\t0003\t0\t0\t50\t00000000\t0\t0\t0\n"
 		gw, err := parseDefaultGatewayLinux(data)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gw, test.ShouldEqual, "192.168.1.1")

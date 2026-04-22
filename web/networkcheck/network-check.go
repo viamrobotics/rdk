@@ -107,20 +107,35 @@ func getDefaultGatewayLinux() (string, error) {
 }
 
 // parseDefaultGatewayLinux extracts the default gateway IP from /proc/net/route content.
+// When multiple default routes exist (e.g. VPN + physical NIC), the one with the lowest
+// metric is the kernel's preferred route.
 func parseDefaultGatewayLinux(data string) (string, error) {
+	bestGW := ""
+	bestMetric := -1
 	for _, line := range strings.Split(data, "\n")[1:] {
 		fields := strings.Fields(line)
-		if len(fields) < 3 || fields[1] != "00000000" {
+		// Need at least 7 fields: Iface Destination Gateway Flags RefCnt Use Metric
+		if len(fields) < 7 || fields[1] != "00000000" {
 			continue
 		}
 		gwBytes, err := hex.DecodeString(fields[2])
 		if err != nil || len(gwBytes) != 4 {
 			continue
 		}
-		// Stored in little-endian byte order.
-		return fmt.Sprintf("%d.%d.%d.%d", gwBytes[3], gwBytes[2], gwBytes[1], gwBytes[0]), nil
+		metric, err := strconv.Atoi(fields[6])
+		if err != nil {
+			continue
+		}
+		if bestMetric < 0 || metric < bestMetric {
+			bestMetric = metric
+			// Stored in little-endian byte order.
+			bestGW = fmt.Sprintf("%d.%d.%d.%d", gwBytes[3], gwBytes[2], gwBytes[1], gwBytes[0])
+		}
 	}
-	return "", fmt.Errorf("default gateway not found in /proc/net/route")
+	if bestGW == "" {
+		return "", fmt.Errorf("default gateway not found in /proc/net/route")
+	}
+	return bestGW, nil
 }
 
 // getDefaultGatewayDarwin uses the route(8) command to find the default gateway on macOS.
@@ -129,7 +144,12 @@ func getDefaultGatewayDarwin(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("running route command: %w", err)
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	return parseDefaultGatewayDarwin(string(out))
+}
+
+// parseDefaultGatewayDarwin extracts the default gateway IP from `route -n get default` output.
+func parseDefaultGatewayDarwin(data string) (string, error) {
+	for _, line := range strings.Split(data, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "gateway:") {
 			fields := strings.Fields(line)
@@ -152,14 +172,33 @@ func getDefaultGatewayWindows(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("running route PRINT: %w", err)
 	}
-	for _, line := range strings.Split(string(out), "\n") {
+	return parseDefaultGatewayWindows(string(out))
+}
+
+// parseDefaultGatewayWindows extracts the default gateway IP from `route PRINT 0.0.0.0` output.
+// When multiple default routes exist, the one with the lowest metric is the preferred route.
+func parseDefaultGatewayWindows(data string) (string, error) {
+	bestGW := ""
+	bestMetric := -1
+	for _, line := range strings.Split(data, "\n") {
 		fields := strings.Fields(line)
-		// Look for the default route: destination=0.0.0.0, netmask=0.0.0.0.
-		if len(fields) >= 3 && fields[0] == "0.0.0.0" && fields[1] == "0.0.0.0" {
-			return fields[2], nil
+		// Need all 5 fields: destination, netmask, gateway, interface, metric.
+		if len(fields) < 5 || fields[0] != "0.0.0.0" || fields[1] != "0.0.0.0" {
+			continue
+		}
+		metric, err := strconv.Atoi(fields[4])
+		if err != nil {
+			continue
+		}
+		if bestMetric < 0 || metric < bestMetric {
+			bestMetric = metric
+			bestGW = fields[2]
 		}
 	}
-	return "", fmt.Errorf("default gateway not found in route PRINT output")
+	if bestGW == "" {
+		return "", fmt.Errorf("default gateway not found in route PRINT output")
+	}
+	return bestGW, nil
 }
 
 // openICMPConn opens an ICMP packet connection. Tries privileged raw ICMP first

@@ -72,13 +72,21 @@ func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, ve
 
 	// If the router has 100% packet loss but the ISP target is reachable, note that the
 	// gateway is still routing traffic correctly — many routers drop ICMP ping by default.
-	var routerFullLoss, ispReachable bool
+	var routerFullLoss, ispReachable, ispHighLoss, ispFullLoss bool
 	for _, r := range results {
 		if r.Description == gatewayResultDescription && r.LossPercent() == 100 && r.ErrorString == nil {
 			routerFullLoss = true
 		}
-		if r.Description != gatewayResultDescription && r.LossPercent() == 0 {
-			ispReachable = true
+		if r.Description != gatewayResultDescription {
+			if r.LossPercent() == 0 {
+				ispReachable = true
+			}
+			if r.LossPercent() > 50 && r.LossPercent() < 100 {
+				ispHighLoss = true
+			}
+			if r.LossPercent() == 100 || r.ErrorString != nil {
+				ispFullLoss = true
+			}
 		}
 	}
 
@@ -87,6 +95,16 @@ func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, ve
 	if routerFullLoss && ispReachable {
 		keysAndValues = append(keysAndValues,
 			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
+		)
+	}
+	if ispHighLoss {
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target (1.1.1.1) has high packet loss; internet connectivity may be spotty",
+		)
+	}
+	if ispFullLoss {
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target (1.1.1.1) is unreachable; internet connectivity may be down",
 		)
 	}
 	if anyLoss {
