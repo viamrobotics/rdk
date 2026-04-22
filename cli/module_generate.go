@@ -74,9 +74,8 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
-	AppName         string
-	AppType         string
-	LocalServer     bool
+	AppName string
+	AppType string
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -172,9 +171,8 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 }
 
 type appInputs struct {
-	AppName     string
-	AppType     string
-	LocalServer bool
+	AppName string
+	AppType string
 }
 
 func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -189,7 +187,7 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 
 	// App-specific prompts
 	app := &appInputs{}
-	if err := promptAppUser(app, newModule.Language); err != nil {
+	if err := promptAppUser(app); err != nil {
 		return err
 	}
 
@@ -402,19 +400,17 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
-	SDKVersion      string
-	LocalServer     bool
+	SDKVersion string
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{
-		AppName:     args.AppName,
-		AppType:     args.AppType,
-		LocalServer: args.LocalServer,
+		AppName: args.AppName,
+		AppType: args.AppType,
 	}
 
 	if app.AppName == "" || app.AppType == "" {
-		if err := promptAppUser(app, ""); err != nil {
+		if err := promptAppUser(app); err != nil {
 			return err
 		}
 	}
@@ -455,9 +451,8 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		ModuleLowercase: strings.ReplaceAll(strings.ToLower(moduleName), "-", ""),
 		AppName:         app.AppName,
 		AppType:         app.AppType,
-		Namespace:       moduleInputs.Namespace,
-		Visibility:      shared.Visibility,
-		LocalServer:     app.LocalServer,
+		Namespace:  moduleInputs.Namespace,
+		Visibility: shared.Visibility,
 	}
 
 	// Get latest SDK version
@@ -582,24 +577,7 @@ func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData
 	})
 }
 
-func promptAppUser(app *appInputs, moduleLanguage string) error {
-	var localServerWidget huh.Field
-	if moduleLanguage == "" || moduleLanguage == golang {
-		localServerWidget = huh.NewConfirm().
-			Title("Enable local server?").
-			Description("A local server allows the app to be served directly from the machine\n" +
-				"on your local network, without requiring internet access.").
-			Value(&app.LocalServer)
-	} else {
-		localServerWidget = huh.NewSelect[bool]().
-			Title("Enable local server?").
-			Description("Local server is only available for Go modules. Coming soon for other languages.").
-			Options(
-				huh.NewOption("Not available", false),
-			).
-			Value(&app.LocalServer)
-	}
-
+func promptAppUser(app *appInputs) error {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
@@ -634,7 +612,6 @@ func promptAppUser(app *appInputs, moduleLanguage string) error {
 					huh.NewOption("Multi Machine", "multi_machine"),
 				).
 				Value(&app.AppType),
-			localServerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {

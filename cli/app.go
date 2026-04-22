@@ -98,10 +98,9 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagGenerateType    = "generate-type"
-	moduleFlagAppName         = "app-name"
-	moduleFlagAppType         = "app-type"
-	moduleFlagLocalServer     = "local-server"
-	moduleFlagUpload          = "upload"
+	moduleFlagAppName = "app-name"
+	moduleFlagAppType = "app-type"
+	moduleFlagUpload  = "upload"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -3497,11 +3496,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.StringFlag{
 							Name:   moduleFlagAppType,
 							Usage:  formatAcceptedValues("app type", "single_machine", "multi_machine"),
-							Hidden: true,
-						},
-						&cli.BoolFlag{
-							Name:   moduleFlagLocalServer,
-							Usage:  "enable local server for serving the app on the local network",
 							Hidden: true,
 						},
 					},
