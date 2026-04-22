@@ -21,7 +21,6 @@ func TestAppTemplateCompiles(t *testing.T) {
 		AppType:         "single_machine",
 		Namespace:       "testorg",
 		Visibility:      "private",
-		PackageManager:  "npm",
 		SDKVersion:      "0.94.0",
 	}
 
@@ -67,28 +66,5 @@ func TestAppTemplateCompiles(t *testing.T) {
 	buildOut, err := build.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated app module does not compile: %v\n%s", err, buildOut)
-	}
-
-	// Verify frontend builds (catches SDK API mismatches like atAddress vs createRobotClient)
-	npmInstall := exec.Command("npm", "install")
-	npmInstall.Dir = appPath
-	npmInstallOut, err := npmInstall.CombinedOutput()
-	if err != nil {
-		t.Fatalf("npm install failed: %v\n%s", err, npmInstallOut)
-	}
-
-	// Type-check TypeScript (catches missing await, wrong method names, type mismatches)
-	tsc := exec.Command("npx", "tsc", "--noEmit")
-	tsc.Dir = appPath
-	tscOut, err := tsc.CombinedOutput()
-	if err != nil {
-		t.Fatalf("TypeScript type check failed: %v\n%s", err, tscOut)
-	}
-
-	npmBuild := exec.Command("npm", "run", "build")
-	npmBuild.Dir = appPath
-	npmBuildOut, err := npmBuild.CombinedOutput()
-	if err != nil {
-		t.Fatalf("frontend build failed: %v\n%s", err, npmBuildOut)
 	}
 }

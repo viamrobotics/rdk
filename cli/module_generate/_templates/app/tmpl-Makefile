@@ -9,15 +9,6 @@ ifeq ($(VIAM_TARGET_OS), windows)
 	MODULE_BINARY = bin/{{ .ModuleName }}.exe
 endif
 
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-	INSTALL_NODE := which npm > /dev/null 2>&1 || brew install node
-	INSTALL_PKG_MGR := which {{ .PackageManager }} > /dev/null 2>&1 || npm install -g {{ .PackageManager }}
-else
-	INSTALL_NODE := which npm > /dev/null 2>&1 || curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && apt-get -y install nodejs
-	INSTALL_PKG_MGR := which {{ .PackageManager }} > /dev/null 2>&1 || npm install -g {{ .PackageManager }}
-endif
-
 .DEFAULT_GOAL := all
 
 $(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go dist/index.html
@@ -28,6 +19,7 @@ lint:
 
 update:
 	go get go.viam.com/rdk@latest
+	go get github.com/erh/vmodutils@v0.3.11-rc3
 	go mod tidy
 
 test:
@@ -48,21 +40,9 @@ module: test module.tar.gz
 
 all: test module.tar.gz
 
-node_modules: package.json
-	{{ .PackageManager }} install
-
-.PHONY: frontend
-frontend: node_modules
-	{{ .PackageManager }} run build
-
-dist/index.html: frontend
-
 setup:
-	# CR erodkin: fix this version
 	go get github.com/erh/vmodutils@v0.3.11-rc3
 	go mod tidy
-	$(INSTALL_NODE)
-	$(INSTALL_PKG_MGR)
 
 clean:
-	rm -rf bin dist module.tar.gz
+	rm -rf bin module.tar.gz
