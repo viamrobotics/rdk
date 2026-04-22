@@ -388,7 +388,9 @@ func NewWebappServer(
 	if err != nil {
 		cwd = "."
 	}
-	printf(cmd.Root().Writer, "Module with app successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
+	fullPath := filepath.Join(cwd, newModule.ModuleName)
+	printf(cmd.Root().Writer, "Module with app successfully generated at %s", fullPath)
+	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(fullPath, "README.md"))
 	return nil
 }
 
@@ -482,7 +484,9 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	if err != nil {
 		cwd = "."
 	}
-	printf(cmd.Root().Writer, "App module successfully generated at %s%s%s", cwd, string(os.PathSeparator), moduleName)
+	appPath := filepath.Join(cwd, moduleName)
+	printf(cmd.Root().Writer, "App module successfully generated at %s", appPath)
+	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(appPath, "README.md"))
 	if registryURL != "" {
 		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
