@@ -170,14 +170,14 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
-	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
+	// Check jobs, modules, remotes, packages, and processes, and log errors for lack of
 	// uniqueness within each category. Managers of each resource handle duplicates
 	// differently, and behavior is undefined.
+	//
+	// Validation of configs come later and is not needed now because each manager
+	// needs to do validation right before the resource is added.
 	seenJobs := make(map[string]struct{})
 	for idx := range len(c.Jobs) {
-		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
-			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
 			logger.Errorf("Duplicate job %s in robot config; behavior undefined", c.Jobs[idx].Name)
 		}
@@ -185,9 +185,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenModules := make(map[string]struct{})
 	for idx := range len(c.Modules) {
-		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenModules[c.Modules[idx].Name]; exists {
 			logger.Errorf("Duplicate module %s in robot config; behavior undefined", c.Modules[idx].Name)
 		}
@@ -195,9 +192,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenRemotes := make(map[string]struct{})
 	for idx := range len(c.Remotes) {
-		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenRemotes[c.Remotes[idx].Name]; exists {
 			logger.Errorf("Duplicate remote %s in robot config; behavior undefined", c.Remotes[idx].Name)
 		}
@@ -205,9 +199,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenPackages := make(map[string]struct{})
 	for idx := range len(c.Packages) {
-		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
-			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenPackages[c.Packages[idx].Name]; exists {
 			logger.Errorf("Duplicate package %s in robot config; behavior undefined", c.Packages[idx].Name)
 		}
@@ -215,9 +206,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenProcesses := make(map[string]struct{})
 	for idx := range len(c.Processes) {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenProcesses[c.Processes[idx].Name]; exists {
 			logger.Errorf("Duplicate process %s in robot config; behavior undefined", c.Processes[idx].Name)
 		}
