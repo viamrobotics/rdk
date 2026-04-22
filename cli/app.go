@@ -98,9 +98,9 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagGenerateType    = "generate-type"
-	moduleFlagAppName = "app-name"
-	moduleFlagAppType = "app-type"
-	moduleFlagUpload  = "upload"
+	moduleFlagAppName         = "app-name"
+	moduleFlagAppType         = "app-type"
+	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"

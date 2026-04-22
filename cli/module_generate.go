@@ -74,8 +74,8 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
-	AppName string
-	AppType string
+	AppName         string
+	AppType         string
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -400,7 +400,7 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
-	SDKVersion string
+	SDKVersion      string
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -1711,4 +1711,3 @@ func renderManifest(
 
 	return nil
 }
-
