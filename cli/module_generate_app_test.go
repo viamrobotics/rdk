@@ -43,7 +43,8 @@ func TestAppTemplateCompiles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add a replace directive to use the local rdk so we test against the current interface
-	_, thisFile, _, _ := runtime.Caller(0)
+	_, thisFile, _, ok := runtime.Caller(0)
+	test.That(t, ok, test.ShouldBeTrue)
 	rdkRoot := filepath.Dir(filepath.Dir(thisFile))
 	goModPath := filepath.Join(appPath, "go.mod")
 	goMod, err := os.ReadFile(goModPath)
