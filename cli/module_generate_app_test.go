@@ -12,8 +12,6 @@ import (
 )
 
 func TestAppTemplateCompiles(t *testing.T) {
-	t.Parallel()
-
 	testData := appTemplateData{
 		ModuleName:      "testapp",
 		ModuleLowercase: "testapp",
