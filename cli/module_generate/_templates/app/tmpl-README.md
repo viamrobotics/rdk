@@ -56,6 +56,7 @@ To check that your HTML/CSS renders without a machine connection, just open your
 
 1. Build the module:
    ```
+   make setup
    make
    ```
 
