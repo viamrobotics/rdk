@@ -2,6 +2,7 @@
 GO_BUILD_ENV :=
 GO_BUILD_FLAGS :=
 MODULE_BINARY := bin/{{ .ModuleName }}
+ENTRYPOINT := dist/index.html
 
 ifeq ($(VIAM_TARGET_OS), windows)
 	GO_BUILD_ENV += GOOS=windows GOARCH=amd64
@@ -11,7 +12,7 @@ endif
 
 .DEFAULT_GOAL := all
 
-$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go dist/index.html
+$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go $(ENTRYPOINT)
 	$(GO_BUILD_ENV) go build $(GO_BUILD_FLAGS) -o $(MODULE_BINARY) cmd/module/main.go
 
 lint:
@@ -25,7 +26,7 @@ update:
 test:
 	go test ./...
 
-module.tar.gz: meta.json $(MODULE_BINARY) dist/index.html
+module.tar.gz: meta.json $(MODULE_BINARY) $(ENTRYPOINT)
 ifeq ($(VIAM_TARGET_OS), windows)
 	jq '.entrypoint = "./bin/{{ .ModuleName }}.exe"' meta.json > temp.json && mv temp.json meta.json
 else

@@ -27,7 +27,9 @@ const machine = await createRobotClient({
 const resources = await machine.resourceNames();
 ```
 
-Update the `"entrypoint"` in the applications section of `meta.json` to point to your frontend's main HTML file. The default is `dist/index.html`.
+The default entrypoint is `dist/index.html`. If your frontend build outputs to a different location, update both:
+- `ENTRYPOINT` in the `Makefile`
+- `"entrypoint"` in the applications section of `meta.json`
 
 After building your frontend, make sure to run:
 
