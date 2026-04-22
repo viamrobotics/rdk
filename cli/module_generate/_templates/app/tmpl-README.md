@@ -32,6 +32,10 @@ const resources = await machine.resourceNames();
 Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If you would like to change this, update it in the `meta.json`, the `Makefile`, and the `module.go` file.
 
 After building your frontend into `dist/`, run `make` to build the module.
+```
+make setup
+make
+```
 
 ## Test during development
 
