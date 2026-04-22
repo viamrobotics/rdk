@@ -174,8 +174,7 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	// uniqueness within each category. Managers of each resource handle duplicates
 	// differently, and behavior is undefined.
 	//
-	// Validation of configs come later and is not needed now because each manager
-	// needs to do validation right before the resource is added.
+	// Validation of configs come later when each resource is added or modified.
 	seenJobs := make(map[string]struct{})
 	for idx := range len(c.Jobs) {
 		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
