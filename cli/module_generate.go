@@ -451,8 +451,8 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		ModuleLowercase: strings.ReplaceAll(strings.ToLower(moduleName), "-", ""),
 		AppName:         app.AppName,
 		AppType:         app.AppType,
-		Namespace:  moduleInputs.Namespace,
-		Visibility: shared.Visibility,
+		Namespace:       moduleInputs.Namespace,
+		Visibility:      shared.Visibility,
 	}
 
 	// Get latest SDK version
@@ -467,7 +467,29 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		return err
 	}
 
-	// Copy non-template files and render template files
+	// Generate meta.json using the shared manifest function with app fields
+	var modID moduleID
+	if shared.RegisterOnApp {
+		parsedID, err := parseModuleID(fmt.Sprintf("%s:%s", moduleInputs.Namespace, moduleName))
+		if err != nil {
+			return errors.Wrap(err, "failed to parse module identifier")
+		}
+		modID = parsedID
+	} else {
+		modID.name = moduleName
+		modID.prefix = moduleInputs.Namespace
+	}
+	appModuleInputs := modulegen.ModuleInputs{
+		ModuleName: moduleName,
+		Language:   golang,
+		Visibility: shared.Visibility,
+		Namespace:  moduleInputs.Namespace,
+	}
+	if err := renderManifest(cmd, modID.String(), appModuleInputs, globalArgs, app); err != nil {
+		return err
+	}
+
+	// Copy non-template files and render template files (skip meta.json since we generated it above)
 	if err := copyAppTemplate(cmd, moduleName, globalArgs); err != nil {
 		return err
 	}
@@ -1526,7 +1548,7 @@ func createModuleAndManifest(
 		moduleID.name = module.ModuleName
 		moduleID.prefix = module.Namespace
 	}
-	err := renderManifest(cmd, moduleID.String(), module, globalArgs)
+	err := renderManifest(cmd, moduleID.String(), module, globalArgs, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to render manifest")
 	}
@@ -1599,8 +1621,10 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 	return nil
 }
 
-// Create the meta.json manifest.
-func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+// Create the meta.json manifest. If appInfo is non-nil, app-specific fields are added.
+func renderManifest(
+	cmd *cli.Command, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs, appInfo *appInputs,
+) error {
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := module.Visibility
@@ -1616,6 +1640,24 @@ func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleIn
 		Description:  fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
 		MarkdownLink: &module.ModuleReadmeLink,
 	}
+
+	if appInfo != nil {
+		manifest.Description = fmt.Sprintf("%s app", appInfo.AppName)
+		manifest.Models = []ModuleComponent{
+			{
+				API:   "rdk:component:generic",
+				Model: fmt.Sprintf("%s:%s:webapp", module.Namespace, module.ModuleName),
+			},
+		}
+		manifest.Apps = []AppComponent{
+			{
+				Name:       appInfo.AppName,
+				Type:       appInfo.AppType,
+				Entrypoint: "dist/index.html",
+			},
+		}
+	}
+
 	switch module.Language {
 	case python:
 		if runtime.GOOS == osWindows {
@@ -1669,3 +1711,4 @@ func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleIn
 
 	return nil
 }
+

@@ -214,7 +214,7 @@ func TestGenerateModuleAction(t *testing.T) {
 
 	t.Run("test render manifest", func(t *testing.T) {
 		setupDirectories(cCtx, testModule.ModuleName, globalArgs)
-		err := renderManifest(cCtx, "moduleId", testModule, globalArgs)
+		err := renderManifest(cCtx, "moduleId", testModule, globalArgs, nil)
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(testDir, testModule.ModuleName, "meta.json"))
 		test.That(t, err, test.ShouldBeNil)
