@@ -1423,6 +1423,7 @@ func renderManifest(
 
 	if appInfo != nil {
 		manifest.Description = fmt.Sprintf("%s app", appInfo.AppName)
+		manifest.MarkdownLink = nil
 		manifest.Models = []ModuleComponent{
 			{
 				API:   "rdk:component:generic",
