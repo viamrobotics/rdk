@@ -89,6 +89,10 @@ func (s *{{.ModuleCamel}}{{.ModelPascal}}) Name() resource.Name {
 	return s.name
 }
 
+func (s *{{.ModuleCamel}}{{.ModelPascal}}) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
+}
+
 func (s *{{.ModuleCamel}}{{.ModelPascal}}) Close(context.Context) error {
 	// Put close code here
 	s.cancelFunc()
