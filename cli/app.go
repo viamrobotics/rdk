@@ -101,7 +101,6 @@ const (
 	moduleFlagAppName         = "app-name"
 	moduleFlagAppType         = "app-type"
 	moduleFlagLocalServer     = "local-server"
-	moduleFlagPackageManager  = "package-manager"
 	moduleFlagUpload          = "upload"
 
 	moduleBuildFlagRef         = "ref"
@@ -3503,11 +3502,6 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						&cli.BoolFlag{
 							Name:   moduleFlagLocalServer,
 							Usage:  "enable local server for serving the app on the local network",
-							Hidden: true,
-						},
-						&cli.StringFlag{
-							Name:   moduleFlagPackageManager,
-							Usage:  formatAcceptedValues("package manager for frontend", "npm", "pnpm", "yarn", "bun"),
 							Hidden: true,
 						},
 					},

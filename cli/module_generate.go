@@ -74,10 +74,9 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
-	AppName        string
-	AppType        string
-	LocalServer    bool
-	PackageManager string
+	AppName         string
+	AppType         string
+	LocalServer     bool
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -150,8 +149,8 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 	}
 
 	shared := &sharedInputs{
-		Visibility: args.Visibility,
-		Namespace:  args.PublicNamespace,
+		Visibility:    args.Visibility,
+		Namespace:     args.PublicNamespace,
 		RegisterOnApp: args.Register,
 	}
 	if shared.Visibility == "" || shared.Namespace == "" {
@@ -173,10 +172,9 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 }
 
 type appInputs struct {
-	AppName        string
-	AppType        string
-	LocalServer    bool
-	PackageManager string
+	AppName     string
+	AppType     string
+	LocalServer bool
 }
 
 func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -189,13 +187,211 @@ func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args ge
 	newModule.Namespace = shared.Namespace
 	newModule.RegisterOnApp = shared.RegisterOnApp
 
-	// App-specific prompts — local server availability depends on module language
+	// App-specific prompts
 	app := &appInputs{}
 	if err := promptAppUser(app, newModule.Language); err != nil {
 		return err
 	}
 
-	return errors.New("combined module + app generation is not yet implemented")
+	// Set up module inputs for generation
+	if err := newModule.CheckResourceAndSetType(); err != nil {
+		return err
+	}
+	if err := checkLanguageVersion(newModule.Language); err != nil {
+		return err
+	}
+	if !args.DryRun {
+		if err := wrapResolveOrg(ctx, cmd, c, newModule); err != nil {
+			return err
+		}
+	}
+	populateAdditionalInfo(newModule)
+
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	// Get latest SDK version
+	version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
+	if err != nil {
+		return err
+	}
+	newModule.SDKVersion = version[1:]
+	if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
+		newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
+	}
+
+	// Run the module generation pipeline
+	if err := setupDirectories(cmd, newModule.ModuleName, globalArgs); err != nil {
+		return err
+	}
+	if _, err := createModuleAndManifest(ctx, cmd, c, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := renderCommonFiles(cmd, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := copyLanguageTemplate(cmd, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
+		return err
+	}
+	if err := renderTemplate(cmd, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := generateStubs(cmd, *newModule, globalArgs); err != nil {
+		warningf(cmd.Root().ErrWriter, err.Error())
+	}
+
+	modulePath := newModule.ModuleName
+
+	// 1. Add applications[] to the generated meta.json
+	manifestPath := filepath.Join(modulePath, defaultManifestFilename)
+	manifest, err := loadManifest(manifestPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load manifest to add app")
+	}
+	manifest.Apps = []AppComponent{
+		{
+			Name:       app.AppName,
+			Type:       app.AppType,
+			Entrypoint: "dist/index.html",
+		},
+	}
+	if err := writeManifest(manifestPath, manifest); err != nil {
+		return errors.Wrap(err, "failed to write manifest with app")
+	}
+
+	// 2. Add webapp.go (vmodutils server)
+	webappGo := fmt.Sprintf(`package %s
+
+import (
+	"context"
+	"embed"
+	"io/fs"
+
+	"github.com/erh/vmodutils"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+)
+
+//go:embed dist/**
+var staticFS embed.FS
+
+func distFS() (fs.FS, error) {
+	return fs.Sub(staticFS, "dist")
+}
+
+var WebappModel = resource.NewModel("%s", "%s", "webapp")
+
+type WebappConfig struct {
+	resource.TriviallyValidateConfig
+	Port *int `+"`"+`json:"port,omitempty"`+"`"+`
+}
+
+func init() {
+	resource.RegisterComponent(generic.API, WebappModel,
+		resource.Registration[resource.Resource, *WebappConfig]{
+			Constructor: NewWebappServer,
+		},
+	)
+}
+
+func NewWebappServer(
+	_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	conf, err := resource.NativeConfig[*WebappConfig](rawConf)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := distFS()
+	if err != nil {
+		return nil, err
+	}
+	port := 8888
+	if conf.Port != nil {
+		port = *conf.Port
+	}
+	return vmodutils.NewWebModuleAndStart(rawConf.ResourceName(), fs, logger, port)
+}
+`, newModule.ModuleLowercase, newModule.Namespace, newModule.ModuleName)
+
+	if err := os.WriteFile(filepath.Join(modulePath, "webapp.go"), []byte(webappGo), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write webapp.go")
+	}
+
+	// 3. Create dist/index.html placeholder for go:embed
+	if err := os.MkdirAll(filepath.Join(modulePath, "dist"), 0o750); err != nil {
+		return errors.Wrap(err, "failed to create dist directory")
+	}
+	placeholder := `<!DOCTYPE html>
+<html><head><title>Viam App</title></head>
+<body><h1>Viam App</h1><p>Replace this with your own frontend. See README.md for next steps.</p></body>
+</html>
+`
+	if err := os.WriteFile(filepath.Join(modulePath, "dist", "index.html"), []byte(placeholder), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write dist/index.html")
+	}
+
+	// 4. Update cmd/module/main.go to register webapp model
+	mainGoPath := filepath.Join(modulePath, "cmd", "module", "main.go")
+	mainGoBytes, err := os.ReadFile(mainGoPath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read main.go")
+	}
+	mainGo := string(mainGoBytes)
+	if !strings.Contains(mainGo, "components/generic") {
+		mainGo = strings.Replace(mainGo,
+			"\"go.viam.com/rdk/module\"",
+			"\"go.viam.com/rdk/components/generic\"\n\t\"go.viam.com/rdk/module\"",
+			1)
+	}
+	mainGo = strings.Replace(mainGo,
+		"})",
+		"},\n\t\tresource.APIModel{API: generic.API, Model: "+newModule.ModuleLowercase+".WebappModel})",
+		1)
+	if err := os.WriteFile(mainGoPath, []byte(mainGo), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write updated main.go")
+	}
+
+	// 5. Update Makefile to include dist in tar
+	makefilePath := filepath.Join(modulePath, "Makefile")
+	makefileBytes, err := os.ReadFile(makefilePath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read Makefile")
+	}
+	makefile := string(makefileBytes)
+	makefile = strings.Replace(makefile,
+		"tar czf $@ meta.json $(MODULE_BINARY)",
+		"tar czf $@ meta.json $(MODULE_BINARY) dist",
+		1)
+	if err := os.WriteFile(makefilePath, []byte(makefile), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write updated Makefile")
+	}
+
+	// 6. Add vmodutils to go.mod
+	goModPath := filepath.Join(modulePath, "go.mod")
+	goModBytes, err := os.ReadFile(goModPath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read go.mod")
+	}
+	goMod := string(goModBytes)
+	if !strings.Contains(goMod, "erh/vmodutils") {
+		goMod = strings.Replace(goMod, "require (", "require (\n\tgithub.com/erh/vmodutils v0.3.11-rc3", 1)
+		if err := os.WriteFile(goModPath, []byte(goMod), 0o644); err != nil { //nolint:gosec
+			return errors.Wrap(err, "failed to write updated go.mod")
+		}
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	fullPath := filepath.Join(cwd, newModule.ModuleName)
+	printf(cmd.Root().Writer, "Module with app successfully generated at %s", fullPath)
+	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(fullPath, "README.md"))
+	return nil
 }
 
 // appTemplateData is the struct passed to app template rendering.
@@ -206,20 +402,18 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
-	PackageManager  string
 	SDKVersion      string
 	LocalServer     bool
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	app := &appInputs{
-		AppName:        args.AppName,
-		AppType:        args.AppType,
-		LocalServer:    args.LocalServer,
-		PackageManager: args.PackageManager,
+		AppName:     args.AppName,
+		AppType:     args.AppType,
+		LocalServer: args.LocalServer,
 	}
 
-	if app.AppName == "" || app.AppType == "" || app.PackageManager == "" {
+	if app.AppName == "" || app.AppType == "" {
 		if err := promptAppUser(app, ""); err != nil {
 			return err
 		}
@@ -263,7 +457,6 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		AppType:         app.AppType,
 		Namespace:       moduleInputs.Namespace,
 		Visibility:      shared.Visibility,
-		PackageManager:  app.PackageManager,
 		LocalServer:     app.LocalServer,
 	}
 
@@ -291,7 +484,9 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	if err != nil {
 		cwd = "."
 	}
-	printf(cmd.Root().Writer, "App module successfully generated at %s%s%s", cwd, string(os.PathSeparator), moduleName)
+	appPath := filepath.Join(cwd, moduleName)
+	printf(cmd.Root().Writer, "App module successfully generated at %s", appPath)
+	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(appPath, "README.md"))
 	if registryURL != "" {
 		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
@@ -392,7 +587,7 @@ func promptAppUser(app *appInputs, moduleLanguage string) error {
 	if moduleLanguage == "" || moduleLanguage == golang {
 		localServerWidget = huh.NewConfirm().
 			Title("Enable local server?").
-			Description("A local server allows the app to be served directly from the machine\n"+
+			Description("A local server allows the app to be served directly from the machine\n" +
 				"on your local network, without requiring internet access.").
 			Value(&app.LocalServer)
 	} else {
@@ -440,14 +635,6 @@ func promptAppUser(app *appInputs, moduleLanguage string) error {
 				).
 				Value(&app.AppType),
 			localServerWidget,
-			huh.NewSelect[string]().
-				Title("Package manager:").
-				Description("Select the package manager for your web app's frontend dependencies.").
-				Options(
-					huh.NewOption("npm", "npm"),
-					huh.NewOption("pnpm", "pnpm"),
-				).
-				Value(&app.PackageManager),
 		),
 	).WithHeight(25).WithWidth(88)
 	if err := form.Run(); err != nil {
@@ -623,8 +810,8 @@ func promptSharedInputs(shared *sharedInputs) error {
 	} else {
 		registerWidget = huh.NewConfirm().
 			Title("Register with Viam").
-			Description("Register with Viam.\nIf selected, "+
-				"this will associate with your organization.\n"+
+			Description("Register with Viam.\nIf selected, " +
+				"this will associate with your organization.\n" +
 				"Otherwise, this will be local-only.",
 			).
 			Value(&shared.RegisterOnApp)

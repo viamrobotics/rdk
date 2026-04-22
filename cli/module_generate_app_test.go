@@ -19,7 +19,6 @@ func TestAppTemplateCompiles(t *testing.T) {
 		AppType:         "single_machine",
 		Namespace:       "testorg",
 		Visibility:      "private",
-		PackageManager:  "npm",
 		SDKVersion:      "0.94.0",
 	}
 
@@ -42,7 +41,8 @@ func TestAppTemplateCompiles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Add a replace directive to use the local rdk so we test against the current interface
-	_, thisFile, _, _ := runtime.Caller(0)
+	_, thisFile, _, ok := runtime.Caller(0)
+	test.That(t, ok, test.ShouldBeTrue)
 	rdkRoot := filepath.Dir(filepath.Dir(thisFile))
 	goModPath := filepath.Join(appPath, "go.mod")
 	goMod, err := os.ReadFile(goModPath)
@@ -50,6 +50,14 @@ func TestAppTemplateCompiles(t *testing.T) {
 	goMod = append(goMod, []byte(fmt.Sprintf("\nreplace go.viam.com/rdk => %s\n", rdkRoot))...)
 	err = os.WriteFile(goModPath, goMod, 0o644)
 	test.That(t, err, test.ShouldBeNil)
+
+	// Pin vmodutils to rc version that implements Status()
+	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@v0.3.11-rc3")
+	goGet.Dir = appPath
+	goGetOut, err := goGet.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go get vmodutils failed: %v\n%s", err, goGetOut)
+	}
 
 	// Run go mod tidy to resolve dependencies
 	tidy := exec.Command("go", "mod", "tidy")
@@ -65,28 +73,5 @@ func TestAppTemplateCompiles(t *testing.T) {
 	buildOut, err := build.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated app module does not compile: %v\n%s", err, buildOut)
-	}
-
-	// Verify frontend builds (catches SDK API mismatches like atAddress vs createRobotClient)
-	npmInstall := exec.Command("npm", "install")
-	npmInstall.Dir = appPath
-	npmInstallOut, err := npmInstall.CombinedOutput()
-	if err != nil {
-		t.Fatalf("npm install failed: %v\n%s", err, npmInstallOut)
-	}
-
-	// Type-check TypeScript (catches missing await, wrong method names, type mismatches)
-	tsc := exec.Command("npx", "tsc", "--noEmit")
-	tsc.Dir = appPath
-	tscOut, err := tsc.CombinedOutput()
-	if err != nil {
-		t.Fatalf("TypeScript type check failed: %v\n%s", err, tscOut)
-	}
-
-	npmBuild := exec.Command("npm", "run", "build")
-	npmBuild.Dir = appPath
-	npmBuildOut, err := npmBuild.CombinedOutput()
-	if err != nil {
-		t.Fatalf("frontend build failed: %v\n%s", err, npmBuildOut)
 	}
 }
