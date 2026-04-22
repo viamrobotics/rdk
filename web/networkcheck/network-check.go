@@ -67,21 +67,23 @@ func RunNetworkChecks(ctx context.Context, rdkLogger logging.Logger, continueRun
 	}
 }
 
-// All blocking I/O for all network checks gets 5 seconds before being considered a timeout.
-const timeout = 5 * time.Second
+const (
+	// All blocking I/O for all network checks gets 5 seconds before being considered a timeout.
+	timeout = 5 * time.Second
 
-// Number of ICMP echo probes sent per host during packet loss tests.
-const packetLossProbeCount = 10
+	// Number of ICMP echo probes sent per host during packet loss tests.
+	packetLossProbeCount = 10
 
-// Timeout per ICMP echo probe.
-const packetLossProbeTimeout = time.Second
+	// Timeout per ICMP echo probe.
+	packetLossProbeTimeout = time.Second
 
-// Hard cap on total TestPacketLoss runtime (2 targets × 10 probes × 1 s/probe + 5 s buffer).
-const packetLossTestTimeout = 25 * time.Second
+	// Hard cap on total TestPacketLoss runtime (2 targets × 10 probes × 1 s/probe + 5 s buffer).
+	packetLossTestTimeout = 25 * time.Second
 
-// External IP used as a proxy for ISP connectivity. Cloudflare's anycast DNS is
-// positioned at ISP edge PoPs and responds reliably to ICMP.
-const ispProbeTarget = "1.1.1.1"
+	// External IP used as a proxy for ISP connectivity. Cloudflare's anycast DNS is
+	// positioned at ISP edge PoPs and responds reliably to ICMP.
+	ispProbeTarget = "1.1.1.1"
+)
 
 // getDefaultGateway returns the IP address of the default gateway (router).
 func getDefaultGateway(ctx context.Context) (string, error) {
