@@ -85,7 +85,9 @@ func ConfigFromCache(c *cli.Command) (*Config, error) {
 		// A profile has been set as an env var but not specified by flag. Since the env var
 		// is relatively persistent, it's more reasonable to assume a user would want to fall
 		// back to default login behavior.
-		warningf(c.Root().ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
+		if c != nil {
+			warningf(c.Root().ErrWriter, "Unable to find config for profile %s, falling back to default login", globalArgs.Profile)
+		}
 	}
 
 	return configFromCacheInner(rutils.GetCLICachePath())
