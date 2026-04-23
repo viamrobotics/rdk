@@ -88,7 +88,7 @@ type RobotClient struct {
 
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
-	resourceRPCAPIs          []resource.RPCAPI
+	resourceRPCAPIs          atomic.Pointer[[]resource.RPCAPI]
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -880,7 +880,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
-	rc.resourceRPCAPIs = rpcAPIs
+	rc.resourceRPCAPIs.Store(&rpcAPIs)
 
 	rc.updateRemoteNameMap()
 
@@ -950,10 +950,14 @@ func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 		rc.Logger().Errorw("failed to get remote resource types", "error", err)
 		return nil
 	}
-	rc.mu.RLock()
-	defer rc.mu.RUnlock()
-	apis := make([]resource.RPCAPI, 0, len(rc.resourceRPCAPIs))
-	for _, v := range rc.resourceRPCAPIs {
+
+	resourceRPCAPIs := rc.resourceRPCAPIs.Load()
+	if resourceRPCAPIs == nil {
+		return nil
+	}
+
+	apis := make([]resource.RPCAPI, 0, len(*resourceRPCAPIs))
+	for _, v := range *resourceRPCAPIs {
 		vCopy := v
 		apis = append(
 			apis,
