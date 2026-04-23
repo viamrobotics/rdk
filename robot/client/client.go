@@ -86,9 +86,16 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
+	// resourceRPCAPIs is guarded behind an atomic pointer instead of mu. This is because
+	// safety-monitoring logic in viam-server needs to access this field for remote clients
+	// on every incoming gRPC request. We do not want to wait for background work like
+	// Refresh (which holds mu) to complete before accessing this field. The field is
+	// unlikely to change during the lifetime of a client, so getting an outdated value here
+	// is completely acceptable.
+	resourceRPCAPIs atomic.Pointer[[]resource.RPCAPI]
+
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
-	resourceRPCAPIs          atomic.Pointer[[]resource.RPCAPI]
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
