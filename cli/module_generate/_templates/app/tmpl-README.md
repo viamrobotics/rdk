@@ -8,7 +8,7 @@ This module doesn't provide any frontend - bring your own using whatever framewo
 
 > **Note:** Viam provides a set of utilities for Svelte that make it easy to integrate Viam into Svelte apps. See the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk) for details.
 
-To connect to your machine, install the Viam SDK and cookie helper with your package manager. For example, if using `npm`:
+To connect to your machine, install the Viam SDK and cookie helper with your package manager:
 
 ```
 npm install @viamrobotics/sdk typescript-cookie
@@ -41,7 +41,7 @@ make
 
 Test your frontend against a real machine during development:
 
-1. Start your frontend dev server (e.g. `npm run dev`) and note the port it starts on
+1. Start your frontend dev server (`npm run dev`) and note the port it starts on
 2. In another terminal:
    ```
    viam module local-app-testing --app-url=http://localhost:<PORT> --machine-id=<YOUR_MACHINE_ID>
