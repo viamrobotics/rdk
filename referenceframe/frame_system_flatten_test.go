@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -197,4 +198,50 @@ func TestFlattenComponentLevelTransform(t *testing.T) {
 	expectedPose, err := model.Transform([]Input{math.Pi / 4})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(resultArm.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
+}
+
+// Regression test: a FrameSystem containing a flattened multi-DoF model must round-trip through
+// JSON while preserving the component-level input resolution. Before the fix, UnmarshalJSON left
+// componentSchemas empty, so resolveFrameInputs could not map the "arm1" 1-slot input onto its
+// flattened "arm1:shoulder_pan_joint" sub-frame, and Transform failed with an incorrect-DoF error.
+func TestFlattenedFrameSystemJSONRoundTrip(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	lif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
+	cameraLif := NewLinkInFrame("arm1:base_link", spatial.NewZeroPose(), "camera", nil)
+	parts := []*FrameSystemPart{{FrameConfig: lif, ModelFrame: model}}
+	fs, err := NewFrameSystem("test", parts, []*LinkInFrame{cameraLif})
+	test.That(t, err, test.ShouldBeNil)
+
+	data, err := json.Marshal(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	var fs2 FrameSystem
+	test.That(t, json.Unmarshal(data, &fs2), test.ShouldBeNil)
+
+	// Component-level input drives the flattened joint on the restored FS.
+	inputs := []Input{math.Pi / 4}
+	li := NewZeroLinearInputs(&fs2)
+	li.Put("arm1", inputs)
+
+	// Walking from camera to world goes through arm1:base_link → arm1:shoulder_pan_joint → ...,
+	// which is exactly the path that previously failed because resolveFrameInputs returned nil.
+	result, err := fs2.Transform(li, NewPoseInFrame("camera", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Original FS with the same inputs should match.
+	liOrig := NewZeroLinearInputs(fs)
+	liOrig.Put("arm1", inputs)
+	expected, err := fs.Transform(liOrig, NewPoseInFrame("camera", spatial.NewZeroPose()), World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.PoseAlmostCoincident(
+		result.(*PoseInFrame).Pose(),
+		expected.(*PoseInFrame).Pose(),
+	), test.ShouldBeTrue)
+
+	// ComputePoses exercises the same path used by motion-planning's validatePlanRequest.
+	structured := FrameSystemInputs{"arm1": inputs}
+	_, err = structured.ComputePoses(&fs2)
+	test.That(t, err, test.ShouldBeNil)
 }

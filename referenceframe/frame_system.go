@@ -803,7 +803,71 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	if sfs.componentSchemas == nil {
 		sfs.componentSchemas = map[string]*LinearInputsSchema{}
 	}
+	if sfs.mimicFrames == nil {
+		sfs.mimicFrames = map[string]*mimicInfo{}
+	}
+	sfs.rebuildFlattenedSchemas()
 	return nil
+}
+
+// rebuildFlattenedSchemas reconstructs the flattenedModels, componentSchemas, and
+// mimicFrames lookup tables from the current set of frames. These maps are populated
+// during FrameSystem construction by flattenModelIntoFS but are not part of the JSON
+// on-disk format, so they must be rebuilt after UnmarshalJSON. Without this, lookups
+// like resolveFrameInputs cannot map a component's flat input vector (keyed by
+// "arm1") onto its flattened per-joint frames ("arm1:joint1"), and any Transform
+// involving those joints fails with an incorrect-DoF error.
+//
+// A SimpleModel present in fs.frames is only treated as flattened when its namespaced
+// sub-frames ("<component>:<internal>") are also present in fs.frames; a model added
+// directly via AddFrame is not flattened and must be left alone.
+func (sfs *FrameSystem) rebuildFlattenedSchemas() {
+	for componentName, frame := range sfs.frames {
+		// The umbrella component frame may be stored bare or wrapped in a namedFrame.
+		inner := frame
+		if nf, ok := frame.(*namedFrame); ok {
+			inner = nf.Frame
+		}
+		sm, ok := inner.(*SimpleModel)
+		if !ok || len(sm.DoF()) == 0 || sm.inputSchema == nil {
+			continue
+		}
+
+		// Only treat this as a flattened component if the namespaced sub-frames are
+		// actually present in the outer frame system.
+		flattened := true
+		for _, meta := range sm.inputSchema.metas {
+			if _, exists := sfs.frames[componentName+":"+meta.frameName]; !exists {
+				flattened = false
+				break
+			}
+		}
+		if !flattened {
+			continue
+		}
+
+		sfs.flattenedModels[componentName] = sm
+
+		for internalName, mm := range sm.mimicMappings {
+			sfs.mimicFrames[componentName+":"+internalName] = &mimicInfo{
+				sourceFrameName: componentName + ":" + mm.sourceFrameName,
+				multiplier:      mm.valueMultiplier,
+				offset:          mm.valueOffset,
+			}
+		}
+
+		namespacedMetas := make([]linearInputMeta, 0, len(sm.inputSchema.metas))
+		for _, meta := range sm.inputSchema.metas {
+			namespaced := componentName + ":" + meta.frameName
+			namespacedMetas = append(namespacedMetas, linearInputMeta{
+				frameName: namespaced,
+				offset:    meta.offset,
+				dof:       meta.dof,
+				frame:     sfs.Frame(namespaced),
+			})
+		}
+		sfs.componentSchemas[componentName] = &LinearInputsSchema{metas: namespacedMetas}
+	}
 }
 
 // NewZeroInputs returns a zeroed FrameSystemInputs ensuring all frames have inputs.
