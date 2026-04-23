@@ -306,8 +306,8 @@ func (g *Graph) leaves() []Name {
 
 // Clone deep copy of the resource graph.
 func (g *Graph) Clone() *Graph {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.clone()
 }
 
@@ -342,8 +342,8 @@ func removeResFromSet(rd resourceDependencies, key, node Name) {
 
 // IsNodeDependingOn returns true if child is depending on node.
 func (g *Graph) IsNodeDependingOn(node, child Name) bool {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.isNodeDependingOn(node, child)
 }
 
@@ -357,8 +357,8 @@ func (g *Graph) AddNode(node Name, nodeVal *GraphNode) error {
 
 // Node returns the node named name.
 func (g *Graph) Node(name Name) (*GraphNode, bool) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	rNode, ok := g.nodes.Get(name)
 	return rNode, ok
 }
@@ -390,8 +390,8 @@ func (g *Graph) FindBySimpleNameAndAPI(name string, api API) (*GraphNode, error)
 
 // Names returns all the resource graph names.
 func (g *Graph) Names() []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return slices.AppendSeq(
 		make([]Name, 0, g.nodes.Len()),
 		g.nodes.Keys(),
@@ -414,8 +414,8 @@ func seq2First[K, V any](seq iter.Seq2[K, V]) (K, V, bool) {
 // SimpleNamesWhere returns a list of resource names with any configured remote
 // prefix applied. Names are only included in the return if filter returns true.
 func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	var result []Name
 	for k, v := range g.nodes.simpleNameCache {
 		if v.local == nil && len(v.remote) != 1 {
@@ -443,8 +443,8 @@ func (g *Graph) SimpleNamesWhere(filter func(Name, *GraphNode) bool) []Name {
 
 // ReachableNames returns the all resource graph names, excluding remote resources that are unreached.
 func (g *Graph) ReachableNames() []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	names := make([]Name, 0, g.nodes.Len())
 	for nodeName, node := range g.nodes.All() {
 		if node.unreachable {
@@ -457,8 +457,8 @@ func (g *Graph) ReachableNames() []Name {
 
 // FindNodesByShortNameAndAPI will look for resources matching both the API and the name.
 func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	var ret []Name
 	for k, v := range g.nodes.All() {
 		if name.Name == k.Name && name.API == k.API && v != nil {
@@ -470,8 +470,8 @@ func (g *Graph) FindNodesByShortNameAndAPI(name Name) []Name {
 
 // FindNodesByAPI finds nodes with the given API.
 func (g *Graph) FindNodesByAPI(api API) []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	var ret []Name
 	for k := range g.nodes.Keys() {
 		if k.API == api {
@@ -515,15 +515,15 @@ func (g *Graph) FindBySimpleName(name string) []Name {
 
 // GetAllChildrenOf returns all direct children of a node.
 func (g *Graph) GetAllChildrenOf(node Name) []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.getAllChildrenOf(node)
 }
 
 // GetAllParentsOf returns all parents of a given node.
 func (g *Graph) GetAllParentsOf(node Name) []Name {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	return g.getAllParentOf(node)
 }
 
@@ -917,14 +917,15 @@ func (g *Graph) isNodeDependingOn(node, child Name) bool {
 
 // SubGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
 func (g *Graph) SubGraphFrom(node Name) (*Graph, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
 	return g.subGraphFromWithMutex(node)
 }
 
-// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node [Name].
-// This method is NOT threadsafe: A client must hold [Graph.mu] while calling this method.
+// subGraphFrom returns a Sub-Graph containing all linked dependencies starting with node
+// [Name]. This method is NOT threadsafe: A client must read-lock [Graph.mu] while calling
+// this method.
 func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 	if _, ok := g.nodes.Get(node); !ok {
 		return nil, errors.Errorf("cannot create sub-graph from non existing node %v ", node.Name)
@@ -941,8 +942,8 @@ func (g *Graph) subGraphFromWithMutex(node Name) (*Graph, error) {
 
 // MarkReachability marks all nodes in the subgraph from the given [Name] node as either reachable [true] or unreachable [false].
 func (g *Graph) MarkReachability(node Name, reachable bool) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
 	subGraph, err := g.subGraphFromWithMutex(node)
 	if err != nil {
@@ -956,8 +957,8 @@ func (g *Graph) MarkReachability(node Name, reachable bool) error {
 
 // Status returns a slice of all graph node statuses.
 func (g *Graph) Status() []NodeStatus {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 
 	var result []NodeStatus
 	for k, v := range g.nodes.simpleNameCache {
