@@ -148,7 +148,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTestDNS */)
+		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTests */)
 		return
 	}
 
@@ -255,7 +255,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	golog.ReplaceGloabl(rootLogger.AsZap())
 
 	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
-	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
+	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTests */)
 
 	server := robotServer{
 		rootLogger:       rootLogger,
