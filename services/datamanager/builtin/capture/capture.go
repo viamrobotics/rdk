@@ -60,7 +60,7 @@ type Capture struct {
 	collectors   collectors
 	// captureDir is only stored on Capture so that we can detect when it changs
 	captureDir string
-	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
+	// maxCaptureFileSize is only stored on Capture so that we can detect when it changes
 	maxCaptureFileSize int64
 	mongoMU            sync.Mutex
 	mongo              captureMongo
@@ -309,7 +309,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		}
 	}
 
-	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
+	return c.buildCollector(res, md, collectorConfig, config.MaximumCaptureFileSizeBytes, collection)
 }
 
 // buildCollector constructs and starts a new collector, assuming the base config was already validated.
