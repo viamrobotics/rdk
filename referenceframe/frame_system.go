@@ -774,11 +774,7 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON parses a FrameSystem from JSON data.
-//
-// SimpleModel entries and any pre-existing namespaced internals are withheld
-// from direct installation; the models are then re-added via AddFrame, which
-// flattens them. Single code path for flattening (AddFrame →
-// flattenModelIntoFS) across fresh construction and JSON restore.
+// Frames are re-added in BFS order from World via AddFrame.
 func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	type serializableFrameSystem struct {
 		Name    string                     `json:"name"`
@@ -805,68 +801,61 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 		frameMap[name] = frame
 	}
 
-	// Withhold models (and any namespaced internals the wire already carries)
-	// from direct installation. AddFrame re-adds the model and auto-flattens.
-	models := map[string]Frame{}
-	for name, frame := range frameMap {
-		if asFlattenableModel(frame) != nil {
-			models[name] = frame
-		}
-	}
-	parents := serFS.Parents
-	if len(models) > 0 {
-		parents = make(map[string]string, len(serFS.Parents))
-		for n, p := range serFS.Parents {
-			parents[n] = p
-		}
-		for name, frame := range models {
-			delete(frameMap, name)
-			delete(parents, name)
-			for _, internalName := range bfsFrameNames(asFlattenableModel(frame).internalFS) {
-				ns := name + ":" + internalName
-				delete(frameMap, ns)
-				delete(parents, ns)
+	// Internals will be re-created by AddFrame's auto-flatten when their
+	// component model is added, so they're skipped during the walk below.
+	internals := map[string]bool{}
+	for componentName, frame := range frameMap {
+		if model := asFlattenableModel(frame); model != nil {
+			for _, internalName := range bfsFrameNames(model.internalFS) {
+				internals[componentName+":"+internalName] = true
 			}
 		}
 	}
 
-	sfs.name = serFS.Name
+	childrenOf := map[string][]string{}
+	for name, parent := range serFS.Parents {
+		if _, ok := frameMap[name]; !ok {
+			return fmt.Errorf("cannot deserialize frame system: parents map references unknown frame %q", name)
+		}
+		childrenOf[parent] = append(childrenOf[parent], name)
+	}
+	for k := range childrenOf {
+		sort.Strings(childrenOf[k])
+	}
+
+	*sfs = *NewEmptyFrameSystem(serFS.Name)
 	sfs.world = worldFrame
-	sfs.frames = frameMap
-	sfs.parents = parents
-	sfs.flattenedModels = map[string]*SimpleModel{}
-	sfs.componentSchemas = map[string]*LinearInputsSchema{}
-	sfs.mimicFrames = map[string]*mimicInfo{}
-	sfs.internalToComponent = map[string]string{}
-	sfs.cachedBFSNames = bfsFrameNames(sfs)
 
-	// AddFrame each model once its parent has landed. A model may attach to
-	// another model's internal frame, so iterate until every model is
-	// installed or no more progress can be made.
-	pending := make([]string, 0, len(models))
-	for name := range models {
-		pending = append(pending, name)
-	}
-	for len(pending) > 0 {
-		var still []string
-		for _, name := range pending {
-			parentName, ok := serFS.Parents[name]
-			if !ok {
-				return NewParentFrameNilError(name)
-			}
-			parentFrame := sfs.Frame(parentName)
-			if parentFrame == nil {
-				still = append(still, name)
+	visited := make(map[string]bool, len(frameMap))
+	queue := []string{World}
+	for len(queue) > 0 {
+		parent := queue[0]
+		queue = queue[1:]
+		for _, name := range childrenOf[parent] {
+			queue = append(queue, name)
+			visited[name] = true
+			if internals[name] {
 				continue
 			}
-			if err := sfs.AddFrame(models[name], parentFrame); err != nil {
+			parentFrame := sfs.Frame(parent)
+			if parentFrame == nil {
+				return NewFrameMissingError(parent)
+			}
+			if err := sfs.AddFrame(frameMap[name], parentFrame); err != nil {
 				return err
 			}
 		}
-		if len(still) == len(pending) {
-			return fmt.Errorf("cannot deserialize frame system: unresolved model attach points for %v", still)
+	}
+
+	if len(visited) != len(frameMap) {
+		var orphans []string
+		for name := range frameMap {
+			if !visited[name] {
+				orphans = append(orphans, name)
+			}
 		}
-		pending = still
+		sort.Strings(orphans)
+		return fmt.Errorf("cannot deserialize frame system: frames not reachable from world: %v", orphans)
 	}
 	return nil
 }
