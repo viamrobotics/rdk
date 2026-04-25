@@ -42,10 +42,7 @@ type FrameSystem struct {
 	world          Frame // separate from the map of frames so it can be detached easily
 	frames  map[string]Frame
 	parents map[string]string
-	// cachedBFSNames holds BFS-order frame names from world, excluding
-	// flattened-model internals. This is exactly what FrameNames() returns —
-	// we maintain the filter in the cache rather than on every FrameNames()
-	// call to keep planning hot paths allocation-free.
+	// This excludes internal flattened frames.
 	cachedBFSNames []string
 
 	// flattenedModels maps component name → original SimpleModel for models that were
@@ -63,11 +60,7 @@ type FrameSystem struct {
 	mimicFrames map[string]*mimicInfo
 
 	// internalToComponent maps each flattened namespaced internal frame name
-	// (e.g., "arm1:joint1") to its owning component ("arm1"). Populated by
-	// flattenModelIntoFS, torn down by cleanupFlattenedComponent. Kept as an
-	// explicit cache so componentForInternalFrame (called in hot transform
-	// paths via Parent / TracebackFrame) is O(1) instead of scanning every
-	// flattened model's internalFS on each call.
+	// (e.g., "arm1:joint1") to its owning component ("arm1").
 	internalToComponent map[string]string
 }
 
@@ -157,8 +150,8 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 	return fs, nil
 }
 
-// addPartToFS creates the model and static offset frames for a part and adds
-// them to the frame system. AddFrame handles flattening multi-DoF SimpleModels.
+// addPartToFS creates the model and static offset frames for a part, adds them to the
+// frame system, and flattens multi-DoF SimpleModels for intermediate frame parenting.
 func addPartToFS(fs *FrameSystem, part *FrameSystemPart) error {
 	modelFrame, staticOffsetFrame, err := createFramesFromPart(part)
 	if err != nil {
@@ -219,7 +212,7 @@ func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 
 	// If the raw parent is an internal flattened frame, return the component's
 	// SimpleModel instead so callers see component-level names.
-	if componentName := sfs.componentForInternalFrame(parentName); componentName != "" {
+	if componentName := sfs.internalToComponent[parentName]; componentName != "" {
 		if sm := sfs.Frame(componentName); sm != nil {
 			return sm, nil
 		}
@@ -256,8 +249,7 @@ func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
 }
 
 // cleanupFlattenedComponent removes the namespaced internal frames and
-// flattening metadata for a component, if it is flattened. Safe to call on
-// a name that isn't flattened — it's a no-op in that case.
+// flattening metadata for a component, if it is flattened. No-op if called on non-flattened component.
 func (sfs *FrameSystem) cleanupFlattenedComponent(componentName string) {
 	model, ok := sfs.flattenedModels[componentName]
 	if !ok {
@@ -306,7 +298,7 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	// If the raw parent is an internal flattened frame, skip the entire internal
 	// chain and jump to the component's SimpleModel.
 	var nextParent Frame
-	if componentName := sfs.componentForInternalFrame(parentName); componentName != "" {
+	if componentName := sfs.internalToComponent[parentName]; componentName != "" {
 		nextParent = sfs.Frame(componentName)
 	} else {
 		nextParent = sfs.Frame(parentName)
@@ -319,28 +311,10 @@ func (sfs *FrameSystem) TracebackFrame(query Frame) ([]Frame, error) {
 	return append([]Frame{query}, parents...), nil
 }
 
-// componentForInternalFrame returns the component name that owns the given internal
-// frame, or "" if the frame is not part of any flattened model.
-func (sfs *FrameSystem) componentForInternalFrame(name string) string {
-	return sfs.internalToComponent[name]
-}
-
 // FrameNames returns the list of frame names registered in the frame system,
 // in BFS order from world, excluding flattened-model internals.
 func (sfs *FrameSystem) FrameNames() []string {
 	return sfs.cachedBFSNames
-}
-
-// flattenedInternalNames returns the exact set of namespaced internal frame
-// names produced by flattening each model in sfs.flattenedModels. The set is
-// the keyset of internalToComponent, which is maintained by flattenModelIntoFS
-// and cleanupFlattenedComponent.
-func (sfs *FrameSystem) flattenedInternalNames() map[string]struct{} {
-	out := make(map[string]struct{}, len(sfs.internalToComponent))
-	for name := range sfs.internalToComponent {
-		out[name] = struct{}{}
-	}
-	return out
 }
 
 // AddFrame sets an already defined Frame into the system. If the frame is (or
@@ -473,7 +447,7 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 	}
 
 	// Frames produced by flattening are (re-)created by AddFrame's auto-flatten
-	// when the component model is added, so we skip AddFrame'ing them here —
+	// when the component model is added, so we skip AddFrame'ing them here,
 	// but still traverse through them to reach external attachments below.
 	internalOfMerged := systemToMerge.internalToComponent
 
