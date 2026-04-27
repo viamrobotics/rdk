@@ -87,6 +87,10 @@ func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra m
 	if err != nil {
 		return nil, err
 	}
+	bounds, err := img.Bounds()
+	if err != nil {
+		return nil, err
+	}
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -94,8 +98,8 @@ func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra m
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
 		Name:     c.name,
 		Image:    imgBytes,
-		Width:    0,
-		Height:   0,
+		Width:    int64(bounds.Dx()),
+		Height:   int64(bounds.Dy()),
 		MimeType: img.MimeType(),
 		Extra:    ext,
 	})
@@ -161,6 +165,10 @@ func (c *client) Classifications(ctx context.Context, img *camera.NamedImage,
 	if err != nil {
 		return nil, err
 	}
+	bounds, err := img.Bounds()
+	if err != nil {
+		return nil, err
+	}
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
 		return nil, err
@@ -168,8 +176,8 @@ func (c *client) Classifications(ctx context.Context, img *camera.NamedImage,
 	resp, err := c.client.GetClassifications(ctx, &pb.GetClassificationsRequest{
 		Name:     c.name,
 		Image:    imgBytes,
-		Width:    0,
-		Height:   0,
+		Width:    int32(bounds.Dx()),
+		Height:   int32(bounds.Dy()),
 		MimeType: img.MimeType(),
 		N:        int32(n),
 		Extra:    ext,

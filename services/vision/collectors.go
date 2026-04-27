@@ -79,12 +79,12 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 		}
 		mimeType := visCapture.Image.MimeType()
 
-		img, err := visCapture.Image.Image(ctx)
+		bounds, err := visCapture.Image.Bounds()
 		if err != nil {
 			return res, err
 		}
-		width := img.Bounds().Dx()
-		height := img.Bounds().Dy()
+		width := bounds.Dx()
+		height := bounds.Dy()
 
 		filteredBoundingBoxes := []data.BoundingBox{}
 		for _, d := range visCapture.Detections {
