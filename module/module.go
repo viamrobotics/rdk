@@ -63,18 +63,17 @@ const (
 //
 // Importantly, this function will return the same socket address as long as the desiredName doesn't change.
 func CreateSocketAddress(parentDir, desiredName string) (string, error) {
-	baseAddr := filepath.ToSlash(parentDir)
 	numRemainingChars := socketMaxAddressLength -
-		len(baseAddr) -
+		len(parentDir) -
 		len(socketSuffix) -
-		1 // `/` between baseAddr and name
+		1 // `/` between parentDir and name
 	if numRemainingChars < len(desiredName) && numRemainingChars < socketHashSuffixLength+1 {
 		return "", fmt.Errorf("module socket base path would result in a path greater than the OS limit of %d characters: %s",
-			socketMaxAddressLength, baseAddr)
+			socketMaxAddressLength, parentDir)
 	}
 	// If possible, early-exit with a non-truncated socket path
 	if numRemainingChars >= len(desiredName) {
-		return filepath.Join(baseAddr, desiredName+socketSuffix), nil
+		return filepath.Join(parentDir, desiredName+socketSuffix), nil
 	}
 	// Hash the desiredName so that every invocation returns the same truncated address
 	desiredNameHashCreator := sha256.New()
@@ -91,7 +90,7 @@ func CreateSocketAddress(parentDir, desiredName string) (string, error) {
 	// Assemble the truncated socket address
 	socketHashSuffix := desiredNameHash[:socketHashSuffixLength]
 	truncatedName := desiredName[:(numRemainingChars - socketHashSuffixLength - 1)]
-	return filepath.Join(baseAddr, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
+	return filepath.Join(parentDir, fmt.Sprintf("%s-%s%s", truncatedName, socketHashSuffix, socketSuffix)), nil
 }
 
 // Module represents an external resource module that services components/services.
@@ -146,10 +145,11 @@ type Module struct {
 
 // NewModuleFromArgs directly parses the command line argument to get its address.
 func NewModuleFromArgs(ctx context.Context) (*Module, error) {
-	if len(os.Args) < 2 {
-		return nil, errors.New("need socket path as command line argument")
+	moduleAddress, err := getModuleAddress()
+	if err != nil {
+		return nil, err
 	}
-	return NewModule(ctx, os.Args[1], NewLoggerFromArgs(""))
+	return NewModule(ctx, moduleAddress, NewLoggerFromArgs(""))
 }
 
 // NewModule returns the basic module framework/structure. Use ModularMain and NewModuleFromArgs unless
@@ -339,7 +339,7 @@ func (m *Module) connectParent(ctx context.Context) error {
 		if _, err := os.Stat(m.parentAddr); err != nil {
 			return err
 		}
-		fullAddr = "unix://" + m.parentAddr
+		fullAddr = "unix:" + m.parentAddr
 	}
 
 	// moduleLoggers may be creating the client connection below, so use a
@@ -448,7 +448,11 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	// we start the module without connecting to a parent since we
 	// are only concerned with validation and extracting metadata.
 	if os.Getenv(NoModuleParentEnvVar) != "true" {
-		m.parentAddr = req.GetParentAddress()
+		m.parentAddr = req.GetRawParentAddress()
+		if m.parentAddr == "" {
+			//nolint:staticcheck
+			m.parentAddr = req.GetParentAddress()
+		}
 		if err := m.connectParent(ctx); err != nil {
 			// Return error back to parent if we cannot make a connection from module
 			// -> parent. Something is wrong in that case and the module should not be

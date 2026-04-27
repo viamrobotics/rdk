@@ -404,12 +404,36 @@ type updateModelsArgs struct {
 // UpdateModelsAction figures out the models that a module supports and updates it's metadata file.
 func UpdateModelsAction(ctx context.Context, cmd *cli.Command, args updateModelsArgs) error {
 	logger := logging.NewLogger("x")
-	newModels, err := readModels(args.Binary, logger)
+
+	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return err
 	}
 
-	manifest, err := loadManifest(args.Module)
+	binary := args.Binary
+	if binary == "" {
+		binary = manifest.Entrypoint
+	}
+	if binary == "" {
+		return errors.New("no binary specified: use --binary or set entrypoint in meta.json")
+	}
+	binary, err = filepath.Abs(binary)
+	if err != nil {
+		return err
+	}
+
+	// if the path is a directory or doesn't exist, fall back to looking for a
+	// meta.json in the parent directory — matches legacy behavior where users
+	// passed a module directory path rather than the exact binary
+	if info, statErr := os.Stat(binary); statErr != nil || info.IsDir() {
+		innerManifest, loadErr := loadManifest(filepath.Join(filepath.Dir(binary), "meta.json"))
+		if loadErr != nil || innerManifest.Entrypoint == "" {
+			return errors.Errorf("could not find binary or meta.json at %s", binary)
+		}
+		binary = filepath.Join(filepath.Dir(binary), innerManifest.Entrypoint)
+	}
+
+	newModels, err := readModels(binary, logger)
 	if err != nil {
 		return err
 	}
@@ -940,6 +964,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	cfg := modconfig.Module{
 		Name:    "xxxx",
 		ExePath: path,
+		Type:    modconfig.ModuleTypeLocal,
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}

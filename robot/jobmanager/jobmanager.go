@@ -7,7 +7,6 @@ import (
 	"container/ring"
 	"context"
 	"encoding/json"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -130,11 +129,7 @@ func New(
 		}
 	}()
 
-	parentAddr.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddr.UnixAddr)
-	if err != nil {
-		return nil, err
-	}
-	dialAddr := "unix://" + parentAddr.UnixAddr
+	dialAddr := "unix:" + parentAddr.UnixAddr
 	if use, _ := rutils.OnlyUseViamTCPSockets(); use {
 		dialAddr = parentAddr.TCPAddr
 	}

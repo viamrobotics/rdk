@@ -67,7 +67,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/interceptor v0.1.42
 	github.com/pion/logging v0.2.4
-	github.com/pion/mediadevices v0.9.0
+	github.com/pion/mediadevices v0.10.0
 	github.com/pion/rtp v1.8.26
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
@@ -100,12 +100,13 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.537
+	go.viam.com/api v0.1.539
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.4.17
+	go.viam.com/utils v0.4.19
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
+	golang.org/x/net v0.49.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.40.0
 	golang.org/x/term v0.39.0
@@ -331,7 +332,6 @@ require (
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/mod v0.31.0 // indirect
-	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.196.0 // indirect

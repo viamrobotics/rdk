@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -52,6 +53,77 @@ const (
 )
 
 var moduleBuildPollingInterval = 2 * time.Second
+
+// githubRefExists calls GitHub's REST commits API to check whether a ref
+// (branch, tag, or commit SHA) exists in a repo
+var githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/commits/%s", owner, repo, ref)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return false, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound, http.StatusUnprocessableEntity:
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
+	}
+}
+
+// parseGitHubRepo extracts owner and repo from an https://github.com/owner/repo
+// URL. If it fails to parse, it might be formatted non-uniformly, so we try the build action anyways.
+func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
+	u, parseErr := url.Parse(repoURL)
+	// not a github link: skip validation, the build action may still succeed on a non-github host
+	if parseErr != nil || u.Host != "github.com" {
+		return "", "", false, nil //nolint:nilerr
+	}
+	// strip leading / from path and then get first three parts (owner, repo, path)
+	parts := strings.SplitN(strings.TrimPrefix(u.Path, "/"), "/", 3)
+	// github url but missing owner/repo: the cloud build will definitely fail, so hard-fail early
+	if len(parts) < 2 || parts[1] == "" {
+		return "", "", false, fmt.Errorf(
+			"meta.json url %q is missing the repo path (expected https://github.com/<owner>/<repo>)", repoURL)
+	}
+	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
+}
+
+// validateRefExists checks that ref exists on the remote at repoURL before a
+// cloud build is started, and only stops the build if the ref can be proven to not exist, or
+// else it will go through to with the build attempt (like with non-github links)
+func (c *viamClient) validateRefExists(ctx context.Context, cmd *cli.Command, repoURL, ref, token string) error {
+	owner, repo, ok, err := parseGitHubRepo(repoURL)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	exists, err := githubRefExists(ctx, owner, repo, ref, token)
+	if err != nil {
+		gArgs := parseStructFromCtx[globalArgs](cmd)
+		debugf(cmd.Root().ErrWriter, gArgs.Debug,
+			"could not verify ref %q on %s: %v — proceeding anyway", ref, repoURL, err)
+		return nil
+	}
+	if !exists {
+		if token == "" {
+			return fmt.Errorf("ref %q not found on %s (if this is a private repo, pass a token with --token)", ref, repoURL)
+		}
+		return fmt.Errorf("ref %q not found on %s", ref, repoURL)
+	}
+	return nil
+}
 
 type moduleBuildStartArgs struct {
 	Module    string
@@ -136,6 +208,10 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 	if manifest.URL == "" {
 		return "", errors.New("meta.json must have a url field set in order to start a cloud build. " +
 			"Ex: 'https://github.com/your-username/your-repo'")
+	}
+
+	if err := c.validateRefExists(ctx, cmd, manifest.URL, args.Ref, args.Token); err != nil {
+		return "", err
 	}
 
 	return c.moduleBuildStartForRepo(ctx, cmd, args, &manifest, manifest.URL)
@@ -590,6 +666,7 @@ type reloadModuleArgs struct {
 	Workdir      string
 	ResourceName string
 	Path         string
+	Annotation   string
 }
 
 func (c *viamClient) createGitArchive(repoPath string) (string, error) {
@@ -879,6 +956,7 @@ func (c *viamClient) triggerCloudReloadBuild(
 	if err != nil {
 		return "", err
 	}
+
 	pkgInfo := v1.PackageInfo{
 		OrganizationId: orgID,
 		Name:           moduleID.name,
@@ -1149,22 +1227,38 @@ func reloadModuleActionInner(
 	// case on the second call. Because these are triggered by user actions, we're okay
 	// with this behavior, and the robot will eventually converge to what is in config.
 
-	// Define all steps upfront (build + reload) with clear parent/child relationships
-	allSteps := []*Step{
-		{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
-		{ID: "register", Message: "Ensuring module is registered...", CompletedMsg: "Module is registered", IndentLevel: 1},
-		{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
-		{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
-		{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
-		{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
-		// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
-		{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
-		{ID: "download", Message: "Downloading build artifact...", CompletedMsg: "Build artifact downloaded", IndentLevel: 1},
-		{ID: "shell", Message: "Setting up shell service...", CompletedMsg: "Shell service ready", IndentLevel: 1},
-		{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
-		{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
-		{ID: "restart", Message: "Restarting module...", CompletedMsg: "Module restarted successfully", IndentLevel: 1},
-		{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
+	// Define all steps upfront (build + reload) with clear parent/child relationships.
+	// Cloud builds skip download/shell/upload since the machine downloads directly from cloud.
+	var allSteps []*Step
+	if cloudBuild {
+		allSteps = []*Step{
+			{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
+			{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
+			{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
+			{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
+			{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
+			// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
+			{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
+			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
+			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
+		}
+	} else {
+		allSteps = []*Step{
+			{ID: "prepare", Message: "Preparing for build...", CompletedMsg: "Prepared for build", IndentLevel: 0},
+			{ID: "register", Message: "Ensuring module is registered...", CompletedMsg: "Module is registered", IndentLevel: 1},
+			{ID: "archive", Message: "Creating source code archive...", CompletedMsg: "Source code archive created", IndentLevel: 1},
+			{ID: "upload-source", Message: "Uploading source code...", CompletedMsg: "Source code uploaded", IndentLevel: 1},
+			{ID: "build", Message: "Building...", CompletedMsg: "Built", IndentLevel: 0},
+			{ID: "build-start", Message: "Starting build...", IndentLevel: 1},
+			// Dynamic build steps (e.g., "Spin up environment", "Install dependencies") are added at runtime with IndentLevel: 1
+			{ID: "reload", Message: "Reloading to part...", CompletedMsg: "Reloaded to part", IndentLevel: 0},
+			{ID: "download", Message: "Downloading build artifact...", CompletedMsg: "Build artifact downloaded", IndentLevel: 1},
+			{ID: "shell", Message: "Setting up shell service...", CompletedMsg: "Shell service ready", IndentLevel: 1},
+			{ID: "upload", Message: "Uploading package...", CompletedMsg: "Package uploaded", IndentLevel: 1},
+			{ID: "configure", Message: "Configuring module...", CompletedMsg: "Module configured", IndentLevel: 1},
+			{ID: "restart", Message: "Restarting module...", CompletedMsg: "Module restarted successfully", IndentLevel: 1},
+			{ID: "resource", Message: "Adding resource...", CompletedMsg: "Resource added", IndentLevel: 1},
+		}
 	}
 
 	pm := NewProgressManager(allSteps, WithProgressOutput(!args.NoProgress))
@@ -1305,7 +1399,7 @@ func reloadModuleActionInner(
 	}
 	var newPart *apppb.RobotPart
 	newPart, needsRestart, err = configureModule(
-		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), reloadTime.Unix())
+		ctx, cmd, vc, manifest, part.Part, args.Local, cloudBuild, reloadUser(vc.conf), args.Annotation, reloadTime.Unix())
 	// if the module has been configured, the cached response we have may no longer accurately reflect
 	// the update, so we set the updated `part.Part`
 	if newPart != nil {

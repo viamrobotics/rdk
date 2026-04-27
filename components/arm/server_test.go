@@ -246,14 +246,33 @@ func TestServer(t *testing.T) {
 		positionRads3, err := referenceframe.InputsFromJointPositions(nil, positionDegs3)
 		test.That(t, err, test.ShouldBeNil)
 		expectedVelocity := 180.
-		expectedMoveOptions := &pb.MoveOptions{MaxVelDegsPerSec: &expectedVelocity}
+		expectedAcceleration := 90.
+		perJointVel := []float64{10.0, 20.0, 30.0, 40.0, 50.0, 60.0}
+		perJointAcc := []float64{5.0, 10.0, 15.0, 20.0, 25.0, 30.0}
+		expectedMoveOptions := &pb.MoveOptions{
+			MaxVelDegsPerSec:        &expectedVelocity,
+			MaxAccDegsPerSec2:       &expectedAcceleration,
+			MaxVelDegsPerSecJoints:  perJointVel,
+			MaxAccDegsPerSec2Joints: perJointAcc,
+		}
 		_, err = armServer.MoveThroughJointPositions(
 			context.Background(),
 			&pb.MoveThroughJointPositionsRequest{Name: testArmName, Positions: positions, Options: expectedMoveOptions, Extra: ext},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos, test.ShouldResemble, positionRads3)
-		test.That(t, moveOptions, test.ShouldResemble, arm.MoveOptions{MaxVelRads: utils.DegToRad(expectedVelocity)})
+		test.That(t, moveOptions.MaxVelRads, test.ShouldAlmostEqual, utils.DegToRad(expectedVelocity), 1e-6)
+		test.That(t, moveOptions.MaxAccRads, test.ShouldAlmostEqual, utils.DegToRad(expectedAcceleration), 1e-6)
+		expectedPerJointVelRads := make([]float64, len(perJointVel))
+		for i, v := range perJointVel {
+			expectedPerJointVelRads[i] = utils.DegToRad(v)
+		}
+		expectedPerJointAccRads := make([]float64, len(perJointAcc))
+		for i, v := range perJointAcc {
+			expectedPerJointAccRads[i] = utils.DegToRad(v)
+		}
+		test.That(t, moveOptions.MaxVelRadsJoints, test.ShouldResemble, expectedPerJointVelRads)
+		test.That(t, moveOptions.MaxAccRadsJoints, test.ShouldResemble, expectedPerJointAccRads)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 

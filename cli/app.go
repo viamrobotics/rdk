@@ -98,6 +98,7 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagUpload          = "upload"
+	moduleFlagAnnotation      = "annotation"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -392,6 +393,9 @@ func parseStructFromCtx[T any](cmd *cli.Command) T {
 }
 
 func getGlobalArgs(cmd *cli.Command) (*globalArgs, error) {
+	if cmd == nil {
+		return &globalArgs{}, nil
+	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
 	// TODO(RSDK-9361) - currently nothing prevents a developer from creating globalArgs directly
 	// and thereby bypassing this check. We should find a way to prevent direct creation and thereby
@@ -451,10 +455,11 @@ func formatAcceptedValues(description string, values ...string) string {
 }
 
 var app = &cli.Command{
-	Name:            "viam",
-	Usage:           "interact with your Viam machines",
-	UsageText:       "viam [global options] <command> [command options]",
-	HideHelpCommand: true,
+	Name:                  "viam",
+	Usage:                 "interact with your Viam machines",
+	UsageText:             "viam [global options] <command> [command options]",
+	EnableShellCompletion: true,
+	HideHelpCommand:       true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
@@ -3497,7 +3502,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
-					UsageText: createUsageText("module update-models", []string{moduleFlagBinary}, true, false),
+					UsageText: createUsageText("module update-models", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -3506,9 +3511,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     moduleFlagBinary,
-							Usage:    "binary for the module to run (has to work on this os/processor)",
-							Required: true,
+							Name: moduleFlagBinary,
+							Usage: "binary for the module to run (has to work on this os/processor) like ./dist/main; " +
+								"if omitted, uses entrypoint from meta.json",
+							TakesFile: true,
 						},
 					},
 					Action: createActionCommandWithT[updateModelsArgs](UpdateModelsAction),
@@ -3912,6 +3918,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAnnotation,
+							Usage: "Annotation to describe the purpose of the reload build",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),
