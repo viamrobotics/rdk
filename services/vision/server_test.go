@@ -54,7 +54,9 @@ func TestVisionServerFailures(t *testing.T) {
 	// correct server with error returned
 	injectVS := &inject.VisionService{}
 	passedErr := errors.New("fake error")
-	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		return nil, passedErr
 	}
 	m = map[resource.Name]vision.Service{
@@ -91,7 +93,9 @@ func TestServerGetDetections(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		decoded, err := img.Image(ctx)
 		if err != nil {
 			return nil, err
@@ -160,7 +164,9 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		decoded, err := img.Image(ctx)
 		if err != nil {
 			return nil, err

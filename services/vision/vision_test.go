@@ -24,7 +24,9 @@ const (
 
 func TestFromRobot(t *testing.T) {
 	svc1 := &inject.VisionService{}
-	svc1.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	svc1.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
