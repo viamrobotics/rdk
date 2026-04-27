@@ -478,6 +478,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
 	newModule.ModuleLowercase = strings.ToLower(newModule.ModulePascal)
+	newModule.ModuleSnake = snakeReplacer.Replace(newModule.ModuleName)
 	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
 	newModule.ResourceSubtypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceSubtype)))
 	if newModule.Language == golang {
