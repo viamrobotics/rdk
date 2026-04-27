@@ -153,17 +153,12 @@ func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any
 	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
 }
 
-// applyShellServiceToPartMap adds a shell service to the partMap if not already present. Returns true if added.
-func applyShellServiceToPartMap(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
+// appendShellServiceToPartMap unconditionally appends a shell service entry to
+// partMap["services"]. Caller is responsible for checking that one isn't already
+// present (e.g. via hasShellService).
+func appendShellServiceToPartMap(partMap map[string]any) {
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
-	}
-	has, err := hasShellService(ctx, vc, partMap)
-	if err != nil {
-		return false, err
-	}
-	if has {
-		return false, nil
 	}
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
@@ -173,7 +168,6 @@ func applyShellServiceToPartMap(ctx context.Context, vc *viamClient, partMap map
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
-	return true, nil
 }
 
 // isShellService matches a resource config entry for the shell service, tolerating
@@ -193,14 +187,14 @@ func addShellService(
 		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
-	added, err := applyShellServiceToPartMap(ctx, vc, partMap)
+	has, err := hasShellService(ctx, vc, partMap)
 	if err != nil {
-		return false, err
-	}
-	if !added {
+		debugf(cmd.Root().Writer, args.Debug, "could not check for existing shell service: %v; installing one anyway", err)
+	} else if has {
 		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
 	}
+	appendShellServiceToPartMap(partMap)
 	if err := writeBackConfig(part, partMap); err != nil {
 		return false, err
 	}
@@ -211,14 +205,15 @@ func addShellService(
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
-		retryAdded, err := applyShellServiceToPartMap(ctx, vc, retryMap)
+		retryHas, err := hasShellService(ctx, vc, retryMap)
 		if err != nil {
-			return false, err
-		}
-		if !retryAdded {
+			debugf(cmd.Root().Writer, args.Debug,
+				"could not check for existing shell service after re-fetch: %v; installing one anyway", err)
+		} else if retryHas {
 			debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
 		}
+		appendShellServiceToPartMap(retryMap)
 		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
 			return false, retryErr
 		}

@@ -233,6 +233,37 @@ func TestFullReloadFlow(t *testing.T) {
 			services, _ := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, len(services), test.ShouldEqual, 0)
 		})
+
+		t.Run("installsShellWhenFragmentCheckErrors", func(t *testing.T) {
+			confWithFragment, err := structpb.NewStruct(map[string]any{
+				"modules":   []any{},
+				"services":  []any{},
+				"fragments": []any{map[string]any{"id": "broken-frag"}},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			mockClient := mockFullAppServiceClient(confWithFragment, nil, nil)
+			mockClient.GetFragmentFunc = func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				return nil, errors.New("simulated fragment fetch failure")
+			}
+
+			cCtx2, vc2, _, _ := setup(
+				mockClient,
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{moduleFlagPath: manifestPath},
+				"token",
+			)
+
+			part, _ := vc2.getRobotPart(context.Background(), "id")
+			added, err := addShellService(context.Background(), cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, added, test.ShouldBeTrue)
+			services, _ := part.Part.RobotConfig.AsMap()["services"].([]any)
+			test.That(t, len(services), test.ShouldEqual, 1)
+		})
 	})
 
 	t.Run("versionCheck", func(t *testing.T) {
