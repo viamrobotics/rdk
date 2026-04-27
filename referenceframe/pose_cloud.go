@@ -1,7 +1,10 @@
 package referenceframe
 
 import (
+	"math"
+
 	commonpb "go.viam.com/api/common/v1"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // PoseCloud can express leeway in individual dimensions with respect to a goal pose. Combined,
@@ -42,7 +45,6 @@ type PoseCloud struct {
 	// would want the box's orientation vector to be perpendicular to the incline. Such that we
 	// declare the leeway of Z' to be 0. While the leeway for X' (in the box reference frame) can be
 	// a wider range.
-	ReferenceFrame string
 
 	// The following X, Y and Z are translational leeways. They are all in units of millimeters, the
 	// same as a goal pose. The value represents a leeway in the range of [-Value, +Value].
@@ -69,6 +71,37 @@ type PoseCloud struct {
 	// Theta represents the [-Theta, +Theta] in an objects rotation around its
 	// orientation axis in the unit of degrees.
 	Theta float64 `json:"theta"`
+}
+
+func (pc *PoseCloud) PoseInCloud(goalPose, candidatePose spatialmath.Pose) bool {
+	// Default distance below which two distances are considered equal. Copied from `ik` package to
+	// avoid package cycles. This is only necessary for the default leeway of `0` to not dismiss
+	// every candidate.
+	const defaultEpsilon = 0.001
+
+	between := spatialmath.PoseBetween(goalPose, candidatePose)
+	if math.Abs(between.Point().X) > pc.X+defaultEpsilon {
+		return false
+	}
+	if math.Abs(between.Point().Y) > pc.Y+defaultEpsilon {
+		return false
+	}
+	if math.Abs(between.Point().Z) > pc.Z+defaultEpsilon {
+		return false
+	}
+
+	betweenOrientation := between.Orientation().OrientationVectorDegrees()
+	if math.Abs(betweenOrientation.OX) > pc.OX+defaultEpsilon {
+		return false
+	}
+	if math.Abs(betweenOrientation.OY) > pc.OY+defaultEpsilon {
+		return false
+	}
+	if math.Abs(1-betweenOrientation.OZ) > pc.OZ+defaultEpsilon {
+		return false
+	}
+
+	return true
 }
 
 // ToProto turns this to proto.

@@ -98,10 +98,11 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	}
 
 	var err error
-	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
-	if err != nil {
-		return nil, err
-	}
+	// psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
+	// if err != nil {
+	//  	return nil, err
+	// }
+	psc.goal = psc.origGoal
 
 	psc.startPoses, err = start.ComputePoses(pc.fs)
 	if err != nil {
