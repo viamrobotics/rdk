@@ -62,14 +62,14 @@ func NewBoard(
 		interrupts:    map[string]*digitalInterrupt{},
 	}
 
-	if err := b.Reconfigure(ctx, nil, conf); err != nil {
+	if err := b.reconfigure(ctx, nil, conf); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-// Reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
-func (b *Board) Reconfigure(
+// reconfigure reconfigures the board with interrupt pins, spi and i2c, and analogs.
+func (b *Board) reconfigure(
 	ctx context.Context,
 	_ resource.Dependencies,
 	conf resource.Config,

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	gotestutils "go.viam.com/utils/testutils"
@@ -57,7 +58,6 @@ type optionalChild struct {
 
 	requiredMotor motor.Motor
 	optionalMotor motor.Motor
-	reconfigCount int
 }
 
 func newOptionalChild(ctx context.Context,
@@ -70,26 +70,14 @@ func newOptionalChild(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := oc.Reconfigure(ctx, deps, conf); err != nil {
-		return nil, err
-	}
-
-	return oc, nil
-}
-
-func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	oc.reconfigCount++
-
 	optionalChildConfig, err := resource.NativeConfig[*optionalChildConfig](conf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	oc.requiredMotor, err = motor.FromProvider(deps, optionalChildConfig.RequiredMotor)
 	if err != nil {
-		return fmt.Errorf("could not get required motor %s from dependencies",
+		return nil, fmt.Errorf("could not get required motor %s from dependencies",
 			optionalChildConfig.RequiredMotor)
 	}
 
@@ -99,7 +87,7 @@ func (oc *optionalChild) Reconfigure(ctx context.Context, deps resource.Dependen
 			optionalChildConfig.OptionalMotor)
 	}
 
-	return nil
+	return oc, nil
 }
 
 func TestOptionalDependencies(t *testing.T) {
@@ -151,14 +139,13 @@ func TestOptionalDependencies(t *testing.T) {
 		ocRes, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the optional child reconfigured and logged its inability to get 'm1'
+		// Assert that the optional child rebuilt and logged its inability to get 'm1'
 		// from dependencies _twice_. The first of both is from construction (invokes
-		// `Reconfigure`) of the resource, and the second of both is from reconfiguring of the
+		// `reconfigure`) of the resource, and the second of both is from rebuilding the
 		// resource due to an unconditional call to `updateWeakAndOptionalDependents` directly
 		// after `completeConfig`.
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -209,7 +196,6 @@ func TestOptionalDependencies(t *testing.T) {
 		// "get optional motor."
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 3)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -254,7 +240,6 @@ func TestOptionalDependencies(t *testing.T) {
 		// about failures to "get optional motor."
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 4)
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 3)
 
@@ -323,13 +308,8 @@ func TestOptionalDependencies(t *testing.T) {
 		ocRes, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the optional child reconfigured twice. The first is from construction
-		// (invokes `Reconfigure`) of the resource, and the second is from reconfiguring of
-		// the resource due to an unconditional call to `updateWeakAndOptionalDependents`
-		// directly after `completeConfig`.
 		oc, err := resource.AsType[*optionalChild](ocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
 
 		// Assert that there are either 3 (no new) _or_ 4 logs about an inability to "get
 		// optional motor."
@@ -683,12 +663,8 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	ocRes, err := lr.ResourceByName(ocName)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Assert that the optional child reconfigured twice. The first is from construction,
-	// and the second is from reconfiguring of the resource due to a call
-	// to `updateWeakAndOptionalDependents` directly after `completeConfig`.
 	oc, err := resource.AsType[*optionalChild](ocRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, oc.reconfigCount, test.ShouldEqual, 2)
 
 	// Assert that there is either 0 or 1 log about an inability to "get optional motor."
 	//
@@ -862,7 +838,8 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	// assert that its optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	// constructed m, m1, f
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 3)
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -882,7 +859,7 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Assert that the foo component did NOT reconfigure again but its optional dependency
 	// on the remote motor is now unreachable.
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 3)
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "unreachable"})
@@ -903,7 +880,8 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 
 	// Assert that the foo component did NOT reconfigure, but its optional dependency on the
 	// remote motor is now reachable.
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	// m1 constructed again
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 4)
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -981,7 +959,8 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	// assert that its optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	// constructs m1, m, f
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 3)
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
@@ -1044,7 +1023,8 @@ func TestModularOptionalDependencyOnFullyQualifiedName(t *testing.T) {
 	// it correctly identifies m_optional via the fully qualified name.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, logs.FilterMessageSnippet("Reconfiguring resource for module").Len(), test.ShouldEqual, 1)
+	// constructs m_required, m_optional, f
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 3)
 
 	// Verify foo works and that the optional dependency is reachable.
 	doCommandResp, err := fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -1090,14 +1070,14 @@ func newMutualOptionalChild(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := moc.Reconfigure(ctx, deps, conf); err != nil {
+	if err := moc.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return moc, nil
 }
 
-func (moc *mutualOptionalChild) Reconfigure(ctx context.Context, deps resource.Dependencies,
+func (moc *mutualOptionalChild) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
 	moc.reconfigCount++
@@ -1177,7 +1157,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// after `completeConfig`.
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 2)
+		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -1221,7 +1201,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// other MOC."
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 3)
+		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -1233,10 +1213,8 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the second mutual optional child has reconfigured _two_ times.
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc2.reconfigCount, test.ShouldEqual, 2)
 
 		// Assert that, on the 'moc2' component itself, `otherMOC` is now set.
 		test.That(t, moc2.otherMOC, test.ShouldNotBeNil)
@@ -1274,7 +1252,7 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// failures to "get other MOC."
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc2.reconfigCount, test.ShouldEqual, 3)
+		test.That(t, moc2.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 3)
 
@@ -1505,19 +1483,10 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// Get the optional child and verify initial state.
 	ocRes, err := lr.ResourceByName(ocName)
 	test.That(t, err, test.ShouldBeNil)
-	oc, err := resource.AsType[*optionalChild](ocRes)
+	_, err = resource.AsType[*optionalChild](ocRes)
 	test.That(t, err, test.ShouldBeNil)
 
-	// The optional child should have reconfigured twice:
-	// 1. Initial construction
-	// 2. updateWeakAndOptionalDependents after completeConfig
-	initialReconfigCount := oc.reconfigCount
-	test.That(t, initialReconfigCount, test.ShouldEqual, 2)
-
 	initialClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
-
-	// Record reconfigCount before inducing the error.
-	reconfigCountBeforeError := oc.reconfigCount
 
 	// Clear any existing logs to make assertions cleaner.
 	logs.TakeAll()
@@ -1552,16 +1521,9 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// should return early without additional reconfigurations of the optional child.
 	for i := 0; i < 5; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
-		// The clock should NOT increment - m_unrelated is still unusable.
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 			test.ShouldEqual, clockAfterFirstError)
 	}
-
-	// Verify the optional child reconfigured exactly once from the initial state (triggered by
-	// the first error's clock increment during lr.Reconfigure). The repeated retry calls should
-	// NOT have caused additional reconfigurations.
-	reconfigCountAfterAllUpdates := oc.reconfigCount
-	test.That(t, reconfigCountAfterAllUpdates-reconfigCountBeforeError, test.ShouldEqual, 1)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
 	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1667,8 +1629,9 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	test.That(t, firstErrorLogs, test.ShouldEqual, 1)
 
 	// Verify the foo component was reconfigured once due to the first error.
-	reconfigLogsAfterFirstError := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterFirstError, test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 1)
 
 	// Clear logs again to isolate just the retry attempts.
 	logs.TakeAll()
@@ -1687,8 +1650,9 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 
 	// Verify the foo component did not reconfigure during the retry attempts. The repeated
 	// retry calls should NOT have caused additional reconfigurations.
-	reconfigLogsAfterAllUpdates := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterAllUpdates, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 0)
 
 	// Verify that m_unrelated failed to build 5 times (one for each retry call).
 	buildErrorLogs := logs.FilterMessageSnippet("resource build error: unknown resource type").Len()
@@ -1776,12 +1740,6 @@ func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 	oc, err := resource.AsType[*optionalChild](ocRes)
 	test.That(t, err, test.ShouldBeNil)
 
-	// The optional child should have reconfigured twice:
-	// 1. Initial construction
-	// 2. updateWeakAndOptionalDependents after completeConfig
-	initialReconfigCount := oc.reconfigCount
-	test.That(t, initialReconfigCount, test.ShouldEqual, 2)
-
 	// Verify both motors are accessible.
 	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
 	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
@@ -1823,10 +1781,6 @@ func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 	// Verify the clock incremented (m_unrelated was marked for removal).
 	clockAfterRemoval := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, clockAfterRemoval, test.ShouldBeGreaterThan, initialClockValue)
-
-	// Verify the optional child reconfigured once (triggered by clock change from removal).
-	// This is the current behavior - any clock change triggers updateWeakAndOptionalDependents.
-	test.That(t, oc.reconfigCount, test.ShouldEqual, initialReconfigCount+1)
 
 	// Verify both motors are still accessible (the reconfiguration was successful).
 	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
@@ -1952,8 +1906,9 @@ func TestModularOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 
 	// Verify the foo component reconfigured once (triggered by clock change from removal).
 	// This is the current behavior - any clock change triggers updateWeakAndOptionalDependents.
-	reconfigLogsAfterRemoval := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterRemoval, test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 1)
 
 	// Verify both motors are still accessible through the foo component after reconfiguration.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -2110,8 +2065,9 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 	// Verify the foo component reconfigured twice: once when the old module was removed,
 	// and once when the new module's resources were added. Each removal/addition increments
 	// the clock, triggering updateWeakAndOptionalDependents.
-	reconfigLogsAfterModuleChange := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, reconfigLogsAfterModuleChange, test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 2)
 
 	// Verify both motors are still accessible through the foo component after reconfiguration.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
@@ -2253,8 +2209,9 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	finalClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, finalClockValue, test.ShouldEqual, initialClockValue)
 
-	newReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, newReconfigCount, test.ShouldEqual, 0)
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 0)
 
 	// --- Recovery phase ---
 
@@ -2279,9 +2236,10 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	recoveredClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, recoveredClockValue, test.ShouldBeGreaterThan, initialClockValue)
 
-	// The clock increment triggers one reconfiguration of foo.
-	recoveryReconfigCount := logs.FilterMessageSnippet("Reconfiguring resource for module").Len()
-	test.That(t, recoveryReconfigCount, test.ShouldEqual, 1)
+	// The clock increment triggers reconfiguration of foo.
+	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
+		test.ShouldEqual, 1)
 
 	// Both motors remain accessible through foo after the full crash-recovery cycle.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -25,32 +26,7 @@ import (
 type someTypeWithWeakAndStrongDeps struct {
 	resource.Named
 	resource.TriviallyCloseable
-	resources     resource.Dependencies
-	reconfigCount int
-}
-
-func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	s.resources = deps
-	s.reconfigCount++
-	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
-	if err != nil {
-		return err
-	}
-	for _, dep := range ourConf.deps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	for _, dep := range ourConf.weakDeps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	return nil
+	resources resource.Dependencies
 }
 
 type someTypeWithWeakAndStrongDepsConfig struct {
@@ -67,7 +43,7 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(path string) ([]string, [
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	var emptyCfg config.Config
 	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
@@ -149,7 +125,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
@@ -184,7 +162,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -220,7 +200,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
 	// reconfigCount will not increment as the error happens before Reconfigure is called on the resource.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
@@ -255,7 +237,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
 	// reconfigCount will reset as the resource was destroyed after the previous configuration failure.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 3)
 
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
@@ -291,7 +275,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 3)
 }
 
 func TestWeakDependentsExplicitDependency(t *testing.T) {
@@ -299,7 +285,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// The robot has 3 components:
 	//   * base1 and base2: two fake base components.
 	//   * weak1: a weak component that depends on all components and also has an explicit dependency on base1.
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Register a `Resource` that generates weak dependencies. Specifically instance of
 	// this resource will depend on every `component` resource.
@@ -383,7 +369,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	lRobot := robot.(*localRobot)
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
@@ -425,7 +413,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
@@ -459,7 +449,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
@@ -468,12 +460,16 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(weak1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 }
 
 func TestWeakDependentsDependedOn(t *testing.T) {
@@ -482,7 +478,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//   * base1: a fake base component that has an explicit dependency on weak1.
 	//   * base2: a fake base component.
 	//   * weak1: a weak component that depends on all components.
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Register a `Resource` that generates weak dependencies. Specifically, instances of
 	// this resource will depend on every `component` resource.
@@ -568,7 +564,9 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	lRobot := robot.(*localRobot)
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
@@ -605,7 +603,9 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
@@ -639,7 +639,9 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
@@ -648,10 +650,14 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(weak1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 }
