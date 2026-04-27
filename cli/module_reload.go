@@ -145,14 +145,9 @@ func (c *viamClient) addResourceFromModule(
 	return nil
 }
 
-// findResourceInPartOrFragments walks a part config's direct resources and any
-// fragments it references (recursively, including nested fragments), returning
-// true as soon as predicate matches any resource. Short-circuits on first match.
-// visited breaks cycles and memoizes repeated fragment refs; callers pass a fresh map.
-//
-// Needed because part.RobotConfig stores fragments as refs (`{"id": "..."}`),
-// not inlined contents — so a straight scan of partMap["services"] cannot see
-// resources provided by a fragment.
+// findResourceInPartOrFragments returns true if predicate matches any resource in
+// the part config or any of its fragments (recursively). Fragments are stored as
+// refs ({"id": ...}) so their bodies must be fetched via GetFragment.
 func (c *viamClient) findResourceInPartOrFragments(
 	ctx context.Context,
 	cfgMap map[string]any,
@@ -200,7 +195,7 @@ func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any
 	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
 }
 
-// appendShellServiceToPartMap appends a shell service entry to partMap["services"]. 
+// appendShellServiceToPartMap appends a shell service entry to partMap["services"].
 func appendShellServiceToPartMap(partMap map[string]any) {
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)

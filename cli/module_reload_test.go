@@ -233,7 +233,6 @@ func TestFullReloadFlow(t *testing.T) {
 			services, _ := part.Part.RobotConfig.AsMap()["services"].([]any)
 			test.That(t, len(services), test.ShouldEqual, 0)
 		})
-
 	})
 
 	t.Run("versionCheck", func(t *testing.T) {
