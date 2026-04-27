@@ -84,9 +84,10 @@ func NewAppConn(ctx context.Context, appAddress, partID string, cloudCreds rpc.D
 
 	appConn.dialer = utils.NewStoppableWorkers(ctx)
 	appConn.dialer.Add(func(ctx context.Context) {
-		// Upon failing to dial app.viam.com, run DNS network checks asynchronously to reveal
-		// more DNS information.
+		// Upon failing to dial app.viam.com, run DNS and packet loss checks asynchronously
+		// to reveal more network information.
 		networkcheck.TestDNS(ctx, logger, false /* non-verbose to only log failures */)
+		networkcheck.TestPacketLoss(ctx, logger, false /* non-verbose to only log failures */)
 	})
 	appConn.dialer.Add(func(ctx context.Context) {
 		for {

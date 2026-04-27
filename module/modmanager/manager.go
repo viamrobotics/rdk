@@ -254,7 +254,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		seen[conf.Name] = struct{}{}
 
-		// The config was already validated, but we must check again before attempting to add.
+		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			mgr.AddToFailedModules(conf.Name)

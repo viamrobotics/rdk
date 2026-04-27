@@ -556,10 +556,6 @@ func TestTunnelE2E(t *testing.T) {
 // where viam-server would not enable debug logging on startup if
 // debug: true was present in the config, but the config was file-based
 func TestDebugLogAppliesAtStartup(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
-
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -631,9 +627,6 @@ func TestDebugLogAppliesAtStartup(t *testing.T) {
 // config is re-fetched on the next poll cycle.
 func TestCloudModulesRespondToDebugAndLogChanges(t *testing.T) {
 	t.Parallel()
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())

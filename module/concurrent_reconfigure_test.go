@@ -3,8 +3,6 @@ package module_test
 import (
 	"context"
 	"fmt"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -16,6 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/utils"
 )
 
@@ -24,13 +23,12 @@ func setupTestRobotWithModules(
 	ctx context.Context,
 	logger logging.Logger,
 ) (*config.Config, robot.LocalRobot) {
-	absPath, err := filepath.Abs("testmodule/run.sh")
-	test.That(t, err, test.ShouldBeNil)
+	exePath := rtestutils.BuildTempModule(t, "module/testmodule")
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
 				Name:    "TestModule",
-				ExePath: absPath,
+				ExePath: exePath,
 			},
 		},
 	}
@@ -48,9 +46,6 @@ const (
 )
 
 func TestConcurrentReconfiguration(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 

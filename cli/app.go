@@ -101,6 +101,7 @@ const (
 	moduleFlagAppName         = "app-name"
 	moduleFlagAppType         = "app-type"
 	moduleFlagUpload          = "upload"
+	moduleFlagAnnotation      = "annotation"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -3934,6 +3935,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAnnotation,
+							Usage: "Annotation to describe the purpose of the reload build",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

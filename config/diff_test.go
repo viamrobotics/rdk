@@ -671,12 +671,6 @@ func TestDiffSanitize(t *testing.T) {
 }
 
 func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
-	for idx := 0; idx < len(c.Remotes); idx++ {
-		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			return err
-		}
-	}
-
 	for idx := 0; idx < len(c.Components); idx++ {
 		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
 		if err != nil {
@@ -686,12 +680,6 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 		c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
 	}
 
-	for idx := 0; idx < len(c.Processes); idx++ {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			return err
-		}
-	}
-
 	for idx := 0; idx < len(c.Services); idx++ {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
 		if err != nil {
@@ -699,18 +687,6 @@ func modifiedConfigDiffValidate(c *config.ModifiedConfigDiff) error {
 		}
 		c.Services[idx].ImplicitDependsOn = requiredDeps
 		c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
-	}
-
-	for idx := 0; idx < len(c.Packages); idx++ {
-		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
-			return err
-		}
-	}
-
-	for idx := 0; idx < len(c.Modules); idx++ {
-		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			return err
-		}
 	}
 
 	return nil
