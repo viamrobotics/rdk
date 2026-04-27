@@ -452,7 +452,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	ikTime := time.Second
+	ikTime := 10 * time.Second
 	if !solvingState.doingSmartSeeds {
 		ikTime = 100 * time.Millisecond
 	}
