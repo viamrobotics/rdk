@@ -8,12 +8,12 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/viam-labs/motion-tools/client/client"
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
 )
 
 func TestPoseCloudPlanning(t *testing.T) {
@@ -70,7 +70,7 @@ func TestPoseCloudPlanning(t *testing.T) {
 	// Plan for a "bad" goal with no leeway. Because the goal is right on the glass, the arm and
 	// glass would be in collision. Ideally the Z would be backed out by ~30. We should get a "no IK
 	// solutions" error.
-	plan, _, err := PlanMotion(ctx, logger.Sublogger("cloud-planning"), &PlanRequest{
+	_, _, err = PlanMotion(ctx, logger.Sublogger("cloud-planning-fails"), &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			NewPlanState(referenceframe.FrameSystemPoses{
@@ -91,7 +91,7 @@ func TestPoseCloudPlanning(t *testing.T) {
 	test.That(t, errors.As(err, &ikErr), test.ShouldBeTrue)
 
 	// Plan for the same goal with a big leeway. IK finds a solution here due to the relaxed goal.
-	plan, _, err = PlanMotion(ctx, logger.Sublogger("cloud-planning"), &PlanRequest{
+	plan, _, err := PlanMotion(ctx, logger.Sublogger("cloud-planning-works"), &PlanRequest{
 		FrameSystem: fs,
 		Goals: []*PlanState{
 			NewPlanState(referenceframe.FrameSystemPoses{
@@ -114,25 +114,4 @@ func TestPoseCloudPlanning(t *testing.T) {
 	if renderPoses {
 		client.DrawFrameSystem(fs, plan.Trajectory()[len(plan.Trajectory())-1])
 	}
-}
-
-func countValid(inp []ik.SeedSolveMetaData) int {
-	ret := 0
-	for idx := range inp {
-		ret += inp[idx].Valid
-	}
-
-	return ret
-}
-
-// CraftJumps takes in a min/max (inclusive) bounds and `numJumps` integer and returns an array of
-// floats starting with `min`, ending with `max` and `numJumps-2` equally spaced values in between.
-func jumps(min, max float64, numJumps int) []float64 {
-	result := make([]float64, numJumps)
-	step := (max - min) / float64(numJumps-1)
-	for idx := 0; idx < numJumps; idx++ {
-		result[idx] = min + float64(idx)*step
-	}
-
-	return result
 }

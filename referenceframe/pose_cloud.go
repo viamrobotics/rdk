@@ -4,6 +4,7 @@ import (
 	"math"
 
 	commonpb "go.viam.com/api/common/v1"
+
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -39,12 +40,13 @@ type PoseCloud struct {
 	// also lower the hand closer to the incline. If we try to calculate this in the world reference
 	// frame, this means that the leeway for Z is in terms of a specific IK solution's leeway for X.
 	//
-	// To solve this, we always evaluate in the reference frame of the object being asked to
-	// move. In the above example, a movement request would ask the box to move, assuming it's
-	// parented to the hand. Hence, the leeways would be applied to the box. For this to work, we
-	// would want the box's orientation vector to be perpendicular to the incline. Such that we
-	// declare the leeway of Z' to be 0. While the leeway for X' (in the box reference frame) can be
-	// a wider range.
+	// To solve this, we always evaluate in the reference frame of the object being asked to move
+	// towards. In the above example, a movement request would ask the hand to move to a
+	// `PoseInFrame` where the block is the reference frame. Hence, the leeways would be applied to
+	// the hand in the reference frame of the block (which is laying flat on the slope). For this to
+	// work, we would want the block's orientation vector to be either perpendicular or parallel to
+	// the incline. Such that (in the case of perpendicular) we declare the leeway of Z' to be
+	// 0. While the leeway for X' (in the block reference frame) can be a wider range.
 
 	// The following X, Y and Z are translational leeways. They are all in units of millimeters, the
 	// same as a goal pose. The value represents a leeway in the range of [-Value, +Value].
@@ -60,7 +62,7 @@ type PoseCloud struct {
 	// +Value]. The orientation values are unitless, but one must keep in mind they are applied to
 	// an orientation vector that has been normalized to a unit sphere. For example, an OX leeway of
 	// `1` would accept any OX for a candidate pose.
-
+	//
 	// OX represents the leeway as described above.
 	OX float64 `json:"ox"`
 	// OY represents the leeway as described above.
@@ -73,6 +75,7 @@ type PoseCloud struct {
 	Theta float64 `json:"theta"`
 }
 
+// PoseInCloud returns true if the `candidatePose` is within this cloud of the `goalPose`.
 func (pc *PoseCloud) PoseInCloud(goalPose, candidatePose spatialmath.Pose) bool {
 	// Default distance below which two distances are considered equal. Copied from `ik` package to
 	// avoid package cycles. This is only necessary for the default leeway of `0` to not dismiss
