@@ -123,6 +123,16 @@ func promptGenerateType() (string, error) {
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("What would you like to generate?").
+				DescriptionFunc(func() string {
+					switch generateType {
+					case "module":
+						return "A modular resource to add custom components or services to your machine."
+					case "app":
+						return "A web application that connects to your machine via the Viam SDK."
+					default:
+						return ""
+					}
+				}, &generateType).
 				Options(
 					huh.NewOption("Module", "module"),
 					huh.NewOption("App", "app"),
@@ -283,10 +293,19 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 	appPath := filepath.Join(cwd, moduleName)
 	printf(cmd.Root().Writer, "App module successfully generated at %s", appPath)
-	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(appPath, "README.md"))
 	if registryURL != "" {
 		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
+	printf(cmd.Root().Writer, "\n--- Build your frontend ---")
+	printf(cmd.Root().Writer, "This module has no frontend yet. Bring your own using any framework (e.g. Svelte, Vue, React).")
+	printf(cmd.Root().Writer, "\n1. Install the Viam SDK:")
+	printf(cmd.Root().Writer, "     npm install @viamrobotics/sdk typescript-cookie")
+	printf(cmd.Root().Writer, "\n2. Build your frontend into the dist/ directory.")
+	printf(cmd.Root().Writer, "\n3. Build the module:")
+	printf(cmd.Root().Writer, "     make setup")
+	printf(cmd.Root().Writer, "     make")
+	printf(cmd.Root().Writer, "\nSee %s for full details, including how to test during development and upload to viamapplications.com.",
+		filepath.Join(appPath, "README.md"))
 	return nil
 }
 
