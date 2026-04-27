@@ -1374,29 +1374,63 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg)
 
 	{ // Assertions
-		// Assert that the first 'moc' component is still accessible (did not fail to
-		// reconstruct).
+		// In a mutual-optional cycle the cascade deliberately stops before re-adding the
+		// resource on the visited stack (see cascadeRebuildDependentsOf), so exactly one
+		// side ends up with a stale captured pointer. Which side is stale depends on the
+		// order updateWeakAndOptionalDependents iterates resources, which is non-deterministic.
+
 		mocRes, err := lr.ResourceByName(mocName)
+		test.That(t, err, test.ShouldBeNil)
+		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Assert that there were no more logs (still 2) about failures to "get other MOC."
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
-		// Assert that, on the 'moc' component itself, `otherMOC` is now usable.
-		doCommandResp, err := mocRes.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
+		currentID := func(res resource.Resource) float64 {
+			resp, err := res.DoCommand(ctx, map[string]any{"command": "instance_id"})
+			test.That(t, err, test.ShouldBeNil)
+			return resp["instance_id"].(float64)
+		}
+		seenOtherID := func(res resource.Resource) float64 {
+			resp, err := res.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, resp["other_moc_state"], test.ShouldEqual, "usable")
+			return resp["other_instance_id"].(float64)
+		}
 
-		// Assert that the second 'moc2' component is now accessible (did not fail to
-		// construct).
-		mocRes2, err := lr.ResourceByName(mocName2)
-		test.That(t, err, test.ShouldBeNil)
+		mocCurrent := currentID(mocRes)
+		moc2Current := currentID(mocRes2)
+		mocSeesMoc2 := seenOtherID(mocRes)
+		moc2SeesMoc := seenOtherID(mocRes2)
 
-		// Assert that, on the 'moc2' component itself, `otherMOC` is now usable.
-		doCommandResp, err = mocRes2.DoCommand(ctx, map[string]any{"command": "other_moc_state"})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"other_moc_state": "usable"})
+		// One of moc / moc2 has fresh pointer to the other and the other has stale
+		// pointer to the first.
+		mocFresh := mocSeesMoc2 == moc2Current
+		moc2Fresh := moc2SeesMoc == mocCurrent
+		test.That(t, mocFresh != moc2Fresh, test.ShouldBeTrue)
+
+		// Ensure we hit the infinite rebuild cycle skip log. updateWeakAndOptionalDependents
+		// rebuilds both moc and moc2 but depending on the iteration order, one or both of
+		// them will log the skip. moc was added in first round reconstruction when moc2
+		// didn't exist (so moc never registered against m.internalDeps[moc2]), while moc2's
+		// later add did register against m.internalDeps[moc].
+		// 	- If moc rebuilds first, its rebuild populates m.internalDeps[moc2] as a side
+		// effect (the new moc resolves moc2 as a dependency and registers against it), then its
+		// cascade logs the cycle skip. When moc2's iteration follows, its cascade now has a
+		// populated internalDeps, hits the cycle, and logs a skip → 2 warnings total.
+		//
+		// 	- If moc2 is iterated first, m.internalDeps[moc2] is still empty when its checks to
+		// cascade rebuild dependents. The cascade is skipped because it has no dependents
+		// according to internalDeps and so only moc's iteration produces a warning → 1 warning total.
+		//
+		// The asymmetry resolves itself once both sides have been rebuilt at least once,
+		// but on this first pass the cycle-skip count can be 1 or 2 depending on
+		// updateWeakAndOptionalDependents iteration order.
+		cycleSkips := logs.FilterMessageSnippet("detected mutual-optional dependency cycle").Len()
+		test.That(t, cycleSkips, test.ShouldBeGreaterThanOrEqualTo, 1)
+		test.That(t, cycleSkips, test.ShouldBeLessThanOrEqualTo, 2)
 	}
 
 	// Reconfigure the robot to remove the original 'moc'.
@@ -2291,4 +2325,307 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "optional_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
+}
+
+func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
+	// Setup:
+	//   - pointer-target (modular) declares an optional dep. When that dep's availability
+	//     changes, the RDK's updateWeakAndOptionalDependents flow rebuilds the target by
+	//     sending RemoveResource + AddResource to the module.
+	//   - pointer-holder (modular, same module) explicitly depends_on the target and captures
+	//     a direct Go pointer to it at construction time.
+	//
+	// Each target instance carries a unique ID. After the target is rebuilt, the holder must
+	// be rebuilt too so its captured pointer references the current target instance — not the
+	// one that was just closed. The test probes both the target directly and the
+	// target-via-holder and asserts their instance IDs match. Without the cascade, the holder
+	// ends up pointing at a closed prior instance and its proxied DoCommand either errors or
+	// returns a stale ID.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	targetModel := resource.NewModel("acme", "demo", "pointer-target")
+	holderModel := resource.NewModel("acme", "demo", "pointer-holder")
+	targetName := generic.Named("target1")
+	holderName := generic.Named("holder1")
+
+	cfg := config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "optional-deps",
+				ExePath: optionalDepsModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				// The optional-dep target — its presence causes pointer-target to be
+				// rebuilt by updateWeakAndOptionalDependents on every reconfigure cycle.
+				Name:                "opt-dep",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:  targetName.Name,
+				API:   generic.API,
+				Model: targetModel,
+				Attributes: rutils.AttributeMap{
+					"optional_dep": "opt-dep",
+				},
+			},
+			{
+				// Explicit depends_on target1 via the config attribute; the module's
+				// Validate returns it as a required dependency so the holder captures a Go
+				// pointer to target1.
+				Name:  holderName.Name,
+				API:   generic.API,
+				Model: holderModel,
+				Attributes: rutils.AttributeMap{
+					"target": targetName.Name,
+				},
+			},
+		},
+	}
+	// Ensure fills in ImplicitOptionalDependsOn from Validate — required for
+	// updateWeakAndOptionalDependents to consider pointer-target.
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	// assertHolderPointsToCurrentTarget fetches the current target instance ID directly,
+	// then fetches the target instance ID via the holder (which proxies through its
+	// captured pointer), and asserts they match. A mismatch means the holder is holding
+	// a stale pointer to a previous target instance.
+	assertHolderPointsToCurrentTarget := func(label string) {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		targetResp, err := targetRes.DoCommand(ctx, map[string]any{"probe": label})
+		test.That(t, err, test.ShouldBeNil)
+
+		holderRes, err := lr.ResourceByName(holderName)
+		test.That(t, err, test.ShouldBeNil)
+		holderResp, err := holderRes.DoCommand(ctx, map[string]any{"probe": label})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, holderResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
+	}
+
+	// Initial Reconfigure — builds target_v1 and holder_v1, then
+	// updateWeakAndOptionalDependents rebuilds target (to target_v2) and the module's
+	// cascade rebuilds holder (to holder_v2) so it points at target_v2.
+	lr.Reconfigure(ctx, &cfg)
+	assertHolderPointsToCurrentTarget("initial")
+
+	// Add an unrelated motor to advance the clock and re-trigger
+	// updateWeakAndOptionalDependents — the second cascade must keep holder fresh.
+	cfg2 := cfg
+	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
+		Name:                "unrelated-motor",
+		API:                 motor.API,
+		Model:               fake.Model,
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg2)
+	assertHolderPointsToCurrentTarget("after-unrelated-change")
+}
+
+func TestModularStalePointerCascadeFanOut(t *testing.T) {
+	// Verifies that a single rebuild of a resource with multiple explicit dependents
+	// cascades to rebuild every one of them.
+	// Setup:
+	//   - One pointer-target with an optional dependency (triggers updateWeakAndOptionalDependents
+	//     on every reconfigure).
+	//   - Three pointer-holders, each depending on that target.
+	//
+	// After reconfigure, every holder should route DoCommand through the current target
+	// instance. If the cascade only rebuilds one holder (or rebuilds them against different
+	// target instances), some holder's instance_id would diverge from the others or from the
+	// target itself.
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	targetModel := resource.NewModel("acme", "demo", "pointer-target")
+	holderModel := resource.NewModel("acme", "demo", "pointer-holder")
+	targetName := generic.Named("target")
+	holderNames := []resource.Name{
+		generic.Named("holder-a"),
+		generic.Named("holder-b"),
+		generic.Named("holder-c"),
+	}
+
+	components := []resource.Config{
+		{
+			Name:                "opt-dep",
+			API:                 motor.API,
+			Model:               fake.Model,
+			ConvertedAttributes: &fake.Config{},
+		},
+		{
+			Name:  targetName.Name,
+			API:   generic.API,
+			Model: targetModel,
+			Attributes: rutils.AttributeMap{
+				"optional_dep": "opt-dep",
+			},
+		},
+	}
+	for _, hn := range holderNames {
+		components = append(components, resource.Config{
+			Name:  hn.Name,
+			API:   generic.API,
+			Model: holderModel,
+			Attributes: rutils.AttributeMap{
+				"target": targetName.Name,
+			},
+		})
+	}
+
+	cfg := config.Config{
+		Modules: []config.Module{
+			{Name: "optional-deps", ExePath: optionalDepsModulePath},
+		},
+		Components: components,
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	assertAllHoldersPointToCurrentTarget := func(label string) {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		targetResp, err := targetRes.DoCommand(ctx, map[string]any{"probe": label})
+		test.That(t, err, test.ShouldBeNil)
+		wantID := targetResp["instance_id"]
+
+		for _, hn := range holderNames {
+			holderRes, err := lr.ResourceByName(hn)
+			test.That(t, err, test.ShouldBeNil)
+			holderResp, err := holderRes.DoCommand(ctx, map[string]any{"probe": label})
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, holderResp["instance_id"], test.ShouldEqual, wantID)
+		}
+	}
+
+	lr.Reconfigure(ctx, &cfg)
+	assertAllHoldersPointToCurrentTarget("initial")
+
+	// Push a config change to advance the clock and re-trigger updateWeakAndOptionalDependents.
+	cfg2 := cfg
+	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
+		Name:                "unrelated-motor",
+		API:                 motor.API,
+		Model:               fake.Model,
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg2)
+	assertAllHoldersPointToCurrentTarget("after-unrelated-change")
+}
+
+func TestModularStalePointerCascadeChain(t *testing.T) {
+	// Verifies that cascades propagate transitively through multi-hop explicit-dep chains.
+	// Exercises the recursive cascade inside rebuildResourceWithVisited (invoked by the outer
+	// addResource cascade), not just the single-level cascade in addResource.
+	// Setup:  target → mid-holder (depends on target) → top-holder (depends on mid-holder)
+	//
+	// When target is rebuilt:
+	//  1. addResource(target_new) cascade finds mid-holder in internalDeps[target], rebuilds it.
+	//  2. rebuildResourceWithVisited(mid-holder) runs ITS cascade over internalDeps[mid-holder],
+	//     rebuilds top-holder.
+	//  3. top-holder ends up freshly constructed, its captured pointer referencing the freshly
+	//     constructed mid-holder, which references the new target.
+	//
+	// top-holder.DoCommand proxies → mid-holder.DoCommand → target.DoCommand → returns the
+	// current target's instance_id. Any break in the chain would either error or report a
+	// stale ID.
+
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	lr := setupLocalRobot(t, ctx, &config.Config{}, logger, WithDisableCompleteConfigWorker())
+
+	optionalDepsModulePath := testutils.BuildTempModule(t, "examples/customresources/demos/optionaldepsmodule")
+
+	targetModel := resource.NewModel("acme", "demo", "pointer-target")
+	holderModel := resource.NewModel("acme", "demo", "pointer-holder")
+	targetName := generic.Named("target")
+	midName := generic.Named("mid-holder")
+	topName := generic.Named("top-holder")
+
+	cfg := config.Config{
+		Modules: []config.Module{
+			{Name: "optional-deps", ExePath: optionalDepsModulePath},
+		},
+		Components: []resource.Config{
+			{
+				Name:                "opt-dep",
+				API:                 motor.API,
+				Model:               fake.Model,
+				ConvertedAttributes: &fake.Config{},
+			},
+			{
+				Name:  targetName.Name,
+				API:   generic.API,
+				Model: targetModel,
+				Attributes: rutils.AttributeMap{
+					"optional_dep": "opt-dep",
+				},
+			},
+			{
+				Name:  midName.Name,
+				API:   generic.API,
+				Model: holderModel,
+				Attributes: rutils.AttributeMap{
+					"target": targetName.Name,
+				},
+			},
+			{
+				Name:  topName.Name,
+				API:   generic.API,
+				Model: holderModel,
+				Attributes: rutils.AttributeMap{
+					"target": midName.Name,
+				},
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	// The top-holder proxies DoCommand through mid-holder, which proxies through target.
+	// If any link in the chain holds a stale pointer, the ID returned at the top won't
+	// match the target's current ID.
+	assertTopHolderReachesCurrentTarget := func(label string) {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		targetResp, err := targetRes.DoCommand(ctx, map[string]any{"probe": label})
+		test.That(t, err, test.ShouldBeNil)
+
+		topRes, err := lr.ResourceByName(topName)
+		test.That(t, err, test.ShouldBeNil)
+		topResp, err := topRes.DoCommand(ctx, map[string]any{"probe": label})
+		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, topResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
+	}
+
+	lr.Reconfigure(ctx, &cfg)
+	assertTopHolderReachesCurrentTarget("initial")
+
+	// Push a config change to advance the clock and re-trigger the cascade.
+	cfg2 := cfg
+	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
+		Name:                "unrelated-motor",
+		API:                 motor.API,
+		Model:               fake.Model,
+		ConvertedAttributes: &fake.Config{},
+	})
+	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg2)
+	assertTopHolderReachesCurrentTarget("after-unrelated-change")
 }
