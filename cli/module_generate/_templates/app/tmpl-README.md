@@ -64,7 +64,7 @@ To check that your HTML/CSS renders without a machine connection, just open your
 
 2. Upload `module.tar.gz` (not the binary) to the registry:
    ```
-   viam module upload --upload=./module.tar.gz --platform=linux/amd64
+   viam module upload --upload=./module.tar.gz --version=0.0.1 --platform=linux/amd64
    ```
 
 3. Add the module to your machine on app.viam.com:
