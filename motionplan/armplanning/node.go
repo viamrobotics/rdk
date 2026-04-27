@@ -452,9 +452,14 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	ikTime := 10 * time.Second
-	if !solvingState.doingSmartSeeds {
-		ikTime = 100 * time.Millisecond
+	var ikTime time.Duration
+	if psc.pc.request.PlannerOptions.Timeout > defaultTimeout {
+		ikTime = time.Duration(psc.pc.request.PlannerOptions.Timeout * float64(time.Second))
+	} else {
+		ikTime = time.Second
+		if !solvingState.doingSmartSeeds {
+			ikTime = 100 * time.Millisecond
+		}
 	}
 
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)

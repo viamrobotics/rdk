@@ -108,6 +108,10 @@ func TestPoseCloudPlanning(t *testing.T) {
 			"lite6":   []referenceframe.Input{0, 0, 0, 0, 0, 0},
 			"gripper": []referenceframe.Input{25, 25},
 		}),
+		PlannerOptions: &PlannerOptions{
+			// By using a larger defaultTimeout, IK will get more time than the typical one second.
+			Timeout: defaultTimeout + 1,
+		},
 	})
 	test.That(t, err, test.ShouldBeNil)
 
