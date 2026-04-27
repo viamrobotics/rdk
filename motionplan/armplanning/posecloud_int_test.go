@@ -17,7 +17,7 @@ import (
 )
 
 func TestPoseCloudPlanning(t *testing.T) {
-	const renderPoses = true
+	const renderPoses = false
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
