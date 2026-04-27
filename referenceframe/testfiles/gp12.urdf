@@ -1,0 +1,115 @@
+<?xml version="1.0" ?>
+
+<robot name="motoman_gp12">
+
+  <link name="base_link">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_base_link.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_1_s">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_1_s.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_2_l">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_2_l.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_3_u">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_3_u.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_4_r">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_4_r.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_5_b">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_5_b.stl"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="link_6_t">
+    <collision>
+      <geometry>
+        <mesh filename="package://description/gp12meshes/gp12_link_6_t.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="tool0"/>
+
+  <joint name="joint_1_s" type="revolute">
+    <parent link="base_link"/>
+    <child link="link_1_s"/>
+    <origin rpy="0 0 0" xyz="0 0 0.450"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="926.10" lower="-2.9670" upper="2.9670" velocity="4.5355"/>
+  </joint>
+  <joint name="joint_2_l" type="revolute">
+    <parent link="link_1_s"/>
+    <child link="link_2_l"/>
+    <origin rpy="0 0 0" xyz="0.155 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit effort="1029.00" lower="-1.5708" upper="2.7052" velocity="4.0132"/>
+  </joint>
+
+  <joint name="joint_3_u" type="revolute">
+    <parent link="link_2_l"/>
+    <child link="link_3_u"/>
+    <origin rpy="0 0 0" xyz="0 0 0.614"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="551.25" lower="-1.4835" upper="2.6179" velocity="4.5375"/>
+  </joint>
+
+  <joint name="joint_4_r" type="revolute">
+    <parent link="link_3_u"/>
+    <child link="link_4_r"/>
+    <origin rpy="0 0 0" xyz="0.640 0 0.200"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="89.96" lower="-3.4906" upper="3.4906" velocity="8.2007"/>
+  </joint>
+
+  <joint name="joint_5_b" type="revolute">
+    <parent link="link_4_r"/>
+    <child link="link_5_b"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="0 -1 0"/>
+    <limit effort="67.03" lower="-2.6179" upper="2.6179" velocity="8.1992"/>
+  </joint>
+
+  <joint name="joint_6_t" type="revolute">
+    <parent link="link_5_b"/>
+    <child link="link_6_t"/>
+    <origin rpy="0 0 0" xyz="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit effort="33.30" lower="-7.9412" upper="7.9412" velocity="12.2143"/>
+  </joint>
+
+  <joint name="joint_6_t-tool0" type="fixed">
+    <origin rpy="3.1415926 -1.570796 0" xyz="0.100 0 0"/>
+    <parent link="link_6_t"/>
+    <child link="tool0"/>
+  </joint>
+
+</robot>
