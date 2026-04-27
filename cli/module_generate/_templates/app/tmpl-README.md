@@ -14,11 +14,11 @@ To connect to your machine, install the Viam SDK and cookie helper with your pac
 npm install @viamrobotics/sdk typescript-cookie
 ```
 
-A utility file is included at `viam/auth.ts`. Feel free to copy it into your project. For example, if you move this file to the `src/lib` directory, you could obtain credentials as follows:
+A utility file is included at `auth.ts` in the project root. Copy it into your frontend project and import it:
 
 ```js
 import { createRobotClient } from '@viamrobotics/sdk';
-import { getHostAndCredentials } from './src/lib/auth';
+import { getHostAndCredentials } from './auth';
 
 const { host, credentials } = getHostAndCredentials();
 const machine = await createRobotClient({
@@ -30,6 +30,8 @@ const resources = await machine.resourceNames();
 ```
 
 Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If you would like to change this, update it in the `meta.json`, the `Makefile`, and the `module.go` file.
+
+**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
 
 After building your frontend into `dist/`, run `make` to build the module.
 
