@@ -30,7 +30,7 @@ var expectedUR5eDHParams = []DHParam{
 // into a *ModelConfigURDF.
 func loadURDF(t *testing.T, path string) *ModelConfigURDF {
 	t.Helper()
-	//nolint:gosec
+
 	xmlData, err := os.ReadFile(path)
 	test.That(t, err, test.ShouldBeNil)
 	urdf := &ModelConfigURDF{}
@@ -39,7 +39,7 @@ func loadURDF(t *testing.T, path string) *ModelConfigURDF {
 	return urdf
 }
 
-func TestURDFToDHParams_UR5e(t *testing.T) {
+func TestURDFToDHParamsUR5e(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/ur5e-real.urdf")
 
 	got, err := URDFToDHParams(urdf)
@@ -55,7 +55,7 @@ func TestURDFToDHParams_UR5e(t *testing.T) {
 	}
 }
 
-func TestWalkURDFChain_UR5e(t *testing.T) {
+func TestWalkURDFChainUR5e(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/ur5e-real.urdf")
 	joints, err := walkURDFChain(urdf)
 	test.That(t, err, test.ShouldBeNil)
@@ -89,7 +89,7 @@ func TestPoseInMeters(t *testing.T) {
 	test.That(t, pt.Z, test.ShouldAlmostEqual, 0, 1e-12)
 }
 
-func TestJointAxesAtRest_UR5e(t *testing.T) {
+func TestJointAxesAtRestUR5e(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/ur5e-real.urdf")
 	joints, err := walkURDFChain(urdf)
 	test.That(t, err, test.ShouldBeNil)
@@ -122,7 +122,7 @@ func TestJointAxesAtRest_UR5e(t *testing.T) {
 	test.That(t, endPose, test.ShouldNotBeNil)
 }
 
-func TestWalkURDFChain_Branching(t *testing.T) {
+func TestWalkURDFChainBranching(t *testing.T) {
 	// Synthetic URDF with one link having two child joints.
 	xmlStr := `<?xml version="1.0"?>
 <robot name="branch">
@@ -152,7 +152,7 @@ func TestWalkURDFChain_Branching(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "branching")
 }
 
-func TestCommonNormal_Perpendicular(t *testing.T) {
+func TestCommonNormalPerpendicular(t *testing.T) {
 	// Z-axis through origin + Y-axis through (0, 0, 1): perpendicular intersecting lines.
 	z0 := r3.Vector{X: 0, Y: 0, Z: 1}
 	p0 := r3.Vector{X: 0, Y: 0, Z: 0}
@@ -170,7 +170,7 @@ func TestCommonNormal_Perpendicular(t *testing.T) {
 	test.That(t, foot1.Z, test.ShouldAlmostEqual, 1, 1e-9)
 }
 
-func TestCommonNormal_Parallel(t *testing.T) {
+func TestCommonNormalParallel(t *testing.T) {
 	// Two parallel Z-axes separated by 0.5 in X.
 	z0 := r3.Vector{X: 0, Y: 0, Z: 1}
 	p0 := r3.Vector{X: 0, Y: 0, Z: 0}
@@ -186,7 +186,7 @@ func TestCommonNormal_Parallel(t *testing.T) {
 	test.That(t, xDir.Z, test.ShouldAlmostEqual, 0, 1e-9)
 }
 
-func TestBuildDHFrames_UR5e(t *testing.T) {
+func TestBuildDHFramesUR5e(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/ur5e-real.urdf")
 	joints, err := walkURDFChain(urdf)
 	test.That(t, err, test.ShouldBeNil)
@@ -212,7 +212,7 @@ func TestBuildDHFrames_UR5e(t *testing.T) {
 	test.That(t, pts[1].Z, test.ShouldAlmostEqual, 0.1625, 1e-9)
 }
 
-func TestExtractDHRow_UR5eRow1(t *testing.T) {
+func TestExtractDHRowUR5eRow1(t *testing.T) {
 	// Frame 0: origin (0,0,0), Z=(0,0,1), X=(1,0,0).
 	// Frame 1: origin (0,0,0.1625), Z=(0,-1,0), X=(1,0,0).
 	// Expected DH row: d=0.1625, a=0, alpha=pi/2, theta=0.
@@ -230,7 +230,7 @@ func TestExtractDHRow_UR5eRow1(t *testing.T) {
 	test.That(t, alpha, test.ShouldAlmostEqual, math.Pi/2, 1e-9)
 }
 
-func TestValidateEndEffectorDH_Compatible(t *testing.T) {
+func TestValidateEndEffectorDHCompatible(t *testing.T) {
 	// Z_{N-1} = Z, x_end = X, p_end and origin_{N-1} on same Z axis → compatible.
 	err := validateEndEffectorDH(
 		r3.Vector{X: 0, Y: 0, Z: 1}, // zPrev
@@ -241,7 +241,7 @@ func TestValidateEndEffectorDH_Compatible(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestValidateEndEffectorDH_XNotPerpendicular(t *testing.T) {
+func TestValidateEndEffectorDHXNotPerpendicular(t *testing.T) {
 	// x_end has a component along Z_{N-1}: should error.
 	err := validateEndEffectorDH(
 		r3.Vector{X: 0, Y: 0, Z: 1},
@@ -253,7 +253,7 @@ func TestValidateEndEffectorDH_XNotPerpendicular(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not perpendicular")
 }
 
-func TestValidateEndEffectorDH_OriginOutOfPlane(t *testing.T) {
+func TestValidateEndEffectorDHOriginOutOfPlane(t *testing.T) {
 	// p_end - originPrev has a component along Z × X: should error.
 	err := validateEndEffectorDH(
 		r3.Vector{X: 0, Y: 0, Z: 1},
@@ -265,7 +265,7 @@ func TestValidateEndEffectorDH_OriginOutOfPlane(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of DH plane")
 }
 
-func TestURDFToDHParams_NoRevoluteJoints(t *testing.T) {
+func TestURDFToDHParamsNoRevoluteJoints(t *testing.T) {
 	xmlStr := `<?xml version="1.0"?>
 <robot name="fixed_only">
   <link name="world"/>
@@ -284,7 +284,7 @@ func TestURDFToDHParams_NoRevoluteJoints(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no revolute joints")
 }
 
-func TestURDFToDHParams_UnsupportedPrismatic(t *testing.T) {
+func TestURDFToDHParamsUnsupportedPrismatic(t *testing.T) {
 	xmlStr := `<?xml version="1.0"?>
 <robot name="has_prismatic">
   <link name="world"/>
@@ -305,7 +305,7 @@ func TestURDFToDHParams_UnsupportedPrismatic(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unsupported type")
 }
 
-func TestURDFToDHParams_Branching(t *testing.T) {
+func TestURDFToDHParamsBranching(t *testing.T) {
 	xmlStr := `<?xml version="1.0"?>
 <robot name="branching">
   <link name="world"/>
@@ -340,7 +340,7 @@ func TestURDFToDHParams_Branching(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "branching")
 }
 
-func TestURDFToDHParams_NonDHCompatibleEnd(t *testing.T) {
+func TestURDFToDHParamsNonDHCompatibleEnd(t *testing.T) {
 	// One revolute joint about Z, then a fixed post-chain with a Y rotation —
 	// the end frame's X axis will not be perpendicular to Z, failing validation.
 	xmlStr := `<?xml version="1.0"?>
@@ -401,7 +401,7 @@ func urdfEndPoseAtRest(t *testing.T, urdf *ModelConfigURDF) spatialmath.Pose {
 	return cumulative
 }
 
-func TestURDFToDHParams_UR5e_FKRoundTrip(t *testing.T) {
+func TestURDFToDHParamsUR5e_FKRoundTrip(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/ur5e-real.urdf")
 	params, err := URDFToDHParams(urdf)
 	test.That(t, err, test.ShouldBeNil)
@@ -424,7 +424,7 @@ func TestURDFToDHParams_UR5e_FKRoundTrip(t *testing.T) {
 	test.That(t, dhOV.Theta, test.ShouldAlmostEqual, urdfOV.Theta, 1e-6)
 }
 
-func TestURDFToDHParams_GP12_FKRoundTrip(t *testing.T) {
+func TestURDFToDHParamsGP12_FKRoundTrip(t *testing.T) {
 	urdf := loadURDF(t, "testfiles/gp12.urdf")
 	params, err := URDFToDHParams(urdf)
 	test.That(t, err, test.ShouldBeNil)

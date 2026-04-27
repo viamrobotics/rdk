@@ -186,7 +186,7 @@ func rotateVector(p spatialmath.Pose, v r3.Vector) r3.Vector {
 //   - err: first error encountered
 func jointAxesAtRest(
 	joints []*jointXML,
-) (axes []r3.Vector, origins []r3.Vector, endPose spatialmath.Pose, err error) {
+) (axes, origins []r3.Vector, endPose spatialmath.Pose, err error) {
 	cumulative := spatialmath.NewZeroPose()
 
 	for _, j := range joints {
@@ -198,18 +198,18 @@ func jointAxesAtRest(
 		case RevoluteJoint, ContinuousJoint:
 			localAxis, axisErr := axisInMeters(j.Axis)
 			if axisErr != nil {
-				return nil, nil, nil, fmt.Errorf("URDFToDHParams: joint %q: %w", j.Name, axisErr)
+				return nil, nil, nil, fmt.Errorf("joint %q: %w", j.Name, axisErr)
 			}
 			worldAxis := rotateVector(cumulative, localAxis)
 			axes = append(axes, worldAxis)
 			origins = append(origins, cumulative.Point())
 		default:
-			return nil, nil, nil, fmt.Errorf("URDFToDHParams: joint %q has unsupported type %q (only revolute, continuous, and fixed are supported)", j.Name, j.Type)
+			return nil, nil, nil, fmt.Errorf("joint %q has unsupported type %q (only revolute, continuous, and fixed are supported)", j.Name, j.Type)
 		}
 	}
 
 	if len(axes) == 0 {
-		return nil, nil, nil, fmt.Errorf("URDFToDHParams: no revolute joints in chain")
+		return nil, nil, nil, fmt.Errorf("no revolute joints in chain")
 	}
 	return axes, origins, cumulative, nil
 }
@@ -369,10 +369,11 @@ func buildDHFrames(
 // (zCurr, xCurr, pCurr).
 //
 // Formulas (angles signed around their pivot axis via atan2):
-//   theta = atan2((xPrev × xCurr) · zPrev, xPrev · xCurr)
-//   alpha = atan2((zPrev × zCurr) · xCurr, zPrev · zCurr)
-//   d     = (pCurr - pPrev) · zPrev
-//   a     = (pCurr - pPrev) · xCurr
+//
+//	theta = atan2((xPrev × xCurr) · zPrev, xPrev · xCurr)
+//	alpha = atan2((zPrev × zCurr) · xCurr, zPrev · zCurr)
+//	d     = (pCurr - pPrev) · zPrev
+//	a     = (pCurr - pPrev) · xCurr
 //
 // Preconditions: all direction vectors are unit length. xCurr is perpendicular
 // to zPrev (enforced by DH frame construction). This function does not
