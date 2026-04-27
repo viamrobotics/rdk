@@ -53,6 +53,11 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 	var err error
 
+	ikTime := time.Second
+	if pc.request.PlannerOptions.Timeout > defaultTimeout {
+		ikTime = time.Duration(psc.pc.request.PlannerOptions.Timeout * float64(time.Second))
+		logger.Warn("cbirrt Right path:", ikTime)
+	}
 	// nlopt should try only once
 	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true, time.Second)
 	if err != nil {

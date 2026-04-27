@@ -455,6 +455,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	var ikTime time.Duration
 	if psc.pc.request.PlannerOptions.Timeout > defaultTimeout {
 		ikTime = time.Duration(psc.pc.request.PlannerOptions.Timeout * float64(time.Second))
+		logger.Warn("Right path:", ikTime)
 	} else {
 		ikTime = time.Second
 		if !solvingState.doingSmartSeeds {
