@@ -38,8 +38,8 @@ type FrameSystemPart struct {
 
 // FrameSystem represents a tree of frames connected to each other, allowing for transformations between any two frames.
 type FrameSystem struct {
-	name           string
-	world          Frame // separate from the map of frames so it can be detached easily
+	name    string
+	world   Frame // separate from the map of frames so it can be detached easily
 	frames  map[string]Frame
 	parents map[string]string
 	// This excludes internal flattened frames.
@@ -75,10 +75,10 @@ type mimicInfo struct {
 func NewEmptyFrameSystem(name string) *FrameSystem {
 	worldFrame := NewZeroStaticFrame(World)
 	return &FrameSystem{
-		name:             name,
-		world:            worldFrame,
-		frames:           map[string]Frame{},
-		parents:          map[string]string{},
+		name:                name,
+		world:               worldFrame,
+		frames:              map[string]Frame{},
+		parents:             map[string]string{},
 		flattenedModels:     map[string]*SimpleModel{},
 		componentSchemas:    map[string]*LinearInputsSchema{},
 		mimicFrames:         map[string]*mimicInfo{},
@@ -495,10 +495,10 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	newWorld := NewZeroStaticFrame(World)
 	newFS := &FrameSystem{
-		name:             newRoot.Name() + "_FS",
-		world:            newWorld,
-		frames:           map[string]Frame{},
-		parents:          map[string]string{},
+		name:                newRoot.Name() + "_FS",
+		world:               newWorld,
+		frames:              map[string]Frame{},
+		parents:             map[string]string{},
 		flattenedModels:     map[string]*SimpleModel{},
 		componentSchemas:    map[string]*LinearInputsSchema{},
 		mimicFrames:         map[string]*mimicInfo{},
