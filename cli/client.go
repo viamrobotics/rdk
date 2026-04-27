@@ -4951,56 +4951,6 @@ func (c *viamClient) getRobotPart(ctx context.Context, partID string) (*apppb.Ge
 	return c.client.GetRobotPart(ctx, &apppb.GetRobotPartRequest{Id: partID})
 }
 
-// findResourceInPartOrFragments walks a part config's direct resources and any
-// fragments it references (recursively, including nested fragments), returning
-// true as soon as predicate matches any resource. Short-circuits on first match.
-// visited breaks cycles and memoizes repeated fragment refs; callers pass a fresh map.
-//
-// Needed because part.RobotConfig stores fragments as refs (`{"id": "..."}`),
-// not inlined contents — so a straight scan of partMap["services"] cannot see
-// resources provided by a fragment.
-func (c *viamClient) findResourceInPartOrFragments(
-	ctx context.Context,
-	cfgMap map[string]any,
-	predicate func(resource map[string]any) bool,
-	visited map[string]bool,
-) (bool, error) {
-	for _, key := range []string{"services", "components"} {
-		raw, ok := cfgMap[key]
-		if !ok {
-			continue
-		}
-		for _, r := range raw.([]any) {
-			if predicate(r.(map[string]any)) {
-				return true, nil
-			}
-		}
-	}
-	fragsRaw, ok := cfgMap["fragments"]
-	if !ok {
-		return false, nil
-	}
-	for _, f := range fragsRaw.([]any) {
-		id, _ := f.(map[string]any)["id"].(string)
-		if id == "" || visited[id] {
-			continue
-		}
-		visited[id] = true
-		resp, err := c.client.GetFragment(ctx, &apppb.GetFragmentRequest{Id: id})
-		if err != nil {
-			return false, err
-		}
-		if resp.Fragment == nil || resp.Fragment.Fragment == nil {
-			continue
-		}
-		found, err := c.findResourceInPartOrFragments(ctx, resp.Fragment.Fragment.AsMap(), predicate, visited)
-		if err != nil || found {
-			return found, err
-		}
-	}
-	return false, nil
-}
-
 func (c *viamClient) updateRobotPart(
 	ctx context.Context, part *apppb.RobotPart, confMap map[string]any, lastKnownUpdate *timestamppb.Timestamp,
 ) error {
