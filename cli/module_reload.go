@@ -156,7 +156,7 @@ func hasShellService(partMap map[string]any) bool {
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
 	)
 	return slices.ContainsFunc(services, func(service ResourceMap) bool {
-		return service["type"] == "shell" || service["api"] == "rdk:service:shell"
+		return isShellService(service)
 	})
 }
 
@@ -179,6 +179,12 @@ func applyShellServiceToPartMap(partMap map[string]any) bool {
 	return true
 }
 
+// isShellService matches a resource config entry for the shell service, tolerating
+// both the modern `api` key and the legacy `type` key.
+func isShellService(resource map[string]any) bool {
+	return resource["type"] == "shell" || resource["api"] == "rdk:service:shell"
+}
+
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
 // Returns (wasAdded, error) where wasAdded indicates if the shell service was newly added.
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
@@ -190,6 +196,16 @@ func addShellService(
 		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
+	// Check fragments too — a shell provided by a fragment is invisible in the raw
+	// part config, and inserting another would cause a name collision at merge time.
+	found, err := vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
+	if err != nil {
+		return false, errors.Wrap(err, "could not check fragments for existing shell service")
+	}
+	if found {
+		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine (part or fragment), not installing")
+		return false, nil
+	}
 	if !applyShellServiceToPartMap(partMap) {
 		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
@@ -204,6 +220,15 @@ func addShellService(
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
+		foundRetry, err := vc.findResourceInPartOrFragments(ctx, retryMap, isShellService, map[string]bool{})
+		if err != nil {
+			return false, errors.Wrap(err, "could not check fragments for existing shell service after re-fetch")
+		}
+		if foundRetry {
+			debugf(cmd.Root().Writer, args.Debug,
+				"shell service found on target machine (part or fragment) after re-fetch, not installing")
+			return false, nil
+		}
 		if !applyShellServiceToPartMap(retryMap) {
 			debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
