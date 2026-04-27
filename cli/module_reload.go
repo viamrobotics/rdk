@@ -195,17 +195,12 @@ func (c *viamClient) findResourceInPartOrFragments(
 	return false, nil
 }
 
-// hasShellService checks if a part or any of its fragments (recursively) already
-// has a shell service configured. Walks fragments only if the part itself doesn't
-// define one, so the common case (no fragments, or part already has shell) avoids
-// network calls.
+// hasShellService checks if a part or any of its fragments (recursively) already has a shell service configured
 func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
 	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
 }
 
-// appendShellServiceToPartMap unconditionally appends a shell service entry to
-// partMap["services"]. Caller is responsible for checking that one isn't already
-// present (e.g. via hasShellService).
+// appendShellServiceToPartMap appends a shell service entry to partMap["services"]. 
 func appendShellServiceToPartMap(partMap map[string]any) {
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
