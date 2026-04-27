@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -146,27 +145,25 @@ func (c *viamClient) addResourceFromModule(
 	return nil
 }
 
-// hasShellService checks if a partMap already has a shell service configured.
-func hasShellService(partMap map[string]any) bool {
-	servicesRaw, ok := partMap["services"]
-	if !ok {
-		return false
-	}
-	services, _ := rutils.MapOver(servicesRaw.([]any), //nolint:errcheck
-		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
-	)
-	return slices.ContainsFunc(services, func(service ResourceMap) bool {
-		return isShellService(service)
-	})
+// hasShellService checks if a part or any of its fragments (recursively) already
+// has a shell service configured. Walks fragments only if the part itself doesn't
+// define one, so the common case (no fragments, or part already has shell) avoids
+// network calls.
+func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
+	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
 }
 
 // applyShellServiceToPartMap adds a shell service to the partMap if not already present. Returns true if added.
-func applyShellServiceToPartMap(partMap map[string]any) bool {
+func applyShellServiceToPartMap(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
 	}
-	if hasShellService(partMap) {
-		return false
+	has, err := hasShellService(ctx, vc, partMap)
+	if err != nil {
+		return false, err
+	}
+	if has {
+		return false, nil
 	}
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
@@ -176,7 +173,7 @@ func applyShellServiceToPartMap(partMap map[string]any) bool {
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
-	return true
+	return true, nil
 }
 
 // isShellService matches a resource config entry for the shell service, tolerating
@@ -196,17 +193,11 @@ func addShellService(
 		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
-	// Check fragments too — a shell provided by a fragment is invisible in the raw
-	// part config, and inserting another would cause a name collision at merge time.
-	found, err := vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
+	added, err := applyShellServiceToPartMap(ctx, vc, partMap)
 	if err != nil {
-		return false, errors.Wrap(err, "could not check fragments for existing shell service")
+		return false, err
 	}
-	if found {
-		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine (part or fragment), not installing")
-		return false, nil
-	}
-	if !applyShellServiceToPartMap(partMap) {
+	if !added {
 		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
 	}
@@ -220,16 +211,11 @@ func addShellService(
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
-		foundRetry, err := vc.findResourceInPartOrFragments(ctx, retryMap, isShellService, map[string]bool{})
+		retryAdded, err := applyShellServiceToPartMap(ctx, vc, retryMap)
 		if err != nil {
-			return false, errors.Wrap(err, "could not check fragments for existing shell service after re-fetch")
+			return false, err
 		}
-		if foundRetry {
-			debugf(cmd.Root().Writer, args.Debug,
-				"shell service found on target machine (part or fragment) after re-fetch, not installing")
-			return false, nil
-		}
-		if !applyShellServiceToPartMap(retryMap) {
+		if !retryAdded {
 			debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
 		}
