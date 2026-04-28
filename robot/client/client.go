@@ -962,16 +962,7 @@ func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 	if resourceRPCAPIs == nil {
 		return nil
 	}
-
-	apis := make([]resource.RPCAPI, 0, len(*resourceRPCAPIs))
-	for _, v := range *resourceRPCAPIs {
-		vCopy := v
-		apis = append(
-			apis,
-			vCopy,
-		)
-	}
-	return apis
+	return *resourceRPCAPIs
 }
 
 // Logger returns the logger being used for this robot.
