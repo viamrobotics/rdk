@@ -233,6 +233,7 @@ func (sfs *FrameSystem) frameExists(name string) bool {
 // frames and flattening metadata are also cleaned up.
 func (sfs *FrameSystem) RemoveFrame(frame Frame) {
 	if bundle, ok := sfs.flattened[frame.Name()]; ok {
+		// If this is a flattened frame, make sure we catch and clean up anything parented to an internal.
 		oldInternals := map[string]bool{}
 		for _, ns := range bundle.internalNames {
 			oldInternals[ns] = true
