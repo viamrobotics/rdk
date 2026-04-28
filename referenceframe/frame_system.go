@@ -221,7 +221,7 @@ func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 	return sfs.Frame(parentName), nil
 }
 
-// SharesRigidMotion reports whether f1 and f2 always move together — i.e. their
+// SharesRigidMotion reports whether f1 and f2 always move together i.e. their
 // poses relative to each other never change with inputs. Two frames share rigid
 // motion when the closest moving frame above each in the raw kinematic chain
 // is the same. For flattened-model components this is computed at the joint
