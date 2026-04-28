@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -88,7 +89,11 @@ func (ds *detectorSource) Read(ctx context.Context) (image.Image, func(), error)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get next source image: %w", err)
 	}
-	dets, err := srv.Detections(ctx, img, map[string]interface{}{})
+	namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create named image: %w", err)
+	}
+	dets, err := srv.Detections(ctx, &namedImg, map[string]interface{}{})
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get detections: %w", err)
 	}

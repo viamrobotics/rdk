@@ -208,6 +208,23 @@ func (ni *NamedImage) MimeType() string {
 	return ni.mimeType
 }
 
+// Bounds returns the image bounds. If the NamedImage is backed by a decoded image, its
+// bounds are returned directly; if it is byte-backed, only the format header is parsed
+// (via image.DecodeConfig) so the pixels are not decoded.
+func (ni *NamedImage) Bounds() (image.Rectangle, error) {
+	if ni.img != nil {
+		return ni.img.Bounds(), nil
+	}
+	if ni.data == nil {
+		return image.Rectangle{}, fmt.Errorf("no image or image bytes available")
+	}
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(ni.data))
+	if err != nil {
+		return image.Rectangle{}, fmt.Errorf("could not decode image config: %w", err)
+	}
+	return image.Rect(0, 0, cfg.Width, cfg.Height), nil
+}
+
 // A Camera is a resource that can capture frames.
 // For more information, see the [camera component docs].
 //

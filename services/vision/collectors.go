@@ -73,16 +73,18 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			return res, errors.New("vision service didn't return an image")
 		}
 
-		protoImage, err := imageToProto(ctx, visCapture.Image, cameraName)
+		imgBytes, err := visCapture.Image.Bytes(ctx)
 		if err != nil {
 			return res, err
 		}
+		mimeType := visCapture.Image.MimeType()
 
-		var width, height int
-		if visCapture.Image != nil {
-			width = visCapture.Image.Bounds().Dx()
-			height = visCapture.Image.Bounds().Dy()
+		bounds, err := visCapture.Image.Bounds()
+		if err != nil {
+			return res, err
 		}
+		width := bounds.Dx()
+		height := bounds.Dy()
 
 		filteredBoundingBoxes := []data.BoundingBox{}
 		for _, d := range visCapture.Detections {
@@ -103,8 +105,8 @@ func newCaptureAllFromCameraCollector(resource interface{}, params data.Collecto
 			TimeReceived:  time.Now(),
 		}
 		return data.NewBinaryCaptureResult(ts, []data.Binary{{
-			Payload:  protoImage.Image,
-			MimeType: protoImage.MimeType,
+			Payload:  imgBytes,
+			MimeType: mimeType,
 			Annotations: data.Annotations{
 				BoundingBoxes:   filteredBoundingBoxes,
 				Classifications: filteredClassifications,
