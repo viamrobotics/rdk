@@ -273,3 +273,80 @@ func TestFlattenedMergePreservesExternalOnInternal(t *testing.T) {
 	test.That(t, dest.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
 	test.That(t, dest.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
 }
+
+// TestReplaceFlattenedFrameSameShape covers the common ReplaceFrame use case:
+// updating an arm's limits or other attributes by swapping in a new SimpleModel
+// with an identical internal layout. Externals attached to a particular
+// internal joint must continue to work against the new model's matching joint.
+func TestReplaceFlattenedFrameSameShape(t *testing.T) {
+	fs := flattenFSFixture(t)
+
+	// Reload the same model so the replacement has identical internal names.
+	newModel, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	newArm := NewNamedFrame(newModel, "arm1")
+
+	test.That(t, fs.ReplaceFrame(newArm), test.ShouldBeNil)
+
+	// The component is the new instance, internals are reinstalled, and the
+	// camera (parented to arm1:base_link) still resolves through the new
+	// model.
+	test.That(t, fs.Frame("arm1"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
+	test.That(t, fs.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
+
+	li := NewZeroLinearInputs(fs)
+	pif := NewPoseInFrame("camera", spatial.NewZeroPose())
+	_, err = fs.Transform(li, pif, World)
+	test.That(t, err, test.ShouldBeNil)
+}
+
+// TestRemoveFlattenedFrameCascadesToInternalAttachments covers RemoveFrame's
+// cascading-delete semantics in the flattened-component case: externals
+// attached to a component's internal joints must be removed along with the
+// component, just like direct children are.
+func TestRemoveFlattenedFrameCascadesToInternalAttachments(t *testing.T) {
+	fs := flattenFSFixture(t)
+
+	fs.RemoveFrame(fs.Frame("arm1"))
+
+	// The arm and all its internals are gone.
+	test.That(t, fs.Frame("arm1"), test.ShouldBeNil)
+	test.That(t, fs.Frame("arm1:base_link"), test.ShouldBeNil)
+	// The camera (which was attached to arm1:base_link) must be gone too,
+	// otherwise it dangles with a stale parent pointer.
+	test.That(t, fs.Frame("camera"), test.ShouldBeNil)
+	test.That(t, fs.Frame("camera_origin"), test.ShouldBeNil)
+	_, hasStaleParent := fs.parents["camera_origin"]
+	test.That(t, hasStaleParent, test.ShouldBeFalse)
+}
+
+// TestReplaceFlattenedFrameOrphansExternals covers the case where the
+// replacement would leave externals attached to internals dangling — either
+// because the replacement is a non-SimpleModel or because its internal layout
+// differs. ReplaceFrame must refuse and leave the FS unchanged.
+func TestReplaceFlattenedFrameOrphansExternals(t *testing.T) {
+	fs := flattenFSFixture(t)
+	originalArm := fs.Frame("arm1")
+
+	// Replacement is a plain static frame with the same component name; it has
+	// no internals, so the camera (parented to arm1:base_link) would be
+	// orphaned if the swap were allowed to proceed.
+	staticArm := NewZeroStaticFrame("arm1")
+
+	err := fs.ReplaceFrame(staticArm)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// FS must be unchanged: original arm is still present, internals are still
+	// installed, and the camera still resolves to world.
+	test.That(t, fs.Frame("arm1"), test.ShouldEqual, originalArm)
+	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
+	test.That(t, fs.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
+
+	li := NewZeroLinearInputs(fs)
+	pif := NewPoseInFrame("camera", spatial.NewZeroPose())
+	_, err = fs.Transform(li, pif, World)
+	test.That(t, err, test.ShouldBeNil)
+}

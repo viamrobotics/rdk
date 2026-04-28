@@ -263,6 +263,26 @@ func (sfs *FrameSystem) frameExists(name string) bool {
 // When the frame is a flattened SimpleModel component, its namespaced internal
 // frames and flattening metadata are also cleaned up.
 func (sfs *FrameSystem) RemoveFrame(frame Frame) {
+	if bundle, ok := sfs.flattened[frame.Name()]; ok {
+		oldInternals := map[string]bool{}
+		for _, ns := range bundle.internalNames {
+			oldInternals[ns] = true
+		}
+		var externals []string
+		for childName, parentName := range sfs.parents {
+			if oldInternals[childName] {
+				continue // an internal of this component; torn down by cleanup
+			}
+			if oldInternals[parentName] {
+				externals = append(externals, childName)
+			}
+		}
+		for _, name := range externals {
+			if f := sfs.Frame(name); f != nil {
+				sfs.removeFrameRecursive(f)
+			}
+		}
+	}
 	sfs.cleanupFlattenedComponent(frame.Name())
 	sfs.removeFrameRecursive(frame)
 	sfs.cachedBFSNames = bfsFrameNames(sfs)
@@ -485,9 +505,9 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 	err := sfs.walkPublic(func(child, parent Frame) error {
 		// A child belongs to the subset if it IS newRoot, or its public
 		// ancestor is already in the subset. When the parent is a flattened
-		// internal, treat its owning component as the public ancestor — that
+		// internal, treat its owning component as the public ancestor. That
 		// way externals attached to internals (e.g. a sensor on "arm:joint3")
-		// are pulled in iff their owning component is.
+		// are pulled in if and only if their owning component is.
 		parentOwner := parent.Name()
 		if owner, ok := sfs.internalToComponent[parent.Name()]; ok {
 			parentOwner = owner
@@ -546,7 +566,11 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
-// replacementFrame is not allowed to exist within the frame system at the time of the call.
+//
+// When replaceMe is a flattened SimpleModel component, the replacement is rejected if any external frame is
+// parented to an internal joint that the replacement would not reproduce (by namespaced name) — otherwise that
+// external would dangle. The common case of swapping in a new SimpleModel with the same internal layout
+// (e.g. updating an arm's joint limits) is supported and externals attached to internals follow the new model.
 func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
@@ -562,6 +586,32 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		return NewParentFrameNilError(replaceMe.Name())
 	}
 	replaceMeParent := sfs.Frame(rawParentName)
+
+	// If any non-internal frame is parented to an old internal that the replacement would not produce, the swap would orphan it.
+	// Check if this exists and if so error.
+	if oldBundle, ok := sfs.flattened[replaceMe.Name()]; ok {
+		replacementInternals := map[string]bool{}
+		if model := asFlattenableModel(replacementFrame); model != nil {
+			for _, internalName := range bfsFrameNames(model.internalFS) {
+				replacementInternals[replaceMe.Name()+":"+internalName] = true
+			}
+		}
+		oldInternals := map[string]bool{}
+		for _, ns := range oldBundle.internalNames {
+			oldInternals[ns] = true
+		}
+		for childName, parentName := range sfs.parents {
+			if oldInternals[childName] {
+				continue // internal of the old component; torn down with the bundle
+			}
+			if oldInternals[parentName] && !replacementInternals[parentName] {
+				return fmt.Errorf(
+					"cannot replace %q: child frame %q is parented to internal %q which the replacement does not produce",
+					replaceMe.Name(), childName, parentName,
+				)
+			}
+		}
+	}
 
 	// If replaceMe is a flattened-model component, tear down its internals and
 	// metadata so the AddFrame below can auto-flatten the replacement cleanly.
@@ -756,9 +806,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	// Every serialized frame should now exist in sfs — non-internals via
-	// AddFrame, internals via auto-flatten. Anything missing is unreachable
-	// from World.
+	// Collect anything in the json that wasn't reachable from World and surface as an error.
 	var orphans []string
 	for name := range frameMap {
 		if !sfs.frameExists(name) {
