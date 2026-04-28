@@ -691,9 +691,8 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
-					if stopErr := actuator.Stop(ctx, nil); stopErr != nil {
-						return errors.Wrap(err, stopErr.Error())
-					}
+					//nolint:errcheck
+					_ = actuator.Stop(context.WithoutCancel(ctx), nil)
 				}
 				return err
 			}
