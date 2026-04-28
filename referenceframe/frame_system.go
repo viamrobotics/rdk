@@ -252,7 +252,6 @@ func (sfs *FrameSystem) RemoveFrame(frame Frame) {
 			}
 		}
 	}
-	sfs.cleanupFlattenedComponent(frame.Name())
 	sfs.removeFrameRecursive(frame)
 	sfs.cachedBFSNames = bfsFrameNames(sfs)
 }
