@@ -158,7 +158,7 @@ func addPartToFS(fs *FrameSystem, part *FrameSystemPart) error {
 	if err != nil {
 		return err
 	}
-	if err = fs.AddFrame(staticOffsetFrame, fs.Frame(part.FrameConfig.Parent())); err != nil {
+	if err = fs.AddFrame(staticOffsetFrame, fs.lookupFrame(part.FrameConfig.Parent())); err != nil {
 		return err
 	}
 	return fs.AddFrame(modelFrame, staticOffsetFrame)
@@ -171,7 +171,7 @@ func addUnlinkedParts(fs *FrameSystem, unlinked []*FrameSystemPart) error {
 	for len(unlinked) > 0 {
 		var stillUnlinked []*FrameSystemPart
 		for _, part := range unlinked {
-			if fs.Frame(part.FrameConfig.Parent()) != nil {
+			if fs.lookupFrame(part.FrameConfig.Parent()) != nil {
 				if err := addPartToFS(fs, part); err != nil {
 					return err
 				}
@@ -234,8 +234,9 @@ func (sfs *FrameSystem) SharesRigidMotion(f1, f2 Frame) bool {
 
 // firstMovingAncestor walks the raw kinematic chain from frame toward world and
 // returns the first frame (frame itself, an intermediate ancestor, or world)
-// whose pose varies with inputs. The walk uses raw parents so flattened-model
-// internal joints are surfaced rather than masked behind the SimpleModel.
+// whose pose varies with inputs. The walk uses raw parents and lookupFrame so
+// flattened-model internal joints are surfaced rather than masked behind the
+// SimpleModel.
 func (sfs *FrameSystem) firstMovingAncestor(frame Frame) Frame {
 	for frame != sfs.world {
 		if len(frame.DoF()) > 0 {
@@ -245,7 +246,7 @@ func (sfs *FrameSystem) firstMovingAncestor(frame Frame) Frame {
 		if !exists {
 			return sfs.world
 		}
-		frame = sfs.Frame(parentName)
+		frame = sfs.lookupFrame(parentName)
 		if frame == nil {
 			return sfs.world
 		}
@@ -260,19 +261,48 @@ func (sfs *FrameSystem) frameExists(name string) bool {
 }
 
 // RemoveFrame will delete the given frame and all descendents from the frame system if it exists.
+// When the frame is a flattened SimpleModel component, its namespaced internal
+// frames and flattening metadata are also cleaned up.
 func (sfs *FrameSystem) RemoveFrame(frame Frame) {
+	if bundle, ok := sfs.flattened[frame.Name()]; ok {
+		// If this is a flattened frame, make sure we catch and clean up anything parented to an internal.
+		oldInternals := map[string]bool{}
+		for _, ns := range bundle.internalNames {
+			oldInternals[ns] = true
+		}
+		var externals []string
+		for childName, parentName := range sfs.parents {
+			if oldInternals[childName] {
+				continue // an internal of this component; torn down by cleanup
+			}
+			if oldInternals[parentName] {
+				externals = append(externals, childName)
+			}
+		}
+		for _, name := range externals {
+			if f := sfs.Frame(name); f != nil {
+				sfs.removeFrameRecursive(f)
+			}
+		}
+	}
 	sfs.removeFrameRecursive(frame)
 	sfs.cachedBFSNames = bfsFrameNames(sfs)
 }
 
 func (sfs *FrameSystem) removeFrameRecursive(frame Frame) {
+	// If this frame is itself a flattened component, tear down its internals
+	// and bookkeeping. Internal frames are siblings (not descendants) under
+	// the component's real parent, so the descendant walk below would miss
+	// them otherwise.
+	sfs.cleanupFlattenedComponent(frame.Name())
+
 	delete(sfs.frames, frame.Name())
 	delete(sfs.parents, frame.Name())
 
 	// Remove all descendents
 	for childName, parentName := range sfs.parents {
 		if parentName == frame.Name() {
-			sfs.removeFrameRecursive(sfs.Frame(childName))
+			sfs.removeFrameRecursive(sfs.lookupFrame(childName))
 		}
 	}
 }
@@ -293,8 +323,25 @@ func (sfs *FrameSystem) cleanupFlattenedComponent(componentName string) {
 	delete(sfs.flattened, componentName)
 }
 
-// Frame returns the Frame which has the provided name. It returns nil if the frame is not found in the FrameSystem.
+// Frame returns the Frame which has the provided name. It returns nil if the
+// frame is not found in the FrameSystem.
+//
+// Flattened-model internal frames (e.g. "arm:joint3") are intentionally not
+// exposed via this method — they are an implementation detail of the owning
+// SimpleModel. Within the referenceframe package, lookupFrame is used when an
+// internal must be resolved (e.g. when an external frame is parented to one
+// during construction).
 func (sfs *FrameSystem) Frame(name string) Frame {
+	if _, internal := sfs.internalToComponent[name]; internal {
+		return nil
+	}
+	return sfs.lookupFrame(name)
+}
+
+// lookupFrame returns the Frame with the given name, including flattened-model
+// internals. Intended for use inside the referenceframe package only;
+// external callers should use Frame.
+func (sfs *FrameSystem) lookupFrame(name string) Frame {
 	if !sfs.frameExists(name) {
 		return nil
 	}
@@ -384,7 +431,7 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 	if !sfs.frameExists(src) {
 		return nil, NewFrameMissingError(src)
 	}
-	srcFrame := sfs.Frame(src)
+	srcFrame := sfs.lookupFrame(src)
 	if !sfs.frameExists(dst) {
 		return nil, NewFrameMissingError(dst)
 	}
@@ -401,9 +448,9 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 		if !exists {
 			return nil, NewParentFrameNilError(srcFrame.Name())
 		}
-		tfParentDQ, err = sfs.transformFromParent(inputs, sfs.Frame(parentName), sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, sfs.lookupFrame(parentName), sfs.lookupFrame(dst))
 	} else {
-		tfParentDQ, err = sfs.transformFromParent(inputs, srcFrame, sfs.Frame(dst))
+		tfParentDQ, err = sfs.transformFromParent(inputs, srcFrame, sfs.lookupFrame(dst))
 	}
 	if err != nil {
 		return nil, err
@@ -429,7 +476,7 @@ func (sfs *FrameSystem) TransformToDQ(inputs *LinearInputs, frame, parent string
 		return spatial.DualQuaternion{}, NewFrameMissingError(parent)
 	}
 
-	tfParent, err := sfs.transformFromParent(inputs, sfs.Frame(frame), sfs.Frame(parent))
+	tfParent, err := sfs.transformFromParent(inputs, sfs.lookupFrame(frame), sfs.lookupFrame(parent))
 	if err != nil {
 		return spatial.DualQuaternion{}, err
 	}
@@ -452,7 +499,7 @@ func (sfs *FrameSystem) Name() string {
 // has already been initialized. For example, two independent rovers, each with their own frame system, need to now know where
 // they are in relation to each other and need to have their frame systems combined.
 func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Frame) error {
-	attachFrame := sfs.Frame(attachTo.Name())
+	attachFrame := sfs.lookupFrame(attachTo.Name())
 	if attachFrame == nil {
 		return NewFrameMissingError(attachTo.Name())
 	}
@@ -498,7 +545,7 @@ func (sfs *FrameSystem) FrameSystemSubset(newRoot Frame) (*FrameSystem, error) {
 		if child.Name() == newRoot.Name() {
 			destParent = newFS.World()
 		}
-		return newFS.AddFrame(child, newFS.Frame(destParent.Name()))
+		return newFS.AddFrame(child, newFS.lookupFrame(destParent.Name()))
 	})
 	if err != nil {
 		return nil, err
@@ -543,6 +590,9 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 
 // ReplaceFrame finds the original frame which shares its name with replacementFrame. We then transfer the original
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
+//
+// When replaceMe is a flattened SimpleModel component, the replacement is rejected if any external frame is
+// parented to an internal joint that the replacement would not reproduce.
 func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
@@ -552,11 +602,38 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		return errors.New("cannot replace the World frame of a frame system")
 	}
 
+	// get replaceMe's raw parent (not the masked Parent() which hides internal frames)
 	rawParentName, exists := sfs.parents[replaceMe.Name()]
 	if !exists {
 		return NewParentFrameNilError(replaceMe.Name())
 	}
-	replaceMeParent := sfs.Frame(rawParentName)
+	replaceMeParent := sfs.lookupFrame(rawParentName)
+
+	// If any non-internal frame is parented to an old internal that the replacement would not produce, the swap would orphan it.
+	// Check if this exists and if so error.
+	if oldBundle, ok := sfs.flattened[replaceMe.Name()]; ok {
+		replacementInternals := map[string]bool{}
+		if model := asFlattenableModel(replacementFrame); model != nil {
+			for _, internalName := range bfsFrameNames(model.internalFS) {
+				replacementInternals[replaceMe.Name()+":"+internalName] = true
+			}
+		}
+		oldInternals := map[string]bool{}
+		for _, ns := range oldBundle.internalNames {
+			oldInternals[ns] = true
+		}
+		for childName, parentName := range sfs.parents {
+			if oldInternals[childName] {
+				continue // internal of the old component; torn down with the bundle
+			}
+			if oldInternals[parentName] && !replacementInternals[parentName] {
+				return fmt.Errorf(
+					"cannot replace %q: child frame %q is parented to internal %q which the replacement does not produce",
+					replaceMe.Name(), childName, parentName,
+				)
+			}
+		}
+	}
 
 	// If replaceMe is a flattened-model component, tear down its internals and
 	// metadata so the AddFrame below can auto-flatten the replacement cleanly.
@@ -650,7 +727,7 @@ func (sfs *FrameSystem) composeTransforms(frame Frame, linearInputs *LinearInput
 		}
 
 		ret = pose.(*spatial.DualQuaternion).Transformation(ret)
-		frame = sfs.Frame(sfs.parents[frame.Name()])
+		frame = sfs.lookupFrame(sfs.parents[frame.Name()])
 	}
 
 	return ret, nil
@@ -745,7 +822,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	sfs.world = worldFrame
 
 	err = tempFS.walkPublic(func(child, parent Frame) error {
-		return sfs.AddFrame(child, sfs.Frame(parent.Name()))
+		return sfs.AddFrame(child, sfs.lookupFrame(parent.Name()))
 	})
 	if err != nil {
 		return err
@@ -1155,7 +1232,7 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 			parentFrame = attachTo
 		} else {
 			namespacedParent := componentName + ":" + internalParentName
-			parentFrame = outerFS.Frame(namespacedParent)
+			parentFrame = outerFS.lookupFrame(namespacedParent)
 			if parentFrame == nil {
 				return NewFrameMissingError(namespacedParent)
 			}
@@ -1183,7 +1260,7 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 			frameName: componentName + ":" + meta.frameName,
 			offset:    meta.offset,
 			dof:       meta.dof,
-			frame:     outerFS.Frame(componentName + ":" + meta.frameName),
+			frame:     outerFS.lookupFrame(componentName + ":" + meta.frameName),
 		})
 	}
 	bundle.schema = &LinearInputsSchema{metas: namespacedMetas}
@@ -1288,7 +1365,7 @@ func cloneFrameSystem(fs *FrameSystem) (*FrameSystem, error) {
 		if err != nil {
 			return fmt.Errorf("cloning frame %q: %w", child.Name(), err)
 		}
-		return newFS.AddFrame(cloned, newFS.Frame(parent.Name()))
+		return newFS.AddFrame(cloned, newFS.lookupFrame(parent.Name()))
 	})
 	if err != nil {
 		return nil, err
