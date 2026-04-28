@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -197,4 +198,78 @@ func TestFlattenComponentLevelTransform(t *testing.T) {
 	expectedPose, err := model.Transform([]Input{math.Pi / 4})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(resultArm.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
+}
+
+// flattenFSFixture builds an FS containing a flattened arm with a camera
+// parented to an internal joint of that arm. Used as a fixture for round-trip,
+// clone, subset, and merge tests that need to exercise both flattening
+// metadata and externals-attached-to-internals.
+func flattenFSFixture(t *testing.T) *FrameSystem {
+	t.Helper()
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	armLif := NewLinkInFrame(World, spatial.NewZeroPose(), "arm1", nil)
+	cameraLif := NewLinkInFrame("arm1:base_link", spatial.NewPoseFromPoint(spatial.NewZeroPose().Point()), "camera", nil)
+
+	parts := []*FrameSystemPart{{FrameConfig: armLif, ModelFrame: model}}
+	fs, err := NewFrameSystem("flattenFix", parts, []*LinkInFrame{cameraLif})
+	test.That(t, err, test.ShouldBeNil)
+	return fs
+}
+
+func TestFlattenedRoundTripJSON(t *testing.T) {
+	fs := flattenFSFixture(t)
+
+	data, err := json.Marshal(fs)
+	test.That(t, err, test.ShouldBeNil)
+
+	var fs2 FrameSystem
+	test.That(t, json.Unmarshal(data, &fs2), test.ShouldBeNil)
+
+	eq, err := frameSystemsAlmostEqual(fs, &fs2, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
+
+	// Internals and the externally-attached camera both survive.
+	test.That(t, fs2.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs2.Frame("camera"), test.ShouldNotBeNil)
+	test.That(t, fs2.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
+}
+
+func TestFlattenedSubsetClonesEquivalent(t *testing.T) {
+	fs := flattenFSFixture(t)
+
+	subset, err := fs.FrameSystemSubset(fs.Frame("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	cloned, err := cloneFrameSystem(subset)
+	test.That(t, err, test.ShouldBeNil)
+
+	eq, err := frameSystemsAlmostEqual(subset, cloned, defaultFloatPrecision)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, eq, test.ShouldBeTrue)
+
+	// Both copies preserve flattened internals and metadata.
+	for _, fsCopy := range []*FrameSystem{subset, cloned} {
+		test.That(t, fsCopy.Frame("arm1:base_link"), test.ShouldNotBeNil)
+		test.That(t, fsCopy.flattened["arm1"], test.ShouldNotBeNil)
+		test.That(t, fsCopy.flattened["arm1"].model, test.ShouldNotBeNil)
+		test.That(t, fsCopy.flattened["arm1"].schema, test.ShouldNotBeNil)
+		test.That(t, fsCopy.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
+	}
+}
+
+func TestFlattenedMergePreservesExternalOnInternal(t *testing.T) {
+	// Merging an FS that has an external attached to an internal joint
+	// must reproduce that attachment in the destination.
+	dest := NewEmptyFrameSystem("dest")
+	src := flattenFSFixture(t)
+
+	test.That(t, dest.MergeFrameSystem(src, dest.World()), test.ShouldBeNil)
+	test.That(t, dest.Frame("arm1"), test.ShouldNotBeNil)
+	test.That(t, dest.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, dest.Frame("camera"), test.ShouldNotBeNil)
+	test.That(t, dest.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
+	test.That(t, dest.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
 }
