@@ -456,6 +456,10 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
+	// The default timeout is 5 minutes, yet we'll only allow for 100ms doing IK. This is to allow
+	// for fast responses when there are no IK solutions. However test runners are often slower
+	// (particularly with CPU arch emulation) such that this timeout can be problematic. If a user
+	// (read: test) specifies a _larger_ than five minute timeout, strictly obey it.
 	var ikTime time.Duration
 	if psc.pc.request.PlannerOptions.Timeout > defaultTimeout {
 		ikTime = time.Duration(psc.pc.request.PlannerOptions.Timeout * float64(time.Second))
