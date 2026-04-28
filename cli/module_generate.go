@@ -190,7 +190,6 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
-	SDKVersion      string
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -244,13 +243,6 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		Namespace:       moduleInputs.Namespace,
 		Visibility:      shared.Visibility,
 	}
-
-	// Get latest SDK version
-	version, err := getLatestSDKTag(ctx, cmd, golang, globalArgs)
-	if err != nil {
-		return err
-	}
-	data.SDKVersion = version[1:]
 
 	// Create root directory
 	if err := setupDirectories(cmd, moduleName, globalArgs); err != nil {
