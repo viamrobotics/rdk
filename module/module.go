@@ -450,7 +450,6 @@ func (m *Module) Ready(ctx context.Context, req *pb.ReadyRequest) (*pb.ReadyResp
 	if os.Getenv(NoModuleParentEnvVar) != "true" {
 		m.parentAddr = req.GetRawParentAddress()
 		if m.parentAddr == "" {
-			
 			m.parentAddr = req.GetParentAddress()
 		}
 		if err := m.connectParent(ctx); err != nil {
