@@ -568,9 +568,7 @@ func (sfs *FrameSystem) GetFrameToWorldTransform(inputs *LinearInputs, src Frame
 // frame's children and parentage to replacementFrame. The original frame is removed entirely from the frame system.
 //
 // When replaceMe is a flattened SimpleModel component, the replacement is rejected if any external frame is
-// parented to an internal joint that the replacement would not reproduce (by namespaced name) — otherwise that
-// external would dangle. The common case of swapping in a new SimpleModel with the same internal layout
-// (e.g. updating an arm's joint limits) is supported and externals attached to internals follow the new model.
+// parented to an internal joint that the replacement would not reproduce.
 func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 	var replaceMe Frame
 	if replaceMe = sfs.Frame(replacementFrame.Name()); replaceMe == nil {
@@ -1248,7 +1246,8 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 // bfsFrameNames returns frame names in BFS order from world, excluding
 // flattened-model internals. Internals are traversed (so external frames
 // parented to internal joints are still discovered) but are not emitted in
-// the output — they're an implementation detail of the component model.
+// the output.
+//
 // Children at each level are sorted alphabetically for determinism.
 func bfsFrameNames(fs *FrameSystem) []string {
 	childrenOf := map[string][]string{}
