@@ -32,7 +32,7 @@ ifeq ($(VIAM_TARGET_OS), windows)
 else
 	strip $(MODULE_BINARY)
 endif
-	tar czf $@ meta.json $(MODULE_BINARY) dist
+	tar czf $@ --exclude=node_modules meta.json $(MODULE_BINARY) dist
 ifeq ($(VIAM_TARGET_OS), windows)
 	git checkout meta.json
 endif

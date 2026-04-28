@@ -16,11 +16,11 @@ To connect to your machine, install the Viam SDK and cookie helper with your pac
 npm install @viamrobotics/sdk typescript-cookie
 ```
 
-A utility file is included at `auth.ts` in the project root. Copy it into your frontend project and import it:
+A utility file is included at `auth.js` in the project root. Copy it into your frontend's source directory alongside the file that will import it.
 
 ```js
 import { createRobotClient } from '@viamrobotics/sdk';
-import { getHostAndCredentials } from './auth';
+import { getHostAndCredentials } from './auth.js';
 
 const { host, credentials } = getHostAndCredentials();
 const machine = await createRobotClient({
@@ -31,9 +31,12 @@ const machine = await createRobotClient({
 const resources = await machine.resourceNames();
 ```
 
-Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If you would like to change this, update it in the `meta.json`, the `Makefile`, and the `module.go` file.
+Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If your frontend builds into a subdirectory (e.g. `dist/build/index.html`), update the path in three places:
+- `meta.json`: the `entrypoint` field under `applications`
+- `Makefile`: the `ENTRYPOINT` variable
+- `module.go`: both the `//go:embed` path and the `fs.Sub` path in `distFS()`
 
-**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
+**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server. For Create React App, add `"homepage": "."` to your `package.json` to enable this.
 
 Multi machine apps don't include a built-in machine picker, but it's easy to set one up. See [Multi-machine applications](https://docs.viam.com/build-apps/hosting/hosting-reference/#multi-machine-applications) for details.
 
@@ -47,7 +50,7 @@ make
 
 Test your frontend against a real machine during development:
 
-1. Start your frontend dev server (`npm run dev`) and note the port it starts on
+1. Start your frontend dev server from your frontend's directory and note the port it starts on (the command depends on your framework, e.g. `npm run dev` for Vite or `npm start` for Create React App)
 2. In another terminal:
    ```
    viam module local-app-testing --app-url=http://localhost:<PORT> --machine-id=<YOUR_MACHINE_ID>
@@ -66,18 +69,13 @@ To check that your HTML/CSS renders without a machine connection, just open your
    make
    ```
 
-2. Upload `module.tar.gz` (not the binary) to the registry:
+2. Upload `module.tar.gz` (not the binary) to the registry (`--version` is required and must be a valid semver). Use the platform matching your build machine:
    ```
-   viam module upload --upload=./module.tar.gz --version=0.0.1 --platform=linux/amd64
+   viam module upload --upload=./module.tar.gz --platform=linux/amd64 --version=0.1.0  # Linux x86
+   viam module upload --upload=./module.tar.gz --platform=darwin/arm64 --version=0.1.0  # Apple Silicon
    ```
 
-3. Add the module to your machine on app.viam.com:
-   - Go to app.viam.com → your machine → Config
-   - Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
-   - Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
-   - Save config
-
-4. Access your app at:
+3. Access your app at:
    ```
    https://{{ .AppName }}_{{ .Namespace }}.viamapplications.com
    ```
@@ -86,7 +84,14 @@ To check that your HTML/CSS renders without a machine connection, just open your
 
 ## Local server
 
-When the module is running on a machine (via registry upload above), it also serves your app on the local network:
+To serve your app on the local network, add the module to a machine on app.viam.com:
+
+1. Go to app.viam.com → your machine → Config
+2. Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
+3. Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
+4. Save config
+
+Your app will then be available at:
 
 ```
 http://<machine-ip>:8888
