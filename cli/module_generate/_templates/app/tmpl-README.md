@@ -36,7 +36,7 @@ Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If your
 - `Makefile`: the `ENTRYPOINT` variable
 - `module.go`: both the `//go:embed` path and the `fs.Sub` path in `distFS()`
 
-**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server. For Create React App, add `"homepage": "."` to your `package.json` to enable this.
+**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
 
 Multi machine apps don't include a built-in machine picker, but it's easy to set one up. See [Multi-machine applications](https://docs.viam.com/build-apps/hosting/hosting-reference/#multi-machine-applications) for details.
 
@@ -50,7 +50,7 @@ make
 
 Test your frontend against a real machine during development:
 
-1. Start your frontend dev server from your frontend's directory and note the port it starts on (the command depends on your framework, e.g. `npm run dev` for Vite or `npm start` for Create React App)
+1. Start your frontend dev server from your frontend's directory and note the port it starts on
 2. In another terminal:
    ```
    viam module local-app-testing --app-url=http://localhost:<PORT> --machine-id=<YOUR_MACHINE_ID>
