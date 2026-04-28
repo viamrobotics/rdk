@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/trace"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
@@ -95,7 +96,11 @@ func (cs *classifierSource) Read(ctx context.Context) (image.Image, func(), erro
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get next source image")
 	}
-	classifications, err := srv.Classifications(ctx, img, int(cs.maxClassifications), map[string]interface{}{})
+	namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not create named image")
+	}
+	classifications, err := srv.Classifications(ctx, &namedImg, int(cs.maxClassifications), map[string]interface{}{})
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not get classifications")
 	}

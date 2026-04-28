@@ -13,12 +13,12 @@ import (
 	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/trace"
 
-	"go.viam.com/rdk/gostream"
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -76,15 +76,18 @@ func (c *client) DetectionsFromCamera(
 	return protoToDets(resp.Detections)
 }
 
-func (c *client) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
+func (c *client) Detections(ctx context.Context, img *camera.NamedImage, extra map[string]interface{},
 ) ([]objdet.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Detections")
 	defer span.End()
 	if img == nil {
 		return nil, errors.New("nil image input to given client.Detections")
 	}
-	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG)
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	imgBytes, err := img.Bytes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bounds, err := img.Bounds()
 	if err != nil {
 		return nil, err
 	}
@@ -95,9 +98,9 @@ func (c *client) Detections(ctx context.Context, img image.Image, extra map[stri
 	resp, err := c.client.GetDetections(ctx, &pb.GetDetectionsRequest{
 		Name:     c.name,
 		Image:    imgBytes,
-		Width:    int64(img.Bounds().Dx()),
-		Height:   int64(img.Bounds().Dy()),
-		MimeType: mimeType,
+		Width:    int64(bounds.Dx()),
+		Height:   int64(bounds.Dy()),
+		MimeType: img.MimeType(),
 		Extra:    ext,
 	})
 	if err != nil {
@@ -150,7 +153,7 @@ func (c *client) ClassificationsFromCamera(
 	return protoToClas(resp.Classifications), nil
 }
 
-func (c *client) Classifications(ctx context.Context, img image.Image,
+func (c *client) Classifications(ctx context.Context, img *camera.NamedImage,
 	n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::client::Classifications")
@@ -158,8 +161,11 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	if img == nil {
 		return nil, errors.New("nil image input to given client.Classifications")
 	}
-	mimeType := gostream.MIMETypeHint(ctx, utils.MimeTypeJPEG)
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
+	imgBytes, err := img.Bytes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bounds, err := img.Bounds()
 	if err != nil {
 		return nil, err
 	}
@@ -170,9 +176,9 @@ func (c *client) Classifications(ctx context.Context, img image.Image,
 	resp, err := c.client.GetClassifications(ctx, &pb.GetClassificationsRequest{
 		Name:     c.name,
 		Image:    imgBytes,
-		Width:    int32(img.Bounds().Dx()),
-		Height:   int32(img.Bounds().Dy()),
-		MimeType: mimeType,
+		Width:    int32(bounds.Dx()),
+		Height:   int32(bounds.Dy()),
+		MimeType: img.MimeType(),
 		N:        int32(n),
 		Extra:    ext,
 	})
@@ -301,13 +307,15 @@ func (c *client) CaptureAllFromCamera(
 		return viscapture.VisCapture{}, err
 	}
 
-	var img image.Image
+	var img *camera.NamedImage
 	if resp.Image.Image != nil {
-		mimeType := resp.Image.GetMimeType()
-		img, err = rimage.DecodeImage(ctx, resp.Image.Image, mimeType)
+		namedImg, err := camera.NamedImageFromBytes(
+			resp.Image.Image, resp.Image.GetSourceName(), resp.Image.GetMimeType(), data.Annotations{},
+		)
 		if err != nil {
 			return viscapture.VisCapture{}, err
 		}
+		img = &namedImg
 	}
 
 	vcExtra := resp.Extra.AsMap()
