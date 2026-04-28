@@ -225,6 +225,37 @@ func (sfs *FrameSystem) Parent(frame Frame) (Frame, error) {
 	return sfs.Frame(parentName), nil
 }
 
+// SharesRigidMotion reports whether f1 and f2 always move together i.e. their
+// poses relative to each other never change with inputs. Two frames share rigid
+// motion when the closest moving frame above each in the raw kinematic chain
+// is the same. For flattened-model components this is computed at the joint
+// level, so two static links driven by different joints of the same component
+// correctly report false.
+func (sfs *FrameSystem) SharesRigidMotion(f1, f2 Frame) bool {
+	return sfs.firstMovingAncestor(f1) == sfs.firstMovingAncestor(f2)
+}
+
+// firstMovingAncestor walks the raw kinematic chain from frame toward world and
+// returns the first frame (frame itself, an intermediate ancestor, or world)
+// whose pose varies with inputs. The walk uses raw parents so flattened-model
+// internal joints are surfaced rather than masked behind the SimpleModel.
+func (sfs *FrameSystem) firstMovingAncestor(frame Frame) Frame {
+	for frame != sfs.world {
+		if len(frame.DoF()) > 0 {
+			return frame
+		}
+		parentName, exists := sfs.parents[frame.Name()]
+		if !exists {
+			return sfs.world
+		}
+		frame = sfs.Frame(parentName)
+		if frame == nil {
+			return sfs.world
+		}
+	}
+	return frame
+}
+
 // frameExists is a helper function to see if a frame with a given name already exists in the system.
 func (sfs *FrameSystem) frameExists(name string) bool {
 	_, ok := sfs.frames[name]
