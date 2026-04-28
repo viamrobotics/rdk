@@ -2,8 +2,7 @@
 package viscapture
 
 import (
-	"image"
-
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
 	"go.viam.com/rdk/vision/objectdetection"
@@ -11,7 +10,7 @@ import (
 
 // VisCapture is a struct providing bundled capture of vision objects.
 type VisCapture struct {
-	Image           image.Image
+	Image           *camera.NamedImage
 	Detections      []objectdetection.Detection
 	Classifications classification.Classifications
 	Objects         []*vision.Object

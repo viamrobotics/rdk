@@ -9,6 +9,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -30,8 +32,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	srv := &inject.VisionService{}
-	srv.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(img.Bounds(), image.Rect(5, 10, 15, 20), 0.5, "yes")
+	srv.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+		decoded, err := img.Image(ctx)
+		if err != nil {
+			return nil, err
+		}
+		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rect(5, 10, 15, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	srv.DetectionsFromCameraFunc = func(
@@ -86,7 +92,9 @@ func TestClient(t *testing.T) {
 		client, err := vision.NewClientFromConn(context.Background(), conn, "", vision.Named(testVisionServiceName), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		dets, err := client.Detections(context.Background(), image.NewRGBA(image.Rect(0, 0, 100, 200)), nil)
+		testImg, err := camera.NamedImageFromImage(image.NewRGBA(image.Rect(0, 0, 100, 200)), "", "image/jpeg", data.Annotations{})
+		test.That(t, err, test.ShouldBeNil)
+		dets, err := client.Detections(context.Background(), &testImg, nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, dets, test.ShouldNotBeNil)

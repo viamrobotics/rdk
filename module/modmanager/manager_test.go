@@ -102,11 +102,20 @@ func setupModManager(
 	return mgr
 }
 
+func getSlowModule() (string, string) {
+	if runtime.GOOS == "windows" {
+		return "run.bat", "powershell.exe -Command 'Start-Sleep 2; exit 1'"
+	}
+
+	return "run.sh", "#!/bin/sh\n\nsleep 2\nexit 1"
+}
+
 // Test that if a module crashes shortly after startup, in UNIX mode we get "module exited too quickly" and
 // in TCP mode we get "context cancelled", without waiting for the full ModuleStartupTimeout
 func TestCrashShortCircuit(t *testing.T) {
-	modPath := filepath.Join(t.TempDir(), "run.sh")
-	err := os.WriteFile(modPath, []byte("#!/bin/sh\n\nsleep 2\nexit 1"), 0o755)
+	scriptName, scriptContents := getSlowModule()
+	modPath := filepath.Join(t.TempDir(), scriptName)
+	err := os.WriteFile(modPath, []byte(scriptContents), 0o755)
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, mode := range []string{"unix", "tcp"} {

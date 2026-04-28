@@ -8,11 +8,13 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -29,8 +31,11 @@ func TestColorDetector(t *testing.T) {
 	srv, err := registerColorDetector(ctx, name, &inp, r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, srv.Name(), test.ShouldResemble, name)
-	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	rawImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
+	namedImg, err := camera.NamedImageFromImage(rawImg, "", utils.MimeTypeJPEG, data.Annotations{})
+	test.That(t, err, test.ShouldBeNil)
+	img := &namedImg
 
 	// Test properties. Should support detections and not classifications or object PCDs
 	props, err := srv.GetProperties(ctx, nil)

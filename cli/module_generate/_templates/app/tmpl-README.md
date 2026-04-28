@@ -2,9 +2,13 @@
 
 A Viam app module that serves your web app from your machine via the Viam SDK.
 
+For full documentation, see [Viam Apps](https://docs.viam.com/build-apps/hosting/overview/).
+
 ## Build your frontend
 
-This module doesn't provide any frontend - bring your own using whatever framework you like.
+This module doesn't provide any frontend - bring your own using whatever framework you like (e.g. Svelte, Vue, React). This README assumes `npm` usage. For other package managers, adapt accordingly.
+
+> **Note:** Viam provides a set of utilities for Svelte that make it easy to integrate Viam into Svelte apps. See the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk) for details.
 
 To connect to your machine, install the Viam SDK and cookie helper with your package manager:
 
@@ -12,11 +16,11 @@ To connect to your machine, install the Viam SDK and cookie helper with your pac
 npm install @viamrobotics/sdk typescript-cookie
 ```
 
-A utility file is included at `auth.ts` that reads machine credentials from cookies. Use it to connect:
+A utility file is included at `auth.js` in the project root. Copy it into your frontend's source directory alongside the file that will import it.
 
 ```js
 import { createRobotClient } from '@viamrobotics/sdk';
-import { getHostAndCredentials } from './auth';
+import { getHostAndCredentials } from './auth.js';
 
 const { host, credentials } = getHostAndCredentials();
 const machine = await createRobotClient({
@@ -27,27 +31,29 @@ const machine = await createRobotClient({
 const resources = await machine.resourceNames();
 ```
 
-The default entrypoint is `dist/index.html`. If your frontend build outputs to a different location, update both:
-- `ENTRYPOINT` in the `Makefile`
-- `"entrypoint"` in the applications section of `meta.json`
+Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If your frontend builds into a subdirectory (e.g. `dist/build/index.html`), update the path in three places:
+- `meta.json`: the `entrypoint` field under `applications`
+- `Makefile`: the `ENTRYPOINT` variable
+- `module.go`: both the `//go:embed` path and the `fs.Sub` path in `distFS()`
 
-After building your frontend, make sure to run:
+**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
 
+Multi machine apps don't include a built-in machine picker, but it's easy to set one up. See [Multi-machine applications](https://docs.viam.com/build-apps/hosting/hosting-reference/#multi-machine-applications) for details.
+
+After building your frontend into `dist/`, run `make` to build the module.
 ```
 make setup
 make
 ```
 
-This installs dependencies and builds the module.
-
 ## Test during development
 
 Test your frontend against a real machine during development:
 
-1. Start your frontend dev server (e.g. `npm run dev` on port 5173)
+1. Start your frontend dev server from your frontend's directory and note the port it starts on
 2. In another terminal:
    ```
-   viam module local-app-testing --app-url=http://localhost:5173 --machine-id=<YOUR_MACHINE_ID>
+   viam module local-app-testing --app-url=http://localhost:<PORT> --machine-id=<YOUR_MACHINE_ID>
    ```
 3. Open http://localhost:8012/start in your browser
 
@@ -55,28 +61,19 @@ This injects real machine credentials into your dev server so you can test SDK c
 
 To check that your HTML/CSS renders without a machine connection, just open your HTML file directly in a browser.
 
-## Host locally
-
-Add the module to a machine without uploading to the registry:
-
-1. Go to app.viam.com → fleet → your machine → configure
-2. Add the module as a local module, set executable path to `<full-path>/bin/{{ .ModuleName }}`
-3. Add your webapp as a local component with triplet `{{ .Namespace }}:{{ .ModuleName }}:webapp`
-   - If you have any other local components your webapp pulls from, they need to be added as well
-4. Save your config, and the machine will restart to reconfigure with your module
-
 ## Upload to viamapplications.com
 
-1. Upload `module.tar.gz` (not the binary) to the registry:
+1. Build the module:
    ```
-   viam module upload --upload=./module.tar.gz --platform=linux/amd64
+   make setup
+   make
    ```
 
-2. Add the module to your machine on app.viam.com:
-   - Go to app.viam.com → your machine → Config
-   - Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
-   - Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
-   - Save config
+2. Upload `module.tar.gz` (not the binary) to the registry (`--version` is required and must be a valid semver). Use the platform matching your build machine:
+   ```
+   viam module upload --upload=./module.tar.gz --platform=linux/amd64 --version=0.1.0  # Linux x86
+   viam module upload --upload=./module.tar.gz --platform=darwin/arm64 --version=0.1.0  # Apple Silicon
+   ```
 
 3. Access your app at:
    ```
@@ -87,15 +84,20 @@ Add the module to a machine without uploading to the registry:
 
 ## Local server
 
-When the module is running on a machine (via either host locally or registry upload above), it also serves your app on the local network:
+To serve your app on the local network, add the module to a machine on app.viam.com:
+
+1. Go to app.viam.com → your machine → Config
+2. Add the module by name (`{{ .Namespace }}:{{ .ModuleName }}`)
+3. Add a component: type `generic`, model `{{ .Namespace }}:{{ .ModuleName }}:webapp`
+4. Save config
+
+Your app will then be available at:
 
 ```
 http://<machine-ip>:8888
 ```
 
-Accessible from any device on the same network. Credentials are injected automatically via cookies. The SDK connects through Viam's cloud for signaling, so internet is required.
-
-To find your machine's IP: `ipconfig getifaddr en0` (macOS) or `hostname -I` (Linux).
+The port defaults to 8888 and can be configured via the `port` attribute in your component's config.
 
 ### Offline mode (no internet)
 
@@ -104,7 +106,6 @@ To use the local server without internet, viam-server needs an HTTP signaling en
 ```json
 {
   "network": {
-    "bind_address": "0.0.0.0:8081",
     "no_tls": true
   }
 }
@@ -115,9 +116,8 @@ Then your frontend needs to detect local mode and use local signaling instead of
 ```js
 const isLocal = document.cookie.includes('is_local=true');
 const signalingAddress = isLocal
-    ? `http://${window.location.hostname}:8081`
+    ? `http://${window.location.hostname}:8080`
     : 'https://app.viam.com';
 ```
 
-**Note:** `no_tls` replaces the default HTTPS listener (port 8080) with an HTTP listener on 8081. This means traffic on the local network is unencrypted. This is acceptable for trusted networks (factory floor, home) but not recommended for public networks.
-
+**Note:** `no_tls` replaces the default HTTPS listener with an HTTP listener. This means traffic on the local network is unencrypted. This is acceptable for trusted networks (factory floor, home) but not recommended for public networks.

@@ -74,8 +74,8 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
-	AppName string
-	AppType string
+	AppName         string
+	AppType         string
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -123,10 +123,19 @@ func promptGenerateType() (string, error) {
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("What would you like to generate?").
+				DescriptionFunc(func() string {
+					switch generateType {
+					case "module":
+						return "A modular resource to add custom components or services to your machine."
+					case "app":
+						return "A web application that connects to your machine via the Viam SDK."
+					default:
+						return ""
+					}
+				}, &generateType).
 				Options(
 					huh.NewOption("Module", "module"),
 					huh.NewOption("App", "app"),
-					huh.NewOption("Module and App", "both"),
 				).
 				Value(&generateType),
 		),
@@ -163,233 +172,14 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		return c.generateModule(ctx, cmd, args, shared)
 	case "app":
 		return c.generateApp(ctx, cmd, args, shared)
-	case "both":
-		return c.generateBoth(ctx, cmd, args, shared)
 	default:
-		return fmt.Errorf("invalid generate type %q: must be module, app, or both", generateType)
+		return fmt.Errorf("invalid generate type %q: must be module or app", generateType)
 	}
 }
 
 type appInputs struct {
 	AppName string
 	AppType string
-}
-
-func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
-	// Module-specific prompts
-	newModule := &modulegen.ModuleInputs{}
-	if err := promptModuleInputs(newModule); err != nil {
-		return err
-	}
-	newModule.Visibility = shared.Visibility
-	newModule.Namespace = shared.Namespace
-	newModule.RegisterOnApp = shared.RegisterOnApp
-
-	// App-specific prompts
-	app := &appInputs{}
-	if err := promptAppUser(app); err != nil {
-		return err
-	}
-
-	// Set up module inputs for generation
-	if err := newModule.CheckResourceAndSetType(); err != nil {
-		return err
-	}
-	if err := checkLanguageVersion(newModule.Language); err != nil {
-		return err
-	}
-	if !args.DryRun {
-		if err := wrapResolveOrg(ctx, cmd, c, newModule); err != nil {
-			return err
-		}
-	}
-	populateAdditionalInfo(newModule)
-
-	gArgs, err := getGlobalArgs(cmd)
-	if err != nil {
-		return err
-	}
-	globalArgs := *gArgs
-
-	// Get latest SDK version
-	version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
-	if err != nil {
-		return err
-	}
-	newModule.SDKVersion = version[1:]
-	if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
-		newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
-	}
-
-	// Run the module generation pipeline
-	if err := setupDirectories(cmd, newModule.ModuleName, globalArgs); err != nil {
-		return err
-	}
-	if _, err := createModuleAndManifest(ctx, cmd, c, *newModule, globalArgs); err != nil {
-		return err
-	}
-	if err := renderCommonFiles(cmd, *newModule, globalArgs); err != nil {
-		return err
-	}
-	if err := copyLanguageTemplate(cmd, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
-		return err
-	}
-	if err := renderTemplate(cmd, *newModule, globalArgs); err != nil {
-		return err
-	}
-	if err := generateStubs(cmd, *newModule, globalArgs); err != nil {
-		warningf(cmd.Root().ErrWriter, err.Error())
-	}
-
-	modulePath := newModule.ModuleName
-
-	// 1. Add applications[] to the generated meta.json
-	manifestPath := filepath.Join(modulePath, defaultManifestFilename)
-	manifest, err := loadManifest(manifestPath)
-	if err != nil {
-		return errors.Wrap(err, "failed to load manifest to add app")
-	}
-	manifest.Apps = []AppComponent{
-		{
-			Name:       app.AppName,
-			Type:       app.AppType,
-			Entrypoint: "dist/index.html",
-		},
-	}
-	if err := writeManifest(manifestPath, manifest); err != nil {
-		return errors.Wrap(err, "failed to write manifest with app")
-	}
-
-	// 2. Add webapp.go (vmodutils server)
-	webappGo := fmt.Sprintf(`package %s
-
-import (
-	"context"
-	"embed"
-	"io/fs"
-
-	"github.com/erh/vmodutils"
-	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/resource"
-)
-
-//go:embed dist/**
-var staticFS embed.FS
-
-func distFS() (fs.FS, error) {
-	return fs.Sub(staticFS, "dist")
-}
-
-var WebappModel = resource.NewModel("%s", "%s", "webapp")
-
-type WebappConfig struct {
-	resource.TriviallyValidateConfig
-	Port *int `+"`"+`json:"port,omitempty"`+"`"+`
-}
-
-func init() {
-	resource.RegisterComponent(generic.API, WebappModel,
-		resource.Registration[resource.Resource, *WebappConfig]{
-			Constructor: NewWebappServer,
-		},
-	)
-}
-
-func NewWebappServer(
-	_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger,
-) (resource.Resource, error) {
-	conf, err := resource.NativeConfig[*WebappConfig](rawConf)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := distFS()
-	if err != nil {
-		return nil, err
-	}
-	port := 8888
-	if conf.Port != nil {
-		port = *conf.Port
-	}
-	return vmodutils.NewWebModuleAndStart(rawConf.ResourceName(), fs, logger, port)
-}
-`, newModule.ModuleLowercase, newModule.Namespace, newModule.ModuleName)
-
-	if err := os.WriteFile(filepath.Join(modulePath, "webapp.go"), []byte(webappGo), 0o644); err != nil { //nolint:gosec
-		return errors.Wrap(err, "failed to write webapp.go")
-	}
-
-	// 3. Create dist/index.html placeholder for go:embed
-	if err := os.MkdirAll(filepath.Join(modulePath, "dist"), 0o750); err != nil {
-		return errors.Wrap(err, "failed to create dist directory")
-	}
-	placeholder := `<!DOCTYPE html>
-<html><head><title>Viam App</title></head>
-<body><h1>Viam App</h1><p>Replace this with your own frontend. See README.md for next steps.</p></body>
-</html>
-`
-	if err := os.WriteFile(filepath.Join(modulePath, "dist", "index.html"), []byte(placeholder), 0o644); err != nil { //nolint:gosec
-		return errors.Wrap(err, "failed to write dist/index.html")
-	}
-
-	// 4. Update cmd/module/main.go to register webapp model
-	mainGoPath := filepath.Join(modulePath, "cmd", "module", "main.go")
-	mainGoBytes, err := os.ReadFile(mainGoPath) //nolint:gosec
-	if err != nil {
-		return errors.Wrap(err, "failed to read main.go")
-	}
-	mainGo := string(mainGoBytes)
-	if !strings.Contains(mainGo, "components/generic") {
-		mainGo = strings.Replace(mainGo,
-			"\"go.viam.com/rdk/module\"",
-			"\"go.viam.com/rdk/components/generic\"\n\t\"go.viam.com/rdk/module\"",
-			1)
-	}
-	mainGo = strings.Replace(mainGo,
-		"})",
-		"},\n\t\tresource.APIModel{API: generic.API, Model: "+newModule.ModuleLowercase+".WebappModel})",
-		1)
-	if err := os.WriteFile(mainGoPath, []byte(mainGo), 0o644); err != nil { //nolint:gosec
-		return errors.Wrap(err, "failed to write updated main.go")
-	}
-
-	// 5. Update Makefile to include dist in tar
-	makefilePath := filepath.Join(modulePath, "Makefile")
-	makefileBytes, err := os.ReadFile(makefilePath) //nolint:gosec
-	if err != nil {
-		return errors.Wrap(err, "failed to read Makefile")
-	}
-	makefile := string(makefileBytes)
-	makefile = strings.Replace(makefile,
-		"tar czf $@ meta.json $(MODULE_BINARY)",
-		"tar czf $@ meta.json $(MODULE_BINARY) dist",
-		1)
-	if err := os.WriteFile(makefilePath, []byte(makefile), 0o644); err != nil { //nolint:gosec
-		return errors.Wrap(err, "failed to write updated Makefile")
-	}
-
-	// 6. Add vmodutils to go.mod
-	goModPath := filepath.Join(modulePath, "go.mod")
-	goModBytes, err := os.ReadFile(goModPath) //nolint:gosec
-	if err != nil {
-		return errors.Wrap(err, "failed to read go.mod")
-	}
-	goMod := string(goModBytes)
-	if !strings.Contains(goMod, "erh/vmodutils") {
-		goMod = strings.Replace(goMod, "require (", "require (\n\tgithub.com/erh/vmodutils v0.3.11-rc3", 1)
-		if err := os.WriteFile(goModPath, []byte(goMod), 0o644); err != nil { //nolint:gosec
-			return errors.Wrap(err, "failed to write updated go.mod")
-		}
-	}
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		cwd = "."
-	}
-	fullPath := filepath.Join(cwd, newModule.ModuleName)
-	printf(cmd.Root().Writer, "Module with app successfully generated at %s", fullPath)
-	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(fullPath, "README.md"))
-	return nil
 }
 
 // appTemplateData is the struct passed to app template rendering.
@@ -400,7 +190,6 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
-	SDKVersion string
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -455,13 +244,6 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		Visibility:      shared.Visibility,
 	}
 
-	// Get latest SDK version
-	version, err := getLatestSDKTag(ctx, cmd, golang, globalArgs)
-	if err != nil {
-		return err
-	}
-	data.SDKVersion = version[1:]
-
 	// Create root directory
 	if err := setupDirectories(cmd, moduleName, globalArgs); err != nil {
 		return err
@@ -490,7 +272,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 
 	// Copy non-template files and render template files (skip meta.json since we generated it above)
-	if err := copyAppTemplate(cmd, moduleName, globalArgs); err != nil {
+	if err := copyLanguageTemplate(cmd, "app", moduleName, globalArgs); err != nil {
 		return err
 	}
 	if err := renderAppTemplate(cmd, moduleName, data, globalArgs); err != nil {
@@ -503,54 +285,20 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 	appPath := filepath.Join(cwd, moduleName)
 	printf(cmd.Root().Writer, "App module successfully generated at %s", appPath)
-	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(appPath, "README.md"))
 	if registryURL != "" {
 		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
+	printf(cmd.Root().Writer, "\n--- Build your frontend ---")
+	printf(cmd.Root().Writer, "This module has no frontend yet. Bring your own using any framework (e.g. Svelte, Vue, React).")
+	printf(cmd.Root().Writer, "\n1. Install the Viam SDK:")
+	printf(cmd.Root().Writer, "     npm install @viamrobotics/sdk typescript-cookie")
+	printf(cmd.Root().Writer, "\n2. Build your frontend into the dist/ directory.")
+	printf(cmd.Root().Writer, "\n3. Build the module:")
+	printf(cmd.Root().Writer, "     make setup")
+	printf(cmd.Root().Writer, "     make")
+	printf(cmd.Root().Writer, "\nSee %s for full details, including how to test during development and upload to viamapplications.com.",
+		filepath.Join(appPath, "README.md"))
 	return nil
-}
-
-// copyAppTemplate copies non-template files from _templates/app/ into the output directory.
-func copyAppTemplate(cmd *cli.Command, moduleName string, globalArgs globalArgs) error {
-	debugf(cmd.Root().Writer, globalArgs.Debug, "Copying app template files")
-	appPath := path.Join(templatesPath, "app")
-	tempDir, err := fs.Sub(templates, appPath)
-	if err != nil {
-		return err
-	}
-	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			if filePath != "." {
-				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCreating directory %s", filePath)
-				if err := os.MkdirAll(filepath.Join(moduleName, filePath), 0o750); err != nil {
-					return err
-				}
-			}
-		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying file %s", filePath)
-			srcFile, err := templates.Open(path.Join(appPath, filePath))
-			if err != nil {
-				return errors.Wrapf(err, "error opening file %s", filePath)
-			}
-			defer utils.UncheckedErrorFunc(srcFile.Close)
-
-			destPath := filepath.Join(moduleName, filePath)
-			//nolint:gosec
-			destFile, err := os.Create(destPath)
-			if err != nil {
-				return errors.Wrapf(err, "failed to create file %s", destPath)
-			}
-			defer utils.UncheckedErrorFunc(destFile.Close)
-
-			if _, err := io.Copy(destFile, srcFile); err != nil {
-				return errors.Wrapf(err, "error copying file %s", destPath)
-			}
-		}
-		return nil
-	})
 }
 
 // renderAppTemplate renders tmpl- prefixed files from _templates/app/ with app-specific data.
@@ -1163,7 +911,7 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, filePath), 0o750)
+				err = os.MkdirAll(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
 					return err
 				}
@@ -1643,6 +1391,7 @@ func renderManifest(
 
 	if appInfo != nil {
 		manifest.Description = fmt.Sprintf("%s app", appInfo.AppName)
+		manifest.MarkdownLink = nil
 		manifest.Models = []ModuleComponent{
 			{
 				API:   "rdk:component:generic",
@@ -1711,4 +1460,3 @@ func renderManifest(
 
 	return nil
 }
-

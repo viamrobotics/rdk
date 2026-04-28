@@ -1,15 +1,8 @@
-import type { Credential } from '@viamrobotics/sdk';
 import { getCookie, setCookie } from 'typescript-cookie';
 
 const DEFAULT_HOST = 'default-host';
 
-export interface HostAndCredentials {
-    host: string;
-    credentials: Credential;
-    machineId: string | null;
-}
-
-export function getHostAndCredentials(): HostAndCredentials {
+export function getHostAndCredentials() {
     const host = getCookie('host');
     const apiKeyId = getCookie('api-key-id');
     const apiKeySecret = getCookie('api-key');
@@ -72,6 +65,6 @@ export function getHostAndCredentials(): HostAndCredentials {
     };
 }
 
-export function saveHostInfo(host: string, id: string, key: string) {
+export function saveHostInfo(host, id, key) {
     setCookie(DEFAULT_HOST, JSON.stringify({ host, key, id }));
 }

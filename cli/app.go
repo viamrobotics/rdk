@@ -98,9 +98,10 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagGenerateType    = "generate-type"
-	moduleFlagAppName = "app-name"
-	moduleFlagAppType = "app-type"
-	moduleFlagUpload  = "upload"
+	moduleFlagAppName         = "app-name"
+	moduleFlagAppType         = "app-type"
+	moduleFlagUpload          = "upload"
+	moduleFlagAnnotation      = "annotation"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -3443,15 +3444,15 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  moduleFlagGenerateType,
-							Usage: formatAcceptedValues("type of project to generate", "module", "app", "both"),
+							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagName,
-							Usage: "name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
+							Usage: "(module only) name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
-							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
+							Usage: formatAcceptedValues("(module only) language to use for module", supportedModuleGenLanguages...),
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagVisibility,
@@ -3464,7 +3465,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
-							Usage: "resource subtype to use in module, for example arm, camera, or motion. see " +
+							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
 								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
@@ -3476,7 +3477,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagModelName,
-							Usage: "name for the particular resource subtype implementation." +
+							Usage: "(module only) name for the particular resource subtype implementation." +
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
@@ -3489,14 +3490,12 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Hidden: true,
 						},
 						&cli.StringFlag{
-							Name:   moduleFlagAppName,
-							Usage:  "name for the app",
-							Hidden: true,
+							Name:  moduleFlagAppName,
+							Usage: "(app only) name for the app",
 						},
 						&cli.StringFlag{
-							Name:   moduleFlagAppType,
-							Usage:  formatAcceptedValues("app type", "single_machine", "multi_machine"),
-							Hidden: true,
+							Name:  moduleFlagAppType,
+							Usage: formatAcceptedValues("(app only) app type", "single_machine", "multi_machine"),
 						},
 					},
 					Action: createActionCommandWithT[generateModuleArgs](GenerateModuleAction),
@@ -3934,6 +3933,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAnnotation,
+							Usage: "Annotation to describe the purpose of the reload build",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -39,9 +38,6 @@ func TestModularMain(t *testing.T) {
 		{"tcp", false},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			if runtime.GOOS == "windows" && tc.UdsMode {
-				t.Skip("TODO(RSDK-12871): get this working on win")
-			}
 			t.Parallel()
 			logger := logging.NewTestLogger(t)
 

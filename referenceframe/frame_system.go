@@ -766,6 +766,10 @@ func (sfs *FrameSystem) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON parses a FrameSystem from JSON data.
+// The flattened-model bookkeeping (flattenedModels, componentSchemas,
+// mimicFrames) is not serialized. We regenerate it here via
+// registerFlattenedModel, which is the same code path flattenModelIntoFS
+// uses at construction.
 func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	type serializableFrameSystem struct {
 		Name    string                     `json:"name"`
@@ -783,7 +787,7 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	frameMap := make(map[string]Frame, 0)
+	frameMap := make(map[string]Frame, len(serFS.Frames))
 	for name, tF := range serFS.Frames {
 		frame, err := jsonToFrame(tF)
 		if err != nil {
@@ -797,11 +801,52 @@ func (sfs *FrameSystem) UnmarshalJSON(data []byte) error {
 	sfs.world = worldFrame
 	sfs.name = serFS.Name
 	sfs.cachedBFSNames = bfsFrameNames(sfs)
-	if sfs.flattenedModels == nil {
-		sfs.flattenedModels = map[string]*SimpleModel{}
+	sfs.flattenedModels = map[string]*SimpleModel{}
+	sfs.componentSchemas = map[string]*LinearInputsSchema{}
+	sfs.mimicFrames = map[string]*mimicInfo{}
+	for name, frame := range sfs.frames {
+		sm := asFlattenableModel(frame)
+		if sm == nil {
+			continue
+		}
+		// Only regenerate flattened internals if the model was flattened into the outer FS at
+		// construction time, i.e. its internal frames are present under the
+		// namespaced names. A SimpleModel added directly via AddFrame has no
+		// such internals and must not be registered.
+		if wasFlattened(sfs, name, sm) {
+			sfs.registerFlattenedModel(name, sm)
+		}
 	}
-	if sfs.componentSchemas == nil {
-		sfs.componentSchemas = map[string]*LinearInputsSchema{}
+	return nil
+}
+
+// wasFlattened reports whether the model at componentName was flattened into
+// the outer FS (its bfs-enumerated internal frames exist under the
+// componentName:internalName convention).
+func wasFlattened(sfs *FrameSystem, componentName string, model *SimpleModel) bool {
+	internalNames := bfsFrameNames(model.internalFS)
+	if len(internalNames) == 0 {
+		return false
+	}
+	for _, internalName := range internalNames {
+		if _, ok := sfs.frames[componentName+":"+internalName]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// asFlattenableModel returns the underlying *SimpleModel if frame is (or wraps)
+// a SimpleModel with at least one DoF, else nil. Zero-DoF models are not
+// flattened (see addPartToFS).
+func asFlattenableModel(frame Frame) *SimpleModel {
+	switch f := frame.(type) {
+	case *SimpleModel:
+		if len(f.DoF()) > 0 {
+			return f
+		}
+	case *namedFrame:
+		return asFlattenableModel(f.Frame)
 	}
 	return nil
 }
@@ -1175,38 +1220,44 @@ func flattenModelIntoFS(outerFS *FrameSystem, model *SimpleModel, componentName 
 			}
 		}
 
-		// All frames get a namespaced rename. Mimic info is stored on the FS.
 		wrappedFrame := NewNamedFrame(innerFrame, namespacedName)
-		if mm := model.mimicMappings[internalName]; mm != nil {
-			outerFS.mimicFrames[namespacedName] = &mimicInfo{
-				sourceFrameName: componentName + ":" + mm.sourceFrameName,
-				multiplier:      mm.valueMultiplier,
-				offset:          mm.valueOffset,
-			}
-		}
-
 		if err := outerFS.AddFrame(wrappedFrame, parentFrame); err != nil {
 			return err
 		}
 	}
 
-	// Store the original model for code that needs combined DoF (e.g., resolveFrameInputs)
-	outerFS.flattenedModels[componentName] = model
+	outerFS.registerFlattenedModel(componentName, model)
+	return nil
+}
 
-	// Build a namespaced schema: copy the model's inputSchema with prefixed frame names.
-	// This schema maps flat component inputs ↔ per-frame LinearInputs with namespaced keys.
+// registerFlattenedModel populates the three derived maps (flattenedModels,
+// componentSchemas, mimicFrames) for a flattened model. The namespaced
+// componentName:* frames must already exist in sfs.frames so the schema metas
+// can be bound to them. Called from both flattenModelIntoFS and UnmarshalJSON
+func (sfs *FrameSystem) registerFlattenedModel(componentName string, model *SimpleModel) {
+	sfs.flattenedModels[componentName] = model
+
+	for internalName, mm := range model.mimicMappings {
+		if mm == nil {
+			continue
+		}
+		sfs.mimicFrames[componentName+":"+internalName] = &mimicInfo{
+			sourceFrameName: componentName + ":" + mm.sourceFrameName,
+			multiplier:      mm.valueMultiplier,
+			offset:          mm.valueOffset,
+		}
+	}
+
 	namespacedMetas := make([]linearInputMeta, 0, len(model.inputSchema.metas))
 	for _, meta := range model.inputSchema.metas {
 		namespacedMetas = append(namespacedMetas, linearInputMeta{
 			frameName: componentName + ":" + meta.frameName,
 			offset:    meta.offset,
 			dof:       meta.dof,
-			frame:     outerFS.Frame(componentName + ":" + meta.frameName),
+			frame:     sfs.Frame(componentName + ":" + meta.frameName),
 		})
 	}
-	outerFS.componentSchemas[componentName] = &LinearInputsSchema{metas: namespacedMetas}
-
-	return nil
+	sfs.componentSchemas[componentName] = &LinearInputsSchema{metas: namespacedMetas}
 }
 
 // bfsFrameNames returns frame names in BFS order from world. Children at each level are

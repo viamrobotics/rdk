@@ -2,11 +2,14 @@ package capture
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/benbjohnson/clock"
+	v1 "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
@@ -151,6 +154,77 @@ func TestSetCaptureConfig(t *testing.T) {
 			if tc.expectedNewTags != nil {
 				test.That(t, c.collectors[fakeMD].Config.Tags, test.ShouldResemble, tc.expectedNewTags)
 			}
+		})
+	}
+}
+
+var (
+	registerFileSizeCollectorOnce sync.Once
+	fileSizeCollectorTarget       data.CaptureBufferedWriter
+)
+
+// TestMaxCaptureFileSize verifies that the MaximumCaptureFileSizeBytes config is correctly
+// passed to the collector's capture buffer, and that changing it triggers a collector rebuild.
+func TestMaxCaptureFileSize(t *testing.T) {
+	const method = "GetFileSizeTestReadings"
+	registerFileSizeCollectorOnce.Do(func() {
+		data.RegisterCollector(
+			data.MethodMetadata{API: fakeAPI, MethodName: method},
+			func(_ interface{}, params data.CollectorParams) (data.Collector, error) {
+				fileSizeCollectorTarget = params.Target
+				return &mockCollector{}, nil
+			},
+		)
+	})
+
+	for _, tc := range []struct {
+		name           string
+		maxSizeChanges []int64 // MaximumCaptureFileSizeBytes for each successive Reconfigure call
+		expectedFiles  int
+	}{
+		{
+			name:           "configured max file size batches multiple readings into one file",
+			maxSizeChanges: []int64{256 * 1024},
+			expectedFiles:  1,
+		},
+		{
+			name:           "changing max file size to 1 rebuilds collector and generates one file per reading",
+			maxSizeChanges: []int64{256 * 1024, 1},
+			expectedFiles:  3,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			captureDir := t.TempDir()
+			fakeCfg := datamanager.DataCaptureConfig{
+				Name:               resource.NewName(fakeAPI, "fake-1"),
+				Method:             method,
+				CaptureFrequencyHz: 1.0,
+				CaptureDirectory:   captureDir,
+			}
+			c := &Capture{
+				logger:     logging.NewTestLogger(t),
+				clk:        clock.New(),
+				collectors: make(collectors),
+			}
+
+			for _, maxSize := range tc.maxSizeChanges {
+				c.Reconfigure(context.Background(),
+					CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+					Config{MaximumCaptureFileSizeBytes: maxSize, CaptureDir: captureDir},
+				)
+			}
+
+			tabularReading := &v1.SensorData{
+				Metadata: &v1.SensorMetadata{},
+				Data:     &v1.SensorData_Struct{Struct: &structpb.Struct{}},
+			}
+			for range 3 {
+				test.That(t, fileSizeCollectorTarget.WriteTabular(tabularReading), test.ShouldBeNil)
+			}
+
+			entries, err := os.ReadDir(fileSizeCollectorTarget.Path())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(entries), test.ShouldEqual, tc.expectedFiles)
 		})
 	}
 }

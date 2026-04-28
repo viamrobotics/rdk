@@ -20,7 +20,7 @@ lint:
 
 update:
 	go get go.viam.com/rdk@latest
-	go get github.com/erh/vmodutils@v0.3.11-rc3
+	go get github.com/erh/vmodutils@latest
 	go mod tidy
 
 test:
@@ -32,7 +32,7 @@ ifeq ($(VIAM_TARGET_OS), windows)
 else
 	strip $(MODULE_BINARY)
 endif
-	tar czf $@ meta.json $(MODULE_BINARY) dist
+	tar czf $@ --exclude=node_modules meta.json $(MODULE_BINARY) dist
 ifeq ($(VIAM_TARGET_OS), windows)
 	git checkout meta.json
 endif
@@ -42,7 +42,7 @@ module: test module.tar.gz
 all: test module.tar.gz
 
 setup:
-	go get github.com/erh/vmodutils@v0.3.11-rc3
+	go get github.com/erh/vmodutils@latest
 	go mod tidy
 
 clean:
