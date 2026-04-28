@@ -19,7 +19,6 @@ func TestAppTemplateCompiles(t *testing.T) {
 		AppType:         "single_machine",
 		Namespace:       "testorg",
 		Visibility:      "private",
-		SDKVersion:      "0.94.0",
 	}
 
 	cCtx := newTestContext(t, map[string]any{"local": true})
@@ -52,7 +51,7 @@ func TestAppTemplateCompiles(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Pin vmodutils to rc version that implements Status()
-	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@v0.3.11-rc3")
+	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@latest")
 	goGet.Dir = appPath
 	goGetOut, err := goGet.CombinedOutput()
 	if err != nil {

@@ -20,7 +20,7 @@ lint:
 
 update:
 	go get go.viam.com/rdk@latest
-	go get github.com/erh/vmodutils@v0.3.11-rc3
+	go get github.com/erh/vmodutils@latest
 	go mod tidy
 
 test:
@@ -42,7 +42,7 @@ module: test module.tar.gz
 all: test module.tar.gz
 
 setup:
-	go get github.com/erh/vmodutils@v0.3.11-rc3
+	go get github.com/erh/vmodutils@latest
 	go mod tidy
 
 clean:
