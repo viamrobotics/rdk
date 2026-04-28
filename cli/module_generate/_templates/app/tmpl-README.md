@@ -2,6 +2,8 @@
 
 A Viam app module that serves your web app from your machine via the Viam SDK.
 
+For full documentation, see [Viam Apps](https://docs.viam.com/build-apps/hosting/overview/).
+
 ## Build your frontend
 
 This module doesn't provide any frontend - bring your own using whatever framework you like (e.g. Svelte, Vue, React). This README assumes `npm` usage. For other package managers, adapt accordingly.
@@ -32,6 +34,8 @@ const resources = await machine.resourceNames();
 Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If you would like to change this, update it in the `meta.json`, the `Makefile`, and the `module.go` file.
 
 **Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
+
+Multi machine apps don't include a built-in machine picker, but it's easy to set one up. See [Multi-machine applications](https://docs.viam.com/build-apps/hosting/hosting-reference/#multi-machine-applications) for details.
 
 After building your frontend into `dist/`, run `make` to build the module.
 ```
