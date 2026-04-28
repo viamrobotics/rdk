@@ -926,6 +926,9 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, nil
 			}
 		}
+	case *namedFrame:
+		f2 := frame2.(*namedFrame)
+		return framesAlmostEqual(f1.Frame, f2.Frame, epsilon)
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}
