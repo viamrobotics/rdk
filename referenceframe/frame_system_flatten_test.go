@@ -31,8 +31,8 @@ func TestFlattenSerialModel(t *testing.T) {
 	test.That(t, len(arm1Frame.DoF()), test.ShouldEqual, 1) // original SimpleModel DoF
 
 	// Verify flattened internal frames are accessible
-	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
-	test.That(t, fs.Frame("arm1:shoulder_pan_joint"), test.ShouldNotBeNil)
+	test.That(t, fs.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.lookupFrame("arm1:shoulder_pan_joint"), test.ShouldNotBeNil)
 	test.That(t, fs.Frame("arm1_origin"), test.ShouldNotBeNil)
 
 	// Internal frames are hidden from FrameNames()
@@ -109,12 +109,12 @@ func TestFlattenBranchingMimicModel(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// Mimic frame is a real joint (DoF=1) — mimic info lives on the FS, not the frame
-	rightJoint := fs.Frame("gripper1:right_joint")
+	rightJoint := fs.lookupFrame("gripper1:right_joint")
 	test.That(t, rightJoint, test.ShouldNotBeNil)
 	test.That(t, len(rightJoint.DoF()), test.ShouldEqual, 1)
 
 	// Verify left_joint has DoF
-	leftJoint := fs.Frame("gripper1:left_joint")
+	leftJoint := fs.lookupFrame("gripper1:left_joint")
 	test.That(t, leftJoint, test.ShouldNotBeNil)
 	test.That(t, len(leftJoint.DoF()), test.ShouldEqual, 1)
 
@@ -159,7 +159,7 @@ func TestFlattenIntermediateParenting(t *testing.T) {
 	// The camera should be at the base_link position.
 	// base_link is a static frame in the arm at (500, 0, 300) from the arm origin.
 	resultPose := result.(*PoseInFrame).Pose()
-	baseLinkPose, err := fs.Frame("arm1:base_link").Transform([]Input{})
+	baseLinkPose, err := fs.lookupFrame("arm1:base_link").Transform([]Input{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(resultPose, baseLinkPose), test.ShouldBeTrue)
 }
@@ -232,7 +232,7 @@ func TestFlattenedRoundTripJSON(t *testing.T) {
 	test.That(t, eq, test.ShouldBeTrue)
 
 	// Internals and the externally-attached camera both survive.
-	test.That(t, fs2.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs2.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
 	test.That(t, fs2.Frame("camera"), test.ShouldNotBeNil)
 	test.That(t, fs2.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
 }
@@ -252,7 +252,7 @@ func TestFlattenedSubsetClonesEquivalent(t *testing.T) {
 
 	// Both copies preserve flattened internals and metadata.
 	for _, fsCopy := range []*FrameSystem{subset, cloned} {
-		test.That(t, fsCopy.Frame("arm1:base_link"), test.ShouldNotBeNil)
+		test.That(t, fsCopy.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
 		test.That(t, fsCopy.flattened["arm1"], test.ShouldNotBeNil)
 		test.That(t, fsCopy.flattened["arm1"].model, test.ShouldNotBeNil)
 		test.That(t, fsCopy.flattened["arm1"].schema, test.ShouldNotBeNil)
@@ -268,7 +268,7 @@ func TestFlattenedMergePreservesExternalOnInternal(t *testing.T) {
 
 	test.That(t, dest.MergeFrameSystem(src, dest.World()), test.ShouldBeNil)
 	test.That(t, dest.Frame("arm1"), test.ShouldNotBeNil)
-	test.That(t, dest.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, dest.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
 	test.That(t, dest.Frame("camera"), test.ShouldNotBeNil)
 	test.That(t, dest.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
 	test.That(t, dest.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
@@ -292,7 +292,7 @@ func TestReplaceFlattenedFrameSameShape(t *testing.T) {
 	// camera (parented to arm1:base_link) still resolves through the new
 	// model.
 	test.That(t, fs.Frame("arm1"), test.ShouldNotBeNil)
-	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
 	test.That(t, fs.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
 	test.That(t, fs.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
 
@@ -313,7 +313,7 @@ func TestRemoveFlattenedFrameCascadesToInternalAttachments(t *testing.T) {
 
 	// The arm and all its internals are gone.
 	test.That(t, fs.Frame("arm1"), test.ShouldBeNil)
-	test.That(t, fs.Frame("arm1:base_link"), test.ShouldBeNil)
+	test.That(t, fs.lookupFrame("arm1:base_link"), test.ShouldBeNil)
 	// The camera (which was attached to arm1:base_link) must be gone too,
 	// otherwise it dangles with a stale parent pointer.
 	test.That(t, fs.Frame("camera"), test.ShouldBeNil)
@@ -341,7 +341,7 @@ func TestReplaceFlattenedFrameOrphansExternals(t *testing.T) {
 	// FS must be unchanged: original arm is still present, internals are still
 	// installed, and the camera still resolves to world.
 	test.That(t, fs.Frame("arm1"), test.ShouldEqual, originalArm)
-	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.lookupFrame("arm1:base_link"), test.ShouldNotBeNil)
 	test.That(t, fs.parents["camera_origin"], test.ShouldEqual, "arm1:base_link")
 	test.That(t, fs.internalToComponent["arm1:base_link"], test.ShouldEqual, "arm1")
 
