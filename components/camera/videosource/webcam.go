@@ -36,6 +36,7 @@ var (
 
 const (
 	defaultFrameRate = float32(30.0)
+	resWarnInterval  = 10 * time.Minute
 )
 
 func init() {
@@ -100,8 +101,9 @@ type webcam struct {
 	closed       bool // set by Close method
 	disconnected bool // set by monitor worker
 
-	logger logging.Logger
-	buffer *webcamBuffer
+	logger          logging.Logger
+	buffer          *webcamBuffer
+	lastResWarnTime time.Time
 }
 
 // webcamBuffer is a buffer for webcam frames.
@@ -377,6 +379,16 @@ func (c *webcam) Images(_ context.Context, _ []string, _ map[string]interface{})
 	}
 
 	img := c.buffer.frame
+	if c.conf.Width != 0 && c.conf.Height != 0 {
+		if img.Bounds().Dx() != c.conf.Width || img.Bounds().Dy() != c.conf.Height {
+			if time.Since(c.lastResWarnTime) > resWarnInterval {
+				c.lastResWarnTime = time.Now()
+				c.logger.Warnf(
+					"requested width and height (%dx%d) do not match actual webcam resolution (%dx%d); using actual resolution",
+					c.conf.Width, c.conf.Height, img.Bounds().Dx(), img.Bounds().Dy())
+			}
+		}
+	}
 	namedImg, err := camera.NamedImageFromImage(img, c.Name().Name, utils.MimeTypeJPEG, data.Annotations{})
 	if err != nil {
 		return nil, resource.ResponseMetadata{}, fmt.Errorf("failed to create named image: %w", err)

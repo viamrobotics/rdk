@@ -13,6 +13,7 @@ import (
 	robotpb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	proto2 "google.golang.org/protobuf/proto"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -110,6 +111,47 @@ func TestFrameModelPart(t *testing.T) {
 		test.ShouldEqual,
 		len(part.ModelFrame.DoF()),
 	)
+}
+
+func TestFrameSystemPartProtoRoundTripPreservesKinematics(t *testing.T) {
+	// When a FrameSystemPart is serialized via ToProtobuf() and deserialized via
+	// ProtobufToFrameSystemPart() (simulating the gRPC path between modules),
+	// the reconstructed model must:
+	// 1. Have the same DoF as the original
+	// 2. Be re-serializable via KinematicModelToProtobuf with correct format (not UNSPECIFIED)
+	model, err := ParseModelJSONFile(rdkutils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(model.DoF()), test.ShouldBeGreaterThan, 0)
+
+	lc := &LinkConfig{ID: "xarm6", Parent: "world", Translation: r3.Vector{1, 2, 3}}
+	lif, err := lc.ParseConfig()
+	test.That(t, err, test.ShouldBeNil)
+
+	part := &FrameSystemPart{FrameConfig: lif, ModelFrame: model}
+
+	// Simulate gRPC with actual proto wire serialization/deserialization.
+	pbMsg, err := part.ToProtobuf()
+	test.That(t, err, test.ShouldBeNil)
+
+	wireBytes, err := proto2.Marshal(pbMsg)
+	test.That(t, err, test.ShouldBeNil)
+	received := &robotpb.FrameSystemConfig{}
+	err = proto2.Unmarshal(wireBytes, received)
+	test.That(t, err, test.ShouldBeNil)
+
+	restored, err := ProtobufToFrameSystemPart(received)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(restored.ModelFrame.DoF()), test.ShouldEqual, len(model.DoF()))
+
+	// The reconstructed model must be re-serializable with valid format.
+	kinResp := KinematicModelToProtobuf(restored.ModelFrame)
+	test.That(t, kinResp.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	test.That(t, len(kinResp.KinematicsData), test.ShouldBeGreaterThan, 0)
+
+	// And that response must parse back into a working model.
+	finalModel, err := KinematicModelFromProtobuf("xarm6", kinResp)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(finalModel.DoF()), test.ShouldEqual, len(model.DoF()))
 }
 
 func TestFramesFromPart(t *testing.T) {
@@ -540,4 +582,170 @@ func TestTopologicalSortParts(t *testing.T) {
 
 	test.That(t, unlinked, test.ShouldHaveLength, 1)
 	test.That(t, unlinked[0].FrameConfig.Name(), test.ShouldEqual, "gripper")
+}
+
+func TestNewNeutralFrameSystemInputs(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+
+	// Static frame (zero DoF)
+	staticFrame := NewZeroStaticFrame("static")
+	err := fs.AddFrame(staticFrame, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range includes zero: [-pi, pi]
+	jointZeroInRange, err := NewRotationalFrame("joint_zero_in_range", spatial.R4AA{RX: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointZeroInRange, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range is entirely positive: [1, 3]
+	jointAllPositive, err := NewRotationalFrame("joint_all_positive", spatial.R4AA{RX: 1}, Limit{Min: 1, Max: 3})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointAllPositive, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range is entirely negative: [-5, -2]
+	jointAllNegative, err := NewRotationalFrame("joint_all_negative", spatial.R4AA{RX: 1}, Limit{Min: -5, Max: -2})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointAllNegative, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	inputs := NewNeutralFrameSystemInputs(fs)
+
+	// Static frame should have empty inputs
+	test.That(t, inputs["static"], test.ShouldResemble, []Input{})
+
+	// Zero-in-range joint should clamp to 0
+	test.That(t, inputs["joint_zero_in_range"], test.ShouldHaveLength, 1)
+	test.That(t, inputs["joint_zero_in_range"][0], test.ShouldEqual, 0.0)
+
+	// All-positive joint should clamp to Min (1)
+	test.That(t, inputs["joint_all_positive"], test.ShouldHaveLength, 1)
+	test.That(t, inputs["joint_all_positive"][0], test.ShouldEqual, 1.0)
+
+	// All-negative joint should clamp to Max (-2)
+	test.That(t, inputs["joint_all_negative"], test.ShouldHaveLength, 1)
+	test.That(t, inputs["joint_all_negative"][0], test.ShouldEqual, -2.0)
+
+	// Every frame in the system should have an entry
+	for _, name := range fs.FrameNames() {
+		_, ok := inputs[name]
+		test.That(t, ok, test.ShouldBeTrue)
+	}
+}
+
+func TestNewNeutralLinearInputs(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+
+	// Static frame (zero DoF)
+	staticFrame := NewZeroStaticFrame("static")
+	err := fs.AddFrame(staticFrame, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range includes zero: [-pi, pi]
+	jointZeroInRange, err := NewRotationalFrame("joint_zero_in_range", spatial.R4AA{RX: 1}, Limit{Min: -math.Pi, Max: math.Pi})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointZeroInRange, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range is entirely positive: [1, 3]
+	jointAllPositive, err := NewRotationalFrame("joint_all_positive", spatial.R4AA{RX: 1}, Limit{Min: 1, Max: 3})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointAllPositive, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Joint whose range is entirely negative: [-5, -2]
+	jointAllNegative, err := NewRotationalFrame("joint_all_negative", spatial.R4AA{RX: 1}, Limit{Min: -5, Max: -2})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(jointAllNegative, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	inputs := NewNeutralLinearInputs(fs)
+
+	// Static frame should have empty inputs
+	test.That(t, inputs.Get("static"), test.ShouldResemble, []Input{})
+
+	// Zero-in-range joint should clamp to 0
+	zeroInRange := inputs.Get("joint_zero_in_range")
+	test.That(t, zeroInRange, test.ShouldHaveLength, 1)
+	test.That(t, zeroInRange[0], test.ShouldEqual, 0.0)
+
+	// All-positive joint should clamp to Min (1)
+	allPositive := inputs.Get("joint_all_positive")
+	test.That(t, allPositive, test.ShouldHaveLength, 1)
+	test.That(t, allPositive[0], test.ShouldEqual, 1.0)
+
+	// All-negative joint should clamp to Max (-2)
+	allNegative := inputs.Get("joint_all_negative")
+	test.That(t, allNegative, test.ShouldHaveLength, 1)
+	test.That(t, allNegative[0], test.ShouldEqual, -2.0)
+
+	// Every frame in the system should have an entry
+	for _, name := range fs.FrameNames() {
+		test.That(t, inputs.Get(name), test.ShouldNotBeNil)
+	}
+
+	// Compare with NewNeutralFrameSystemInputs — values should match
+	fsInputs := NewNeutralFrameSystemInputs(fs)
+	for _, name := range fs.FrameNames() {
+		test.That(t, inputs.Get(name), test.ShouldResemble, fsInputs[name])
+	}
+}
+
+func TestNeutralInputsTransformSucceedsWhereZeroFails(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+
+	// Create a joint whose valid range does not include zero: [1, 3]
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1}, Limit{Min: 1, Max: 3})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(joint, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add a child static frame so we can transform from it to world through the joint
+	child := NewZeroStaticFrame("child")
+	err = fs.AddFrame(child, joint)
+	test.That(t, err, test.ShouldBeNil)
+
+	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
+
+	// Zero inputs should fail because 0 is outside [1, 3]
+	zeroInputs := NewZeroLinearInputs(fs)
+	_, err = fs.Transform(zeroInputs, poseToTransform, World)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
+
+	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
+	neutralInputs := NewNeutralLinearInputs(fs)
+	result, err := fs.Transform(neutralInputs, poseToTransform, World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldNotBeNil)
+}
+
+func TestNeutralFrameSystemInputsTransformSucceedsWhereZeroFails(t *testing.T) {
+	fs := NewEmptyFrameSystem("test")
+
+	// Create a joint whose valid range does not include zero: [1, 3]
+	joint, err := NewRotationalFrame("joint", spatial.R4AA{RX: 1}, Limit{Min: 1, Max: 3})
+	test.That(t, err, test.ShouldBeNil)
+	err = fs.AddFrame(joint, fs.World())
+	test.That(t, err, test.ShouldBeNil)
+
+	// Add a child static frame so we can transform from it to world through the joint
+	child := NewZeroStaticFrame("child")
+	err = fs.AddFrame(child, joint)
+	test.That(t, err, test.ShouldBeNil)
+
+	poseToTransform := NewPoseInFrame("child", spatial.NewZeroPose())
+
+	// Zero inputs should fail because 0 is outside [1, 3]
+	zeroInputs := NewZeroInputs(fs)
+	_, err = fs.Transform(zeroInputs.ToLinearInputs(), poseToTransform, World)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, OOBErrString)
+
+	// Neutral inputs should succeed because they clamp to the nearest valid value (1)
+	neutralInputs := NewNeutralFrameSystemInputs(fs)
+	result, err := fs.Transform(neutralInputs.ToLinearInputs(), poseToTransform, World)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldNotBeNil)
 }

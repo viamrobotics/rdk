@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/urfave/cli/v2"
+import "github.com/urfave/cli/v3"
 
 // AliasStringFlag returns f.Name as the last member of Names(), and hides aliases from the
 // String representation of the flag. This is useful for decluttering error messages and help

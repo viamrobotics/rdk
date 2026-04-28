@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/switch/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
@@ -21,6 +22,7 @@ var (
 	errCantGetNumberOfPositions = errors.New("can't get number of positions")
 	errLabelCountMismatch       = errors.New("the number of labels does not match the number of positions")
 	errSwitchNotFound           = errors.New("not found")
+	errGetStatusFailed          = errors.New("can't get status")
 )
 
 const testSwitchName2 = "switch3"
@@ -208,4 +210,30 @@ func TestServer(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := switchServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: missingSwitchName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errSwitchNotFound.Error())
+
+		resp, err := switchServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSwitchName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectSwitch.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = switchServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSwitchName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		injectSwitch.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = switchServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSwitchName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		injectSwitch.StatusFunc = nil
+	})
 }

@@ -23,6 +23,7 @@ var (
 	errSpinFailed       = errors.New("critical failure in Spin")
 	errPropertiesFailed = errors.New("critical failure in Properties")
 	errStopFailed       = errors.New("critical failure in Stop")
+	errGetStatusFailed  = errors.New("can't get status")
 )
 
 func newServer(logger logging.Logger) (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
@@ -224,5 +225,31 @@ func TestServer(t *testing.T) {
 		resp, err = server.GetGeometries(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, base.ErrGeometriesNil(failBaseName))
+	})
+
+	t.Run("GetStatus", func(t *testing.T) {
+		_, err := server.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: "dne"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
+
+		resp, err := server.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testBaseName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		workingBase.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		resp, err = server.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testBaseName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+		workingBase.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return nil, errGetStatusFailed
+		}
+		_, err = server.GetStatus(context.Background(), &pbcommon.GetStatusRequest{Name: testBaseName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+		workingBase.StatusFunc = nil
 	})
 }

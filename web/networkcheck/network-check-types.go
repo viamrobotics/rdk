@@ -7,6 +7,113 @@ import (
 	"go.viam.com/rdk/logging"
 )
 
+// gatewayResultDescription is the Description value set on a PacketLossResult for the router probe.
+const gatewayResultDescription = "router"
+
+// PacketLossResult holds the results of a packet loss probe to a specific host.
+type PacketLossResult struct {
+	// Target is the IP address being probed.
+	Target string
+
+	// Description describes the role of the target (e.g., "router", "ISP").
+	Description string
+
+	// Sent is the number of ICMP echo probes sent.
+	Sent int
+
+	// Received is the number of ICMP echo replies received.
+	Received int
+
+	// AvgRTTMS is the average round-trip time in milliseconds across received replies.
+	// Nil if no replies were received.
+	AvgRTTMS *int64
+
+	// ErrorString is set if the test could not be initialized or completed.
+	ErrorString *string
+}
+
+// LossPercent returns the percentage of probes that were lost.
+func (r *PacketLossResult) LossPercent() float64 {
+	if r.Sent == 0 {
+		return 100.0
+	}
+	return float64(r.Sent-r.Received) / float64(r.Sent) * 100.0
+}
+
+func stringifyPacketLossResults(results []*PacketLossResult) string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, r := range results {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		fmt.Fprintf(&sb, "{target: %s, description: %s, sent: %d, received: %d, loss_pct: %.0f%%",
+			r.Target, r.Description, r.Sent, r.Received, r.LossPercent())
+		if r.AvgRTTMS != nil {
+			fmt.Fprintf(&sb, ", avg_rtt_ms: %d", *r.AvgRTTMS)
+		}
+		if r.ErrorString != nil {
+			fmt.Fprintf(&sb, ", error: %s", *r.ErrorString)
+		}
+		sb.WriteString("}")
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
+func logPacketLossResults(logger logging.Logger, results []*PacketLossResult, verbose bool) {
+	var anyLoss bool
+	for _, r := range results {
+		if r.ErrorString != nil || r.LossPercent() > 0 {
+			anyLoss = true
+			break
+		}
+	}
+
+	// If the router has 100% packet loss but the ISP target is reachable, note that the
+	// gateway is still routing traffic correctly — many routers drop ICMP ping by default.
+	var routerFullLoss, ispReachable, ispHighLoss, ispFullLoss bool
+	for _, r := range results {
+		if r.Description == gatewayResultDescription && r.LossPercent() == 100 && r.ErrorString == nil {
+			routerFullLoss = true
+		}
+		if r.Description != gatewayResultDescription {
+			if r.LossPercent() == 0 {
+				ispReachable = true
+			}
+			if r.LossPercent() > 50 && r.LossPercent() < 100 {
+				ispHighLoss = true
+			}
+			if r.LossPercent() == 100 || r.ErrorString != nil {
+				ispFullLoss = true
+			}
+		}
+	}
+
+	msg := "packet loss tests complete"
+	keysAndValues := []any{"packet_loss_tests", stringifyPacketLossResults(results)}
+	if routerFullLoss && ispReachable {
+		keysAndValues = append(keysAndValues,
+			"note", "gateway is not responding to ICMP ping, but internet connectivity appears normal; many routers block ping by default",
+		)
+	}
+	if ispHighLoss {
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target (1.1.1.1) has high packet loss; internet connectivity may be spotty",
+		)
+	}
+	if ispFullLoss {
+		keysAndValues = append(keysAndValues,
+			"note", "ISP target (1.1.1.1) is unreachable; internet connectivity may be down",
+		)
+	}
+	if anyLoss {
+		logger.Warnw(msg, keysAndValues...)
+	} else if verbose {
+		logger.Infow(msg, keysAndValues...)
+	}
+}
+
 type (
 	// DNSTestType is an enumeration of test types.
 	DNSTestType int

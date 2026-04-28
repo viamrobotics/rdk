@@ -98,6 +98,10 @@ const (
 	// ViamTCPSocketsEnvVar if set to a true-like value, indicates that TCP sockets should be used
 	// in lieu of Unix sockets.
 	ViamTCPSocketsEnvVar = "VIAM_TCP_SOCKETS"
+
+	// ViamModuleAddress is used to pass the address a module should listen on to
+	// the module process.
+	ViamModuleAddress = "VIAM_MODULE_ADDRESS"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
@@ -107,7 +111,7 @@ var EnvTrueValues = []string{"true", "yes", "1", "TRUE", "YES"}
 var TCPRegex = regexp.MustCompile(`:\d+$`)
 
 // ViamDotDir is the directory for Viam's cached files.
-var ViamDotDir = filepath.Join(PlatformHomeDir(), ".viam")
+var ViamDotDir = viamDotDir()
 
 var windowsPathRegex = regexp.MustCompile(`^(\w:)?(.+)$`)
 
@@ -145,6 +149,14 @@ func timeoutHelper(defaultTimeout time.Duration, timeoutEnvVar string, logger lo
 	return defaultTimeout, true
 }
 
+// construct the .viam path from user's home directory, or $VIAM_HOME if available.
+func viamDotDir() string {
+	if viamHome := os.Getenv(HomeEnvVar); viamHome != "" {
+		return viamHome
+	}
+	return filepath.Join(PlatformHomeDir(), ".viam")
+}
+
 // PlatformHomeDir wraps Getenv("HOME"), except on android, where it returns the app cache directory.
 func PlatformHomeDir() string {
 	if runtime.GOOS == "android" {
@@ -160,10 +172,23 @@ func PlatformHomeDir() string {
 }
 
 // PlatformMkdirTemp wraps MkdirTemp. On android, when dir is empty, it uses a path
-// that is writable + executable.
+// that is writable + executable. On windows, it sometimes switches the drive.
 func PlatformMkdirTemp(dir, pattern string) (string, error) {
 	if runtime.GOOS == "android" && dir == "" {
 		dir = AndroidFilesDir
+	}
+	if runtime.GOOS == "windows" {
+		if wd, err := os.Getwd(); err != nil {
+			return "", err
+		} else if filepath.VolumeName(wd) != "C:" {
+			// because we put socket paths in the temp dir, and because socket paths are
+			// posix paths (leading slash) for grpc-go reasons, we can't use the normal
+			// temp dir (which is on C:) when working directory is not on C:.
+			dir = filepath.Join(ViamDotDir, "tmp")
+			if err := os.MkdirAll(dir, 0o700); err != nil {
+				return "", err
+			}
+		}
 	}
 	return os.MkdirTemp(dir, pattern)
 }
@@ -219,14 +244,16 @@ func GetenvBool(v string, def bool) bool {
 // It converts e.g. C:\x\y.sock to /x/y.sock
 // If you don't do this, it will confuse grpc-go's url.Parse call and surrounding logic.
 // See https://github.com/grpc/grpc-go/blob/v1.71.0/clientconn.go#L1720-L1727
+//
+// Deprecated: CleanWindowsSocketPath existed as part of a partial workaround
+// to how gRPC handles paths to unix domain sockets on Windows. The issue has
+// since been fixed through other means. This function still exists only to
+// maintain compatibility with modules compiled with previous versions of rdk.
 func CleanWindowsSocketPath(goos, orig string) (string, error) {
 	if goos == "windows" {
 		match := windowsPathRegex.FindStringSubmatch(orig)
 		if match == nil {
 			return "", fmt.Errorf("error cleaning socket path %s", orig)
-		}
-		if match[1] != "" && strings.ToLower(match[1]) != "c:" {
-			return "", fmt.Errorf("we expect unix sockets on C: drive, not %s", match[1])
 		}
 		return strings.ReplaceAll(match[2], "\\", "/"), nil
 	}

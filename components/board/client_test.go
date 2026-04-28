@@ -214,6 +214,21 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, actualExtra, test.ShouldResemble, expectedExtra)
 		test.That(t, err, test.ShouldHaveSameTypeAs, viamgrpc.UnimplementedError)
 
+		// Status - default empty status
+		statusResult, err := client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectBoard.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectBoard.StatusFunc = nil
+
 		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
 	}
 

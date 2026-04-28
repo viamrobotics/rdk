@@ -15,6 +15,7 @@ type Board struct {
 	board.Board
 	name                       resource.Name
 	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc                 func(ctx context.Context) (map[string]interface{}, error)
 	AnalogByNameFunc           func(name string) (board.Analog, error)
 	analogByNameCap            []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, error)
@@ -128,4 +129,15 @@ func (b *Board) StreamTicks(ctx context.Context,
 		return b.Board.StreamTicks(ctx, interrupts, ch, extra)
 	}
 	return b.StreamTicksFunc(ctx, interrupts, ch, extra)
+}
+
+// Status calls the injected Status or the real version.
+func (b *Board) Status(ctx context.Context) (map[string]interface{}, error) {
+	if b.StatusFunc != nil {
+		return b.StatusFunc(ctx)
+	}
+	if b.Board != nil {
+		return b.Board.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

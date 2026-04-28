@@ -57,6 +57,11 @@ const (
 	DoPlan              = "plan"
 	DoExecute           = "execute"
 	DoExecuteCheckStart = "executeCheckStart"
+
+	DoTeleopStart  = "teleop_start"
+	DoTeleopMove   = "teleop_move"
+	DoTeleopStop   = "teleop_stop"
+	DoTeleopStatus = "teleop_status"
 )
 
 const (
@@ -135,6 +140,10 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+
+	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
+	teleopMu       sync.RWMutex
+	teleopPipeline *teleopPipeline
 }
 
 // NewBuiltIn returns a new move and grab service for the given robot.
@@ -159,9 +168,16 @@ func (ms *builtIn) Reconfigure(
 	deps resource.Dependencies,
 	conf resource.Config,
 ) error {
+	// Stop teleop pipeline before acquiring write lock (goroutines may hold RLock).
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
+
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-
 	config, err := resource.NativeConfig[*Config](conf)
 	if err != nil {
 		return err
@@ -203,6 +219,13 @@ func (ms *builtIn) Reconfigure(
 }
 
 func (ms *builtIn) Close(ctx context.Context) error {
+	ms.teleopMu.Lock()
+	if ms.teleopPipeline != nil {
+		ms.teleopPipeline.stop(ctx, ms)
+		ms.teleopPipeline = nil
+	}
+	ms.teleopMu.Unlock()
+
 	return nil
 }
 
@@ -273,6 +296,11 @@ func (ms *builtIn) PlanHistory(
 //     input value: a motionplan.Trajectory
 //     output value: a bool
 func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	// Handle teleop commands first (they manage their own locking).
+	if resp, handled, err := ms.handleTeleopCommand(ctx, cmd); handled {
+		return resp, err
+	}
+
 	ms.mu.RLock()
 	defer ms.mu.RUnlock()
 	resp := make(map[string]interface{}, 0)
@@ -501,6 +529,74 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 			ms.logger.Warnf("couldn't write plan: %v", err)
 		}
 	}
+	return plan, err
+}
+
+// planTeleop is a low-latency variant of plan() for the teleop pipeline.
+// It uses a pre-built frame system and caller-provided fsInputs (merged from
+// live CurrentInputs + planning head) to avoid per-call overhead.
+func (ms *builtIn) planTeleop(
+	ctx context.Context,
+	req motion.MoveReq,
+	frameSys *referenceframe.FrameSystem,
+	fsInputs referenceframe.FrameSystemInputs,
+	logger logging.Logger,
+) (motionplan.Plan, error) {
+	ctx, span := trace.StartSpan(ctx, "motion::builtin::planTeleop")
+	defer span.End()
+
+	movingFrame := frameSys.Frame(req.ComponentName)
+	if movingFrame == nil {
+		return nil, fmt.Errorf("component named %s not found in robot frame system", req.ComponentName)
+	}
+
+	startState, waypoints, err := waypointsFromRequest(req, fsInputs)
+	if err != nil {
+		return nil, err
+	}
+	if len(waypoints) == 0 {
+		return nil, errors.New("could not find any waypoints to plan for in MoveRequest. Fill in Destination or goal_state")
+	}
+
+	if req.Extra != nil {
+		req.Extra["waypoints"] = nil
+	}
+
+	// Re-evaluate goal poses to be in the frame of World.
+	worldWaypoints := []*armplanning.PlanState{}
+	solvingFrame := referenceframe.World
+	for _, wp := range waypoints {
+		if wp.Poses() != nil {
+			step := referenceframe.FrameSystemPoses{}
+			for fName, destination := range wp.Poses() {
+				tf, err := frameSys.Transform(fsInputs.ToLinearInputs(), destination, solvingFrame)
+				if err != nil {
+					return nil, err
+				}
+				goalPose, _ := tf.(*referenceframe.PoseInFrame)
+				step[fName] = goalPose
+			}
+			worldWaypoints = append(worldWaypoints, armplanning.NewPlanState(step, wp.Configuration()))
+		} else {
+			worldWaypoints = append(worldWaypoints, wp)
+		}
+	}
+
+	planOpts, err := armplanning.NewPlannerOptionsFromExtra(req.Extra)
+	if err != nil {
+		return nil, err
+	}
+
+	planRequest := &armplanning.PlanRequest{
+		FrameSystem:    frameSys,
+		Goals:          worldWaypoints,
+		StartState:     startState,
+		WorldState:     req.WorldState,
+		Constraints:    req.Constraints,
+		PlannerOptions: planOpts,
+	}
+
+	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
 	return plan, err
 }
 

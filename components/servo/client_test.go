@@ -105,6 +105,21 @@ func TestClient(t *testing.T) {
 		test.That(t, workingServoClient.Stop(context.Background(), map[string]interface{}{"foo": "Stop"}), test.ShouldBeNil)
 		test.That(t, actualExtra, test.ShouldResemble, map[string]interface{}{"foo": "Stop"})
 
+		// Status - default empty status
+		statusResult, err := workingServoClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		workingServo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = workingServoClient.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		workingServo.StatusFunc = nil
+
 		test.That(t, workingServoClient.Close(context.Background()), test.ShouldBeNil)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

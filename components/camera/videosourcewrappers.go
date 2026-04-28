@@ -61,6 +61,11 @@ func (vs *sourceBasedCamera) DoCommand(ctx context.Context, cmd map[string]inter
 	return vs.VideoSource.DoCommand(ctx, cmd)
 }
 
+// Define Status to resolve ambiguity between VideoSource and resource.Named.
+func (vs *sourceBasedCamera) Status(ctx context.Context) (map[string]interface{}, error) {
+	return vs.VideoSource.Status(ctx)
+}
+
 func (vs *sourceBasedCamera) SubscribeRTP(
 	ctx context.Context,
 	bufferSize int,
@@ -302,6 +307,10 @@ func (vs *videoSource) Properties(ctx context.Context) (Properties, error) {
 	}
 
 	return result, nil
+}
+
+func (vs *videoSource) Status(ctx context.Context) (map[string]interface{}, error) {
+	return map[string]interface{}{}, nil
 }
 
 func (vs *videoSource) Close(ctx context.Context) error {

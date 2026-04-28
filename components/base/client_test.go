@@ -190,6 +190,23 @@ func TestClient(t *testing.T) {
 				test.That(t, spatialmath.GeometriesAlmostEqual(geometry, expectedGeometries[i]), test.ShouldBeTrue)
 			}
 		})
+
+		t.Run("working Status", func(t *testing.T) {
+			// Status - default empty status
+			statusResult, err := workingBaseClient.Status(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, statusResult, test.ShouldBeEmpty)
+
+			// Status - custom status
+			expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+			workingBase.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+				return expectedStatus, nil
+			}
+			statusResult, err = workingBaseClient.Status(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+			workingBase.StatusFunc = nil
+		})
 	})
 
 	t.Run("working base client by dialing", func(t *testing.T) {

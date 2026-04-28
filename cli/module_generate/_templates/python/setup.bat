@@ -4,7 +4,7 @@ cd /d "%~dp0"
 REM Create a virtual environment to run our code
 set VENV_NAME=venv
 set PYTHON=%VENV_NAME%\Scripts\python.exe
-set ENV_ERROR=This module requires Python >=3.8, pip, and virtualenv to be installed.
+set ENV_ERROR=This module requires Python >=3.10, pip, and virtualenv to be installed.
 
 python -m venv %VENV_NAME% >nul 2>&1
 if errorlevel 1 (

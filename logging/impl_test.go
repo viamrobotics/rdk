@@ -502,7 +502,7 @@ func TestLoggingDeduplication(t *testing.T) {
 	notStdout := &bytes.Buffer{}
 	logger := &impl{
 		name:                     "impl",
-		level:                    NewAtomicLevelAt(DEBUG),
+		level:                    NewAtomicLevelAt(INFO),
 		appenders:                []Appender{NewWriterAppender(notStdout)},
 		registry:                 registry,
 		testHelper:               func() {},
@@ -606,6 +606,100 @@ func TestLoggingDeduplication(t *testing.T) {
 			len(ignoredLogFieldKeys)+1))
 	assertLogMatches(t, notStdout,
 		`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	foo	{"key":"value"}`)
+}
+
+func TestDebugLevelNeverDeduplicates(t *testing.T) {
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set DeduplicateLogs to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
+	originalNoisyMessageWindowDuration := noisyMessageWindowDuration
+	noisyMessageWindowDuration = 500 * time.Millisecond
+	defer func() {
+		noisyMessageWindowDuration = originalNoisyMessageWindowDuration
+	}()
+
+	// A logger at DEBUG level should never deduplicate, even without NeverDeduplicate().
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(DEBUG),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	for range 4 {
+		logger.Info("identical message")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
+	}
+
+	// Bumping to INFO should re-enable deduplication.
+	logger.SetLevel(INFO)
+	for range 4 {
+		logger.Info("identical message")
+	}
+	// Only the first three (up to noisyMessageCountThreshold) should appear.
+	for range noisyMessageCountThreshold {
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
+	}
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
+}
+
+func TestGlobalDebugLevelNeverDeduplicates(t *testing.T) {
+	// Create a logger object that will write to the `notStdout` buffer. Explicitly
+	// set DeduplicateLogs to true on the registry for the logger.
+	registry := newRegistry()
+	registry.DeduplicateLogs.Store(true)
+
+	originalNoisyMessageWindowDuration := noisyMessageWindowDuration
+	noisyMessageWindowDuration = 500 * time.Millisecond
+	defer func() {
+		noisyMessageWindowDuration = originalNoisyMessageWindowDuration
+	}()
+
+	// Set GlobalLogLevel to DEBUG, and restore it after the test.
+	originalGlobalLogLevel := GlobalLogLevel.Level()
+	GlobalLogLevel.SetLevel(zapcore.DebugLevel)
+	defer GlobalLogLevel.SetLevel(originalGlobalLogLevel)
+
+	// Logger itself is at INFO level — deduplication should still be suppressed because
+	// the global debug flag is on.
+	notStdout := &bytes.Buffer{}
+	logger := &impl{
+		name:                     "impl",
+		level:                    NewAtomicLevelAt(INFO),
+		appenders:                []Appender{NewWriterAppender(notStdout)},
+		registry:                 registry,
+		testHelper:               func() {},
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+
+	for range 4 {
+		logger.Info("identical message")
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
+	}
+
+	// Restoring GlobalLogLevel to a non-debug level should re-enable deduplication.
+	GlobalLogLevel.SetLevel(zapcore.InfoLevel)
+	for range 4 {
+		logger.Info("identical message")
+	}
+	// Only the first three (up to noisyMessageCountThreshold) should appear.
+	for range noisyMessageCountThreshold {
+		assertLogMatches(t, notStdout,
+			`2023-10-30T13:19:45.806Z	INFO	impl	logging/impl_test.go:132	identical message`)
+	}
+	test.That(t, notStdout.Len(), test.ShouldEqual, 0)
 }
 
 func TestNeverDeduplicate(t *testing.T) {

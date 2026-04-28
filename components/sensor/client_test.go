@@ -92,6 +92,21 @@ func TestClient(t *testing.T) {
 		test.That(t, rs1, test.ShouldResemble, rs)
 		test.That(t, extraCap, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 
+		// Status - default empty status
+		statusResult, err := sensor1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectSensor.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = sensor1Client.Status(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectSensor.StatusFunc = nil
+
 		test.That(t, sensor1Client.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

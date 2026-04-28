@@ -70,10 +70,12 @@ func (t *Triangle) Centroid() r3.Vector {
 
 // Transform premultiplies the triangle's points with a transform, allowing the triangle to be moved in space.
 func (t *Triangle) Transform(toPremultiply Pose) Geometry {
+	q := toPremultiply.Orientation().Quaternion()
+	trans := toPremultiply.Point()
 	return NewLabeledTriangle(
-		Compose(toPremultiply, NewPoseFromPoint(t.p0)).Point(),
-		Compose(toPremultiply, NewPoseFromPoint(t.p1)).Point(),
-		Compose(toPremultiply, NewPoseFromPoint(t.p2)).Point(),
+		TransformPoint(q, trans, t.p0),
+		TransformPoint(q, trans, t.p1),
+		TransformPoint(q, trans, t.p2),
 		t.label,
 	)
 }

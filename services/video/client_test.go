@@ -270,4 +270,21 @@ func TestClientGetVideoStreamErrors(t *testing.T) {
 			t.Fatal("timed out waiting for channel close after context deadline")
 		}
 	})
+
+	t.Run("Status", func(t *testing.T) {
+		// Status - default empty status
+		statusResult, err := svc.Status(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldBeEmpty)
+
+		// Status - custom status
+		expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+		injectVideo.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+			return expectedStatus, nil
+		}
+		statusResult, err = svc.Status(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
+		injectVideo.StatusFunc = nil
+	})
 }

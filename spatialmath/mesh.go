@@ -45,6 +45,11 @@ type Mesh struct {
 	// Built lazily on first collision check via ensureBVH().
 	bvh     *bvhNode
 	bvhOnce sync.Once
+
+	// uniqueVerts is a deduplicated list of triangle vertices in local space.
+	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
+	uniqueVerts     []r3.Vector
+	uniqueVertsOnce sync.Once
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -294,7 +299,8 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		fileType:         m.fileType,
 		rawBytes:         m.rawBytes,
 		originalFilePath: m.originalFilePath,
-		bvh:              m.bvh,
+		bvh:              m.ensureBVH(),
+		uniqueVerts:      m.ensureUniqueVertices(),
 	}
 }
 
@@ -310,7 +316,9 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 			return true, -1, nil
 		}
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
-	case *capsule, *point, *sphere, *Mesh:
+	case *Mesh:
+		return m.collidesWithMesh(other, collisionBufferMM)
+	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
 		triMesh := NewMesh(NewZeroPose(), []*Triangle{other}, "")
@@ -322,12 +330,15 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 
 // EncompassedBy returns whether this mesh is completely contained within another geometry.
 func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
-	if _, ok := g.(*point); ok {
+	switch other := g.(type) {
+	case *point:
 		return false, nil
+	case *Mesh:
+		// Meshes are not treated as solid volumes for collision checks, so this uses conservative
+		// AABB containment to support collision-safe simplification checks.
+		return m.encompassedByMeshAABB(other), nil
 	}
-	if _, ok := g.(*Mesh); ok {
-		return false, nil
-	}
+
 	// For all other geometry types, check if all vertices of all triangles are inside
 	for _, pt := range m.ToPoints(1) {
 		collides, _, err := NewPoint(pt, "").CollidesWith(g, defaultCollisionBufferMM)
@@ -367,24 +378,36 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 	}
 }
 
+// ensureUniqueVertices lazily computes the deduplicated vertex list.
+func (m *Mesh) ensureUniqueVertices() []r3.Vector {
+	m.uniqueVertsOnce.Do(func() {
+		if m.uniqueVerts == nil && len(m.triangles) > 0 {
+			seen := make(map[r3.Vector]struct{})
+			verts := []r3.Vector{}
+			for _, tri := range m.triangles {
+				for _, pt := range tri.Points() {
+					if _, ok := seen[pt]; ok {
+						continue
+					}
+					seen[pt] = struct{}{}
+					verts = append(verts, pt)
+				}
+			}
+			m.uniqueVerts = verts
+		}
+	})
+	return m.uniqueVerts
+}
+
 // Returns true if any triangle vertex of the mesh intersects the box.
 func (m *Mesh) boxIntersectsVertex(b *box) bool {
-	// Use map to deduplicate vertices
-	pointMap := make(map[string]r3.Vector)
-	// Add all triangle vertices, formatting as a string for map deduplication
-	for _, tri := range m.triangles {
-		for _, pt := range tri.Points() {
-			// If this is a shared vertex we can skip the math after the first time
-			key := fmt.Sprintf("%.10f,%.10f,%.10f", pt.X, pt.Y, pt.Z)
-			if _, ok := pointMap[key]; ok {
-				continue
-			}
-			pointMap[key] = pt
-			worldPt := Compose(m.pose, NewPoseFromPoint(pt)).Point()
-			c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
-			if c {
-				return true
-			}
+	q := m.pose.Orientation().Quaternion()
+	t := m.pose.Point()
+	for _, pt := range m.ensureUniqueVertices() {
+		worldPt := TransformPoint(q, t, pt)
+		c, _ := pointVsBoxCollision(worldPt, b, defaultCollisionBufferMM)
+		if c {
+			return true
 		}
 	}
 	return false
@@ -402,6 +425,26 @@ func (m *Mesh) distanceFromSphere(s *sphere) float64 {
 		}
 	}
 	return minDist
+}
+
+// encompassedByMeshAABB checks whether all vertices of m fall within the world-space AABB of other.
+// This is intentionally conservative (loose): a mesh inside the AABB might not be inside the actual
+// hull, but a mesh outside the AABB is definitely not inside. This is used only for collision-safe
+// simplification validation (e.g. verifying that a decimated hull still encloses the original mesh).
+func (m *Mesh) encompassedByMeshAABB(other *Mesh) bool {
+	if len(other.triangles) == 0 {
+		return false
+	}
+	minPt, maxPt := computeMeshAABB(other)
+	eps := defaultCollisionBufferMM
+	for _, pt := range m.ToPoints(1) {
+		if pt.X < minPt.X-eps || pt.X > maxPt.X+eps ||
+			pt.Y < minPt.Y-eps || pt.Y > maxPt.Y+eps ||
+			pt.Z < minPt.Z-eps || pt.Z > maxPt.Z+eps {
+			return false
+		}
+	}
+	return true
 }
 
 // ensureBVH builds the BVH if it hasn't been built yet (thread-safe).

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/mlmodel/v1"
 	"go.viam.com/test"
 	"gorgonia.org/tensor"
@@ -187,4 +188,40 @@ func TestServerInfer(t *testing.T) {
 	locations := protoTensors["locations"].GetFloatTensor()
 	test.That(t, locations, test.ShouldNotBeNil)
 	test.That(t, locations.Data[0:4], test.ShouldResemble, []float32{0.1, 0.4, 0.22, 0.4})
+}
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	mockSrv := inject.NewMLModelService(testMLModelServiceName)
+	resources := map[resource.Name]mlmodel.Service{
+		mlmodel.Named(testMLModelServiceName): mockSrv,
+	}
+	server, err := newServer(resources, logging.NewTestLogger(t))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMLModelServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	mockSrv.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMLModelServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	mockSrv.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testMLModelServiceName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	mockSrv.StatusFunc = nil
 }

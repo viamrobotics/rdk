@@ -1,6 +1,7 @@
 package referenceframe
 
 import (
+	"encoding/json"
 	"math"
 	"math/rand"
 	"testing"
@@ -338,6 +339,187 @@ func TestSimpleModelProtoRoundTrip(t *testing.T) {
 	test.That(t, restored, test.ShouldNotBeNil)
 	test.That(t, restored.Name(), test.ShouldEqual, "test")
 	test.That(t, len(restored.DoF()), test.ShouldEqual, 0)
+}
+
+func TestOriginalFilePreservedThroughJSON(t *testing.T) {
+	// Verify that OriginalFile (extension + raw bytes) survives JSON serialization,
+	// which is the mechanism used by FrameSystemPart.ToProtobuf/ProtobufToFrameSystemPart.
+
+	t.Run("SVA model preserves original file through JSON round-trip", func(t *testing.T) {
+		original, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "json")
+
+		// Round-trip through JSON (same path as ToProtobuf → ProtobufToFrameSystemPart).
+		bytes, err := original.MarshalJSON()
+		test.That(t, err, test.ShouldBeNil)
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "json")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		// The restored model should produce a valid proto with correct format.
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_SVA)
+	})
+
+	t.Run("URDF model preserves original file through JSON round-trip", func(t *testing.T) {
+		original, err := ParseModelXMLFile(utils.ResolveFile("referenceframe/testfiles/ur5e.urdf"), "", nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		cfg := original.ModelConfig()
+		test.That(t, cfg, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, cfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
+
+		bytes, err := original.MarshalJSON()
+		test.That(t, err, test.ShouldBeNil)
+
+		var restored SimpleModel
+		err = json.Unmarshal(bytes, &restored)
+		test.That(t, err, test.ShouldBeNil)
+
+		restoredCfg := restored.ModelConfig()
+		test.That(t, restoredCfg, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile, test.ShouldNotBeNil)
+		test.That(t, restoredCfg.OriginalFile.Extension, test.ShouldEqual, "urdf")
+		test.That(t, len(restoredCfg.OriginalFile.Bytes), test.ShouldBeGreaterThan, 0)
+
+		proto := KinematicModelToProtobuf(&restored)
+		test.That(t, proto.Format, test.ShouldEqual, commonpb.KinematicsFileFormat_KINEMATICS_FILE_FORMAT_URDF)
+	})
+}
+
+// TestMimicGripperModel loads a branching gripper with mimic joints and verifies:
+//   - right_joint mimics left_joint (multiplier=1, offset=0) → only 1 DoF
+//   - Transform returns the TCP position
+//   - Both finger geometries are correctly placed (symmetric)
+func TestMimicGripperModel(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, model.Name(), test.ShouldEqual, "test_mimic_gripper")
+
+	// right_joint mimics left_joint, so only 1 DoF
+	test.That(t, len(model.DoF()), test.ShouldEqual, 1)
+
+	// Open the gripper to 25 mm (left_joint=25, right_joint derived=25)
+	leftMM := 25.0
+	inputs := []Input{leftMM}
+
+	// TCP is a static link at (0,0,30) from base; it does not move with the joints.
+	tcpPose, err := model.Transform(inputs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(tcpPose.Point(), r3.Vector{X: 0, Y: 0, Z: 30}, defaultFloatPrecision), test.ShouldBeTrue)
+
+	// Verify geometries
+	geoms, err := model.Geometries(inputs)
+	test.That(t, err, test.ShouldBeNil)
+
+	const fingerBodyCenterZ = 15.0
+
+	// left_finger: base → left_joint at (0,+25,0) → geometry center at (0,+25,15)
+	leftPt := geoms.GeometryByName("test_mimic_gripper:left_finger").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(
+		leftPt, r3.Vector{X: 0, Y: leftMM, Z: fingerBodyCenterZ}, defaultFloatPrecision,
+	), test.ShouldBeTrue)
+
+	// right_finger: base → right_joint at (0,-25,0) → geometry center at (0,-25,15)
+	rightPt := geoms.GeometryByName("test_mimic_gripper:right_finger").Pose().Point()
+	test.That(t, spatial.R3VectorAlmostEqual(
+		rightPt, r3.Vector{X: 0, Y: -leftMM, Z: fingerBodyCenterZ}, defaultFloatPrecision,
+	), test.ShouldBeTrue)
+
+	// Fingers should be symmetric about Y=0
+	test.That(t, spatial.R3VectorAlmostEqual(
+		r3.Vector{X: leftPt.X, Y: -leftPt.Y, Z: leftPt.Z},
+		r3.Vector{X: rightPt.X, Y: rightPt.Y, Z: rightPt.Z},
+		defaultFloatPrecision,
+	), test.ShouldBeTrue)
+}
+
+// TestMimicSerialModel loads a 3-joint serial arm where joint3 mimics joint1 with
+// multiplier=-1. The model should have 2 DoF (joint1 and joint2), and joint3 should
+// move at -1x joint1.
+func TestMimicSerialModel(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_serial.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, model.Name(), test.ShouldEqual, "test_mimic_serial")
+
+	// joint3 mimics joint1, so 2 DoF (joint1 + joint2)
+	test.That(t, len(model.DoF()), test.ShouldEqual, 2)
+
+	// With joint1=0 and joint2=0, the tip should be at (0,0,300) — three 100mm links stacked.
+	pose, err := model.Transform([]Input{0, 0})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: 0, Y: 0, Z: 300}, defaultFloatPrecision), test.ShouldBeTrue)
+
+	// Rotate joint1 by 90° (pi/2). joint3 mimics at -1x so rotates -90°.
+	// joint2 stays at 0.
+	// link0 at origin, joint1 rotates +90° around Y.
+	// After joint1(+90°): link1 end is at (100, 0, 0).
+	// joint2(0°): link2 end is at (200, 0, 0).
+	// joint3(-90°): rotates -90° around Y, link3 goes "back up" in Z.
+	// link3 end is at (200, 0, 100).
+	pose, err = model.Transform([]Input{math.Pi / 2, 0})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(pose.Point(), r3.Vector{X: 200, Y: 0, Z: 100}, defaultFloatPrecision), test.ShouldBeTrue)
+}
+
+// TestMimicBuildErrors verifies error handling for invalid mimic configurations.
+func TestMimicBuildErrors(t *testing.T) {
+	t.Run("circular reference", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			KinParamType: "SVA",
+			OutputFrames: []string{"tcp"},
+			Links: []LinkConfig{
+				{ID: "base", Parent: "world"},
+				{ID: "tcp", Parent: "j2"},
+			},
+			Joints: []JointConfig{
+				{
+					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1},
+					Mimic: &MimicConfig{Joint: "j2"},
+				},
+				{
+					ID: "j2", Type: RevoluteJoint, Parent: "j1", Axis: spatial.AxisConfig{0, 0, 1},
+					Mimic: &MimicConfig{Joint: "j1"},
+				},
+			},
+		}
+		_, err := cfg.ParseConfig("test")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, ErrCircularMimicReference.Error())
+	})
+
+	t.Run("missing source", func(t *testing.T) {
+		cfg := &ModelConfigJSON{
+			KinParamType: "SVA",
+			OutputFrames: []string{"tcp"},
+			Links: []LinkConfig{
+				{ID: "base", Parent: "world"},
+				{ID: "tcp", Parent: "j1"},
+			},
+			Joints: []JointConfig{
+				{
+					ID: "j1", Type: RevoluteJoint, Parent: "base", Axis: spatial.AxisConfig{0, 0, 1},
+					Mimic: &MimicConfig{Joint: "nonexistent"},
+				},
+			},
+		}
+		_, err := cfg.ParseConfig("test")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, ErrMimicSourceNotFound.Error())
+	})
 }
 
 func TestExtractMeshMapFromModelConfig(t *testing.T) {

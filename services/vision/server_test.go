@@ -6,11 +6,13 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/service/vision/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -52,7 +54,9 @@ func TestVisionServerFailures(t *testing.T) {
 	// correct server with error returned
 	injectVS := &inject.VisionService{}
 	passedErr := errors.New("fake error")
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		return nil, passedErr
 	}
 	m = map[resource.Name]vision.Service{
@@ -89,8 +93,14 @@ func TestServerGetDetections(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(img.Bounds(), image.Rect(0, 0, 10, 20), 0.5, "yes")
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
+		decoded, err := img.Image(ctx)
+		if err != nil {
+			return nil, err
+		}
+		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)
@@ -154,8 +164,14 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(img.Bounds(), image.Rectangle{}, 0.5, "yes")
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
+		decoded, err := img.Image(ctx)
+		if err != nil {
+			return nil, err
+		}
+		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)
@@ -203,4 +219,41 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 	test.That(t, len(captAllResp.Extra.AsMap()), test.ShouldEqual, 0)
 
 	test.ShouldResemble(captAllResp.Detections, getDetectionsResp.Detections)
+}
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	injectVS := &inject.VisionService{}
+	m := map[resource.Name]vision.Service{
+		visName1: injectVS,
+	}
+	server, err := newServer(m, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectVS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectVS.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = server.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testVisionServiceName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectVS.StatusFunc = nil
 }

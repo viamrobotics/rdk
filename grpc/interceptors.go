@@ -2,13 +2,18 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/viamrobotics/webrtc/v3"
+	"go.opentelemetry.io/otel/attribute"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	"go.viam.com/rdk/resource"
 )
 
 // DefaultMethodTimeout is the default context timeout for all inbound gRPC
@@ -113,6 +118,22 @@ func (tracker *ModPeerConnTracker) Remove(modname string) {
 	tracker.mu.Lock()
 	delete(tracker.modNameToPeerConn, modname)
 	tracker.mu.Unlock()
+}
+
+// ResourceNameTaggingUnaryServerInterceptor tags the active span with the resource name extracted
+// from the incoming gRPC request, if one is present.
+func ResourceNameTaggingUnaryServerInterceptor(
+	ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+) (any, error) {
+	if span := trace.FromContext(ctx); span.IsRecording() {
+		parts := strings.SplitN(strings.TrimPrefix(info.FullMethod, "/"), "/", 2)
+		if len(parts) == 2 {
+			if name := resource.GetResourceNameFromRequest(parts[0], parts[1], req); name != "" {
+				span.SetAttributes(attribute.String("viam.resource.name", name))
+			}
+		}
+	}
+	return handler(ctx, req)
 }
 
 // ModInfoUnaryServerInterceptor checks the incoming RPC metadata for a module name and attaches any

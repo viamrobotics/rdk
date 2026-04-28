@@ -277,6 +277,8 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
 
+	myCost += neutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
 		return
@@ -454,6 +456,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 	if !solvingState.doingSmartSeeds {
 		ikTime = 100 * time.Millisecond
 	}
+
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)
 	if err != nil {
 		close(solutionGen)
@@ -470,7 +473,12 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
 			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
-		solvingState.logger.Debugf("Solver stopping. Solutions: %v Err? %v", nSol, err)
+		if err == nil {
+			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)
+		} else {
+			solvingState.logger.Infof("Solver stopped with error. Solutions: %v IK Meta: %v Err? %v",
+				nSol, m, err)
+		}
 
 		solveErrorLock.Lock()
 		solveError = err
@@ -531,6 +539,22 @@ solutionLoop:
 	}
 
 	return solvingState.solutions, nil
+}
+
+// neutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
+// This favors solutions where rotational joints are near the midpoint rather than at the extremes.
+func neutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
+	bias := 0.0
+	for i, limit := range limits {
+		if limit.IsRotational() {
+			mid := (limit.Min + limit.Max) / 2
+			_, _, r := limit.GoodLimits()
+			if r > 0 {
+				bias += math.Abs(configuration[i]-mid) / r * 0.05
+			}
+		}
+	}
+	return bias
 }
 
 func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {

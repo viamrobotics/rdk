@@ -97,7 +97,12 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
+	// If the camera resource is a client, make the call directly so that we're not doing extra working
+	// encoding/decoding the response.
 	if camClient, ok := camera.(*client); ok {
+		// If the camera has a prefix on this viam-server but not the remote, we need to take it out before
+		// forwarding the request.
+		req.Name = camera.Name().Name
 		return camClient.client.GetPointCloud(ctx, req)
 	}
 
@@ -185,6 +190,15 @@ func (s *serviceServer) DoCommand(ctx context.Context,
 		return nil, err
 	}
 	return protoutils.DoFromResourceServer(ctx, camera, req)
+}
+
+// GetStatus returns the status of the camera.
+func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRequest) (*commonpb.GetStatusResponse, error) {
+	cam, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	return protoutils.GetStatusFromResourceServer(ctx, cam, req)
 }
 
 func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeometriesRequest) (*commonpb.GetGeometriesResponse, error) {

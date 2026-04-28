@@ -397,3 +397,40 @@ func TestServerDoCommand(t *testing.T) {
 	test.That(t, respMap["command"], test.ShouldResemble, "test")
 	test.That(t, respMap["data"], test.ShouldResemble, 500.0)
 }
+
+var errGetStatusFailed = errors.New("can't get status")
+
+func TestServerGetStatus(t *testing.T) {
+	injectSvc := &inject.SLAMService{}
+	resourceMap := map[resource.Name]slam.Service{
+		slam.Named(testSlamServiceName): injectSvc,
+	}
+	injectAPISvc, err := resource.NewAPIResourceCollection(slam.API, resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+	slamServer := slam.NewRPCServiceServer(injectAPISvc, logging.NewTestLogger(t)).(pb.SLAMServiceServer)
+
+	_, err = slamServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: "missing"})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+	resp, err := slamServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSlamServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldBeEmpty)
+
+	expectedStatus := map[string]interface{}{"key": "value", "count": float64(42)}
+	injectSvc.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return expectedStatus, nil
+	}
+	resp, err = slamServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSlamServiceName})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, resp.Result.AsMap(), test.ShouldResemble, expectedStatus)
+
+	injectSvc.StatusFunc = func(ctx context.Context) (map[string]interface{}, error) {
+		return nil, errGetStatusFailed
+	}
+	_, err = slamServer.GetStatus(context.Background(), &commonpb.GetStatusRequest{Name: testSlamServiceName})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
+
+	injectSvc.StatusFunc = nil
+}

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -18,10 +19,11 @@ import (
 	"text/template"
 	"time"
 
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/pkg/errors"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -40,12 +42,14 @@ const (
 	version                        = "0.1.0"
 	basePath                       = "module_generate"
 	templatePrefix                 = "tmpl-"
-	cpp                            = "cpp"
 	python                         = "python"
+	cpp                            = "cpp"
 	golang                         = "go"
 	moduleVisibilityPrivate        = "private"
 	moduleVisibilityPublic         = "public"
 	moduleVisibilityPublicUnlisted = "public_unlisted"
+	minPythonVersion               = "3.10"
+	minGoVersion                   = "1.23"
 )
 
 var (
@@ -72,8 +76,8 @@ type generateModuleArgs struct {
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
-func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
-	c, err := newViamClient(cCtx)
+func GenerateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+	c, err := newViamClient(ctx, cmd)
 	if err != nil {
 		if !isInteractive() {
 			return errors.New("authentication required; run `viam login` before using module generate non-interactively")
@@ -83,7 +87,7 @@ func GenerateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
 			return err
 		}
 	}
-	return c.generateModuleAction(cCtx, args)
+	return c.generateModuleAction(ctx, cmd, args)
 }
 
 func promptUnauthenticated() bool {
@@ -113,7 +117,7 @@ func promptUnauthenticated() bool {
 	return true
 }
 
-func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModuleArgs) error {
+func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -141,8 +145,11 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 			return err
 		}
 	}
+	if err := checkLanguageVersion(newModule.Language); err != nil {
+		return err
+	}
 	if !args.DryRun {
-		if err := wrapResolveOrg(cCtx, c, newModule); err != nil {
+		if err := wrapResolveOrg(ctx, cmd, c, newModule); err != nil {
 			return err
 		}
 	}
@@ -152,7 +159,7 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	var fatalError error
 	var registryURL string
 	nonFatalError := false
-	gArgs, err := getGlobalArgs(cCtx)
+	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
 	}
@@ -166,52 +173,56 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 		s = spinner.New()
 		logTitle = func(msg string) { s.Title(msg) }
 	} else if !globalArgs.Debug {
-		logTitle = func(msg string) { printf(cCtx.App.Writer, "%s", msg) }
+		logTitle = func(msg string) { printf(cmd.Root().Writer, "%s", msg) }
 	}
 
 	action := func() {
 		logTitle("Getting latest release...")
-		version, err := getLatestSDKTag(cCtx, newModule.Language, globalArgs)
+		version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
 		if err != nil {
 			fatalError = err
 			return
 		}
 		newModule.SDKVersion = version[1:]
+		// C++ SDK tags are of the form "release/vx.y.z"; strip the prefix so SDKVersion is always "x.y.z".
+		if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
+			newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
+		}
 
 		logTitle("Setting up module directory...")
-		if err = setupDirectories(cCtx, newModule.ModuleName, globalArgs); err != nil {
+		if err = setupDirectories(cmd, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		logTitle("Creating module and generating manifest...")
-		registryURL, err = createModuleAndManifest(cCtx, c, *newModule, globalArgs)
+		registryURL, err = createModuleAndManifest(ctx, cmd, c, *newModule, globalArgs)
 		if err != nil {
 			fatalError = err
 			return
 		}
 
 		logTitle("Rendering common files...")
-		if err = renderCommonFiles(cCtx, *newModule, globalArgs); err != nil {
+		if err = renderCommonFiles(cmd, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		logTitle(fmt.Sprintf("Copying %s files...", newModule.Language))
-		if err = copyLanguageTemplate(cCtx, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
+		if err = copyLanguageTemplate(cmd, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		logTitle("Rendering template...")
-		if err = renderTemplate(cCtx, *newModule, globalArgs); err != nil {
+		if err = renderTemplate(cmd, *newModule, globalArgs); err != nil {
 			fatalError = err
 			return
 		}
 
 		logTitle(fmt.Sprintf("Generating %s stubs...", newModule.Language))
-		if err = generateStubs(cCtx, *newModule, globalArgs); err != nil {
-			warningf(cCtx.App.ErrWriter, err.Error())
+		if err = generateStubs(cmd, *newModule, globalArgs); err != nil {
+			warningf(cmd.Root().ErrWriter, err.Error())
 			nonFatalError = true
 		}
 	}
@@ -242,12 +253,12 @@ func (c *viamClient) generateModuleAction(cCtx *cli.Context, args generateModule
 	if err != nil {
 		cwd = "."
 	}
-	printf(cCtx.App.Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
+	printf(cmd.Root().Writer, "Module successfully generated at %s%s%s", cwd, string(os.PathSeparator), newModule.ModuleName)
 	if registryURL != "" {
-		printf(cCtx.App.Writer, "You can view it here: %s", registryURL)
+		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
 	}
-	if runtime.GOOS == osWindows && newModule.Language == "python" { //nolint:goconst
-		printf(cCtx.App.Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
+	if runtime.GOOS == osWindows && newModule.Language == "python" {
+		printf(cmd.Root().Writer, "Python modules generated for Windows do not have cloud build support yet\n"+
 			"You can test locally and then use `viam module upload` to manually upload,\n"+
 			"but the uploaded module will only work on Windows.\n"+
 			"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n"+
@@ -348,10 +359,11 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				Options(
 					huh.NewOption("Python", python),
 					huh.NewOption("Go", golang),
+					huh.NewOption("C++", cpp),
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
-				Title("Visibiity:").
+				Title("Visibility:").
 				Options(
 					huh.NewOption("Public", moduleVisibilityPublic),
 					huh.NewOption("Private", moduleVisibilityPrivate),
@@ -408,7 +420,7 @@ func promptUser(module *modulegen.ModuleInputs) error {
 	return nil
 }
 
-func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs) error {
+func wrapResolveOrg(ctx context.Context, cmd *cli.Command, c *viamClient, newModule *modulegen.ModuleInputs) error {
 	// If we're not registering on app, we don't need to resolve the org
 	if !newModule.RegisterOnApp {
 		nonAlphanumericRegex := regexp.MustCompile(`[^a-zA-Z0-9]+`)
@@ -421,16 +433,16 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 	uuidMatch, err := regexp.MatchString("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", newModule.Namespace)
 	if !uuidMatch || err != nil {
 		// If newModule.Namespace is NOT a UUID
-		org, err := resolveOrg(c, newModule.Namespace, "")
+		org, err := resolveOrg(ctx, c, newModule.Namespace, "")
 		if err != nil {
-			return catchResolveOrgErr(cCtx, c, newModule, err)
+			return catchResolveOrgErr(ctx, cmd, c, newModule, err)
 		}
 		newModule.OrgID = org.GetId()
 	} else {
 		// If newModule.Namespace is a UUID/OrgID
-		org, err := resolveOrg(c, "", newModule.Namespace)
+		org, err := resolveOrg(ctx, c, "", newModule.Namespace)
 		if err != nil {
-			return catchResolveOrgErr(cCtx, c, newModule, err)
+			return catchResolveOrgErr(ctx, cmd, c, newModule, err)
 		}
 		newModule.OrgID = newModule.Namespace
 		newModule.Namespace = org.GetPublicNamespace()
@@ -447,16 +459,16 @@ func wrapResolveOrg(cCtx *cli.Context, c *viamClient, newModule *modulegen.Modul
 // and how to use it more broadly (not just for `viam module generate` but for _all_ CLI commands),
 // and because disentangling it immediately may be complicated and delay the current attempt to
 // solve the problems this causes (see RSDK-9452).
-func catchResolveOrgErr(cCtx *cli.Context, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
+func catchResolveOrgErr(ctx context.Context, cmd *cli.Command, c *viamClient, newModule *modulegen.ModuleInputs, caughtErr error) error {
 	if strings.Contains(caughtErr.Error(), "not logged in") || strings.Contains(caughtErr.Error(), "error while refreshing token") {
-		originalWriter := cCtx.App.Writer
-		cCtx.App.Writer = io.Discard
-		err := c.loginAction(cCtx)
-		cCtx.App.Writer = originalWriter
+		originalWriter := cmd.Root().Writer
+		cmd.Root().Writer = io.Discard
+		err := c.loginAction(ctx, cmd)
+		cmd.Root().Writer = originalWriter
 		if err != nil {
 			return err
 		}
-		return wrapResolveOrg(cCtx, c, newModule)
+		return wrapResolveOrg(ctx, cmd, c, newModule)
 	}
 	if strings.Contains(caughtErr.Error(), "none of your organizations have a public namespace") ||
 		strings.Contains(caughtErr.Error(), "no organization found for") {
@@ -509,8 +521,8 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 }
 
 // Creates a new directory with moduleName.
-func setupDirectories(c *cli.Context, moduleName string, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Setting up directories")
+func setupDirectories(cmd *cli.Command, moduleName string, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Setting up directories")
 	err := os.Mkdir(moduleName, 0o750)
 	if err != nil {
 		return err
@@ -518,9 +530,9 @@ func setupDirectories(c *cli.Context, moduleName string, globalArgs globalArgs) 
 	return nil
 }
 
-func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, module.ResourceSubtypePascal)
-	debugf(c.App.Writer, globalArgs.Debug, "Rendering common files")
+func renderCommonFiles(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, module.ResourceSubtypePascal)
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering common files")
 
 	// Render .viam-gen-info
 	infoBytes, err := json.MarshalIndent(module, "", "  ")
@@ -551,7 +563,7 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 	}
 
 	// Render workflows for cloud build
-	debugf(c.App.Writer, globalArgs.Debug, "\tCreating cloud build workflow")
+	debugf(cmd.Root().Writer, globalArgs.Debug, "\tCreating cloud build workflow")
 	destWorkflowPath := filepath.Join(module.ModuleName, ".github")
 	if err = os.Mkdir(destWorkflowPath, 0o750); err != nil {
 		return errors.Wrap(err, "failed to create cloud build workflow")
@@ -569,14 +581,14 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 		}
 		if d.IsDir() {
 			if d.Name() != ".github" {
-				debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
+				debugf(cmd.Root().Writer, globalArgs.Debug, "\t\tCopying %s directory", d.Name())
 				err = os.Mkdir(filepath.Join(destWorkflowPath, filePath), 0o750)
 				if err != nil {
 					return err
 				}
 			}
 		} else if !strings.HasPrefix(d.Name(), templatePrefix) {
-			debugf(c.App.Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\t\tCopying file %s", filePath)
 			srcFile, err := templates.Open(path.Join(workflowPath, filePath))
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
@@ -605,8 +617,12 @@ func renderCommonFiles(c *cli.Context, module modulegen.ModuleInputs, globalArgs
 }
 
 // copyLanguageTemplate copies the files from templates/language directory into the moduleName root directory.
-func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Creating %s template files", language)
+func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalArgs globalArgs) error {
+	// templates are stored elsewhere for C++
+	if language == cpp {
+		return nil
+	}
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Creating %s template files", language)
 	languagePath := path.Join(templatesPath, language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
@@ -618,7 +634,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 		}
 		if d.IsDir() {
 			if d.Name() != language {
-				debugf(c.App.Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
+				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
 				err = os.Mkdir(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
 					return err
@@ -632,7 +648,7 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 			if runtime.GOOS != osWindows && strings.HasSuffix(d.Name(), ".bat") {
 				return nil
 			}
-			debugf(c.App.Writer, globalArgs.Debug, "\tCopying file %s", filePath)
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying file %s", filePath)
 			srcFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
 				return errors.Wrapf(err, "error opening file %s", srcFile)
@@ -668,8 +684,12 @@ func copyLanguageTemplate(c *cli.Context, language, moduleName string, globalArg
 }
 
 // Render all the files in the new directory.
-func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Rendering template files")
+func renderTemplate(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	// templates are stored in separate repo for C++
+	if module.Language == cpp {
+		return nil
+	}
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering template files")
 	languagePath := path.Join(templatesPath, module.Language)
 	tempDir, err := fs.Sub(templates, languagePath)
 	if err != nil {
@@ -678,7 +698,7 @@ func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs gl
 	err = fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
 		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
 			destPath := filepath.Join(module.ModuleName, strings.ReplaceAll(filePath, templatePrefix, ""))
-			debugf(c.App.Writer, globalArgs.Debug, "\tRendering file %s", destPath)
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\tRendering file %s", destPath)
 
 			tFile, err := templates.Open(path.Join(languagePath, filePath))
 			if err != nil {
@@ -713,16 +733,54 @@ func renderTemplate(c *cli.Context, module modulegen.ModuleInputs, globalArgs gl
 }
 
 // Generate stubs for the resource.
-func generateStubs(c *cli.Context, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Generating %s stubs", module.Language)
+func generateStubs(cmd *cli.Command, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Generating %s stubs", module.Language)
 	switch module.Language {
 	case python:
 		return generatePythonStubs(module)
 	case golang:
 		return generateGolangStubs(module)
+	case cpp:
+		return generateCppStubs(module)
 	default:
 		return errors.Errorf("cannot generate stubs for language %s", module.Language)
 	}
+}
+
+func generateCppStubs(module modulegen.ModuleInputs) error {
+	rendered, err := gen.RenderCppTemplates(module)
+	if err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- generator script encountered an error")
+	}
+
+	srcDir := filepath.Join(module.ModuleName, "src")
+	if err = os.MkdirAll(srcDir, 0o750); err != nil {
+		return errors.Wrap(err, "cannot generate cpp stubs -- unable to create src directory")
+	}
+
+	filesToWrite := []struct {
+		path string
+		data []byte
+	}{
+		{filepath.Join(module.ModuleName, "main.cpp"), rendered.Main},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.cpp", module.ModelSnake)), rendered.Type},
+		{filepath.Join(srcDir, fmt.Sprintf("%s.hpp", module.ModelSnake)), rendered.Header},
+		{filepath.Join(module.ModuleName, "CMakeLists.txt"), rendered.CMakeLists},
+		{filepath.Join(module.ModuleName, "conanfile.py"), rendered.ConanFile},
+		{filepath.Join(module.ModuleName, "conan.lock"), rendered.ConanLock},
+	}
+	for _, f := range filesToWrite {
+		file, err := os.Create(f.path)
+		if err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to open %s", f.path)
+		}
+		defer utils.UncheckedErrorFunc(file.Close)
+		if _, err = file.Write(f.data); err != nil {
+			return errors.Wrapf(err, "cannot generate cpp stubs -- unable to write to %s", f.path)
+		}
+	}
+
+	return nil
 }
 
 func generateGolangStubs(module modulegen.ModuleInputs) error {
@@ -790,19 +848,77 @@ func checkGoPath() (string, error) {
 	return goPath, err
 }
 
+func checkVersionCompatible(versionOutput, languageName, minVersion string) error {
+	re := regexp.MustCompile(`(\d+\.\d+[\.\d]*)`)
+	match := re.FindString(versionOutput)
+	if match == "" {
+		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+	}
+	detected, err := semver.NewVersion(match)
+	if err != nil {
+		return fmt.Errorf("cannot parse %s version from output: %s", languageName, strings.TrimSpace(versionOutput))
+	}
+	minimum := semver.MustParse(minVersion)
+	if detected.LessThan(minimum) {
+		return fmt.Errorf(
+			"detected %s version %s, which is not supported by the module generator. Please upgrade to %s >= %s",
+			languageName, detected, languageName, minVersion,
+		)
+	}
+	return nil
+}
+
+// checkLanguageVersion checks that the system has a compatible version of the
+// selected language runtime before proceeding with module generation.
+func checkLanguageVersion(language string) error {
+	var cmd, versionFlag, displayName, minVersion string
+	switch language {
+	case python:
+		cmd = findPythonCommand()
+		versionFlag = "--version"
+		displayName = "Python"
+		minVersion = minPythonVersion
+	case golang:
+		cmd = "go"
+		versionFlag = "version"
+		displayName = "Go"
+		minVersion = minGoVersion
+	default:
+		return nil
+	}
+	if cmd == "" {
+		return fmt.Errorf("%s runtime not found. Please install %s >= %s", displayName, displayName, minVersion)
+	}
+	versionOutput, err := exec.Command(cmd, versionFlag).Output() //nolint:gosec
+	if err != nil {
+		return errors.Wrapf(err, "%s runtime not found", displayName)
+	}
+	return checkVersionCompatible(string(versionOutput), displayName, minVersion)
+}
+
+// findPythonCommand returns the python command to use, checking "python3" then "python".
+// On Windows, only "python" is checked.
+func findPythonCommand() string {
+	candidates := []string{"python3", "python"}
+	if runtime.GOOS == osWindows {
+		candidates = []string{"python"}
+	}
+	for _, cmd := range candidates {
+		if _, err := exec.LookPath(cmd); err == nil {
+			return cmd
+		}
+	}
+	return ""
+}
+
 func generatePythonStubs(module modulegen.ModuleInputs) error {
 	venvName := ".venv"
-	pythonCmd := "python3"
-	if runtime.GOOS == osWindows {
-		pythonCmd = "python"
+	pythonCmd := findPythonCommand()
+	if pythonCmd == "" {
+		return errors.New("cannot generate python stubs -- python runtime not found")
 	}
-	cmd := exec.Command(pythonCmd, "--version")
+	cmd := exec.Command(pythonCmd, "-m", "venv", venvName) //nolint:gosec
 	_, err := cmd.Output()
-	if err != nil {
-		return errors.Wrap(err, "cannot generate python stubs -- python runtime not found")
-	}
-	cmd = exec.Command(pythonCmd, "-m", "venv", venvName)
-	_, err = cmd.Output()
 	if err != nil {
 		return errors.Wrap(err, "cannot generate python stubs -- unable to create python virtual environment")
 	}
@@ -840,20 +956,22 @@ func generatePythonStubs(module modulegen.ModuleInputs) error {
 	return nil
 }
 
-func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (string, error) {
+func getLatestSDKTag(ctx context.Context, cmd *cli.Command, language string, globalArgs globalArgs) (string, error) {
 	var repo string
 	switch language {
 	case python:
 		repo = "viam-python-sdk"
 	case golang:
 		repo = "rdk"
+	case cpp:
+		repo = "viam-cpp-sdk"
 	default:
 		return "", errors.New("cannot produce template -- unexpected language was selected")
 	}
-	debugf(c.App.Writer, globalArgs.Debug, "Getting the latest release tag for %s", repo)
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Getting the latest release tag for %s", repo)
 	url := fmt.Sprintf("https://api.github.com/repos/viamrobotics/%s/releases", repo)
 
-	req, err := http.NewRequestWithContext(c.Context, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", errors.Wrapf(err, "cannot get latest %s release", repo)
 	}
@@ -877,16 +995,18 @@ func getLatestSDKTag(c *cli.Context, language string, globalArgs globalArgs) (st
 	}
 	latest := releases[0]
 	version := latest.(map[string]interface{})["tag_name"].(string)
-	debugf(c.App.Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
+	debugf(cmd.Root().Writer, globalArgs.Debug, "\tLatest release for %s: %s", repo, version)
 	return version, nil
 }
 
-func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs) (string, error) {
+func createModuleAndManifest(
+	ctx context.Context, cmd *cli.Command, c *viamClient, module modulegen.ModuleInputs, globalArgs globalArgs,
+) (string, error) {
 	var moduleID moduleID
 	var registryURL string
 	if module.RegisterOnApp {
-		debugf(cCtx.App.Writer, globalArgs.Debug, "Registering module with Viam")
-		moduleResponse, err := c.createModule(module.ModuleName, module.OrgID)
+		debugf(cmd.Root().Writer, globalArgs.Debug, "Registering module with Viam")
+		moduleResponse, err := c.createModule(ctx, module.ModuleName, module.OrgID)
 		if err != nil {
 			return "", errors.Wrap(err, "failed to register module")
 		}
@@ -896,11 +1016,11 @@ func createModuleAndManifest(cCtx *cli.Context, c *viamClient, module modulegen.
 		}
 		registryURL = moduleResponse.GetUrl()
 	} else {
-		debugf(cCtx.App.Writer, globalArgs.Debug, "Creating a local-only module")
+		debugf(cmd.Root().Writer, globalArgs.Debug, "Creating a local-only module")
 		moduleID.name = module.ModuleName
 		moduleID.prefix = module.Namespace
 	}
-	err := renderManifest(cCtx, moduleID.String(), module, globalArgs)
+	err := renderManifest(cmd, moduleID.String(), module, globalArgs)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to render manifest")
 	}
@@ -974,13 +1094,13 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 }
 
 // Create the meta.json manifest.
-func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
-	debugf(c.App.Writer, globalArgs.Debug, "Rendering module manifest")
+func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := module.Visibility
 	if !slices.Contains(visibilityOption, visibility) {
 		visibility = moduleVisibilityPrivate
-		warningf(c.App.Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
+		warningf(cmd.Root().Writer, "Defaulting to private due to invalid visibility '%q' - You can change this later", visibility)
 	}
 
 	manifest := ModuleManifest{
@@ -1025,6 +1145,14 @@ func renderManifest(c *cli.Context, moduleID string, module modulegen.ModuleInpu
 				Path:  "module.tar.gz",
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
 			}
+		}
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
+	case cpp:
+		manifest.Build = &manifestBuildInfo{
+			Build:  "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
+			Path:   "build/Release/module.tar.gz",
+			Distro: "bookworm",
+			Arch:   []string{"linux/amd64", "linux/arm64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}

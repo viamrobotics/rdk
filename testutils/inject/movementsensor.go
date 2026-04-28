@@ -36,6 +36,7 @@ type MovementSensor struct {
 	ReadingsFuncExtraCap        map[string]interface{}
 	ReadingsFunc                func(ctx context.Context, extra map[string]interface{}) (map[string]interface{}, error)
 	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc                  func(ctx context.Context) (map[string]interface{}, error)
 	CloseFunc                   func() error
 }
 
@@ -150,4 +151,15 @@ func (i *MovementSensor) Readings(ctx context.Context, extra map[string]interfac
 	}
 	i.ReadingsFuncExtraCap = extra
 	return i.ReadingsFunc(ctx, extra)
+}
+
+// Status calls the injected Status or the real version.
+func (i *MovementSensor) Status(ctx context.Context) (map[string]interface{}, error) {
+	if i.StatusFunc != nil {
+		return i.StatusFunc(ctx)
+	}
+	if i.MovementSensor != nil {
+		return i.MovementSensor.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }

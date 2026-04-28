@@ -12,6 +12,7 @@ type InputController struct {
 	input.Controller
 	name                        resource.Name
 	DoFunc                      func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc                  func(ctx context.Context) (map[string]interface{}, error)
 	ControlsFunc                func(ctx context.Context, extra map[string]interface{}) ([]input.Control, error)
 	EventsFunc                  func(ctx context.Context, extra map[string]interface{}) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
@@ -97,4 +98,15 @@ func (s *InputController) Close(ctx context.Context) error {
 		return s.Controller.Close(ctx)
 	}
 	return s.CloseFunc(ctx)
+}
+
+// Status calls the injected Status or the real version.
+func (s *InputController) Status(ctx context.Context) (map[string]interface{}, error) {
+	if s.StatusFunc != nil {
+		return s.StatusFunc(ctx)
+	}
+	if s.Controller != nil {
+		return s.Controller.Status(ctx)
+	}
+	return map[string]interface{}{}, nil
 }
