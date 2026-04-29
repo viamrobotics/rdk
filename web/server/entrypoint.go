@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -139,6 +140,11 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	logging.RegisterEventLogger(rootLogger, "viam-server")
+	etwCloser := logging.RegisterETWLogger(rootLogger, "viam-server",
+		filepath.Join(rutils.ViamDotDir, "logs", "viam-agent-trace.etl"))
+	defer func() {
+		utils.UncheckedError(etwCloser.Close())
+	}()
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
