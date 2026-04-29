@@ -245,6 +245,13 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 			"To access your module in app, make sure to add \"tcp_mode\": true to the module config json\n"+
 			"and set your local module's executable path to run.bat")
 	}
+	if newModule.Language == golang {
+		tidyCmd := exec.Command("go", "mod", "tidy")
+		tidyCmd.Dir = newModule.ModuleName
+		if err := tidyCmd.Run(); err != nil {
+			return fmt.Errorf("failed to run go mod tidy: %w", err)
+		}
+	}
 	return nil
 }
 
