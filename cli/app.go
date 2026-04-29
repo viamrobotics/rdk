@@ -3404,6 +3404,25 @@ Examples:
 					Action: createActionCommandWithT[localAppTestingArgs](LocalAppTestingAction),
 				},
 				{
+					Name:  "add-app",
+					Usage: "add a web app to an existing module",
+					UsageText: createUsageText("module add-app",
+						[]string{"app-name", "app-type"}, false, false),
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name:     moduleFlagAppName,
+							Usage:    "name for the app",
+							Required: true,
+						},
+						&cli.StringFlag{
+							Name:     moduleFlagAppType,
+							Usage:    formatAcceptedValues("app type", "single_machine", "multi_machine"),
+							Required: true,
+						},
+					},
+					Action: createActionCommandWithT[addAppArgs](AddAppAction),
+				},
+				{
 					Name:  "create",
 					Usage: "create & register a module on app.viam.com",
 					Description: `Creates a module in app.viam.com to simplify code deployment.

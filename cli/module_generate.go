@@ -129,6 +129,8 @@ func promptGenerateType() (string, error) {
 						return "A modular resource to add custom components or services to your machine."
 					case "app":
 						return "A web application that connects to your machine via the Viam SDK."
+					case "both":
+						return "A module with an embedded web app served via vmodutils."
 					default:
 						return ""
 					}
@@ -136,6 +138,7 @@ func promptGenerateType() (string, error) {
 				Options(
 					huh.NewOption("Module", "module"),
 					huh.NewOption("App", "app"),
+					huh.NewOption("Module and App", "both"),
 				).
 				Value(&generateType),
 		),
@@ -172,8 +175,10 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		return c.generateModule(ctx, cmd, args, shared)
 	case "app":
 		return c.generateApp(ctx, cmd, args, shared)
+	case "both":
+		return c.generateBoth(ctx, cmd, args, shared)
 	default:
-		return fmt.Errorf("invalid generate type %q: must be module or app", generateType)
+		return fmt.Errorf("invalid generate type %q: must be module, app, or both", generateType)
 	}
 }
 
@@ -190,6 +195,223 @@ type appTemplateData struct {
 	AppType         string
 	Namespace       string
 	Visibility      string
+}
+
+func (c *viamClient) generateBoth(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
+	// Module-specific prompts
+	newModule := &modulegen.ModuleInputs{}
+	if err := promptModuleInputs(newModule); err != nil {
+		return err
+	}
+	newModule.Visibility = shared.Visibility
+	newModule.Namespace = shared.Namespace
+	newModule.RegisterOnApp = shared.RegisterOnApp
+
+	// App-specific prompts
+	app := &appInputs{}
+	if err := promptAppUser(app); err != nil {
+		return err
+	}
+
+	// Set up module inputs for generation
+	if err := newModule.CheckResourceAndSetType(); err != nil {
+		return err
+	}
+	if err := checkLanguageVersion(newModule.Language); err != nil {
+		return err
+	}
+	if !args.DryRun {
+		if err := wrapResolveOrg(ctx, cmd, c, newModule); err != nil {
+			return err
+		}
+	}
+	populateAdditionalInfo(newModule)
+
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	// Get latest SDK version
+	version, err := getLatestSDKTag(ctx, cmd, newModule.Language, globalArgs)
+	if err != nil {
+		return err
+	}
+	newModule.SDKVersion = version[1:]
+	if idx := strings.LastIndex(newModule.SDKVersion, "/"); idx != -1 {
+		newModule.SDKVersion = strings.TrimPrefix(newModule.SDKVersion[idx+1:], "v")
+	}
+
+	// Run the module generation pipeline
+	if err := setupDirectories(cmd, newModule.ModuleName, globalArgs); err != nil {
+		return err
+	}
+	if _, err := createModuleAndManifest(ctx, cmd, c, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := renderCommonFiles(cmd, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := copyLanguageTemplate(cmd, newModule.Language, newModule.ModuleName, globalArgs); err != nil {
+		return err
+	}
+	if err := renderTemplate(cmd, *newModule, globalArgs); err != nil {
+		return err
+	}
+	if err := generateStubs(cmd, *newModule, globalArgs); err != nil {
+		warningf(cmd.Root().ErrWriter, err.Error())
+	}
+
+	modulePath := newModule.ModuleName
+
+	// 1. Add applications[] to the generated meta.json
+	manifestPath := filepath.Join(modulePath, defaultManifestFilename)
+	manifest, err := loadManifest(manifestPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to load manifest to add app")
+	}
+	manifest.Apps = []AppComponent{
+		{
+			Name:       app.AppName,
+			Type:       app.AppType,
+			Entrypoint: "dist/index.html",
+		},
+	}
+	if err := writeManifest(manifestPath, manifest); err != nil {
+		return errors.Wrap(err, "failed to write manifest with app")
+	}
+
+	// 2. Add webapp.go (vmodutils server)
+	webappGo := fmt.Sprintf(`package %s
+
+import (
+	"context"
+	"embed"
+	"io/fs"
+
+	"github.com/erh/vmodutils"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+)
+
+//go:embed dist/**
+var staticFS embed.FS
+
+func distFS() (fs.FS, error) {
+	return fs.Sub(staticFS, "dist")
+}
+
+var WebappModel = resource.NewModel("%s", "%s", "webapp")
+
+type WebappConfig struct {
+	resource.TriviallyValidateConfig
+	Port *int `+"`"+`json:"port,omitempty"`+"`"+`
+}
+
+func init() {
+	resource.RegisterComponent(generic.API, WebappModel,
+		resource.Registration[resource.Resource, *WebappConfig]{
+			Constructor: NewWebappServer,
+		},
+	)
+}
+
+func NewWebappServer(
+	_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	conf, err := resource.NativeConfig[*WebappConfig](rawConf)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := distFS()
+	if err != nil {
+		return nil, err
+	}
+	port := 8888
+	if conf.Port != nil {
+		port = *conf.Port
+	}
+	return vmodutils.NewWebModuleAndStart(rawConf.ResourceName(), fs, logger, port)
+}
+`, newModule.ModuleLowercase, newModule.Namespace, newModule.ModuleName)
+
+	if err := os.WriteFile(filepath.Join(modulePath, "webapp.go"), []byte(webappGo), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write webapp.go")
+	}
+
+	// 3. Create dist/index.html placeholder for go:embed
+	if err := os.MkdirAll(filepath.Join(modulePath, "dist"), 0o750); err != nil {
+		return errors.Wrap(err, "failed to create dist directory")
+	}
+	placeholder := `<!DOCTYPE html>
+<html><head><title>Viam App</title></head>
+<body><h1>Viam App</h1><p>Replace this with your own frontend. See README.md for next steps.</p></body>
+</html>
+`
+	if err := os.WriteFile(filepath.Join(modulePath, "dist", "index.html"), []byte(placeholder), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write dist/index.html")
+	}
+
+	// 4. Update cmd/module/main.go to register webapp model
+	mainGoPath := filepath.Join(modulePath, "cmd", "module", "main.go")
+	mainGoBytes, err := os.ReadFile(mainGoPath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read main.go")
+	}
+	mainGo := string(mainGoBytes)
+	if !strings.Contains(mainGo, "components/generic") {
+		mainGo = strings.Replace(mainGo,
+			"\"go.viam.com/rdk/module\"",
+			"\"go.viam.com/rdk/components/generic\"\n\t\"go.viam.com/rdk/module\"",
+			1)
+	}
+	mainGo = strings.Replace(mainGo,
+		"})",
+		"},\n\t\tresource.APIModel{API: generic.API, Model: "+newModule.ModuleLowercase+".WebappModel})",
+		1)
+	if err := os.WriteFile(mainGoPath, []byte(mainGo), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write updated main.go")
+	}
+
+	// 5. Update Makefile to include dist in tar
+	makefilePath := filepath.Join(modulePath, "Makefile")
+	makefileBytes, err := os.ReadFile(makefilePath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read Makefile")
+	}
+	makefile := string(makefileBytes)
+	makefile = strings.Replace(makefile,
+		"tar czf $@ meta.json $(MODULE_BINARY)",
+		"tar czf $@ meta.json $(MODULE_BINARY) dist",
+		1)
+	if err := os.WriteFile(makefilePath, []byte(makefile), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write updated Makefile")
+	}
+
+	// 6. Add vmodutils to go.mod
+	goModPath := filepath.Join(modulePath, "go.mod")
+	goModBytes, err := os.ReadFile(goModPath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "failed to read go.mod")
+	}
+	goMod := string(goModBytes)
+	if !strings.Contains(goMod, "erh/vmodutils") {
+		goMod = strings.Replace(goMod, "require (", "require (\n\tgithub.com/erh/vmodutils v0.3.11-rc3", 1)
+		if err := os.WriteFile(goModPath, []byte(goMod), 0o644); err != nil { //nolint:gosec
+			return errors.Wrap(err, "failed to write updated go.mod")
+		}
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	fullPath := filepath.Join(cwd, newModule.ModuleName)
+	printf(cmd.Root().Writer, "Module with app successfully generated at %s", fullPath)
+	printf(cmd.Root().Writer, "Time to build your frontend! See %s for next steps.", filepath.Join(fullPath, "README.md"))
+	return nil
 }
 
 func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
@@ -345,6 +567,254 @@ func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData
 		}
 		return nil
 	})
+}
+
+type addAppArgs struct {
+	AppName string
+	AppType string
+}
+
+// AddAppAction adds a web app to an existing module directory.
+func AddAppAction(ctx context.Context, cmd *cli.Command, args addAppArgs) error {
+	// Verify we're in a module directory
+	manifest, err := loadManifest(defaultManifestFilename)
+	if err != nil {
+		return errors.New("no meta.json found — run this command from a module directory")
+	}
+
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	// Derive module info from existing manifest
+	modID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return errors.Wrap(err, "failed to parse module_id from meta.json")
+	}
+
+	// Detect package name from existing Go files
+	moduleLowercase := strings.ReplaceAll(strings.ToLower(modID.name), "-", "")
+
+	var warnings []string
+
+	// 1. Create webapp.go (always succeeds — new file)
+	webappGo := fmt.Sprintf(`package %s
+
+import (
+	"context"
+	"embed"
+	"io/fs"
+	"net/http"
+
+	"github.com/erh/vmodutils"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/resource"
+)
+
+//go:embed dist/**
+var staticFS embed.FS
+
+func distFS() (fs.FS, error) {
+	return fs.Sub(staticFS, "dist")
+}
+
+var WebappModel = resource.NewModel("%s", "%s", "webapp")
+
+type WebappConfig struct {
+	resource.TriviallyValidateConfig
+	Port *int `+"`"+`json:"port,omitempty"`+"`"+`
+}
+
+func init() {
+	resource.RegisterComponent(generic.API, WebappModel,
+		resource.Registration[resource.Resource, *WebappConfig]{
+			Constructor: NewWebappServer,
+		},
+	)
+}
+
+func NewWebappServer(
+	_ context.Context, _ resource.Dependencies, rawConf resource.Config, logger logging.Logger,
+) (resource.Resource, error) {
+	conf, err := resource.NativeConfig[*WebappConfig](rawConf)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := distFS()
+	if err != nil {
+		return nil, err
+	}
+	port := 8888
+	if conf.Port != nil {
+		port = *conf.Port
+	}
+	isLocalCookie := &http.Cookie{Name: "is_local", Value: "true"}
+	m, err := vmodutils.NewWebModuleWithCookies(rawConf.ResourceName(), fs, logger, []*http.Cookie{isLocalCookie})
+	if err != nil {
+		return nil, err
+	}
+	if err := m.Start(port); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+`, moduleLowercase, modID.prefix, modID.name)
+
+	if err := os.WriteFile("webapp.go", []byte(webappGo), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write webapp.go")
+	}
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Created webapp.go")
+
+	// 2. Create dist/index.html placeholder (always succeeds — new files)
+	if err := os.MkdirAll("dist", 0o750); err != nil {
+		return errors.Wrap(err, "failed to create dist directory")
+	}
+	placeholder := `<!DOCTYPE html>
+<html><head><title>Viam App</title></head>
+<body><h1>Viam App</h1><p>Replace this with your own frontend. See README.md for next steps.</p></body>
+</html>
+`
+	if err := os.WriteFile(filepath.Join("dist", "index.html"), []byte(placeholder), 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write dist/index.html")
+	}
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Created dist/index.html")
+
+	// 3. Copy auth.js (always succeeds — new file)
+	authPath := path.Join(templatesPath, "app", "auth.js")
+	authFile, err := templates.Open(authPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to open auth.js template")
+	}
+	defer utils.UncheckedErrorFunc(authFile.Close)
+	authBytes, err := io.ReadAll(authFile)
+	if err != nil {
+		return errors.Wrap(err, "failed to read auth.js template")
+	}
+	if err := os.WriteFile("auth.js", authBytes, 0o644); err != nil { //nolint:gosec
+		return errors.Wrap(err, "failed to write auth.js")
+	}
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Created auth.js")
+
+	// 4. Update meta.json — add applications[] (JSON parse, safe)
+	manifest.Apps = append(manifest.Apps, AppComponent{
+		Name:       args.AppName,
+		Type:       args.AppType,
+		Entrypoint: "dist/index.html",
+	})
+	if err := writeManifest(defaultManifestFilename, manifest); err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not update meta.json: %v\n"+
+			"  → Add this to the \"applications\" array in meta.json:\n"+
+			"    {\"name\": %q, \"type\": %q, \"entrypoint\": \"dist/index.html\"}", err, args.AppName, args.AppType))
+	} else {
+		debugf(cmd.Root().Writer, globalArgs.Debug, "Updated meta.json with applications[]")
+	}
+
+	// 5. Update cmd/module/main.go — register webapp model (string replace, fragile)
+	mainGoPath := filepath.Join("cmd", "module", "main.go")
+	mainGoBytes, err := os.ReadFile(mainGoPath) //nolint:gosec
+	if err != nil {
+		warnings = append(warnings, fmt.Sprintf("Could not read %s: %v\n"+
+			"  → Register the webapp model in your main.go:\n"+
+			"    import \"go.viam.com/rdk/components/generic\"\n"+
+			"    Add to ModularMain: resource.APIModel{API: generic.API, Model: %s.WebappModel}",
+			mainGoPath, err, moduleLowercase))
+	} else {
+		mainGo := string(mainGoBytes)
+		modified := false
+		if !strings.Contains(mainGo, "components/generic") {
+			mainGo = strings.Replace(mainGo,
+				"\"go.viam.com/rdk/module\"",
+				"\"go.viam.com/rdk/components/generic\"\n\t\"go.viam.com/rdk/module\"",
+				1)
+			modified = true
+		}
+		if strings.Contains(mainGo, "})") {
+			mainGo = strings.Replace(mainGo,
+				"})",
+				"},\n\t\tresource.APIModel{API: generic.API, Model: "+moduleLowercase+".WebappModel})",
+				1)
+			modified = true
+		}
+		if modified {
+			if err := os.WriteFile(mainGoPath, []byte(mainGo), 0o644); err != nil { //nolint:gosec
+				warnings = append(warnings, fmt.Sprintf("Could not write %s: %v", mainGoPath, err))
+			} else {
+				debugf(cmd.Root().Writer, globalArgs.Debug, "Updated cmd/module/main.go")
+			}
+		} else {
+			warnings = append(warnings, fmt.Sprintf("Could not auto-update %s — pattern not found.\n"+
+				"  → Register the webapp model in your main.go:\n"+
+				"    resource.APIModel{API: generic.API, Model: %s.WebappModel}",
+				mainGoPath, moduleLowercase))
+		}
+	}
+
+	// 6. Update Makefile — add dist to tar (string replace, fragile)
+	makefileBytes, err := os.ReadFile("Makefile") //nolint:gosec
+	if err != nil {
+		warnings = append(warnings, "Could not read Makefile: "+err.Error()+"\n"+
+			"  → Add 'dist' to your tar command in the Makefile")
+	} else {
+		makefile := string(makefileBytes)
+		if strings.Contains(makefile, "tar czf $@ meta.json $(MODULE_BINARY)") &&
+			!strings.Contains(makefile, "tar czf $@ meta.json $(MODULE_BINARY) dist") {
+			makefile = strings.Replace(makefile,
+				"tar czf $@ meta.json $(MODULE_BINARY)",
+				"tar czf $@ meta.json $(MODULE_BINARY) dist",
+				1)
+			if err := os.WriteFile("Makefile", []byte(makefile), 0o644); err != nil { //nolint:gosec
+				warnings = append(warnings, "Could not write Makefile: "+err.Error())
+			} else {
+				debugf(cmd.Root().Writer, globalArgs.Debug, "Updated Makefile")
+			}
+		} else if !strings.Contains(makefile, "dist") {
+			warnings = append(warnings, "Could not auto-update Makefile — pattern not found.\n"+
+				"  → Add 'dist' to your tar/archive command in the Makefile")
+		}
+	}
+
+	// 7. Update go.mod — add vmodutils (string replace, fragile)
+	goModBytes, err := os.ReadFile("go.mod") //nolint:gosec
+	if err != nil {
+		warnings = append(warnings, "Could not read go.mod: "+err.Error()+"\n"+
+			"  → Run: go get github.com/erh/vmodutils@latest")
+	} else {
+		goMod := string(goModBytes)
+		if !strings.Contains(goMod, "erh/vmodutils") {
+			if strings.Contains(goMod, "require (") {
+				goMod = strings.Replace(goMod, "require (", "require (\n\tgithub.com/erh/vmodutils v0.3.11", 1)
+				if err := os.WriteFile("go.mod", []byte(goMod), 0o644); err != nil { //nolint:gosec
+					warnings = append(warnings, "Could not write go.mod: "+err.Error())
+				} else {
+					debugf(cmd.Root().Writer, globalArgs.Debug, "Updated go.mod")
+				}
+			} else {
+				warnings = append(warnings, "Could not auto-update go.mod — pattern not found.\n"+
+					"  → Run: go get github.com/erh/vmodutils@latest")
+			}
+		}
+	}
+
+	// Print summary
+	printf(cmd.Root().Writer, "Web app added to module!")
+	printf(cmd.Root().Writer, "Created: webapp.go, dist/index.html, auth.js")
+
+	if len(warnings) > 0 {
+		printf(cmd.Root().Writer, "\nThe following files could not be auto-updated:")
+		for _, w := range warnings {
+			warningf(cmd.Root().Writer, w)
+		}
+	}
+
+	printf(cmd.Root().Writer, "\nNext steps:")
+	printf(cmd.Root().Writer, "1. Run 'make setup' to resolve dependencies")
+	printf(cmd.Root().Writer, "2. Build your frontend into dist/")
+	printf(cmd.Root().Writer, "3. Run 'make' to rebuild the module")
+
+	return nil
 }
 
 func promptAppUser(app *appInputs) error {
