@@ -105,6 +105,9 @@ const (
 
 	// ViamNoWindowsEventLoggerEnvVar if set will not write logs to the Windows Event Logger.
 	ViamNoWindowsEventLoggerEnvVar = "VIAM_NO_WINDOWS_EVENT_LOGGER"
+
+	// ViamLogFileEnvVar if set will write logs to the specified file (same as -log-file cli argument).
+	ViamLogFileEnvVar = "VIAM_LOGFILE"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
