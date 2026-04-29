@@ -29,7 +29,7 @@ const logmanTimeout = 10 * time.Second
 
 // logmanSessionController shells out to logman.exe to manage a fixed-name ETW
 // session. The session captures events from the provider GUID to OutputPath
-// using -mode bincirc with a MaxSizeMB cap.
+// using -f bincirc with a MaxSizeMB cap.
 type logmanSessionController struct {
 	name         string
 	providerGUID string
@@ -39,9 +39,9 @@ type logmanSessionController struct {
 
 // Start normalizes any prior session/definition state, then creates a fresh
 // definition and starts it. The two-step create-then-start (instead of a
-// single create-with-ets) is deliberate: logman's -ets-create path silently
-// drops some flags like -ft and -mode bincirc, so we use the persistent
-// definition path where they take effect, then activate the definition.
+// single create-with-ets) is deliberate: logman's -ets-create path drops
+// the -ft flag, so we use the persistent definition path where it takes
+// effect, then activate the definition.
 //
 // stop+delete-first makes Start idempotent regardless of prior state (no
 // session, leftover session from a crash, stale definition from a prior
@@ -69,7 +69,7 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 	if err := runLogman("create", "trace", l.name,
 		"-p", bracedGUID(l.providerGUID),
 		"-o", l.outputPath,
-		"-mode", "bincirc",
+		"-f", "bincirc",
 		"-max", strconv.Itoa(l.maxSizeMB),
 		// -ft 1 forces a buffer flush every 1 second. Default is flush-on-full
 		// or flush-on-stop only, which loses the events leading up to a hard
