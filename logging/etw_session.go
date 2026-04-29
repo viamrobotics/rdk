@@ -61,6 +61,10 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 		"-o", l.outputPath,
 		"-mode", "bincirc",
 		"-max", strconv.Itoa(l.maxSizeMB),
+		// -ft 1 forces a buffer flush every 1 second. Without this the kernel
+		// only flushes on buffer-full (8 KB) or session-stop, so a hard kill
+		// of viam-server loses the events leading up to the crash.
+		"-ft", "1",
 		"-ets",
 	); err != nil {
 		return fmt.Errorf("logman create trace: %w", err)
