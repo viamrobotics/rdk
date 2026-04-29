@@ -37,10 +37,17 @@ type logmanSessionController struct {
 	maxSizeMB    int
 }
 
-// Start ensures any previous session with the same name is stopped, then
-// creates a fresh session writing to OutputPath. Stop-first is what prevents
-// session leaks across crashes: an orphaned session from the prior run gets
-// cleared before we try to create ours.
+// Start normalizes any prior session/definition state, then creates a fresh
+// definition and starts it. The two-step create-then-start (instead of a
+// single create-with-ets) is deliberate: logman's -ets-create path silently
+// drops some flags like -ft and -mode bincirc, so we use the persistent
+// definition path where they take effect, then activate the definition.
+//
+// stop+delete-first makes Start idempotent regardless of prior state (no
+// session, leftover session from a crash, stale definition from a prior
+// viam-server version). It also ensures definition changes between
+// viam-server versions get picked up — the delete clears any stale config
+// before we recreate it.
 func (l *logmanSessionController) Start(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Dir(l.outputPath), 0o755); err != nil {
 		return fmt.Errorf("create etl dir: %w", err)
@@ -52,22 +59,29 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 		return exec.CommandContext(cmdCtx, "logman", args...).Run()
 	}
 
-	// Best-effort: stop any leftover session with this name. Ignore errors —
-	// if no session exists the command exits non-zero and we proceed.
+	// Best-effort cleanup: stop any orphaned runtime session, then delete any
+	// stale persistent definition. Either may not exist; ignore errors.
 	_ = runLogman("stop", l.name, "-ets")
+	_ = runLogman("delete", l.name)
 
+	// Create the persistent definition. No -ets — that's the whole point of
+	// this dance.
 	if err := runLogman("create", "trace", l.name,
 		"-p", bracedGUID(l.providerGUID),
 		"-o", l.outputPath,
 		"-mode", "bincirc",
 		"-max", strconv.Itoa(l.maxSizeMB),
-		// -ft 1 forces a buffer flush every 1 second. Without this the kernel
-		// only flushes on buffer-full (8 KB) or session-stop, so a hard kill
-		// of viam-server loses the events leading up to the crash.
+		// -ft 1 forces a buffer flush every 1 second. Default is flush-on-full
+		// or flush-on-stop only, which loses the events leading up to a hard
+		// kill of viam-server.
 		"-ft", "1",
-		"-ets",
 	); err != nil {
 		return fmt.Errorf("logman create trace: %w", err)
+	}
+
+	// Activate the definition as a runtime trace session.
+	if err := runLogman("start", l.name); err != nil {
+		return fmt.Errorf("logman start trace: %w", err)
 	}
 	return nil
 }
@@ -75,7 +89,7 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 func (l *logmanSessionController) Stop(ctx context.Context) error {
 	cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
 	defer cancel()
-	if err := exec.CommandContext(cmdCtx, "logman", "stop", l.name, "-ets").Run(); err != nil {
+	if err := exec.CommandContext(cmdCtx, "logman", "stop", l.name).Run(); err != nil {
 		return fmt.Errorf("logman stop: %w", err)
 	}
 	return nil
