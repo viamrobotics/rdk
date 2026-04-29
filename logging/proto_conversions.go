@@ -40,6 +40,8 @@ func FieldToProto(field zap.Field) (*structpb.Struct, error) {
 	return protoutils.StructToStructPb(field)
 }
 
+// CallerFromProto reconstructs a zapcore.EntryCaller from its proto-encoded structpb.Struct
+// representation produced by WrapEntryCaller. Missing fields default to their zero values.
 func CallerFromProto(caller *structpb.Struct) zapcore.EntryCaller {
 	ret := zapcore.EntryCaller{}
 	if defined, ok := caller.Fields["Defined"]; ok {

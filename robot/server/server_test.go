@@ -18,6 +18,7 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	utilsproto "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -35,7 +36,6 @@ import (
 	"go.viam.com/rdk/session"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
-	utilsproto "go.viam.com/utils/protoutils"
 )
 
 var emptyResources = &pb.ResourceNamesResponse{

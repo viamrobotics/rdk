@@ -192,8 +192,9 @@ func (nl *NetAppender) close(exitIfNoProgressIters, totalIters int, sleepFn func
 	nl.remoteWriter.close()
 }
 
-// Mirrors zapcore.EntryCaller but leaves out the PC member. This is because the zapcore.EntryCaller
-// uses a `uintptr` for the program counter/instruction pointer which is not a valid proto type.
+// WrappedEntryCaller mirrors zapcore.EntryCaller but leaves out the PC member. This is because the
+// zapcore.EntryCaller uses a `uintptr` for the program counter/instruction pointer which is not a
+// valid proto type.
 type WrappedEntryCaller struct {
 	Defined  bool
 	File     string
@@ -201,6 +202,8 @@ type WrappedEntryCaller struct {
 	Function string
 }
 
+// WrapEntryCaller converts a zapcore.EntryCaller into a WrappedEntryCaller suitable for proto
+// serialization by dropping the PC field.
 func WrapEntryCaller(ec zapcore.EntryCaller) WrappedEntryCaller {
 	return WrappedEntryCaller{
 		Defined:  ec.Defined,
