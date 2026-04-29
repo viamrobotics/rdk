@@ -131,7 +131,8 @@ func (c *Capture) newCollectors(
 			}
 
 			if cfg.CaptureFrequencyHz <= 0 || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0 {
-				c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s", cfg.CaptureFrequencyHz, md)
+				c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+					cfg.CaptureFrequencyHz, md)
 				continue
 			}
 
@@ -325,7 +326,8 @@ func (c *Capture) buildCollector(
 ) (*collectorAndConfig, error) {
 	interval := data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz)
 	if interval <= 0 {
-		c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s", collectorConfig.CaptureFrequencyHz, md)
+		c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+			collectorConfig.CaptureFrequencyHz, md)
 		return nil, nil
 	}
 
