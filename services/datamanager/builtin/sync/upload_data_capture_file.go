@@ -54,8 +54,8 @@ func uploadDataCaptureFile(
 		case err == nil:
 			return n, nil
 		case errors.Is(err, data.ErrNoBinaryField):
-			// Legacy camera.GetImages file — tabular data in a BINARY_SENSOR-typed file.
-			// Fall through to in-memory path.
+			// No binary payload - maybe tabular data in a BINARY_SENSOR-typed file
+			// (like legacy camera.GetImages file) - fall through to in-memory path.
 		case errors.Is(err, data.ErrSensorMetadataTooLarge) || errors.Is(err, data.ErrUnparsableBinaryCapture):
 			// File cannot be streamed due to unexpected format. Fall back with a warning.
 			logger.Warnf("cannot stream binary payload for %s, falling back to in-memory upload: %v", f.GetPath(), err)
