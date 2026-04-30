@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
 	datatu "go.viam.com/rdk/data/testutils"
 	"go.viam.com/rdk/logging"
@@ -219,8 +220,12 @@ func newVisionService(img image.Image) visionservice.Service {
 	v.CaptureAllFromCameraFunc = func(ctx context.Context, cameraName string, opts viscapture.CaptureOptions,
 		extra map[string]interface{},
 	) (viscapture.VisCapture, error) {
+		namedImg, err := camera.NamedImageFromImage(img, "", utils.MimeTypeJPEG, data.Annotations{})
+		if err != nil {
+			return viscapture.VisCapture{}, err
+		}
 		return viscapture.VisCapture{
-			Image:           img,
+			Image:           &namedImg,
 			Detections:      fakeDetections,
 			Classifications: fakeClassifications,
 		}, nil

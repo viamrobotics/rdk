@@ -33,7 +33,7 @@ func createTestManifest(t *testing.T, path string, overrides map[string]any) str
 	defaultManifest := map[string]any{
 		"module_id":   "test:test",
 		"visibility":  "private",
-		"url":         "https://github.com/",
+		"url":         "https://github.com/test-org/test-repo",
 		"description": "a",
 		"models": []any{
 			map[string]any{
@@ -71,7 +71,61 @@ func createTestManifest(t *testing.T, path string, overrides map[string]any) str
 	return path
 }
 
+func TestValidateRefExists(t *testing.T) {
+	origGitHub := githubRefExists
+	t.Cleanup(func() { githubRefExists = origGitHub })
+
+	viamClient := &viamClient{}
+	cmd := newTestContext(t, map[string]any{})
+
+	// stub: ref exists on github
+	refFound := func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		return true, nil
+	}
+	// stub: ref does not exist on github
+	refNotFound := func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		return false, nil
+	}
+	// stub: should have failed to parse URL
+	shouldNotBeCalled := func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		t.Fatal("githubRefExists should not have been called")
+		return false, nil
+	}
+
+	cases := []struct {
+		name          string
+		stub          func(context.Context, string, string, string, string) (bool, error)
+		url           string
+		ref           string
+		wantErrSubstr string
+	}{
+		{"github ref found", refFound, "https://github.com/allisonschiang/filtered-audio-fix", "reftest", ""},
+		{"github ref not found", refNotFound, "https://github.com/allisonschiang/filtered-audio-fix", "typo", "not found"},
+		{"malformed github url", shouldNotBeCalled, "https://github.com/viamrobotics", "main", "missing the repo path"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			githubRefExists = tc.stub
+			err := viamClient.validateRefExists(context.Background(), cmd, tc.url, tc.ref, "")
+			if tc.wantErrSubstr == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.wantErrSubstr)
+			}
+		})
+	}
+}
+
 func TestStartBuild(t *testing.T) {
+	// stub the ref validator so the test doesn't hit the network against
+	// the placeholder url in the test manifest
+	origGitHub := githubRefExists
+	githubRefExists = func(ctx context.Context, owner, repo, ref, token string) (bool, error) {
+		return true, nil
+	}
+	t.Cleanup(func() { githubRefExists = origGitHub })
+
 	manifest := filepath.Join(t.TempDir(), "meta.json")
 	createTestManifest(t, manifest, nil)
 	cCtx, ac, out, errOut := setup(&inject.AppServiceClient{}, nil, &inject.BuildServiceClient{

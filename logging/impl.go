@@ -263,7 +263,11 @@ func (imp *impl) shouldLog(logLevel Level) bool {
 }
 
 func (imp *impl) Write(entry *LogEntry) {
-	if imp.registry.DeduplicateLogs.Load() && !imp.neverDeduplicate {
+	if imp.registry.DeduplicateLogs.Load() && !imp.neverDeduplicate &&
+		// If the logger is at DEBUG level, or viam-server is run with "debug": true or
+		// `-debug`, never deduplicate. If a user asks for debug logs, they likely want to see
+		// all logs.
+		imp.level.Get() != DEBUG && GlobalLogLevel.Level() != zapcore.DebugLevel {
 		hashkeyedEntry := entry.HashKey()
 
 		// If we have entered a new recentMessage window, output noisy logs from

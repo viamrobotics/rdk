@@ -409,9 +409,13 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 		return true
 	}
 
-	if len(sss.solutions) == 0 && sss.totalIkAttempts.Load() > minAttempts && elapsed > (1000*time.Millisecond) {
-		// if we found any solution, we want to look for better for a while
-		// but if we've found 0, then probably never going to
+	if len(sss.solutions) == 0 &&
+		sss.totalIkAttempts.Load() > minAttempts &&
+		elapsed > (1000*time.Millisecond) &&
+		sss.psc.pc.planOpts.Timeout <= defaultTimeout {
+		// if we found any solution, we want to look for better for a while but if we've found 0,
+		// then probably never going to. Unless there's an explicit larger than default
+		// timeout. Then we're probably in a test that fails on slow CPU emulation.
 		sss.logger.Debugf("stopping early after: %v (%d)because nothing has been found, probably won't", elapsed, sss.totalIkAttempts.Load())
 		return true
 	}
@@ -452,9 +456,18 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		}
 	}()
 
-	ikTime := time.Second
-	if !solvingState.doingSmartSeeds {
-		ikTime = 100 * time.Millisecond
+	// The default timeout is 5 minutes, yet we'll only allow for 100ms doing IK. This is to allow
+	// for fast responses when there are no IK solutions. However test runners are often slower
+	// (particularly with CPU arch emulation) such that this timeout can be problematic. If a user
+	// (read: test) specifies a _larger_ than five minute timeout, strictly obey it.
+	var ikTime time.Duration
+	if psc.pc.request.PlannerOptions.Timeout > defaultTimeout {
+		ikTime = time.Duration(psc.pc.request.PlannerOptions.Timeout * float64(time.Second))
+	} else {
+		ikTime = time.Second
+		if !solvingState.doingSmartSeeds {
+			ikTime = 100 * time.Millisecond
+		}
 	}
 
 	solver, err := ik.CreateCombinedIKSolver(logger.Sublogger("ik"), defaultNumThreads, psc.pc.planOpts.GoalThreshold, ikTime)

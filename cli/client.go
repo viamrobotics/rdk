@@ -4217,17 +4217,22 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		{ID: "install", Message: "Installing update", IndentLevel: 1},
 	}, WithProgressOutput(!args.NoProgress))
 
+	globalArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+
 	// 1. check CLI to see if update needed, if this fails then try update anyways
 	if err := pm.Start("check"); err != nil {
 		return err
 	}
 	latestVersion, latestVersionErr := latestVersion()
 	if latestVersionErr != nil {
-		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get latest release information: %v", latestVersionErr)
+		debugf(cmd.Root().Writer, globalArgs.Debug, "CLI Update Check: failed to get latest release information: %v", latestVersionErr)
 	}
 	localVersion, localVersionErr := localVersion()
 	if localVersionErr != nil {
-		warningf(cmd.Root().ErrWriter, "CLI Update Check: failed to get local release information: %v", localVersionErr)
+		debugf(cmd.Root().Writer, globalArgs.Debug, "CLI Update Check: failed to get local release information: %v", localVersionErr)
 	}
 	if localVersion != nil && latestVersion != nil {
 		if localVersion.GreaterThanEqual(latestVersion) {
@@ -4258,9 +4263,17 @@ func UpdateCLIAction(ctx context.Context, cmd *cli.Command, args updateArgs) err
 		updatedMsg = fmt.Sprintf("Updated to %s", latestVersion.Original())
 	}
 
-	// 3. check if cli managed by brew, if so attempt update. If it fails
-	// dont continue with binary replacement to avoid putting brew out of sync
-	if isViamManagedByBrew() {
+	// 3. check if the running binary is the brew-installed one. If so, update via brew.
+	// If brew has viam but we're running a different binary (e.g. go install), skip brew
+	// and fall through to binary replacement on the running binary.
+	isBrew, brewCheckErr := isRunningBrewBinary()
+	if brewCheckErr != nil {
+		if failErr := pm.Fail("update", brewCheckErr); failErr != nil {
+			return failErr
+		}
+		return errors.Errorf("CLI update failed: %v", brewCheckErr)
+	}
+	if isBrew {
 		if err := pm.Start("brew-upgrade"); err != nil {
 			return err
 		}
@@ -4365,19 +4378,49 @@ const (
 	brewNotAvailable
 )
 
-// isViamManagedByBrew reports whether the viam CLI is managed by Homebrew.
-func isViamManagedByBrew() bool {
+// isRunningBrewBinary reports whether the currently executing binary is the one installed by Homebrew.
+// Returns (false, nil) when the currently executing binary is not the one installed by Homebrew.
+// Returns (false, error) when something goes wrong, stopping the whole viam update process.
+func isRunningBrewBinary() (bool, error) {
 	if runtime.GOOS == osWindows {
-		return false
+		return false, nil
 	}
-	if _, err := exec.LookPath("brew"); err != nil {
-		return false
+	// brew list viam will return err if brew is not installed, viam is not installed in brew, or if this command fails
+	// its extremely rare for this command to fail, but if it does then brew --prefix viam will also fail later on and
+	// we can't confirm the running binary path anyways
+	if err := exec.Command("brew", "list", "viam").Run(); err != nil {
+		if errors.Is(err, exec.ErrNotFound) {
+			return false, nil
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false, nil
+		}
+		return false, errors.Errorf("failed to check brew installation: %v", err)
 	}
-	return exec.Command("brew", "list", "viam").Run() == nil
+	// brew has viam installed, now we compare brew binary and running binary
+	execPath, err := os.Executable()
+	if err != nil {
+		return false, errors.Errorf("failed to get executable path: %v", err)
+	}
+	resolved, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return false, errors.Errorf("failed to resolve executable path %q: %v", execPath, err)
+	}
+	brewPrefixOut, err := exec.Command("brew", "--prefix", "viam").Output()
+	if err != nil {
+		return false, errors.Errorf("failed to get brew prefix for viam: %v", err)
+	}
+	brewBinary := filepath.Join(strings.TrimSpace(string(brewPrefixOut)), "bin", "viam")
+	resolvedBrewBinary, err := filepath.EvalSymlinks(brewBinary)
+	if err != nil {
+		return false, errors.Errorf("failed to resolve brew binary path %q: %v", brewBinary, err)
+	}
+	return resolved == resolvedBrewBinary, nil
 }
 
 // tryBrewUpgrade attempts a Homebrew upgrade of viam. It should only be called
-// after confirming viam is brew-managed via isViamManagedByBrew.
+// after confirming the running binary is brew-managed via isRunningBrewBinary.
 func tryBrewUpgrade() (brewUpdateResult, error) {
 	out, err := exec.Command("brew", "upgrade", "viam").CombinedOutput()
 	if err != nil {

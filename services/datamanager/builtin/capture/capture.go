@@ -60,7 +60,7 @@ type Capture struct {
 	collectors   collectors
 	// captureDir is only stored on Capture so that we can detect when it changs
 	captureDir string
-	// maxCaptureFileSize is only stored on Capture so that we can detect when it changs
+	// maxCaptureFileSize is only stored on Capture so that we can detect when it changes
 	maxCaptureFileSize int64
 	mongoMU            sync.Mutex
 	mongo              captureMongo
@@ -130,8 +130,9 @@ func (c *Capture) newCollectors(
 				continue
 			}
 
-			if cfg.CaptureFrequencyHz <= 0 {
-				c.logger.Warnf("collector disabled due to config `capture_frequency_hz` being less than or equal to zero. collector: %s", md)
+			if cfg.CaptureFrequencyHz <= 0 || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0 {
+				c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+					cfg.CaptureFrequencyHz, md)
 				continue
 			}
 
@@ -141,7 +142,9 @@ func (c *Capture) newCollectors(
 					"error", err, "resource_name", res.Name(), "metadata", md, "data capture config", format(cfg))
 				continue
 			}
-			newCollectors[md] = newCollectorAndConfig
+			if newCollectorAndConfig != nil {
+				newCollectors[md] = newCollectorAndConfig
+			}
 		}
 	}
 	return newCollectors
@@ -309,7 +312,7 @@ func (c *Capture) initializeOrUpdateCollector(
 		}
 	}
 
-	return c.buildCollector(res, md, collectorConfig, c.maxCaptureFileSize, collection)
+	return c.buildCollector(res, md, collectorConfig, config.MaximumCaptureFileSizeBytes, collection)
 }
 
 // buildCollector constructs and starts a new collector, assuming the base config was already validated.
@@ -321,6 +324,13 @@ func (c *Capture) buildCollector(
 	maxCaptureFileSize int64,
 	collection *mongo.Collection,
 ) (*collectorAndConfig, error) {
+	interval := data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz)
+	if interval <= 0 {
+		c.logger.Warnf("collector disabled due to capture_frequency_hz %f being too close to or less than zero; collector: %s",
+			collectorConfig.CaptureFrequencyHz, md)
+		return nil, nil
+	}
+
 	// TODO(DATA-451): validate method params
 	methodParams, err := protoutils.ConvertMapToProtoAny(collectorConfig.AdditionalParams)
 	if err != nil {
@@ -356,7 +366,7 @@ func (c *Capture) buildCollector(
 		ComponentName:   collectorConfig.Name.ShortName(),
 		ComponentType:   collectorConfig.Name.API.String(),
 		MethodName:      collectorConfig.Method,
-		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
+		Interval:        interval,
 		MethodParams:    methodParams,
 		Target:          data.NewCaptureBuffer(targetDir, captureMetadata, maxCaptureFileSize),
 		// Set queue size to defaultCaptureQueueSize if it was not set in the config.

@@ -98,6 +98,7 @@ const (
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
 	moduleFlagUpload          = "upload"
+	moduleFlagAnnotation      = "annotation"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
@@ -454,10 +455,11 @@ func formatAcceptedValues(description string, values ...string) string {
 }
 
 var app = &cli.Command{
-	Name:            "viam",
-	Usage:           "interact with your Viam machines",
-	UsageText:       "viam [global options] <command> [command options]",
-	HideHelpCommand: true,
+	Name:                  "viam",
+	Usage:                 "interact with your Viam machines",
+	UsageText:             "viam [global options] <command> [command options]",
+	EnableShellCompletion: true,
+	HideHelpCommand:       true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
@@ -3916,6 +3918,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAnnotation,
+							Usage: "Annotation to describe the purpose of the reload build",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

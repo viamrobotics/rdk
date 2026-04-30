@@ -198,3 +198,34 @@ func TestFlattenComponentLevelTransform(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(resultArm.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
 }
+
+// TestSharesRigidMotionAcrossInternalJoints verifies that two externals
+// parented to different moving internal joints of the same flattened component
+// correctly report NOT sharing rigid motion. The walk must use raw parents so
+// flattened internals are surfaced rather than masked behind the SimpleModel.
+func TestSharesRigidMotionAcrossInternalJoints(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	gripperLif := NewLinkInFrame(World, spatial.NewZeroPose(), "gripper1", nil)
+	leftAttachLif := NewLinkInFrame("gripper1:left_joint", spatial.NewZeroPose(), "left_attach", nil)
+	rightAttachLif := NewLinkInFrame("gripper1:right_joint", spatial.NewZeroPose(), "right_attach", nil)
+	leftAttach2Lif := NewLinkInFrame("gripper1:left_joint", spatial.NewZeroPose(), "left_attach2", nil)
+
+	parts := []*FrameSystemPart{{FrameConfig: gripperLif, ModelFrame: model}}
+	fs, err := NewFrameSystem("test", parts, []*LinkInFrame{leftAttachLif, rightAttachLif, leftAttach2Lif})
+	test.That(t, err, test.ShouldBeNil)
+
+	leftAttach := fs.Frame("left_attach")
+	rightAttach := fs.Frame("right_attach")
+	leftAttach2 := fs.Frame("left_attach2")
+	test.That(t, leftAttach, test.ShouldNotBeNil)
+	test.That(t, rightAttach, test.ShouldNotBeNil)
+	test.That(t, leftAttach2, test.ShouldNotBeNil)
+
+	// Externals on different internal joints of the same component must NOT share rigid motion.
+	test.That(t, fs.SharesRigidMotion(leftAttach, rightAttach), test.ShouldBeFalse)
+
+	// Externals on the same internal joint DO share rigid motion.
+	test.That(t, fs.SharesRigidMotion(leftAttach, leftAttach2), test.ShouldBeTrue)
+}

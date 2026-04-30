@@ -3,7 +3,6 @@ package vision
 import (
 	"bytes"
 	"context"
-	"image"
 
 	commonpb "go.viam.com/api/common/v1"
 	camerapb "go.viam.com/api/component/camera/v1"
@@ -11,11 +10,12 @@ import (
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/trace"
 
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/pointcloud"
 	rprotoutils "go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/classification"
@@ -45,11 +45,11 @@ func (server *serviceServer) GetDetections(
 	if err != nil {
 		return nil, err
 	}
-	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType)
+	namedImg, err := camera.NamedImageFromBytes(req.Image, "", req.MimeType, data.Annotations{})
 	if err != nil {
 		return nil, err
 	}
-	detections, err := svc.Detections(ctx, img, req.Extra.AsMap())
+	detections, err := svc.Detections(ctx, &namedImg, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -119,11 +119,11 @@ func (server *serviceServer) GetClassifications(
 	if err != nil {
 		return nil, err
 	}
-	img, err := rimage.DecodeImage(ctx, req.Image, req.MimeType)
+	namedImg, err := camera.NamedImageFromBytes(req.Image, "", req.MimeType, data.Annotations{})
 	if err != nil {
 		return nil, err
 	}
-	classifications, err := svc.Classifications(ctx, img, int(req.N), req.Extra.AsMap())
+	classifications, err := svc.Classifications(ctx, &namedImg, int(req.N), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func (server *serviceServer) CaptureAllFromCamera(
 		return nil, err
 	}
 
-	imgProto, err := imageToProto(ctx, capt.Image, req.CameraName)
+	imgProto, err := namedImageToProto(ctx, capt.Image, req.CameraName)
 	if err != nil {
 		return nil, err
 	}
@@ -285,38 +285,19 @@ func (server *serviceServer) CaptureAllFromCamera(
 	}, nil
 }
 
-func imageToProto(ctx context.Context, img image.Image, cameraName string) (*camerapb.Image, error) {
+func namedImageToProto(ctx context.Context, img *camera.NamedImage, cameraName string) (*camerapb.Image, error) {
 	if img == nil {
 		return &camerapb.Image{}, nil
 	}
-	imgBytes, mimeType, err := encodeUnknownType(ctx, img, utils.MimeTypeJPEG)
+	imgBytes, err := img.Bytes(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &camerapb.Image{
 		Image:      imgBytes,
-		MimeType:   mimeType,
+		MimeType:   img.MimeType(),
 		SourceName: cameraName,
 	}, nil
-}
-
-func encodeUnknownType(ctx context.Context, img image.Image, defaultMime string) ([]byte, string, error) {
-	var mimeType string
-
-	switch im := img.(type) {
-	case *rimage.LazyEncodedImage:
-		return im.RawData(), im.MIMEType(), nil
-	case *image.Gray, *rimage.DepthMap:
-		mimeType = utils.MimeTypeRawDepth
-
-	default:
-		mimeType = defaultMime
-	}
-	imgBytes, err := rimage.EncodeImage(ctx, img, mimeType)
-	if err != nil {
-		return nil, "", err
-	}
-	return imgBytes, mimeType, nil
 }
 
 // DoCommand receives arbitrary commands.

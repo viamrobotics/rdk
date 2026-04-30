@@ -913,8 +913,7 @@ func (manager *resourceManager) completeConfigForRemotes(ctx context.Context, lr
 						manager.logger, fromRemoteNameToRemoteNodeName(remConf.Name).String(),
 					)
 				}
-				// The config was already validated, but we must check again before attempting
-				// to add.
+				// Validate the remote config
 				if _, _, err := remConf.Validate(""); err != nil {
 					gNode.LogAndSetLastError(
 						fmt.Errorf("remote config validation error: %w", err), "remote", remConf.Name)

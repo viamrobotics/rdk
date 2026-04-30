@@ -128,8 +128,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	configLogger := rootLogger.Sublogger("config")
 	networkingLogger := rootLogger.Sublogger("networking")
 
-	if argsParsed.OutputLogFile != "" {
-		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
+	logFilePath := cmp.Or(argsParsed.OutputLogFile, os.Getenv(rutils.ViamLogFileEnvVar))
+	if logFilePath != "" {
+		logWriter, closer := logging.NewFileAppender(logFilePath)
 		defer func() {
 			utils.UncheckedError(closer.Close())
 		}()
@@ -138,7 +139,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
+		logging.RegisterEventLogger(rootLogger, "viam-server")
+	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -148,7 +151,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTestDNS */)
+		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTests */)
 		return
 	}
 
@@ -255,7 +258,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	golog.ReplaceGloabl(rootLogger.AsZap())
 
 	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
-	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
+	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTests */)
 
 	server := robotServer{
 		rootLogger:       rootLogger,

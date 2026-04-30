@@ -124,6 +124,8 @@ func (c *Config) captureConfig(logger logging.Logger) capture.Config {
 	if c.MaximumCaptureFileSizeBytes != 0 {
 		maximumCaptureFileSizeBytes = c.MaximumCaptureFileSizeBytes
 	}
+	c.MaximumCaptureFileSizeBytes = maximumCaptureFileSizeBytes
+
 	return capture.Config{
 		CaptureDisabled:             c.CaptureDisabled,
 		CaptureDir:                  c.getCaptureDir(logger),

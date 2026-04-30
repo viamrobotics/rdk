@@ -2,8 +2,8 @@ package inject
 
 import (
 	"context"
-	"image"
 
+	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	viz "go.viam.com/rdk/vision"
@@ -20,12 +20,12 @@ type VisionService struct {
 		ctx context.Context, cameraName string, extra map[string]interface{},
 	) ([]objectdetection.Detection, error)
 	DetectionsFunc func(
-		ctx context.Context, img image.Image, extra map[string]interface{},
+		ctx context.Context, img *camera.NamedImage, extra map[string]interface{},
 	) ([]objectdetection.Detection, error)
 	// classification functions
 	ClassificationsFromCameraFunc func(ctx context.Context, cameraName string,
 		n int, extra map[string]interface{}) (classification.Classifications, error)
-	ClassificationsFunc func(ctx context.Context, img image.Image,
+	ClassificationsFunc func(ctx context.Context, img *camera.NamedImage,
 		n int, extra map[string]interface{}) (classification.Classifications, error)
 	// segmentation functions
 	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, extra map[string]interface{}) ([]*viz.Object, error)
@@ -61,7 +61,7 @@ func (vs *VisionService) DetectionsFromCamera(ctx context.Context, cameraName st
 }
 
 // Detections calls the injected Detect or the real variant.
-func (vs *VisionService) Detections(ctx context.Context, img image.Image, extra map[string]interface{},
+func (vs *VisionService) Detections(ctx context.Context, img *camera.NamedImage, extra map[string]interface{},
 ) ([]objectdetection.Detection, error) {
 	if vs.DetectionsFunc == nil {
 		return vs.Service.Detections(ctx, img, extra)
@@ -80,7 +80,7 @@ func (vs *VisionService) ClassificationsFromCamera(ctx context.Context,
 }
 
 // Classifications calls the injected Classifier or the real variant.
-func (vs *VisionService) Classifications(ctx context.Context, img image.Image,
+func (vs *VisionService) Classifications(ctx context.Context, img *camera.NamedImage,
 	n int, extra map[string]interface{},
 ) (classification.Classifications, error) {
 	if vs.ClassificationsFunc == nil {

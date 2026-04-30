@@ -192,12 +192,25 @@ func (nl *NetAppender) close(exitIfNoProgressIters, totalIters int, sleepFn func
 	nl.remoteWriter.close()
 }
 
-// Mirrors zapcore.EntryCaller but leaves out the pointer address.
-type wrappedEntryCaller struct {
+// WrappedEntryCaller mirrors zapcore.EntryCaller but leaves out the PC member. This is because the
+// zapcore.EntryCaller uses a `uintptr` for the program counter/instruction pointer which is not a
+// valid proto type.
+type WrappedEntryCaller struct {
 	Defined  bool
 	File     string
 	Line     int
 	Function string
+}
+
+// WrapEntryCaller converts a zapcore.EntryCaller into a WrappedEntryCaller suitable for proto
+// serialization by dropping the PC field.
+func WrapEntryCaller(ec zapcore.EntryCaller) WrappedEntryCaller {
+	return WrappedEntryCaller{
+		Defined:  ec.Defined,
+		File:     ec.File,
+		Line:     ec.Line,
+		Function: ec.Function,
+	}
 }
 
 // newInternalLogEntry creates a minimal zapcore.Entry that can be used with NetAppender.Write.
@@ -222,14 +235,7 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 		Stack:      e.Stack,
 	}
 
-	wc := wrappedEntryCaller{
-		Defined:  e.Caller.Defined,
-		File:     e.Caller.File,
-		Line:     e.Caller.Line,
-		Function: e.Caller.Function,
-	}
-
-	caller, err := protoutils.StructToStructPb(wc)
+	caller, err := protoutils.StructToStructPb(WrapEntryCaller(e.Caller))
 	if err != nil {
 		return err
 	}

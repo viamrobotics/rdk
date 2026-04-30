@@ -543,10 +543,7 @@ func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 [
 				continue
 			}
 
-			xFirstMoving := firstMovingParentOrself(fs, x)
-			yFirstMoving := firstMovingParentOrself(fs, y)
-
-			if xFirstMoving == yFirstMoving {
+			if fs.SharesRigidMotion(x, y) {
 				skipList = append(skipList, Collision{name1: g1Name, name2: g2Name})
 			}
 		}
