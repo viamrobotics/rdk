@@ -141,7 +141,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	logging.RegisterEventLogger(rootLogger, "viam-server")
 	etwCloser := logging.RegisterETWLogger(rootLogger, "viam-server",
-		filepath.Join(rutils.ViamDotDir, "logs", "viam-agent-trace.etl"))
+		filepath.Join(rutils.ViamDotDir, "logs", "viam-server-trace.etl"))
 	defer func() {
 		utils.UncheckedError(etwCloser.Close())
 	}()
