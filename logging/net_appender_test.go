@@ -148,12 +148,19 @@ func TestNetLoggerPreservesTypedFields(t *testing.T) {
 	logger := NewDebugLogger("test logger")
 	logger.AddAppender(netAppender)
 
+	deadline := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	logger.Infow("typed",
 		"count", 5,
 		"ratio", 0.5,
 		"ok", true,
 		"label", "hello",
 		"err", errors.New("boom"),
+		"deadline", deadline,
+		"obj", struct {
+			Name  string
+			Count int
+		}{Name: "thing", Count: 7},
+		"tags", []string{"a", "b", "c"},
 	)
 	test.That(t, netAppender.sync(), test.ShouldBeNil)
 	netAppender.Close()
@@ -163,7 +170,7 @@ func TestNetLoggerPreservesTypedFields(t *testing.T) {
 	test.That(t, server.service.logs, test.ShouldHaveLength, 1)
 	entry := server.service.logs[0]
 	test.That(t, entry.Message, test.ShouldEqual, "typed")
-	test.That(t, entry.Fields, test.ShouldHaveLength, 5)
+	test.That(t, entry.Fields, test.ShouldHaveLength, 8)
 
 	byKey := map[string]map[string]any{}
 	for _, f := range entry.Fields {
@@ -188,6 +195,24 @@ func TestNetLoggerPreservesTypedFields(t *testing.T) {
 	// FieldToProto flattens errors to StringType with the message as String.
 	test.That(t, byKey["err"]["Type"], test.ShouldEqual, float64(zapcore.StringType))
 	test.That(t, byKey["err"]["String"], test.ShouldEqual, "boom")
+
+	// time.Time stays TimeType — Integer holds unix nanos. Pre-fix, the
+	// inline stringifier collapsed this to StringType="UTC" (the location).
+	test.That(t, byKey["deadline"]["Type"], test.ShouldEqual, float64(zapcore.TimeType))
+	test.That(t, byKey["deadline"]["Integer"], test.ShouldEqual, float64(deadline.UnixNano()))
+
+	// Plain structs survive as ReflectType with the value mirrored into
+	// Interface. Pre-fix, this was fmt.Sprintf'd to "{thing 7}".
+	test.That(t, byKey["obj"]["Type"], test.ShouldEqual, float64(zapcore.ReflectType))
+	test.That(t, byKey["obj"]["Interface"], test.ShouldResemble, map[string]any{
+		"Name":  "thing",
+		"Count": float64(7),
+	})
+
+	// String slices land as ArrayMarshalerType, with the values preserved
+	// in Interface. Pre-fix, this was fmt.Sprintf'd to "[a b c]".
+	test.That(t, byKey["tags"]["Type"], test.ShouldEqual, float64(zapcore.ArrayMarshalerType))
+	test.That(t, byKey["tags"]["Interface"], test.ShouldResemble, []any{"a", "b", "c"})
 }
 
 func TestNetLoggerSyncInvalidUTF8(t *testing.T) {
