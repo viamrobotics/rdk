@@ -139,7 +139,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	// logging.RegisterEventLogger(rootLogger, "viam-server")
 	etwCloser := logging.RegisterETWLogger(rootLogger, "viam-server",
 		filepath.Join(rutils.ViamDotDir, "logs", "viam-server-trace.etl"))
 	defer func() {
