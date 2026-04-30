@@ -53,18 +53,12 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 		return fmt.Errorf("create etl dir: %w", err)
 	}
 
-	runLogman := func(args ...string) error {
-		cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
-		defer cancel()
-		return exec.CommandContext(cmdCtx, "logman", args...).Run()
-	}
-
-	// Best-effort cleanup: stop any orphaned runtime session, then delete any
-	// stale persistent definition. Either may not exist; ignore errors.
-	_ = runLogman("stop", l.name, "-ets")
+	// Best-effort cleanup: stop any orphaned runtime session. Ignore errors —
+	// no session means stop fails harmlessly.
+	_ = l.logman(ctx, "stop", l.name, "-ets")
 
 	// Create the persistent definition and run it automatically with -ets
-	if err := runLogman("create", "trace", l.name,
+	if err := l.logman(ctx, "create", "trace", l.name,
 		"-p", bracedGUID(l.providerGUID),
 		"-o", l.outputPath,
 		// binary + circular filetype so logs autorotate once we reach the limit
@@ -81,12 +75,16 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 }
 
 func (l *logmanSessionController) Stop(ctx context.Context) error {
-	cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
-	defer cancel()
-	if err := exec.CommandContext(cmdCtx, "logman", "stop", l.name, "-ets").Run(); err != nil {
+	if err := l.logman(ctx, "stop", l.name, "-ets"); err != nil {
 		return fmt.Errorf("logman stop: %w", err)
 	}
 	return nil
+}
+
+func (l *logmanSessionController) logman(ctx context.Context, args ...string) error {
+	cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
+	defer cancel()
+	return exec.CommandContext(cmdCtx, "logman", args...).Run()
 }
 
 // bracedGUID returns g wrapped in {…} regardless of whether the input already
