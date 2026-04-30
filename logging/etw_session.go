@@ -83,7 +83,7 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 func (l *logmanSessionController) Stop(ctx context.Context) error {
 	cmdCtx, cancel := context.WithTimeout(ctx, logmanTimeout)
 	defer cancel()
-	if err := exec.CommandContext(cmdCtx, "logman", "stop", l.name).Run(); err != nil {
+	if err := exec.CommandContext(cmdCtx, "logman", "stop", l.name, "-ets").Run(); err != nil {
 		return fmt.Errorf("logman stop: %w", err)
 	}
 	return nil
