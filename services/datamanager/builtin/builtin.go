@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	"go.viam.com/rdk/services/datamanager/builtin/shared"
@@ -222,6 +223,11 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
+	if fs, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
+		b.logger.Warnw("frame system unavailable; GetFramesystemPose collectors will fail", "error", err)
+	} else {
+		b.capture.SetFrameSystem(fs)
+	}
 	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 

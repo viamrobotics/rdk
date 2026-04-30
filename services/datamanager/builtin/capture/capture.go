@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -53,8 +54,9 @@ var metadataToAdditionalParamFields = map[string]string{
 // - Reconfigure (any number of times)
 // - Close (any number of times).
 type Capture struct {
-	logger logging.Logger
-	clk    clock.Clock
+	logger      logging.Logger
+	clk         clock.Clock
+	frameSystem framesystem.Service
 
 	collectorsMu sync.Mutex
 	collectors   collectors
@@ -68,6 +70,11 @@ type Capture struct {
 	// defaultCollectorConfigs are the default as specified in the machine config.
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
+}
+
+// SetFrameSystem stores the frame system service so it can be passed to collectors that need it.
+func (c *Capture) SetFrameSystem(fs framesystem.Service) {
+	c.frameSystem = fs
 }
 
 type captureMongo struct {
@@ -355,6 +362,7 @@ func (c *Capture) buildCollector(
 		DataType:        dataType,
 		ComponentName:   collectorConfig.Name.ShortName(),
 		ComponentType:   collectorConfig.Name.API.String(),
+		FrameSystem:     c.frameSystem,
 		MethodName:      collectorConfig.Method,
 		Interval:        data.GetDurationFromHz(collectorConfig.CaptureFrequencyHz),
 		MethodParams:    methodParams,
