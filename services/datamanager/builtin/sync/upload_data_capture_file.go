@@ -88,6 +88,14 @@ func uploadBinaryPayloads(
 			break
 		}
 		if err != nil {
+			if errors.Is(err, data.ErrNoBinaryField) {
+				if msgIdx == 0 {
+					return 0, err
+				}
+				// binary capture files currently contain one message, so this should be unreachable
+				// but returning a fresh error prevents the outer switch from re-uploading already-streamed messages.
+				return 0, errors.New("unexpected shape of binary capture files")
+			}
 			return 0, errors.Wrap(err, "reading binary payload from capture file")
 		}
 		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
