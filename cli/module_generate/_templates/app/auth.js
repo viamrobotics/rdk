@@ -68,3 +68,19 @@ export function getHostAndCredentials() {
 export function saveHostInfo(host, id, key) {
     setCookie(DEFAULT_HOST, JSON.stringify({ host, key, id }));
 }
+
+export function getMultiMachineCredentials() {
+    const userTokenRaw = getCookie('userToken');
+    if (!userTokenRaw) {
+        return { accessToken: '', credentials: { type: 'access-token', payload: '' } };
+    }
+    try {
+        const { access_token } = JSON.parse(userTokenRaw);
+        return {
+            accessToken: access_token,
+            credentials: { type: 'access-token', payload: access_token },
+        };
+    } catch {
+        return { accessToken: '', credentials: { type: 'access-token', payload: '' } };
+    }
+}

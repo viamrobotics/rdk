@@ -23,6 +23,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/pkg/errors"
+	"github.com/russross/blackfriday/v2"
 	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
 	"golang.org/x/text/cases"
@@ -279,6 +280,18 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 		return err
 	}
 
+	// Render README content into dist/index.html so the default page shows setup instructions
+	readmeBytes, err := os.ReadFile(filepath.Join(moduleName, "README.md"))
+	if err == nil {
+		renderedHTML := blackfriday.Run(readmeBytes)
+		indexHTML := fmt.Sprintf(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>%s</title>
+<style>body{max-width:800px;margin:40px auto;padding:0 20px;}pre{background:#f4f4f4;padding:12px;border-radius:4px;overflow-x:auto;}</style>
+</head><body>%s</body></html>`,
+			data.AppName, string(renderedHTML))
+		os.WriteFile(filepath.Join(moduleName, "dist", "index.html"), []byte(indexHTML), 0o644) //nolint:gosec,errcheck
+	}
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		cwd = "."
@@ -353,7 +366,7 @@ func promptAppUser(app *appInputs) error {
 			huh.NewNote().
 				Title("Generate a new Viam app").
 				Description("This will generate a web app module that connects to your machine via the Viam SDK.\n"+
-					"For more details, view the documentation at \nhttps://docs.viam.com/registry/"),
+					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/"),
 			huh.NewInput().
 				Title("Set an app name:").
 				Description("The app name can contain only alphanumeric characters, dashes, and underscores.").

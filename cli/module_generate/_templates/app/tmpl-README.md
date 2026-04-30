@@ -8,7 +8,7 @@ For full documentation, see [Viam Apps](https://docs.viam.com/build-apps/hosting
 
 This module doesn't provide any frontend - bring your own using whatever framework you like (e.g. Svelte, Vue, React). This README assumes `npm` usage. For other package managers, adapt accordingly.
 
-> **Note:** Viam provides a set of utilities for Svelte that make it easy to integrate Viam into Svelte apps. See the [Viam TypeScript SDK](https://github.com/viamrobotics/viam-typescript-sdk) for details.
+> **Note:** Viam provides a set of utilities for Svelte that make it easy to integrate Viam into Svelte apps. See the [Viam Svelte SDK](https://github.com/viamrobotics/viam-svelte-sdk) for details.
 
 To connect to your machine, install the Viam SDK and cookie helper with your package manager:
 
@@ -17,6 +17,8 @@ npm install @viamrobotics/sdk typescript-cookie
 ```
 
 A utility file is included at `auth.js` in the project root. Copy it into your frontend's source directory alongside the file that will import it.
+
+### Single machine
 
 ```js
 import { createRobotClient } from '@viamrobotics/sdk';
@@ -31,12 +33,25 @@ const machine = await createRobotClient({
 const resources = await machine.resourceNames();
 ```
 
+### Multi machine
+
+```js
+import * as VIAM from '@viamrobotics/sdk';
+import { getMultiMachineCredentials } from './auth.js';
+
+const { credentials } = getMultiMachineCredentials();
+const client = await VIAM.createViamClient({ credentials });
+
+const machine = await client.connectToMachine({ id: '<machine-id>' });
+const resources = await machine.resourceNames();
+```
+
 Viam Apps expects the entrypoint of your app to be at `dist/index.html`. If your frontend builds into a subdirectory (e.g. `dist/build/index.html`), update the path in three places:
 - `meta.json`: the `entrypoint` field under `applications`
 - `Makefile`: the `ENTRYPOINT` variable
 - `module.go`: both the `//go:embed` path and the `fs.Sub` path in `distFS()`
 
-**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server.
+**Important:** Your frontend must use relative paths in its build output (e.g. `./static/js/main.js`, not `/static/js/main.js`). Absolute paths will break when served from viamapplications.com or the local server. For Create React App, add `"homepage": "."` to your `package.json` to enable this.
 
 Multi machine apps don't include a built-in machine picker, but it's easy to set one up. See [Multi-machine applications](https://docs.viam.com/build-apps/hosting/hosting-reference/#multi-machine-applications) for details.
 
@@ -50,7 +65,7 @@ make
 
 Test your frontend against a real machine during development:
 
-1. Start your frontend dev server from your frontend's directory and note the port it starts on
+1. Start your frontend dev server from your frontend's directory and note the port it starts on (the command depends on your framework, e.g. `npm run dev` for Vite or `npm start` for Create React App)
 2. In another terminal:
    ```
    viam module local-app-testing --app-url=http://localhost:<PORT> --machine-id=<YOUR_MACHINE_ID>
@@ -83,6 +98,8 @@ To check that your HTML/CSS renders without a machine connection, just open your
 **Note:** After re-uploading a new version, you may need to hard-refresh (Cmd+Shift+R / Ctrl+Shift+R) to avoid seeing a cached version.
 
 ## Local server
+
+**Note:** Local server currently only works for single-machine apps.
 
 To serve your app on the local network, add the module to a machine on app.viam.com:
 
