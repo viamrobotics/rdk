@@ -281,7 +281,7 @@ func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args gen
 	}
 
 	// Render README content into dist/index.html so the default page shows setup instructions
-	readmeBytes, err := os.ReadFile(filepath.Join(moduleName, "README.md"))
+	readmeBytes, err := os.ReadFile(filepath.Join(moduleName, "README.md")) //nolint:gosec
 	if err == nil {
 		renderedHTML := blackfriday.Run(readmeBytes)
 		indexHTML := fmt.Sprintf(`<!DOCTYPE html>
