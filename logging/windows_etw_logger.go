@@ -19,7 +19,7 @@ import (
 const providerGUID = "66AFF7FE-2451-47AA-A0E3-8E3D2E432B30"
 
 const (
-	etwSessionName      = "viam-agent-trace"
+	etwSessionName      = "viam-server-trace"
 	etwDefaultMaxSizeMB = 512
 	etwLogmanTimeout    = 30 * time.Second
 )

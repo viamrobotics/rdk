@@ -62,27 +62,21 @@ func (l *logmanSessionController) Start(ctx context.Context) error {
 	// Best-effort cleanup: stop any orphaned runtime session, then delete any
 	// stale persistent definition. Either may not exist; ignore errors.
 	_ = runLogman("stop", l.name, "-ets")
-	_ = runLogman("delete", l.name)
 
-	// Create the persistent definition. No -ets — that's the whole point of
-	// this dance.
+	// Create the persistent definition and run it automatically with -ets
 	if err := runLogman("create", "trace", l.name,
 		"-p", bracedGUID(l.providerGUID),
 		"-o", l.outputPath,
+		// binary + circular filetype so logs autorotate once we reach the limit
 		"-f", "bincirc",
 		"-max", strconv.Itoa(l.maxSizeMB),
-		// -ft 1 forces a buffer flush every 1 second. Default is flush-on-full
-		// or flush-on-stop only, which loses the events leading up to a hard
-		// kill of viam-server.
-		"-ft", "1",
+		// -ft 2 forces a buffer flush every 2 seconds
+		"-ft", "2",
+		"-ets",
 	); err != nil {
 		return fmt.Errorf("logman create trace: %w", err)
 	}
 
-	// Activate the definition as a runtime trace session.
-	if err := runLogman("start", l.name); err != nil {
-		return fmt.Errorf("logman start trace: %w", err)
-	}
 	return nil
 }
 
