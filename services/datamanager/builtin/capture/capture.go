@@ -71,12 +71,6 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 }
-
-// SetFrameSystem stores the frame system service so it can be passed to collectors that need it.
-func (c *Capture) SetFrameSystem(fs framesystem.Service) {
-	c.frameSystem = fs
-}
-
 type captureMongo struct {
 	// the struct members are protected by
 	// mu and are either all nil or all non nil
@@ -217,9 +211,11 @@ func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) 
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
 	ctx context.Context,
+	fs framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
 	config Config,
 ) {
+	c.frameSystem = fs
 	c.logger.Debug("Reconfigure START")
 	defer c.logger.Debug("Reconfigure END")
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.

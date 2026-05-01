@@ -223,12 +223,13 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
-	if fs, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
-		b.logger.Warnw("frame system unavailable; GetFramesystemPose collectors will fail", "error", err)
+	var fs framesystem.Service
+	if svc, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
+		b.logger.Warnw("frame system unavailable; GetWorldPose collectors will fail", "error", err)
 	} else {
-		b.capture.SetFrameSystem(fs)
+		fs = svc
 	}
-	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
+	b.capture.Reconfigure(ctx, fs, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {

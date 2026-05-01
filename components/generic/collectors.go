@@ -13,10 +13,10 @@ const (
 )
 
 func (m method) String() string {
-	if m == doCommand {
+	switch m {
+	case doCommand:
 		return "DoCommand"
-	}
-	if m == getWorldPose {
+	case getWorldPose:
 		return "GetWorldPose"
 	}
 	return "Unknown"

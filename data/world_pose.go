@@ -2,9 +2,9 @@ package data
 
 import (
 	"context"
-	"errors"
 	"time"
 
+	"github.com/pkg/errors"
 	v1 "go.viam.com/api/common/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 

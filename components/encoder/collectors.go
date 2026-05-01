@@ -19,13 +19,12 @@ const (
 )
 
 func (m method) String() string {
-	if m == ticksCount {
+	switch m {
+	case ticksCount:
 		return "TicksCount"
-	}
-	if m == doCommand {
+	case doCommand:
 		return "DoCommand"
-	}
-	if m == getWorldPose {
+	case getWorldPose:
 		return "GetWorldPose"
 	}
 	return "Unknown"

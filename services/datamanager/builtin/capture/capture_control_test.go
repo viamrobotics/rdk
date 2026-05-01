@@ -209,6 +209,7 @@ func TestMaxCaptureFileSize(t *testing.T) {
 
 			for _, maxSize := range tc.maxSizeChanges {
 				c.Reconfigure(context.Background(),
+					nil,
 					CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
 					Config{MaximumCaptureFileSizeBytes: maxSize, CaptureDir: captureDir},
 				)

@@ -2,11 +2,10 @@ package board
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	pb "go.viam.com/api/component/board/v1"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -28,16 +27,14 @@ const (
 )
 
 func (m method) String() string {
-	if m == analogs {
+	switch m {
+	case analogs:
 		return "Analogs"
-	}
-	if m == gpios {
+	case gpios:
 		return "Gpios"
-	}
-	if m == doCommand {
+	case doCommand:
 		return "DoCommand"
-	}
-	if m == getWorldPose {
+	case getWorldPose:
 		return "GetWorldPose"
 	}
 	return "Unknown"
@@ -64,7 +61,7 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 
 		analogReaderName, err := unmarshalName(analogReaderNameMarshaled)
 		if err != nil {
-			return res, data.NewFailedToReadError(params.ComponentName, analogs.String(), pkgerrors.Wrap(err, "failed to get reader name"))
+			return res, data.NewFailedToReadError(params.ComponentName, analogs.String(), errors.Wrap(err, "failed to get reader name"))
 		}
 
 		if reader, err := board.AnalogByName(analogReaderName); err == nil {
@@ -113,7 +110,7 @@ func newGPIOCollector(resource interface{}, params data.CollectorParams) (data.C
 		if err != nil {
 			return res, data.NewFailedToReadError(
 				params.ComponentName, gpios.String(),
-				pkgerrors.Wrap(err, fmt.Sprintf("failed to get pin name: %v; type: %s", pinNameMarshaled, pinNameMarshaled.TypeUrl)),
+				errors.Wrap(err, fmt.Sprintf("failed to get pin name: %v; type: %s", pinNameMarshaled, pinNameMarshaled.TypeUrl)),
 			)
 		}
 
@@ -173,7 +170,7 @@ func assertBoard(resource interface{}) (Board, error) {
 func unmarshalName(nameMarshaled *anypb.Any) (string, error) {
 	var structVal structpb.Value
 	if err := nameMarshaled.UnmarshalTo(&structVal); err != nil {
-		return "", pkgerrors.Wrap(err, "failed to unmarshal name")
+		return "", errors.Wrap(err, "failed to unmarshal name")
 	}
 
 	switch kind := structVal.Kind.(type) {

@@ -2,11 +2,10 @@ package camera
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
-	pkgerrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -66,7 +65,7 @@ func newNextPointCloudCollector(resource interface{}, params data.CollectorParam
 		}
 		bytes, err := pointcloud.ToBytes(pc)
 		if err != nil {
-			return res, pkgerrors.Errorf("failed to convert returned point cloud to PCD: %v", err)
+			return res, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
 		}
 		ts := data.Timestamps{
 			TimeRequested: timeRequested,
