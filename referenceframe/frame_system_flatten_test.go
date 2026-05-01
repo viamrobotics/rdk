@@ -199,6 +199,86 @@ func TestFlattenComponentLevelTransform(t *testing.T) {
 	test.That(t, spatial.PoseAlmostCoincident(resultArm.(*PoseInFrame).Pose(), expectedPose), test.ShouldBeTrue)
 }
 
+// TestAddFrameAutoFlattensSimpleModel verifies that calling AddFrame directly
+// with a SimpleModel triggers internal frame flattening — the model's
+// internal frames become accessible under the "<componentName>:<internalName>"
+// convention without going through the NewFrameSystem path.
+func TestAddFrameAutoFlattensSimpleModel(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("test")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
+	test.That(t, fs.Frame("arm1"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("arm1:shoulder_pan_joint"), test.ShouldNotBeNil)
+
+	for _, name := range fs.FrameNames() {
+		test.That(t, name, test.ShouldNotEqual, "arm1:base_link")
+		test.That(t, name, test.ShouldNotEqual, "arm1:shoulder_pan_joint")
+	}
+
+	li := NewZeroLinearInputs(fs)
+	armInputs := li.Get("arm1")
+	test.That(t, armInputs, test.ShouldNotBeNil)
+	test.That(t, len(armInputs), test.ShouldEqual, 1)
+}
+
+// TestSubsetIncludesFlattenedInternals verifies that a subset rooted at a
+// flattened SimpleModel includes its regenerated internals plus externals
+// attached to those internals, and excludes unrelated siblings.
+func TestSubsetIncludesFlattenedInternals(t *testing.T) {
+	model, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "arm1")
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("test")
+	test.That(t, fs.AddFrame(model, fs.World()), test.ShouldBeNil)
+
+	camera := NewZeroStaticFrame("camera")
+	test.That(t, fs.AddFrame(camera, fs.Frame("arm1:base_link")), test.ShouldBeNil)
+
+	sibling := NewZeroStaticFrame("sibling")
+	test.That(t, fs.AddFrame(sibling, fs.World()), test.ShouldBeNil)
+
+	sub, err := fs.FrameSystemSubset(fs.Frame("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, sub.Frame("arm1"), test.ShouldNotBeNil)
+	test.That(t, sub.Frame("arm1:base_link"), test.ShouldNotBeNil)
+	test.That(t, sub.Frame("arm1:shoulder_pan_joint"), test.ShouldNotBeNil)
+	test.That(t, sub.Frame("camera"), test.ShouldNotBeNil)
+	test.That(t, sub.Frame("sibling"), test.ShouldBeNil)
+
+	parent, err := sub.Parent(sub.Frame("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, parent.Name(), test.ShouldEqual, World)
+}
+
+// TestReplaceFrameRebuildsFlattenedInternals verifies that ReplaceFrame on a
+// flattened SimpleModel tears down the old namespaced internals and rebuilds
+// the replacement model's internals under the same component name.
+func TestReplaceFrameRebuildsFlattenedInternals(t *testing.T) {
+	arm, err := ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/fake.json"), "device")
+	test.That(t, err, test.ShouldBeNil)
+	gripper, err := ParseModelJSONFile(utils.ResolveFile("referenceframe/testfiles/test_mimic_gripper.json"), "device")
+	test.That(t, err, test.ShouldBeNil)
+
+	fs := NewEmptyFrameSystem("test")
+	test.That(t, fs.AddFrame(arm, fs.World()), test.ShouldBeNil)
+	test.That(t, fs.Frame("device:base_link"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("device:shoulder_pan_joint"), test.ShouldNotBeNil)
+
+	test.That(t, fs.ReplaceFrame(gripper), test.ShouldBeNil)
+
+	test.That(t, fs.Frame("device:base_link"), test.ShouldBeNil)
+	test.That(t, fs.Frame("device:shoulder_pan_joint"), test.ShouldBeNil)
+
+	test.That(t, fs.Frame("device:base"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("device:left_joint"), test.ShouldNotBeNil)
+	test.That(t, fs.Frame("device:right_joint"), test.ShouldNotBeNil)
+}
+
 // TestSharesRigidMotionAcrossInternalJoints verifies that two externals
 // parented to different moving internal joints of the same flattened component
 // correctly report NOT sharing rigid motion. The walk must use raw parents so
