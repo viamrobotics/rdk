@@ -1,8 +1,6 @@
 package posetracker
 
 import (
-
-
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +32,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	cFunc := data.NewDoCommandCaptureFunc(pt, params)
 	return data.NewCollector(cFunc, params)
 }
-
 
 // newGetWorldPoseCollector returns a collector to capture the pose tracker's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.

@@ -3,8 +3,8 @@ package motor
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
-	NewPositionCollector  = newPositionCollector
-	NewIsPoweredCollector = newIsPoweredCollector
-	NewDoCommandCollector          = newDoCommandCollector
+	NewPositionCollector     = newPositionCollector
+	NewIsPoweredCollector    = newIsPoweredCollector
+	NewDoCommandCollector    = newDoCommandCollector
 	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

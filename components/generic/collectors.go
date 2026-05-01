@@ -1,8 +1,6 @@
 package generic
 
 import (
-
-
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 )
@@ -35,7 +33,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	cFunc := data.NewDoCommandCaptureFunc(reso, params)
 	return data.NewCollector(cFunc, params)
 }
-
 
 // newGetWorldPoseCollector returns a collector to capture the resource's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.

@@ -5,6 +5,6 @@ package arm
 var (
 	NewEndPositionCollector    = newEndPositionCollector
 	NewJointPositionsCollector = newJointPositionsCollector
-	NewDoCommandCollector          = newDoCommandCollector
-	NewGetWorldPoseCollector = newGetWorldPoseCollector
+	NewDoCommandCollector      = newDoCommandCollector
+	NewGetWorldPoseCollector   = newGetWorldPoseCollector
 )

@@ -11,5 +11,5 @@ var (
 	NewOrientationCollector        = newOrientationCollector
 	NewReadingsCollector           = newReadingsCollector
 	NewDoCommandCollector          = newDoCommandCollector
-	NewGetWorldPoseCollector = newGetWorldPoseCollector
+	NewGetWorldPoseCollector       = newGetWorldPoseCollector
 )

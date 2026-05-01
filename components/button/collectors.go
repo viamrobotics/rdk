@@ -1,8 +1,6 @@
 package button
 
 import (
-
-
 	"go.viam.com/rdk/data"
 )
 
@@ -34,7 +32,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	cFunc := data.NewDoCommandCaptureFunc(button, params)
 	return data.NewCollector(cFunc, params)
 }
-
 
 // newGetWorldPoseCollector returns a collector to capture the button's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.

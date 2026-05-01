@@ -138,7 +138,6 @@ func newGetAudioCollector(resource interface{}, params data.CollectorParams) (da
 	return data.NewCollector(cFunc, params)
 }
 
-
 // newGetWorldPoseCollector returns a collector to capture the audio input's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {

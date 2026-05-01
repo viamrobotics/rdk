@@ -3,8 +3,8 @@ package board
 
 // Exported variables for testing collectors, see unexported collectors for implementation details.
 var (
-	NewAnalogCollector    = newAnalogCollector
-	NewGPIOCollector      = newGPIOCollector
-	NewDoCommandCollector          = newDoCommandCollector
+	NewAnalogCollector       = newAnalogCollector
+	NewGPIOCollector         = newGPIOCollector
+	NewDoCommandCollector    = newDoCommandCollector
 	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

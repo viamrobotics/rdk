@@ -105,7 +105,6 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-
 // newGetWorldPoseCollector returns a collector to capture the gantry's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {

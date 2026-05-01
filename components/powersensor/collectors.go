@@ -39,7 +39,6 @@ func (m method) String() string {
 	return "Unknown"
 }
 
-
 // newGetWorldPoseCollector returns a collector to capture the power sensor's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
 func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {

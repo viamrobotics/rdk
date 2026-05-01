@@ -7,6 +7,6 @@ var (
 	NewNextPointCloudCollector = newNextPointCloudCollector
 	NewReadImageCollector      = newReadImageCollector
 	NewGetImagesCollector      = newGetImagesCollector
-	NewDoCommandCollector          = newDoCommandCollector
-	NewGetWorldPoseCollector = newGetWorldPoseCollector
+	NewDoCommandCollector      = newDoCommandCollector
+	NewGetWorldPoseCollector   = newGetWorldPoseCollector
 )
