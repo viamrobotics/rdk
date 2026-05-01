@@ -177,6 +177,7 @@ func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 		CaptureFrequencyHz: 1e-7,
 	}
 	c.Reconfigure(context.Background(),
+		nil,
 		CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
 		Config{MaximumCaptureFileSizeBytes: 256 * 1024, CaptureDir: t.TempDir()},
 	)
