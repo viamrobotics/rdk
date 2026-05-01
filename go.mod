@@ -7,6 +7,9 @@ go 1.25.1
 // We fork this bc the stock version of this library is over 20mb.
 replace github.com/hashicorp/go-getter => github.com/viam-labs/go-getter v0.0.0-20251022162721-98d73b852c8a
 
+// PoC: build against local api repo with PlayStream additions.
+replace go.viam.com/api => /Users/oliviamiller/api
+
 require (
 	github.com/AlekSi/gocov-xml v1.0.0
 	github.com/Masterminds/semver/v3 v3.3.1

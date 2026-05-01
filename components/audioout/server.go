@@ -2,6 +2,8 @@ package audioout
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
@@ -15,12 +17,13 @@ import (
 // serviceServer implements the AudioOutService.
 type serviceServer struct {
 	pb.UnimplementedAudioOutServiceServer
-	coll resource.APIResourceGetter[AudioOut]
+	coll   resource.APIResourceGetter[AudioOut]
+	logger logging.Logger
 }
 
 // NewRPCServiceServer constructs an audioout gRPC service server.
 func NewRPCServiceServer(coll resource.APIResourceGetter[AudioOut], logger logging.Logger) interface{} {
-	return &serviceServer{coll: coll}
+	return &serviceServer{coll: coll, logger: logger}
 }
 
 func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
@@ -40,6 +43,70 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 	}
 
 	return &pb.PlayResponse{}, nil
+}
+
+func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) error {
+	first, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	init := first.GetInit()
+	if init == nil {
+		return errors.New("first PlayStreamRequest must be PlayStreamInit")
+	}
+
+	a, err := s.coll.Resource(init.GetName())
+	if err != nil {
+		return err
+	}
+
+	var info *rutils.AudioInfo
+	if init.GetAudioInfo() != nil {
+		info = rutils.AudioInfoPBToStruct(init.GetAudioInfo())
+	}
+
+	ctx := stream.Context()
+	chunks := make(chan []byte, 8)
+
+	// Pump chunks from the gRPC stream into the channel until EOF or error.
+	pumpErr := make(chan error, 1)
+	go func() {
+		defer close(chunks)
+		for {
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				pumpErr <- nil
+				return
+			}
+			if err != nil {
+				pumpErr <- err
+				return
+			}
+			chunk := msg.GetAudioChunk()
+			if chunk == nil {
+				// Skip non-chunk payloads (e.g. a stray init).
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				pumpErr <- ctx.Err()
+				return
+			case chunks <- chunk:
+			}
+		}
+	}()
+
+	playErr := a.PlayStream(ctx, info, chunks, nil)
+	// Drain the pump goroutine so we don't leak it.
+	pumpFinishErr := <-pumpErr
+	if playErr != nil {
+		return playErr
+	}
+	if pumpFinishErr != nil {
+		return pumpFinishErr
+	}
+
+	return stream.SendAndClose(&pb.PlayResponse{})
 }
 
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {

@@ -89,3 +89,43 @@ func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, 
 	}
 	return nil
 }
+
+func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks <-chan []byte, _ map[string]interface{}) error {
+	stream, err := c.client.PlayStream(ctx)
+	if err != nil {
+		return fmt.Errorf("audioout client: PlayStream: %w", err)
+	}
+
+	init := &pb.PlayStreamRequest{
+		Payload: &pb.PlayStreamRequest_Init{
+			Init: &pb.PlayStreamInit{Name: c.name},
+		},
+	}
+	if info != nil {
+		init.GetInit().AudioInfo = rutils.AudioInfoStructToPb(info)
+	}
+	if err := stream.Send(init); err != nil {
+		return fmt.Errorf("audioout client: send init: %w", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case chunk, ok := <-chunks:
+			if !ok {
+				_, err := stream.CloseAndRecv()
+				if err != nil {
+					return fmt.Errorf("audioout client: close and recv: %w", err)
+				}
+				return nil
+			}
+			msg := &pb.PlayStreamRequest{
+				Payload: &pb.PlayStreamRequest_AudioChunk{AudioChunk: chunk},
+			}
+			if err := stream.Send(msg); err != nil {
+				return fmt.Errorf("audioout client: send chunk: %w", err)
+			}
+		}
+	}
+}

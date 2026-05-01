@@ -11,12 +11,13 @@ import (
 // AudioOut is an injected AudioOut.
 type AudioOut struct {
 	audioout.AudioOut
-	name           resource.Name
-	DoFunc         func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	StatusFunc     func(ctx context.Context) (map[string]interface{}, error)
-	PlayFunc       func(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
-	PropertiesFunc func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
-	CloseFunc      func(ctx context.Context) error
+	name            resource.Name
+	DoFunc          func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc      func(ctx context.Context) (map[string]interface{}, error)
+	PlayFunc        func(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
+	PlayStreamFunc  func(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error
+	PropertiesFunc  func(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
+	CloseFunc       func(ctx context.Context) error
 }
 
 // NewAudioOut returns a new injected AudioOut.
@@ -51,6 +52,14 @@ func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo,
 		return a.AudioOut.Play(ctx, data, info, extra)
 	}
 	return a.PlayFunc(ctx, data, info, extra)
+}
+
+// PlayStream calls the injected PlayStream or the real version.
+func (a *AudioOut) PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error {
+	if a.PlayStreamFunc == nil {
+		return a.AudioOut.PlayStream(ctx, info, chunks, extra)
+	}
+	return a.PlayStreamFunc(ctx, info, chunks, extra)
 }
 
 // Close calls the injected Close or the real version.
