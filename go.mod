@@ -100,7 +100,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.539
+	go.viam.com/api v0.1.543-0.20260430194800-592b3aae8365
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.4.19
 	goji.io v2.0.2+incompatible
@@ -113,11 +113,11 @@ require (
 	golang.org/x/text v0.33.0
 	golang.org/x/time v0.10.0
 	golang.org/x/tools v0.40.0
-	gonum.org/v1/gonum v0.16.0
+	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.15.2
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1

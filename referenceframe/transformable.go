@@ -81,7 +81,8 @@ func (pF *PoseInFrame) SetName(name string) {
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
-	return NewPoseInFrame(tf.parent, spatialmath.Compose(tf.pose, pF.pose))
+	return NewPoseInFrameWithGoalCloud(
+		tf.parent, spatialmath.Compose(tf.pose, pF.pose), pF.GoalCloud)
 }
 
 // TransformOpt transforms the `pF` as a DualQuaternion in place.

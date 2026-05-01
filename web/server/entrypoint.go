@@ -128,8 +128,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	configLogger := rootLogger.Sublogger("config")
 	networkingLogger := rootLogger.Sublogger("networking")
 
-	if argsParsed.OutputLogFile != "" {
-		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
+	logFilePath := cmp.Or(argsParsed.OutputLogFile, os.Getenv(rutils.ViamLogFileEnvVar))
+	if logFilePath != "" {
+		logWriter, closer := logging.NewFileAppender(logFilePath)
 		defer func() {
 			utils.UncheckedError(closer.Close())
 		}()
@@ -138,7 +139,9 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
+		logging.RegisterEventLogger(rootLogger, "viam-server")
+	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {

@@ -169,6 +169,11 @@ func (p *PlannerOptions) getGoalMetric(goals referenceframe.FrameSystemPoses) mo
 				panic(fmt.Errorf("frame: %v goal parent: %s", frame, goal.Parent()))
 			}
 
+			if goal.GoalCloud != nil && goal.GoalCloud.PoseInCloud(goal.Pose(), &dq) {
+				// Zero incremental score.
+				continue
+			}
+
 			score += motionplan.WeightedSquaredNormDistanceWithOptions(goal.Pose(), &dq, cartesianScale, orientScale)
 		}
 		return score

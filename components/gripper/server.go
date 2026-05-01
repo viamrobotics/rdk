@@ -95,6 +95,39 @@ func (s *serviceServer) IsHoldingSomething(ctx context.Context, req *pb.IsHoldin
 	return &pb.IsHoldingSomethingResponse{IsHoldingSomething: holdingStatus.IsHoldingSomething, Meta: meta}, nil
 }
 
+// GetCurrentInputs returns the current input values of the gripper.
+func (s *serviceServer) GetCurrentInputs(
+	ctx context.Context,
+	req *pb.GetCurrentInputsRequest,
+) (*pb.GetCurrentInputsResponse, error) {
+	gripper, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := gripper.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	values := make([]float64, len(inputs))
+	for i, in := range inputs {
+		values[i] = float64(in)
+	}
+	return &pb.GetCurrentInputsResponse{Values: values}, nil
+}
+
+// GoToInputs moves the gripper to the given input values.
+func (s *serviceServer) GoToInputs(ctx context.Context, req *pb.GoToInputsRequest) (*pb.GoToInputsResponse, error) {
+	gripper, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	inputs := make([]referenceframe.Input, len(req.Values))
+	for i, v := range req.Values {
+		inputs[i] = referenceframe.Input(v)
+	}
+	return &pb.GoToInputsResponse{}, gripper.GoToInputs(ctx, inputs)
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
