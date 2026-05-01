@@ -50,7 +50,6 @@ func TestAppTemplateCompiles(t *testing.T) {
 	err = os.WriteFile(goModPath, goMod, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
-	// Pin vmodutils to rc version that implements Status()
 	goGet := exec.Command("go", "get", "github.com/erh/vmodutils@latest")
 	goGet.Dir = appPath
 	goGetOut, err := goGet.CombinedOutput()
