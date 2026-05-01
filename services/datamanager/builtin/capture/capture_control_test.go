@@ -81,6 +81,7 @@ func TestSetCaptureConfig(t *testing.T) {
 	toggledCollector := &mockCollector{}
 	tagsCollector := &mockCollector{}
 	noopCollector := &mockCollector{}
+	nearZeroCollector := &mockCollector{}
 
 	for _, tc := range []struct {
 		name                   string
@@ -107,6 +108,14 @@ func TestSetCaptureConfig(t *testing.T) {
 			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: toggledCollector, Config: fakeCfg}},
 			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(0)}},
 			expectedClosed:         toggledCollector,
+			expectedCollectorCount: 0,
+		},
+		{
+			name:                   "disables collector on near-zero frequency",
+			defaultConfigs:         CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+			existingColls:          collectors{fakeMD: {Resource: fakeRes, Collector: nearZeroCollector, Config: fakeCfg}},
+			input:                  map[string]datamanager.CaptureConfigReading{"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(1e-7)}},
+			expectedClosed:         nearZeroCollector,
 			expectedCollectorCount: 0,
 		},
 		{
@@ -156,6 +165,23 @@ func TestSetCaptureConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNearZeroFrequencySkipsCollector(t *testing.T) {
+	registerFakeCollector()
+	c := newTestCapture(t, nil, nil)
+
+	fakeCfg := datamanager.DataCaptureConfig{
+		Name:               resource.NewName(fakeAPI, "fake-1"),
+		Method:             "GetReadings",
+		CaptureFrequencyHz: 1e-7,
+	}
+	c.Reconfigure(context.Background(),
+		CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+		Config{MaximumCaptureFileSizeBytes: 256 * 1024, CaptureDir: t.TempDir()},
+	)
+
+	test.That(t, len(c.collectors), test.ShouldEqual, 0)
 }
 
 var (

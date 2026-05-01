@@ -363,6 +363,11 @@ func (sfs *FrameSystem) internalFrameNameSet() map[string]bool {
 			result[name] = true
 		}
 	}
+	// Mimic frames are flattened into the FS but excluded from the schema (they have
+	// no independent input). Mark them as internal so they don't surface in FrameNames().
+	for name := range sfs.mimicFrames {
+		result[name] = true
+	}
 	return result
 }
 

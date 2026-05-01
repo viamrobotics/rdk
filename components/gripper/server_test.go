@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -145,6 +146,38 @@ func TestServer(t *testing.T) {
 
 		_, err = gripperServer.GetGeometries(context.Background(), &pbcommon.GetGeometriesRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldBeError, gripper.ErrGeometriesNil(testGripperName2))
+	})
+
+	t.Run("GetCurrentInputs", func(t *testing.T) {
+		expectedInputs := []referenceframe.Input{1.5, 2.5}
+		injectGripper.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
+			return expectedInputs, nil
+		}
+		resp, err := gripperServer.GetCurrentInputs(context.Background(), &pb.GetCurrentInputsRequest{Name: testGripperName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Values, test.ShouldResemble, []float64{1.5, 2.5})
+
+		_, err = gripperServer.GetCurrentInputs(context.Background(), &pb.GetCurrentInputsRequest{Name: missingGripperName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
+	})
+
+	t.Run("GoToInputs", func(t *testing.T) {
+		var receivedInputs [][]referenceframe.Input
+		injectGripper.GoToInputsFunc = func(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+			receivedInputs = inputSteps
+			return nil
+		}
+		_, err := gripperServer.GoToInputs(context.Background(), &pb.GoToInputsRequest{
+			Name:   testGripperName,
+			Values: []float64{3.5, 4.5},
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedInputs, test.ShouldResemble, [][]referenceframe.Input{{3.5, 4.5}})
+
+		_, err = gripperServer.GoToInputs(context.Background(), &pb.GoToInputsRequest{Name: missingGripperName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGripperNotFound.Error())
 	})
 
 	t.Run("GetStatus", func(t *testing.T) {

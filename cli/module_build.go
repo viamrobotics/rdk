@@ -744,6 +744,13 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 			return nil
 		}
 
+		// Skip symlinks — filepath.Walk doesn't follow them, so they appear as
+		// non-directory entries, but os.ReadFile would follow the link and fail
+		// if the target is a directory (common in pnpm node_modules).
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+
 		if c.shouldIgnore(relPath, matcher, false) {
 			return nil
 		}
