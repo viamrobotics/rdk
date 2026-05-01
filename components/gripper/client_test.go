@@ -145,6 +145,29 @@ func TestClient(t *testing.T) {
 			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], geometry), test.ShouldBeTrue)
 		}
 
+		expectedInputs := []referenceframe.Input{0.5, 1.5}
+		injectGripper.CurrentInputsFunc = func(ctx context.Context) ([]referenceframe.Input, error) {
+			return expectedInputs, nil
+		}
+		inputs, err := gripper1Client.CurrentInputs(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, inputs, test.ShouldResemble, expectedInputs)
+
+		var receivedInputs [][]referenceframe.Input
+		injectGripper.GoToInputsFunc = func(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+			receivedInputs = append(receivedInputs, inputSteps...)
+			return nil
+		}
+		err = gripper1Client.GoToInputs(context.Background(),
+			[]referenceframe.Input{2.0, 3.0},
+			[]referenceframe.Input{4.0, 5.0},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedInputs, test.ShouldResemble, [][]referenceframe.Input{
+			{2.0, 3.0},
+			{4.0, 5.0},
+		})
+
 		// Status - default empty status
 		statusResult, err := gripper1Client.Status(context.Background())
 		test.That(t, err, test.ShouldBeNil)

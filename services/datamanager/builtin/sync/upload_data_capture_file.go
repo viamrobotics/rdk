@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"sync/atomic"
 
 	"github.com/docker/go-units"
@@ -45,6 +47,96 @@ func uploadDataCaptureFile(
 	logger.Debugf("preparing to upload data capture file: %s, size: %d", f.GetPath(), f.Size())
 
 	md := f.ReadMetadata()
+
+	if md.GetType() == datasyncPB.DataType_DATA_TYPE_BINARY_SENSOR {
+		n, err := uploadBinaryPayloads(ctx, f, conn, md, logger, bytesUploadingCounter)
+		switch {
+		case err == nil:
+			return n, nil
+		case errors.Is(err, data.ErrNoBinaryField):
+			// No binary payload - maybe tabular data in a BINARY_SENSOR-typed file
+			// (like legacy camera.GetImages file) - fall through to in-memory path.
+		case errors.Is(err, data.ErrSensorMetadataTooLarge) || errors.Is(err, data.ErrUnparsableBinaryCapture):
+			// File cannot be streamed due to unexpected format. Fall back with a warning.
+			logger.Warnf("cannot stream binary payload for %s, falling back to in-memory upload: %v", f.GetPath(), err)
+		default:
+			return 0, err
+		}
+	}
+
+	return uploadFromMemory(ctx, f, conn, md, logger, bytesUploadingCounter)
+}
+
+// uploadBinaryPayloads streams each binary payload in f directly from disk without
+// loading it into memory. Returns data.ErrNoBinaryField if the first message has no
+// binary field, which indicates a legacy camera.GetImages file that must be handled
+// by uploadFromMemory instead.
+func uploadBinaryPayloads(
+	ctx context.Context,
+	f *data.CaptureFile,
+	conn cloudConn,
+	md *datasyncPB.DataCaptureMetadata,
+	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
+) (uint64, error) {
+	f.Reset()
+	uploadMD := uploadMetadata(conn.partID, md)
+	msgIdx := 0
+	for {
+		sensorMeta, payloadLen, r, err := f.BinaryPayloadReader()
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			break
+		}
+		if err != nil {
+			if errors.Is(err, data.ErrNoBinaryField) {
+				if msgIdx == 0 {
+					return 0, err
+				}
+				// binary capture files currently contain one message, so this should be unreachable
+				// but returning a fresh error prevents the outer switch from re-uploading already-streamed messages.
+				return 0, errors.New("unexpected shape of binary capture files")
+			}
+			return 0, errors.Wrap(err, "reading binary payload from capture file")
+		}
+		clonedMD := proto.Clone(uploadMD).(*datasyncPB.UploadMetadata)
+		if payloadLen > MaxUnaryFileSize {
+			logger.Debugf("streaming large binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
+			if err := uploadLargeBinaryFromReader(ctx, conn.client, clonedMD, sensorMeta, r, f.GetPath(),
+				logger, bytesUploadingCounter); err != nil {
+				return 0, err
+			}
+		} else {
+			logger.Debugf("uploading small binary payload (%d bytes), message %d: %s", payloadLen, msgIdx, f.GetPath())
+			payload, err := io.ReadAll(r)
+			if err != nil {
+				return 0, errors.Wrap(err, "reading binary payload into memory")
+			}
+			sd := &datasyncPB.SensorData{
+				Metadata: sensorMeta,
+				Data:     &datasyncPB.SensorData_Binary{Binary: payload},
+			}
+			if err := uploadBinarySensorData(ctx, conn.client, clonedMD, sd, bytesUploadingCounter); err != nil {
+				return 0, err
+			}
+		}
+		msgIdx++
+	}
+	if msgIdx == 0 {
+		return 0, data.ErrNoBinaryField
+	}
+	return uint64(f.Size()), nil
+}
+
+// uploadFromMemory loads all sensor data from f into memory and uploads it. It handles
+// tabular files and legacy camera.GetImages binary files.
+func uploadFromMemory(
+	ctx context.Context,
+	f *data.CaptureFile,
+	conn cloudConn,
+	md *datasyncPB.DataCaptureMetadata,
+	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
+) (uint64, error) {
 	sensorData, err := data.SensorDataFromCaptureFile(f)
 	if err != nil {
 		return 0, errors.Wrap(err, "error reading sensor data")
@@ -338,7 +430,7 @@ func uploadLargeBinarySensorData(
 	}
 
 	// Then call the function to send the rest.
-	if err := sendStreamingDCRequests(ctx, c, sd.GetBinary(), path, logger, bytesUploadingCounter); err != nil {
+	if err := sendStreamingDCRequests(ctx, c, bytes.NewReader(sd.GetBinary()), path, logger, bytesUploadingCounter); err != nil {
 		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
 	}
 
@@ -349,51 +441,88 @@ func uploadLargeBinarySensorData(
 	return nil
 }
 
-func sendStreamingDCRequests(
+// uploadLargeBinaryFromReader streams the binary payload from r without loading it
+// into memory. sensorMeta may be nil if the capture file had no SensorMetadata.
+func uploadLargeBinaryFromReader(
 	ctx context.Context,
-	stream datasyncPB.DataSyncService_StreamingDataCaptureUploadClient,
-	contents []byte,
+	client datasyncPB.DataSyncServiceClient,
+	md *datasyncPB.UploadMetadata,
+	sensorMeta *datasyncPB.SensorMetadata,
+	r io.Reader,
 	path string,
 	logger logging.Logger,
 	bytesUploadingCounter *atomic.Uint64,
 ) error {
-	// Loop until there is no more content to send.
+	c, err := client.StreamingDataCaptureUpload(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error creating StreamingDataCaptureUpload client")
+	}
+
+	fileExtensionFromMimeType := getFileExtFromStringMimeType(md.GetMimeType())
+	if fileExtensionFromMimeType != "" {
+		md.FileExtension = fileExtensionFromMimeType
+	}
+
+	if err := c.Send(&datasyncPB.StreamingDataCaptureUploadRequest{
+		UploadPacket: &datasyncPB.StreamingDataCaptureUploadRequest_Metadata{
+			Metadata: &datasyncPB.DataCaptureUploadMetadata{
+				UploadMetadata: md,
+				SensorMetadata: sensorMeta,
+			},
+		},
+	}); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload failed sending metadata")
+	}
+
+	if err := sendStreamingDCRequests(ctx, c, r, path, logger, bytesUploadingCounter); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload failed to sync")
+	}
+
+	if _, err = c.CloseAndRecv(); err != nil {
+		return errors.Wrap(err, "StreamingDataCaptureUpload CloseAndRecv failed")
+	}
+	return nil
+}
+
+func sendStreamingDCRequests(
+	ctx context.Context,
+	stream datasyncPB.DataSyncService_StreamingDataCaptureUploadClient,
+	r io.Reader,
+	path string,
+	logger logging.Logger,
+	bytesUploadingCounter *atomic.Uint64,
+) error {
+	buf := make([]byte, UploadChunkSize)
 	chunkCount := 0
-	for i := 0; i < len(contents); i += UploadChunkSize {
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			// Get the next chunk from contents.
-			end := i + UploadChunkSize
-			if end > len(contents) {
-				end = len(contents)
+			n, err := io.ReadFull(r, buf)
+			if n > 0 {
+				uploadReq := &datasyncPB.StreamingDataCaptureUploadRequest{
+					UploadPacket: &datasyncPB.StreamingDataCaptureUploadRequest_Data{
+						Data: buf[:n],
+					},
+				}
+				logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d for file: %s", chunkCount, path)
+				if sendErr := stream.Send(uploadReq); sendErr != nil {
+					return sendErr
+				}
+				if bytesUploadingCounter != nil {
+					bytesUploadingCounter.Add(uint64(n))
+				}
+				chunkCount++
 			}
-			chunk := contents[i:end]
-
-			// Build request with contents.
-			uploadReq := &datasyncPB.StreamingDataCaptureUploadRequest{
-				UploadPacket: &datasyncPB.StreamingDataCaptureUploadRequest_Data{
-					Data: chunk,
-				},
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				return nil
 			}
-
-			// Send request
-			logger.Debugf("datasync.StreamingDataCaptureUpload sending chunk %d starting at byte index %d for file: %s", chunkCount, i, path)
-			if err := stream.Send(uploadReq); err != nil {
+			if err != nil {
 				return err
 			}
-
-			// Update byte counter after successful chunk upload.
-			if bytesUploadingCounter != nil {
-				bytesUploadingCounter.Add(uint64(len(chunk)))
-			}
-
-			chunkCount++
 		}
 	}
-
-	return nil
 }
 
 func getFileExtFromImageMimeType(mimeType string) string {

@@ -744,6 +744,13 @@ func (c *viamClient) createGitArchive(repoPath string) (string, error) {
 			return nil
 		}
 
+		// Skip symlinks — filepath.Walk doesn't follow them, so they appear as
+		// non-directory entries, but os.ReadFile would follow the link and fail
+		// if the target is a directory (common in pnpm node_modules).
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+
 		if c.shouldIgnore(relPath, matcher, false) {
 			return nil
 		}
@@ -1324,7 +1331,7 @@ func reloadModuleActionInner(
 					"try --local if you are testing on the same machine.",
 			)
 		}
-		if err := validateReloadableArchive(cmd, manifest.Build); err != nil {
+		if err := validateReloadableArchive(cmd, manifest.Build, manifest.FirstRun); err != nil {
 			return err
 		}
 
@@ -1475,8 +1482,9 @@ func reloadingDestination(cmd *cli.Command, manifest *ModuleManifest) string {
 }
 
 // validateReloadableArchive returns an error if there is a fatal issue (for now just file not found).
-// It also logs warnings for likely problems.
-func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo) error {
+// It also logs warnings for likely problems, such as a missing meta.json or a first_run script
+// declared in the manifest but absent from the archive.
+func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo, firstRun string) error {
 	reader, err := os.Open(build.Path)
 	if err != nil {
 		return errors.Wrap(err, "error opening the build.path field in your meta.json")
@@ -1487,6 +1495,7 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo) error
 	}
 	archive := tar.NewReader(decompressed)
 	metaFound := false
+	firstRunFound := false
 	for {
 		header, err := archive.Next()
 		if errors.Is(err, io.EOF) {
@@ -1495,13 +1504,25 @@ func validateReloadableArchive(cmd *cli.Command, build *manifestBuildInfo) error
 		if err != nil {
 			return errors.Wrapf(err, "reading tar at %s", build.Path)
 		}
-		if header.Name == "meta.json" {
+		name := filepath.Base(header.Name)
+		if name == "meta.json" {
 			metaFound = true
+		}
+		if firstRun != "" && name == filepath.Base(firstRun) {
+			firstRunFound = true
+		}
+		if metaFound && (firstRun == "" || firstRunFound) {
 			break
 		}
 	}
 	if !metaFound {
 		warningf(cmd.Root().ErrWriter, "archive at %s doesn't contain a meta.json, your module will probably fail to start", build.Path)
+	}
+	if firstRun != "" && !firstRunFound {
+		warningf(cmd.Root().ErrWriter,
+			"archive at %s doesn't contain the first_run script %q declared in meta.json; "+
+				"the script will not run on the target machine. Include it in your build artifact",
+			build.Path, firstRun)
 	}
 	return nil
 }

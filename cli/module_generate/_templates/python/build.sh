@@ -10,4 +10,10 @@ if ! $PYTHON -m pip install pyinstaller -Uqq; then
 fi
 
 $PYTHON -m PyInstaller --onefile --hidden-import="googleapiclient" src/main.py
-tar -czvf dist/archive.tar.gz meta.json ./dist/main
+
+TAR_FILES="meta.json ./dist/main"
+FIRST_RUN=$($PYTHON -c "import json; print(json.load(open('meta.json')).get('first_run', ''))" 2>/dev/null)
+if [ -n "$FIRST_RUN" ] && [ -f "$FIRST_RUN" ]; then
+    TAR_FILES="$TAR_FILES $FIRST_RUN"
+fi
+tar -czvf dist/archive.tar.gz $TAR_FILES

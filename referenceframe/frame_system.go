@@ -455,6 +455,7 @@ func (sfs *FrameSystem) Transform(inputs *LinearInputs, object Transformable, ds
 	if err != nil {
 		return nil, err
 	}
+
 	return object.Transform(&PoseInFrame{dst, &tfParentDQ, src, nil}), nil
 }
 
@@ -602,7 +603,6 @@ func (sfs *FrameSystem) ReplaceFrame(replacementFrame Frame) error {
 		return errors.New("cannot replace the World frame of a frame system")
 	}
 
-	// get replaceMe's raw parent (not the masked Parent() which hides internal frames)
 	rawParentName, exists := sfs.parents[replaceMe.Name()]
 	if !exists {
 		return NewParentFrameNilError(replaceMe.Name())

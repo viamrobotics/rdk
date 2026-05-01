@@ -190,6 +190,49 @@ func TestFullReloadFlow(t *testing.T) {
 				"name": "existing-shell",
 			})
 		})
+
+		t.Run("detectsShellServiceFromFragment", func(t *testing.T) {
+			confWithFragment, err := structpb.NewStruct(map[string]any{
+				"modules":   []any{},
+				"services":  []any{},
+				"fragments": []any{map[string]any{"id": "frag-with-shell"}},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			fragmentBody, err := structpb.NewStruct(map[string]any{
+				"services": []any{map[string]any{
+					"name": "fragment-shell",
+					"api":  "rdk:service:shell",
+				}},
+			})
+			test.That(t, err, test.ShouldBeNil)
+
+			mockClient := mockAppServiceClientWithRobotPart(confWithFragment, nil)
+			mockClient.GetFragmentFunc = func(ctx context.Context, in *apppb.GetFragmentRequest,
+				opts ...grpc.CallOption,
+			) (*apppb.GetFragmentResponse, error) {
+				test.That(t, in.Id, test.ShouldEqual, "frag-with-shell")
+				return &apppb.GetFragmentResponse{Fragment: &apppb.Fragment{
+					Id:       in.Id,
+					Fragment: fragmentBody,
+				}}, nil
+			}
+
+			cCtx2, vc2, _, _ := setup(
+				mockClient,
+				nil,
+				&inject.BuildServiceClient{},
+				map[string]any{moduleFlagPath: manifestPath},
+				"token",
+			)
+
+			part, _ := vc2.getRobotPart(context.Background(), "id")
+			added, err := addShellService(context.Background(), cCtx2, vc2, logging.NewTestLogger(t), part.Part, false)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, added, test.ShouldBeFalse)
+			services, _ := part.Part.RobotConfig.AsMap()["services"].([]any)
+			test.That(t, len(services), test.ShouldEqual, 0)
+		})
 	})
 
 	t.Run("versionCheck", func(t *testing.T) {
