@@ -16,15 +16,15 @@ type method int64
 
 const (
 	doCommand method = iota
-	getFrameSystemPose
+	getWorldPose
 )
 
 func (m method) String() string {
 	switch m {
 	case doCommand:
 		return "DoCommand"
-	case getFrameSystemPose:
-		return "GetFrameSystemPose"
+	case getWorldPose:
+		return "GetWorldPose"
 	}
 	return "Unknown"
 }
@@ -41,19 +41,19 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	return data.NewCollector(cFunc, params)
 }
 
-// frameSystemPoseReading is a temporary struct used until a GetFrameSystemPoseResponse proto is defined.
-type frameSystemPoseReading struct {
+// worldPoseReading is a temporary struct used until a GetWorldPoseResponse proto is defined.
+type worldPoseReading struct {
 	Pose *v1.Pose `json:"pose"`
 }
 
-// newGetFrameSystemPoseCollector returns a collector to capture the gripper's world-space pose via the frame system.
+// newGetWorldPoseCollector returns a collector to capture the gripper's world-space pose via the frame system.
 // If one is already registered with the same MethodMetadata it will panic.
-func newGetFrameSystemPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
 	if _, err := assertGripper(resource); err != nil {
 		return nil, err
 	}
 	if params.FrameSystem == nil {
-		return nil, errors.New("frame system is required for GetFrameSystemPose collector")
+		return nil, errors.New("frame system is required for GetWorldPose collector")
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]*anypb.Any) (data.CaptureResult, error) {
@@ -64,12 +64,12 @@ func newGetFrameSystemPoseCollector(resource interface{}, params data.CollectorP
 			if data.IsNoCaptureToStoreError(err) {
 				return res, err
 			}
-			return res, data.NewFailedToReadError(params.ComponentName, getFrameSystemPose.String(), err)
+			return res, data.NewFailedToReadError(params.ComponentName, getWorldPose.String(), err)
 		}
 		p := pose.Pose()
 		o := p.Orientation().OrientationVectorDegrees()
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, frameSystemPoseReading{
+		return data.NewTabularCaptureResult(ts, worldPoseReading{
 			Pose: &v1.Pose{
 				X:     p.Point().X,
 				Y:     p.Point().Y,

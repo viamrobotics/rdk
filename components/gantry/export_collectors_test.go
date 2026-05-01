@@ -5,5 +5,6 @@ package gantry
 var (
 	NewPositionCollector  = newPositionCollector
 	NewLengthsCollector   = newLengthsCollector
-	NewDoCommandCollector = newDoCommandCollector
+	NewDoCommandCollector          = newDoCommandCollector
+	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

@@ -7,5 +7,6 @@ var (
 	NewCurrentCollector   = newCurrentCollector
 	NewPowerCollector     = newPowerCollector
 	NewReadingsCollector  = newReadingsCollector
-	NewDoCommandCollector = newDoCommandCollector
+	NewDoCommandCollector          = newDoCommandCollector
+	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

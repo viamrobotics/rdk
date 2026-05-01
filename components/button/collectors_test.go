@@ -34,3 +34,12 @@ func newButton() button.Button {
 	}
 	return b
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       button.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newButton() },
+	})
+}

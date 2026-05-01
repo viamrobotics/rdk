@@ -5,5 +5,6 @@ package board
 var (
 	NewAnalogCollector    = newAnalogCollector
 	NewGPIOCollector      = newGPIOCollector
-	NewDoCommandCollector = newDoCommandCollector
+	NewDoCommandCollector          = newDoCommandCollector
+	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

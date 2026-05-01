@@ -5,5 +5,6 @@ package motor
 var (
 	NewPositionCollector  = newPositionCollector
 	NewIsPoweredCollector = newIsPoweredCollector
-	NewDoCommandCollector = newDoCommandCollector
+	NewDoCommandCollector          = newDoCommandCollector
+	NewGetWorldPoseCollector = newGetWorldPoseCollector
 )

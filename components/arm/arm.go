@@ -42,8 +42,8 @@ func init() {
 	}, newDoCommandCollector)
 	data.RegisterCollector(data.MethodMetadata{
 		API:        API,
-		MethodName: getFrameSystemPose.String(),
-	}, newGetFrameSystemPoseCollector)
+		MethodName: getWorldPose.String(),
+	}, newGetWorldPoseCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string "arm".
