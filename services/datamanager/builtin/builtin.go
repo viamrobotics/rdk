@@ -212,24 +212,25 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 
 	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
 
+	var frameSystem framesystem.Service
+	if svc, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
+		b.logger.Warnw("frame system unavailable; GetWorldPose collectors will fail", "error", err)
+	} else {
+		frameSystem = svc
+	}
+
 	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
-	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
+	// It is important that no errors happen for a given Reconfigure call after we begin calling Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
 	shouldSync := func(ctx context.Context) bool {
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
-	var fs framesystem.Service
-	if svc, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
-		b.logger.Warnw("frame system unavailable; GetWorldPose collectors will fail", "error", err)
-	} else {
-		fs = svc
-	}
-	b.capture.Reconfigure(ctx, fs, collectorConfigsByResource, captureConfig)
+	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {

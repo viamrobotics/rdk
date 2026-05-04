@@ -71,6 +71,7 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 }
+
 type captureMongo struct {
 	// the struct members are protected by
 	// mu and are either all nil or all non nil
@@ -214,13 +215,16 @@ func (c *Capture) mongoReconfigure(ctx context.Context, newConfig *MongoConfig) 
 // It is only called by the builtin data manager.
 func (c *Capture) Reconfigure(
 	ctx context.Context,
-	fs framesystem.Service,
+	frameSystem framesystem.Service,
 	collectorConfigsByResource CollectorConfigsByResource,
 	config Config,
 ) {
-	c.frameSystem = fs
 	c.logger.Debug("Reconfigure START")
 	defer c.logger.Debug("Reconfigure END")
+
+	// The frame system is required for any collectors that capture data via the frame system, so we set it on the Capture struct.
+	c.frameSystem = frameSystem
+
 	// Service is disabled, so close all collectors and clear the map so we can instantiate new ones if we enable this service.
 	if config.CaptureDisabled {
 		c.logger.Info("Capture Disabled")
