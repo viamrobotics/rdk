@@ -48,10 +48,11 @@ func TestClient(t *testing.T) {
 	jointPos1 := []referenceframe.Input{1., 2., 3.}
 	expectedGeometries := []spatialmath.Geometry{spatialmath.NewPoint(r3.Vector{1, 2, 3}, "")}
 	expectedMoveOptions := arm.MoveOptions{
-		MaxVelRads:       1,
-		MaxAccRads:       2,
-		MaxVelRadsJoints: []float64{utils.DegToRad(10), utils.DegToRad(20), utils.DegToRad(30)},
-		MaxAccRadsJoints: []float64{utils.DegToRad(40), utils.DegToRad(50), utils.DegToRad(60)},
+		MaxVelRads:         1,
+		MaxAccRads:         2,
+		MaxVelRadsJoints:   []float64{utils.DegToRad(10), utils.DegToRad(20), utils.DegToRad(30)},
+		MaxAccRadsJoints:   []float64{utils.DegToRad(40), utils.DegToRad(50), utils.DegToRad(60)},
+		MaxTCPSpeedMPerSec: 0.25,
 	}
 	injectArm := &inject.Arm{}
 	injectArm.EndPositionFunc = func(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
