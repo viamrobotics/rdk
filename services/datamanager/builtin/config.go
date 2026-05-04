@@ -101,7 +101,7 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.CaptureDirDeletionThreshold < 0 {
 		return nil, nil, errors.New("capture_dir_deletion_threshold can't be negative")
 	}
-	return []string{cloud.InternalServiceName.String(), framesystem.InternalServiceName.String()}, nil, nil
+	return []string{cloud.InternalServiceName.String()}, []string{framesystem.InternalServiceName.String()}, nil
 }
 
 func (c *Config) getCaptureDir(logger logging.Logger) string {
