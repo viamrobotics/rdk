@@ -275,7 +275,8 @@ func TestServer(t *testing.T) {
 		}
 		test.That(t, moveOptions.MaxVelRadsJoints, test.ShouldResemble, expectedPerJointVelRads)
 		test.That(t, moveOptions.MaxAccRadsJoints, test.ShouldResemble, expectedPerJointAccRads)
-		test.That(t, moveOptions.MaxTCPSpeedMPerSec, test.ShouldEqual, expectedTCPSpeed)
+		test.That(t, moveOptions.MaxTCPSpeedMPerSec, test.ShouldNotBeNil)
+		test.That(t, *moveOptions.MaxTCPSpeedMPerSec, test.ShouldEqual, expectedTCPSpeed)
 		test.That(t, extraOptions, test.ShouldResemble, map[string]interface{}{"foo": "MoveThroughJointPositions"})
 	})
 

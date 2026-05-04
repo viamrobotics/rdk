@@ -15,7 +15,7 @@ type MoveOptions struct {
 	MaxAccRadsJoints []float64
 	// MaxTCPSpeedMPerSec is the maximum allowable speed of the tool center point, in meters per second.
 	// Zero means unset.
-	MaxTCPSpeedMPerSec float64
+	MaxTCPSpeedMPerSec *float64
 }
 
 func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
@@ -50,7 +50,7 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 		}
 	}
 	if protobuf.MaxTcpSpeed != nil {
-		opts.MaxTCPSpeedMPerSec = *protobuf.MaxTcpSpeed
+		opts.MaxTCPSpeedMPerSec = protobuf.MaxTcpSpeed
 	}
 	return opts
 }
@@ -74,9 +74,9 @@ func (opts *MoveOptions) toProtobuf() *pb.MoveOptions {
 			pbOpts.MaxAccDegsPerSec2Joints[i] = utils.RadToDeg(v)
 		}
 	}
-	if opts.MaxTCPSpeedMPerSec != 0 {
+	if opts.MaxTCPSpeedMPerSec != nil {
 		mps := opts.MaxTCPSpeedMPerSec
-		pbOpts.MaxTcpSpeed = &mps
+		pbOpts.MaxTcpSpeed = mps
 	}
 	return pbOpts
 }
