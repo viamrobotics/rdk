@@ -968,6 +968,21 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	logger.Infow("update-models: pre-tcp-check",
+		"runtime.GOOS", runtime.GOOS, "osWindows", osWindows, "match", runtime.GOOS == osWindows)
+	if runtime.GOOS == osWindows {
+		// asyncio.create_unix_server() raises NotImplementedError on
+		// Windows, so Python modules can't serve over a Unix socket.
+		// Real machine configs work around this with `tcp_mode: true`
+		// in viam-server's config; update-models constructs its own
+		// modmanager invocation and must opt in here. ":0" asks the
+		// kernel for an ephemeral port; modmanager resolves it and
+		// passes the bound address to the module via VIAM_MODULE_ADDRESS.
+		parentAddrs = modconfig.ParentSockAddrs{TCPAddr: "127.0.0.1:0"}
+		cfg.TCPMode = true
+		logger.Infow("update-models: TCP mode enabled for Windows",
+			"TCPAddr", parentAddrs.TCPAddr, "cfg.TCPMode", cfg.TCPMode)
+	}
 	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{
 		UntrustedEnv:            false,
 		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
@@ -977,6 +992,8 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 	defer vutils.UncheckedErrorFunc(func() error { return mgr.Close(context.Background()) })
 
+	logger.Infow("update-models: about to call mgr.Add",
+		"cfg.Name", cfg.Name, "cfg.TCPMode", cfg.TCPMode, "cfg.Type", cfg.Type)
 	err = mgr.Add(context.TODO(), cfg)
 	if err != nil {
 		return nil, err
