@@ -1108,7 +1108,11 @@ func runGoImports(moduleFile *os.File) error {
 	}
 
 	// check if goimports exists in the bin directory
-	goImportsPath := fmt.Sprintf("%s/bin/goimports", goPath)
+	goImportsName := "goimports"
+	if runtime.GOOS == osWindows {
+		goImportsName = "goimports.exe"
+	}
+	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
 		// installing goimports
 		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
