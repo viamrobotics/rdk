@@ -533,6 +533,12 @@ func (c *viamClient) uploadModuleFile(
 	if err != nil {
 		return nil, err
 	}
+	// Close the tarball when this function returns. Without this, on Windows
+	// the deferred RemoveFileNoError(tarballPath) in the caller fails with
+	// "file is being used by another process" because Windows enforces
+	// exclusive-access semantics on open handles. (Linux silently allows
+	// delete-while-open, masking the leak.)
+	defer vutils.UncheckedErrorFunc(file.Close)
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return nil, err
@@ -583,6 +589,8 @@ func validateModuleFile(
 	if err != nil {
 		return err
 	}
+	// See uploadModuleFile for the Windows-specific reason this matters.
+	defer vutils.UncheckedErrorFunc(file.Close)
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
