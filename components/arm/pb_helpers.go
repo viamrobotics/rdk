@@ -49,9 +49,7 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 			opts.MaxAccRadsJoints[i] = utils.DegToRad(v)
 		}
 	}
-	if protobuf.MaxTcpSpeed != nil {
-		opts.MaxTCPSpeedMPerSec = protobuf.MaxTcpSpeed
-	}
+	opts.MaxTCPSpeedMPerSec = protobuf.MaxTcpSpeed
 	return opts
 }
 
