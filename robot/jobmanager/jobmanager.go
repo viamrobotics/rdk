@@ -174,8 +174,6 @@ func (jm *JobManager) createDescriptorSourceAndgRPCMethod(
 ) (grpcurl.DescriptorSource, string, string, error) {
 	refCtx := metadata.NewOutgoingContext(jm.ctx, nil)
 	refClient := grpcreflect.NewClientV1Alpha(refCtx, reflectpb.NewServerReflectionClient(jm.conn))
-	// TODO(RSDK-9718)
-	// refClient.AllowMissingFileDescriptors()
 	reflSource := grpcurl.DescriptorSourceFromServer(jm.ctx, refClient)
 	descSource := reflSource
 	resourceType := res.Name().API.SubtypeName
