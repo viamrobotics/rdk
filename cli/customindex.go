@@ -30,7 +30,7 @@ type createCustomIndexArgs struct {
 	OrgID          string
 	CollectionType string
 	PipelineName   string
-	IndexSpecPath  string
+	IndexPath      string
 }
 
 // CreateCustomIndexAction creates a custom index for a specified organization and collection type
@@ -49,7 +49,7 @@ func CreateCustomIndexAction(ctx context.Context, cmd *cli.Command, args createC
 		return err
 	}
 
-	indexSpec, err := readJSONToByteSlices(args.IndexSpecPath)
+	indexSpec, err := readJSONToByteSlices(args.IndexPath)
 	if err != nil {
 		return fmt.Errorf("failed to read index spec from file: %w", err)
 	}

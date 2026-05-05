@@ -13,6 +13,9 @@ type MoveOptions struct {
 	MaxVelRadsJoints []float64
 	// MaxAccRadsJoints contains per-joint maximum acceleration in radians per second squared.
 	MaxAccRadsJoints []float64
+	// MaxTCPSpeedMPerSec is the maximum allowable speed of the tool center point, in meters per second.
+	// Zero means unset.
+	MaxTCPSpeedMPerSec *float64
 }
 
 func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
@@ -46,6 +49,7 @@ func moveOptionsFromProtobuf(protobuf *pb.MoveOptions) *MoveOptions {
 			opts.MaxAccRadsJoints[i] = utils.DegToRad(v)
 		}
 	}
+	opts.MaxTCPSpeedMPerSec = protobuf.MaxTcpSpeed
 	return opts
 }
 
@@ -67,6 +71,10 @@ func (opts *MoveOptions) toProtobuf() *pb.MoveOptions {
 		for i, v := range opts.MaxAccRadsJoints {
 			pbOpts.MaxAccDegsPerSec2Joints[i] = utils.RadToDeg(v)
 		}
+	}
+	if opts.MaxTCPSpeedMPerSec != nil {
+		mps := opts.MaxTCPSpeedMPerSec
+		pbOpts.MaxTcpSpeed = mps
 	}
 	return pbOpts
 }

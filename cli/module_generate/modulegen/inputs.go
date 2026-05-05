@@ -28,6 +28,7 @@ type ModuleInputs struct {
 	ModulePascal          string `json:"-"`
 	ModuleCamel           string `json:"-"`
 	ModuleLowercase       string `json:"-"`
+	ModuleSnake           string `json:"-"`
 	API                   string `json:"-"`
 	ResourceSubtypePascal string `json:"-"`
 	ResourceSubtypeAlias  string `json:"-"`

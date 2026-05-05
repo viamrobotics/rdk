@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/motor"
@@ -18,8 +19,10 @@ import (
 )
 
 var (
-	fooModel = resource.NewModel("acme", "demo", "foo")
-	mocModel = resource.NewModel("acme", "demo", "moc" /* "mutual optional child" */)
+	fooModel           = resource.NewModel("acme", "demo", "foo")
+	mocModel           = resource.NewModel("acme", "demo", "moc" /* "mutual optional child" */)
+	pointerTargetModel = resource.NewModel("acme", "demo", "pointer-target")
+	pointerHolderModel = resource.NewModel("acme", "demo", "pointer-holder")
 )
 
 func main() {
@@ -29,9 +32,17 @@ func main() {
 	resource.RegisterComponent(generic.API, mocModel, resource.Registration[resource.Resource, *MutualOptionalChildConfig]{
 		Constructor: newMutualOptionalChild,
 	})
+	resource.RegisterComponent(generic.API, pointerTargetModel, resource.Registration[resource.Resource, *PointerTargetConfig]{
+		Constructor: newPointerTarget,
+	})
+	resource.RegisterComponent(generic.API, pointerHolderModel, resource.Registration[resource.Resource, *PointerHolderConfig]{
+		Constructor: newPointerHolder,
+	})
 
 	module.ModularMain(resource.APIModel{generic.API, fooModel},
-		resource.APIModel{generic.API, mocModel})
+		resource.APIModel{generic.API, mocModel},
+		resource.APIModel{generic.API, pointerTargetModel},
+		resource.APIModel{generic.API, pointerHolderModel})
 }
 
 // FooConfig contains a required and optional motor that the component will necessarily
@@ -81,14 +92,14 @@ func newFoo(ctx context.Context,
 		logger: logger,
 	}
 
-	if err := f.Reconfigure(ctx, deps, conf); err != nil {
+	if err := f.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 
 	return f, nil
 }
 
-func (f *foo) Reconfigure(ctx context.Context, deps resource.Dependencies,
+func (f *foo) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
 	fooConfig, err := resource.NativeConfig[*FooConfig](conf)
@@ -173,6 +184,10 @@ func (mocCfg *MutualOptionalChildConfig) Validate(path string) ([]string, []stri
 	return nil, []string{mocCfg.OtherMOC}, nil
 }
 
+// mocInstanceCounter gives each mutualOptionalChild instance a unique ID so tests can
+// detect whether a captured `otherMOC` pointer still references the current instance.
+var mocInstanceCounter atomic.Uint64
+
 type mutualOptionalChild struct {
 	resource.Named
 	resource.TriviallyCloseable
@@ -180,7 +195,8 @@ type mutualOptionalChild struct {
 
 	logger logging.Logger
 
-	otherMOC resource.Resource
+	instanceID uint64
+	otherMOC   resource.Resource
 }
 
 func newMutualOptionalChild(ctx context.Context,
@@ -189,8 +205,9 @@ func newMutualOptionalChild(ctx context.Context,
 	logger logging.Logger,
 ) (resource.Resource, error) {
 	moc := &mutualOptionalChild{
-		Named:  conf.ResourceName().AsNamed(),
-		logger: logger,
+		Named:      conf.ResourceName().AsNamed(),
+		logger:     logger,
+		instanceID: mocInstanceCounter.Add(1),
 	}
 
 	mutualOptionalChildConfig, err := resource.NativeConfig[*MutualOptionalChildConfig](conf)
@@ -226,14 +243,24 @@ func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]an
 		}
 
 		if _, exists := resp["usable"]; exists {
-			return map[string]any{"other_moc_state": "usable"}, nil
+			return map[string]any{
+				"other_moc_state":   "usable",
+				"other_instance_id": resp["instance_id"],
+			}, nil
 		}
 		return map[string]any{"other_moc_state": "unusable"}, nil
 	}
 
-	// "query" will respond with {"usable": nil}
+	// "query" responds with {"usable": nil, "instance_id": <id>}; tests use the ID to
+	// distinguish a fresh captured pointer from a stale one.
 	if cmd == "query" {
-		return map[string]any{"usable": nil}, nil
+		return map[string]any{"usable": nil, "instance_id": moc.instanceID}, nil
+	}
+
+	// "instance_id" returns just the ID so tests can fetch the current instance's ID
+	// without going through a dependent's captured pointer.
+	if cmd == "instance_id" {
+		return map[string]any{"instance_id": moc.instanceID}, nil
 	}
 
 	// The command must've been something else (unrecognized).
@@ -243,3 +270,98 @@ func (moc *mutualOptionalChild) DoCommand(ctx context.Context, req map[string]an
 // `moc` is notably missing a `Reconfigure` method. Modular resources with optional
 // dependencies should be able to leverage optional dependencies even as "always rebuild"
 // resources.
+
+// PointerTargetConfig configures a pointer-target: a module-served resource that carries
+// an optional dependency, making it eligible for rebuild by the RDK's
+// updateWeakAndOptionalDependents flow. Another module-internal resource (a pointer-holder)
+// can capture a direct Go pointer to it and exercise stale-pointer scenarios when the
+// target is rebuilt via the weak/optional path.
+type PointerTargetConfig struct {
+	OptionalDep string `json:"optional_dep"`
+}
+
+// Validate returns the optional dependency so updateWeakAndOptionalDependents considers this
+// resource for rebuilding.
+func (c *PointerTargetConfig) Validate(path string) ([]string, []string, error) {
+	var optionalDeps []string
+	if c.OptionalDep != "" {
+		optionalDeps = append(optionalDeps, c.OptionalDep)
+	}
+	return nil, optionalDeps, nil
+}
+
+// pointerTargetInstanceCounter gives each pointerTarget instance a unique ID so tests can
+// verify whether a pointer-holder's captured Go pointer references the latest instance or
+// a stale one.
+var pointerTargetInstanceCounter atomic.Uint64
+
+// pointerTarget tracks whether Close was called and carries a unique instance ID.
+// DoCommand returns an error if called after Close — this is what lets a dependent detect
+// a stale pointer to a closed instance. When alive, it returns its instance ID so callers
+// can verify they are talking to the latest instance.
+type pointerTarget struct {
+	resource.Named
+	resource.AlwaysRebuild
+	instanceID uint64
+	closed     atomic.Bool
+}
+
+func newPointerTarget(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+	return &pointerTarget{
+		Named:      conf.ResourceName().AsNamed(),
+		instanceID: pointerTargetInstanceCounter.Add(1),
+	}, nil
+}
+
+func (p *pointerTarget) Close(_ context.Context) error {
+	p.closed.Store(true)
+	return nil
+}
+
+func (p *pointerTarget) DoCommand(_ context.Context, _ map[string]any) (map[string]any, error) {
+	if p.closed.Load() {
+		return nil, errors.New("pointerTarget is closed")
+	}
+	return map[string]any{"instance_id": p.instanceID}, nil
+}
+
+// PointerHolderConfig configures a pointer-holder: a resource that explicitly depends on
+// a pointer-target and captures a direct Go pointer to it at construction time.
+type PointerHolderConfig struct {
+	Target string `json:"target"`
+}
+
+// Validate declares target as a required dependency so it gets resolved via `deps` at
+// construction time and a Go pointer can be captured.
+func (c *PointerHolderConfig) Validate(path string) ([]string, []string, error) {
+	if c.Target == "" {
+		return nil, nil, fmt.Errorf(`expected "target" attribute for pointer-holder %q`, path)
+	}
+	return []string{c.Target}, nil, nil
+}
+
+// pointerHolder holds a direct Go pointer to a pointerTarget captured at construction time.
+// Its DoCommand proxies through the stored pointer — this is the pattern that leaves the
+// holder with a stale reference if the target is rebuilt without notifying the holder.
+type pointerHolder struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.AlwaysRebuild
+	target resource.Resource
+}
+
+func newPointerHolder(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger) (resource.Resource, error) {
+	cfg, err := resource.NativeConfig[*PointerHolderConfig](conf)
+	if err != nil {
+		return nil, err
+	}
+	target, ok := deps[generic.Named(cfg.Target)]
+	if !ok {
+		return nil, fmt.Errorf("pointer-holder could not find target %q in dependencies", cfg.Target)
+	}
+	return &pointerHolder{Named: conf.ResourceName().AsNamed(), target: target}, nil
+}
+
+func (p *pointerHolder) DoCommand(ctx context.Context, cmd map[string]any) (map[string]any, error) {
+	return p.target.DoCommand(ctx, cmd)
+}

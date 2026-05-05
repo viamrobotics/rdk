@@ -89,7 +89,7 @@ Generator::Generator(GeneratorCompDB db,
 void Generator::header_prefix() {
     include_stmts();
 
-    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleName);
+    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleSnake);
 
     const char* fmt =
         R"--(
@@ -114,7 +114,7 @@ namespace {1} {
 
 )--",
                               fmt_str::modelSnake,
-                              fmt_str::moduleName);
+                              fmt_str::moduleSnake);
 
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
@@ -468,7 +468,7 @@ void Generator::run() {
 
     *headerOut_ << "};\n\n";
 
-    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleName);
+    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleSnake);
 
     *headerOut_ << close_ns;
     *srcOut_ << close_ns;

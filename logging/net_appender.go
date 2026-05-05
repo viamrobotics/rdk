@@ -243,22 +243,10 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 
 	fields := make([]*structpb.Struct, 0, len(f))
 	for _, ff := range f {
-		// Serialize interfaces as strings.
-		if ff.String == "" && ff.Interface != nil {
-			if stringer, ok := ff.Interface.(fmt.Stringer); ok {
-				ff.String = stringer.String()
-			} else {
-				ff.String = fmt.Sprintf("%v", ff.Interface)
-			}
-			ff.Type = zapcore.StringType
-			ff.Interface = nil
-		}
-
-		field, err := protoutils.StructToStructPb(ff)
+		field, err := FieldToProto(ff)
 		if err != nil {
 			return err
 		}
-
 		fields = append(fields, field)
 	}
 	log.Fields = fields

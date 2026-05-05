@@ -103,14 +103,14 @@ func NewMotor(ctx context.Context, deps resource.Dependencies, conf resource.Con
 		Logger: logger,
 		OpMgr:  operation.NewSingleOperationManager(),
 	}
-	if err := m.Reconfigure(ctx, deps, conf); err != nil {
+	if err := m.reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-// Reconfigure atomically reconfigures this motor in place based on the new config.
-func (m *Motor) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+// reconfigure atomically reconfigures this motor in place based on the new config.
+func (m *Motor) reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	newConf, err := resource.NativeConfig[*Config](conf)

@@ -46,7 +46,6 @@ import (
 	icloud "go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
-	"go.viam.com/rdk/module/modmanager"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -997,33 +996,37 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			// the check in `localRobot.resourceHasWeakDependencies`.
 			switch resName {
 			case web.InternalServiceName:
-				if err := res.Reconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					if err := internalRes.BuiltInReconfigure(ctxWithTimeout, allResources, resource.Config{}); err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case framesystem.InternalServiceName:
-				fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
-					break
-				}
-				err = res.Reconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
-				if err != nil {
-					r.Logger().CErrorw(
-						ctx,
-						"failed to reconfigure internal service during weak/optional dependencies update",
-						"service", resName,
-						"error", err,
-					)
+				if internalRes, ok := res.(resource.BuiltInResource); ok {
+					fsCfg, err := r.FrameSystemConfig(ctxWithTimeout)
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+						break
+					}
+					err = internalRes.BuiltInReconfigure(ctxWithTimeout, components, resource.Config{ConvertedAttributes: fsCfg})
+					if err != nil {
+						r.Logger().CErrorw(
+							ctx,
+							"failed to reconfigure internal service during weak/optional dependencies update",
+							"service", resName,
+							"error", err,
+						)
+					}
 				}
 			case packages.InternalServiceName, packages.DeferredServiceName, icloud.InternalServiceName:
 			default:
@@ -1069,7 +1072,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Return early if resource has neither weak nor optional dependencies.
+		// Return early if resource has neither weak nor optional dependencies (root of tree)
 		if len(r.getWeakDependencyMatchers(conf.API, conf.Model)) == 0 &&
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
@@ -1086,13 +1089,27 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		// Use the module manager to reconfigure the resource if it's a modular resource. This
-		// would be a modular resource that has optional dependencies.
 		isModular := r.manager.moduleManager.Provides(conf)
-		if isModular {
-			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
+		if internalResource, ok := res.(resource.BuiltInResource); !isModular && ok {
+			err = internalResource.BuiltInReconfigure(ctx, deps, conf)
 		} else {
-			err = res.Reconfigure(ctx, deps, conf)
+			// copied from resource_manager's processResource
+			if err := r.manager.closeAndUnsetResource(ctx, resNode); err != nil {
+				r.manager.logger.CError(ctx, err)
+			}
+			var newRes resource.Resource
+			newRes, err = r.newResource(ctx, resNode, conf)
+			if err != nil {
+				r.manager.logger.CDebugw(ctx,
+					"failed to build resource of new model",
+					"name", resName,
+					"old_model", resNode.ResourceModel(),
+					"new_model", conf.Model,
+				)
+			} else if newRes != nil {
+				// will NPE if newRes is nil
+				resNode.SwapResource(newRes, conf.Model, r.manager.opts.ftdc, false)
+			}
 		}
 		if err != nil {
 			if resource.IsMustRebuildError(err) {
