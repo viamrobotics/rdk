@@ -151,7 +151,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 // renameProgFilesToCapture walks dir recursively and renames any .prog files to .capture so
 // that orphaned in-progress files from a previous crash are picked up by the syncer on restart.
 func renameProgFilesToCapture(dir string, logger logging.Logger) {
-	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			//nolint:nilerr
 			return nil
@@ -164,7 +164,9 @@ func renameProgFilesToCapture(dir string, logger logging.Logger) {
 			logger.Warnw("failed to rename in-progress capture file on startup", "path", path, "error", renameErr)
 		}
 		return nil
-	})
+	}); err != nil {
+		logger.Warnw("failed to walk capture directory on startup", "dir", dir, "error", err)
+	}
 }
 
 // TODO: Determine desired behavior if sync is disabled. Do we want to allow
