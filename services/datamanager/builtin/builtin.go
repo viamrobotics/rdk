@@ -15,7 +15,9 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -145,6 +148,24 @@ func (b *builtIn) Close(ctx context.Context) error {
 	return nil
 }
 
+// renameProgFilesToCapture walks dir recursively and renames any .prog files to .capture so
+// that orphaned in-progress files from a previous crash are picked up by the syncer on restart.
+func renameProgFilesToCapture(dir string, logger logging.Logger) {
+	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		if filepath.Ext(path) != data.InProgressCaptureFileExt {
+			return nil
+		}
+		newPath := path[:len(path)-len(data.InProgressCaptureFileExt)] + data.CompletedCaptureFileExt
+		if renameErr := os.Rename(path, newPath); renameErr != nil {
+			logger.Warnw("failed to rename in-progress capture file on startup", "path", path, "error", renameErr)
+		}
+		return nil
+	})
+}
+
 // TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
 //       If so, how could a user cancel it?
 
@@ -205,6 +226,7 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
+	renameProgFilesToCapture(captureConfig.CaptureDir, b.logger)
 
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)

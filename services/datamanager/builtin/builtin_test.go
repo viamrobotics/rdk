@@ -809,6 +809,46 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 	})
 }
 
+func TestRenameProgFilesToCapture(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	dir := t.TempDir()
+
+	subdir := filepath.Join(dir, "subdir")
+	test.That(t, os.MkdirAll(subdir, 0o700), test.ShouldBeNil)
+
+	// Create files that should be renamed
+	progFile1 := filepath.Join(dir, "file1.prog")
+	progFile2 := filepath.Join(subdir, "file2.prog")
+	test.That(t, os.WriteFile(progFile1, []byte("data"), 0o600), test.ShouldBeNil)
+	test.That(t, os.WriteFile(progFile2, []byte("data"), 0o600), test.ShouldBeNil)
+
+	// Create files that should NOT be renamed
+	captureFile := filepath.Join(dir, "file3.capture")
+	otherFile := filepath.Join(dir, "file4.txt")
+	test.That(t, os.WriteFile(captureFile, []byte("data"), 0o600), test.ShouldBeNil)
+	test.That(t, os.WriteFile(otherFile, []byte("data"), 0o600), test.ShouldBeNil)
+
+	renameProgFilesToCapture(dir, logger)
+
+	// .prog files should now be .capture
+	_, err := os.Stat(filepath.Join(dir, "file1.capture"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(filepath.Join(subdir, "file2.capture"))
+	test.That(t, err, test.ShouldBeNil)
+
+	// Original .prog files should be gone
+	_, err = os.Stat(progFile1)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+	_, err = os.Stat(progFile2)
+	test.That(t, os.IsNotExist(err), test.ShouldBeTrue)
+
+	// Other files should be untouched
+	_, err = os.Stat(captureFile)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = os.Stat(otherFile)
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Service, func()) {
 	mockDeps := mockDeps(nil, nil)
 	b, err := New(
