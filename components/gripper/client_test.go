@@ -209,8 +209,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopUnimplemented.Error())
 
-		_, err = client2.Geometries(context.Background(), extra)
-		test.That(t, err.Error(), test.ShouldContainSubstring, gripper.ErrGeometriesNil(failGripperName).Error())
+		geometries, err := client2.Geometries(context.Background(), extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, geometries, test.ShouldBeEmpty)
 
 		test.That(t, client2.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)
