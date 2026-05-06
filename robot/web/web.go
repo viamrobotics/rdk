@@ -27,6 +27,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -297,6 +298,7 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataUnaryServerInterceptor)
 	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
 	// request manages to cause an internal panic.
 	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
@@ -665,6 +667,7 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataUnaryServerInterceptor)
 	rpcOpts = append(
 		rpcOpts,
 		rpc.WithUnknownServiceHandler(svc.foreignServiceHandler),

@@ -78,6 +78,22 @@ func ContextWithMetadataUnaryClientInterceptor(
 	return nil
 }
 
+// ContextWithMetadataUnaryServerInterceptor upgrades the incoming context to a ContextWithMetadata,
+// before calling the handler function. After, it sets the header metadata to the metadata map (if any).
+func ContextWithMetadataUnaryServerInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (any, error) {
+	ctx, md := ContextWithMetadata(ctx)
+	resp, err := handler(ctx, req)
+	if len(md) > 0 {
+		_ = grpc.SetHeader(ctx, md)
+	}
+	return resp, err
+}
+
 // ContextWithTimeoutIfNoDeadline returns a child timeout context derived from `ctx` if a
 // deadline does not exist. Returns a cancel context and cancel func from `ctx` if deadline exists.
 func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {

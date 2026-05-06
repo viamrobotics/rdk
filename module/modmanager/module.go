@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/module/v1"
 	robotpb "go.viam.com/api/robot/v1"
+	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -91,6 +92,7 @@ func (m *module) dial() error {
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
+			contextutils.ContextWithMetadataUnaryClientInterceptor,
 		),
 		grpc.WithChainStreamInterceptor(
 			grpc_retry.StreamClientInterceptor(),
