@@ -232,14 +232,7 @@ func (m *module) startProcess(
 ) error {
 	var err error
 
-	useTCPGlobal, _ := rutils.OnlyUseViamTCPSockets()
-	m.logger.CInfow(ctx, "DEBUG-TCP: startProcess pre-tcpMode",
-		"name", m.cfg.Name, "m.cfg.TCPMode", m.cfg.TCPMode,
-		"OnlyUseViamTCPSockets", useTCPGlobal,
-		"parentAddr", parentAddr)
 	tcpMode := m.tcpMode()
-	m.logger.CInfow(ctx, "DEBUG-TCP: startProcess m.tcpMode result",
-		"name", m.cfg.Name, "tcpMode", tcpMode)
 	if tcpMode {
 		if addr, err := getAutomaticPort(); err != nil {
 			return err

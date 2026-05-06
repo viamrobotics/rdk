@@ -969,13 +969,7 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
 	if runtime.GOOS == osWindows {
-		// asyncio.create_unix_server() raises NotImplementedError on
-		// Windows, so Python modules can't serve over a Unix socket.
-		// Real machine configs work around this with `tcp_mode: true`
-		// in viam-server's config; update-models constructs its own
-		// modmanager invocation and must opt in here. ":0" asks the
-		// kernel for an ephemeral port; modmanager resolves it and
-		// passes the bound address to the module via VIAM_MODULE_ADDRESS.
+		// tcp mode needs to be true on windows python
 		parentAddrs = modconfig.ParentSockAddrs{TCPAddr: "127.0.0.1:0"}
 		cfg.TCPMode = true
 	}

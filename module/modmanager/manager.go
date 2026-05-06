@@ -230,12 +230,6 @@ func checkIfAllowed(confs ...config.Module) (
 func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	for i, c := range confs {
-		mgr.logger.CInfow(ctx, "DEBUG-TCP: Manager.Add received conf",
-			"index", i, "name", c.Name, "TCPMode", c.TCPMode, "Type", c.Type,
-			"parentAddrs.TCPAddr", mgr.parentAddrs.TCPAddr,
-			"parentAddrs.UnixAddr", mgr.parentAddrs.UnixAddr)
-	}
 
 	if mgr.untrustedEnv {
 		allowed, newConfs := checkIfAllowed(confs...)
@@ -330,8 +324,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		logger:    moduleLogger,
 		ftdc:      mgr.ftdc,
 	}
-	moduleLogger.CInfow(ctx, "DEBUG-TCP: mgr.add constructed module",
-		"name", mod.cfg.Name, "mod.cfg.TCPMode", mod.cfg.TCPMode)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		return err
