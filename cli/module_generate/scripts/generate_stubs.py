@@ -267,39 +267,41 @@ class {3}({4}, EasyResource):
         "\n\n".join([f"{method}" for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "models", "resource.py")
-    with open(f_name, "w+") as f:
+    # Write and close the file before invoking ruff. On Windows, an open file handle
+    # blocks other processes from reading/writing it, so ruff would fail and the
+    # subsequent os.remove could leave a stale resource.py behind, breaking the
+    # downstream <model_snake>.py generation.
+    with open(f_name, "w") as f:
         f.write(resource_file)
-        try:
-            f.seek(0)
-            subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "ruff",
-                    "format",
-                    "--quiet",
-                    f_name,
-                ]
-            )
-            f.seek(0)
-            subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "ruff",
-                    "check",
-                    "--select",
-                    "F401,F811,I",
-                    "--fix",
-                    "--fix-only",
-                    "--quiet",
-                    f_name,
-                ]
-            )
-            f.seek(0)
+    try:
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "format",
+                "--quiet",
+                f_name,
+            ]
+        )
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-m",
+                "ruff",
+                "check",
+                "--select",
+                "F401,F811,I",
+                "--fix",
+                "--fix-only",
+                "--quiet",
+                f_name,
+            ]
+        )
+        with open(f_name, "r") as f:
             resource_file = f.read()
-        except subprocess.CalledProcessError:
-            pass
+    except subprocess.CalledProcessError:
+        pass
     os.remove(f_name)
     return resource_file
 
