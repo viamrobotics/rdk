@@ -234,7 +234,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -256,7 +256,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -289,7 +289,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
-		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -323,7 +323,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(vision.API, "vision"):  inject.NewVisionService("vision"),
 		}
 
-		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -337,7 +337,7 @@ func TestNew(t *testing.T) {
 		cfg := &Config{}
 		deps := resource.Dependencies{}
 
-		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -350,7 +350,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(base.API, "base"): &inject.Base{},
 		}
 
-		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -364,7 +364,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(motion.API, "builtin"): injectmotion.NewMotionService("motion"),
 		}
 
-		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -386,7 +386,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -408,7 +408,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		_, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeError, expectedErr)
 	})
 
@@ -431,7 +431,7 @@ func TestNew(t *testing.T) {
 			resource.NewName(movementsensor.API, "movement_sensor"): inject.NewMovementSensor("movement_sensor"),
 		}
 
-		svc, err := NewBuiltIn(ctx, deps, resource.Config{ConvertedAttributes: cfg}, nil)
+		err := svc.Reconfigure(ctx, deps, resource.Config{ConvertedAttributes: cfg})
 		test.That(t, err, test.ShouldBeNil)
 		svcStruct := svc.(*builtIn)
 
@@ -1903,7 +1903,7 @@ func createFrameSystemService(
 	conf := resource.Config{
 		ConvertedAttributes: &framesystem.Config{Parts: fsParts},
 	}
-	if err := fsSvc.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, conf); err != nil {
+	if err := fsSvc.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	deps[fsSvc.Name()] = fsSvc

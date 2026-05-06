@@ -19,7 +19,6 @@ import (
 	"github.com/golang/geo/r3"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -2595,17 +2594,13 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err := h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
-		test.ShouldEqual, 1)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	o, err := r.ResourceByName(genericservice.Named("o"))
 	test.That(t, err, test.ShouldBeNil)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
-		test.ShouldEqual, 1)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
 	cfg2 := &config.Config{
 		Modules: []config.Module{
@@ -2637,15 +2632,11 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
-		test.ShouldEqual, 2)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
-		test.ShouldEqual, 2)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
 	cfg3 := &config.Config{
 		Modules: []config.Module{
@@ -2683,15 +2674,11 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
-		test.ShouldEqual, 2)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
-		test.ShouldEqual, 2)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 1)
 
 	cfg4 := &config.Config{
 		Modules: []config.Module{
@@ -2729,15 +2716,11 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
-		test.ShouldEqual, 3)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
-		test.ShouldEqual, 3)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 
 	test.That(t, logs.FilterMessageSnippet("Successfully constructed resource").Len(), test.ShouldEqual, 6)
 
@@ -2760,15 +2743,11 @@ func TestModularResourceReconfigurationCount(t *testing.T) {
 	resp, err = h.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: h.Name()}).Len(),
-		test.ShouldEqual, 4)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 	resp, err = o.DoCommand(ctx, map[string]any{"command": "get_num_reconfigurations"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
-		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: o.Name()}).Len(),
-		test.ShouldEqual, 4)
+	test.That(t, resp["num_reconfigurations"], test.ShouldEqual, 0)
 }
 
 func TestImplicitDepsAcrossModules(t *testing.T) {
@@ -3535,7 +3514,7 @@ func newMock(
 	logger logging.Logger,
 ) (resource.Resource, error) {
 	m := &mockResource{name: conf.Name}
-	if err := m.reconfigure(ctx, deps, conf); err != nil {
+	if err := m.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return m, nil
@@ -3545,7 +3524,7 @@ func (m *mockResource) Name() resource.Name {
 	return mockNamed(m.name)
 }
 
-func (m *mockResource) reconfigure(
+func (m *mockResource) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
