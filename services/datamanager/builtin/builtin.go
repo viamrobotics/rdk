@@ -153,6 +153,7 @@ func (b *builtIn) Close(ctx context.Context) error {
 func renameProgFilesToCapture(dir string, logger logging.Logger) {
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
+			//nolint:nilerr
 			return nil
 		}
 		if filepath.Ext(path) != data.InProgressCaptureFileExt {
@@ -166,7 +167,8 @@ func renameProgFilesToCapture(dir string, logger logging.Logger) {
 	})
 }
 
-// TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
+// TODO: Determine desired behavior if sync is disabled. Do we want to allow
+// manual syncs, then?
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
