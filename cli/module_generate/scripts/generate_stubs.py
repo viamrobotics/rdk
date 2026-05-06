@@ -267,37 +267,39 @@ class {3}({4}, EasyResource):
         "\n\n".join([f"{method}" for method in abstract_methods]),
     )
     f_name = os.path.join(mod_name, "src", "models", "resource.py")
-    with open(f_name, "w") as f:
+    with open(f_name, "w+") as f:
         f.write(resource_file)
-    try:
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "ruff",
-                "format",
-                "--quiet",
-                f_name,
-            ]
-        )
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "ruff",
-                "check",
-                "--select",
-                "F401,F811,I",
-                "--fix",
-                "--fix-only",
-                "--quiet",
-                f_name,
-            ]
-        )
-        with open(f_name, "r") as f:
+        try:
+            f.seek(0)
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "ruff",
+                    "format",
+                    "--quiet",
+                    f_name,
+                ]
+            )
+            f.seek(0)
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "ruff",
+                    "check",
+                    "--select",
+                    "F401,F811,I",
+                    "--fix",
+                    "--fix-only",
+                    "--quiet",
+                    f_name,
+                ]
+            )
+            f.seek(0)
             resource_file = f.read()
-    except subprocess.CalledProcessError:
-        pass
+        except subprocess.CalledProcessError:
+            pass
     os.remove(f_name)
     return resource_file
 
