@@ -260,9 +260,11 @@ func TestRunning(t *testing.T) {
 			wg.Wait()
 		}()
 
-		// the motor is running. GoFor(rpm=100) at TicksPerRotation=200 maps to
-		// freqHz = round(100*200/60) = 333 Hz; with StepperDelay=30µs, that's
-		// 333 * 30e-6 ≈ 0.00999 of max step frequency.
+		// the motor is running. GoFor(rpm=100) at TicksPerRotation=200 maps to a
+		// requested freqHz = round(100*200/60) = 333 Hz; with StepperDelay=30µs,
+		// IsPowered reports 333 * 30e-6 ≈ 0.00999 of max step frequency. The
+		// reported value is derived from the requested freq, so it doesn't depend
+		// on whether the underlying board caps PWM frequency.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(ctx, nil)

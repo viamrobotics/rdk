@@ -189,9 +189,12 @@ type gpioStepper struct {
 	trackingCancel     context.CancelFunc
 	trackingDone       <-chan struct{} // closed when tracking goroutine exits
 
-	// Last commanded fraction of max step frequency (signed by direction). Written under
-	// m.lock after a successful startPWM by SetPower/GoFor/SetRPM; only meaningful while
-	// IsMoving == true, so IsPowered guards reads with that check.
+	// Fraction of max step frequency (signed by direction) corresponding to the
+	// requested PWM frequency from the last successful startPWM. Written under
+	// m.lock by SetPower/GoFor/SetRPM; only meaningful while IsMoving == true,
+	// so IsPowered guards reads with that check. Reflects what the user
+	// commanded, not what the PWM hardware was able to deliver — boards with
+	// limited PWM frequency ranges may run slower than this fraction implies.
 	powerPct float64
 }
 
@@ -225,8 +228,9 @@ func (m *gpioStepper) rpmToFreqHz(rpm float64) uint {
 }
 
 // freqToPowerPct inverts SetPower's powerPct→freqHz mapping so SetPower, GoFor,
-// and SetRPM can all report a consistent IsPowered fraction based on the PWM
-// frequency the hardware actually achieved.
+// and SetRPM can all report a consistent IsPowered fraction. Callers pass the
+// *requested* freq (not the PWM readback) so the reported value reflects what
+// the user commanded even on boards whose PWM hardware caps the frequency.
 func (m *gpioStepper) freqToPowerPct(freq float64, forward bool) float64 {
 	if m.minDelay <= 0 {
 		return 0
@@ -335,6 +339,7 @@ func (m *gpioStepper) trackPosition(ctx context.Context, doneCh chan<- error,
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	m.logger.CDebugf(ctx, "motor (%s) SetPower powerPct=%.4f", m.Name().Name, powerPct)
 	if math.Abs(powerPct) <= .0001 {
 		return m.Stop(ctx, nil)
 	}
@@ -369,7 +374,11 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		m.lock.Unlock()
 		return err
 	}
-	m.powerPct = m.freqToPowerPct(actualFreq, forward)
+	// Report power_pct from the *requested* freq, not the readback. PWM hardware
+	// (e.g. the Pi) may cap freq below what was asked; users still expect
+	// IsPowered to reflect the value they commanded. trackPosition uses
+	// actualFreq separately so position estimation stays accurate.
+	m.powerPct = m.freqToPowerPct(float64(freqHz), forward)
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
@@ -391,6 +400,8 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	ctx, done := m.opMgr.New(ctx)
 	defer done()
 
+	m.logger.CDebugf(ctx, "motor (%s) GoFor rpm=%.4f revolutions=%.4f", m.Name().Name, rpm, revolutions)
+
 	speed := math.Abs(rpm)
 	if speed < 0.1 {
 		return multierr.Combine(m.Stop(ctx, nil), motor.NewZeroRPMError())
@@ -409,16 +420,17 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 	target := m.stepPosition.Load() + d*int64(math.Abs(revolutions)*float64(m.stepsPerRotation))
 	m.targetStepPosition.Store(target)
 
+	requestedFreq := m.rpmToFreqHz(rpm)
 	m.lock.Lock()
 	if m.trackingCancel != nil {
 		m.trackingCancel()
 	}
-	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
+	actualFreq, err := m.startPWM(ctx, forward, requestedFreq)
 	if err != nil {
 		m.lock.Unlock()
 		return err
 	}
-	m.powerPct = m.freqToPowerPct(actualFreq, forward)
+	m.powerPct = m.freqToPowerPct(float64(requestedFreq), forward)
 	trackCtx, cancel := context.WithCancel(ctx)
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
@@ -464,6 +476,7 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm, positionRevolutions float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
+	m.logger.CDebugf(ctx, "motor (%s) SetRPM rpm=%.4f", m.Name().Name, rpm)
 	if math.Abs(rpm) <= .0001 {
 		return m.Stop(ctx, nil)
 	}
@@ -479,16 +492,17 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 	}
 	m.targetStepPosition.Store(target)
 
+	requestedFreq := m.rpmToFreqHz(rpm)
 	m.lock.Lock()
 	if m.trackingCancel != nil {
 		m.trackingCancel()
 	}
-	actualFreq, err := m.startPWM(ctx, forward, m.rpmToFreqHz(rpm))
+	actualFreq, err := m.startPWM(ctx, forward, requestedFreq)
 	if err != nil {
 		m.lock.Unlock()
 		return err
 	}
-	m.powerPct = m.freqToPowerPct(actualFreq, forward)
+	m.powerPct = m.freqToPowerPct(float64(requestedFreq), forward)
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
