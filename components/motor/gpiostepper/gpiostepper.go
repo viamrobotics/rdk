@@ -188,6 +188,11 @@ type gpioStepper struct {
 	targetStepPosition atomic.Int64
 	trackingCancel     context.CancelFunc
 	trackingDone       <-chan struct{} // closed when tracking goroutine exits
+
+	// Last commanded fraction of max step frequency (signed by direction). Written under
+	// m.lock after a successful startPWM by SetPower/GoFor/SetRPM; only meaningful while
+	// IsMoving == true, so IsPowered guards reads with that check.
+	powerPct float64
 }
 
 // stopTracking cancels the tracking goroutine and waits for it to fully exit.
@@ -217,6 +222,20 @@ func (m *gpioStepper) rpmToFreqHz(rpm float64) uint {
 		freq = 1
 	}
 	return uint(math.Round(freq))
+}
+
+// freqToPowerPct inverts SetPower's powerPct→freqHz mapping so SetPower, GoFor,
+// and SetRPM can all report a consistent IsPowered fraction based on the PWM
+// frequency the hardware actually achieved.
+func (m *gpioStepper) freqToPowerPct(freq float64, forward bool) float64 {
+	if m.minDelay <= 0 {
+		return 0
+	}
+	p := math.Min(freq*m.minDelay.Seconds(), 1.0)
+	if !forward {
+		p = -p
+	}
+	return p
 }
 
 // startPWM sets direction, enables the motor, and starts PWM on the step pin.
@@ -350,6 +369,7 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64, extra map[
 		m.lock.Unlock()
 		return err
 	}
+	m.powerPct = m.freqToPowerPct(actualFreq, forward)
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
@@ -398,6 +418,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm, revolutions float64, extra
 		m.lock.Unlock()
 		return err
 	}
+	m.powerPct = m.freqToPowerPct(actualFreq, forward)
 	trackCtx, cancel := context.WithCancel(ctx)
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
@@ -467,6 +488,7 @@ func (m *gpioStepper) SetRPM(ctx context.Context, rpm float64, extra map[string]
 		m.lock.Unlock()
 		return err
 	}
+	m.powerPct = m.freqToPowerPct(actualFreq, forward)
 	trackCtx, cancel := context.WithCancel(context.Background())
 	m.trackingCancel = cancel
 	trackingDone := make(chan struct{})
@@ -518,19 +540,21 @@ func (m *gpioStepper) Stop(ctx context.Context, extra map[string]interface{}) er
 	return m.stopHardware(ctx)
 }
 
-// IsPowered returns whether or not the motor is currently on. It also returns the percent power
-// that the motor has, but stepper motors only have this set to 0% or 100%, so it's a little
-// redundant.
+// IsPowered returns whether or not the motor is currently on, and the fraction
+// of max step frequency it was last commanded to run at (signed by direction).
+// The fraction is only valid while the motor is moving; when stopped the
+// reported power is 0.
 func (m *gpioStepper) IsPowered(ctx context.Context, extra map[string]interface{}) (bool, float64, error) {
 	on, err := m.IsMoving(ctx)
 	if err != nil {
 		return on, 0.0, errors.Wrapf(err, "error in IsPowered from motor (%s)", m.Name().Name)
 	}
-	percent := 0.0
-	if on {
-		percent = 1.0
+	if !on {
+		return false, 0.0, nil
 	}
-	return on, percent, err
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return true, m.powerPct, nil
 }
 
 func (m *gpioStepper) Close(ctx context.Context) error {

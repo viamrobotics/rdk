@@ -260,13 +260,15 @@ func TestRunning(t *testing.T) {
 			wg.Wait()
 		}()
 
-		// the motor is running
+		// the motor is running. GoFor(rpm=100) at TicksPerRotation=200 maps to
+		// freqHz = round(100*200/60) = 333 Hz; with StepperDelay=30µs, that's
+		// 333 * 30e-6 ≈ 0.00999 of max step frequency.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			on, powerPct, err := m.IsPowered(ctx, nil)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, true)
-			test.That(tb, powerPct, test.ShouldEqual, 1.0)
+			test.That(tb, powerPct, test.ShouldAlmostEqual, 333.0*30e-6, 1e-9)
 		})
 
 		// the motor finished running
