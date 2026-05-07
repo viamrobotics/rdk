@@ -289,6 +289,47 @@ func TestRunning(t *testing.T) {
 		test.That(t, m.(*gpioStepper).targetStepPosition.Load(), test.ShouldEqual, 600)
 	})
 
+	t.Run("IsPowered reflects SetPower input", func(t *testing.T) {
+		m, err := newGPIOStepper(ctx, deps, c, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer m.Close(ctx)
+
+		// SetPower's reported power_pct is derived from the requested step freq, not
+		// the PWM readback, so it reflects what the user commanded even on boards
+		// that cap PWM frequency. Cases below also exercise direction signing and
+		// the upper clamp at 1.0. Tolerance covers the integer-Hz truncation in
+		// SetPower's powerPct→freqHz mapping (worst case: minDelay seconds).
+		for _, tc := range []struct {
+			name     string
+			power    float64
+			expected float64
+		}{
+			{"forward half", 0.5, 0.5},
+			{"reverse partial", -0.3, -0.3},
+			{"clamped above 1", 1.5, 1.0},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				test.That(t, m.SetPower(ctx, tc.power, nil), test.ShouldBeNil)
+				testutils.WaitForAssertion(t, func(tb testing.TB) {
+					tb.Helper()
+					on, powerPct, err := m.IsPowered(ctx, nil)
+					test.That(tb, err, test.ShouldBeNil)
+					test.That(tb, on, test.ShouldEqual, true)
+					test.That(tb, powerPct, test.ShouldAlmostEqual, tc.expected, 1e-4)
+				})
+			})
+		}
+
+		test.That(t, m.Stop(ctx, nil), test.ShouldBeNil)
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			on, powerPct, err := m.IsPowered(ctx, nil)
+			test.That(tb, err, test.ShouldBeNil)
+			test.That(tb, on, test.ShouldEqual, false)
+			test.That(tb, powerPct, test.ShouldEqual, 0.0)
+		})
+	})
+
 	t.Run("motor enable", func(t *testing.T) {
 		m, err := newGPIOStepper(ctx, deps, c, logger)
 		s := m.(*gpioStepper)
