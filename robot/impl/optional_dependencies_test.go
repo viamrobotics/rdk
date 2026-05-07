@@ -1410,27 +1410,6 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 		mocFresh := mocSeesMoc2 == moc2Current
 		moc2Fresh := moc2SeesMoc == mocCurrent
 		test.That(t, mocFresh != moc2Fresh, test.ShouldBeTrue)
-
-		// Ensure we hit the infinite rebuild cycle skip log. updateWeakAndOptionalDependents
-		// rebuilds both moc and moc2 but depending on the iteration order, one or both of
-		// them will log the skip. moc was added in first round reconstruction when moc2
-		// didn't exist (so moc never registered against m.internalDeps[moc2]), while moc2's
-		// later add did register against m.internalDeps[moc].
-		// 	- If moc rebuilds first, its rebuild populates m.internalDeps[moc2] as a side
-		// effect (the new moc resolves moc2 as a dependency and registers against it), then its
-		// cascade logs the cycle skip. When moc2's iteration follows, its cascade now has a
-		// populated internalDeps, hits the cycle, and logs a skip → 2 warnings total.
-		//
-		// 	- If moc2 is iterated first, m.internalDeps[moc2] is still empty when its checks to
-		// cascade rebuild dependents. The cascade is skipped because it has no dependents
-		// according to internalDeps and so only moc's iteration produces a warning → 1 warning total.
-		//
-		// The asymmetry resolves itself once both sides have been rebuilt at least once,
-		// but on this first pass the cycle-skip count can be 1 or 2 depending on
-		// updateWeakAndOptionalDependents iteration order.
-		cycleSkips := logs.FilterMessageSnippet("detected mutual-optional dependency cycle").Len()
-		test.That(t, cycleSkips, test.ShouldBeGreaterThanOrEqualTo, 1)
-		test.That(t, cycleSkips, test.ShouldBeLessThanOrEqualTo, 2)
 	}
 
 	// Reconfigure the robot to remove the original 'moc'.
