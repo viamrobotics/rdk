@@ -83,6 +83,7 @@ func NewGantry(conf resource.Config, logger logging.Logger) (gantry.Gantry, erro
 
 	return &Gantry{
 		testutils.NewUnimplementedResource(conf.ResourceName()),
+		resource.TriviallyReconfigurable{},
 		resource.TriviallyCloseable{},
 		[]float64{m.DoF()[0].Max / 2},
 		[]float64{50},
@@ -95,6 +96,7 @@ func NewGantry(conf resource.Config, logger logging.Logger) (gantry.Gantry, erro
 // Gantry is a fake gantry that can simply read and set properties.
 type Gantry struct {
 	resource.Named
+	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	positionsMm    []float64
 	speedsMmPerSec []float64
