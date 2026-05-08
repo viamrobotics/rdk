@@ -132,6 +132,7 @@ type moduleBuildStartArgs struct {
 	Token     string
 	Workdir   string
 	Platforms []string
+	Builder   string
 }
 
 // ModuleBuildStartAction starts a cloud build.
@@ -177,9 +178,15 @@ func (c *viamClient) moduleBuildStartForRepo(
 		Workdir:       &workdir,
 		Distro:        &manifest.Build.Distro,
 	}
+	if args.Builder != "" && args.Builder != "default" {
+		req.Builder = &args.Builder
+	}
 	res, err := c.buildClient.StartBuild(ctx, &req)
 	if err != nil {
 		return "", err
+	}
+	if msg := res.GetBuilderFallbackMessage(); msg != "" {
+		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
 	// Print to stderr so that stdout only contains the buildID, which is parsed by the build-action.
 	// See https://github.com/viamrobotics/build-action/blob/main/src/index.js
