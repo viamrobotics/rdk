@@ -19,6 +19,7 @@ const (
 	endPosition method = iota
 	jointPositions
 	doCommand
+	getWorldPose
 )
 
 func (m method) String() string {
@@ -29,6 +30,8 @@ func (m method) String() string {
 		return "JointPositions"
 	case doCommand:
 		return "DoCommand"
+	case getWorldPose:
+		return "GetWorldPose"
 	}
 	return "Unknown"
 }
@@ -103,6 +106,17 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(arm, params)
+	return data.NewCollector(cFunc, params)
+}
+
+func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	if _, err := utils.AssertType[Arm](resource); err != nil {
+		return nil, err
+	}
+	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
+	if err != nil {
+		return nil, err
+	}
 	return data.NewCollector(cFunc, params)
 }
 

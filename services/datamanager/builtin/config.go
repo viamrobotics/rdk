@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	"go.viam.com/rdk/services/datamanager/builtin/shared"
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
@@ -100,7 +101,7 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.CaptureDirDeletionThreshold < 0 {
 		return nil, nil, errors.New("capture_dir_deletion_threshold can't be negative")
 	}
-	return []string{cloud.InternalServiceName.String()}, nil, nil
+	return []string{cloud.InternalServiceName.String()}, []string{framesystem.InternalServiceName.String()}, nil
 }
 
 func (c *Config) getCaptureDir(logger logging.Logger) string {

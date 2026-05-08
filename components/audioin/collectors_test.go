@@ -346,3 +346,12 @@ func TestDoCommandCollector(t *testing.T) {
 		ResourceFactory: func() interface{} { return newAudioIn(nil) },
 	})
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: time.Millisecond,
+		Collector:       audioin.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newAudioIn(nil) },
+	})
+}
