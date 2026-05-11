@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
@@ -251,25 +253,83 @@ func (c *viamClient) downloadDataset(
 		return fmt.Errorf("%s does not match any dataset IDs", datasetID)
 	}
 
-	return c.performActionOnBinaryDataFromFilter(
-		func(id string) error {
-			var downloadErr error
-			var datasetFilePath string
-			if !onlyJSONLines {
-				downloadErr = c.downloadBinary(ctx, dst, timeout, id)
-				datasetFilePath = filepath.Join(dst, dataDir)
-			}
-			datasetErr := binaryDataToJSONLines(ctx, c.dataClient, datasetFilePath, datasetFile, id, forceLinuxPath)
+	filter := &datapb.Filter{DatasetId: datasetID}
+	dataCh := make(chan *datapb.BinaryData, parallelDownloads)
+	errs := make(chan error, 1+parallelDownloads)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-			return multierr.Combine(downloadErr, datasetErr)
-		},
-		&datapb.Filter{
-			DatasetId: datasetID,
-		}, parallelDownloads,
-		func(i int32) {
-			printf(c.c.Root().Writer, "Downloaded %d files", i)
-		},
-	)
+	var wg sync.WaitGroup
+
+	// Producer: fetch metadata in batches.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		defer close(dataCh)
+		limit := min(parallelDownloads, maxLimit)
+		if err := getMatchingBinaryData(ctx, c.dataClient, filter, limit, func(bd *datapb.BinaryData) {
+			select {
+			case dataCh <- bd:
+			case <-ctx.Done():
+			}
+		}); err != nil {
+			errs <- err
+			cancel()
+		}
+	}()
+
+	// Workers: download files and write JSON lines in parallel.
+	var downloadWG sync.WaitGroup
+	var numFilesProcessed atomic.Int32
+	var datasetMu sync.Mutex
+
+	for range parallelDownloads {
+		downloadWG.Add(1)
+		go func() {
+			defer downloadWG.Done()
+			for {
+				select {
+				case bd, ok := <-dataCh:
+					if !ok {
+						return
+					}
+					var downloadErr error
+					var datasetFilePath string
+					if !onlyJSONLines {
+						downloadErr = c.downloadSingleBinaryFile(ctx, dst, timeout, bd)
+						datasetFilePath = filepath.Join(dst, dataDir)
+					}
+					datasetMu.Lock()
+					datasetErr := binaryDataToJSONLinesFromMetadata(datasetFilePath, datasetFile, bd, forceLinuxPath)
+					datasetMu.Unlock()
+					if err := multierr.Combine(downloadErr, datasetErr); err != nil {
+						errs <- err
+						cancel()
+						return
+					}
+					numFilesProcessed.Add(1)
+					if numFilesProcessed.Load()%logEveryN == 0 {
+						printf(c.c.Root().Writer, "Downloaded %d files", numFilesProcessed.Load())
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	downloadWG.Wait()
+	if numFilesProcessed.Load()%logEveryN != 0 {
+		printf(c.c.Root().Writer, "Downloaded %d files", numFilesProcessed.Load())
+	}
+	close(errs)
+
+	var allErrs error
+	for err := range errs {
+		allErrs = multierr.Append(allErrs, err)
+	}
+	return allErrs
 }
 
 // Annotation holds the label associated with the image.
@@ -300,35 +360,14 @@ type BBoxAnnotation struct {
 	YMaxNormalized  float64 `json:"y_max_normalized"`
 }
 
-func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient, dst string, file *os.File,
-	id string, forceLinuxPath bool,
-) error {
-	var resp *datapb.BinaryDataByIDsResponse
-	var err error
-	for count := 0; count < maxRetryCount; count++ {
-		resp, err = client.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
-			BinaryDataIds: []string{id},
-			IncludeBinary: false,
-		})
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		return errors.Wrapf(err, serverErrorMessage)
-	}
-
-	data := resp.GetData()
-	if len(data) != 1 {
-		return errors.Errorf("expected a single response, received %d", len(data))
-	}
-	datum := data[0]
-
-	fileName := filepath.Join(dst, filenameForDownload(datum.GetMetadata()))
+// binaryDataToJSONLinesFromMetadata writes JSON lines for a single BinaryData using metadata already in hand.
+func binaryDataToJSONLinesFromMetadata(dst string, file *os.File, datum *datapb.BinaryData, forceLinuxPath bool) error {
+	meta := datum.GetMetadata()
+	fileName := filepath.Join(dst, filenameForDownload(meta))
 	if forceLinuxPath {
 		fileName = filepath.ToSlash(fileName)
 	}
-	ext := datum.GetMetadata().GetFileExt()
+	ext := meta.GetFileExt()
 	// If the file is gzipped, unzip.
 	if ext != gzFileExt && filepath.Ext(fileName) != ext {
 		// If the file name did not already include the extension (e.g. for data capture files), add it.
@@ -337,18 +376,18 @@ func binaryDataToJSONLines(ctx context.Context, client datapb.DataServiceClient,
 	}
 
 	imageMetadata := &utilsml.ImageMetadata{
-		Timestamp:      datum.GetMetadata().GetTimeRequested().AsTime(),
-		Tags:           datum.GetMetadata().GetCaptureMetadata().GetTags(),
-		Annotations:    datum.GetMetadata().GetAnnotations(),
+		Timestamp:      meta.GetTimeRequested().AsTime(),
+		Tags:           meta.GetCaptureMetadata().GetTags(),
+		Annotations:    meta.GetAnnotations(),
 		Path:           fileName,
-		BinaryDataID:   datum.GetMetadata().GetBinaryDataId(),
-		OrganizationID: datum.GetMetadata().GetCaptureMetadata().GetOrganizationId(),
-		LocationID:     datum.GetMetadata().GetCaptureMetadata().GetLocationId(),
-		RobotID:        datum.GetMetadata().GetCaptureMetadata().GetRobotId(),
-		PartID:         datum.GetMetadata().GetCaptureMetadata().GetPartId(),
-		ComponentName:  datum.GetMetadata().GetCaptureMetadata().GetComponentName(),
+		BinaryDataID:   meta.GetBinaryDataId(),
+		OrganizationID: meta.GetCaptureMetadata().GetOrganizationId(),
+		LocationID:     meta.GetCaptureMetadata().GetLocationId(),
+		RobotID:        meta.GetCaptureMetadata().GetRobotId(),
+		PartID:         meta.GetCaptureMetadata().GetPartId(),
+		ComponentName:  meta.GetCaptureMetadata().GetComponentName(),
 	}
-	_, err = utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
+	_, err := utilsml.ImageMetadataToJSONLines([]*utilsml.ImageMetadata{imageMetadata}, nil, mlpb.ModelType_MODEL_TYPE_UNSPECIFIED, file)
 	if err != nil {
 		return errors.Wrap(err, "error writing to file")
 	}
