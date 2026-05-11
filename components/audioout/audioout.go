@@ -40,9 +40,6 @@ func Named(name string) resource.Name {
 type AudioOut interface {
 	resource.Resource
 	Play(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
-	// PlayStream plays audio that arrives as a stream of chunks. The caller writes audio
-	// chunks onto chunks and closes the channel to signal end-of-stream. PlayStream blocks
-	// until the channel is closed (and any buffered audio finishes playing) or ctx is canceled.
 	PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error
 	Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }

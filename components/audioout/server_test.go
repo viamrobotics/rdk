@@ -3,12 +3,15 @@ package audioout_test
 import (
 	"context"
 	"errors"
+	"io"
 	"testing"
+	"time"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/audioout"
 	"go.viam.com/rdk/logging"
@@ -24,9 +27,54 @@ const (
 
 var (
 	errPlayFailed       = errors.New("can't play audio")
+	errPlayStreamFailed = errors.New("can't play stream")
 	errPropertiesFailed = errors.New("can't get properties")
 	errGetStatusFailed  = errors.New("can't get status")
+	errRecvFailed       = errors.New("recv fail")
 )
+
+// Mock client-streaming server for PlayStream RPC. Pops messages from the msgs
+// slice; returns recvErr if set, otherwise io.EOF when the slice is empty.
+type playStreamServer struct {
+	grpc.ServerStream
+	ctx     context.Context
+	msgs    []*pb.PlayStreamRequest
+	recvErr error
+	resp    *pb.PlayStreamResponse
+}
+
+func (s *playStreamServer) Context() context.Context { return s.ctx }
+
+func (s *playStreamServer) Recv() (*pb.PlayStreamRequest, error) {
+	if s.recvErr != nil {
+		return nil, s.recvErr
+	}
+	if len(s.msgs) == 0 {
+		return nil, io.EOF
+	}
+	m := s.msgs[0]
+	s.msgs = s.msgs[1:]
+	return m, nil
+}
+
+func (s *playStreamServer) SendAndClose(r *pb.PlayStreamResponse) error {
+	s.resp = r
+	return nil
+}
+
+func initMsg(name string, info *commonpb.AudioInfo) *pb.PlayStreamRequest {
+	return &pb.PlayStreamRequest{
+		Payload: &pb.PlayStreamRequest_Init{
+			Init: &pb.PlayStreamInit{Name: name, AudioInfo: info},
+		},
+	}
+}
+
+func chunkMsg(b []byte) *pb.PlayStreamRequest {
+	return &pb.PlayStreamRequest{
+		Payload: &pb.PlayStreamRequest_AudioChunk{AudioChunk: b},
+	}
+}
 
 func newServer(logger logging.Logger) (pb.AudioOutServiceServer, *inject.AudioOut, *inject.AudioOut, error) {
 	injectAudioOut := &inject.AudioOut{}
@@ -81,6 +129,113 @@ func TestServer(t *testing.T) {
 		_, err = audioOutServer.Play(context.Background(), playReq)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPlayFailed.Error())
+	})
+
+	t.Run("PlayStream", func(t *testing.T) {
+		chunk1 := []byte{1, 2, 3, 4}
+		chunk2 := []byte{5, 6, 7, 8}
+
+		t.Run("success", func(t *testing.T) {
+			var receivedInfo *rutils.AudioInfo
+			var receivedChunks [][]byte
+			injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
+				chunks <-chan []byte, extra map[string]interface{},
+			) error {
+				receivedInfo = info
+				for c := range chunks {
+					receivedChunks = append(receivedChunks, c)
+				}
+				return nil
+			}
+
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &playStreamServer{
+				ctx: cancelCtx,
+				msgs: []*pb.PlayStreamRequest{
+					initMsg(testAudioOutName, audioInfo),
+					chunkMsg(chunk1),
+					chunkMsg(chunk2),
+				},
+			}
+
+			err := audioOutServer.PlayStream(s)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, s.resp, test.ShouldNotBeNil)
+			test.That(t, receivedInfo, test.ShouldNotBeNil)
+			test.That(t, receivedInfo.Codec, test.ShouldEqual, rutils.CodecPCM16)
+			test.That(t, receivedInfo.SampleRateHz, test.ShouldEqual, 44100)
+			test.That(t, receivedInfo.NumChannels, test.ShouldEqual, 2)
+			test.That(t, receivedChunks, test.ShouldResemble, [][]byte{chunk1, chunk2})
+		})
+
+		t.Run("first message not init", func(t *testing.T) {
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &playStreamServer{
+				ctx:  cancelCtx,
+				msgs: []*pb.PlayStreamRequest{chunkMsg(chunk1)},
+			}
+			err := audioOutServer.PlayStream(s)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "PlayStreamInit")
+		})
+
+		t.Run("resource not found", func(t *testing.T) {
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &playStreamServer{
+				ctx:  cancelCtx,
+				msgs: []*pb.PlayStreamRequest{initMsg("does_not_exist", audioInfo)},
+			}
+			err := audioOutServer.PlayStream(s)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		})
+
+		t.Run("recv error on first message", func(t *testing.T) {
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &playStreamServer{
+				ctx:     cancelCtx,
+				recvErr: errRecvFailed,
+			}
+			err := audioOutServer.PlayStream(s)
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, errRecvFailed.Error())
+		})
+
+		t.Run("playstream impl error does not deadlock", func(t *testing.T) {
+			injectAudioOut.PlayStreamFunc = func(ctx context.Context, info *rutils.AudioInfo,
+				chunks <-chan []byte, extra map[string]interface{},
+			) error {
+				return errPlayStreamFailed
+			}
+
+			cancelCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			s := &playStreamServer{
+				ctx: cancelCtx,
+				msgs: []*pb.PlayStreamRequest{
+					initMsg(testAudioOutName, audioInfo),
+					chunkMsg(chunk1),
+					chunkMsg(chunk2),
+				},
+			}
+
+			done := make(chan error, 1)
+			go func() { done <- audioOutServer.PlayStream(s) }()
+
+			select {
+			case err := <-done:
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, errPlayStreamFailed.Error())
+			case <-time.After(2 * time.Second):
+				t.Fatal("PlayStream did not return — deadlock regression")
+			}
+		})
+
+		injectAudioOut.PlayStreamFunc = nil
 	})
 
 	t.Run("Properties", func(t *testing.T) {

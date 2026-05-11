@@ -68,28 +68,28 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 	ctx := stream.Context()
 	chunks := make(chan []byte, 8)
 
-	// Pump chunks from the gRPC stream into the channel until EOF or error.
-	pumpErr := make(chan error, 1)
+	// Forward chunks from the gRPC stream into the channel until EOF or error.
+	recvErr := make(chan error, 1)
 	go func() {
 		defer close(chunks)
 		for {
 			msg, err := stream.Recv()
 			if err == io.EOF {
-				pumpErr <- nil
+				recvErr <- nil
 				return
 			}
 			if err != nil {
-				pumpErr <- err
+				recvErr <- err
 				return
 			}
 			chunk := msg.GetAudioChunk()
 			if chunk == nil {
-				// Skip non-chunk payloads (e.g. a stray init).
+				// Skip non-chunk payloads
 				continue
 			}
 			select {
 			case <-ctx.Done():
-				pumpErr <- ctx.Err()
+				recvErr <- ctx.Err()
 				return
 			case chunks <- chunk:
 			}
@@ -97,16 +97,19 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 	}()
 
 	playErr := a.PlayStream(ctx, info, chunks, nil)
-	// Drain the pump goroutine so we don't leak it.
-	pumpFinishErr := <-pumpErr
 	if playErr != nil {
+		// Returning will cancel stream.Context(), which unblocks the receive
+		// goroutine's stream.Recv(). It writes to the buffered recvErr (cap 1)
+		// and exits
 		return playErr
 	}
-	if pumpFinishErr != nil {
-		return pumpFinishErr
+	// PlayStream returning nil means the goroutine closed `chunks` after EOF,
+	// so it has already written to recvErr and exited — this won't block.
+	if recvDone := <-recvErr; recvDone != nil {
+		return recvDone
 	}
 
-	return stream.SendAndClose(&pb.PlayResponse{})
+	return stream.SendAndClose(&pb.PlayStreamResponse{})
 }
 
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {
