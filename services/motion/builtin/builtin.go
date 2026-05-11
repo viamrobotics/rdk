@@ -816,5 +816,5 @@ func (ms *builtIn) writePlanRequest(
 	}
 
 	ms.logger.Infof("writing plan to %s", fn)
-	return req.WriteToFile(fn)
+	return req.WriteRequestAndResponseToFile(fn, plan)
 }

@@ -24,7 +24,7 @@ func TestWriteAndReadRequestAndResponse(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	startInputs := referenceframe.FrameSystemInputs{"xarm6": make([]referenceframe.Input, 6)}
-	goalPose := spatialmath.NewPoseFromPoint(r3.Vector{X: 200, Y: 100, Z: 300})
+	goalPose := spatialmath.NewPose(r3.Vector{X: 200, Y: 100, Z: 300}, &spatialmath.OrientationVector{OZ: -1})
 	goalPoses := referenceframe.FrameSystemPoses{
 		"xarm6": referenceframe.NewPoseInFrame(referenceframe.World, goalPose),
 	}
@@ -39,6 +39,7 @@ func TestWriteAndReadRequestAndResponse(t *testing.T) {
 	traj := motionplan.Trajectory{
 		referenceframe.FrameSystemInputs{"xarm6": {0.1, 0.2, 0.3, 0.4, 0.5, 0.6}},
 		referenceframe.FrameSystemInputs{"xarm6": {0.7, 0.8, 0.9, 1.0, 1.1, 1.2}},
+		referenceframe.FrameSystemInputs{"xarm6": {0.1, 0.8, 0.3, 1.0, 1.5, 1.2}},
 	}
 	resp := motionplan.NewSimplePlan(nil, traj)
 
