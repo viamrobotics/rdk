@@ -60,12 +60,13 @@ type GeometryType string
 
 // The set of allowed representations for the Type in a geometry config.
 const (
-	UnknownType = GeometryType("")
-	BoxType     = GeometryType("box")
-	SphereType  = GeometryType("sphere")
-	CapsuleType = GeometryType("capsule")
-	PointType   = GeometryType("point")
-	MeshType    = GeometryType("mesh")
+	UnknownType  = GeometryType("")
+	BoxType      = GeometryType("box")
+	SphereType   = GeometryType("sphere")
+	CapsuleType  = GeometryType("capsule")
+	CylinderType = GeometryType("cylinder")
+	PointType    = GeometryType("point")
+	MeshType     = GeometryType("mesh")
 )
 
 // GeometryConfig specifies the format of geometries specified through JSON configuration files.
@@ -114,6 +115,11 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.R = gType.radius
 		config.L = gType.length
 		config.Label = gType.label
+	case *cylinder:
+		config.Type = CylinderType
+		config.R = gType.radius
+		config.L = gType.height
+		config.Label = gType.label
 	case *point:
 		config.Type = PointType
 		config.Label = gType.label
@@ -154,6 +160,8 @@ func (config *GeometryConfig) ParseConfig() (Geometry, error) {
 		return NewSphere(offset, config.R, config.Label)
 	case CapsuleType:
 		return NewCapsule(offset, config.R, config.L, config.Label)
+	case CylinderType:
+		return NewCylinder(offset, config.R, config.L, config.Label)
 	case PointType:
 		return NewPoint(offset.Point(), config.Label), nil
 	case MeshType:
@@ -216,6 +224,8 @@ func GeometriesAlmostEqual(a, b Geometry) bool {
 	case *sphere:
 		return gType.almostEqual(b)
 	case *capsule:
+		return gType.almostEqual(b)
+	case *cylinder:
 		return gType.almostEqual(b)
 	case *point:
 		return gType.almostEqual(b)
