@@ -230,7 +230,7 @@ func (b *builtIn) BuiltInReconfigure(ctx context.Context, deps resource.Dependen
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
-	go renameProgFilesToCapture(captureConfig.CaptureDir, b.logger)
+	renameProgFilesToCapture(captureConfig.CaptureDir, b.logger)
 
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
