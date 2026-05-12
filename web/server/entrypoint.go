@@ -135,7 +135,10 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 			utils.UncheckedError(closer.Close())
 		}()
 		registry.AddAppenderToAll(logWriter)
-	} else {
+	}
+
+	// Agent reads from stdout, so log to it if either 1) not logging to a file 2) logging to a file via env var
+	if logFilePath == "" || os.Getenv(rutils.ViamLogFileEnvVar) != "" {
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
