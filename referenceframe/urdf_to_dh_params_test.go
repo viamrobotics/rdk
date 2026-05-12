@@ -104,7 +104,7 @@ func TestJointAxesAtRestUR5e(t *testing.T) {
 	test.That(t, origins, test.ShouldHaveLength, 6)
 
 	// Joint 1 (shoulder_pan) axis: world Z (two cancelling pi rotations leave orientation identity).
-	// Origin is recorded AFTER composing j.Origin, so it's (0, 0, 0.1625) — the joint frame's position
+	// Origin is recorded AFTER composing j.Origin, so it's (0, 0, 0.1625) -- the joint frame's position
 	// in world. Any point on the joint's axis is valid for DH input; this convention keeps origin and
 	// axis both expressed in the joint's own frame.
 	test.That(t, axes[0].X, test.ShouldAlmostEqual, 0, 1e-9)
@@ -165,7 +165,7 @@ func TestCommonNormalPerpendicular(t *testing.T) {
 
 	xDir, foot0, foot1, parallel := commonNormal(z0, p0, z1, p1)
 	test.That(t, parallel, test.ShouldBeFalse)
-	// Common normal direction: z0 × z1 = (0,0,1) × (0,1,0) = (-1,0,0)
+	// Common normal direction: z0 x z1 = (0,0,1) x (0,1,0) = (-1,0,0)
 	test.That(t, xDir.X, test.ShouldAlmostEqual, -1, 1e-9)
 	test.That(t, xDir.Y, test.ShouldAlmostEqual, 0, 1e-9)
 	test.That(t, xDir.Z, test.ShouldAlmostEqual, 0, 1e-9)
@@ -235,7 +235,7 @@ func TestExtractDHRowUR5eRow1(t *testing.T) {
 }
 
 func TestValidateEndEffectorDHCompatible(t *testing.T) {
-	// Z_{N-1} = Z, x_end = X, p_end and origin_{N-1} on same Z axis → compatible.
+	// Z_{N-1} = Z, x_end = X, p_end and origin_{N-1} on same Z axis -> compatible.
 	err := validateEndEffectorDH(
 		r3.Vector{X: 0, Y: 0, Z: 1}, // zPrev
 		r3.Vector{X: 1, Y: 0, Z: 0}, // xEnd
@@ -258,12 +258,12 @@ func TestValidateEndEffectorDHXNotPerpendicular(t *testing.T) {
 }
 
 func TestValidateEndEffectorDHOriginOutOfPlane(t *testing.T) {
-	// p_end - originPrev has a component along Z × X: should error.
+	// p_end - originPrev has a component along Z x X: should error.
 	err := validateEndEffectorDH(
 		r3.Vector{X: 0, Y: 0, Z: 1},
 		r3.Vector{X: 1, Y: 0, Z: 0},
 		r3.Vector{X: 0, Y: 0, Z: 0},
-		r3.Vector{X: 0.5, Y: 0.5, Z: 1}, // Y component → out of (Z, X) plane
+		r3.Vector{X: 0.5, Y: 0.5, Z: 1}, // Y component -> out of (Z, X) plane
 	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "out of DH plane")
@@ -345,7 +345,7 @@ func TestURDFToDHParamsBranching(t *testing.T) {
 }
 
 func TestURDFToDHParamsNonDHCompatibleEnd(t *testing.T) {
-	// One revolute joint about Z, then a fixed post-chain with a Y rotation —
+	// One revolute joint about Z, then a fixed post-chain with a Y rotation --
 	// the end frame's X axis will not be perpendicular to Z, failing validation.
 	xmlStr := `<?xml version="1.0"?>
 <robot name="bad_end">
@@ -394,7 +394,7 @@ func dhForwardKinematics(params []DHParamConfig) spatialmath.Pose {
 }
 
 // urdfEndPoseAtRest computes the URDF's end-effector pose at zero config
-// by direct composition — independent of the DH machinery.
+// by direct composition -- independent of the DH machinery.
 func urdfEndPoseAtRest(t *testing.T, urdf *ModelConfigURDF) spatialmath.Pose {
 	t.Helper()
 	chain, err := walkURDFChain(urdf)

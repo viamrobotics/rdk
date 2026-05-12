@@ -157,7 +157,7 @@ func walkURDFChain(urdf *ModelConfigURDF) ([]*jointXML, error) {
 }
 
 // poseInMeters parses a URDF <origin rpy="..." xyz="..."/> element into a
-// spatialmath.Pose WITHOUT unit conversion — the resulting pose's translation
+// spatialmath.Pose WITHOUT unit conversion -- the resulting pose's translation
 // is in meters. This differs from (*pose).Parse() which converts to mm.
 //
 // A nil pose is interpreted as identity (URDF treats missing <origin> as identity).
@@ -279,8 +279,8 @@ func commonNormal(
 	//
 	// Derivation: (foot1 - foot0) must be perpendicular to both z0 and z1,
 	// i.e., parallel to cross. Solve the linear system:
-	//   (p1 - p0 + t1*z1 - t0*z0) · z0 = 0
-	//   (p1 - p0 + t1*z1 - t0*z0) · z1 = 0
+	//   (p1 - p0 + t1*z1 - t0*z0) dot z0 = 0
+	//   (p1 - p0 + t1*z1 - t0*z0) dot z1 = 0
 	d := p1.Sub(p0)
 	a := z0.Dot(z0) // = 1 since unit
 	b := z0.Dot(z1)
@@ -381,7 +381,7 @@ func buildDHFrames(
 	// produced a canonical DH placement for frame N, but frame N must coincide
 	// with the URDF's end-effector frame for the final DH row to describe the
 	// full kinematics. validateEndEffectorDH enforces that the override is
-	// consistent with a single DH row (X⊥Z and origin-in-plane).
+	// consistent with a single DH row (X perp Z and origin-in-plane).
 	pts[n] = endP
 	zs[n] = endZ
 	xs[n] = endX
@@ -395,10 +395,10 @@ func buildDHFrames(
 //
 // Formulas (angles signed around their pivot axis via atan2):
 //
-//	theta = atan2((xPrev × xCurr) · zPrev, xPrev · xCurr)
-//	alpha = atan2((zPrev × zCurr) · xCurr, zPrev · zCurr)
-//	d     = (pCurr - pPrev) · zPrev
-//	a     = (pCurr - pPrev) · xCurr
+//	theta = atan2((xPrev x xCurr) dot zPrev, xPrev dot xCurr)
+//	alpha = atan2((zPrev x zCurr) dot xCurr, zPrev dot zCurr)
+//	d     = (pCurr - pPrev) dot zPrev
+//	a     = (pCurr - pPrev) dot xCurr
 //
 // Preconditions: all direction vectors are unit length. xCurr is perpendicular
 // to zPrev (enforced by DH frame construction). This function does not

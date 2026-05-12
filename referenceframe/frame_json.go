@@ -60,9 +60,10 @@ type JointConfig struct {
 
 // DHParamConfig is a revolute and static frame combined in a set of Denavit Hartenberg parameters.
 //
-// Theta is the joint's angle at the model's zero configuration (in degrees). The actual joint
-// angle at runtime is the joint input plus Theta. Theta is omitempty so that pre-existing JSON
-// configs without an explicit theta continue to deserialize unchanged (default 0).
+// Theta is the joint's angle at the model's zero configuration (in degrees). It is metadata
+// produced by URDF-to-DH conversion and is NOT used by the kinematics pipeline -- ToDHFrames
+// ignores it, and downstream planning/IK derives the joint's effective range from Min and Max.
+// Theta is omitempty so pre-existing JSON configs without it continue to deserialize unchanged.
 type DHParamConfig struct {
 	ID       string                  `json:"id"`
 	Parent   string                  `json:"parent"`
@@ -183,19 +184,10 @@ func (cfg *DHParamConfig) ToDHFrames() (Frame, Frame, error) {
 		return nil, nil, err
 	}
 
-	// Link part of DH param. The DH transform is Rz(theta)·Tz(d)·Tx(a)·Rx(alpha);
-	// NewPoseFromDH produces Tz(d)·Tx(a)·Rx(alpha), so the static theta offset is
-	// pre-composed as a Z rotation. At runtime the joint frame's Rz(input) composes
-	// with this on the parent side, yielding Rz(input)·Rz(theta) = Rz(input+theta).
+	// Link part of DH param. cfg.Theta is deliberately ignored here -- see
+	// DHParamConfig's docstring.
 	linkID := cfg.ID
-	dhPose := spatial.NewPoseFromDH(cfg.A, cfg.D, utils.DegToRad(cfg.Alpha))
-	var pose spatial.Pose
-	if cfg.Theta == 0 {
-		pose = dhPose
-	} else {
-		thetaRot := spatial.NewPoseFromOrientation(&spatial.EulerAngles{Yaw: utils.DegToRad(cfg.Theta)})
-		pose = spatial.Compose(thetaRot, dhPose)
-	}
+	pose := spatial.NewPoseFromDH(cfg.A, cfg.D, utils.DegToRad(cfg.Alpha))
 	var lFrame Frame
 	if cfg.Geometry != nil {
 		geometryCreator, err := cfg.Geometry.ParseConfig()
