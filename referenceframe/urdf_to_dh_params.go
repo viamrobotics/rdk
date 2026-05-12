@@ -9,30 +9,31 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-// DHParam holds Denavit-Hartenberg parameters for one revolute joint.
-// Units: meters for D and A, radians for Theta and Alpha.
-// Theta is the joint's angle at the URDF's zero configuration (typically 0).
-// Actual joint angle at runtime = Theta + input variable.
-type DHParam struct {
-	Name  string  // joint name copied from the URDF
-	D     float64 // translation along Z_{i-1}
-	Theta float64 // rotation about Z_{i-1} at zero config
-	A     float64 // translation along X_i
-	Alpha float64 // rotation about X_i
-}
-
 // Tolerance constants used across phases.
 const (
 	axisParallelEpsilon = 1e-9
 	dhCompatEpsilon     = 1e-6
 )
 
-// URDFToDHParams converts a revolute-only URDF serial chain into DH parameters.
-// Returns one DHParam per revolute joint in chain order. Errors if the URDF
-// is not a serial revolute chain or if its end-effector frame is not
-// DH-compatible (X-axis not perpendicular to the last joint axis, or origin
-// out of the DH plane).
-func URDFToDHParams(urdf *ModelConfigURDF) ([]DHParam, error) {
+// URDFToDHParams converts a revolute-only URDF serial chain into a list of
+// DHParamConfig rows.
+//
+// Units. The URDF spec defines lengths in meters and angles in radians, and
+// this function preserves those SI units in its output: A and D are in meters,
+// Alpha/Theta/Min/Max in radians. Continuous joints become Min = -inf, Max = +inf.
+//
+// NOTE: this differs from DHParamConfig's JSON-config convention (A/D in mm,
+// angles in degrees) used by ToDHFrames and existing files like ur5eDH.json.
+// Convert the output before feeding it to ToDHFrames or serializing it to a
+// model JSON config. We chose SI here so the function stays unit-pure.
+//
+// The first row's Parent is the URDF root link; subsequent rows chain via the
+// previous row's ID.
+//
+// Errors if the URDF is not a serial revolute chain or if its end-effector
+// frame is not DH-compatible (X-axis not perpendicular to the last joint
+// axis, or origin out of the DH plane).
+func URDFToDHParams(urdf *ModelConfigURDF) ([]DHParamConfig, error) {
 	chain, err := walkURDFChain(urdf)
 	if err != nil {
 		return nil, err
@@ -54,28 +55,52 @@ func URDFToDHParams(urdf *ModelConfigURDF) ([]DHParam, error) {
 		return nil, err
 	}
 
-	// Collect revolute joint names in chain order for the DHParam Name fields.
+	// Collect the revolute joints in chain order so we can read names and limits.
 	// This filter must stay in sync with jointAxesAtRest's revolute predicate so
-	// that len(revoluteNames) == n and the indices line up with axes/origins.
-	revoluteNames := make([]string, 0, n)
+	// that len(revoluteJoints) == n and the indices line up with axes/origins.
+	revoluteJoints := make([]*jointXML, 0, n)
 	for _, j := range chain {
 		if j.Type == RevoluteJoint || j.Type == ContinuousJoint {
-			revoluteNames = append(revoluteNames, j.Name)
+			revoluteJoints = append(revoluteJoints, j)
 		}
 	}
 
-	result := make([]DHParam, n)
+	// First row's parent is the URDF root link; chain[0].Parent.Link is the
+	// root by construction (walkURDFChain starts at the unique root).
+	rootLink := chain[0].Parent.Link
+
+	result := make([]DHParamConfig, n)
 	for i := 0; i < n; i++ {
 		d, theta, a, alpha := extractDHRow(zs[i], xs[i], pts[i], zs[i+1], xs[i+1], pts[i+1])
-		result[i] = DHParam{
-			Name:  revoluteNames[i],
-			D:     d,
-			Theta: theta,
-			A:     a,
-			Alpha: alpha,
+
+		minRad, maxRad := jointLimitsRadians(revoluteJoints[i])
+
+		parent := rootLink
+		if i > 0 {
+			parent = result[i-1].ID
+		}
+
+		result[i] = DHParamConfig{
+			ID:     revoluteJoints[i].Name,
+			Parent: parent,
+			A:      a,
+			D:      d,
+			Alpha:  alpha,
+			Theta:  theta,
+			Min:    minRad,
+			Max:    maxRad,
 		}
 	}
 	return result, nil
+}
+
+// jointLimitsRadians returns the joint's lower/upper bound in radians, as the
+// URDF stores them. Continuous joints have no bounds and become +-inf.
+func jointLimitsRadians(j *jointXML) (minRad, maxRad float64) {
+	if j.Type == ContinuousJoint || j.Limit == nil {
+		return math.Inf(-1), math.Inf(1)
+	}
+	return j.Limit.Lower, j.Limit.Upper
 }
 
 // walkURDFChain returns the joints in chain order from the root link to the

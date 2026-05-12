@@ -14,16 +14,17 @@ import (
 
 const ur5eTolerance = 1e-6
 
-// expectedUR5eDHParams are the classic UR5e Denavit-Hartenberg parameters in SI units
-// (meters, radians). Source: Universal Robots kinematic calibration documentation.
+// expectedUR5eDHParams are the classic UR5e Denavit-Hartenberg parameters in URDFToDHParams's
+// SI output units (meters for A/D, radians for Alpha/Theta/Min/Max). Source: Universal
+// Robots kinematic calibration documentation. Limits match testfiles/ur5e-real.urdf.
 // These are what URDFToDHParams must produce when given testfiles/ur5e-real.urdf.
-var expectedUR5eDHParams = []DHParam{
-	{Name: "shoulder_pan_joint", D: 0.1625, Theta: 0, A: 0, Alpha: math.Pi / 2},
-	{Name: "shoulder_lift_joint", D: 0, Theta: 0, A: -0.425, Alpha: 0},
-	{Name: "elbow_joint", D: 0, Theta: 0, A: -0.3922, Alpha: 0},
-	{Name: "wrist_1_joint", D: 0.1333, Theta: 0, A: 0, Alpha: math.Pi / 2},
-	{Name: "wrist_2_joint", D: 0.0997, Theta: 0, A: 0, Alpha: -math.Pi / 2},
-	{Name: "wrist_3_joint", D: 0.0996, Theta: 0, A: 0, Alpha: 0},
+var expectedUR5eDHParams = []DHParamConfig{
+	{ID: "shoulder_pan_joint", Parent: "world", D: 0.1625, Theta: 0, A: 0, Alpha: math.Pi / 2, Min: -2 * math.Pi, Max: 2 * math.Pi},
+	{ID: "shoulder_lift_joint", Parent: "shoulder_pan_joint", D: 0, Theta: 0, A: -0.425, Alpha: 0, Min: -2 * math.Pi, Max: 2 * math.Pi},
+	{ID: "elbow_joint", Parent: "shoulder_lift_joint", D: 0, Theta: 0, A: -0.3922, Alpha: 0, Min: -math.Pi, Max: math.Pi},
+	{ID: "wrist_1_joint", Parent: "elbow_joint", D: 0.1333, Theta: 0, A: 0, Alpha: math.Pi / 2, Min: -2 * math.Pi, Max: 2 * math.Pi},
+	{ID: "wrist_2_joint", Parent: "wrist_1_joint", D: 0.0997, Theta: 0, A: 0, Alpha: -math.Pi / 2, Min: -2 * math.Pi, Max: 2 * math.Pi},
+	{ID: "wrist_3_joint", Parent: "wrist_2_joint", D: 0.0996, Theta: 0, A: 0, Alpha: 0, Min: -2 * math.Pi, Max: 2 * math.Pi},
 }
 
 // loadURDF is a small test helper that reads a URDF file and unmarshals it
@@ -47,11 +48,14 @@ func TestURDFToDHParamsUR5e(t *testing.T) {
 	test.That(t, got, test.ShouldHaveLength, len(expectedUR5eDHParams))
 
 	for i, want := range expectedUR5eDHParams {
-		test.That(t, got[i].Name, test.ShouldEqual, want.Name)
+		test.That(t, got[i].ID, test.ShouldEqual, want.ID)
+		test.That(t, got[i].Parent, test.ShouldEqual, want.Parent)
 		test.That(t, got[i].D, test.ShouldAlmostEqual, want.D, ur5eTolerance)
 		test.That(t, got[i].Theta, test.ShouldAlmostEqual, want.Theta, ur5eTolerance)
 		test.That(t, got[i].A, test.ShouldAlmostEqual, want.A, ur5eTolerance)
 		test.That(t, got[i].Alpha, test.ShouldAlmostEqual, want.Alpha, ur5eTolerance)
+		test.That(t, got[i].Min, test.ShouldAlmostEqual, want.Min, ur5eTolerance)
+		test.That(t, got[i].Max, test.ShouldAlmostEqual, want.Max, ur5eTolerance)
 	}
 }
 
@@ -370,8 +374,9 @@ func TestURDFToDHParamsNonDHCompatibleEnd(t *testing.T) {
 
 // dhForwardKinematics computes the end-effector pose by composing each DH row.
 // For row i: T_i = Rz(theta_i) * Tz(d_i) * Tx(a_i) * Rx(alpha_i).
-// Uses SI units (meters, radians) consistent with DHParam.
-func dhForwardKinematics(params []DHParam) spatialmath.Pose {
+// Consumes URDFToDHParams's SI output (meters, radians), matching the units of
+// urdfEndPoseAtRest's pose so the two are directly comparable.
+func dhForwardKinematics(params []DHParamConfig) spatialmath.Pose {
 	cumulative := spatialmath.NewZeroPose()
 	for _, p := range params {
 		cumulative = spatialmath.Compose(cumulative, spatialmath.NewPose(
