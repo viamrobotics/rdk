@@ -179,6 +179,7 @@ func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 	result := &PoseInFrame{}
 	result.pose = spatialmath.NewPoseFromProtobuf(proto.GetPose())
 	result.parent = proto.GetReferenceFrame()
+	result.GoalCloud = PoseCloudFromProto(proto.GetGoalCloud())
 	return result
 }
 
