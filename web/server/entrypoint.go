@@ -425,6 +425,10 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 					s.configLogger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 					continue
 				}
+				if err := r.StartWeb(ctx, options); err != nil {
+					s.configLogger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
+				}
+				s.configLogger.Info("web service restart finished")
 			}
 
 			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
@@ -450,13 +454,6 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			}
 
 			r.Reconfigure(ctx, processedConfig)
-
-			if !diff.NetworkEqual {
-				if err := r.StartWeb(ctx, options); err != nil {
-					s.configLogger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
-				}
-				s.configLogger.Info("web service restart finished")
-			}
 			currCfg = processedConfig
 		}
 	}
