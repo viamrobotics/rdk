@@ -241,8 +241,18 @@ func (nl *NetAppender) Write(e zapcore.Entry, f []zapcore.Field) error {
 	}
 	log.Caller = caller
 
-	fields := make([]*structpb.Struct, 0, len(f))
-	for _, ff := range f {
+	// Deduplicate by key, keeping the last occurrence. This prevents a
+	// duplicate key in the same log call (e.g. passed via both WithFields and
+	// a call-site arg) from reaching the wire and crashing consumers.
+	lastIdx := make(map[string]int, len(f))
+	for i, ff := range f {
+		lastIdx[ff.Key] = i
+	}
+	fields := make([]*structpb.Struct, 0, len(lastIdx))
+	for i, ff := range f {
+		if lastIdx[ff.Key] != i {
+			continue
+		}
 		field, err := FieldToProto(ff)
 		if err != nil {
 			return err

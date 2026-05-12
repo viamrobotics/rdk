@@ -215,6 +215,42 @@ func TestNetLoggerPreservesTypedFields(t *testing.T) {
 	test.That(t, byKey["tags"]["Interface"], test.ShouldResemble, []any{"a", "b", "c"})
 }
 
+func TestNetLoggerDeduplicatesFields(t *testing.T) {
+	server := makeServerForRobotLogger(t)
+	defer server.stop()
+
+	loggerWithoutNet := NewTestLogger(t)
+	netAppender, err := newNetAppender(server.cloudConfig, nil, false, false, loggerWithoutNet)
+	test.That(t, err, test.ShouldBeNil)
+
+	logger := NewDebugLogger("test logger")
+	logger.AddAppender(netAppender)
+
+	// zone_id appears twice: once bound via WithFields, once passed at the call site.
+	// Only one zone_id field should reach the wire.
+	zoneLogger := logger.WithFields("zone_id", 42)
+	zoneLogger.Infow("zone motion planned",
+		"zone_id", 42,
+		"motion_planning_ms", 100,
+	)
+	test.That(t, netAppender.sync(), test.ShouldBeNil)
+	netAppender.Close()
+
+	server.service.logsMu.Lock()
+	defer server.service.logsMu.Unlock()
+	test.That(t, server.service.logs, test.ShouldHaveLength, 1)
+	entry := server.service.logs[0]
+	test.That(t, entry.Fields, test.ShouldHaveLength, 2)
+
+	byKey := map[string]map[string]any{}
+	for _, f := range entry.Fields {
+		m := f.AsMap()
+		byKey[m["Key"].(string)] = m
+	}
+	test.That(t, byKey["zone_id"], test.ShouldNotBeNil)
+	test.That(t, byKey["motion_planning_ms"], test.ShouldNotBeNil)
+}
+
 func TestNetLoggerSyncInvalidUTF8(t *testing.T) {
 	server := makeServerForRobotLogger(t)
 	defer server.stop()

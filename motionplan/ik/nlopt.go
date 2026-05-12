@@ -79,11 +79,33 @@ type nloptSeedState struct {
 	seed                   []float64
 	lowerBound, upperBound []float64
 	jump                   []float64
+	fixedIndices           []int
+	fixedValues            []float64
 
 	meta string
 
 	opt    *nlopt.NLopt
 	logger logging.Logger
+}
+
+// expandSolution re-inserts fixed joint values into a reduced solution array,
+// reconstructing the full joint configuration.
+func (ss *nloptSeedState) expandSolution(reduced []float64) []float64 {
+	if len(ss.fixedIndices) == 0 {
+		return reduced
+	}
+	full := make([]float64, len(reduced)+len(ss.fixedIndices))
+	fi, ri := 0, 0
+	for i := range full {
+		if fi < len(ss.fixedIndices) && ss.fixedIndices[fi] == i {
+			full[i] = ss.fixedValues[fi]
+			fi++
+		} else {
+			full[i] = reduced[ri]
+			ri++
+		}
+	}
+	return full
 }
 
 func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
@@ -92,18 +114,53 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	var err error
 
 	ss := &nloptSeedState{
-		seed:   s,
 		meta:   fmt.Sprintf("s:%d", seedNumber),
 		logger: ik.logger,
 	}
 
-	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
-	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
+	fullLower, fullUpper := limitsToArrays(limits)
+	if len(fullLower) == 0 || len(fullUpper) == 0 {
 		return nil, errBadBounds
 	}
 
+	// Joints with lb >= ub cannot be optimization variables in nlopt's SLSQP:
+	//   lb == ub: nonmoving joint at an interior seed (ratio=0 → delta=0 → [seed, seed])
+	//   lb > ub:  nonmoving joint where seed > GoodLimits cap (999mm), producing [seed, cap]
+	// Both cause INVALID_ARGS. Strip them from the variable set and re-inject via expandSolution.
+	for i := range fullLower {
+		if fullLower[i] >= fullUpper[i] {
+			ss.fixedIndices = append(ss.fixedIndices, i)
+			ss.fixedValues = append(ss.fixedValues, s[i])
+		}
+	}
+
+	reducedSeed := make([]float64, 0, len(s))
+	reducedLimits := make([]referenceframe.Limit, 0, len(limits))
+	fi := 0
+	for i, val := range s {
+		if fi < len(ss.fixedIndices) && ss.fixedIndices[fi] == i {
+			fi++
+			continue
+		}
+		reducedSeed = append(reducedSeed, val)
+		reducedLimits = append(reducedLimits, limits[i])
+	}
+	if len(reducedSeed) == 0 {
+		return nil, errBadBounds
+	}
+
+	ss.lowerBound, ss.upperBound = limitsToArrays(reducedLimits)
+
+	wrappedMinFunc := minFunc
+	if len(ss.fixedIndices) > 0 {
+		wrappedMinFunc = func(ctx context.Context, vals []float64) float64 {
+			return minFunc(ctx, ss.expandSolution(vals))
+		}
+	}
+
+	ss.seed = reducedSeed
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.jump = ik.calcJump(ctx, defaultJump, reducedSeed, reducedLimits, wrappedMinFunc)
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")
@@ -115,7 +172,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 		ss.opt.SetStopVal(defaultGoalThreshold),
 		ss.opt.SetUpperBounds(ss.upperBound),
 		ss.opt.SetXtolAbs1(defaultGoalThreshold),
-		ss.opt.SetMinObjective(ss.getMinFunc(ctx, minFunc, iterations)),
+		ss.opt.SetMinObjective(ss.getMinFunc(ctx, wrappedMinFunc, iterations)),
 		ss.opt.SetMaxEval(nloptStepsPerIter),
 	)
 	if err != nil {
@@ -244,7 +301,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		} else if result < defaultGoalThreshold || !ik.exact {
 			meta[seedNumberRanged].Valid++
 			solution := &Solution{
-				Configuration: solutionRaw,
+				Configuration: ss.expandSolution(solutionRaw),
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
 				Meta:          ss.meta,
