@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -82,8 +81,8 @@ func TestNewCollector(t *testing.T) {
 // Test that the Collector correctly writes the SensorData on an interval.
 func TestSuccessfulWrite(t *testing.T) {
 	l := logging.NewTestLogger(t)
-	tickerInterval := sleepCaptureCutoff + 1
-	sleepInterval := sleepCaptureCutoff - 1
+	tickerInterval := timerCaptureCutoff + 1
+	timerInterval := timerCaptureCutoff - 1
 
 	params := CollectorParams{
 		ComponentName: "testComponent",
@@ -110,9 +109,9 @@ func TestSuccessfulWrite(t *testing.T) {
 			datatype:       CaptureTypeTabular,
 		},
 		{
-			name:           "Sleep based struct writer.",
+			name:           "Timer based struct writer.",
 			captureFunc:    structCapturer,
-			interval:       sleepInterval,
+			interval:       timerInterval,
 			expectReadings: 2,
 			expFiles:       1,
 			datatype:       CaptureTypeTabular,
@@ -126,9 +125,9 @@ func TestSuccessfulWrite(t *testing.T) {
 			datatype:       CaptureTypeBinary,
 		},
 		{
-			name:           "Sleep based binary writer.",
+			name:           "Timer based binary writer.",
 			captureFunc:    binaryCapturer,
-			interval:       sleepInterval,
+			interval:       timerInterval,
 			expectReadings: 2,
 			expFiles:       2,
 			datatype:       CaptureTypeBinary,
@@ -150,12 +149,6 @@ func TestSuccessfulWrite(t *testing.T) {
 			c, err := NewCollector(tc.captureFunc, params)
 			test.That(t, err, test.ShouldBeNil)
 			c.Collect()
-			// We need to avoid adding time until after the underlying goroutine has started sleeping.
-			// If we add time before that point, data will never be captured, because time will never be greater than
-			// the initially calculated time.
-			// Sleeping for 10ms is a hacky way to ensure that we don't encounter this situation. It gives 10ms
-			// for those few sequential lines in collector.go to execute, so that that occurs before we add time below.
-			time.Sleep(10 * time.Millisecond)
 			for i := 0; i < tc.expectReadings; i++ {
 				mockClock.Add(params.Interval)
 				select {
@@ -165,31 +158,7 @@ func TestSuccessfulWrite(t *testing.T) {
 				}
 			}
 
-			// If it's a sleep based collector, we need to move the clock forward one more time after calling Close.
-			// Otherwise, it will stay asleep indefinitely and Close will block forever.
-			// This loop guarantees that the clock is moved forward at least once after Close is called. After Close
-			// returns and the closed channel is closed, this loop will terminate.
-			closed := make(chan struct{})
-			sleepCollector := tc.interval < sleepCaptureCutoff
-			var wg sync.WaitGroup
-			if sleepCollector {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					for i := 0; i < 1000; i++ {
-						select {
-						case <-closed:
-							return
-						default:
-							time.Sleep(time.Millisecond * 1)
-							mockClock.Add(params.Interval)
-						}
-					}
-				}()
-			}
 			c.Close()
-			close(closed)
-			wg.Wait()
 
 			var actReadings []*v1.SensorData
 			files := getAllFiles(tmpDir)

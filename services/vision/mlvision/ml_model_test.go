@@ -10,11 +10,13 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/classification"
 )
 
@@ -41,9 +43,12 @@ func BenchmarkUseMLVisionModel(b *testing.B) {
 	ctx := context.Background()
 	out := mockEffDetModel("myMLModel", "")
 	name := out.Name()
-	pic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
+	rawPic, err := rimage.NewImageFromFile(artifact.MustPath("vision/tflite/dogscute.jpeg"))
 	test.That(b, err, test.ShouldBeNil)
-	test.That(b, pic, test.ShouldNotBeNil)
+	test.That(b, rawPic, test.ShouldNotBeNil)
+	namedPic, err := camera.NamedImageFromImage(rawPic, "", utils.MimeTypeJPEG, data.Annotations{})
+	test.That(b, err, test.ShouldBeNil)
+	pic := &namedPic
 	modelCfg := MLModelConfig{ModelName: name.Name}
 
 	r := inject.Robot{}

@@ -7,10 +7,13 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/components/camera"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/vision"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -21,7 +24,9 @@ const (
 
 func TestFromRobot(t *testing.T) {
 	svc1 := &inject.VisionService{}
-	svc1.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	svc1.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		det1 := objectdetection.NewDetection(image.Rect(0, 0, 50, 50), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
@@ -35,7 +40,9 @@ func TestFromRobot(t *testing.T) {
 	svc, err := vision.FromProvider(&r, testVisionServiceName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
-	result, err := svc.Detections(context.Background(), nil, nil)
+	testImg, err := camera.NamedImageFromImage(image.NewRGBA(image.Rect(0, 0, 50, 50)), "", utils.MimeTypeJPEG, data.Annotations{})
+	test.That(t, err, test.ShouldBeNil)
+	result, err := svc.Detections(context.Background(), &testImg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(result), test.ShouldEqual, 1)
 	test.That(t, result[0].Score(), test.ShouldEqual, 0.5)

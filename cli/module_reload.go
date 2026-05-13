@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -146,27 +145,60 @@ func (c *viamClient) addResourceFromModule(
 	return nil
 }
 
-// hasShellService checks if a partMap already has a shell service configured.
-func hasShellService(partMap map[string]any) bool {
-	servicesRaw, ok := partMap["services"]
-	if !ok {
-		return false
+// findResourceInPartOrFragments returns true if predicate matches any resource in
+// the part config or any of its fragments (recursively). Fragments are stored as
+// refs ({"id": ...}) so their bodies must be fetched via GetFragment.
+func (c *viamClient) findResourceInPartOrFragments(
+	ctx context.Context,
+	cfgMap map[string]any,
+	predicate func(resource map[string]any) bool,
+	visited map[string]bool,
+) (bool, error) {
+	for _, key := range []string{"services", "components"} {
+		raw, ok := cfgMap[key]
+		if !ok {
+			continue
+		}
+		for _, r := range raw.([]any) {
+			if predicate(r.(map[string]any)) {
+				return true, nil
+			}
+		}
 	}
-	services, _ := rutils.MapOver(servicesRaw.([]any), //nolint:errcheck
-		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
-	)
-	return slices.ContainsFunc(services, func(service ResourceMap) bool {
-		return service["type"] == "shell" || service["api"] == "rdk:service:shell"
-	})
+	fragsRaw, ok := cfgMap["fragments"]
+	if !ok {
+		return false, nil
+	}
+	for _, f := range fragsRaw.([]any) {
+		id, _ := f.(map[string]any)["id"].(string)
+		if id == "" || visited[id] {
+			continue
+		}
+		visited[id] = true
+		resp, err := c.client.GetFragment(ctx, &apppb.GetFragmentRequest{Id: id})
+		if err != nil {
+			return false, err
+		}
+		if resp.Fragment == nil || resp.Fragment.Fragment == nil {
+			continue
+		}
+		found, err := c.findResourceInPartOrFragments(ctx, resp.Fragment.Fragment.AsMap(), predicate, visited)
+		if err != nil || found {
+			return found, err
+		}
+	}
+	return false, nil
 }
 
-// applyShellServiceToPartMap adds a shell service to the partMap if not already present. Returns true if added.
-func applyShellServiceToPartMap(partMap map[string]any) bool {
+// hasShellService checks if a part or any of its fragments (recursively) already has a shell service configured
+func hasShellService(ctx context.Context, vc *viamClient, partMap map[string]any) (bool, error) {
+	return vc.findResourceInPartOrFragments(ctx, partMap, isShellService, map[string]bool{})
+}
+
+// appendShellServiceToPartMap appends a shell service entry to partMap["services"].
+func appendShellServiceToPartMap(partMap map[string]any) {
 	if _, ok := partMap["services"]; !ok {
 		partMap["services"] = make([]any, 0, 1)
-	}
-	if hasShellService(partMap) {
-		return false
 	}
 	services, _ := rutils.MapOver(partMap["services"].([]any), //nolint:errcheck
 		func(raw any) (ResourceMap, error) { return ResourceMap(raw.(map[string]any)), nil },
@@ -176,7 +208,12 @@ func applyShellServiceToPartMap(partMap map[string]any) bool {
 		return map[string]any(service), nil
 	})
 	partMap["services"] = asAny
-	return true
+}
+
+// isShellService matches a resource config entry for the shell service, tolerating
+// both the modern `api` key and the legacy `type` key.
+func isShellService(resource map[string]any) bool {
+	return resource["type"] == "shell" || resource["api"] == "rdk:service:shell"
 }
 
 // addShellService adds a shell service to the services slice if missing. Mutates part.RobotConfig.
@@ -190,10 +227,14 @@ func addShellService(
 		return false, err
 	}
 	partMap := part.RobotConfig.AsMap()
-	if !applyShellServiceToPartMap(partMap) {
+	has, err := hasShellService(ctx, vc, partMap)
+	if err != nil {
+		debugf(cmd.Root().Writer, args.Debug, "could not check for existing shell service: %v; installing one anyway", err)
+	} else if has {
 		debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine, not installing")
 		return false, nil
 	}
+	appendShellServiceToPartMap(partMap)
 	if err := writeBackConfig(part, partMap); err != nil {
 		return false, err
 	}
@@ -204,10 +245,15 @@ func addShellService(
 		}
 		retryPart := partResp.Part
 		retryMap := retryPart.RobotConfig.AsMap()
-		if !applyShellServiceToPartMap(retryMap) {
+		retryHas, err := hasShellService(ctx, vc, retryMap)
+		if err != nil {
+			debugf(cmd.Root().Writer, args.Debug,
+				"could not check for existing shell service after re-fetch: %v; installing one anyway", err)
+		} else if retryHas {
 			debugf(cmd.Root().Writer, args.Debug, "shell service found on target machine after re-fetch, not installing")
 			return false, nil
 		}
+		appendShellServiceToPartMap(retryMap)
 		if retryErr := writeBackConfig(retryPart, retryMap); retryErr != nil {
 			return false, retryErr
 		}
@@ -250,7 +296,14 @@ func writeBackConfig(part *apppb.RobotPart, configAsMap map[string]any) error {
 // dirty means config was changed and needs to be written back.
 // needsRestart means the module needs an explicit restart (the reload path was already correct).
 func applyModuleConfigToPartMap(
-	cmd *cli.Command, partMap map[string]any, manifest ModuleManifest, local, cloudReload bool, reloadUser string, reloadUnixTS int64,
+	cmd *cli.Command,
+	partMap map[string]any,
+	manifest ModuleManifest,
+	local,
+	cloudReload bool,
+	reloadUser,
+	annotation string,
+	reloadUnixTS int64,
 ) ([]ModuleMap, bool, bool, error) {
 	if _, ok := partMap["modules"]; !ok {
 		partMap["modules"] = make([]any, 0, 1)
@@ -263,7 +316,7 @@ func applyModuleConfigToPartMap(
 		return nil, false, false, err
 	}
 
-	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser, reloadUnixTS)
+	modules, dirty, needsRestart, err := mutateModuleConfig(cmd, modules, manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 	if err != nil {
 		return nil, false, false, err
 	}
@@ -282,13 +335,14 @@ func applyModuleConfigToPartMap(
 // Uses optimistic concurrency control with last_known_update to avoid overwriting concurrent changes.
 func configureModule(
 	ctx context.Context, cmd *cli.Command, vc *viamClient, manifest *ModuleManifest, part *apppb.RobotPart,
-	local, cloudReload bool, reloadUser string, reloadUnixTS int64,
+	local, cloudReload bool, reloadUser, annotation string, reloadUnixTS int64,
 ) (*apppb.RobotPart, bool, error) {
 	if manifest == nil {
 		return part, false, fmt.Errorf("reconfiguration requires valid manifest json passed to --%s", moduleFlagPath)
 	}
 	partMap := part.RobotConfig.AsMap()
-	_, dirty, needsRestart, err := applyModuleConfigToPartMap(cmd, partMap, *manifest, local, cloudReload, reloadUser, reloadUnixTS)
+	_, dirty, needsRestart, err := applyModuleConfigToPartMap(
+		cmd, partMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 	if err != nil {
 		return part, false, err
 	}
@@ -308,7 +362,7 @@ func configureModule(
 			}
 			retryPart := partResp.Part
 			retryMap := retryPart.RobotConfig.AsMap()
-			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser, reloadUnixTS)
+			_, _, _, retryErr := applyModuleConfigToPartMap(cmd, retryMap, *manifest, local, cloudReload, reloadUser, annotation, reloadUnixTS)
 			if retryErr != nil {
 				return part, false, retryErr
 			}
@@ -349,6 +403,7 @@ func mutateModuleConfig(
 	local bool,
 	cloudReload bool,
 	reloadUser string,
+	annotation string,
 	reloadUnixTS int64,
 ) ([]ModuleMap, bool, bool, error) {
 	var dirty bool
@@ -407,6 +462,9 @@ func mutateModuleConfig(
 		dirty = true
 		foundMod["reload_user"] = reloadUser
 		foundMod["reload_time"] = reloadTime
+		if annotation != "" {
+			foundMod["reload_annotation"] = annotation
+		}
 	} else {
 		dirty = true
 		if foundMod == nil {
@@ -414,13 +472,13 @@ func mutateModuleConfig(
 		} else {
 			debugf(cmd.Root().Writer, args.Debug, "found local module, inserting registry module")
 		}
-		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime, cloudReload)
+		newMod := createNewModuleMap(manifest.ModuleID, absEntrypoint, reloadUser, reloadTime, annotation, cloudReload)
 		modules = append(modules, newMod)
 	}
 	return modules, dirty, needsRestart, nil
 }
 
-func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime string, cloudReload bool) ModuleMap {
+func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime, annotation string, cloudReload bool) ModuleMap {
 	localName := localizeModuleID(moduleID)
 	newMod := ModuleMap(map[string]any{
 		"type":           string(rdkConfig.ModuleTypeRegistry),
@@ -431,6 +489,9 @@ func createNewModuleMap(moduleID, entryPoint, reloadUser, reloadTime string, clo
 		"reload_user":    reloadUser,
 		"reload_time":    reloadTime,
 	})
+	if annotation != "" {
+		newMod["reload_annotation"] = annotation
+	}
 	if !cloudReload {
 		newMod["reload_path"] = entryPoint
 	}

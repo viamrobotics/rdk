@@ -2,7 +2,6 @@ package vision
 
 import (
 	"context"
-	"image"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -125,7 +124,7 @@ func DeprecatedNewService(
 // Detections returns the detections of given image if the model implements objectdetector.Detector.
 func (vm *vizModel) Detections(
 	ctx context.Context,
-	img image.Image,
+	img *camera.NamedImage,
 	extra map[string]interface{},
 ) ([]objectdetection.Detection, error) {
 	ctx, span := trace.StartSpan(ctx, "service::vision::Detections::"+vm.Named.Name().String())
@@ -134,7 +133,14 @@ func (vm *vizModel) Detections(
 	if vm.detectorFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Detector", vm.Named.Name())
 	}
-	return vm.detectorFunc(ctx, img)
+	if img == nil {
+		return nil, errors.New("nil image input to Detections")
+	}
+	decoded, err := img.Image(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return vm.detectorFunc(ctx, decoded)
 }
 
 // DetectionsFromCamera returns the detections of the next image from the given camera.
@@ -166,17 +172,13 @@ func (vm *vizModel) DetectionsFromCamera(
 	if len(namedImages) == 0 {
 		return nil, errors.Errorf("no images returned from camera %s", cameraName)
 	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
-	}
-	return vm.detectorFunc(ctx, img)
+	return vm.Detections(ctx, &namedImages[0], extra)
 }
 
 // Classifications returns the classifications of given image if the model implements classifications.Classifier.
 func (vm *vizModel) Classifications(
 	ctx context.Context,
-	img image.Image,
+	img *camera.NamedImage,
 	n int,
 	extra map[string]interface{},
 ) (classification.Classifications, error) {
@@ -186,7 +188,14 @@ func (vm *vizModel) Classifications(
 	if vm.classifierFunc == nil {
 		return nil, errors.Errorf("vision model %q does not implement a Classifier", vm.Named.Name())
 	}
-	fullClassifications, err := vm.classifierFunc(ctx, img)
+	if img == nil {
+		return nil, errors.New("nil image input to Classifications")
+	}
+	decoded, err := img.Image(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fullClassifications, err := vm.classifierFunc(ctx, decoded)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get classifications from image")
 	}
@@ -223,16 +232,7 @@ func (vm *vizModel) ClassificationsFromCamera(
 	if len(namedImages) == 0 {
 		return nil, errors.Errorf("no images returned from camera %s", cameraName)
 	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not decode image from %s", cameraName)
-	}
-
-	fullClassifications, err := vm.classifierFunc(ctx, img)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get classifications from image")
-	}
-	return fullClassifications.TopN(n)
+	return vm.Classifications(ctx, &namedImages[0], n, extra)
 }
 
 // GetObjectPointClouds returns all the found objects in a 3D image if the model implements Segmenter3D.
@@ -292,17 +292,14 @@ func (vm *vizModel) CaptureAllFromCamera(
 	if len(namedImages) == 0 {
 		return viscapture.VisCapture{}, errors.Errorf("no images returned from camera %s", cameraName)
 	}
-	img, err := namedImages[0].Image(ctx)
-	if err != nil {
-		return viscapture.VisCapture{}, errors.Wrapf(err, "could not decode image from %s", cameraName)
-	}
+	namedImg := &namedImages[0]
 
 	var detections []objectdetection.Detection
 	if opt.ReturnDetections {
 		if !vm.properties.DetectionSupported {
 			vm.logger.Debugf("detections requested but vision model %q does not implement a Detector", vm.Named.Name())
 		} else {
-			detections, err = vm.Detections(ctx, img, extra)
+			detections, err = vm.Detections(ctx, namedImg, extra)
 			if err != nil {
 				return viscapture.VisCapture{}, err
 			}
@@ -315,7 +312,7 @@ func (vm *vizModel) CaptureAllFromCamera(
 			vm.logger.Debugf("classifications requested in CaptureAll but vision model %q does not implement a Classifier",
 				vm.Named.Name())
 		} else {
-			classifications, err = vm.Classifications(ctx, img, 0, extra)
+			classifications, err = vm.Classifications(ctx, namedImg, 0, extra)
 			if err != nil {
 				return viscapture.VisCapture{}, err
 			}
@@ -334,8 +331,9 @@ func (vm *vizModel) CaptureAllFromCamera(
 		}
 	}
 
-	if !opt.ReturnImage {
-		img = nil
+	var img *camera.NamedImage
+	if opt.ReturnImage {
+		img = namedImg
 	}
 	return viscapture.VisCapture{
 		Image:           img,

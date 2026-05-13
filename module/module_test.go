@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -137,9 +136,6 @@ func TestAddModelFromRegistry(t *testing.T) {
 }
 
 func TestModuleFunctions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO(RSDK-12871): get this working on win")
-	}
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -198,7 +194,7 @@ func TestModuleFunctions(t *testing.T) {
 
 	//nolint:staticcheck
 	conn, err := grpc.Dial(
-		"unix://"+addr,
+		"unix:"+addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 		grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -209,13 +205,13 @@ func TestModuleFunctions(t *testing.T) {
 
 	m.SetReady(false)
 
-	resp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+	resp, err := client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeFalse)
 
 	m.SetReady(true)
 
-	resp, err = client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+	resp, err = client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.Ready, test.ShouldBeTrue)
 
@@ -490,7 +486,7 @@ func TestAttributeConversion(t *testing.T) {
 		test.That(t, m.Start(ctx), test.ShouldBeNil)
 		//nolint:staticcheck
 		conn, err := grpc.Dial(
-			"unix://"+addr,
+			"unix:"+addr,
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
 			grpc.WithStreamInterceptor(grpc_retry.StreamClientInterceptor()),
 			grpc.WithUnaryInterceptor(grpc_retry.UnaryClientInterceptor()),
@@ -499,7 +495,7 @@ func TestAttributeConversion(t *testing.T) {
 
 		client := pb.NewModuleServiceClient(conn)
 		m.SetReady(true)
-		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{ParentAddress: parentAddrs.UnixAddr})
+		readyResp, err := client.Ready(ctx, &pb.ReadyRequest{RawParentAddress: parentAddrs.UnixAddr})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readyResp.Ready, test.ShouldBeTrue)
 
@@ -535,9 +531,6 @@ func TestAttributeConversion(t *testing.T) {
 	}
 
 	t.Run("non-reconfigurable creation", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("TODO(RSDK-12871): get this working on win")
-		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -574,9 +567,6 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("non-reconfigurable recreation", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("TODO(RSDK-12871): get this working on win")
-		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -634,9 +624,6 @@ func TestAttributeConversion(t *testing.T) {
 	})
 
 	t.Run("reconfigurable creation", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("TODO(RSDK-12871): get this working on win")
-		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)
@@ -675,9 +662,6 @@ func TestAttributeConversion(t *testing.T) {
 
 	// also check that associated resource configs are processed correctly
 	t.Run("reconfigurable reconfiguration", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("TODO(RSDK-12871): get this working on win")
-		}
 		ctx := context.Background()
 
 		th, teardown := setupTest(t)

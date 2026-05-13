@@ -212,3 +212,12 @@ func newCamera(
 
 	return v
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   serviceName,
+		CaptureInterval: captureInterval,
+		Collector:       camera.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newCamera(nil, nil, nil) },
+	})
+}

@@ -217,14 +217,14 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		// on a failing get properties
+		// nil geometries should produce an empty response, not an error
 		brokenBase.GeometriesFunc = func(ctx context.Context) ([]spatialmath.Geometry, error) {
 			return nil, nil
 		}
 		req = &pbcommon.GetGeometriesRequest{Name: failBaseName}
 		resp, err = server.GetGeometries(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, base.ErrGeometriesNil(failBaseName))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp, test.ShouldResemble, &pbcommon.GetGeometriesResponse{})
 	})
 
 	t.Run("GetStatus", func(t *testing.T) {

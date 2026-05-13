@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/protoutils"
 
+	"go.viam.com/rdk/components/camera"
 	_ "go.viam.com/rdk/components/camera/register"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -53,7 +54,9 @@ func TestVisionServerFailures(t *testing.T) {
 	// correct server with error returned
 	injectVS := &inject.VisionService{}
 	passedErr := errors.New("fake error")
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
 		return nil, passedErr
 	}
 	m = map[resource.Name]vision.Service{
@@ -90,8 +93,14 @@ func TestServerGetDetections(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(img.Bounds(), image.Rect(0, 0, 10, 20), 0.5, "yes")
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
+		decoded, err := img.Image(ctx)
+		if err != nil {
+			return nil, err
+		}
+		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rect(0, 0, 10, 20), 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)
@@ -155,8 +164,14 @@ func TestServerCaptureAllFromCamera(t *testing.T) {
 		MimeType: utils.MimeTypeJPEG,
 		Extra:    ext,
 	}
-	injectVS.DetectionsFunc = func(ctx context.Context, img image.Image, extra map[string]interface{}) ([]objectdetection.Detection, error) {
-		det1 := objectdetection.NewDetection(img.Bounds(), image.Rectangle{}, 0.5, "yes")
+	injectVS.DetectionsFunc = func(ctx context.Context, img *camera.NamedImage,
+		extra map[string]interface{},
+	) ([]objectdetection.Detection, error) {
+		decoded, err := img.Image(ctx)
+		if err != nil {
+			return nil, err
+		}
+		det1 := objectdetection.NewDetection(decoded.Bounds(), image.Rectangle{}, 0.5, "yes")
 		return []objectdetection.Detection{det1}, nil
 	}
 	test.That(t, err, test.ShouldBeNil)

@@ -117,7 +117,7 @@ func realMain() error {
 	}
 
 	logger.Infof("reading plan from %s", flag.Arg(0))
-	req, err := armplanning.ReadRequestFromFile(flag.Arg(0))
+	req, origPlan, err := armplanning.ReadRequestAndResponseFromFile(flag.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -223,6 +223,10 @@ func realMain() error {
 	totalCartesion := 0.0
 	totalL2 := 0.0
 
+	if origPlan != nil {
+		mylog.Printf("Original plan length: %v Current plan length: %v\n",
+			len(origPlan.Trajectory()), len(plan.Trajectory()))
+	}
 	for idx, p := range plan.Path() {
 		mylog.Printf("step %d", idx)
 

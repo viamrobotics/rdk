@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
@@ -12,6 +13,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -40,6 +42,16 @@ func TestClient(t *testing.T) {
 		error,
 	) {
 		return nil, errDoFailed
+	}
+
+	expectedGeometries := []spatialmath.Geometry{
+		spatialmath.NewPoint(r3.Vector{X: 1, Y: 2, Z: 3}, "pt1"),
+		spatialmath.NewPoint(r3.Vector{X: 4, Y: 5, Z: 6}, "pt2"),
+	}
+	var geometriesExtra map[string]interface{}
+	workingGeneric.GeometriesFunc = func(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+		geometriesExtra = extra
+		return expectedGeometries, nil
 	}
 
 	resourceMap := map[resource.Name]resource.Resource{
@@ -89,6 +101,18 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, statusResult, test.ShouldResemble, expectedStatus)
 		workingGeneric.StatusFunc = nil
+
+		// Geometries - the client should call into resource.Shaped on the server side and forward extra.
+		shaped, ok := workingGenericClient.(resource.Shaped)
+		test.That(t, ok, test.ShouldBeTrue)
+		extra := map[string]interface{}{"foo": "Geometries"}
+		geometries, err := shaped.Geometries(context.Background(), extra)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, geometriesExtra, test.ShouldResemble, extra)
+		test.That(t, geometries, test.ShouldHaveLength, len(expectedGeometries))
+		for i, g := range geometries {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], g), test.ShouldBeTrue)
+		}
 
 		test.That(t, workingGenericClient.Close(context.Background()), test.ShouldBeNil)
 		test.That(t, conn.Close(), test.ShouldBeNil)

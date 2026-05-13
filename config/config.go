@@ -170,14 +170,13 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		return err
 	}
 
-	// Validate jobs, modules, remotes, packages, and processes, and log errors for lack of
+	// Check jobs, modules, remotes, packages, and processes, and log errors for lack of
 	// uniqueness within each category. Managers of each resource handle duplicates
 	// differently, and behavior is undefined.
+	//
+	// Validation of configs come later when each resource is added or modified.
 	seenJobs := make(map[string]struct{})
 	for idx := range len(c.Jobs) {
-		if err := c.Jobs[idx].Validate(fmt.Sprintf("%s.%d", "jobs", idx)); err != nil {
-			logger.Errorw("Jobs config error; starting robot without job", "name", c.Jobs[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenJobs[c.Jobs[idx].Name]; exists {
 			logger.Errorf("Duplicate job %s in robot config; behavior undefined", c.Jobs[idx].Name)
 		}
@@ -185,9 +184,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenModules := make(map[string]struct{})
 	for idx := range len(c.Modules) {
-		if err := c.Modules[idx].Validate(fmt.Sprintf("%s.%d", "modules", idx)); err != nil {
-			logger.Errorw("Module config error; starting robot without module", "name", c.Modules[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenModules[c.Modules[idx].Name]; exists {
 			logger.Errorf("Duplicate module %s in robot config; behavior undefined", c.Modules[idx].Name)
 		}
@@ -195,9 +191,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenRemotes := make(map[string]struct{})
 	for idx := range len(c.Remotes) {
-		if _, _, err := c.Remotes[idx].Validate(fmt.Sprintf("%s.%d", "remotes", idx)); err != nil {
-			logger.Errorw("Remote config error; starting robot without remote", "name", c.Remotes[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenRemotes[c.Remotes[idx].Name]; exists {
 			logger.Errorf("Duplicate remote %s in robot config; behavior undefined", c.Remotes[idx].Name)
 		}
@@ -205,9 +198,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenPackages := make(map[string]struct{})
 	for idx := range len(c.Packages) {
-		if err := c.Packages[idx].Validate(fmt.Sprintf("%s.%d", "packages", idx)); err != nil {
-			logger.Errorw("Package config error; starting robot without package", "name", c.Packages[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenPackages[c.Packages[idx].Name]; exists {
 			logger.Errorf("Duplicate package %s in robot config; behavior undefined", c.Packages[idx].Name)
 		}
@@ -215,9 +205,6 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 	}
 	seenProcesses := make(map[string]struct{})
 	for idx := range len(c.Processes) {
-		if err := c.Processes[idx].Validate(fmt.Sprintf("%s.%d", "processes", idx)); err != nil {
-			logger.Errorw("Process config error; starting robot without process", "name", c.Processes[idx].Name, "error", err.Error())
-		}
 		if _, exists := seenProcesses[c.Processes[idx].Name]; exists {
 			logger.Errorf("Duplicate process %s in robot config; behavior undefined", c.Processes[idx].Name)
 		}
@@ -234,20 +221,14 @@ func (c *Config) Ensure(fromCloud bool, logger logging.Logger) error {
 		// default converter. For modular resources, since lookup will fail as no converter or a typed struct is registered, implicit
 		// dependencies are gathered during robot reconfiguration itself.
 		requiredDeps, optionalDeps, err := c.Components[idx].Validate(fmt.Sprintf("%s.%d", "components", idx), resource.APITypeComponentName)
-		if err != nil {
-			resLogger := logger.Sublogger(c.Components[idx].ResourceName().String())
-			resLogger.Errorw("Component config error; starting robot without component", "name", c.Components[idx].Name, "error", err.Error())
-		} else {
+		if err == nil {
 			c.Components[idx].ImplicitDependsOn = requiredDeps
 			c.Components[idx].ImplicitOptionalDependsOn = optionalDeps
 		}
 	}
 	for idx := range len(c.Services) {
 		requiredDeps, optionalDeps, err := c.Services[idx].Validate(fmt.Sprintf("%s.%d", "services", idx), resource.APITypeServiceName)
-		if err != nil {
-			resLogger := logger.Sublogger(c.Services[idx].ResourceName().String())
-			resLogger.Errorw("Service config error; starting robot without service", "name", c.Services[idx].Name, "error", err.Error())
-		} else {
+		if err == nil {
 			c.Services[idx].ImplicitDependsOn = requiredDeps
 			c.Services[idx].ImplicitOptionalDependsOn = optionalDeps
 		}

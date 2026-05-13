@@ -26,6 +26,10 @@ func init() {
 		API:        API,
 		MethodName: doCommand.String(),
 	}, newDoCommandCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getWorldPose.String(),
+	}, newGetWorldPoseCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource API string input.

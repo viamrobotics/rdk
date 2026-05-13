@@ -98,6 +98,13 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	}
 
 	var err error
+	// Translate user-stated goals into the world reference frame. Consider the case where one
+	// desires to move the gripper forward 100mm:
+	//
+	// `Move("gripper", PoseInFrame("gripper", {X: 100}))`.
+	//
+	// We must evaluate the goal position before moving, otherwise we'll be trying to hit a forever
+	// moving target.
 	psc.goal, err = translateGoalsToWorldPosition(pc.fs, psc.start, psc.origGoal)
 	if err != nil {
 		return nil, err

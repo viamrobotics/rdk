@@ -34,3 +34,12 @@ func newPoseTracker() posetracker.PoseTracker {
 	}
 	return p
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       posetracker.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newPoseTracker() },
+	})
+}

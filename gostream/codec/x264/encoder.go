@@ -39,6 +39,7 @@ func NewEncoder(width, height, keyFrameInterval int, logger logging.Logger) (our
 	builder = &params
 	params.KeyFrameInterval = keyFrameInterval
 	params.BitRate = calcBitrateFromResolution(width, height, float32(params.KeyFrameInterval))
+	params.LogLevel = x264.LogWarning
 
 	codec, err := builder.BuildVideoEncoder(enc, prop.Media{
 		Video: prop.Video{

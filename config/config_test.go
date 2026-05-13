@@ -16,7 +16,6 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/jwks"
@@ -185,7 +184,7 @@ func TestConfigWithLogDeclarations(t *testing.T) {
 }
 
 func TestConfigEnsure(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
+	logger := logging.NewTestLogger(t)
 	var emptyConfig config.Config
 	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
 
@@ -222,45 +221,25 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
 	invalidCloud.Cloud.LocalFQDN = "yeeself"
+	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
 
-	logs.TakeAll() // clear logs
 	invalidRemotes := config.Config{
 		Remotes: []config.Remote{{}},
 	}
-	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing the snippet "Remote config error".
-	remoteConfigErrorLogs := logs.FilterMessageSnippet("Remote config error")
-	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-
-	logs.TakeAll() // clear logs
-	invalidRemotes.Remotes[0] = config.Remote{
-		Name: "foo",
-	}
-	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing the snippet "Remote config error".
-	remoteConfigErrorLogs = logs.FilterMessageSnippet("Remote config error")
-	test.That(t, remoteConfigErrorLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, remoteConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-
+	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
+	invalidRemotes.Remotes[0] = config.Remote{Name: "foo"}
+	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 	invalidRemotes.Remotes[0] = config.Remote{
 		Name:    "foo",
 		Address: "bar",
 	}
 	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
 
-	logs.TakeAll() // clear logs
 	invalidComponents := config.Config{
 		Components: []resource.Config{{}},
 	}
 	err = invalidComponents.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing the snippet "Component config error".
-	componentConfigErrorLogs := logs.FilterMessageSnippet("Component config error")
-	test.That(t, componentConfigErrorLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, componentConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 
 	invalidComponents.Components[0] = resource.Config{
 		Name:  "foo",
@@ -316,32 +295,47 @@ func TestConfigEnsure(t *testing.T) {
 	err = components.Ensure(false, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	logs.TakeAll() // clear logs
 	invalidProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{}},
 	}
-	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing the snippet "Process config error".
-	processConfigErrorLogs := logs.FilterMessageSnippet("Process config error")
-	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-
-	logs.TakeAll() // clear logs
+	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 	invalidProcesses = config.Config{
 		Processes: []pexec.ProcessConfig{{ID: "bar"}},
 	}
-	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing the snippet "Process config error".
-	processConfigErrorLogs = logs.FilterMessageSnippet("Process config error")
-	test.That(t, processConfigErrorLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, processConfigErrorLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
 
 	validProcesses := config.Config{
 		Processes: []pexec.ProcessConfig{{ID: "bar", Name: "foo"}},
 	}
 	test.That(t, validProcesses.Ensure(false, logger), test.ShouldBeNil)
+
+	cloudErr := "bad cloud err doing validation"
+	invalidModules := config.Config{
+		Modules: []config.Module{{
+			Name:        "testmodErr",
+			ExePath:     ".",
+			LogLevel:    "debug",
+			Type:        config.ModuleTypeRegistry,
+			ModuleID:    "mod:testmodErr",
+			Environment: map[string]string{},
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+	test.That(t, invalidModules.Ensure(false, logger), test.ShouldBeNil)
+
+	invalidPackages := config.Config{
+		Packages: []config.PackageConfig{{
+			Name:    "testPackage",
+			Type:    config.PackageTypeMlModel,
+			Package: "hi/package/test",
+			Status: &config.AppValidationStatus{
+				Error: cloudErr,
+			},
+		}},
+	}
+	test.That(t, invalidPackages.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
@@ -385,240 +379,6 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `between`)
 
 	invalidNetwork.Network.Sessions.HeartbeatWindow = 30 * time.Millisecond
-	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
-
-	invalidNetwork.Network.BindAddress = "woop"
-	err = invalidNetwork.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
-
-	invalidNetwork.Network.BindAddress = "woop"
-	invalidNetwork.Network.Listener = &net.TCPListener{}
-	err = invalidNetwork.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `only set one of`)
-
-	invalidAuthConfig := config.Config{
-		Auth: config.AuthConfig{},
-	}
-	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
-
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		{Type: rpc.CredentialsTypeAPIKey},
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
-
-	validAPIKeyHandler := config.AuthHandlerConfig{
-		Type: rpc.CredentialsTypeAPIKey,
-		Config: rutils.AttributeMap{
-			"key":  "foo",
-			"keys": []string{"key"},
-		},
-	}
-
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-		validAPIKeyHandler,
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `duplicate`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `api-key`)
-
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-		{Type: "unknown"},
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `do not know how`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `unknown`)
-
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-	}
-	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
-
-	validAPIKeyHandler.Config = rutils.AttributeMap{
-		"keys": []string{},
-	}
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-	}
-	err = invalidAuthConfig.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `keys`)
-
-	validAPIKeyHandler.Config = rutils.AttributeMap{
-		"keys": []string{"one", "two"},
-	}
-	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
-		validAPIKeyHandler,
-	}
-
-	test.That(t, invalidAuthConfig.Ensure(false, logger), test.ShouldBeNil)
-}
-
-func TestConfigEnsurePartialStart(t *testing.T) {
-	logger, logs := logging.NewObservedTestLogger(t)
-	var emptyConfig config.Config
-	test.That(t, emptyConfig.Ensure(false, logger), test.ShouldBeNil)
-
-	invalidCloud := config.Config{
-		Cloud: &config.Cloud{},
-	}
-	err := invalidCloud.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `cloud`)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "id")
-	invalidCloud.Cloud.ID = "some_id"
-	err = invalidCloud.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
-	err = invalidCloud.Ensure(true, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "fqdn")
-	invalidCloud.Cloud.Secret = "my_secret"
-	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "", Key: "key_value"}
-	err = invalidCloud.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "api_key")
-	err = invalidCloud.Ensure(true, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.APIKey = config.APIKey{ID: "key_id", Key: "key_value"}
-	test.That(t, invalidCloud.Ensure(false, logger), test.ShouldBeNil)
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldNotBeNil)
-	invalidCloud.Cloud.APIKey = config.APIKey{}
-	invalidCloud.Cloud.FQDN = "wooself"
-	err = invalidCloud.Ensure(true, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, resource.GetFieldFromFieldRequiredError(err), test.ShouldEqual, "local_fqdn")
-	invalidCloud.Cloud.LocalFQDN = "yeeself"
-
-	test.That(t, invalidCloud.Ensure(true, logger), test.ShouldBeNil)
-
-	invalidRemotes := config.Config{
-		Remotes: []config.Remote{{}},
-	}
-	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	invalidRemotes.Remotes[0].Name = "foo"
-	err = invalidRemotes.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	invalidRemotes.Remotes[0].Address = "bar"
-	test.That(t, invalidRemotes.Ensure(false, logger), test.ShouldBeNil)
-
-	invalidComponents := config.Config{
-		Components: []resource.Config{{}},
-	}
-	err = invalidComponents.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	invalidComponents.Components[0].Name = "foo"
-
-	c1 := resource.Config{Name: "c1"}
-	c2 := resource.Config{Name: "c2", DependsOn: []string{"c1"}}
-	c3 := resource.Config{Name: "c3", DependsOn: []string{"c1", "c2"}}
-	c4 := resource.Config{Name: "c4", DependsOn: []string{"c1", "c3"}}
-	c5 := resource.Config{Name: "c5", DependsOn: []string{"c2", "c4"}}
-	c6 := resource.Config{Name: "c6"}
-	c7 := resource.Config{Name: "c7", DependsOn: []string{"c6", "c4"}}
-	components := config.Config{
-		Components: []resource.Config{c7, c6, c5, c3, c4, c1, c2},
-	}
-	err = components.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	invalidProcesses := config.Config{
-		Processes: []pexec.ProcessConfig{{}},
-	}
-	err = invalidProcesses.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	invalidProcesses.Processes[0].Name = "foo"
-	test.That(t, invalidProcesses.Ensure(false, logger), test.ShouldBeNil)
-
-	logs.TakeAll() // clear logs
-	cloudErr := "bad cloud err doing validation"
-	invalidModules := config.Config{
-		Modules: []config.Module{{
-			Name:        "testmodErr",
-			ExePath:     ".",
-			LogLevel:    "debug",
-			Type:        config.ModuleTypeRegistry,
-			ModuleID:    "mod:testmodErr",
-			Environment: map[string]string{},
-			Status: &config.AppValidationStatus{
-				Error: cloudErr,
-			},
-		}},
-	}
-	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing "Module config error".
-	cloudErrLogs := logs.FilterMessageSnippet("Module config error")
-	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-
-	err = invalidModules.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	logs.TakeAll() // clear logs
-	invalidPackages := config.Config{
-		Packages: []config.PackageConfig{{
-			Name:    "testPackage",
-			Type:    config.PackageTypeMlModel,
-			Package: "hi/package/test",
-			Status: &config.AppValidationStatus{
-				Error: cloudErr,
-			},
-		}},
-	}
-
-	err = invalidPackages.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-	// Assert that some error log was output containing "Package config error".
-	cloudErrLogs = logs.FilterMessageSnippet("Package config error")
-	test.That(t, cloudErrLogs.Len(), test.ShouldEqual, 1)
-	test.That(t, cloudErrLogs.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
-
-	err = invalidPackages.Ensure(false, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	invalidNetwork := config.Config{
-		Network: config.NetworkConfig{
-			NetworkConfigData: config.NetworkConfigData{
-				TLSCertFile: "hey",
-			},
-		},
-	}
-	err = invalidNetwork.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
-
-	invalidNetwork.Network.TLSCertFile = ""
-	invalidNetwork.Network.TLSKeyFile = "hey"
-	err = invalidNetwork.Ensure(false, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `network`)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `both tls`)
-
-	invalidNetwork.Network.TLSCertFile = "dude"
-	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
-
-	invalidNetwork.Network.TLSCertFile = ""
-	invalidNetwork.Network.TLSKeyFile = ""
 	test.That(t, invalidNetwork.Ensure(false, logger), test.ShouldBeNil)
 
 	invalidNetwork.Network.BindAddress = "woop"

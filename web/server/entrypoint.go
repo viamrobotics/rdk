@@ -128,17 +128,23 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	configLogger := rootLogger.Sublogger("config")
 	networkingLogger := rootLogger.Sublogger("networking")
 
-	if argsParsed.OutputLogFile != "" {
-		logWriter, closer := logging.NewFileAppender(argsParsed.OutputLogFile)
+	logFilePath := cmp.Or(argsParsed.OutputLogFile, os.Getenv(rutils.ViamLogFileEnvVar))
+	if logFilePath != "" {
+		logWriter, closer := logging.NewFileAppender(logFilePath)
 		defer func() {
 			utils.UncheckedError(closer.Close())
 		}()
 		registry.AddAppenderToAll(logWriter)
-	} else {
+	}
+
+	// Agent reads from stdout, so log to it if either 1) not logging to a file 2) logging to a file via env var
+	if logFilePath == "" || os.Getenv(rutils.ViamLogFileEnvVar) != "" {
 		registry.AddAppenderToAll(logging.NewStdoutAppender())
 	}
 
-	logging.RegisterEventLogger(rootLogger, "viam-server")
+	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
+		logging.RegisterEventLogger(rootLogger, "viam-server")
+	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
 	if argsParsed.Version {
@@ -148,7 +154,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	} else if argsParsed.NetworkCheckOnly {
 		// Run network checks synchronously and immediately exit if `--network-check` flag was
 		// used. Otherwise run network checks asynchronously.
-		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTestDNS */)
+		nc.RunNetworkChecks(ctx, rootLogger, false /* !continueRunningTests */)
 		return
 	}
 
@@ -255,7 +261,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	golog.ReplaceGloabl(rootLogger.AsZap())
 
 	// RunNetworkChecks will create a (diagnostic) "rdk.network-checks" Sublogger.
-	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTestDNS */)
+	go nc.RunNetworkChecks(ctx, rootLogger, true /* continueRunningTests */)
 
 	server := robotServer{
 		rootLogger:       rootLogger,
@@ -422,6 +428,10 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 					s.configLogger.Errorw("reconfiguration aborted: error creating weboptions", "error", err)
 					continue
 				}
+				if err := r.StartWeb(ctx, options); err != nil {
+					s.configLogger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
+				}
+				s.configLogger.Info("web service restart finished")
 			}
 
 			if currCfg.Network.BindAddress != processedConfig.Network.BindAddress {
@@ -447,13 +457,6 @@ func (s *robotServer) configWatcher(ctx context.Context, currCfg *config.Config,
 			}
 
 			r.Reconfigure(ctx, processedConfig)
-
-			if !diff.NetworkEqual {
-				if err := r.StartWeb(ctx, options); err != nil {
-					s.configLogger.Errorw("reconfiguration failed: error starting web service while reconfiguring", "error", err)
-				}
-				s.configLogger.Info("web service restart finished")
-			}
 			currCfg = processedConfig
 		}
 	}

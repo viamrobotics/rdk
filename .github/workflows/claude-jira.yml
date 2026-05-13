@@ -1,0 +1,89 @@
+name: Claude Jira Implementation
+
+# Triggered by Jira webhook via middleware that calls GitHub repository_dispatch API.
+# Expected payload:
+#   curl -X POST -H "Authorization: token $GITHUB_PAT" \
+#     https://api.github.com/repos/viamrobotics/rdk/dispatches \
+#     -d '{
+#       "event_type": "jira-ticket",
+#       "client_payload": {
+#         "ticket_id": "RSDK-123",
+#         "summary": "...",
+#         "description": "...",
+#         "task_complexity": "medium",
+#         "assignee": "John Doe",
+#         "assignee_email": "john@example.com"
+#       }
+#     }'
+
+on:
+  repository_dispatch:
+    types: [jira-ticket]
+  workflow_dispatch:
+    inputs:
+      ticket_id:
+        description: 'Jira ticket ID (e.g., RSDK-123)'
+        required: true
+      summary:
+        description: 'Ticket summary'
+        required: true
+      description:
+        description: 'Ticket description'
+        required: true
+      task_complexity:
+        description: 'Task complexity: small (100 turns), medium (150), large (200)'
+        required: false
+        default: 'small'
+        type: choice
+        options:
+          - small
+          - medium
+          - large
+      assignee:
+        description: 'Atlassian display name of the responsible engineer (e.g., "John Doe")'
+        required: false
+        default: ''
+      assignee_email:
+        description: 'Atlassian email of the responsible engineer'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  call-jira:
+    permissions:
+      actions: read
+      contents: write
+      pull-requests: write
+      id-token: write
+    # viamrobotics/claude-ci-workflows@v2.0.0
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@aa76787c145ed43f8f7b9bae4d978da4f9850001
+    with:
+      container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+      ticket_id: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
+      summary: ${{ github.event.client_payload.summary || inputs.summary }}
+      description: ${{ github.event.client_payload.description || inputs.description }}
+      task_complexity: ${{ github.event.client_payload.task_complexity || inputs.task_complexity || 'small' }}
+      assignee: ${{ github.event.client_payload.assignee || inputs.assignee || '' }}
+      assignee_email: ${{ github.event.client_payload.assignee_email || inputs.assignee_email || '' }}
+      install_command: make tool-install
+      jira_base_url: ${{ vars.JIRA_BASE_URL }}
+      jira_user_email: ${{ vars.JIRA_USER_EMAIL }}
+      allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(make build*),Bash(make build-go*),Bash(make lint*),Bash(make lint-go*),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make tool-install*),Bash(go build*),Bash(go test*),Bash(go vet*),Bash(go list *),Bash(go doc *),Bash(go mod *),Bash(gofmt *),Bash(ls *),Bash(find *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *),Bash(gh pr create*),Bash(gh pr edit*),Bash(gh pr view*),Bash(gh pr diff*)'
+      extra_prompt: |
+        - Run `make lint-go` and `make test-go` to verify your changes before committing. Fix any errors.
+        - If a test or lint command fails more than twice on the same issue, commit what you have, create the PR, and note the unresolved issue in the PR description.
+        - Add the `safe to test` label to the PR after creation so CI can run: `gh pr edit <number> --add-label "safe to test"`.
+      extra_system_prompt: >-
+        This is a Go project (go.viam.com/rdk).
+        Verify with `make lint-go` and `make test-go`. The rdk-devenv container has Go tooling pre-installed.
+        Do NOT modify generated protobuf code (files ending in `.pb.go` or under `*/pb/` directories).
+        Jira ticket IDs use the RSDK prefix (e.g., RSDK-123). Use this in branch names: claude/RSDK-123.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CI_GITHUB_APP_ID: ${{ secrets.CI_GITHUB_APP_ID }}
+      CI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
+      SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL: ${{ secrets.SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}

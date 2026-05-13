@@ -2,11 +2,15 @@ package builtin
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 )
 
@@ -158,4 +162,56 @@ func TestCheckAndLogStaleData(t *testing.T) {
 		tracker.checkAndLogStaleData(ctx, &fourMinOld, 10, 1024)
 		test.That(t, logs.FilterMessageSnippet("Capture data may not be syncing").Len(), test.ShouldEqual, 1)
 	})
+}
+
+// captureFileName returns a capture-style filename for the given time and extension.
+func captureFileName(t time.Time, ext string) string {
+	return strings.ReplaceAll(t.Format(time.RFC3339Nano), ":", "_") + ext
+}
+
+func TestCalculateAndSetSummaryStaleWarningOnlyCaptureFiles(t *testing.T) {
+	ctx := context.Background()
+	staleTime := time.Now().Add(-10 * time.Minute)
+	freshTime := time.Now().Add(-30 * time.Second)
+
+	type testFile struct {
+		time time.Time
+		ext  string
+	}
+
+	tests := []struct {
+		name          string
+		files         []testFile
+		expectWarning bool
+	}{
+		{"stale .prog only, no warning", []testFile{{staleTime, data.InProgressCaptureFileExt}}, false},
+		{"stale .capture, warning", []testFile{{staleTime, data.CompletedCaptureFileExt}}, true},
+		{"stale .prog and fresh .capture, no warning", []testFile{
+			{staleTime, data.InProgressCaptureFileExt},
+			{freshTime, data.CompletedCaptureFileExt},
+		}, false},
+		{"stale .prog and stale .capture, warning", []testFile{
+			{staleTime, data.InProgressCaptureFileExt},
+			{staleTime, data.CompletedCaptureFileExt},
+		}, true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, f := range tc.files {
+				err := os.WriteFile(filepath.Join(dir, captureFileName(f.time, f.ext)), []byte("data"), 0o644)
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			logger, logs := logging.NewObservedTestLogger(t)
+			tracker := &diskSummaryTracker{
+				logger:           logger,
+				shouldSync:       alwaysSync,
+				syncIntervalMins: 0.1,
+			}
+			tracker.calculateAndSetSummary(ctx, []string{dir})
+			test.That(t, logs.FilterMessageSnippet("Capture data may not be syncing").Len() > 0, test.ShouldEqual, tc.expectWarning)
+		})
+	}
 }

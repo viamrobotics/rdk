@@ -32,11 +32,13 @@ type Config struct {
 
 // Known values that can be provided for the ArmModel field.
 var (
-	ur5eModel  = "ur5e"
-	ur20Model  = "ur20"
-	xArm6Model = "xarm6"
-	xArm7Model = "xarm7"
-	lite6Model = "lite6"
+	ur5eModel   = "ur5e"
+	ur7eModel   = "ur7e"
+	ur20Model   = "ur20"
+	xArm6Model  = "xarm6"
+	xArm7Model  = "xarm7"
+	lite6Model  = "lite6"
+	dofbotModel = "dofbot"
 )
 
 //go:embed kinematics/fake.json
@@ -44,6 +46,9 @@ var fakejson []byte
 
 //go:embed kinematics/ur5e.json
 var ur5eJSON []byte
+
+//go:embed kinematics/ur7e.json
+var ur7eJSON []byte
 
 //go:embed kinematics/ur20.json
 var ur20JSON []byte
@@ -56,6 +61,9 @@ var xarm7JSON []byte
 
 //go:embed kinematics/lite6.json
 var lite6JSON []byte
+
+//go:embed kinematics/dofbot.json
+var dofbotJSON []byte
 
 // Validate ensures all parts of the config are valid.
 func (conf *Config) Validate(path string) ([]string, []string, error) {
@@ -307,6 +315,8 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 	switch model {
 	case ur5eModel:
 		return referenceframe.UnmarshalModelJSON(ur5eJSON, name)
+	case ur7eModel:
+		return referenceframe.UnmarshalModelJSON(ur7eJSON, name)
 	case ur20Model:
 		return referenceframe.UnmarshalModelJSON(ur20JSON, name)
 	case xArm6Model:
@@ -315,6 +325,8 @@ func modelFromName(model, name string) (referenceframe.Model, error) {
 		return referenceframe.UnmarshalModelJSON(xarm7JSON, name)
 	case lite6Model:
 		return referenceframe.UnmarshalModelJSON(lite6JSON, name)
+	case dofbotModel:
+		return referenceframe.UnmarshalModelJSON(dofbotJSON, name)
 	case Model.Name:
 		return referenceframe.UnmarshalModelJSON(fakejson, name)
 	default:

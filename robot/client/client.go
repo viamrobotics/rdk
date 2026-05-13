@@ -86,9 +86,16 @@ type RobotClient struct {
 	address     string
 	dialOptions []rpc.DialOption
 
+	// resourceRPCAPIs is guarded behind an atomic pointer instead of mu. This is because
+	// safety-monitoring logic in viam-server needs to access this field for remote clients
+	// on every incoming gRPC request. We do not want to wait for background work like
+	// Refresh (which holds mu) to complete before accessing this field. The field is
+	// unlikely to change during the lifetime of a client, so getting an outdated value here
+	// is completely acceptable.
+	resourceRPCAPIs atomic.Pointer[[]resource.RPCAPI]
+
 	mu                       sync.RWMutex
 	resourceNames            []resource.Name
-	resourceRPCAPIs          []resource.RPCAPI
 	resourceClients          map[resource.Name]resource.Resource
 	remoteNameMap            map[resource.Name]resource.Name
 	changeChan               chan bool
@@ -270,7 +277,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	}
 
 	if rOpts.withNetworkStats {
-		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTestDNS */)
+		nc.RunNetworkChecks(ctx, logger, false /* !continueRunningTests */)
 	}
 
 	backgroundCtx, backgroundCtxCancel := context.WithCancel(context.Background())
@@ -880,7 +887,7 @@ func (rc *RobotClient) updateResources(ctx context.Context) error {
 
 	rc.resourceNames = make([]resource.Name, 0, len(names))
 	rc.resourceNames = append(rc.resourceNames, names...)
-	rc.resourceRPCAPIs = rpcAPIs
+	rc.resourceRPCAPIs.Store(&rpcAPIs)
 
 	rc.updateRemoteNameMap()
 
@@ -950,17 +957,12 @@ func (rc *RobotClient) ResourceRPCAPIs() []resource.RPCAPI {
 		rc.Logger().Errorw("failed to get remote resource types", "error", err)
 		return nil
 	}
-	rc.mu.RLock()
-	defer rc.mu.RUnlock()
-	apis := make([]resource.RPCAPI, 0, len(rc.resourceRPCAPIs))
-	for _, v := range rc.resourceRPCAPIs {
-		vCopy := v
-		apis = append(
-			apis,
-			vCopy,
-		)
+
+	resourceRPCAPIs := rc.resourceRPCAPIs.Load()
+	if resourceRPCAPIs == nil {
+		return nil
 	}
-	return apis
+	return *resourceRPCAPIs
 }
 
 // Logger returns the logger being used for this robot.
@@ -1149,7 +1151,10 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 // Log sends a log entry to the server. To be used by Golang modules wanting to
 // log over gRPC and not by normal Golang SDK clients.
 func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.Field) error {
-	message := fmt.Sprintf("%v\t%v", log.Caller.TrimmedPath(), log.Message)
+	caller, err := protoutils.StructToStructPb(logging.WrapEntryCaller(log.Caller))
+	if err != nil {
+		caller = nil
+	}
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
 	for _, field := range fields {
@@ -1167,7 +1172,8 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 			Level:      log.Level.String(),
 			Time:       timestamppb.New(log.Time),
 			LoggerName: log.LoggerName,
-			Message:    message,
+			Message:    log.Message,
+			Caller:     caller,
 			// Leave out Caller; Caller is already in Message field above. We put
 			// the Caller in Message as other languages may also do this in the
 			// future. We do not want other languages to have to force their caller
@@ -1177,7 +1183,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 		}},
 	}
 
-	_, err := rc.client.Log(ctx, logRequest)
+	_, err = rc.client.Log(ctx, logRequest)
 	return err
 }
 
