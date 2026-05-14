@@ -82,6 +82,10 @@ type nloptSeedState struct {
 
 	meta string
 
+	// nlopt can't handle joints where lowerBound equals upperBound so we strip them out and reinject them after solving
+	fixedIndices []int
+	fixedValues  []float64
+
 	opt    *nlopt.NLopt
 	logger logging.Logger
 }
@@ -89,21 +93,24 @@ type nloptSeedState struct {
 func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
 	s []float64, limits []referenceframe.Limit, iterations *int,
 ) (*nloptSeedState, error) {
-	var err error
+	lowerBound, upperBound := limitsToArrays(limits)
+	if len(lowerBound) == 0 || len(upperBound) == 0 {
+		return nil, errBadBounds
+	}
 
 	ss := &nloptSeedState{
-		seed:   s,
 		meta:   fmt.Sprintf("s:%d", seedNumber),
 		logger: ik.logger,
 	}
 
-	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
-	if len(ss.lowerBound) == 0 || len(ss.upperBound) == 0 {
-		return nil, errBadBounds
-	}
+	ss.fixedIndices, ss.fixedValues = findFixedJoints(lowerBound, upperBound)
 
-	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.seed, ss.lowerBound, ss.upperBound = removeFixedIndices(s, lowerBound, upperBound, ss.fixedIndices)
+
+	jump := ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.jump = removeAtIndices(jump, ss.fixedIndices)
+
+	var err error
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")
@@ -137,9 +144,15 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, iteration *int) nlopt.Func {
 	// checkVals is our set of inputs that we evaluate for distance
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
+
+	callMinFunc := func(ctx context.Context, reduced []float64) float64 {
+		inputs := insertFixedJoints(reduced, nss.fixedIndices, nss.fixedValues)
+		return minFunc(ctx, inputs)
+	}
+
 	return func(checkVals, gradient []float64) float64 {
 		*iteration++
-		dist := minFunc(ctx, checkVals)
+		dist := callMinFunc(ctx, checkVals)
 		if len(gradient) > 0 {
 			// Yes, the for loop below is logically equivalent to not having this if statement. But CPU branch prediction means having the
 			// if statement is faster.
@@ -152,7 +165,7 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 					flip = true
 					checkVals[i] -= 10 * jumpVal
 				}
-				dist2 := minFunc(ctx, checkVals)
+				dist2 := callMinFunc(ctx, checkVals)
 				gradient[i] = (dist2 - dist) / jumpVal
 				if flip {
 					checkVals[i] += jumpVal
@@ -244,7 +257,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		} else if result < defaultGoalThreshold || !ik.exact {
 			meta[seedNumberRanged].Valid++
 			solution := &Solution{
-				Configuration: solutionRaw,
+				Configuration: insertFixedJoints(solutionRaw, ss.fixedIndices, ss.fixedValues),
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
 				Meta:          ss.meta,

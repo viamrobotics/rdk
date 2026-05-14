@@ -65,3 +65,30 @@ func TestCreateNloptSolver(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
+
+func TestNloptFixedJoint(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+
+	seed := []float64{1, 1, -1, 1, 1, 0}
+	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
+	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
+
+	dof := m.DoF()
+	limits := make([]referenceframe.Limit, len(dof))
+	copy(limits, dof)
+	// Pin joint 0 at its seed value (lowerBound==upperBound at an interior position).
+	limits[0] = referenceframe.Limit{Min: seed[0], Max: seed[0]}
+
+	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+	test.That(t, err, test.ShouldBeNil)
+
+	var totalAttempts atomic.Int32
+	solutions, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
+	for _, sol := range solutions {
+		test.That(t, sol[0], test.ShouldEqual, seed[0])
+	}
+}

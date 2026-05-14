@@ -88,6 +88,74 @@ func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
 	return min, max
 }
 
+func findFixedJoints(lowerBound, upperBound []float64) ([]int, []float64) {
+	var indices []int
+	var values []float64
+	for i, l := range lowerBound {
+		if l == upperBound[i] {
+			indices = append(indices, i)
+			values = append(values, l)
+		}
+	}
+	return indices, values
+}
+
+func removeFixedIndices(seed, lowerBound, upperBound []float64, fixedIndices []int) ([]float64, []float64, []float64) {
+	if len(fixedIndices) == 0 {
+		return seed, lowerBound, upperBound
+	}
+	reducedLen := len(seed) - len(fixedIndices)
+	reducedSeed := make([]float64, 0, reducedLen)
+	reducedLower := make([]float64, 0, reducedLen)
+	reducedUpper := make([]float64, 0, reducedLen)
+	fixedIdx := 0
+	for i := range seed {
+		if fixedIdx < len(fixedIndices) && fixedIndices[fixedIdx] == i {
+			fixedIdx++
+			continue
+		}
+		reducedSeed = append(reducedSeed, seed[i])
+		reducedLower = append(reducedLower, lowerBound[i])
+		reducedUpper = append(reducedUpper, upperBound[i])
+	}
+	return reducedSeed, reducedLower, reducedUpper
+}
+
+func removeAtIndices(vals []float64, indices []int) []float64 {
+	if len(indices) == 0 {
+		return vals
+	}
+	result := make([]float64, 0, len(vals)-len(indices))
+	j := 0
+	for i, v := range vals {
+		if j < len(indices) && indices[j] == i {
+			j++
+			continue
+		}
+		result = append(result, v)
+	}
+	return result
+}
+
+func insertFixedJoints(reduced []float64, fixedIndices []int, fixedValues []float64) []float64 {
+	if len(fixedIndices) == 0 {
+		return reduced
+	}
+	full := make([]float64, len(reduced)+len(fixedIndices))
+	fixedIdx := 0
+	reducedIdx := 0
+	for i := range full {
+		if fixedIdx < len(fixedIndices) && fixedIndices[fixedIdx] == i {
+			full[i] = fixedValues[fixedIdx]
+			fixedIdx++
+		} else {
+			full[i] = reduced[reducedIdx]
+			reducedIdx++
+		}
+	}
+	return full
+}
+
 // DoSolve is a synchronous wrapper around Solver.Solve.
 // rangeModifier is [0-1] - 0 means don't really look a lot, which is good for highly constrained things
 //
