@@ -234,7 +234,10 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
-		b.startCaptureControlPoller(controlSensor, controlSensorKey)
+		// Recover any .progseq files left from a crashed previous process before the
+		// poller starts emitting new ones. Synchronous so there's no race with normal opens.
+		recoverOrphanedOpenSequences(captureConfig.CaptureDir, b.logger)
+		b.startCaptureControlPoller(controlSensor, controlSensorKey, captureConfig.CaptureDir)
 	}
 
 	return nil
@@ -243,6 +246,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 func (b *builtIn) startCaptureControlPoller(
 	controlSensor sensor.Sensor,
 	controlSensorKey string,
+	captureDir string,
 ) {
 	if b.captureControlPoller != nil {
 		b.logger.Warn("capture poller already running")
@@ -251,7 +255,7 @@ func (b *builtIn) startCaptureControlPoller(
 
 	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
 		func(ctx context.Context) {
-			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey, captureDir)
 		},
 	)
 }
@@ -270,7 +274,15 @@ func (b *builtIn) stopCaptureControlPoller() {
 
 // runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
 // it reverts to the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+//
+// If sequencesKey is non-empty, it also parses sequence readings from the same poll and applies
+// them to the capture's open-recording state. Closed recordings are written to disk under
+// <captureDir>/pending_sequences/ for the retry worker to upload.
+func (b *builtIn) runCaptureControlPoller(
+	ctx context.Context,
+	s sensor.Sensor,
+	key, captureDir string,
+) {
 	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
 	for {
@@ -281,6 +293,7 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 		}
 
 		var newConfigs map[string]datamanager.CaptureConfigReading
+		var newSequences []datamanager.SequenceReading
 
 		readings, err := s.Readings(ctx, nil)
 		if ctx.Err() != nil {
@@ -298,6 +311,17 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			} else {
 				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
 			}
+
+			var seqErr error
+			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
+			if seqErr != nil {
+				// Parse errors are logged but do not force-close existing sequences —
+				// pass nil through so SetActiveSequences keeps them open and the next tick
+				// can recover.
+				b.logger.Warnw("failed to parse sequences from sensor reading; leaving open sequences unchanged",
+					"error", seqErr)
+				newSequences = nil
+			}
 		}
 
 		b.mu.Lock()
@@ -306,7 +330,15 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			return
 		}
 		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		opened, closed := b.capture.SetActiveSequences(time.Now(), newSequences)
 		b.mu.Unlock()
+
+		if len(opened) > 0 {
+			persistOpenedSequences(captureDir, opened, b.logger)
+		}
+		if len(closed) > 0 {
+			persistClosedSequences(captureDir, closed, b.logger)
+		}
 	}
 }
 
@@ -352,6 +384,41 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, reading := range controlList {
 		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+	}
+	return result, nil
+}
+
+// parseSequencesFromReadings extracts active sequence definitions from sensor readings.
+// Returns nil if the well-known SequencesKey is absent. Entries with zero resources are
+// dropped with a warning.
+func parseSequencesFromReadings(
+	readings map[string]interface{}, logger logging.Logger,
+) ([]datamanager.SequenceReading, error) {
+	raw, ok := readings[datamanager.SequencesKey]
+	if !ok {
+		return nil, nil
+	}
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal sequences reading: %w", err)
+	}
+	var sequences []datamanager.SequenceReading
+	if err := json.Unmarshal(jsonBytes, &sequences); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal sequences reading: %w", err)
+	}
+	if len(sequences) == 0 {
+		return nil, nil
+	}
+	result := make([]datamanager.SequenceReading, 0, len(sequences))
+	for i, s := range sequences {
+		if len(s.Resources) == 0 {
+			logger.Warnw("sequence reading has no resources; dropping", "index", i)
+			continue
+		}
+		result = append(result, s)
+	}
+	if len(result) == 0 {
+		return nil, nil
 	}
 	return result, nil
 }

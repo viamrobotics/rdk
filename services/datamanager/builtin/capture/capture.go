@@ -70,6 +70,11 @@ type Capture struct {
 	// defaultCollectorConfigs are the default as specified in the machine config.
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
+
+	// openSequences tracks sequences whose definition window is currently open (the sensor
+	// is still emitting them). Keyed by canonical content identity so the same sequence is
+	// recognized across poll ticks regardless of resource/tag order. Guarded by collectorsMu.
+	openSequences map[openSequenceKey]*openSequence
 }
 
 type captureMongo struct {
@@ -102,9 +107,10 @@ func New(
 	logger logging.Logger,
 ) *Capture {
 	return &Capture{
-		clk:        clock,
-		logger:     logger,
-		collectors: collectors{},
+		clk:           clock,
+		logger:        logger,
+		collectors:    collectors{},
+		openSequences: map[openSequenceKey]*openSequence{},
 	}
 }
 
