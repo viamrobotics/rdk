@@ -61,6 +61,7 @@ func realMain() error {
 	waypointsFile := flag.String("output-waypoints", "", "json file to output waypoints")
 	showPoses := flag.Bool("show-poses", false, "show shadows at each path position")
 	tryManySeeds := flag.Int("try-many-seeds", 1, "try planning with more seeds and report L2 distances")
+	quiet := flag.Bool("quiet", false, "quiet")
 
 	flag.Parse()
 
@@ -152,7 +153,12 @@ func realMain() error {
 	trace.SetProvider(ctx, sdktrace.WithResource(otelresource.Empty()))
 	trace.AddExporters(spansExporter)
 
-	plan, meta, err := armplanning.PlanMotion(ctx, logger, req)
+	mpLogger := logger
+	if *quiet {
+		// Suppress logs by using a logger that has no appenders to output to.
+		mpLogger = logging.NewBlankLogger("mp")
+	}
+	plan, meta, err := armplanning.PlanMotion(ctx, mpLogger, req)
 	if err := trace.Shutdown(ctx); err != nil {
 		logger.Errorw("Got error while shutting down tracing", "err", err)
 	}
