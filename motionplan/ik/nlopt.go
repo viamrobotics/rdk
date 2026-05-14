@@ -175,6 +175,9 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	ss.fixedIndices, ss.fixedValues = findFixedJoints(lowerBound, upperBound)
 
 	ss.seed, ss.lowerBound, ss.upperBound = removeFixedIndices(s, lowerBound, upperBound, ss.fixedIndices)
+	if len(ss.lowerBound) == 0 {
+		return nil, fmt.Errorf("all joints are fixed, nothing to solve")
+	}
 
 	jump := ik.calcJump(ctx, defaultJump, s, limits, minFunc)
 	ss.jump = removeAtIndices(jump, ss.fixedIndices)
