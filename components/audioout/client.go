@@ -121,7 +121,9 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 				return nil
 			}
 			msg := &pb.PlayStreamRequest{
-				Payload: &pb.PlayStreamRequest_AudioChunk{AudioChunk: chunk},
+				Payload: &pb.PlayStreamRequest_AudioChunk{
+					AudioChunk: &pb.PlayStreamChunk{AudioData: chunk},
+				},
 			}
 			if err := stream.Send(msg); err != nil {
 				return fmt.Errorf("audioout client: send chunk: %w", err)

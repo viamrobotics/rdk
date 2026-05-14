@@ -82,8 +82,8 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 				recvErr <- err
 				return
 			}
-			chunk := msg.GetAudioChunk()
-			if chunk == nil {
+			chunkMsg := msg.GetAudioChunk()
+			if chunkMsg == nil {
 				// Skip non-chunk payloads
 				continue
 			}
@@ -91,7 +91,7 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 			case <-ctx.Done():
 				recvErr <- ctx.Err()
 				return
-			case chunks <- chunk:
+			case chunks <- chunkMsg.GetAudioData():
 			}
 		}
 	}()

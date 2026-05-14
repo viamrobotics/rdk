@@ -72,7 +72,9 @@ func initMsg(name string, info *commonpb.AudioInfo) *pb.PlayStreamRequest {
 
 func chunkMsg(b []byte) *pb.PlayStreamRequest {
 	return &pb.PlayStreamRequest{
-		Payload: &pb.PlayStreamRequest_AudioChunk{AudioChunk: b},
+		Payload: &pb.PlayStreamRequest_AudioChunk{
+			AudioChunk: &pb.PlayStreamChunk{AudioData: b},
+		},
 	}
 }
 
