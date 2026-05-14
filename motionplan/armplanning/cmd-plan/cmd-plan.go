@@ -182,7 +182,7 @@ func realMain() error {
 
 	for *cpu != "" && time.Since(start) < (10*time.Second) {
 		ss := time.Now()
-		_, _, err := armplanning.PlanMotion(ctx, logger, req)
+		_, _, err := armplanning.PlanMotion(ctx, mpLogger, req)
 		if err != nil {
 			return err
 		}
