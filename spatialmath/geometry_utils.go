@@ -36,13 +36,19 @@ func DistToLineSegment(pt1, pt2, query r3.Vector) float64 {
 // which is closest to the query point.
 func ClosestPointSegmentPoint(pt1, pt2, query r3.Vector) r3.Vector {
 	ab := pt2.Sub(pt1)
-	t := query.Sub(pt1).Dot(ab.Mul(1 / ab.Norm2()))
-	if t <= 0 {
+	qb := query.Sub(pt1)
+	// t = (qb . ab) / |ab|^2. Check the numerator sign first: if (qb . ab) <= 0,
+	// the projection lies before pt1, so the closest segment point is pt1 itself.
+	// This avoids computing |ab|^2 entirely for the most common path.
+	qbDotAb := qb.Dot(ab)
+	if qbDotAb <= 0 {
 		return pt1
-	} else if t >= 1 {
+	}
+	abN2 := ab.Norm2()
+	if qbDotAb >= abN2 {
 		return pt2
 	}
-	return pt1.Add(ab.Mul(t))
+	return pt1.Add(ab.Mul(qbDotAb / abN2))
 }
 
 // SegmentDistanceToSegment will compute the distance separating two line segments at their closest point.
@@ -57,11 +63,15 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 	// The stack solution has a sign error, which we correct
 	// These (ugly) variable names were chosen to match those in the stack exchange answer, for easy reference
 
-	d3121 := b1.Sub(a1).Dot(a2.Sub(a1))
-	d4321 := b2.Sub(b1).Dot(a2.Sub(a1))
-	d4331 := b2.Sub(b1).Dot(b1.Sub(a1))
-	r1pow2 := a2.Sub(a1).Norm2()
-	r2pow2 := b2.Sub(b1).Norm2()
+	// Hoist common edge vectors — each appears 2–3 times below.
+	d21 := a2.Sub(a1)
+	d43 := b2.Sub(b1)
+	d31 := b1.Sub(a1)
+	d3121 := d31.Dot(d21)
+	d4321 := d43.Dot(d21)
+	d4331 := d43.Dot(d31)
+	r1pow2 := d21.Norm2()
+	r2pow2 := d43.Norm2()
 
 	denom := r1pow2*r2pow2 - d4321*d4321
 	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
@@ -72,8 +82,8 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 		s := (d3121*r2pow2 - d4331*d4321) / denom
 		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
-			bestSeg1Pt := a1.Add(a2.Sub(a1).Mul(s))
-			bestSeg2Pt := b1.Add(b2.Sub(b1).Mul(t))
+			bestSeg1Pt := a1.Add(d21.Mul(s))
+			bestSeg2Pt := b1.Add(d43.Mul(t))
 			return bestSeg1Pt, bestSeg2Pt
 		}
 	}

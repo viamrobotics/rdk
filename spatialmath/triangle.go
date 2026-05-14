@@ -182,39 +182,66 @@ func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, fl
 
 // collidesWithTriangle checks collision between two triangles.
 func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float64) (bool, float64) {
-	p1 := t.Points()
-	p2 := other.Points()
-	minDist := math.Inf(1)
+	// Compare squared distances and squared buffer to defer sqrt until the end.
+	// Each edge check used to call Norm() (sqrt) inside the hot inner loop; now we
+	// only sqrt once on the return value when no collision was found.
+	bufferN2 := collisionBufferMM * collisionBufferMM
+	minDistN2 := math.Inf(1)
 
-	// Check segments from t against other
-	for i := 0; i < 3; i++ {
-		start := p1[i]
-		end := p1[(i+1)%3]
-		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, other)
-		dist := bestSegPt.Sub(bestTriPt).Norm()
-		if dist <= collisionBufferMM {
-			return true, -1
-		}
-		if dist < minDist {
-			minDist = dist
-		}
+	// Segments from t against other. Read points directly (no Points() slice alloc)
+	// and unroll the 3-edge loop to avoid index modulo and keep vertices in registers.
+	sp, tp := ClosestPointsSegmentTriangle(t.p0, t.p1, other)
+	d := sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
+	}
+	sp, tp = ClosestPointsSegmentTriangle(t.p1, t.p2, other)
+	d = sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
+	}
+	sp, tp = ClosestPointsSegmentTriangle(t.p2, t.p0, other)
+	d = sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
 	}
 
-	// Check segments from other against t
-	for i := 0; i < 3; i++ {
-		start := p2[i]
-		end := p2[(i+1)%3]
-		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, t)
-		dist := bestSegPt.Sub(bestTriPt).Norm()
-		if dist <= collisionBufferMM {
-			return true, -1
-		}
-		if dist < minDist {
-			minDist = dist
-		}
+	// Segments from other against t.
+	sp, tp = ClosestPointsSegmentTriangle(other.p0, other.p1, t)
+	d = sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
+	}
+	sp, tp = ClosestPointsSegmentTriangle(other.p1, other.p2, t)
+	d = sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
+	}
+	sp, tp = ClosestPointsSegmentTriangle(other.p2, other.p0, t)
+	d = sp.Sub(tp).Norm2()
+	if d <= bufferN2 {
+		return true, -1
+	}
+	if d < minDistN2 {
+		minDistN2 = d
 	}
 
-	return false, minDist
+	return false, math.Sqrt(minDistN2)
 }
 
 // collidesWithSphere checks if triangle collides with a sphere.
