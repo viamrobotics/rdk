@@ -188,9 +188,16 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	bufferN2 := collisionBufferMM * collisionBufferMM
 	minDistN2 := math.Inf(1)
 
+	// Precompute the per-triangle edge cache once per triangle. Each of the six
+	// segment-vs-triangle checks below would otherwise rebuild this cache inside
+	// ClosestTriangleInsidePoint — wasteful, since each triangle's cache is reused
+	// 3× across the segment edges of the other triangle.
+	tCache := computeTriCache(t)
+	oCache := computeTriCache(other)
+
 	// Segments from t against other. Read points directly (no Points() slice alloc)
 	// and unroll the 3-edge loop to avoid index modulo and keep vertices in registers.
-	sp, tp := ClosestPointsSegmentTriangle(t.p0, t.p1, other)
+	sp, tp := closestPointsSegmentTriangleCached(t.p0, t.p1, other, &oCache)
 	d := sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
@@ -198,7 +205,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	if d < minDistN2 {
 		minDistN2 = d
 	}
-	sp, tp = ClosestPointsSegmentTriangle(t.p1, t.p2, other)
+	sp, tp = closestPointsSegmentTriangleCached(t.p1, t.p2, other, &oCache)
 	d = sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
@@ -206,7 +213,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	if d < minDistN2 {
 		minDistN2 = d
 	}
-	sp, tp = ClosestPointsSegmentTriangle(t.p2, t.p0, other)
+	sp, tp = closestPointsSegmentTriangleCached(t.p2, t.p0, other, &oCache)
 	d = sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
@@ -216,7 +223,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	}
 
 	// Segments from other against t.
-	sp, tp = ClosestPointsSegmentTriangle(other.p0, other.p1, t)
+	sp, tp = closestPointsSegmentTriangleCached(other.p0, other.p1, t, &tCache)
 	d = sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
@@ -224,7 +231,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	if d < minDistN2 {
 		minDistN2 = d
 	}
-	sp, tp = ClosestPointsSegmentTriangle(other.p1, other.p2, t)
+	sp, tp = closestPointsSegmentTriangleCached(other.p1, other.p2, t, &tCache)
 	d = sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
@@ -232,7 +239,7 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 	if d < minDistN2 {
 		minDistN2 = d
 	}
-	sp, tp = ClosestPointsSegmentTriangle(other.p2, other.p0, t)
+	sp, tp = closestPointsSegmentTriangleCached(other.p2, other.p0, t, &tCache)
 	d = sp.Sub(tp).Norm2()
 	if d <= bufferN2 {
 		return true, -1
