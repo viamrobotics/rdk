@@ -90,7 +90,12 @@ func (c *client) Play(ctx context.Context, data []byte, info *rutils.AudioInfo, 
 	return nil
 }
 
-func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks <-chan []byte, _ map[string]interface{}) error {
+func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error {
+	ext, err := utils.StructToStructPb(extra)
+	if err != nil {
+		return err
+	}
+
 	stream, err := c.client.PlayStream(ctx)
 	if err != nil {
 		return fmt.Errorf("audioout client: PlayStream: %w", err)
@@ -98,7 +103,7 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 
 	init := &pb.PlayStreamRequest{
 		Payload: &pb.PlayStreamRequest_Init{
-			Init: &pb.PlayStreamInit{Name: c.name},
+			Init: &pb.PlayStreamInit{Name: c.name, Extra: ext},
 		},
 	}
 	if info != nil {

@@ -17,13 +17,12 @@ import (
 // serviceServer implements the AudioOutService.
 type serviceServer struct {
 	pb.UnimplementedAudioOutServiceServer
-	coll   resource.APIResourceGetter[AudioOut]
-	logger logging.Logger
+	coll resource.APIResourceGetter[AudioOut]
 }
 
 // NewRPCServiceServer constructs an audioout gRPC service server.
 func NewRPCServiceServer(coll resource.APIResourceGetter[AudioOut], logger logging.Logger) interface{} {
-	return &serviceServer{coll: coll, logger: logger}
+	return &serviceServer{coll: coll}
 }
 
 func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.PlayResponse, error) {
@@ -96,15 +95,12 @@ func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) e
 		}
 	}()
 
-	playErr := a.PlayStream(ctx, info, chunks, nil)
+	playErr := a.PlayStream(ctx, info, chunks, init.GetExtra().AsMap())
 	if playErr != nil {
-		// Returning will cancel stream.Context(), which unblocks the receive
-		// goroutine's stream.Recv(). It writes to the buffered recvErr (cap 1)
-		// and exits
+		// Returning cancels stream.Context() so the recv goroutine exits.
 		return playErr
 	}
-	// PlayStream returning nil means the goroutine closed `chunks` after EOF,
-	// so it has already written to recvErr and exited — this won't block.
+	// PlayStream returning nil means recv already wrote to recvErr and exited.
 	if recvDone := <-recvErr; recvDone != nil {
 		return recvDone
 	}
