@@ -77,7 +77,6 @@ func removeAtIndices(vals []float64, indices []int) []float64 {
 	return result
 }
 
-// inverse of removeFixedIndices
 func insertFixedJoints(reduced []float64, fixedIndices []int, fixedValues []float64) []float64 {
 	if len(fixedIndices) == 0 {
 		return reduced
