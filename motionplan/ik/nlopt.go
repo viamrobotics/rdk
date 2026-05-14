@@ -207,8 +207,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
-	// maxIterations < 10 signals single-step fast-descent mode (e.g. cBiRRT passes maxIterations=1).
-	// The time-based extension only applies to iterative planning, not single-step callers.
+	// >= 10: run until both the iteration limit and time limit are spent.
+	// Low values opt out so callers get exactly the iterations they asked for on slow CI machines.
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
 		iterations++
 
