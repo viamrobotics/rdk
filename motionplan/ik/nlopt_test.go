@@ -78,7 +78,6 @@ func TestNloptFixedJoint(t *testing.T) {
 	dof := m.DoF()
 	limits := make([]referenceframe.Limit, len(dof))
 	copy(limits, dof)
-	// Pin joint 0 at its seed value (lowerBound==upperBound at an interior position).
 	limits[0] = referenceframe.Limit{Min: seed[0], Max: seed[0]}
 
 	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
