@@ -77,7 +77,6 @@ func sequenceRequest(pf *data.SequenceFile, partID string) *datapb.CreateSequenc
 	}
 }
 
-// moveSequenceToFailed moves path to sequences/failed/ for operator inspection.
 func moveSequenceToFailed(path string, cause error, logger logging.Logger) {
 	if err := moveFailedData(path, filepath.Dir(path), cause, logger); err != nil {
 		logger.Errorw("failed to move sequence to failed/", "path", path, "error", err)

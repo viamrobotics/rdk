@@ -33,7 +33,6 @@ func writeOpenSequence(captureDir string, opened OpenSequence) error {
 }
 
 // writeClosedSequence writes <id>.seq and removes the corresponding <id>.progseq.
-// Order favors duplicate-on-crash (deduped on recovery) over loss-on-crash.
 func writeClosedSequence(captureDir string, closed ClosedSequence) error {
 	pf := data.SequenceFile{
 		StartAt:      closed.StartAt,

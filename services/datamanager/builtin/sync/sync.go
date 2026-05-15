@@ -165,9 +165,9 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.cloudConnManager = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runCloudConnManager(ctx, cloudConnSvc)
 		})
+		// Clean up any .progseq files left from a crashed previous process.
+		handleOrphanedOpenSequences(config.CaptureDir, s.logger)
 	}
-	// Clean up any .progseq files left from a crashed previous process.
-	handleOrphanedOpenSequences(config.CaptureDir, s.logger)
 	if s.config.Equal(config) {
 		// if config has not changed then reconfigure doesn't need
 		// to execute, don't stop workers

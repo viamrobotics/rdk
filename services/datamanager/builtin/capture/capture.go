@@ -261,7 +261,7 @@ func (c *Capture) Reconfigure(
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
 
-// Close closes the capture manager. In-flight sequences are flushed and persisted as .seq.
+// Close closes the capture manager.
 func (c *Capture) Close(ctx context.Context) {
 	c.flushOpenSequences()
 	c.FlushCollectors()

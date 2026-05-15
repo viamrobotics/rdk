@@ -307,7 +307,6 @@ func (b *builtIn) runCaptureControlPoller(
 			var seqErr error
 			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
 			if seqErr != nil {
-				// Don't force-close on parse errors — recover next tick instead.
 				b.logger.Warnw("failed to parse sequences from sensor reading; leaving open sequences unchanged",
 					"error", seqErr)
 				newSequences = nil
