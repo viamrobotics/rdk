@@ -72,7 +72,7 @@ type Capture struct {
 	defaultCollectorConfigs CollectorConfigsByResource
 
 	// openSequences holds in-flight sequences emitted by the capture control sensor.
-	openSequences map[openSequenceKey]*OpenedSequence
+	openSequences map[openSequenceKey]*OpenSequence
 }
 
 type captureMongo struct {
@@ -108,7 +108,7 @@ func New(
 		clk:           clock,
 		logger:        logger,
 		collectors:    collectors{},
-		openSequences: map[openSequenceKey]*OpenedSequence{},
+		openSequences: map[openSequenceKey]*OpenSequence{},
 	}
 }
 
@@ -261,8 +261,9 @@ func (c *Capture) Reconfigure(
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
 
-// Close closes the capture manager.
+// Close closes the capture manager. In-flight sequences are flushed and persisted as .seq.
 func (c *Capture) Close(ctx context.Context) {
+	c.flushOpenSequences()
 	c.FlushCollectors()
 	c.closeCollectors()
 	c.mongoMU.Lock()

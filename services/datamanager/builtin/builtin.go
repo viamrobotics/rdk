@@ -234,10 +234,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
-		// Recover any .progseq files left from a crashed previous process before the
-		// poller starts emitting new ones. Synchronous so there's no race with normal opens.
-		recoverOrphanedOpenSequences(captureConfig.CaptureDir, b.logger)
-		b.startCaptureControlPoller(controlSensor, controlSensorKey, captureConfig.CaptureDir)
+		b.startCaptureControlPoller(controlSensor, controlSensorKey)
 	}
 
 	return nil
@@ -246,7 +243,6 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 func (b *builtIn) startCaptureControlPoller(
 	controlSensor sensor.Sensor,
 	controlSensorKey string,
-	captureDir string,
 ) {
 	if b.captureControlPoller != nil {
 		b.logger.Warn("capture poller already running")
@@ -255,7 +251,7 @@ func (b *builtIn) startCaptureControlPoller(
 
 	b.captureControlPoller = goutils.NewBackgroundStoppableWorkers(
 		func(ctx context.Context) {
-			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey, captureDir)
+			b.runCaptureControlPoller(ctx, controlSensor, controlSensorKey)
 		},
 	)
 }
@@ -277,7 +273,7 @@ func (b *builtIn) stopCaptureControlPoller() {
 func (b *builtIn) runCaptureControlPoller(
 	ctx context.Context,
 	s sensor.Sensor,
-	key, captureDir string,
+	key string,
 ) {
 	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
@@ -324,15 +320,8 @@ func (b *builtIn) runCaptureControlPoller(
 			return
 		}
 		b.capture.SetCaptureConfigs(ctx, newConfigs)
-		opened, closed := b.capture.SetActiveSequences(time.Now(), newSequences)
+		b.capture.SetActiveSequences(newSequences)
 		b.mu.Unlock()
-
-		if len(opened) > 0 {
-			persistOpenedSequences(captureDir, opened, b.logger)
-		}
-		if len(closed) > 0 {
-			persistClosedSequences(captureDir, closed, b.logger)
-		}
 	}
 }
 

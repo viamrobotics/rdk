@@ -1,36 +1,22 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/pkg/errors"
 	datapb "go.viam.com/api/app/data/v1"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 )
 
-// SequenceFile is the on-disk representation of a sequence.
-type SequenceFile struct {
-	StartAt      time.Time          `json:"start_at"`
-	EndAt        time.Time          `json:"end_at"`
-	Resources    []SequenceResource `json:"resources"`
-	SequenceTags []string           `json:"sequence_tags,omitempty"`
-}
-
-// SequenceResource is the on-disk form of a resource/method pair in a sequence.
-type SequenceResource struct {
-	ResourceName string `json:"resource_name"`
-	MethodName   string `json:"method_name"`
-}
-
-// syncSequence uploads a .seq file via CreateSequence. The walker provides the retry cadence —
-// on transient errors we leave the file on disk for the next walker pass to pick up.
+// syncSequence uploads a .seq file via CreateSequence, using exponentialRetry for transient errors.
+// On terminal error the file is moved to failed/; on success it is removed.
 func (s *Sync) syncSequence(filePath string) {
 	logger := s.logger
 	bytes, err := os.ReadFile(filePath) //nolint:gosec
@@ -42,34 +28,30 @@ func (s *Sync) syncSequence(filePath string) {
 		return
 	}
 
-	var pf SequenceFile
+	var pf data.SequenceFile
 	if err := json.Unmarshal(bytes, &pf); err != nil {
 		logger.Errorw("failed to parse sequence file; moving to failed",
 			"path", filePath, "error", err)
 		moveSequenceToFailed(filePath, errors.Wrap(err, "unmarshal"), logger)
 		return
 	}
-	if err := validateSequenceFile(&pf); err != nil {
-		logger.Errorw("invalid sequence file; moving to failed",
-			"path", filePath, "error", err)
-		moveSequenceToFailed(filePath, err, logger)
-		return
-	}
 
-	if s.cloudConn.dataClient == nil {
-		// cloud connection not ready; walker will retry on the next pass.
-		return
-	}
-	req := sequenceRequest(&pf, s.cloudConn.partID)
-	if _, err := s.cloudConn.dataClient.CreateSequence(s.configCtx, req); err != nil {
-		if isPermanentSequenceError(err) {
-			logger.Errorw("CreateSequence rejected permanently; moving to failed",
-				"path", filePath, "error", err)
-			moveSequenceToFailed(filePath, err, logger)
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, filePath, func(ctx context.Context) (uint64, error) {
+		if s.cloudConn.dataClient == nil {
+			return 0, errors.New("cloud connection not ready")
+		}
+		req := sequenceRequest(&pf, s.cloudConn.partID)
+		_, err := s.cloudConn.dataClient.CreateSequence(ctx, req)
+		return 0, err
+	})
+
+	if _, err := retry.run(); err != nil {
+		if errors.Is(err, context.Canceled) {
 			return
 		}
-		logger.Warnw("CreateSequence failed; will retry on next walker pass",
+		logger.Errorw("CreateSequence hit terminal error; moving to failed",
 			"path", filePath, "error", err)
+		moveSequenceToFailed(filePath, err, logger)
 		return
 	}
 
@@ -78,14 +60,7 @@ func (s *Sync) syncSequence(filePath string) {
 	}
 }
 
-func validateSequenceFile(pf *SequenceFile) error {
-	if len(pf.Resources) == 0 {
-		return errors.New("at least one resource is required")
-	}
-	return nil
-}
-
-func sequenceRequest(pf *SequenceFile, partID string) *datapb.CreateSequenceRequest {
+func sequenceRequest(pf *data.SequenceFile, partID string) *datapb.CreateSequenceRequest {
 	resources := make([]*datapb.SequenceResourceFilter, len(pf.Resources))
 	for i, r := range pf.Resources {
 		resources[i] = &datapb.SequenceResourceFilter{
@@ -109,16 +84,48 @@ func moveSequenceToFailed(path string, cause error, logger logging.Logger) {
 	}
 }
 
-// isPermanentSequenceError returns true for gRPC errors that retry won't fix.
-func isPermanentSequenceError(err error) bool {
-	st, ok := status.FromError(err)
-	if !ok {
-		return false
+// handleOrphanedOpenSequences cleans up .progseq files left from a crashed previous process.
+// Without a clean end_at we can't upload them, so we move them to failed.
+func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
+	dir := filepath.Join(captureDir, data.SequencesDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			logger.Warnw("failed to scan sequences dir for orphans", "error", err, "dir", dir)
+		}
+		return
 	}
-	c := st.Code()
-	return c == codes.InvalidArgument ||
-		c == codes.PermissionDenied ||
-		c == codes.NotFound ||
-		c == codes.Unauthenticated ||
-		c == codes.FailedPrecondition
+	failedDir := filepath.Join(dir, FailedDir)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if !strings.HasSuffix(name, data.InProgressSequenceFileExt) {
+			continue
+		}
+		id := strings.TrimSuffix(name, data.InProgressSequenceFileExt)
+		progPath := filepath.Join(dir, name)
+		seqPath := filepath.Join(dir, id+data.CompletedSequenceFileExt)
+
+		// A matching .seq means we crashed between writing it and removing the .progseq; dedup.
+		if _, err := os.Stat(seqPath); err == nil {
+			if rmErr := os.Remove(progPath); rmErr != nil {
+				logger.Warnw("failed to remove duplicate orphan .progseq",
+					"error", rmErr, "path", progPath)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(failedDir, 0o700); err != nil {
+			logger.Errorw("failed to create failed/ for orphan", "error", err, "dir", failedDir)
+			continue
+		}
+		dst := filepath.Join(failedDir, name)
+		if err := os.Rename(progPath, dst); err != nil {
+			logger.Errorw("failed to move orphan .progseq to failed/", "error", err, "path", progPath)
+			continue
+		}
+		logger.Warnw("moved orphan open sequence to failed/", "path", dst)
+	}
 }

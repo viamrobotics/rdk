@@ -40,8 +40,6 @@ const (
 	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
 	// and added to a dataset outside of the regularly scheduled sync.
 	DatasetDir = "datasetUpload"
-	// SequencesDir is the subdir under captureDir that holds sequence files (.progseq, .seq).
-	SequencesDir = "sequences"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
 	// durationBetweenAcquireConnection defines how long to wait after a call to cloud.AcquireConnection fails
@@ -168,6 +166,8 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 			s.runCloudConnManager(ctx, cloudConnSvc)
 		})
 	}
+	// Clean up any .progseq files left from a crashed previous process.
+	handleOrphanedOpenSequences(config.CaptureDir, s.logger)
 	if s.config.Equal(config) {
 		// if config has not changed then reconfigure doesn't need
 		// to execute, don't stop workers
@@ -429,6 +429,13 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
 
+	// Sequence files upload via CreateSequence; dispatch by path before opening so we don't
+	// leak a file descriptor on the sequence path (which does its own os.ReadFile).
+	if isSequenceFile(filePath) {
+		s.syncSequence(filePath)
+		return
+	}
+
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -437,12 +444,6 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		if !errors.Is(err, os.ErrNotExist) {
 			s.logger.Errorw("error opening file", "error", err)
 		}
-		return
-	}
-
-	// Sequence files upload via CreateSequence, not DataCaptureUpload.
-	if isSequenceFile(filePath) {
-		s.syncSequence(filePath)
 		return
 	}
 
@@ -746,12 +747,9 @@ func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, 
 		return true
 	}
 
-	// .seq files are written atomically, so no lastModified check is needed.
 	if isSequenceFile(path) {
 		return true
 	}
-
-	// .progseq files are owned by the running process; orphans get finalized on startup.
 	if isOpenSequenceFile(path) {
 		return false
 	}
@@ -759,20 +757,19 @@ func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, 
 	return isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod, path, info, fileLastModifiedMillis)
 }
 
+// inSequencesDir reports whether path's parent directory is the sequences subdir.
+func inSequencesDir(path string) bool {
+	return filepath.Base(filepath.Dir(path)) == data.SequencesDir
+}
+
 // isSequenceFile returns true for *.seq files inside a sequences/ directory.
 func isSequenceFile(path string) bool {
-	if filepath.Ext(path) != data.CompletedSequenceFileExt {
-		return false
-	}
-	return filepath.Base(filepath.Dir(path)) == SequencesDir
+	return inSequencesDir(path) && filepath.Ext(path) == data.CompletedSequenceFileExt
 }
 
 // isOpenSequenceFile returns true for *.progseq files inside a sequences/ directory.
 func isOpenSequenceFile(path string) bool {
-	if filepath.Ext(path) != data.InProgressSequenceFileExt {
-		return false
-	}
-	return filepath.Base(filepath.Dir(path)) == SequencesDir
+	return inSequencesDir(path) && filepath.Ext(path) == data.InProgressSequenceFileExt
 }
 
 func isCompletedCaptureFile(path string) bool {
@@ -780,8 +777,11 @@ func isCompletedCaptureFile(path string) bool {
 }
 
 func isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int) bool {
-	return filepath.Ext(path) != data.InProgressCaptureFileExt &&
-		filepath.Ext(path) != data.CompletedCaptureFileExt &&
+	ext := filepath.Ext(path)
+	return ext != data.InProgressCaptureFileExt &&
+		ext != data.CompletedCaptureFileExt &&
+		ext != data.InProgressSequenceFileExt &&
+		ext != data.CompletedSequenceFileExt &&
 		timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond &&
 		// if the file size is 0 then there is nothing to sync from this arbitrary file
 		info.Size() > 0
