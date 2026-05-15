@@ -175,6 +175,8 @@ func (b *box) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(b, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(b, collisionBufferMM)
 	case *box:
 		c, d := boxVsBoxCollision(b, other, collisionBufferMM)
 		if c {
@@ -202,6 +204,8 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.DistanceFrom(b)
+	case *Cylinder:
+		return other.DistanceFrom(b)
 	case *box:
 		return boxVsBoxDistance(b, other), nil
 	case *sphere:
@@ -225,6 +229,8 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 		return boxInSphere(b, other), nil
 	case *capsule:
 		return boxInCapsule(b, other), nil
+	case *Cylinder:
+		return boxInCylinder(b, other), nil
 	case *point:
 		return false, nil
 	default:
@@ -403,6 +409,17 @@ func boxInSphere(b *box, s *sphere) bool {
 func boxInCapsule(b *box, c *capsule) bool {
 	for _, vertex := range b.vertices() {
 		if capsuleVsPointDistance(c, vertex) > defaultCollisionBufferMM {
+			return false
+		}
+	}
+	return true
+}
+
+// boxInCylinder returns a bool describing if the given box is completely encompassed by the given cylinder.
+// Both the box and the cylinder are convex, so it suffices to check the 8 box corners.
+func boxInCylinder(b *box, c *Cylinder) bool {
+	for _, vertex := range b.vertices() {
+		if !c.containsPoint(vertex) {
 			return false
 		}
 	}

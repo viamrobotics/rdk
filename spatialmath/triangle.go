@@ -175,6 +175,8 @@ func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, fl
 	case *Mesh:
 		// Delegate to mesh (which iterates its triangles)
 		return other.CollidesWith(t, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(t, collisionBufferMM)
 	default:
 		return true, collisionBufferMM, newCollisionTypeUnsupportedError(t, g)
 	}
@@ -359,6 +361,8 @@ func (t *Triangle) DistanceFrom(g Geometry) (float64, error) {
 		return dist, err
 	case *Mesh:
 		return other.DistanceFrom(t)
+	case *Cylinder:
+		return other.DistanceFrom(t)
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(t, g)
 	}
@@ -382,6 +386,13 @@ func (t *Triangle) EncompassedBy(g Geometry) (bool, error) {
 				return false, err
 			}
 			if !collides {
+				return false, nil
+			}
+		}
+		return true, nil
+	case *Cylinder:
+		for _, pt := range t.Points() {
+			if !other.containsPoint(pt) {
 				return false, nil
 			}
 		}
