@@ -26,7 +26,6 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/discovery"
 )
 
 // NewServer returns a new (module specific) rpc.Server.
@@ -177,24 +176,19 @@ func NewHandlerMapFromProto(ctx context.Context, pMap *pb.HandlerMap, conn rpc.C
 		rpcAPI := &resource.RPCAPI{
 			API: api,
 		}
-		// due to how tagger is setup in the api we cannot use reflection on the discovery service currently
-		// for now we will skip the reflection step for discovery until the issue is resolved.
-		// TODO(RSDK-9718) - remove the skip.
-		if api != discovery.API {
-			symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
-			if err != nil {
-				errs = multierr.Combine(errs, err)
-				if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
-					return nil, errs
-				}
-				continue
+		symDesc, err := reflSource.FindSymbol(h.Subtype.ProtoService)
+		if err != nil {
+			errs = multierr.Combine(errs, err)
+			if errors.Is(err, grpcurl.ErrReflectionNotSupported) {
+				return nil, errs
 			}
-			svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
-			if !ok {
-				return nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
-			}
-			rpcAPI.Desc = svcDesc
+			continue
 		}
+		svcDesc, ok := symDesc.(*desc.ServiceDescriptor)
+		if !ok {
+			return nil, fmt.Errorf("expected descriptor to be service descriptor but got %T", symDesc)
+		}
+		rpcAPI.Desc = svcDesc
 		for _, m := range h.Models {
 			model, err := resource.NewModelFromString(m)
 			if err != nil {
