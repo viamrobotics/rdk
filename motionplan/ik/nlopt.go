@@ -54,13 +54,6 @@ func CreateNloptSolver(
 	exact, useRelTol bool,
 	maxTime time.Duration,
 ) (*NloptIK, error) {
-	// if debugIkMinFunc {
-	//  	// DONT COMMIT. Assert this works w.r.t registry. We might be omitting prior debug log lines
-	//  	// from `initRRT` and now including them. Simply for the purpose of this low level debug
-	//  	// state.
-	//  	logger.SetLevel(logging.DEBUG)
-	// }
-
 	ik := &NloptIK{logger: logger}
 
 	if iter < 1 {
@@ -214,6 +207,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
+	// maxIterations < 10 opts out of the time-based extension, running to exactly that many
+	// iterations regardless of machine speed. This ensures deterministic behavior on slow or
+	// busy machines.
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
 		iterations++
 
