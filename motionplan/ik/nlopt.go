@@ -207,8 +207,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	seedNumber := rseed // start randomly in the list
 
 	itStart := time.Now()
-	// >= 10: run until both the iteration limit and time limit are spent.
-	// Low values opt out so callers get exactly the iterations they asked for on slow CI machines.
+	// maxIterations < 10 opts out of the time-based extension, running to exactly that many
+	// iterations regardless of machine speed. This ensures deterministic behavior on slow or
+	// busy machines.
 	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
 		iterations++
 
