@@ -26,11 +26,11 @@ func newCaptureForTest(t *testing.T) (*Capture, *clock.Mock) {
 	return c, mockClk
 }
 
-func seq(tags []string, resources ...datamanager.ResourceMethod) datamanager.SequenceReading {
+func sequence(tags []string, resources ...datamanager.ResourceMethod) datamanager.SequenceReading {
 	return datamanager.SequenceReading{SequenceTags: tags, Resources: resources}
 }
 
-func res(name, method string) datamanager.ResourceMethod {
+func resources(name, method string) datamanager.ResourceMethod {
 	return datamanager.ResourceMethod{ResourceName: name, Method: method}
 }
 
@@ -63,7 +63,7 @@ func TestSetActiveSequences_NewEntryOpens(t *testing.T) {
 	c, _ := newCaptureForTest(t)
 
 	c.SetActiveSequences([]datamanager.SequenceReading{
-		seq([]string{"walking"}, res("camera-1", "GetImages")),
+		sequence([]string{"walking"}, resources("camera-1", "GetImages")),
 	})
 
 	test.That(t, len(c.openSequences), test.ShouldEqual, 1)
@@ -72,7 +72,7 @@ func TestSetActiveSequences_NewEntryOpens(t *testing.T) {
 func TestSetActiveSequences_SameEntryStaysOpenAcrossTicks(t *testing.T) {
 	c, clk := newCaptureForTest(t)
 	t0 := clk.Now()
-	entry := seq([]string{"walking"}, res("camera-1", "GetImages"))
+	entry := sequence([]string{"walking"}, resources("camera-1", "GetImages"))
 
 	c.SetActiveSequences([]datamanager.SequenceReading{entry})
 	clk.Add(100 * time.Millisecond)
@@ -89,7 +89,7 @@ func TestSetActiveSequences_SameEntryStaysOpenAcrossTicks(t *testing.T) {
 func TestSetActiveSequences_EntryDisappears_Closes(t *testing.T) {
 	c, clk := newCaptureForTest(t)
 	t0 := clk.Now()
-	entry := seq([]string{"walking"}, res("camera-1", "GetImages"))
+	entry := sequence([]string{"walking"}, resources("camera-1", "GetImages"))
 
 	c.SetActiveSequences([]datamanager.SequenceReading{entry})
 	clk.Add(30 * time.Second)
@@ -110,8 +110,8 @@ func TestSetActiveSequences_EntryDisappears_Closes(t *testing.T) {
 
 func TestSetActiveSequences_TwoConcurrent_OneDisappears(t *testing.T) {
 	c, clk := newCaptureForTest(t)
-	a := seq([]string{"a"}, res("camera-1", "GetImages"))
-	b := seq([]string{"b"}, res("arm-1", "JointPositions"))
+	a := sequence([]string{"a"}, resources("camera-1", "GetImages"))
+	b := sequence([]string{"b"}, resources("arm-1", "JointPositions"))
 
 	c.SetActiveSequences([]datamanager.SequenceReading{a, b})
 	test.That(t, len(c.openSequences), test.ShouldEqual, 2)
@@ -127,7 +127,7 @@ func TestSetActiveSequences_TwoConcurrent_OneDisappears(t *testing.T) {
 
 func TestSetActiveSequences_BackToBackIdenticalContent(t *testing.T) {
 	c, clk := newCaptureForTest(t)
-	entry := seq([]string{"walking"}, res("camera-1", "GetImages"))
+	entry := sequence([]string{"walking"}, resources("camera-1", "GetImages"))
 	t0 := clk.Now()
 
 	c.SetActiveSequences([]datamanager.SequenceReading{entry})
@@ -157,8 +157,8 @@ func TestSetActiveSequences_EmptyActiveClosesAll(t *testing.T) {
 	c, _ := newCaptureForTest(t)
 
 	c.SetActiveSequences([]datamanager.SequenceReading{
-		seq([]string{"a"}, res("camera-1", "GetImages")),
-		seq([]string{"b"}, res("arm-1", "JointPositions")),
+		sequence([]string{"a"}, resources("camera-1", "GetImages")),
+		sequence([]string{"b"}, resources("arm-1", "JointPositions")),
 	})
 	c.SetActiveSequences(nil)
 
@@ -167,8 +167,8 @@ func TestSetActiveSequences_EmptyActiveClosesAll(t *testing.T) {
 }
 
 func TestOpenSequenceKey(t *testing.T) {
-	a := res("camera-1", "GetImages")
-	b := res("arm-1", "JointPositions")
+	a := resources("camera-1", "GetImages")
+	b := resources("arm-1", "JointPositions")
 
 	for _, tc := range []struct {
 		name string
@@ -177,26 +177,26 @@ func TestOpenSequenceKey(t *testing.T) {
 	}{
 		{
 			name: "resource_order_independent",
-			x:    seq([]string{"t"}, a, b),
-			y:    seq([]string{"t"}, b, a),
+			x:    sequence([]string{"t"}, a, b),
+			y:    sequence([]string{"t"}, b, a),
 			eq:   true,
 		},
 		{
 			name: "tag_order_independent",
-			x:    seq([]string{"alpha", "beta"}, a),
-			y:    seq([]string{"beta", "alpha"}, a),
+			x:    sequence([]string{"alpha", "beta"}, a),
+			y:    sequence([]string{"beta", "alpha"}, a),
 			eq:   true,
 		},
 		{
 			name: "different_tags",
-			x:    seq([]string{"alpha"}, a),
-			y:    seq([]string{"beta"}, a),
+			x:    sequence([]string{"alpha"}, a),
+			y:    sequence([]string{"beta"}, a),
 			eq:   false,
 		},
 		{
 			name: "different_resources",
-			x:    seq([]string{"t"}, a),
-			y:    seq([]string{"t"}, b),
+			x:    sequence([]string{"t"}, a),
+			y:    sequence([]string{"t"}, b),
 			eq:   false,
 		},
 	} {
