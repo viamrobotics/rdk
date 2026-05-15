@@ -342,6 +342,110 @@ func TestTransformPointMatchesPose(t *testing.T) {
 	}
 }
 
+func TestTransformDirection(t *testing.T) {
+	sqrt2over2 := math.Sqrt(2) / 2.0
+
+	tests := []struct {
+		name     string
+		q        quat.Number
+		v        r3.Vector
+		expected r3.Vector
+	}{
+		{
+			"identity rotation leaves vector unchanged",
+			quat.Number{1, 0, 0, 0},
+			r3.Vector{X: 1, Y: 2, Z: 3},
+			r3.Vector{X: 1, Y: 2, Z: 3},
+		},
+		{
+			"90 deg around Z rotates +X to +Y",
+			quat.Number{sqrt2over2, 0, 0, sqrt2over2},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+		},
+		{
+			"90 deg around X rotates +Y to +Z",
+			quat.Number{sqrt2over2, sqrt2over2, 0, 0},
+			r3.Vector{X: 0, Y: 1, Z: 0},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+		},
+		{
+			"90 deg around Y rotates +Z to +X",
+			quat.Number{sqrt2over2, 0, sqrt2over2, 0},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+		},
+		{
+			"180 deg around Z negates +X",
+			quat.Number{0, 0, 0, 1},
+			r3.Vector{X: 1, Y: 0, Z: 0},
+			r3.Vector{X: -1, Y: 0, Z: 0},
+		},
+		{
+			"zero vector stays zero under any rotation",
+			quat.Number{sqrt2over2, sqrt2over2, 0, 0},
+			r3.Vector{},
+			r3.Vector{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := transformDirection(tc.q, tc.v)
+			test.That(t, result.X, test.ShouldAlmostEqual, tc.expected.X, 1e-10)
+			test.That(t, result.Y, test.ShouldAlmostEqual, tc.expected.Y, 1e-10)
+			test.That(t, result.Z, test.ShouldAlmostEqual, tc.expected.Z, 1e-10)
+		})
+	}
+}
+
+// TestTransformDirectionMatchesTransformPoint verifies that transformDirection is
+// equivalent to TransformPoint with a zero translation — i.e. the function applies
+// only the rotation component, as expected when rotating normals or other direction
+// quantities. Crosschecks across a range of non-axis-aligned orientations.
+func TestTransformDirectionMatchesTransformPoint(t *testing.T) {
+	quats := []quat.Number{
+		(&OrientationVector{Theta: 0.5, OX: 0, OY: 0, OZ: 1}).Quaternion(),
+		(&OrientationVector{Theta: math.Pi / 3, OX: 1, OY: 0, OZ: 0}).Quaternion(),
+		(&OrientationVector{Theta: math.Pi, OX: 0, OY: 1, OZ: 0}).Quaternion(),
+		(&OrientationVector{Theta: 1.7, OX: 0.3, OY: -0.8, OZ: 0.5}).Quaternion(),
+	}
+	vecs := []r3.Vector{
+		{X: 1, Y: 0, Z: 0},
+		{X: 0, Y: 5, Z: -3},
+		{X: 10, Y: 10, Z: 10},
+		{X: -2.5, Y: 7.1, Z: 0.4},
+	}
+
+	zero := r3.Vector{}
+	for _, q := range quats {
+		for _, v := range vecs {
+			expected := TransformPoint(q, zero, v)
+			result := transformDirection(q, v)
+			test.That(t, result.X, test.ShouldAlmostEqual, expected.X, 1e-10)
+			test.That(t, result.Y, test.ShouldAlmostEqual, expected.Y, 1e-10)
+			test.That(t, result.Z, test.ShouldAlmostEqual, expected.Z, 1e-10)
+		}
+	}
+}
+
+// TestTransformDirectionPreservesNorm verifies that rotation preserves vector length —
+// a load-bearing property since we use transformDirection on Triangle normals (which must
+// remain unit length after the transform).
+func TestTransformDirectionPreservesNorm(t *testing.T) {
+	quats := []quat.Number{
+		(&OrientationVector{Theta: 0.7, OX: 0, OY: 0, OZ: 1}).Quaternion(),
+		(&OrientationVector{Theta: 2.1, OX: 1, OY: 1, OZ: 0}).Quaternion(),
+		(&OrientationVector{Theta: -1.3, OX: 0.2, OY: 0.7, OZ: 0.7}).Quaternion(),
+	}
+	v := r3.Vector{X: 0.6, Y: -0.48, Z: 0.64} // unit length
+	originalNorm := v.Norm()
+	for _, q := range quats {
+		rotated := transformDirection(q, v)
+		test.That(t, rotated.Norm(), test.ShouldAlmostEqual, originalNorm, 1e-10)
+	}
+}
+
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
 	t.Helper()
 	q1 := ov1.Quaternion()

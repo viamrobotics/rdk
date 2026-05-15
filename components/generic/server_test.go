@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
 	genericpb "go.viam.com/api/component/generic/v1"
 	"go.viam.com/test"
@@ -12,15 +13,31 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 var (
-	errDoFailed        = errors.New("do failed")
-	errGetStatusFailed = errors.New("can't get status")
+	errDoFailed         = errors.New("do failed")
+	errGetStatusFailed  = errors.New("can't get status")
+	errGeometriesFailed = errors.New("can't get geometries")
 )
+
+// nonShapedGeneric is a minimal generic resource that does not implement [resource.Shaped].
+// It is used to verify that the server safely handles generic components which have not opted in
+// to providing geometries.
+type nonShapedGeneric struct {
+	resource.Named
+	resource.TriviallyReconfigurable
+	resource.TriviallyCloseable
+}
+
+func (n *nonShapedGeneric) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
 
 func newServer(logger logging.Logger) (genericpb.GenericServiceServer, *inject.GenericComponent, *inject.GenericComponent, error) {
 	injectGeneric := &inject.GenericComponent{}
@@ -103,4 +120,68 @@ func TestGenericGetStatus(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, errGetStatusFailed.Error())
 	workingGeneric.StatusFunc = nil
+}
+
+func TestGenericGetGeometries(t *testing.T) {
+	const nonShapedName = "nonShapedGeneric"
+	logger := logging.NewTestLogger(t)
+	injectGeneric := &inject.GenericComponent{}
+	injectGeneric2 := &inject.GenericComponent{}
+	resourceMap := map[resource.Name]resource.Resource{
+		generic.Named(testGenericName): injectGeneric,
+		generic.Named(failGenericName): injectGeneric2,
+		generic.Named(nonShapedName):   &nonShapedGeneric{Named: generic.Named(nonShapedName).AsNamed()},
+	}
+	injectSvc, err := resource.NewAPIResourceCollection(generic.API, resourceMap)
+	test.That(t, err, test.ShouldBeNil)
+	genericServer := generic.NewRPCServiceServer(injectSvc, logger).(genericpb.GenericServiceServer)
+
+	expectedGeometries := []spatialmath.Geometry{
+		spatialmath.NewPoint(r3.Vector{X: 1, Y: 2, Z: 3}, "pt1"),
+		spatialmath.NewPoint(r3.Vector{X: 4, Y: 5, Z: 6}, "pt2"),
+	}
+	var receivedExtra map[string]interface{}
+	injectGeneric.GeometriesFunc = func(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+		receivedExtra = extra
+		return expectedGeometries, nil
+	}
+	injectGeneric2.GeometriesFunc = func(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+		return nil, errGeometriesFailed
+	}
+
+	t.Run("missing resource returns error", func(t *testing.T) {
+		_, err := genericServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: "missingGeneric"})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+
+	t.Run("resource implementing Shaped returns geometries and forwards extra", func(t *testing.T) {
+		extra := map[string]interface{}{"foo": "Geometries"}
+		ext, err := protoutils.StructToStructPb(extra)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := genericServer.GetGeometries(
+			context.Background(),
+			&commonpb.GetGeometriesRequest{Name: testGenericName, Extra: ext},
+		)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, receivedExtra, test.ShouldResemble, extra)
+		got, err := referenceframe.NewGeometriesFromProto(resp.GetGeometries())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, got, test.ShouldHaveLength, len(expectedGeometries))
+		for i, g := range got {
+			test.That(t, spatialmath.GeometriesAlmostEqual(expectedGeometries[i], g), test.ShouldBeTrue)
+		}
+	})
+
+	t.Run("error from Geometries propagates", func(t *testing.T) {
+		_, err := genericServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: failGenericName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, errGeometriesFailed.Error())
+	})
+
+	t.Run("resource not implementing Shaped returns empty response", func(t *testing.T) {
+		resp, err := genericServer.GetGeometries(context.Background(), &commonpb.GetGeometriesRequest{Name: nonShapedName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.GetGeometries(), test.ShouldBeEmpty)
+	})
 }
