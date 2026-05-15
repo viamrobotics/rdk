@@ -171,6 +171,8 @@ func (c *capsule) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.DistanceFrom(c)
+	case *Cylinder:
+		return other.DistanceFrom(c)
 	case *box:
 		return capsuleVsBoxDistance(c, other), nil
 	case *capsule:
@@ -194,6 +196,8 @@ func (c *capsule) EncompassedBy(g Geometry) (bool, error) {
 		return capsuleInBox(c, other), nil
 	case *sphere:
 		return capsuleInSphere(c, other), nil
+	case *Cylinder:
+		return capsuleInCylinder(c, other), nil
 	case *point:
 		return false, nil
 	default:
@@ -315,6 +319,13 @@ func capsuleInBox(c *capsule, b *box) bool {
 // capsuleInSphere returns a bool describing if the given capsule is fully encompassed by the given sphere.
 func capsuleInSphere(c *capsule, s *sphere) bool {
 	return c.segA.Sub(s.pose.Point()).Norm()+c.radius <= s.radius && c.segB.Sub(s.pose.Point()).Norm()+c.radius <= s.radius
+}
+
+// capsuleInCylinder returns a bool describing if the given capsule is fully encompassed by the given cylinder.
+// The capsule is the Minkowski sum of segment AB with a sphere of radius c.radius; since the cylinder is convex,
+// it suffices to check that both endpoint spheres fit inside.
+func capsuleInCylinder(c *capsule, cyl *Cylinder) bool {
+	return cyl.containsSphere(c.segA, c.radius) && cyl.containsSphere(c.segB, c.radius)
 }
 
 // capsuleVsBoxCollision checks capsule-box collision using the precomputed Ericson SAT formulation.

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"sync"
 
 	"github.com/golang/geo/r3"
 	commonpb "go.viam.com/api/common/v1"
@@ -12,24 +11,21 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// cylinderSides is the fixed number of segments around the
+// Cylinder's circumference. Total tessellation = 2 * segments (side) +
+// 2 * segments (caps) triangles. 16 segments gives ~1.9% chord error at the side wall.
+const cylinderSides = 16
+
 // Cylinder is a finite right circular Cylinder collision geometry.
 // Its local-frame Z axis is the Cylinder's central axis; the Cylinder's pose
 // is at its center. Unlike capsule, Cylinders may be arbitrarily flat
 // (no length >= 2*radius constraint).
-//
-// Collision dispatch is asymmetric: Cylinder.CollidesWith(other) handles every
-// other geometry type via mesh delegation, but other.CollidesWith(Cylinder)
-// will hit the other type's default switch branch and return an unsupported-
-// pair error. Callers should put the Cylinder on the receiver side, or use a
-// swap-and-retry pattern (motionplan/collision.go does this).
 type Cylinder struct {
 	pose   Pose
 	radius float64 // mm, > 0
 	height float64 // mm, > 0, total tip-to-tip
 	label  string
-	// lazily computed and cached
-	meshOnce   sync.Once
-	cachedMesh *Mesh
+	mesh   *Mesh
 }
 
 // NewCylinder instantiates a new Cylinder Geometry. Returns an error if
@@ -38,7 +34,9 @@ func NewCylinder(offset Pose, radius, height float64, label string) (Geometry, e
 	if radius <= 0 || height <= 0 {
 		return nil, newBadGeometryDimensionsError(&Cylinder{})
 	}
-	return &Cylinder{pose: offset, radius: radius, height: height, label: label}, nil
+	c := &Cylinder{pose: offset, radius: radius, height: height, label: label}
+	c.mesh = c.buildMesh()
+	return c, nil
 }
 
 // Pose returns the pose of the Cylinder's center.
@@ -89,15 +87,17 @@ func (c *Cylinder) almostEqual(g Geometry) bool {
 		utils.Float64AlmostEqual(c.height, other.height, 1e-8)
 }
 
-// Transform premultiplies the Cylinder's pose with the given pose and returns a
-// new Cylinder. Caches are intentionally zero-valued so that ToMesh is
-// recomputed in the new frame on first use.
+// Transform premultiplies the Cylinder's pose with the given pose and returns
+// a new Cylinder. The mesh's local-frame triangles depend only on radius and
+// height, so they are reused as-is; only the wrapping Mesh's pose changes.
 func (c *Cylinder) Transform(toPremultiply Pose) Geometry {
+	newPose := Compose(toPremultiply, c.pose)
 	return &Cylinder{
-		pose:   Compose(toPremultiply, c.pose),
+		pose:   newPose,
 		radius: c.radius,
 		height: c.height,
 		label:  c.label,
+		mesh:   NewMesh(newPose, c.mesh.Triangles(), c.label),
 	}
 }
 
@@ -114,13 +114,9 @@ func (c *Cylinder) MarshalJSON() ([]byte, error) {
 	return json.Marshal(config)
 }
 
-// CylinderTessellationSegments is the fixed number of segments around the
-// Cylinder's circumference. Total tessellation = 2 * segments (side) +
-// 2 * segments (caps) triangles. 16 segments gives ~1.9% chord error at the side wall.
-const CylinderTessellationSegments = 16
-
-// ToMesh tessellates the Cylinder into a triangle mesh, computed lazily and cached.
-// The mesh is in the Cylinder's local frame (so its pose matches c.pose).
+// ToMesh returns the Cylinder's tessellated triangle mesh, built up front by
+// the constructor. The mesh is in the Cylinder's local frame (so its pose
+// matches c.pose).
 //
 //	         top cap (Z = +h/2)
 //	         ┌──┬──┬──...
@@ -128,44 +124,43 @@ const CylinderTessellationSegments = 16
 //	         └──┴──┴──...
 //	         bottom cap (Z = -h/2)
 func (c *Cylinder) ToMesh() *Mesh {
-	c.meshOnce.Do(func() {
-		const n = CylinderTessellationSegments
-		halfH := c.height / 2
-		// Precompute ring vertices on top and bottom.
-		top := make([]r3.Vector, n)
-		bot := make([]r3.Vector, n)
-		for i := 0; i < n; i++ {
-			theta := 2 * math.Pi * float64(i) / float64(n)
-			x := c.radius * math.Cos(theta)
-			y := c.radius * math.Sin(theta)
-			top[i] = r3.Vector{X: x, Y: y, Z: halfH}
-			bot[i] = r3.Vector{X: x, Y: y, Z: -halfH}
-		}
-		topCenter := r3.Vector{X: 0, Y: 0, Z: halfH}
-		botCenter := r3.Vector{X: 0, Y: 0, Z: -halfH}
-		tris := make([]*Triangle, 0, 2*n+2*n)
-		// Side wall: each quad (top[i], top[j], bot[j], bot[i]) -> 2 triangles.
-		// Winding order: outward-facing normals (right-hand rule).
-		for i := 0; i < n; i++ {
-			j := (i + 1) % n
-			tris = append(tris,
-				NewTriangle(bot[i], top[i], top[j]),
-				NewTriangle(bot[i], top[j], bot[j]),
-			)
-		}
-		// Top cap: fan from topCenter, normal = +Z.
-		for i := 0; i < n; i++ {
-			j := (i + 1) % n
-			tris = append(tris, NewTriangle(topCenter, top[i], top[j]))
-		}
-		// Bottom cap: fan from botCenter, normal = -Z (opposite winding).
-		for i := 0; i < n; i++ {
-			j := (i + 1) % n
-			tris = append(tris, NewTriangle(botCenter, bot[j], bot[i]))
-		}
-		c.cachedMesh = NewMesh(c.pose, tris, c.label)
-	})
-	return c.cachedMesh
+	return c.mesh
+}
+
+func (c *Cylinder) buildMesh() *Mesh {
+	halfH := c.height / 2
+	top := make([]r3.Vector, cylinderSides)
+	bot := make([]r3.Vector, cylinderSides)
+	for i := 0; i < cylinderSides; i++ {
+		theta := 2 * math.Pi * float64(i) / float64(cylinderSides)
+		x := c.radius * math.Cos(theta)
+		y := c.radius * math.Sin(theta)
+		top[i] = r3.Vector{X: x, Y: y, Z: halfH}
+		bot[i] = r3.Vector{X: x, Y: y, Z: -halfH}
+	}
+	topCenter := r3.Vector{X: 0, Y: 0, Z: halfH}
+	botCenter := r3.Vector{X: 0, Y: 0, Z: -halfH}
+	tris := make([]*Triangle, 0, 2*cylinderSides+2*cylinderSides)
+	// Side wall: each quad (top[i], top[j], bot[j], bot[i]) -> 2 triangles.
+	// Winding order: outward-facing normals (right-hand rule).
+	for i := 0; i < cylinderSides; i++ {
+		j := (i + 1) % cylinderSides
+		tris = append(tris,
+			NewTriangle(bot[i], top[i], top[j]),
+			NewTriangle(bot[i], top[j], bot[j]),
+		)
+	}
+	// Top cap: fan from topCenter, normal = +Z.
+	for i := 0; i < cylinderSides; i++ {
+		j := (i + 1) % cylinderSides
+		tris = append(tris, NewTriangle(topCenter, top[i], top[j]))
+	}
+	// Bottom cap: fan from botCenter, normal = -Z (opposite winding).
+	for i := 0; i < cylinderSides; i++ {
+		j := (i + 1) % cylinderSides
+		tris = append(tris, NewTriangle(botCenter, bot[j], bot[i]))
+	}
+	return NewMesh(c.pose, tris, c.label)
 }
 
 // ToProtobuf is not implemented for Cylinder: there is no Cylinder message in
@@ -207,4 +202,26 @@ func (c *Cylinder) EncompassedBy(g Geometry) (bool, error) {
 // ToPoints returns surface sample points by delegating to the tessellated mesh.
 func (c *Cylinder) ToPoints(resolution float64) []r3.Vector {
 	return c.ToMesh().ToPoints(resolution)
+}
+
+// containsPoint reports whether the given world-frame point lies within the
+// Cylinder's solid volume (inclusive of surface).
+func (c *Cylinder) containsPoint(p r3.Vector) bool {
+	local := Compose(PoseInverse(c.pose), NewPoseFromPoint(p)).Point()
+	return math.Abs(local.Z) <= c.height/2 &&
+		local.X*local.X+local.Y*local.Y <= c.radius*c.radius
+}
+
+// containsSphere reports whether a sphere with the given world-frame center
+// and radius lies entirely within the Cylinder. Equivalent to: center lies
+// within the Cylinder shrunk by radius along both axial and radial directions.
+func (c *Cylinder) containsSphere(center r3.Vector, radius float64) bool {
+	halfH := c.height/2 - radius
+	rShrink := c.radius - radius
+	if halfH < 0 || rShrink < 0 {
+		return false
+	}
+	local := Compose(PoseInverse(c.pose), NewPoseFromPoint(center)).Point()
+	return math.Abs(local.Z) <= halfH &&
+		local.X*local.X+local.Y*local.Y <= rShrink*rShrink
 }

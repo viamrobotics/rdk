@@ -97,9 +97,8 @@ func TestCylinderTransform(t *testing.T) {
 	expectedPose := Compose(pre, c.pose)
 	test.That(t, PoseAlmostEqualEps(out.Pose(), expectedPose, 1e-9), test.ShouldBeTrue)
 
-	// The new cylinder must have a fresh, un-warmed cache so its mesh is
-	// recomputed in the new frame (regression guard for the cache-reset comment).
-	test.That(t, out.cachedMesh, test.ShouldBeNil)
+	// The new cylinder's mesh must be in the new frame, not the original.
+	test.That(t, PoseAlmostEqualEps(out.ToMesh().Pose(), expectedPose, 1e-9), test.ShouldBeTrue)
 
 	// Inverse transform brings the cylinder back to its original pose.
 	back := out.Transform(PoseInverse(pre)).(*Cylinder)
@@ -110,9 +109,8 @@ func TestCylinderToMeshShape(t *testing.T) {
 	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 4, 6, "")
 	mesh := c.ToMesh()
 
-	// 2*n side triangles + n top-cap + n bottom-cap = 4*n
-	const n = CylinderTessellationSegments
-	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 4*n)
+	// 2*cylinderSides side triangles + cylinderSides top-cap + cylinderSides bottom-cap = 4*cylinderSides
+	test.That(t, len(mesh.Triangles()), test.ShouldEqual, 4*cylinderSides)
 
 	// Mesh pose matches cylinder pose.
 	test.That(t, PoseAlmostCoincident(mesh.Pose(), c.Pose()), test.ShouldBeTrue)
@@ -131,7 +129,7 @@ func TestCylinderToMeshShape(t *testing.T) {
 		}
 	}
 	// 2*n ring verts + 2 cap centers
-	test.That(t, len(seen), test.ShouldEqual, 2*n+2)
+	test.That(t, len(seen), test.ShouldEqual, 2*cylinderSides+2)
 	for p := range seen {
 		isCapCenter := p.X == 0 && p.Y == 0 && (math.Abs(p.Z-halfH) < 1e-9 || math.Abs(p.Z+halfH) < 1e-9)
 		onSideRing := (math.Abs(math.Abs(p.Z)-halfH) < 1e-9) &&
@@ -332,6 +330,114 @@ func TestCylinderToPoints(t *testing.T) {
 		onCap := math.Abs(math.Abs(p.Z)-halfH) <= 1e-6 && radial <= r+tol
 		test.That(t, onSide || onCap, test.ShouldBeTrue)
 	}
+}
+
+// TestEncompassedByCylinder exercises the other-direction dispatch:
+// box/sphere/capsule/point/mesh/triangle.EncompassedBy(*Cylinder). The Cylinder
+// receiver is treated as a solid convex volume via analytic point-in-cylinder
+// and sphere-in-cylinder checks.
+func TestEncompassedByCylinder(t *testing.T) {
+	cyl := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 10, 20, "")
+
+	// --- Point ---
+	pInside := NewPoint(r3.Vector{0, 0, 0}, "")
+	enc, err := pInside.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	pOnSurface := NewPoint(r3.Vector{10, 0, 0}, "") // radial boundary
+	enc, err = pOnSurface.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	pAxialOutside := NewPoint(r3.Vector{0, 0, 11}, "")
+	enc, err = pAxialOutside.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
+
+	pRadialOutside := NewPoint(r3.Vector{11, 0, 0}, "")
+	enc, err = pRadialOutside.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
+
+	// --- Box ---
+	smallBox, err := NewBox(NewPoseFromPoint(r3.Vector{}), r3.Vector{4, 4, 4}, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = smallBox.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	// Box whose corners stick out radially.
+	wideBox, err := NewBox(NewPoseFromPoint(r3.Vector{}), r3.Vector{20, 20, 4}, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = wideBox.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
+
+	// --- Sphere ---
+	tightSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 5, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = tightSphere.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	// Sphere centered at origin with radius matching cyl radius: touches side wall
+	// but bulges past the caps (h/2 - r = 10 - 10 = 0, so |z|≤0 only at center).
+	exactSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 10, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = exactSphere.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue) // center at z=0 ≤ 0, radial 0 ≤ 0
+
+	// Sphere too big radially.
+	bulgeSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 11, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = bulgeSphere.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
+
+	// Sphere fits radially but axially clips a cap.
+	offsetSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{0, 0, 8}), 4, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = offsetSphere.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse) // halfH=6, |8|>6
+
+	// --- Capsule ---
+	innerCap, err := NewCapsule(NewPoseFromPoint(r3.Vector{}), 2, 8, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = innerCap.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	// Capsule longer than the cylinder.
+	longCap, err := NewCapsule(NewPoseFromPoint(r3.Vector{}), 2, 30, "")
+	test.That(t, err, test.ShouldBeNil)
+	enc, err = longCap.EncompassedBy(cyl)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
+
+	// --- Tilted cylinder: axis rotated 90° about Y, so cyl axis lies along world X. ---
+	tilted := makeTestCylinder(&EulerAngles{0, math.Pi / 2, 0}, r3.Vector{}, 10, 20, "")
+
+	// World +X is now the cylinder's axial direction; |x|≤10 should be inside.
+	pAxial := NewPoint(r3.Vector{9, 0, 0}, "")
+	enc, err = pAxial.EncompassedBy(tilted)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	// World +Z is now radial; |z|≤10 inside.
+	pRadial := NewPoint(r3.Vector{0, 0, 9}, "")
+	enc, err = pRadial.EncompassedBy(tilted)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeTrue)
+
+	// A point inside the upright cylinder but outside the tilted one
+	// (world Z = 11 is radial-out under tilt).
+	pTiltedOut := NewPoint(r3.Vector{0, 0, 11}, "")
+	enc, err = pTiltedOut.EncompassedBy(tilted)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, enc, test.ShouldBeFalse)
 }
 
 // Translating a cylinder should translate its mesh triangles by the same
