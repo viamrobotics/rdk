@@ -272,12 +272,8 @@ func (b *builtIn) stopCaptureControlPoller() {
 	}
 }
 
-// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
-// it reverts to the machine config by passing nil configs.
-//
-// If sequencesKey is non-empty, it also parses sequence readings from the same poll and applies
-// them to the capture's open-recording state. Closed recordings are written to disk under
-// <captureDir>/pending_sequences/ for the retry worker to upload.
+// runCaptureControlPoller polls the capture control sensor at 10 Hz, applying capture configs
+// and active sequences each tick. On invalid readings it reverts to the machine config.
 func (b *builtIn) runCaptureControlPoller(
 	ctx context.Context,
 	s sensor.Sensor,
@@ -315,9 +311,7 @@ func (b *builtIn) runCaptureControlPoller(
 			var seqErr error
 			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
 			if seqErr != nil {
-				// Parse errors are logged but do not force-close existing sequences —
-				// pass nil through so SetActiveSequences keeps them open and the next tick
-				// can recover.
+				// Don't force-close on parse errors — recover next tick instead.
 				b.logger.Warnw("failed to parse sequences from sensor reading; leaving open sequences unchanged",
 					"error", seqErr)
 				newSequences = nil
@@ -388,9 +382,8 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	return result, nil
 }
 
-// parseSequencesFromReadings extracts active sequence definitions from sensor readings.
-// Returns nil if the well-known SequencesKey is absent. Entries with zero resources are
-// dropped with a warning.
+// parseSequencesFromReadings extracts active sequences from readings under SequencesKey.
+// Entries with no resources are dropped.
 func parseSequencesFromReadings(
 	readings map[string]interface{}, logger logging.Logger,
 ) ([]datamanager.SequenceReading, error) {

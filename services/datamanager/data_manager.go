@@ -188,10 +188,7 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 // that indicates to the datamanager whether or not we want to sync.
 var ShouldSyncKey = "should_sync"
 
-// SequencesKey is the well-known key under which a capture control sensor's readings can
-// expose a list of currently-active SequenceReadings. The data manager creates a sequence
-// record for each entry, covering the time from when it first appears to when it disappears.
-// Sensors that don't want this feature simply omit the key.
+// SequencesKey is the key under which a capture control sensor returns sequence readings.
 var SequencesKey = "sequences"
 
 // CreateShouldSyncReading is a helper for creating the expected reading for a modular sensor
@@ -202,10 +199,8 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 	return readings
 }
 
-// ResourceMethod identifies a (resource, method) pair — the unit of data capture and
-// the unit of what a sequence references. Shared between CaptureConfigReading (one such
-// pair per reading) and SequenceReading (multiple per reading) so sensor authors can
-// reuse the same identity values across both.
+// ResourceMethod identifies a resource/method pair. Shared by CaptureConfigReading and
+// SequenceReading.
 type ResourceMethod struct {
 	// ResourceName is the name of the resource (e.g. "camera-1").
 	ResourceName string `json:"resource_name"`
@@ -226,16 +221,9 @@ type CaptureConfigReading struct {
 	Tags []string `json:"tags"`
 }
 
-// SequenceReading represents a single sequence emitted by the capture_control_sensor under
-// the SequencesKey. The sensor's readings carry a list of SequenceReadings, and each entry
-// is tracked independently — its own resources, its own tags, its own open/close lifecycle.
-// Multiple concurrent sequences are supported: just include multiple entries in the list.
-//
-// A sequence opens when its entry first appears in the list and ends when it disappears.
-//
-// Identity across poll ticks is content-based: two entries with identical Resources and
-// SequenceTags are recognized as the same sequence. To run two concurrent sequences with
-// otherwise identical content, differentiate them via SequenceTags.
+// SequenceReading represents one sequence emitted by the capture_control_sensor. Each entry
+// in the sensor's sequences list is tracked independently; a sequence opens when its entry
+// first appears and ends when it disappears.
 type SequenceReading struct {
 	// SequenceTags are tags to attach to the resulting sequence record.
 	SequenceTags []string `json:"sequence_tags,omitempty"`

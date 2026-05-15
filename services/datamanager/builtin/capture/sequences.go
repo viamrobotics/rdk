@@ -11,60 +11,32 @@ import (
 	"go.viam.com/rdk/services/datamanager"
 )
 
-// Sequence file extensions, used by the data manager's capture control sensor flow.
-//
-// The lifecycle mirrors data capture files (.prog → .capture):
-//
-//	.progseq — written when a sequence opens; in-progress, owned by the running process
-//	.seq     — written when a sequence closes; ready for the sync worker to upload
-//
-// On startup, orphaned .progseq files (left from a crashed previous process) are
-// finalized to .seq with end_at = file mtime.
+// Sequence file extensions, mirroring data capture's .prog → .capture.
 const (
-	// InProgressSequenceFileExt is the extension for sequence files whose definition window
-	// is still open (the sensor is still emitting them). Sync skips files with this extension.
+	// InProgressSequenceFileExt names open sequence files; sync skips them.
 	InProgressSequenceFileExt = ".progseq"
-	// CompletedSequenceFileExt is the extension for closed sequence files ready for upload.
-	// Sync picks up files with this extension and calls CreateSequence on each.
+	// CompletedSequenceFileExt names closed sequence files; sync uploads them.
 	CompletedSequenceFileExt = ".seq"
 )
 
-// openSequence is the in-memory state for a sequence whose definition window is currently
-// open (the sensor is still emitting it). When the sensor stops emitting it, the sequence
-// ends and becomes a PendingSequence to be written to disk and uploaded.
-type openSequence struct {
-	// id uniquely identifies this sequence across opens/closes. Used as the .progseq filename
-	// on disk so the close path can remove it and the .seq finalization knows which file is which.
-	id string
-	// startAt is when the sensor first emitted this sequence.
-	startAt time.Time
-	// resources is the resource set included in this sequence, frozen at start time.
-	resources []datamanager.ResourceMethod
-	// tags are attached to the resulting sequence record, frozen at start time.
-	tags []string
-}
-
-// openSequenceKey is the comparable identity of an open sequence. Two SequenceReadings
-// with the same canonical resources and tags map to the same key, regardless of input order.
-// Matches the collectorMetadata pattern of using a struct of strings as a map key.
+// openSequenceKey is the comparable identity of an open sequence, derived from canonicalized
+// resources and tags. Mirrors the collectorMetadata pattern.
 type openSequenceKey struct {
 	resources string
 	tags      string
 }
 
-// OpenedSequence is returned from SetActiveSequences for each sequence that opened this tick.
-// Callers persist it to disk as <ID>.progseq so the open state survives a process crash.
+// OpenedSequence is a sequence whose entry is still in the sensor's readings.
+// Used both as Capture's in-memory map value and the return value of SetActiveSequences.
 type OpenedSequence struct {
-	ID        string
-	StartAt   time.Time
-	Resources []datamanager.ResourceMethod
-	Tags      []string
+	ID           string
+	StartAt      time.Time
+	Resources    []datamanager.ResourceMethod
+	SequenceTags []string
 }
 
-// PendingSequence is returned from SetActiveSequences for each sequence that ended this tick.
-// Callers persist it to disk as <ID>.seq (replacing the corresponding <ID>.progseq); the
-// sync worker then uploads it via CreateSequence.
-type PendingSequence struct {
+// Sequence is returned by SetActiveSequences for each sequence that ended this tick.
+type Sequence struct {
 	ID           string
 	StartAt      time.Time
 	EndAt        time.Time
@@ -72,37 +44,26 @@ type PendingSequence struct {
 	SequenceTags []string
 }
 
-// SetActiveSequences updates the set of open sequences to match the sensor's latest readings.
-// Returns sequences that opened this tick (newly seen) and ended this tick (previously open
-// but absent from active now). Callers persist each of these to disk for crash durability.
-//
-// Must be called with collectorsMu held — callers should invoke this within the same
-// critical section as SetCaptureConfigs so capture-state and sequence-state updates per
-// tick are atomic.
-func (c *Capture) SetActiveSequences(now time.Time, active []datamanager.SequenceReading) (opened []OpenedSequence, ended []PendingSequence) {
+// SetActiveSequences reconciles open sequences against the sensor's latest readings, returning
+// any that opened or ended this tick. Must be called with collectorsMu held.
+func (c *Capture) SetActiveSequences(now time.Time, active []datamanager.SequenceReading) (opened []OpenedSequence, ended []Sequence) {
 	activeKeys := make(map[openSequenceKey]struct{}, len(active))
 	for _, s := range active {
 		k := newOpenSequenceKey(s)
 		activeKeys[k] = struct{}{}
 		if _, exists := c.openSequences[k]; !exists {
-			seq := &openSequence{
-				id:        uuid.NewString(),
-				startAt:   now,
-				resources: slices.Clone(s.Resources),
-				tags:      slices.Clone(s.SequenceTags),
+			seq := &OpenedSequence{
+				ID:           uuid.NewString(),
+				StartAt:      now,
+				Resources:    slices.Clone(s.Resources),
+				SequenceTags: slices.Clone(s.SequenceTags),
 			}
 			c.openSequences[k] = seq
-			opened = append(opened, OpenedSequence{
-				ID:        seq.id,
-				StartAt:   seq.startAt,
-				Resources: seq.resources,
-				Tags:      seq.tags,
-			})
+			opened = append(opened, *seq)
 			c.logger.Infow("sequence started",
-				"id", seq.id,
-				"start_at", seq.startAt,
-				"resource_count", len(seq.resources),
-				"tags", seq.tags,
+				"start_at", seq.StartAt,
+				"resources", seq.Resources,
+				"tags", seq.SequenceTags,
 			)
 		}
 	}
@@ -111,28 +72,25 @@ func (c *Capture) SetActiveSequences(now time.Time, active []datamanager.Sequenc
 		if _, stillActive := activeKeys[k]; stillActive {
 			continue
 		}
-		ended = append(ended, PendingSequence{
-			ID:           seq.id,
-			StartAt:      seq.startAt,
+		ended = append(ended, Sequence{
+			ID:           seq.ID,
+			StartAt:      seq.StartAt,
 			EndAt:        now,
-			Resources:    seq.resources,
-			SequenceTags: seq.tags,
+			Resources:    seq.Resources,
+			SequenceTags: seq.SequenceTags,
 		})
 		c.logger.Infow("sequence ended",
-			"id", seq.id,
-			"start_at", seq.startAt,
+			"start_at", seq.StartAt,
 			"end_at", now,
-			"duration", now.Sub(seq.startAt),
-			"resource_count", len(seq.resources),
-			"tags", seq.tags,
+			"resources", seq.Resources,
+			"tags", seq.SequenceTags,
 		)
 		delete(c.openSequences, k)
 	}
 	return opened, ended
 }
 
-// newOpenSequenceKey returns a comparable identity for a SequenceReading. Resources and tags
-// are sorted to a canonical form so that input order doesn't affect identity.
+// newOpenSequenceKey returns a comparable identity for s, sorted so input order doesn't matter.
 func newOpenSequenceKey(s datamanager.SequenceReading) openSequenceKey {
 	resources := slices.Clone(s.Resources)
 	slices.SortFunc(resources, func(a, b datamanager.ResourceMethod) int {

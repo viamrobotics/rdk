@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	datapb "go.viam.com/api/app/data/v1"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -39,9 +40,7 @@ const (
 	// DatasetDir is a subdirectory of the capture directory that holds any files that are simultaneously uploaded
 	// and added to a dataset outside of the regularly scheduled sync.
 	DatasetDir = "datasetUpload"
-	// SequencesDir is a subdirectory of the capture directory that holds sequence creation
-	// requests written by the capture control sensor flow. Files have two extensions (defined
-	// in package data): .progseq for open sequences, .seq for closed ones.
+	// SequencesDir is the subdir under captureDir that holds sequence files (.progseq, .seq).
 	SequencesDir = "sequences"
 	// grpcConnectionTimeout defines the timeout for getting a connection with app.viam.com.
 	grpcConnectionTimeout = 10 * time.Second
@@ -295,14 +294,11 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready  chan struct{}
-	partID string
-	client v1.DataSyncServiceClient
-	conn   rgrpc.ConnectivityState
-	// appConn is the underlying rpc.ClientConn, retained so callers can construct
-	// additional gRPC clients (e.g. DataServiceClient for CreateSequence) on the
-	// same connection without reacquiring.
-	appConn rpc.ClientConn
+	ready      chan struct{}
+	partID     string
+	client     v1.DataSyncServiceClient
+	dataClient datapb.DataServiceClient
+	conn       rgrpc.ConnectivityState
 }
 
 // BEGIN connection management
@@ -366,7 +362,7 @@ func (s *Sync) runCloudConnManager(
 		}
 		s.cloudConn.conn = checker
 		s.cloudConn.client = s.clientConstructor(conn)
-		s.cloudConn.appConn = conn
+		s.cloudConn.dataClient = datapb.NewDataServiceClient(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
 		// now that we have a connection ...
@@ -433,13 +429,6 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
 
-	// Pending sequence files have a different upload path (CreateSequence RPC instead of
-	// DataCaptureUpload). Dispatch before opening so we can use a JSON read instead.
-	if isPendingSequenceFile(filePath) {
-		s.syncPendingSequence(config, filePath)
-		return
-	}
-
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -448,6 +437,12 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		if !errors.Is(err, os.ErrNotExist) {
 			s.logger.Errorw("error opening file", "error", err)
 		}
+		return
+	}
+
+	// Sequence files upload via CreateSequence, not DataCaptureUpload.
+	if isSequenceFile(filePath) {
+		s.syncSequence(filePath)
 		return
 	}
 
@@ -751,14 +746,12 @@ func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, 
 		return true
 	}
 
-	// Pending sequence files are written atomically (tmp + rename), so the lastModified
-	// check that exists for arbitrary files isn't needed — once visible, they're complete.
-	if isPendingSequenceFile(path) {
+	// .seq files are written atomically, so no lastModified check is needed.
+	if isSequenceFile(path) {
 		return true
 	}
 
-	// In-progress sequence files are never ready to sync — they're owned by the still-running
-	// process. Crash-leftover orphans are finalized to .seq on startup.
+	// .progseq files are owned by the running process; orphans get finalized on startup.
 	if isOpenSequenceFile(path) {
 		return false
 	}
@@ -766,17 +759,15 @@ func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, 
 	return isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod, path, info, fileLastModifiedMillis)
 }
 
-// isPendingSequenceFile returns true for *.seq files inside a pending_sequences/ directory.
-// These are closed sequence creation requests ready for upload.
-func isPendingSequenceFile(path string) bool {
+// isSequenceFile returns true for *.seq files inside a sequences/ directory.
+func isSequenceFile(path string) bool {
 	if filepath.Ext(path) != data.CompletedSequenceFileExt {
 		return false
 	}
 	return filepath.Base(filepath.Dir(path)) == SequencesDir
 }
 
-// isOpenSequenceFile returns true for *.progseq files inside a pending_sequences/ directory.
-// These are sequences whose definition window is still open and not yet ready to upload.
+// isOpenSequenceFile returns true for *.progseq files inside a sequences/ directory.
 func isOpenSequenceFile(path string) bool {
 	if filepath.Ext(path) != data.InProgressSequenceFileExt {
 		return false

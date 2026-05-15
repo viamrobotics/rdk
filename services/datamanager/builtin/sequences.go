@@ -14,15 +14,7 @@ import (
 	datasync "go.viam.com/rdk/services/datamanager/builtin/sync"
 )
 
-// On-disk lifecycle (mirrors data capture's .prog → .capture):
-//   <id>.progseq — open sequence; sync skips these
-//   <id>.seq     — closed sequence ready for upload; sync picks these up
-//
-// On startup, orphaned .progseq files (left from a crashed previous process) are
-// finalized to .seq with end_at = file mtime.
-//
-// The on-disk schema lives in the sync package (datasync.PendingSequenceFile) so
-// writer (here) and reader (sync) share a single source of truth.
+// Sequence files live in <captureDir>/sequences/
 
 func sequencesPath(captureDir string) string {
 	return filepath.Join(captureDir, datasync.SequencesDir)
@@ -36,28 +28,26 @@ func seqFilePath(captureDir, id string) string {
 	return filepath.Join(sequencesPath(captureDir), id+data.CompletedSequenceFileExt)
 }
 
-// writeOpenSequence persists an opened sequence to disk as <id>.progseq.
-// Atomic via .tmp + rename so sync's walker never sees a half-written file.
+// writeOpenSequence atomically writes opened to <id>.progseq.
 func writeOpenSequence(captureDir string, opened capture.OpenedSequence) error {
-	pf := datasync.PendingSequenceFile{
+	pf := datasync.SequenceFile{
 		StartAt:      opened.StartAt,
-		Resources:    toPendingResources(opened.Resources),
-		SequenceTags: opened.Tags,
+		Resources:    toSequenceResources(opened.Resources),
+		SequenceTags: opened.SequenceTags,
 	}
-	return writePendingSequenceFile(progSeqFilePath(captureDir, opened.ID), pf)
+	return writeSequenceFile(progSeqFilePath(captureDir, opened.ID), pf)
 }
 
-// writeClosedSequence persists a closed sequence to disk as <id>.seq and removes
-// the corresponding <id>.progseq. The order — write .seq first, then remove .progseq —
-// favors duplicate-on-crash (recoverable via dedup) over loss-on-crash.
-func writeClosedSequence(captureDir string, closed capture.PendingSequence) error {
-	pf := datasync.PendingSequenceFile{
+// writeClosedSequence atomically writes closed to <id>.seq and removes <id>.progseq.
+// Order favors duplicate-on-crash (deduped on recovery) over loss-on-crash.
+func writeClosedSequence(captureDir string, closed capture.Sequence) error {
+	pf := datasync.SequenceFile{
 		StartAt:      closed.StartAt,
 		EndAt:        closed.EndAt,
-		Resources:    toPendingResources(closed.Resources),
+		Resources:    toSequenceResources(closed.Resources),
 		SequenceTags: closed.SequenceTags,
 	}
-	if err := writePendingSequenceFile(seqFilePath(captureDir, closed.ID), pf); err != nil {
+	if err := writeSequenceFile(seqFilePath(captureDir, closed.ID), pf); err != nil {
 		return err
 	}
 	if err := os.Remove(progSeqFilePath(captureDir, closed.ID)); err != nil && !os.IsNotExist(err) {
@@ -66,14 +56,14 @@ func writeClosedSequence(captureDir string, closed capture.PendingSequence) erro
 	return nil
 }
 
-// writePendingSequenceFile is the shared atomic-write primitive for both .progseq and .seq.
-func writePendingSequenceFile(finalPath string, pf datasync.PendingSequenceFile) error {
+// writeSequenceFile writes pf to finalPath via .tmp + rename.
+func writeSequenceFile(finalPath string, pf datasync.SequenceFile) error {
 	bytes, err := json.MarshalIndent(pf, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal pending sequence: %w", err)
+		return fmt.Errorf("failed to marshal sequence: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(finalPath), 0o700); err != nil {
-		return fmt.Errorf("failed to create pending sequences dir: %w", err)
+		return fmt.Errorf("failed to create sequences dir: %w", err)
 	}
 	tmpPath := finalPath + ".tmp"
 	if err := os.WriteFile(tmpPath, bytes, 0o600); err != nil {
@@ -86,10 +76,10 @@ func writePendingSequenceFile(finalPath string, pf datasync.PendingSequenceFile)
 	return nil
 }
 
-func toPendingResources(rs []datamanager.ResourceMethod) []datasync.PendingSequenceResource {
-	out := make([]datasync.PendingSequenceResource, len(rs))
+func toSequenceResources(rs []datamanager.ResourceMethod) []datasync.SequenceResource {
+	out := make([]datasync.SequenceResource, len(rs))
 	for i, r := range rs {
-		out[i] = datasync.PendingSequenceResource{
+		out[i] = datasync.SequenceResource{
 			ResourceName: r.ResourceName,
 			MethodName:   r.Method,
 		}
@@ -109,7 +99,7 @@ func persistOpenedSequences(captureDir string, opened []capture.OpenedSequence, 
 }
 
 // persistClosedSequences writes each closed sequence to disk as <id>.seq and removes the .progseq.
-func persistClosedSequences(captureDir string, closed []capture.PendingSequence, logger logging.Logger) {
+func persistClosedSequences(captureDir string, closed []capture.Sequence, logger logging.Logger) {
 	for _, c := range closed {
 		if err := writeClosedSequence(captureDir, c); err != nil {
 			logger.Errorw("failed to persist closed sequence",
@@ -121,18 +111,14 @@ func persistClosedSequences(captureDir string, closed []capture.PendingSequence,
 	}
 }
 
-// recoverOrphanedOpenSequences finalizes any .progseq files left from a previous process.
-// For each orphan, end_at is set to the file's mtime (best approximation of when the
-// previous process last wrote it). The orphan is then renamed to .seq for upload.
-//
-// Called once at startup, before the capture control poller begins, so no race with the
-// normal close path.
+// recoverOrphanedOpenSequences finalizes .progseq files left from a crashed previous process
+// by setting end_at to the file's mtime and writing them out as .seq. Called once at startup.
 func recoverOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 	dir := sequencesPath(captureDir)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			logger.Warnw("failed to scan pending sequences dir for orphans",
+			logger.Warnw("failed to scan sequences dir for orphans",
 				"error", err, "dir", dir)
 		}
 		return
@@ -149,8 +135,7 @@ func recoverOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 		id := strings.TrimSuffix(name, data.InProgressSequenceFileExt)
 		progPath := filepath.Join(dir, name)
 
-		// If a .seq with the same id already exists, this .progseq is a duplicate from
-		// a crash between writing .seq and removing .progseq. Just delete the orphan.
+		// A matching .seq means we crashed between writing it and removing the .progseq; dedup.
 		if _, err := os.Stat(seqFilePath(captureDir, id)); err == nil {
 			if rmErr := os.Remove(progPath); rmErr != nil {
 				logger.Warnw("failed to remove duplicate orphan .progseq",
@@ -165,7 +150,7 @@ func recoverOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 				"error", err, "path", progPath)
 			continue
 		}
-		var pf datasync.PendingSequenceFile
+		var pf datasync.SequenceFile
 		if err := json.Unmarshal(bytes, &pf); err != nil {
 			logger.Errorw("failed to parse orphan .progseq; leaving on disk for inspection",
 				"error", err, "path", progPath)
@@ -179,7 +164,7 @@ func recoverOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 		}
 		pf.EndAt = info.ModTime()
 
-		if err := writePendingSequenceFile(seqFilePath(captureDir, id), pf); err != nil {
+		if err := writeSequenceFile(seqFilePath(captureDir, id), pf); err != nil {
 			logger.Errorw("failed to finalize orphan .progseq to .seq",
 				"error", err, "id", id)
 			continue
