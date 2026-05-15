@@ -345,12 +345,39 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	resolution float64,
 	checkFinal bool,
 ) (*SegmentFS, error) {
+	seg, _, err := c.checkStateConstraintsAcrossSegmentFS(ctx, ci, resolution, checkFinal, 0)
+	return seg, err
+}
+
+// CheckStateConstraintsAcrossSegmentFSWithHint is like CheckStateConstraintsAcrossSegmentFS but accepts a
+// caller-supplied lower bound on the closest-obstacle distance at ci.StartConfiguration and returns a (still
+// conservative) lower bound on the closest-obstacle distance at the validated endpoint. Callers that walk a
+// chain of overlapping segments (e.g. an RRT extension where each segment's start is the previous segment's
+// end) can use the returned value as the hint for the next call to skip the collision sweep entirely while
+// the moving geometries remain far from any obstacle. Pass seedClosestObstacle <= 0 to indicate "no hint".
+func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFSWithHint(
+	ctx context.Context,
+	ci *SegmentFS,
+	resolution float64,
+	checkFinal bool,
+	seedClosestObstacle float64,
+) (*SegmentFS, float64, error) {
+	return c.checkStateConstraintsAcrossSegmentFS(ctx, ci, resolution, checkFinal, seedClosestObstacle)
+}
+
+func (c *ConstraintChecker) checkStateConstraintsAcrossSegmentFS(
+	ctx context.Context,
+	ci *SegmentFS,
+	resolution float64,
+	checkFinal bool,
+	seedClosestObstacle float64,
+) (*SegmentFS, float64, error) {
 	ctx, span := trace.StartSpan(ctx, "CheckStateConstraintsAcrossSegmentFS")
 	defer span.End()
 
 	interpolatedConfigurations, err := InterpolateSegmentFS(ci, resolution)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	var lastGood *referenceframe.LinearInputs
@@ -360,50 +387,55 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		end--
 	}
 
-	// collisionSkipsRemaining tracks how many upcoming interpolated steps are guaranteed
-	// to be collision-free because the closest obstacle at the last full check was farther
-	// than the cumulative workspace movement that can occur in that many steps. When a
-	// topological constraint (e.g. linear tolerance) is active we still must validate it
-	// on every interpolated configuration, but the expensive collision sweep can be skipped.
+	// distLowerBound is a conservative lower bound on the closest-obstacle distance for the
+	// configuration we last visited. After a full collision sweep it equals the true
+	// closestObstacle from that sweep; while we are skipping the collision sweep (counted
+	// by collisionSkipsRemaining) it is decremented by `resolution` per step, since each
+	// interpolated step advances at most `resolution` mm in workspace.
+	distLowerBound := math.Inf(1)
 	collisionSkipsRemaining := 0
+	if seedClosestObstacle > 0 {
+		collisionSkipsRemaining = int(min(100, math.Floor(seedClosestObstacle/resolution)))
+		distLowerBound = seedClosestObstacle
+	}
 
 	for i := 0; i < end; i++ {
-		interpConfig := interpolatedConfigurations[i]
-		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
-
-		if collisionSkipsRemaining > 0 && c.topoConstraint != nil {
-			if err := c.topoConstraint(interpC); err != nil {
-				if i == 0 {
-					return nil, err
+		if collisionSkipsRemaining > 0 {
+			// Closest obstacle at the last full sweep is still far enough that no collision
+			// could yet have occurred. Run only the (cheap) topological constraint.
+			if c.topoConstraint != nil {
+				interpC := &StateFS{FS: ci.FS, Configuration: interpolatedConfigurations[i]}
+				if err := c.topoConstraint(interpC); err != nil {
+					if lastGood == nil {
+						return nil, 0, err
+					}
+					return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, 0, err
 				}
-				return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
 			}
-			lastGood = interpC.Configuration
+			lastGood = interpolatedConfigurations[i]
 			collisionSkipsRemaining--
+			distLowerBound -= resolution
 			continue
 		}
 
+		interpC := &StateFS{FS: ci.FS, Configuration: interpolatedConfigurations[i]}
 		closestObstacle, err := c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
-			if i == 0 {
-				// fail on start pos
-				return nil, err
+			if lastGood == nil {
+				return nil, 0, err
 			}
-			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
+			return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, 0, err
 		}
 		lastGood = interpC.Configuration
+		distLowerBound = closestObstacle
 
 		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
 		if canSkip > 0 {
-			if c.topoConstraint == nil {
-				i += canSkip
-			} else {
-				collisionSkipsRemaining = canSkip
-			}
+			collisionSkipsRemaining = canSkip
 		}
 	}
 
-	return nil, nil
+	return nil, distLowerBound, nil
 }
 
 // CreateAllCollisionConstraints -.

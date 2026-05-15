@@ -227,16 +227,18 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 		oldNear = near
 
-		newNear := fixedStepInterpolation(near, target, qstep)
-		// Check whether newNear meets constraints, and if not, update it to a configuration that does meet constraints (or nil)
-		newNear = mp.constrainNear(ctx, oldNear.inputs, newNear)
+		newNearInputs := fixedStepInterpolation(near, target, qstep)
+		// Check whether newNearInputs meets constraints, and if not, update it to a configuration
+		// that does meet constraints (or nil). The hint lets us skip the collision sweep when the
+		// extension is still far from any obstacle.
+		newNearInputs, newNearClosestObstacle := mp.constrainNear(ctx, oldNear.inputs, newNearInputs, oldNear.closestObstacle)
 
-		if newNear == nil {
+		if newNearInputs == nil {
 			return oldNear
 		}
 
 		nearDist := mp.pc.configurationDistanceFunc(
-			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
+			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNearInputs})
 
 		if nearDist < math.Pow(mp.pc.planOpts.InputIdentDist, 3) {
 			if !doubled {
@@ -256,8 +258,8 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			qstep = mp.getFrameSteps(defaultFrameStep, iterationNumber, false)
 			doubled = false
 		}
-		// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
-		near = &node{inputs: newNear}
+		// constrainNear will ensure path between oldNear and newNearInputs satisfies constraints along the way
+		near = &node{inputs: newNearInputs, closestObstacle: newNearClosestObstacle}
 		rrtMap[near] = oldNear
 	}
 	return oldNear
@@ -265,12 +267,15 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 
 // constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
 // function has been specified, this will use that.
-// This function will return either a valid configuration that meets constraints, or nil.
+// This function will return either a valid configuration that meets constraints (plus a lower bound on
+// the distance from that configuration to the nearest obstacle, to be used as a hint on the next call),
+// or nil.
 func (mp *cBiRRTMotionPlanner) constrainNear(
 	ctx context.Context,
 	seedInputs,
 	target *referenceframe.LinearInputs,
-) *referenceframe.LinearInputs {
+	seedClosestObstacle float64,
+) (*referenceframe.LinearInputs, float64) {
 	if debugConstrainNear {
 		mp.logger.Infof("constrainNear called")
 		mp.logger.Infof("\t start: %v end: %v",
@@ -284,12 +289,13 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
+	_, endClosestObstacle, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFSWithHint(
+		ctx, newArc, mp.pc.planOpts.Resolution, true, seedClosestObstacle)
 	if debugConstrainNear {
 		mp.logger.Infof("\t err %v", err)
 	}
 	if err == nil {
-		return target
+		return target, endClosestObstacle
 	}
 
 	if len(mp.psc.pc.request.Constraints.OrientationConstraint) > 0 {
@@ -327,11 +333,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 			[][]float64{linearSeed}, [][]referenceframe.Limit{ik.ComputeAdjustLimits(linearSeed, mp.pc.lis.GetLimits(), .05)})
 		if err != nil {
 			mp.logger.Debugf("constrainNear fail (DoSolve): %v", err)
-			return nil
+			return nil, 0
 		}
 
 		if len(solutions) == 0 {
-			return nil
+			return nil, 0
 		}
 
 		if debugConstrainNear {
@@ -341,11 +347,11 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		target, err = mp.psc.pc.lis.FloatsToInputs(solutions[0])
 		if err != nil {
 			mp.logger.Infof("constrainNear fail (FloatsToInputs): %v", err)
-			return nil
+			return nil, 0
 		}
 	}
 
-	failpos, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(
+	failpos, endClosestObstacle, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFSWithHint(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
@@ -354,17 +360,18 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		},
 		mp.pc.planOpts.Resolution,
 		true,
+		seedClosestObstacle,
 	)
 	if debugConstrainNear {
 		mp.logger.Infof("\t failpos: %v err: %v", failpos != nil, err)
 	}
 	if err == nil {
-		return target
+		return target, endClosestObstacle
 	}
 
 	if failpos == nil {
 		// no forward progress
-		return nil
+		return nil, 0
 	}
 
 	dist := mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
@@ -374,14 +381,16 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 
 	if dist < mp.pc.planOpts.InputIdentDist {
 		// next position is no better, give up
-		return nil
+		return nil, 0
 	}
 
 	target = failpos.EndConfiguration
 	if debugConstrainNear {
 		mp.logger.Infof("\t new target %v", logging.FloatArrayFormat{"", target.GetLinearizedInputs()})
 	}
-	return target
+	// The partial-segment path did not complete a full collision sweep at `target`, so we have no
+	// trustworthy distance hint for it.
+	return target, 0
 }
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should

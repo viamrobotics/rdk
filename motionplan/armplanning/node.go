@@ -59,6 +59,10 @@ type node struct {
 	cost float64
 	// checkPath is true when the path has been checked and was determined to meet constraints
 	checkPath bool
+	// closestObstacle, if positive, is a lower bound on the distance from this configuration
+	// to the nearest obstacle, recorded the last time this configuration was validated. Used
+	// to skip the collision sweep on subsequent calls whose segment starts here.
+	closestObstacle float64
 }
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {

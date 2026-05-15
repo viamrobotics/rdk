@@ -2,6 +2,7 @@ package armplanning
 
 import (
 	"context"
+	"math"
 	"slices"
 	"time"
 
@@ -128,7 +129,20 @@ func findCloseObstacleWaypoints(
 
 	var closeWaypoints []*referenceframe.LinearInputs
 
+	resolution := psc.pc.planOpts.Resolution
+	closeThreshold := max(.1, 10*psc.pc.planOpts.CollisionBufferMM)
+	// When the closest-obstacle distance at one step is D, every subsequent
+	// interpolated step within floor((D - closeThreshold) / resolution) of it
+	// is guaranteed to still be farther than closeThreshold from any obstacle
+	// (each step advances at most `resolution` mm in workspace), so we can
+	// skip the collision sweep and the "close waypoint" check for those steps.
+	skipsRemaining := 0
 	for i := 1; i < len(interpolated)-1; i++ {
+		if skipsRemaining > 0 {
+			skipsRemaining--
+			continue
+		}
+
 		state := &motionplan.StateFS{
 			FS:            psc.pc.fs,
 			Configuration: interpolated[i],
@@ -139,9 +153,13 @@ func findCloseObstacleWaypoints(
 			return nil, err
 		}
 
-		if closestObstacle < max(.1, 10*psc.pc.planOpts.CollisionBufferMM) {
+		if closestObstacle < closeThreshold {
 			closeWaypoints = append(closeWaypoints, interpolated[i])
+			continue
 		}
+
+		// Cap at 100 to keep the bound conservative and bounded.
+		skipsRemaining = int(math.Min(100, math.Floor((closestObstacle-closeThreshold)/resolution)))
 	}
 
 	return closeWaypoints, nil
