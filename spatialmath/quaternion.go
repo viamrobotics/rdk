@@ -240,6 +240,19 @@ func TransformPoint(q quat.Number, translation, pt r3.Vector) r3.Vector {
 	}
 }
 
+// transformDirection applies a unit-quaternion rotation (no translation) to a direction vector.
+// Used to rotate normals and other direction-only quantities when transforming a triangle to world space.
+func transformDirection(q quat.Number, v r3.Vector) r3.Vector {
+	tx := q.Jmag*v.Z - q.Kmag*v.Y
+	ty := q.Kmag*v.X - q.Imag*v.Z
+	tz := q.Imag*v.Y - q.Jmag*v.X
+	return r3.Vector{
+		X: v.X + 2*(q.Real*tx+q.Jmag*tz-q.Kmag*ty),
+		Y: v.Y + 2*(q.Real*ty+q.Kmag*tx-q.Imag*tz),
+		Z: v.Z + 2*(q.Real*tz+q.Imag*ty-q.Jmag*tx),
+	}
+}
+
 // QuaternionAlmostEqual is an equality test for all the float components of a quaternion. Quaternions have double coverage, q == -q, and
 // this function will *not* account for this. Use OrientationAlmostEqual unless you're certain this is what you want.
 func QuaternionAlmostEqual(a, b quat.Number, tol float64) bool {
