@@ -359,9 +359,30 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	if !checkFinal {
 		end--
 	}
+
+	// collisionSkipsRemaining tracks how many upcoming interpolated steps are guaranteed
+	// to be collision-free because the closest obstacle at the last full check was farther
+	// than the cumulative workspace movement that can occur in that many steps. When a
+	// topological constraint (e.g. linear tolerance) is active we still must validate it
+	// on every interpolated configuration, but the expensive collision sweep can be skipped.
+	collisionSkipsRemaining := 0
+
 	for i := 0; i < end; i++ {
 		interpConfig := interpolatedConfigurations[i]
 		interpC := &StateFS{FS: ci.FS, Configuration: interpConfig}
+
+		if collisionSkipsRemaining > 0 && c.topoConstraint != nil {
+			if err := c.topoConstraint(interpC); err != nil {
+				if i == 0 {
+					return nil, err
+				}
+				return &SegmentFS{StartConfiguration: ci.StartConfiguration, EndConfiguration: lastGood, FS: ci.FS}, err
+			}
+			lastGood = interpC.Configuration
+			collisionSkipsRemaining--
+			continue
+		}
+
 		closestObstacle, err := c.CheckStateFSConstraints(ctx, interpC)
 		if err != nil {
 			if i == 0 {
@@ -373,8 +394,12 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 		lastGood = interpC.Configuration
 
 		canSkip := int(min(100, math.Floor(closestObstacle/resolution)))
-		if canSkip > 0 && c.topoConstraint == nil {
-			i += canSkip
+		if canSkip > 0 {
+			if c.topoConstraint == nil {
+				i += canSkip
+			} else {
+				collisionSkipsRemaining = canSkip
+			}
 		}
 	}
 
