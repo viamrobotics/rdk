@@ -118,7 +118,7 @@ func TestCylinderToMeshShape(t *testing.T) {
 	// Cached mesh: repeated calls return the same pointer.
 	test.That(t, c.ToMesh(), test.ShouldEqual, mesh)
 
-	// Every triangle vertex either lies on the side wall (|z|=h/2 OR x^2+y^2 ≈ r^2)
+	// Every triangle vertex either lies on the side wall (|z|=h/2 OR x^2+y^2 ~ r^2)
 	// or is a cap-center. Use unique vertices via a set.
 	const halfH = 3.0 // h/2
 	const r = 4.0
@@ -193,7 +193,7 @@ func TestCylinderCollidesWithBox(t *testing.T) {
 	test.That(t, col, test.ShouldBeTrue)
 	test.That(t, dist, test.ShouldBeLessThan, 0.0)
 
-	// Box flush above the cylinder in +Z — barely no collision with a small gap.
+	// Box flush above the cylinder in +Z -- barely no collision with a small gap.
 	gap := 2.0
 	above, err := NewBox(NewPoseFromPoint(r3.Vector{0, 0, 50 + gap + 10}), r3.Vector{20, 20, 20}, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -264,7 +264,7 @@ func TestCylinderCollidesWithCylinder(t *testing.T) {
 func TestCylinderDistanceFrom(t *testing.T) {
 	c := makeTestCylinder(NewZeroOrientation(), r3.Vector{}, 50, 100, "")
 
-	// Sphere far in +X: distance ≈ 200 - 50 - 10 = 140
+	// Sphere far in +X: distance ~ 200 - 50 - 10 = 140
 	s, err := NewSphere(NewPoseFromPoint(r3.Vector{200, 0, 0}), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 	dist, err := c.DistanceFrom(s)
@@ -304,7 +304,7 @@ func TestCylinderEncompassedBy(t *testing.T) {
 	test.That(t, enc, test.ShouldBeFalse)
 
 	// Sphere comfortably larger than the cylinder's diagonal extent
-	// (diagonal = sqrt(r^2 + (h/2)^2) = sqrt(100 + 100) ≈ 14.14).
+	// (diagonal = sqrt(r^2 + (h/2)^2) = sqrt(100 + 100) ~ 14.14).
 	bigSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 20, "")
 	test.That(t, err, test.ShouldBeNil)
 	enc, err = c.EncompassedBy(bigSphere)
@@ -318,7 +318,7 @@ func TestCylinderToPoints(t *testing.T) {
 	test.That(t, len(pts), test.ShouldBeGreaterThan, 0)
 
 	// Every sampled point should lie on or very near the tessellated surface:
-	// either |z| <= h/2 + eps and radial distance ≈ r (side), or |z| ≈ h/2 and
+	// either |z| <= h/2 + eps and radial distance ~ r (side), or |z| ~ h/2 and
 	// radial distance <= r + eps (cap). The 1.9% chord-error tolerance lets
 	// side samples sit slightly inside the true cylinder.
 	const r = 10.0
@@ -382,12 +382,12 @@ func TestEncompassedByCylinder(t *testing.T) {
 	test.That(t, enc, test.ShouldBeTrue)
 
 	// Sphere centered at origin with radius matching cyl radius: touches side wall
-	// but bulges past the caps (h/2 - r = 10 - 10 = 0, so |z|≤0 only at center).
+	// but bulges past the caps (h/2 - r = 10 - 10 = 0, so |z|<=0 only at center).
 	exactSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 10, "")
 	test.That(t, err, test.ShouldBeNil)
 	enc, err = exactSphere.EncompassedBy(cyl)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, enc, test.ShouldBeTrue) // center at z=0 ≤ 0, radial 0 ≤ 0
+	test.That(t, enc, test.ShouldBeTrue) // center at z=0 <= 0, radial 0 <= 0
 
 	// Sphere too big radially.
 	bulgeSphere, err := NewSphere(NewPoseFromPoint(r3.Vector{}), 11, "")
@@ -417,16 +417,16 @@ func TestEncompassedByCylinder(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, enc, test.ShouldBeFalse)
 
-	// --- Tilted cylinder: axis rotated 90° about Y, so cyl axis lies along world X. ---
+	// --- Tilted cylinder: axis rotated 90 deg about Y, so cyl axis lies along world X. ---
 	tilted := makeTestCylinder(&EulerAngles{0, math.Pi / 2, 0}, r3.Vector{}, 10, 20, "")
 
-	// World +X is now the cylinder's axial direction; |x|≤10 should be inside.
+	// World +X is now the cylinder's axial direction; |x|<=10 should be inside.
 	pAxial := NewPoint(r3.Vector{9, 0, 0}, "")
 	enc, err = pAxial.EncompassedBy(tilted)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, enc, test.ShouldBeTrue)
 
-	// World +Z is now radial; |z|≤10 inside.
+	// World +Z is now radial; |z|<=10 inside.
 	pRadial := NewPoint(r3.Vector{0, 0, 9}, "")
 	enc, err = pRadial.EncompassedBy(tilted)
 	test.That(t, err, test.ShouldBeNil)

@@ -119,9 +119,9 @@ func (c *Cylinder) MarshalJSON() ([]byte, error) {
 // matches c.pose).
 //
 //	         top cap (Z = +h/2)
-//	         ┌──┬──┬──...
-//	side ────┤  │  │       <-- 16 quads, each split into 2 triangles
-//	         └──┴──┴──...
+//	         +--+--+--...
+//	side ----|  |  |       <-- 16 quads, each split into 2 triangles
+//	         +--+--+--...
 //	         bottom cap (Z = -h/2)
 func (c *Cylinder) ToMesh() *Mesh {
 	return c.mesh
@@ -167,7 +167,7 @@ func (c *Cylinder) buildMesh() *Mesh {
 // commonpb. Any attempt to serialize a Cylinder over gRPC must be intercepted
 // upstream. This panic is intentional and load-bearing.
 func (c *Cylinder) ToProtobuf() *commonpb.Geometry {
-	panic("Cylinder.ToProtobuf: unimplemented — no Cylinder message in commonpb")
+	panic("Cylinder.ToProtobuf: unimplemented -- no Cylinder message in commonpb")
 }
 
 // asMeshIfCylinder converts g to its mesh form when g is a *Cylinder. Mesh's
@@ -194,7 +194,7 @@ func (c *Cylinder) DistanceFrom(g Geometry) (float64, error) {
 
 // EncompassedBy delegates to the Cylinder's tessellated mesh. Mesh.EncompassedBy
 // checks every triangle vertex; since the Cylinder is convex and its mesh
-// vertices lie exactly on its surface, "all vertices inside g ⇒ Cylinder inside g".
+// vertices lie exactly on its surface, "all vertices inside g => Cylinder inside g".
 func (c *Cylinder) EncompassedBy(g Geometry) (bool, error) {
 	return c.ToMesh().EncompassedBy(asMeshIfCylinder(g))
 }
