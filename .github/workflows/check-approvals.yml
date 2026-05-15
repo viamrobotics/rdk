@@ -1,0 +1,43 @@
+name: Check PR Approvals
+
+# Enforces a minimum approval count on PRs opened from `claude/**` branches.
+# To make this a required gate, add it as a required status check in the
+# branch-protection rule (or ruleset) that targets `main`.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches: [main]
+  pull_request_review:
+    types: [submitted, dismissed, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  check-approvals:
+    if: >-
+      github.repository_owner == 'viamrobotics' &&
+      startsWith(github.event.pull_request.head.ref, 'claude/')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      issues: write
+    steps:
+      # viamrobotics/claude-ci-workflows@v2.0.0
+      - name: Checkout claude-ci-workflows for composite action
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: viamrobotics/claude-ci-workflows
+          ref: aa76787c145ed43f8f7b9bae4d978da4f9850001
+          path: .claude-ci-workflows
+          sparse-checkout: |
+            .github/actions/check-approvals/
+          sparse-checkout-cone-mode: false
+
+      - name: Check approvals
+        uses: ./.claude-ci-workflows/.github/actions/check-approvals
+        with:
+          pr_number: ${{ github.event.pull_request.number }}
+          min_approvals: '2'
+          github_token: ${{ secrets.GITHUB_TOKEN }}

@@ -207,21 +207,6 @@ func createUniqueCollisionMap(geoms []spatialmath.Geometry) (map[string]spatialm
 	return geomMap, nil
 }
 
-func firstMovingParentOrself(fs *referenceframe.FrameSystem, f referenceframe.Frame) referenceframe.Frame {
-	var err error
-	for f != fs.World() {
-		if len(f.DoF()) > 0 {
-			return f
-		}
-
-		f, err = fs.Parent(f)
-		if err != nil {
-			panic(err) // should be impossible
-		}
-	}
-	return f
-}
-
 func skipCollisionCheck(ignoreList map[string]map[string]bool, xName, yName string) bool {
 	// Skip comparing a geometry to itself
 	if xName == yName {

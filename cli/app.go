@@ -97,13 +97,18 @@ const (
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
+	moduleFlagGenerateType    = "generate-type"
+	moduleFlagAppName         = "app-name"
+	moduleFlagAppType         = "app-type"
 	moduleFlagUpload          = "upload"
+	moduleFlagAnnotation      = "annotation"
 
 	moduleBuildFlagRef         = "ref"
 	moduleBuildFlagWait        = "wait"
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
 	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagBuilder     = "builder"
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
 	moduleBuildFlagNoBuild     = "no-build"
@@ -454,10 +459,11 @@ func formatAcceptedValues(description string, values ...string) string {
 }
 
 var app = &cli.Command{
-	Name:            "viam",
-	Usage:           "interact with your Viam machines",
-	UsageText:       "viam [global options] <command> [command options]",
-	HideHelpCommand: true,
+	Name:                  "viam",
+	Usage:                 "interact with your Viam machines",
+	UsageText:             "viam [global options] <command> [command options]",
+	EnableShellCompletion: true,
+	HideHelpCommand:       true,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:   baseURLFlag,
@@ -3438,12 +3444,16 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					UsageText: createUsageText("module generate", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagGenerateType,
+							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
+						},
+						&cli.StringFlag{
 							Name:  generalFlagName,
-							Usage: "name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
+							Usage: "(module only) name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
-							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
+							Usage: formatAcceptedValues("(module only) language to use for module", supportedModuleGenLanguages...),
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagVisibility,
@@ -3456,7 +3466,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
-							Usage: "resource subtype to use in module, for example arm, camera, or motion. see " +
+							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
 								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
@@ -3468,7 +3478,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagModelName,
-							Usage: "name for the particular resource subtype implementation." +
+							Usage: "(module only) name for the particular resource subtype implementation." +
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
@@ -3479,6 +3489,14 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
 							Hidden: true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppName,
+							Usage: "(app only) name for the app",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppType,
+							Usage: formatAcceptedValues("(app only) app type", "single_machine", "multi_machine"),
 						},
 					},
 					Action: createActionCommandWithT[generateModuleArgs](GenerateModuleAction),
@@ -3500,7 +3518,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				{
 					Name:      "update-models",
 					Usage:     "update a module's metadata file based on models it provides",
-					UsageText: createUsageText("module update-models", []string{moduleFlagBinary}, true, false),
+					UsageText: createUsageText("module update-models", []string{}, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:      moduleFlagPath,
@@ -3509,9 +3527,10 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							TakesFile: true,
 						},
 						&cli.StringFlag{
-							Name:     moduleFlagBinary,
-							Usage:    "binary for the module to run (has to work on this os/processor)",
-							Required: true,
+							Name: moduleFlagBinary,
+							Usage: "binary for the module to run (has to work on this os/processor) like ./dist/main; " +
+								"if omitted, uses entrypoint from meta.json",
+							TakesFile: true,
 						},
 					},
 					Action: createActionCommandWithT[updateModelsArgs](UpdateModelsAction),
@@ -3656,6 +3675,11 @@ Example:
 									Name: moduleBuildFlagPlatforms,
 									// would use 'DefaultText' key, but defaults don't show for slice flags
 									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuilder,
+									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+									Value: "default",
 								},
 							},
 							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),
@@ -3915,6 +3939,10 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Usage:       "The path to the root of the module's git repo to build",
 							DefaultText: ".",
 							TakesFile:   true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAnnotation,
+							Usage: "Annotation to describe the purpose of the reload build",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

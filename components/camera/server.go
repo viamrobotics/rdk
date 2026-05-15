@@ -97,7 +97,12 @@ func (s *serviceServer) GetPointCloud(
 		return nil, err
 	}
 
+	// If the camera resource is a client, make the call directly so that we're not doing extra working
+	// encoding/decoding the response.
 	if camClient, ok := camera.(*client); ok {
+		// If the camera has a prefix on this viam-server but not the remote, we need to take it out before
+		// forwarding the request.
+		req.Name = camera.Name().Name
 		return camClient.client.GetPointCloud(ctx, req)
 	}
 

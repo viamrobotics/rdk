@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -268,7 +269,7 @@ func (sa *simulatedArm) EndPosition(
 func (sa *simulatedArm) MoveToPosition(
 	ctx context.Context, pose spatialmath.Pose, extra map[string]interface{},
 ) error {
-	return errors.New("unimplemented -- must call with explicit joint positions")
+	return armplanning.MoveArm(ctx, sa.logger, sa, pose)
 }
 
 func (sa *simulatedArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

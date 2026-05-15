@@ -183,40 +183,116 @@ func (t *Triangle) CollidesWith(g Geometry, collisionBufferMM float64) (bool, fl
 }
 
 // collidesWithTriangle checks collision between two triangles.
+//
+// Structured to avoid the redundancy in the prior implementation. Previously the
+// function called ClosestPointsSegmentTriangle 6× (each segment against the other
+// triangle, both directions), and each call internally did 3 segment-segment
+// edge checks — for 18 CPSS calls covering only 9 unique edge-edge pairs.
+//
+// We now split the work into:
+//   - Phase 1: 6 segment-vs-triangle-plane checks (3 segments of each side,
+//     needed both directions since each plane is different). Catches the case
+//     where one triangle's segment projects onto the other's interior face.
+//   - Phase 2: 9 unique edge-edge CPSS calls. Edge-edge distance is symmetric,
+//     so once per (edge_of_t, edge_of_other) pair is enough.
+//
+// Compared to the old code this halves CPSS calls in the non-coplanar case,
+// which is the dominant cost in mesh-vs-mesh collision queries.
 func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float64) (bool, float64) {
-	p1 := t.Points()
-	p2 := other.Points()
-	minDist := math.Inf(1)
+	bufferN2 := collisionBufferMM * collisionBufferMM
+	minDistN2 := math.Inf(1)
 
-	// Check segments from t against other
-	for i := 0; i < 3; i++ {
-		start := p1[i]
-		end := p1[(i+1)%3]
-		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, other)
-		dist := bestSegPt.Sub(bestTriPt).Norm()
-		if dist <= collisionBufferMM {
-			return true, -1
-		}
-		if dist < minDist {
-			minDist = dist
+	tCache := computeTriCache(t)
+	oCache := computeTriCache(other)
+
+	// --- Phase 1a: each edge of t projected onto the plane of other. ---
+	// When the projection lies inside other's triangle, the segment-plane point
+	// pair is the closest pair for that segment-vs-other-face contact mode.
+	if d, hit := planeProjDistN2(t.p0, t.p1, other, &oCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+	if d, hit := planeProjDistN2(t.p1, t.p2, other, &oCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+	if d, hit := planeProjDistN2(t.p2, t.p0, other, &oCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+
+	// --- Phase 1b: each edge of other projected onto the plane of t. ---
+	if d, hit := planeProjDistN2(other.p0, other.p1, t, &tCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+	if d, hit := planeProjDistN2(other.p1, other.p2, t, &tCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+	if d, hit := planeProjDistN2(other.p2, other.p0, t, &tCache, bufferN2); hit {
+		return true, -1
+	} else if d < minDistN2 {
+		minDistN2 = d
+	}
+
+	// --- Phase 2: 9 unique edge-edge pairs. ---
+	// Cache each t-edge's direction vector and squared length once so the inner
+	// loop's CPSS calls don't recompute them.
+	type edgeCache struct {
+		p0, p1, dir r3.Vector
+		n2          float64
+	}
+	tEdges := [3]edgeCache{
+		{t.p0, t.p1, tCache.e0, tCache.a}, // edge p0->p1, dir = e0
+		{t.p1, t.p2, t.p2.Sub(t.p1), 0},   // n2 filled below
+		{t.p2, t.p0, r3.Vector{X: -tCache.e1.X, Y: -tCache.e1.Y, Z: -tCache.e1.Z}, tCache.c},
+	}
+	tEdges[1].n2 = tEdges[1].dir.Norm2()
+	oEdges := [3]edgeCache{
+		{other.p0, other.p1, oCache.e0, oCache.a},
+		{other.p1, other.p2, other.p2.Sub(other.p1), 0},
+		{other.p2, other.p0, r3.Vector{X: -oCache.e1.X, Y: -oCache.e1.Y, Z: -oCache.e1.Z}, oCache.c},
+	}
+	oEdges[1].n2 = oEdges[1].dir.Norm2()
+
+	for i := range tEdges {
+		te := &tEdges[i]
+		for j := range oEdges {
+			oe := &oEdges[j]
+			sp, tp := closestPointsSegmentSegmentCached(te.p0, te.p1, te.dir, te.n2, oe.p0, oe.p1)
+			d := sp.Sub(tp).Norm2()
+			if d <= bufferN2 {
+				return true, -1
+			}
+			if d < minDistN2 {
+				minDistN2 = d
+			}
 		}
 	}
 
-	// Check segments from other against t
-	for i := 0; i < 3; i++ {
-		start := p2[i]
-		end := p2[(i+1)%3]
-		bestSegPt, bestTriPt := ClosestPointsSegmentTriangle(start, end, t)
-		dist := bestSegPt.Sub(bestTriPt).Norm()
-		if dist <= collisionBufferMM {
-			return true, -1
-		}
-		if dist < minDist {
-			minDist = dist
-		}
-	}
+	return false, math.Sqrt(minDistN2)
+}
 
-	return false, minDist
+// planeProjDistN2 projects a segment onto a triangle's plane and, if the
+// projected point lies inside the triangle, returns the squared distance from
+// segment to triangle. If the projection is outside the triangle, returns +Inf
+// (meaning "no candidate from this contact mode"); the caller is expected to
+// pick up the edge-edge case separately. The bool return is true iff the
+// candidate distance is ≤ the squared buffer (collision).
+func planeProjDistN2(start, end r3.Vector, tri *Triangle, tc *triCache, bufferN2 float64) (float64, bool) {
+	sp := closestSegPointToPlane(start, end, tri.p0, tri.normal)
+	tp, inside := closestTriInsidePointCached(tri, tc, sp)
+	if !inside {
+		return math.Inf(1), false
+	}
+	d := sp.Sub(tp).Norm2()
+	return d, d <= bufferN2
 }
 
 // collidesWithSphere checks if triangle collides with a sphere.

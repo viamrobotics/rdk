@@ -5,7 +5,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -45,13 +44,6 @@ var (
 func NewManager(
 	ctx context.Context, parentAddrs config.ParentSockAddrs, logger logging.Logger, options modmanageroptions.Options,
 ) (*Manager, error) {
-	if use, _ := rutils.OnlyUseViamTCPSockets(); !use {
-		var err error
-		parentAddrs.UnixAddr, err = rutils.CleanWindowsSocketPath(runtime.GOOS, parentAddrs.UnixAddr)
-		if err != nil {
-			return nil, err
-		}
-	}
 	if options.HandleOrphanedResources == nil {
 		return nil, errors.New("Cannot construct modmanager without a handleOrphanedResources function")
 	}
@@ -262,7 +254,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		}
 		seen[conf.Name] = struct{}{}
 
-		// The config was already validated, but we must check again before attempting to add.
+		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			mgr.AddToFailedModules(conf.Name)

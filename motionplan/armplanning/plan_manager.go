@@ -275,7 +275,13 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 				return nil, false, fmt.Errorf("frame mismatch %v %v", start[frameName].Parent(), pif.Parent())
 			}
 			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
-			to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
+
+			if i < numSteps {
+				to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
+			} else {
+				// If this is the last step, copy over any goal cloud the plan request declared.
+				to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
+			}
 		}
 
 		waypoints = append(waypoints, to)

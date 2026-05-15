@@ -16,6 +16,7 @@ const (
 	position method = iota
 	lengths
 	doCommand
+	getWorldPose
 )
 
 func (m method) String() string {
@@ -26,6 +27,8 @@ func (m method) String() string {
 		return "Lengths"
 	case doCommand:
 		return "DoCommand"
+	case getWorldPose:
+		return "GetWorldPose"
 	}
 	return "Unknown"
 }
@@ -99,6 +102,19 @@ func newDoCommandCollector(resource interface{}, params data.CollectorParams) (d
 	}
 
 	cFunc := data.NewDoCommandCaptureFunc(gantry, params)
+	return data.NewCollector(cFunc, params)
+}
+
+// newGetWorldPoseCollector returns a collector to capture the gantry's world-space pose via the frame system.
+// If one is already registered with the same MethodMetadata it will panic.
+func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	if _, err := assertGantry(resource); err != nil {
+		return nil, err
+	}
+	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
+	if err != nil {
+		return nil, err
+	}
 	return data.NewCollector(cFunc, params)
 }
 

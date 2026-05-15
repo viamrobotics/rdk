@@ -4,6 +4,7 @@ constexpr auto orgID = "{{ .OrgID }}";
 
 constexpr auto moduleName = "{{ .ModuleName }}";
 constexpr auto modulePascal = "{{ .ModulePascal }}";
+constexpr auto moduleSnake = "{{ .ModuleSnake }}";
 
 constexpr auto modelPascal = "{{ .ModelPascal }}";
 constexpr auto modelSnake = "{{ .ModelSnake }}";

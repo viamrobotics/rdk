@@ -81,14 +81,16 @@ func (l *Limit) Jog(val, percentJog float64) float64 {
 	return val
 }
 
-// GoodLimits gives min, max, range, but capped to -999,999.
+// GoodLimits gives min, max, range. Infinite limits are capped to +/- rangeLimit to bound
+// the search space. Finite limits are returned as-is so explicitly configured ranges
+// are not silently truncated.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min
 	b := l.Max
-	if a < -1*rangeLimit {
+	if math.IsInf(a, -1) {
 		a = -1 * rangeLimit
 	}
-	if b > rangeLimit {
+	if math.IsInf(b, 1) {
 		b = rangeLimit
 	}
 	return a, b, b - a
@@ -357,6 +359,44 @@ func (nf *namedFrame) Geometries(inputs []Input) (*GeometriesInFrame, error) {
 // Hash returns a hash value for this named frame.
 func (nf *namedFrame) Hash() int {
 	return nf.Frame.Hash() + hashString(nf.name)
+}
+
+// namedFrameJSON is the on-disk representation of a namedFrame. The wrapped inner
+// frame is stored as a raw message so it can be dispatched through frameToJSON /
+// jsonToFrame the same way any other Frame implementation would be.
+type namedFrameJSON struct {
+	Name       string          `json:"name"`
+	InnerFrame json.RawMessage `json:"inner_frame"`
+}
+
+// MarshalJSON serializes a namedFrame by recording the overriding name and
+// delegating serialization of the wrapped frame to frameToJSON so the wrapped
+// frame's concrete type is preserved.
+func (nf *namedFrame) MarshalJSON() ([]byte, error) {
+	innerJSON, err := frameToJSON(nf.Frame)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(&namedFrameJSON{
+		Name:       nf.name,
+		InnerFrame: innerJSON,
+	})
+}
+
+// UnmarshalJSON reconstructs a namedFrame, dispatching the wrapped inner frame
+// back through jsonToFrame so the correct concrete type is rebuilt.
+func (nf *namedFrame) UnmarshalJSON(data []byte) error {
+	var j namedFrameJSON
+	if err := json.Unmarshal(data, &j); err != nil {
+		return err
+	}
+	inner, err := jsonToFrame(j.InnerFrame)
+	if err != nil {
+		return err
+	}
+	nf.Frame = inner
+	nf.name = j.Name
+	return nil
 }
 
 // NewNamedFrame will return a frame which has a new name but otherwise passes through all functions of the original frame.
@@ -888,6 +928,9 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, nil
 			}
 		}
+	case *namedFrame:
+		f2 := frame2.(*namedFrame)
+		return framesAlmostEqual(f1.Frame, f2.Frame, epsilon)
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}

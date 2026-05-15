@@ -3,7 +3,6 @@ package gripper
 
 import (
 	"context"
-	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/gripper/v1"
@@ -15,11 +14,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
-
-// ErrGeometriesNil is the returned error if gripper geometries are nil.
-var ErrGeometriesNil = func(gripperName string) error {
-	return fmt.Errorf("gripper component %v Geometries should not return nil geometries", gripperName)
-}
 
 // serviceServer implements the GripperService from gripper.proto.
 type serviceServer struct {
@@ -95,6 +89,39 @@ func (s *serviceServer) IsHoldingSomething(ctx context.Context, req *pb.IsHoldin
 	return &pb.IsHoldingSomethingResponse{IsHoldingSomething: holdingStatus.IsHoldingSomething, Meta: meta}, nil
 }
 
+// GetCurrentInputs returns the current input values of the gripper.
+func (s *serviceServer) GetCurrentInputs(
+	ctx context.Context,
+	req *pb.GetCurrentInputsRequest,
+) (*pb.GetCurrentInputsResponse, error) {
+	gripper, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	inputs, err := gripper.CurrentInputs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	values := make([]float64, len(inputs))
+	for i, in := range inputs {
+		values[i] = float64(in)
+	}
+	return &pb.GetCurrentInputsResponse{Values: values}, nil
+}
+
+// GoToInputs moves the gripper to the given input values.
+func (s *serviceServer) GoToInputs(ctx context.Context, req *pb.GoToInputsRequest) (*pb.GoToInputsResponse, error) {
+	gripper, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	inputs := make([]referenceframe.Input, len(req.Values))
+	for i, v := range req.Values {
+		inputs[i] = referenceframe.Input(v)
+	}
+	return &pb.GoToInputsResponse{}, gripper.GoToInputs(ctx, inputs)
+}
+
 // DoCommand receives arbitrary commands.
 func (s *serviceServer) DoCommand(ctx context.Context,
 	req *commonpb.DoCommandRequest,
@@ -114,9 +141,6 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
-	}
-	if geometries == nil {
-		return nil, ErrGeometriesNil(req.GetName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

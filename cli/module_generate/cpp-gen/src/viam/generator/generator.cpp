@@ -89,7 +89,7 @@ Generator::Generator(GeneratorCompDB db,
 void Generator::header_prefix() {
     include_stmts();
 
-    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleName);
+    *headerOut_ << llvm::formatv("namespace {0} {\n\n", fmt_str::moduleSnake);
 
     const char* fmt =
         R"--(
@@ -114,7 +114,7 @@ namespace {1} {
 
 )--",
                               fmt_str::modelSnake,
-                              fmt_str::moduleName);
+                              fmt_str::moduleSnake);
 
     const char* ctorFmt = R"--(
 {0}::{0}(const viam::sdk::Dependencies& deps, const viam::sdk::ResourceConfig& cfg)
@@ -379,6 +379,12 @@ install(
     DESTINATION .
 )
 
+file(READ "${{CMAKE_CURRENT_SOURCE_DIR}}/meta.json" _META_JSON)
+string(JSON _FIRST_RUN ERROR_VARIABLE _FR_ERR GET "${{_META_JSON}}" "first_run")
+if(NOT _FR_ERR AND _FIRST_RUN AND EXISTS "${{CMAKE_CURRENT_SOURCE_DIR}}/${{_FIRST_RUN}}")
+    install(FILES "${{_FIRST_RUN}}" DESTINATION .)
+endif()
+
 install(TARGETS {0})
 
 set(CPACK_PACKAGE_NAME "{0}")
@@ -414,6 +420,16 @@ class {0}Recipe(ConanFile):
 
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = "CMakeLists.txt", "src/*", "main.cpp", "meta.json"
+
+    def export_sources(self):
+        import json, os
+        from conan.tools.files import copy
+        meta_path = os.path.join(self.recipe_folder, "meta.json")
+        if os.path.exists(meta_path):
+            with open(meta_path) as f:
+                first_run = json.load(f).get("first_run", "")
+            if first_run and os.path.exists(os.path.join(self.recipe_folder, first_run)):
+                copy(self, first_run, src=self.recipe_folder, dst=self.export_sources_folder)
 
     def layout(self):
         cmake_layout(self)
@@ -452,7 +468,7 @@ void Generator::run() {
 
     *headerOut_ << "};\n\n";
 
-    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleName);
+    const auto close_ns = llvm::formatv("} // namespace {0}\n\n", fmt_str::moduleSnake);
 
     *headerOut_ << close_ns;
     *srcOut_ << close_ns;

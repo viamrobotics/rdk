@@ -21,12 +21,16 @@ if [ "$GITHUB_REF_NAME" != "main" ]; then
     exit 0
 fi
 
-# If we don't have a direct tag, use the most recent non-RC tag
-DESC=$(git describe --tags --match="v*" --exclude="*-rc*" --long | sed 's/^v//')
+# Find the highest stable tag globally (not just ancestors of HEAD).
+# Release tags are cut on release branches and are not reachable from main,
+# so `git describe` would otherwise report an older tag than the true latest.
+LATEST_TAG=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
 
-BASE_VERSION=$(echo "$DESC" | cut -d'-' -f1)
-COMMITS_SINCE_TAG=$(echo "$DESC" | cut -d'-' -f2)
-COMMIT_HASH=$(echo "$DESC" | cut -d'-' -f3 | sed 's/^g//')
+BASE_VERSION=$(echo "$LATEST_TAG" | sed 's/^v//')
+# rev-list A..HEAD is set-subtraction on reachable commits; it works even when
+# A is not an ancestor of HEAD (i.e. tag lives on a release branch).
+COMMITS_SINCE_TAG=$(git rev-list --count "${LATEST_TAG}..HEAD")
+COMMIT_HASH=$(git rev-parse --short=9 HEAD)
 
 # Calculate next version by incrementing patch number
 NEXT_VERSION=$(echo "$BASE_VERSION" | awk -F. '{$3+=1}1' OFS=.)

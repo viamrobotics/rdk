@@ -66,20 +66,21 @@ func (o *DelimitedProtoWriter[_]) Close() error {
 // Append marshals the provided message and writes it to the underlying
 // [io.Writer].
 func (o *DelimitedProtoWriter[M]) Append(message M) error {
-	messageBytes, err := proto.Marshal(message)
+	// Manually create the buffer w/ 4 bytes reserved at the front. After the
+	// proto is marshaled we write its length these bytes as a little endian
+	// uint32, then pass the entire thing to a single Write call. Making multiple
+	// write calls creates a race condition that can result in invalid trace
+	// files.
+	buffer := make([]byte, 4)
+	marshaller := proto.MarshalOptions{}
+	buffer, err := marshaller.MarshalAppend(buffer, message)
 	if err != nil {
 		return err
 	}
-	messageLen := uint32(len(messageBytes))
-	messageLenBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(messageLenBytes, messageLen)
-	for _, buffer := range [][]byte{messageLenBytes, messageBytes} {
-		_, err := o.writer.Write(buffer)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	messageLen := uint32(len(buffer) - 4)
+	binary.LittleEndian.PutUint32(buffer, messageLen)
+	_, err = o.writer.Write(buffer)
+	return err
 }
 
 // Close will close the underlying reader if it is a [io.Closer]. Otherwise it

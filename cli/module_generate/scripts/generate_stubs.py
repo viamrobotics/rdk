@@ -63,6 +63,26 @@ def replace_async_func(
         func.returns = update_annotation(resource_name, func.returns, nodes, parent)
 
 
+def resolve_import_module(base_module: str, level: int, module: str) -> str:
+    parts = base_module.split(".")
+    base_parts = parts[:-level]
+    return ".".join(base_parts) + ("." + module if module else "")
+
+
+def is_abstract_class(cls: ast.ClassDef) -> bool:
+    for node in ast.walk(cls):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                if isinstance(decorator, ast.Name) and decorator.id == "abstractmethod":
+                    return True
+                if (
+                    isinstance(decorator, ast.Attribute)
+                    and decorator.attr == "abstractmethod"
+                ):
+                    return True
+    return False
+
+
 def return_subclass(
     resource_name: str, stmt: ast.ClassDef, parent: str = ""
 ) -> List[str]:
@@ -99,7 +119,6 @@ def main(
     mod_name: str,
     model_name: str,
 ) -> str:
-    import isort
     from slugify import slugify
 
     module_name = f"viam.{resource_type}s.{resource_subtype}.{resource_subtype}"
@@ -129,29 +148,33 @@ def main(
                         if imp.asname
                         else f"import {imp.name}"
                     )
-            elif (
-                isinstance(stmt, ast.ImportFrom)
-                and stmt.module
-                and stmt.module not in modules_to_ignore
-            ):
-                i_strings = ", ".join(
-                    [
-                        (
-                            f"{imp.name} as {imp.asname}"
-                            if imp.asname is not None
-                            else imp.name
-                        )
-                        for imp in stmt.names
-                    ]
+            elif isinstance(stmt, ast.ImportFrom):
+                abs_module = (
+                    resolve_import_module(module_name, stmt.level, stmt.module)
+                    if stmt.level > 0
+                    else stmt.module
                 )
-                i = f"from {stmt.module} import {i_strings}"
-                imports.append(i)
+                if abs_module and abs_module not in modules_to_ignore:
+                    i_strings = ", ".join(
+                        [
+                            (
+                                f"{imp.name} as {imp.asname}"
+                                if imp.asname is not None
+                                else imp.name
+                            )
+                            for imp in stmt.names
+                        ]
+                    )
+                    imports.append(f"from {abs_module} import {i_strings}")
             elif isinstance(stmt, ast.ClassDef) and stmt.name == resource_name:
                 for cstmt in stmt.body:
                     if isinstance(cstmt, ast.ClassDef):
-                        subclasses.append(return_subclass(resource_name, cstmt))
+                        nodes.add(cstmt.name)
                     elif isinstance(cstmt, ast.AnnAssign):
                         nodes.add(cstmt.target.id)
+                for cstmt in stmt.body:
+                    if isinstance(cstmt, ast.ClassDef) and is_abstract_class(cstmt):
+                        subclasses.append(return_subclass(resource_name, cstmt))
                     elif isinstance(cstmt, ast.AsyncFunctionDef):
                         replace_async_func(resource_name, cstmt, nodes)
                         indented_code = "\n".join(
@@ -248,19 +271,41 @@ class {3}({4}, EasyResource):
         f.write(resource_file)
         try:
             f.seek(0)
-            subprocess.check_call([sys.executable, "-m", "black", f_name, "-q"])
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "ruff",
+                    "format",
+                    "--quiet",
+                    f_name,
+                ]
+            )
+            f.seek(0)
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "ruff",
+                    "check",
+                    "--select",
+                    "F401,F811,I",
+                    "--fix",
+                    "--fix-only",
+                    "--quiet",
+                    f_name,
+                ]
+            )
             f.seek(0)
             resource_file = f.read()
         except subprocess.CalledProcessError:
             pass
     os.remove(f_name)
-    sorted_code = isort.code(resource_file)
-
-    return sorted_code
+    return resource_file
 
 
 if __name__ == "__main__":
-    packages = ["viam-sdk", "typing-extensions", "black", "isort", "python-slugify"]
+    packages = ["viam-sdk", "typing-extensions", "ruff", "python-slugify"]
     if sys.argv[2] == "mlmodel":
         packages.append("numpy")
     install_res = subprocess.run(

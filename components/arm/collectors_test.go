@@ -127,3 +127,12 @@ func newArm() arm.Arm {
 	}
 	return a
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       arm.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newArm() },
+	})
+}

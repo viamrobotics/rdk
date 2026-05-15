@@ -67,7 +67,7 @@ require (
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pion/interceptor v0.1.42
 	github.com/pion/logging v0.2.4
-	github.com/pion/mediadevices v0.9.0
+	github.com/pion/mediadevices v0.10.0
 	github.com/pion/rtp v1.8.26
 	github.com/pion/stun v0.6.1
 	github.com/prometheus/procfs v0.15.1
@@ -75,6 +75,7 @@ require (
 	github.com/rhysd/actionlint v1.7.8
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
+	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/samber/lo v1.51.0
 	github.com/sergi/go-diff v1.4.0
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -100,23 +101,24 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.537
+	go.viam.com/api v0.1.548
 	go.viam.com/test v1.2.4
-	go.viam.com/utils v0.4.17
+	go.viam.com/utils v0.4.19
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
+	golang.org/x/net v0.49.0
 	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.40.0
 	golang.org/x/term v0.39.0
 	golang.org/x/text v0.33.0
 	golang.org/x/time v0.10.0
 	golang.org/x/tools v0.40.0
-	gonum.org/v1/gonum v0.16.0
+	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.15.2
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409
-	google.golang.org/grpc v1.79.3
+	google.golang.org/grpc v1.80.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.5.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -295,13 +297,11 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
-	github.com/srikrsna/protoc-gen-gotag v0.6.2 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
@@ -331,7 +331,6 @@ require (
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/mod v0.31.0 // indirect
-	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.196.0 // indirect

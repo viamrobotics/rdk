@@ -79,3 +79,12 @@ func newEncoder() encoder.Encoder {
 	}
 	return e
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       encoder.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newEncoder() },
+	})
+}
