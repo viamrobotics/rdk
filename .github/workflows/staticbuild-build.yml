@@ -47,6 +47,13 @@ jobs:
       # otherwise we get a 'read-only filesystem' error when symlinking over this
       - /tmp/node20:/__e/node20
     timeout-minutes: 15
+    # id-token: write enables Workload Identity Federation for the windows-only signing step.
+    # The rest of this workflow still uses the GCP_CREDENTIALS SA key for GCS uploads; WIF is
+    # scoped to signing only because the EV code-signing key has a much larger blast radius
+    # than bucket upload. Migrating the upload path to WIF is tracked separately.
+    permissions:
+      id-token: write
+      contents: read
     outputs:
       date: ${{ steps.build_date.outputs.date }}
       channel: ${{ steps.build_date.outputs.channel }}
@@ -84,15 +91,64 @@ jobs:
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
+    - name: Authorize signing (windows)
+      # Separate WIF-based auth so the signing access token is minted via OIDC for this repo,
+      # not derived from the long-lived GCP_CREDENTIALS SA key. Matches the viam_vnc setup.
+      if: matrix.target == 'static-release-win'
+      id: signing-auth
+      uses: google-github-actions/auth@v3
+      with:
+        token_format: 'access_token'
+        project_id: 'engineering-tools-310515'
+        workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
+        service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
+
+    - name: Fetch code-signing cert (windows)
+      if: matrix.target == 'static-release-win'
+      id: signing-cert
+      uses: google-github-actions/get-secretmanager-secrets@v2
+      with:
+        secrets: |
+          cert:projects/385154741571/secrets/ev-code-signing-public-key
+
+    - name: Set up Authenticode signing (windows)
+      if: matrix.target == 'static-release-win'
+      env:
+        SIGNING_CERT: ${{ steps.signing-cert.outputs.cert }}
+        GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
+      run: |
+        apt-get update
+        # jsign 7 needs Java 11+; antique2's apt may not have 17, so fall back if needed.
+        apt-get install -y openjdk-17-jre-headless || apt-get install -y openjdk-11-jre-headless
+        curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
+        printf '%s' "$SIGNING_CERT" > /tmp/cert.pem
+        printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
+        # testbot (the build user) must be able to read the cert/token and execute the helper.
+        chmod 644 /tmp/cert.pem /tmp/gcp-access-token /tmp/jsign.jar
+        cat > /tmp/sign-binary.sh <<'EOF'
+        #!/bin/bash
+        set -euo pipefail
+        java -jar /tmp/jsign.jar \
+          --storetype GOOGLECLOUD \
+          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key \
+          --storepass "$(cat /tmp/gcp-access-token)" \
+          --alias ev-code-signing-key/cryptoKeyVersions/2 \
+          --certfile /tmp/cert.pem \
+          --name "Viam Server" \
+          --tsaurl http://timestamp.digicert.com \
+          "$1"
+        EOF
+        chmod 755 /tmp/sign-binary.sh
+
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -108,12 +164,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
 
     - name: Set Date and Channel
       id: build_date
