@@ -548,9 +548,13 @@ func triangleLeafCollide(
 	// maxGeomsPerLeaf bounds the leaf size, so a fixed-size stack array is safe.
 	// triLocals[i] is the original *Triangle from geoms2[i]; recorded into witness
 	// on collision so callers get a stable handle (not the world-space copy).
+	// triMin/triMax are the world-space 3-point AABBs of each triangle, used
+	// as a cheap lower-bound pre-filter on the inner triangle-pair loop.
 	var worldT2s [maxGeomsPerLeaf]Triangle
 	var triLocals2 [maxGeomsPerLeaf]*Triangle
+	var t2Min, t2Max [maxGeomsPerLeaf]r3.Vector
 	n2 := len(geoms2)
+	bufferN2 := collisionBufferMM * collisionBufferMM
 	for i := 0; i < n2; i++ {
 		tri := geoms2[i].(*Triangle)
 		triLocals2[i] = tri
@@ -560,6 +564,7 @@ func triangleLeafCollide(
 			p2:     TransformPoint(q2, t2, tri.p2),
 			normal: transformDirection(q2, tri.normal),
 		}
+		t2Min[i], t2Max[i] = triAABB(&worldT2s[i])
 	}
 
 	minDist := math.Inf(1)
@@ -571,7 +576,19 @@ func triangleLeafCollide(
 			p2:     TransformPoint(q1, t1, tri1.p2),
 			normal: transformDirection(q1, tri1.normal),
 		}
+		t1MinV, t1MaxV := triAABB(&worldT1)
 		for i := 0; i < n2; i++ {
+			// AABB pre-filter: skip the (much more expensive) triangle-triangle
+			// distance check when the triangles' AABBs are already separated by
+			// more than minDist and more than the collision buffer — neither
+			// the collision verdict nor the minDist return can improve.
+			dx := math.Max(0, math.Max(t1MinV.X-t2Max[i].X, t2Min[i].X-t1MaxV.X))
+			dy := math.Max(0, math.Max(t1MinV.Y-t2Max[i].Y, t2Min[i].Y-t1MaxV.Y))
+			dz := math.Max(0, math.Max(t1MinV.Z-t2Max[i].Z, t2Min[i].Z-t1MaxV.Z))
+			lbN2 := dx*dx + dy*dy + dz*dz
+			if lbN2 > bufferN2 && lbN2 >= minDist {
+				continue
+			}
 			collides, dist := worldT1.collidesWithTriangle(&worldT2s[i], collisionBufferMM)
 			if collides {
 				if witness != nil {
@@ -580,12 +597,30 @@ func triangleLeafCollide(
 				}
 				return true, -1, nil
 			}
-			if dist < minDist {
-				minDist = dist
+			// Use squared distance to match the squared lower-bound semantics.
+			dist2 := dist * dist
+			if dist2 < minDist {
+				minDist = dist2
 			}
 		}
 	}
-	return false, minDist, nil
+	if math.IsInf(minDist, 1) {
+		return false, minDist, nil
+	}
+	return false, math.Sqrt(minDist), nil
+}
+
+// triAABB returns the 3-point AABB of a triangle in whatever space its points are in.
+func triAABB(t *Triangle) (r3.Vector, r3.Vector) {
+	return r3.Vector{
+			X: math.Min(math.Min(t.p0.X, t.p1.X), t.p2.X),
+			Y: math.Min(math.Min(t.p0.Y, t.p1.Y), t.p2.Y),
+			Z: math.Min(math.Min(t.p0.Z, t.p1.Z), t.p2.Z),
+		}, r3.Vector{
+			X: math.Max(math.Max(t.p0.X, t.p1.X), t.p2.X),
+			Y: math.Max(math.Max(t.p0.Y, t.p1.Y), t.p2.Y),
+			Z: math.Max(math.Max(t.p0.Z, t.p1.Z), t.p2.Z),
+		}
 }
 
 // bvhDistanceFromBVH computes the minimum distance between two BVH trees.

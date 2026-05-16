@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -461,6 +462,13 @@ func NewCollisionConstraintFS(
 		movingLabels[g.Label()] = true
 	}
 
+	// hint caches the most recently violated (geomLabel, geomLabel) pair across
+	// calls to this constraint. The next call re-checks that pair first so
+	// obstructed-edge interpolation can reject in O(1) pair checks rather than
+	// O(N·M). atomic.Pointer makes concurrent goroutine access lock-free; stale
+	// reads are harmless (just degrade to no-hint).
+	var hint atomic.Pointer[[2]string]
+
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
 		// Use FrameSystemGeometries to get all geometries in the frame system
@@ -485,8 +493,8 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGeoms
 		}
 
-		collisions, minDist, err := CheckCollisions(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		collisions, minDist, err := checkCollisionsHinted(
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, &hint)
 		if err != nil {
 			return minDist, err
 		}
