@@ -693,16 +693,34 @@ func bvhDistanceFromBVH(node1, node2 *bvhNode, pose1, pose2 Pose) (float64, erro
 	return minDist, nil
 }
 
-// bvhCollidesWithGeometry traverses the BVH checking against a single geometry.
-// The BVH stores geometries in local space; bvhPose is applied lazily during traversal.
-// The 'other' geometry is assumed to already be in world space.
-func bvhCollidesWithGeometry(
+// bvhCollidesWithGeometryTracked traverses the BVH checking against a single
+// geometry. The BVH stores geometries in local space; bvhPose is applied lazily
+// during traversal. The 'other' geometry is assumed to already be in world space.
+// On a true return it also reports the colliding (local-space) Triangle from the
+// BVH when the BVH was triangle-typed — used by (*Mesh).collidesWithGeometryBVH
+// to seed a per-other-label temporal-coherence cache so subsequent queries with
+// nearby poses can re-check the same triangle directly and skip the BVH entirely.
+func bvhCollidesWithGeometryTracked(
 	node *bvhNode,
 	bvhPose Pose,
 	other Geometry,
 	otherMin,
 	otherMax r3.Vector,
 	buffer float64,
+) (bool, float64, *Triangle, error) {
+	var witness *Triangle
+	collides, dist, err := bvhCollidesWithGeometryRec(node, bvhPose, other, otherMin, otherMax, buffer, &witness)
+	return collides, dist, witness, err
+}
+
+func bvhCollidesWithGeometryRec(
+	node *bvhNode,
+	bvhPose Pose,
+	other Geometry,
+	otherMin,
+	otherMax r3.Vector,
+	buffer float64,
+	witness **Triangle,
 ) (bool, float64, error) {
 	if node == nil {
 		return false, math.Inf(1), nil
@@ -726,9 +744,40 @@ func bvhCollidesWithGeometry(
 
 	// Leaf node: check each geometry against other
 	if node.geoms != nil {
+		// All-triangle fast path: transform each triangle into a stack-local
+		// Triangle value so we don't allocate a *Triangle per leaf geometry
+		// (which is what g.Transform(bvhPose) would do).
+		if allLeafTriangles(node.geoms) {
+			q := bvhPose.Orientation().Quaternion()
+			trans := bvhPose.Point()
+			minDist := math.Inf(1)
+			for _, g := range node.geoms {
+				tri := g.(*Triangle)
+				worldT := Triangle{
+					p0:     TransformPoint(q, trans, tri.p0),
+					p1:     TransformPoint(q, trans, tri.p1),
+					p2:     TransformPoint(q, trans, tri.p2),
+					normal: transformDirection(q, tri.normal),
+				}
+				collides, dist, err := worldT.CollidesWith(other, buffer)
+				if err != nil {
+					return false, 0, err
+				}
+				if collides {
+					if witness != nil {
+						*witness = tri
+					}
+					return true, -1, nil
+				}
+				if dist < minDist {
+					minDist = dist
+				}
+			}
+			return false, minDist, nil
+		}
+		// Fallback: heterogeneous-leaf path with Geometry-interface dispatch.
 		minDist := math.Inf(1)
 		for _, g := range node.geoms {
-			// Transform geometry to world space
 			worldG := g.Transform(bvhPose)
 			collides, dist, err := worldG.CollidesWith(other, buffer)
 			if err != nil {
@@ -745,11 +794,11 @@ func bvhCollidesWithGeometry(
 	}
 
 	// Internal node: recurse
-	leftCollide, leftDist, err := bvhCollidesWithGeometry(node.left, bvhPose, other, otherMin, otherMax, buffer)
+	leftCollide, leftDist, err := bvhCollidesWithGeometryRec(node.left, bvhPose, other, otherMin, otherMax, buffer, witness)
 	if err != nil || leftCollide {
 		return leftCollide, leftDist, err
 	}
-	rightCollide, rightDist, err := bvhCollidesWithGeometry(node.right, bvhPose, other, otherMin, otherMax, buffer)
+	rightCollide, rightDist, err := bvhCollidesWithGeometryRec(node.right, bvhPose, other, otherMin, otherMax, buffer, witness)
 	if err != nil || rightCollide {
 		return rightCollide, rightDist, err
 	}

@@ -68,6 +68,12 @@ type meshState struct {
 	// lock-free; staleness is harmless (a stale witness just falls through to
 	// the full BVH path).
 	witnesses sync.Map // *meshState -> *witnessPair
+
+	// geomWitness is the parallel cache for mesh-vs-non-mesh-geometry collision
+	// (capsule, box, sphere, etc.). Keyed by the other geometry's label, since
+	// the other side has no shared meshState pointer to use as identity but its
+	// label is stable across the planner's per-state Geometry rebuilding.
+	geomWitness sync.Map // string (other.Label()) -> *Triangle
 }
 
 // witnessPair records a previously-colliding triangle pair so that subsequent
@@ -568,14 +574,55 @@ func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM
 }
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
+//
+// Implements the same temporal-coherence witness cache as collidesWithMesh, keyed
+// here by the other geometry's label (since non-mesh geometries don't have a
+// shared meshState pointer). When the planner interpolates an obstructed edge,
+// the same colliding (mesh-triangle, arm-link-geom) pair repeats — the cache hit
+// re-checks just that triangle vs the other geometry and skips the BVH entirely.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	bvh := m.ensureBVH()
 	if bvh == nil {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
+
+	// Witness cache fast path. Only applies when this mesh has state AND the
+	// other geometry has a non-empty label (the cache key).
+	otherLabel := other.Label()
+	if m.state != nil && otherLabel != "" {
+		if v, ok := m.state.geomWitness.Load(otherLabel); ok {
+			wt := v.(*Triangle)
+			if witnessTriCollidesWith(wt, m.pose, other, collisionBufferMM) {
+				return true, -1, nil
+			}
+		}
+	}
+
 	otherMin, otherMax := computeGeometryAABB(other)
-	// Pass mesh pose to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithGeometry(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	collides, dist, witness, err := bvhCollidesWithGeometryTracked(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	if err != nil {
+		return false, 0, err
+	}
+	if collides && witness != nil && m.state != nil && otherLabel != "" {
+		m.state.geomWitness.Store(otherLabel, witness)
+	}
+	return collides, dist, nil
+}
+
+// witnessTriCollidesWith re-checks a cached colliding triangle (from m's BVH)
+// against an arbitrary other geometry under fresh poses. Operates on a stack-
+// local world-space Triangle so the cache check itself allocates nothing.
+func witnessTriCollidesWith(tri *Triangle, meshPose Pose, other Geometry, collisionBufferMM float64) bool {
+	q := meshPose.Orientation().Quaternion()
+	trans := meshPose.Point()
+	worldT := Triangle{
+		p0:     TransformPoint(q, trans, tri.p0),
+		p1:     TransformPoint(q, trans, tri.p1),
+		p2:     TransformPoint(q, trans, tri.p2),
+		normal: transformDirection(q, tri.normal),
+	}
+	collides, _, err := worldT.CollidesWith(other, collisionBufferMM)
+	return err == nil && collides
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
