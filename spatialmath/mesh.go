@@ -50,6 +50,34 @@ type Mesh struct {
 	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
 	uniqueVerts     []r3.Vector
 	uniqueVertsOnce sync.Once
+
+	// state holds per-logical-mesh data that survives Transform copies. Its
+	// pointer is the stable identity used as the cache key for inter-mesh
+	// witness lookups (see witnessPair). NewMesh allocates this; Transform
+	// copies the pointer so the planner's per-config Transform clones share
+	// the same witness cache as their parent mesh.
+	state *meshState
+}
+
+// meshState is the shared substructure of Mesh that survives Transform. Two
+// Mesh values are considered the same "logical mesh" iff they share a *meshState
+// — that's how the witness cache identifies meshes across pose changes.
+type meshState struct {
+	// witnesses maps another meshState pointer (the other mesh's identity) to
+	// the most recently observed colliding triangle pair. Reads and writes are
+	// lock-free; staleness is harmless (a stale witness just falls through to
+	// the full BVH path).
+	witnesses sync.Map // *meshState -> *witnessPair
+}
+
+// witnessPair records a previously-colliding triangle pair so that subsequent
+// collision queries between the same two meshes (e.g. consecutive interpolation
+// steps of a planner edge) can re-check that one pair directly and skip the BVH
+// when it's still in collision. Triangles are stored as pointers into each
+// mesh's local-space triangle slice — stable across Transform copies because
+// the slice is shared.
+type witnessPair struct {
+	t1, t2 *Triangle
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -69,6 +97,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
+		state:     &meshState{},
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -163,6 +192,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
+		state:     &meshState{},
 	}, nil
 }
 
@@ -215,6 +245,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
+		state:     &meshState{},
 	}, nil
 }
 
@@ -301,6 +332,9 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		originalFilePath: m.originalFilePath,
 		bvh:              m.ensureBVH(),
 		uniqueVerts:      m.ensureUniqueVertices(),
+		// Share state across transforms so the witness cache survives the
+		// per-config Transform clones that the planner produces.
+		state: m.state,
 	}
 }
 
@@ -474,12 +508,63 @@ func (m *Mesh) ensureBVH() *bvhNode {
 
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
+//
+// Before traversing the BVH, this checks the witness cache for a recently-
+// observed colliding triangle pair against `other`. When the cache hit still
+// collides under the current poses, the BVH traversal is skipped entirely —
+// a big win for planner edge-checks that interpolate many similar poses, where
+// the same pair stays in collision call after call. On a cache miss (no entry,
+// or cached pair no longer collides) we fall through to the full BVH path and
+// — if a new collision is found — update the cache.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
-	// Pass poses to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+
+	// Witness cache fast path. Only applies when both meshes have shared
+	// state (set by all standard constructors); meshes built from raw struct
+	// literals fall through to BVH.
+	if m.state != nil && other.state != nil {
+		if v, ok := m.state.witnesses.Load(other.state); ok {
+			w := v.(*witnessPair)
+			if witnessStillCollides(w.t1, w.t2, m.pose, other.pose, collisionBufferMM) {
+				return true, -1, nil
+			}
+		}
+	}
+
+	collides, dist, witness, err := bvhCollidesWithBVHTracked(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+	if err != nil {
+		return false, 0, err
+	}
+	if collides && witness[0] != nil && witness[1] != nil && m.state != nil && other.state != nil {
+		m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
+	}
+	return collides, dist, nil
+}
+
+// witnessStillCollides re-checks a cached colliding triangle pair under fresh
+// poses. Operates on stack-local Triangle values so the cache check itself
+// allocates nothing.
+func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM float64) bool {
+	q1 := pose1.Orientation().Quaternion()
+	tr1 := pose1.Point()
+	q2 := pose2.Orientation().Quaternion()
+	tr2 := pose2.Point()
+	worldT1 := Triangle{
+		p0:     TransformPoint(q1, tr1, t1.p0),
+		p1:     TransformPoint(q1, tr1, t1.p1),
+		p2:     TransformPoint(q1, tr1, t1.p2),
+		normal: transformDirection(q1, t1.normal),
+	}
+	worldT2 := Triangle{
+		p0:     TransformPoint(q2, tr2, t2.p0),
+		p1:     TransformPoint(q2, tr2, t2.p1),
+		p2:     TransformPoint(q2, tr2, t2.p2),
+		normal: transformDirection(q2, t2.normal),
+	}
+	collides, _ := worldT1.collidesWithTriangle(&worldT2, collisionBufferMM)
+	return collides
 }
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.

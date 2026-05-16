@@ -61,6 +61,7 @@ func (m *Mesh) ConservativeDecimate(targetTriangles int) (*Mesh, error) {
 		triangles: enclosingTris,
 		label:     m.label,
 		fileType:  plyType,
+		state:     &meshState{},
 	}
 	decimated.rawBytes = decimated.TrianglesToPLYBytes(false)
 	decimated.SetOriginalFilePath(m.originalFilePath)

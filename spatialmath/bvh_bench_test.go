@@ -416,3 +416,93 @@ func BenchmarkBVHVsBVHQuery(b *testing.B) {
 		}
 	})
 }
+
+// BenchmarkMeshEdgeInterpolation simulates the motion planner's edge-check
+// workload: a sequence of collision queries between the same two meshes under
+// slightly-different poses, mimicking interpolated states along one RRT edge.
+// Without the witness cache each query traverses the full BVH; with it, the
+// first cache write lets subsequent queries skip the BVH and just re-check the
+// cached colliding triangle pair.
+//
+// Two mesh layouts:
+//   - "scattered": background triangles + small overlap zone, like a robot link
+//     vs an obstacle where only a few triangle pairs are actually in contact.
+//   - "interpenetrating": meshes whose AABBs are mostly overlapping, like the
+//     case where collision is "deep" and persists across pose perturbations.
+func BenchmarkMeshEdgeInterpolation(b *testing.B) {
+	const bgCount = 1024
+	bg1 := benchmarkTriangleGeometries(bgCount)
+	bg2 := benchmarkTriangleGeometries(bgCount)
+	tris1 := make([]*Triangle, bgCount+1)
+	tris2 := make([]*Triangle, bgCount+1)
+	for i := 0; i < bgCount; i++ {
+		tris1[i] = bg1[i].(*Triangle)
+		tris2[i] = bg2[i].(*Triangle)
+	}
+	// Add a deliberately-interpenetrating triangle pair: two triangles that
+	// cross each other so collisions are robust against small pose shifts
+	// (unlike coplanar shifts of identical triangles, which are degenerate).
+	tris1[bgCount] = NewTriangle(
+		r3.Vector{X: 100, Y: 100, Z: 0},
+		r3.Vector{X: 110, Y: 100, Z: 0},
+		r3.Vector{X: 105, Y: 110, Z: 0},
+	)
+	tris2[bgCount] = NewTriangle(
+		r3.Vector{X: 105, Y: 105, Z: -5},
+		r3.Vector{X: 105, Y: 105, Z: 5},
+		r3.Vector{X: 115, Y: 105, Z: 0},
+	)
+
+	// "Interpolation": tiny translations along a short trajectory. 32 steps
+	// approximates the resolution checkPath uses per planner edge.
+	const steps = 32
+	poses := make([]Pose, steps)
+	for i := 0; i < steps; i++ {
+		t := float64(i) / float64(steps-1)
+		poses[i] = NewPose(r3.Vector{X: t * 0.5, Y: t * 0.3, Z: t * 0.2}, NewZeroOrientation())
+	}
+
+	// Pre-transform once per pose to isolate the cache benefit from the
+	// per-iter Mesh.Transform cost (which is identical between warm and cold
+	// runs and would otherwise dominate).
+	mesh1 := NewMesh(NewZeroPose(), tris1, "m1")
+	mesh2 := NewMesh(NewZeroPose(), tris2, "m2")
+	mesh1.ensureBVH()
+	mesh2.ensureBVH()
+	m2s := make([]*Mesh, steps)
+	for i, p := range poses {
+		m2s[i] = mesh2.Transform(p).(*Mesh)
+	}
+
+	b.Run("warm_cache", func(b *testing.B) {
+		b.ReportAllocs()
+		// Clear once to start each run with the same state; the cache then
+		// warms up over the first iteration and stays warm.
+		mesh1.state.witnesses.Delete(mesh2.state)
+		for i := 0; i < b.N; i++ {
+			collides, d, err := mesh1.collidesWithMesh(m2s[i%steps], 0)
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchmarkBoolSink = collides
+			benchmarkFloatSink = d
+		}
+	})
+
+	// Cold-cache variant: clear the witness cache entry before each call so
+	// every query falls through to the full BVH traversal. BVHs are pre-built
+	// (kept across iterations) to isolate the witness-cache effect from the
+	// BVH-build cost.
+	b.Run("cold_cache", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			mesh1.state.witnesses.Delete(mesh2.state)
+			collides, d, err := mesh1.collidesWithMesh(m2s[i%steps], 0)
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchmarkBoolSink = collides
+			benchmarkFloatSink = d
+		}
+	})
+}
