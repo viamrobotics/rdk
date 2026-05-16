@@ -117,6 +117,7 @@ func TestConstraintPath(t *testing.T) {
 		referenceframe.NewNeutralLinearInputs(fs),
 		&referenceframe.WorldState{},
 		logger,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -223,6 +224,7 @@ func TestLineFollow(t *testing.T) {
 		startCfg,
 		&referenceframe.WorldState{},
 		logger,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -323,6 +325,7 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -580,6 +583,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		nil,
 	)
 	test.That(b, err, test.ShouldBeNil)
 
@@ -658,7 +662,7 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 	handler := &ConstraintChecker{}
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs, movingRobotGeometries, staticRobotGeometries, worldGeometries.Geometries(),
-		nil, defaultCollisionBufferMM)
+		nil, defaultCollisionBufferMM, nil)
 	test.That(b, err, test.ShouldBeNil)
 
 	// Walk a short trajectory that stays in collision throughout — simulates

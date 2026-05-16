@@ -476,9 +476,6 @@ func BenchmarkMeshEdgeInterpolation(b *testing.B) {
 
 	b.Run("warm_cache", func(b *testing.B) {
 		b.ReportAllocs()
-		// Clear once to start each run with the same state; the cache then
-		// warms up over the first iteration and stays warm.
-		mesh1.state.witnesses.Delete(mesh2.state)
 		for i := 0; i < b.N; i++ {
 			collides, d, err := mesh1.collidesWithMesh(m2s[i%steps], 0)
 			if err != nil {
@@ -489,10 +486,8 @@ func BenchmarkMeshEdgeInterpolation(b *testing.B) {
 		}
 	})
 
-	// Cold-cache variant: clear the witness cache entry before each call so
-	// every query falls through to the full BVH traversal. BVHs are pre-built
-	// (kept across iterations) to isolate the witness-cache effect from the
-	// BVH-build cost.
+	// Cold-cache variant: clear the per-mesh witness cache entry before each
+	// call so every query falls through to the full BVH traversal.
 	b.Run("cold_cache", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {

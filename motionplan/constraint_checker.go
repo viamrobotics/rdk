@@ -60,6 +60,9 @@ func NewEmptyConstraintChecker(logger logging.Logger) *ConstraintChecker {
 }
 
 // NewConstraintChecker - creates a ConstraintChecker with all the params.
+// When cache is non-nil, the resulting constraint closures use it for
+// temporal-coherence short-circuits (pair hints + per-triangle witnesses).
+// Typically supplied by the planner from planContext.cache; nil disables caching.
 func NewConstraintChecker(
 	collisionBufferMM float64,
 	constraints *Constraints,
@@ -69,6 +72,7 @@ func NewConstraintChecker(
 	seedMap *referenceframe.LinearInputs,
 	worldState *referenceframe.WorldState,
 	logger logging.Logger,
+	cache *CollisionCache,
 ) (*ConstraintChecker, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
@@ -111,6 +115,7 @@ func NewConstraintChecker(
 		worldGeometries,
 		allowedCollisions,
 		collisionBufferMM,
+		cache,
 	)
 	if err != nil {
 		return nil, err
@@ -382,14 +387,27 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	return nil, nil
 }
 
-// CreateAllCollisionConstraints -.
+// CreateAllCollisionConstraints builds the three collision constraint
+// functions (obstacle / robot-vs-robot / self-collision). When cache is non-nil,
+// each constraint uses its dedicated pair-hint slot on the cache plus the
+// shared witness store; nil disables all caching.
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
+	cache *CollisionCache,
 ) (CollisionConstraints, error) {
 	var constraints CollisionConstraints
+
+	// Each constraint type gets its own pair-hint slot from the cache so the
+	// three hints don't trample each other across constraint invocations.
+	var obstacleHint, robotHint, selfHint *atomic.Pointer[[2]string]
+	if cache != nil {
+		obstacleHint = &cache.obstaclePairHint
+		robotHint = &cache.robotPairHint
+		selfHint = &cache.selfPairHint
+	}
 
 	if len(worldGeometries) > 0 {
 		// create constraint to keep moving geometries from hitting world state obstacles
@@ -400,6 +418,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			obstacleHint,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -415,6 +434,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			robotHint,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -431,6 +451,7 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			true,
+			selfHint,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -443,12 +464,17 @@ func CreateAllCollisionConstraints(
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
+//
+// When pairHint is non-nil, the closure uses it to remember the most-recently-
+// violated (geomA, geomB) pair and try that pair first on the next call.
+// Per-triangle witness caching lives one layer below on the Mesh itself.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
+	pairHint *atomic.Pointer[[2]string],
 ) (CollisionConstraintFunc, error) {
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
 		collisionSpecifications, collisionBufferMM)
@@ -461,13 +487,6 @@ func NewCollisionConstraintFS(
 	for _, g := range moving {
 		movingLabels[g.Label()] = true
 	}
-
-	// hint caches the most recently violated (geomLabel, geomLabel) pair across
-	// calls to this constraint. The next call re-checks that pair first so
-	// obstructed-edge interpolation can reject in O(1) pair checks rather than
-	// O(N·M). atomic.Pointer makes concurrent goroutine access lock-free; stale
-	// reads are harmless (just degrade to no-hint).
-	var hint atomic.Pointer[[2]string]
 
 	// create constraint from reference collision graph
 	constraint := func(state *StateFS) (float64, error) {
@@ -494,7 +513,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, &hint)
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint)
 		if err != nil {
 			return minDist, err
 		}

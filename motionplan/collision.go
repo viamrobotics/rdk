@@ -122,15 +122,15 @@ func CheckCollisions(
 }
 
 // checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
-// "last-violated pair" hint. When hint != nil and points to a non-nil [2]string,
-// that pair is checked first — if it still collides, we return immediately
-// without scanning the rest. On any new collision found, the hint is atomically
-// updated so the next call to the same constraint hits the same pair first.
+// per-constraint "last-violated pair" hint. When hint is non-nil, that pair is
+// tried first; if it still collides, we return immediately. On any new collision
+// the hint is atomically updated.
 //
-// This is the broad-phase analog of the mesh-level witness cache: when the
-// planner interpolates an obstructed edge, the colliding (geomA, geomB) pair
-// stays the same across many adjacent states, so checking that pair first lets
-// each subsequent state reject in O(1) pair checks instead of O(N·M).
+// Per-triangle witness caching lives one layer below, on the *Mesh itself
+// (m.state.witnesses / m.state.geomWitness). Routing that through this function
+// would require an interface dispatch + parameter threading per call, and the
+// per-call overhead was visibly slower than direct field access — so the witness
+// cache stays where it is.
 func checkCollisionsHinted(
 	gg, other []spatialmath.Geometry,
 	allowedCollisions []Collision,
@@ -168,9 +168,8 @@ func checkCollisionsHinted(
 		return !collectAllCollisions
 	}
 
-	// checkOnePair does the actual geometry-geometry collision check with the
-	// existing "try the other direction on error" fallback. Returns whether the
-	// caller should early-return.
+	// checkOnePair runs the geometry-geometry collision check with the existing
+	// "try the other direction on error" fallback.
 	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
 		isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
 		if err != nil {
