@@ -7,14 +7,25 @@ import (
 	"math"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
+	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+// meshStateIDCounter assigns a unique uint64 to every meshState at construction
+// so the negative cache key can mix in stable pair identity without unsafe.Pointer.
+var meshStateIDCounter atomic.Uint64
+
+// newMeshState constructs a meshState with a unique id.
+func newMeshState() *meshState {
+	return &meshState{id: meshStateIDCounter.Add(1)}
+}
 
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
 // Copyright 2021 The Brax Authors, which is licensed under the Apache License Version 2.0 (the "License").
@@ -64,6 +75,11 @@ type Mesh struct {
 // the stable identity used for mesh-vs-mesh witness keying — two Mesh values
 // that share a *meshState are the "same logical mesh" for caching purposes.
 type meshState struct {
+	// id is a process-unique identifier assigned at construction. Used as a
+	// stable pair identity in the negative cache hash without resorting to
+	// unsafe.Pointer arithmetic.
+	id uint64
+
 	// witnesses caches the colliding triangle pair for mesh-vs-mesh queries.
 	// Keyed by the other mesh's *meshState pointer; pointer keys avoid the
 	// per-call boxing cost of [2]string keys in sync.Map.
@@ -73,12 +89,75 @@ type meshState struct {
 	// (capsule, box, sphere). Keyed by the other geometry's label — non-mesh
 	// geometries don't have a shared meshState pointer to use as identity.
 	geomWitness sync.Map // string (other.Label()) -> *Triangle
+
+	// negCache memoizes "no collision" verdicts for mesh-vs-mesh queries.
+	// Witness caching only short-circuits *colliding* pairs; in workloads where
+	// the same two meshes are repeatedly checked at the same world poses and
+	// return "no collision" each time (e.g., arm self-collision between non-
+	// adjacent links during RRT smoothing), every call walks the full BVH.
+	// Diagnostic on salad1.json showed 7 unique relative poses accounting for
+	// ~380 ~1ms BVH walks; caching the verdict turns subsequent calls into a
+	// hash lookup.
+	//
+	// Key is a uint64 hash of (other's *meshState, m.pose, other.pose). Value
+	// is *negCacheEntry which carries the original key components so we can
+	// verify on lookup — hash collisions are rare but treated as cache misses
+	// (the cached entry is overwritten by the next BVH walk anyway).
+	negCache sync.Map // uint64 -> *negCacheEntry
 }
 
 // witnessPair records a previously-colliding triangle pair so subsequent
 // collision queries between the same meshes can short-circuit the BVH walk.
 type witnessPair struct {
 	t1, t2 *Triangle
+}
+
+// negCacheEntry stores a verified "no collision" verdict for a specific pair
+// at specific world poses. The pose snapshot lets us reject hash collisions
+// before returning a stale result.
+type negCacheEntry struct {
+	other     *meshState
+	aPt, bPt  r3.Vector
+	aq, bq    quat.Number
+	minDistSq float64
+}
+
+// negCacheKey hashes (other identity, both world poses) into a uint64. FNV-1a
+// over the 14 pose floats plus the other-state pointer address. We then verify
+// the actual values on lookup to neutralize hash collisions.
+func negCacheKey(other *meshState, aPose, bPose Pose) uint64 {
+	apt := aPose.Point()
+	bpt := bPose.Point()
+	aq := aPose.Orientation().Quaternion()
+	bq := bPose.Orientation().Quaternion()
+	const fnvPrime = 0x100000001b3
+	h := uint64(0xcbf29ce484222325)
+	h ^= other.id
+	h *= fnvPrime
+	for _, v := range [14]float64{
+		apt.X, apt.Y, apt.Z, aq.Real, aq.Imag, aq.Jmag, aq.Kmag,
+		bpt.X, bpt.Y, bpt.Z, bq.Real, bq.Imag, bq.Jmag, bq.Kmag,
+	} {
+		h ^= math.Float64bits(v)
+		h *= fnvPrime
+	}
+	return h
+}
+
+// negCacheEntryMatches verifies that a cache hit really represents the same
+// pair-at-same-poses we're querying — guards against the (rare) hash collision.
+func negCacheEntryMatches(e *negCacheEntry, other *meshState, aPose, bPose Pose) bool {
+	if e.other != other {
+		return false
+	}
+	apt := aPose.Point()
+	bpt := bPose.Point()
+	if e.aPt != apt || e.bPt != bpt {
+		return false
+	}
+	aq := aPose.Orientation().Quaternion()
+	bq := bPose.Orientation().Quaternion()
+	return e.aq == aq && e.bq == bq
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -98,7 +177,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
-		state:     &meshState{},
+		state:     newMeshState(),
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -193,7 +272,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
-		state:     &meshState{},
+		state:     newMeshState(),
 	}, nil
 }
 
@@ -246,7 +325,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
-		state:     &meshState{},
+		state:     newMeshState(),
 	}, nil
 }
 
@@ -525,21 +604,38 @@ func (m *Mesh) ensureBVH() *bvhNode {
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
 //
-// Witness cache: the previously-colliding triangle pair (keyed by the other
-// mesh's *meshState pointer) is re-checked first; a still-colliding witness
-// short-circuits the BVH walk. On a fresh collision the witness is stored.
-// The cache lives on m.state and is shared across all Transform-derived copies
-// of the same logical mesh.
+// Two-tier cache lives on m.state and is shared across all Transform-derived
+// copies of the same logical mesh:
+//
+//   - Positive witness: the previously-colliding triangle pair (keyed by the
+//     other mesh's *meshState pointer) is re-checked first; a still-colliding
+//     witness short-circuits the BVH walk.
+//   - Negative cache: previously-verified "no collision" verdicts keyed by
+//     (other-state, both world poses). When the planner re-checks the same
+//     pair at the same configuration (common with RRT-Connect rewire and path
+//     smoothing) this turns a ~1ms BVH walk into a hash lookup.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
 
+	var (
+		negKey         uint64
+		negKeyComputed bool
+	)
 	if m.state != nil && other.state != nil {
 		if v, ok := m.state.witnesses.Load(other.state); ok {
 			wp := v.(*witnessPair)
 			if witnessStillCollides(wp.t1, wp.t2, m.pose, other.pose, collisionBufferMM) {
 				return true, -1, nil
+			}
+		}
+		negKey = negCacheKey(other.state, m.pose, other.pose)
+		negKeyComputed = true
+		if v, ok := m.state.negCache.Load(negKey); ok {
+			e := v.(*negCacheEntry)
+			if negCacheEntryMatches(e, other.state, m.pose, other.pose) {
+				return false, math.Sqrt(e.minDistSq), nil
 			}
 		}
 	}
@@ -548,8 +644,23 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 	if err != nil {
 		return false, 0, err
 	}
-	if collides && witness[0] != nil && witness[1] != nil && m.state != nil && other.state != nil {
-		m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
+	if m.state != nil && other.state != nil {
+		if collides && witness[0] != nil && witness[1] != nil {
+			m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
+		} else if !collides {
+			if !negKeyComputed {
+				negKey = negCacheKey(other.state, m.pose, other.pose)
+			}
+			e := &negCacheEntry{
+				other:     other.state,
+				aPt:       m.pose.Point(),
+				bPt:       other.pose.Point(),
+				aq:        m.pose.Orientation().Quaternion(),
+				bq:        other.pose.Orientation().Quaternion(),
+				minDistSq: dist * dist,
+			}
+			m.state.negCache.Store(negKey, e)
+		}
 	}
 	return collides, dist, nil
 }

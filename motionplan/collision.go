@@ -3,12 +3,34 @@ package motionplan
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// slowCollisionThreshold logs any single CollidesWith call that exceeds this.
+// Debug aid for tracking down which mesh pairs dominate planning time.
+const slowCollisionThreshold = 500 * time.Microsecond
+
+// relativePoseHash bins both geometries' world poses into a coarse integer key
+// so we can detect approximate repeats in the slow-check log. 1mm / 0.001-rad
+// granularity is fine for "are we re-doing the same check" diagnostics.
+func relativePoseHash(a, b spatialmath.Geometry) uint64 {
+	mix := func(h uint64, p spatialmath.Pose) uint64 {
+		pt := p.Point()
+		o := p.Orientation().Quaternion()
+		vals := [7]float64{pt.X, pt.Y, pt.Z, o.Real, o.Imag, o.Jmag, o.Kmag}
+		for _, v := range vals {
+			h ^= uint64(int64(v*1000)) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2)
+		}
+		return h
+	}
+	return mix(mix(0xcbf29ce484222325, a.Pose()), b.Pose())
+}
 
 const unnamedCollisionGeometryPrefix = "unnamedCollisionGeometry_"
 
@@ -161,12 +183,18 @@ func checkCollisionsHinted(
 	}
 
 	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
+		start := time.Now()
 		isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
 		if err != nil {
 			isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
 			if err != nil {
 				return false, err
 			}
+		}
+		if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
+			rp := relativePoseHash(xGeometry, yGeometry)
+			fmt.Fprintf(os.Stderr, "slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x\n",
+				elapsed, xName, yName, isCollision, distance, rp)
 		}
 		if isCollision {
 			return recordCollision(xName, yName), nil
