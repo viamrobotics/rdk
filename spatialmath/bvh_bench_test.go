@@ -486,12 +486,12 @@ func BenchmarkMeshEdgeInterpolation(b *testing.B) {
 		}
 	})
 
-	// Cold-cache variant: clear the per-mesh witness cache entry before each
-	// call so every query falls through to the full BVH traversal.
+	// Cold-cache variant: clear the witness cache before each call so every
+	// query falls through to the full BVH traversal.
 	b.Run("cold_cache", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			mesh1.state.witnesses.Delete(mesh2.state)
+			mesh1.state.witnesses.Delete(m2s[i%steps].state)
 			collides, d, err := mesh1.collidesWithMesh(m2s[i%steps], 0)
 			if err != nil {
 				b.Fatal(err)

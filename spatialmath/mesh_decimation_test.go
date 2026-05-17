@@ -116,7 +116,7 @@ func TestNewMeshDoesNotAutoDecimate(t *testing.T) {
 
 func TestNewMeshFromPLYFileDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
-	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
+	source := &Mesh{pose: NewZeroPose(), triangles: triangles, state: &meshState{}}
 	plyBytes := source.TrianglesToPLYBytes(false)
 
 	path := filepath.Join(t.TempDir(), "large_mesh.ply")
@@ -143,7 +143,7 @@ func TestNewMeshFromSTLFileDoesNotAutoDecimate(t *testing.T) {
 
 func TestNewMeshFromProtoDoesNotAutoDecimate(t *testing.T) {
 	triangles := makeLargeTestTriangles(50, 30) // 3000 triangles
-	source := &Mesh{pose: NewZeroPose(), triangles: triangles}
+	source := &Mesh{pose: NewZeroPose(), triangles: triangles, state: &meshState{}}
 	plyBytes := source.TrianglesToPLYBytes(false)
 
 	mesh, err := NewMeshFromProto(NewZeroPose(), &commonpb.Mesh{
@@ -194,6 +194,7 @@ func TestMeshConservativeDecimate(t *testing.T) {
 		triangles: triangles,
 		label:     "dense",
 		fileType:  plyType,
+		state:     &meshState{},
 	}
 	original.rawBytes = original.TrianglesToPLYBytes(false)
 	test.That(t, len(original.Triangles()), test.ShouldEqual, 3000)
@@ -221,6 +222,7 @@ func TestMeshConservativeDecimateIsDeterministic(t *testing.T) {
 		triangles: triangles,
 		label:     "dense",
 		fileType:  plyType,
+		state:     &meshState{},
 	}
 
 	// Decimate multiple times and verify identical output each time.

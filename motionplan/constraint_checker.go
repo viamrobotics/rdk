@@ -389,8 +389,8 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 
 // CreateAllCollisionConstraints builds the three collision constraint
 // functions (obstacle / robot-vs-robot / self-collision). When cache is non-nil,
-// each constraint uses its dedicated pair-hint slot on the cache plus the
-// shared witness store; nil disables all caching.
+// each constraint registers its pair labels for witness-slot caching and uses
+// its dedicated pair-hint slot.
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
@@ -410,7 +410,6 @@ func CreateAllCollisionConstraints(
 	}
 
 	if len(worldGeometries) > 0 {
-		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
@@ -419,6 +418,7 @@ func CreateAllCollisionConstraints(
 			collisionBufferMM,
 			false,
 			obstacleHint,
+			cache,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -435,6 +435,7 @@ func CreateAllCollisionConstraints(
 			collisionBufferMM,
 			false,
 			robotHint,
+			cache,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -442,7 +443,6 @@ func CreateAllCollisionConstraints(
 		constraints.RobotToRobot = robotConstraintFS
 	}
 
-	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			fs,
@@ -452,6 +452,7 @@ func CreateAllCollisionConstraints(
 			collisionBufferMM,
 			true,
 			selfHint,
+			cache,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -467,7 +468,6 @@ func CreateAllCollisionConstraints(
 //
 // When pairHint is non-nil, the closure uses it to remember the most-recently-
 // violated (geomA, geomB) pair and try that pair first on the next call.
-// Per-triangle witness caching lives one layer below on the Mesh itself.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
@@ -475,7 +475,9 @@ func NewCollisionConstraintFS(
 	collisionBufferMM float64,
 	isSelfCollision bool,
 	pairHint *atomic.Pointer[[2]string],
+	cache *CollisionCache,
 ) (CollisionConstraintFunc, error) {
+	_ = cache // reserved for future planner-level caches (edge memoization lives elsewhere on the same struct)
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
 		collisionSpecifications, collisionBufferMM)
 	if err != nil {

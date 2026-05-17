@@ -7,8 +7,7 @@ import (
 
 // CollisionCache holds planner-level temporal-coherence state for collision
 // queries within a single planning request. Owned by planContext and threaded
-// down through the constraint checker. Holds two pieces of state that benefit
-// from living above the geometry library:
+// down through the constraint checker. Holds two pieces of state:
 //
 //  1. Geometry-pair "last-violated" hints — one slot per constraint type. When
 //     a constraint check finds (geomA, geomB) in collision, it stores that pair
@@ -17,10 +16,10 @@ import (
 //     smoothing re-check the same interpolated edges repeatedly; the verdict
 //     for collision-free edges is cached here.
 //
-// Per-triangle witness caching deliberately lives one layer below, on the
-// *spatialmath.Mesh itself: an external interface-mediated cache costs ~30 ns
-// of dispatch+lookup overhead per call, which adds up across the N·M pair
-// checks per planning state.
+// Per-mesh witness caches (the inner-loop temporal-coherence short-circuit)
+// live on spatialmath.Mesh.state, not here. Threading a cache through the
+// motionplan call chain was measurably slower than direct field access on
+// the mesh.
 type CollisionCache struct {
 	// obstaclePairHint, selfPairHint, robotPairHint each cache the
 	// most-recently-violated geometry-label pair for one constraint type.

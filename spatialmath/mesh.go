@@ -51,31 +51,32 @@ type Mesh struct {
 	uniqueVerts     []r3.Vector
 	uniqueVertsOnce sync.Once
 
-	// state holds per-logical-mesh witness caches that survive Transform copies.
-	// The hot collision path reaches this via a direct field access — keeping it
-	// here (rather than threading an interface from the planner) avoids interface
-	// dispatch and the per-call interface-boxing that an external cache would need.
-	// Higher-level concerns (edge memoization, geometry-pair hints) live in the
-	// planner's motionplan.CollisionCache.
+	// state carries per-logical-mesh witness caches that survive Transform copies
+	// (the pointer is shared across Transform-derived Meshes). The hot collision
+	// path reaches the witness caches via direct field access; this turned out
+	// measurably faster than threading an external cache through the call chain.
+	// Planning-level concerns (edge memoization, geometry-pair hints) live one
+	// layer up in motionplan.CollisionCache.
 	state *meshState
 }
 
-// meshState carries shared per-mesh data that survives Transform copies. Its
-// pointer is the stable identity used for inter-mesh witness keying.
+// meshState holds the per-logical-mesh witness caches. Its pointer doubles as
+// the stable identity used for mesh-vs-mesh witness keying — two Mesh values
+// that share a *meshState are the "same logical mesh" for caching purposes.
 type meshState struct {
 	// witnesses caches the colliding triangle pair for mesh-vs-mesh queries.
-	// Keyed by the other mesh's *meshState pointer — pointer keys are 8-byte
-	// values that don't allocate when boxed into sync.Map's interface{} slot.
+	// Keyed by the other mesh's *meshState pointer; pointer keys avoid the
+	// per-call boxing cost of [2]string keys in sync.Map.
 	witnesses sync.Map // *meshState -> *witnessPair
 
 	// geomWitness caches the colliding triangle for mesh-vs-non-mesh queries
-	// (capsule, box, sphere, etc.). Keyed by the other geometry's label since
-	// non-mesh geometries don't have a shared meshState pointer.
+	// (capsule, box, sphere). Keyed by the other geometry's label — non-mesh
+	// geometries don't have a shared meshState pointer to use as identity.
 	geomWitness sync.Map // string (other.Label()) -> *Triangle
 }
 
 // witnessPair records a previously-colliding triangle pair so subsequent
-// collision queries between the same two meshes can short-circuit the BVH.
+// collision queries between the same meshes can short-circuit the BVH walk.
 type witnessPair struct {
 	t1, t2 *Triangle
 }
@@ -244,8 +245,8 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		triangles: triangles,
 		label:     label,
 		fileType:  stlType,
-		state:     &meshState{},
 		rawBytes:  data,
+		state:     &meshState{},
 	}, nil
 }
 
@@ -341,9 +342,8 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 // does. If there's no collision, the method will return the distance between the mesh and input
 // geometry. If there is a collision, a negative number is returned.
 //
-// The temporal-coherence witness cache lives on the Mesh's state field (shared
-// across Transform copies via pointer), so the hot path doesn't need an
-// external cache parameter or interface dispatch.
+// Mesh-vs-mesh and mesh-vs-non-mesh paths consult the per-mesh witness caches
+// on m.state to short-circuit the BVH walk under temporal coherence.
 func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
 	switch other := g.(type) {
 	case *box:
@@ -512,10 +512,11 @@ func (m *Mesh) ensureBVH() *bvhNode {
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
 //
-// The per-mesh witness cache (in m.state.witnesses) is consulted first; a hit
-// that still collides under the current poses skips the BVH walk entirely.
-// On a fresh collision the cache is updated. Direct field access keeps the hot
-// path free of interface dispatch.
+// Witness cache: the previously-colliding triangle pair (keyed by the other
+// mesh's *meshState pointer) is re-checked first; a still-colliding witness
+// short-circuits the BVH walk. On a fresh collision the witness is stored.
+// The cache lives on m.state and is shared across all Transform-derived copies
+// of the same logical mesh.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
@@ -523,8 +524,8 @@ func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, f
 
 	if m.state != nil && other.state != nil {
 		if v, ok := m.state.witnesses.Load(other.state); ok {
-			w := v.(*witnessPair)
-			if witnessStillCollides(w.t1, w.t2, m.pose, other.pose, collisionBufferMM) {
+			wp := v.(*witnessPair)
+			if witnessStillCollides(wp.t1, wp.t2, m.pose, other.pose, collisionBufferMM) {
 				return true, -1, nil
 			}
 		}
@@ -566,11 +567,9 @@ func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
 //
-// The per-mesh witness cache (in m.state.geomWitness) is consulted first; a
-// still-colliding cached triangle short-circuits the BVH walk. Direct field
-// + sync.Map access keeps the hot path free of interface dispatch and lock
-// contention — the planner's per-call collision queries reach this function
-// O(N·M) times per state, so every nanosecond matters.
+// Witness cache: the previously-colliding triangle (from this mesh, keyed by
+// the other geometry's label) is re-checked first; a still-colliding witness
+// short-circuits the BVH walk. On a fresh collision the witness is stored.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	bvh := m.ensureBVH()
 	if bvh == nil {
@@ -580,8 +579,7 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 	otherLabel := other.Label()
 	if m.state != nil && otherLabel != "" {
 		if v, ok := m.state.geomWitness.Load(otherLabel); ok {
-			wt := v.(*Triangle)
-			if witnessTriCollidesWith(wt, m.pose, other, collisionBufferMM) {
+			if witnessTriCollidesWith(v.(*Triangle), m.pose, other, collisionBufferMM) {
 				return true, -1, nil
 			}
 		}
