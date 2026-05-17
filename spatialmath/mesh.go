@@ -345,6 +345,19 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 // Mesh-vs-mesh and mesh-vs-non-mesh paths consult the per-mesh witness caches
 // on m.state to short-circuit the BVH walk under temporal coherence.
 func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
+	// Witness fast-path for non-mesh geometries. Runs ahead of the box-vertex
+	// sweep and the BVH walk so a still-colliding cached triangle short-circuits
+	// the whole call.
+	if _, isMesh := g.(*Mesh); !isMesh && m.state != nil {
+		if label := g.Label(); label != "" {
+			if v, ok := m.state.geomWitness.Load(label); ok {
+				if witnessTriCollidesWith(v.(*Triangle), m.pose, g, collisionBufferMM) {
+					return true, -1, nil
+				}
+			}
+		}
+	}
+
 	switch other := g.(type) {
 	case *box:
 		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
@@ -567,22 +580,13 @@ func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
 //
-// Witness cache: the previously-colliding triangle (from this mesh, keyed by
-// the other geometry's label) is re-checked first; a still-colliding witness
-// short-circuits the BVH walk. On a fresh collision the witness is stored.
+// On a fresh collision the colliding triangle is stored as a witness keyed by
+// the other geometry's label. The matching load happens earlier in
+// Mesh.CollidesWith so we can skip the box-vertex sweep on cached hits.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	bvh := m.ensureBVH()
 	if bvh == nil {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
-	}
-
-	otherLabel := other.Label()
-	if m.state != nil && otherLabel != "" {
-		if v, ok := m.state.geomWitness.Load(otherLabel); ok {
-			if witnessTriCollidesWith(v.(*Triangle), m.pose, other, collisionBufferMM) {
-				return true, -1, nil
-			}
-		}
 	}
 
 	otherMin, otherMax := computeGeometryAABB(other)
@@ -590,8 +594,10 @@ func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64
 	if err != nil {
 		return false, 0, err
 	}
-	if collides && witness != nil && m.state != nil && otherLabel != "" {
-		m.state.geomWitness.Store(otherLabel, witness)
+	if collides && witness != nil && m.state != nil {
+		if otherLabel := other.Label(); otherLabel != "" {
+			m.state.geomWitness.Store(otherLabel, witness)
+		}
 	}
 	return collides, dist, nil
 }
