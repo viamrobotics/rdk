@@ -176,6 +176,15 @@ Get-EventLog -LogName Application -Source viam-server -After $start -Before $end
 		t.Logf("processTrace: %v", err)
 	}
 
+	// Compare the two processed streams. Every zapcore.Entry fans out
+	// to both appenders, so after stripping each format's wrapper the
+	// two TSVs should match line-for-line (modulo level case).
+	eventlogLines, err := parseProcessedLog(processedEventlog)
+	test.That(t, err, test.ShouldBeNil)
+	traceLines, err := parseProcessedLog(processedTrace)
+	test.That(t, err, test.ShouldBeNil)
+	compareLogs(t, eventlogLines, traceLines)
+
 	t.Logf("Test output:        %s", e2eDir)
 	t.Logf("Test output (unix): %s", filepath.ToSlash(e2eDir))
 	t.Logf("window:             %s -> %s", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
@@ -301,6 +310,112 @@ func writeSortedRows(out string, rows [][3]string) error {
 		}
 	}
 	return nil
+}
+
+// logLine is a single time<TAB>level<TAB>message row parsed from a
+// processed TSV. level case is preserved (eventlog emits UPPERCASE,
+// trace emits lowercase) so comparisons can normalize on read.
+type logLine struct {
+	time, level, message string
+}
+
+// parseProcessedLog reads a time<TAB>level<TAB>message TSV. Rows with
+// fewer than 3 fields are skipped silently.
+func parseProcessedLog(path string) ([]logLine, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var lines []logLine
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		parts := strings.SplitN(sc.Text(), "\t", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		lines = append(lines, logLine{time: parts[0], level: parts[1], message: parts[2]})
+	}
+	return lines, sc.Err()
+}
+
+// maxComparisonDiffs caps how many mismatch lines we surface via
+// t.Errorf before collapsing the rest into a single overflow message.
+// Prevents a totally broken run from flooding the test output.
+const maxComparisonDiffs = 20
+
+// compareLogs asserts that the two processed streams contain the same
+// (time, message) pairs and that level matches case-insensitively.
+//
+// Both sides are re-sorted here by (time, message) so events with
+// identical timestamps line up regardless of intra-second emission
+// order across the two streams.
+//
+// Discrepancies fire t.Errorf (not t.Fatal) so all mismatches surface
+// in one run and the artifact paths still print at the end.
+func compareLogs(t *testing.T, eventlog, trace []logLine) {
+	t.Helper()
+	less := func(s []logLine) func(i, j int) bool {
+		return func(i, j int) bool {
+			if s[i].time != s[j].time {
+				return s[i].time < s[j].time
+			}
+			return s[i].message < s[j].message
+		}
+	}
+	sort.Slice(eventlog, less(eventlog))
+	sort.Slice(trace, less(trace))
+
+	diffs := 0
+	report := func(format string, args ...any) {
+		if diffs < maxComparisonDiffs {
+			t.Errorf(format, args...)
+		}
+		diffs++
+	}
+
+	i, j := 0, 0
+	for i < len(eventlog) && j < len(trace) {
+		e, tr := eventlog[i], trace[j]
+		if e.time == tr.time && e.message == tr.message {
+			if !strings.EqualFold(e.level, tr.level) {
+				report("level mismatch @ %s msg=%q: eventlog=%q trace=%q",
+					e.time, e.message, e.level, tr.level)
+			}
+			i++
+			j++
+			continue
+		}
+		// Heads diverge — advance the side that's "earlier" so the
+		// other side gets a chance to catch up. Whichever side falls
+		// behind is the one missing this entry.
+		eKey := e.time + "\x00" + e.message
+		trKey := tr.time + "\x00" + tr.message
+		if eKey < trKey {
+			report("only in eventlog: %s %s %q", e.time, e.level, e.message)
+			i++
+		} else {
+			report("only in trace:    %s %s %q", tr.time, tr.level, tr.message)
+			j++
+		}
+	}
+	for ; i < len(eventlog); i++ {
+		report("only in eventlog: %s %s %q", eventlog[i].time, eventlog[i].level, eventlog[i].message)
+	}
+	for ; j < len(trace); j++ {
+		report("only in trace:    %s %s %q", trace[j].time, trace[j].level, trace[j].message)
+	}
+
+	if diffs > maxComparisonDiffs {
+		t.Errorf("... and %d more mismatches", diffs-maxComparisonDiffs)
+	}
+	if diffs == 0 {
+		t.Logf("comparison: %d lines matched in both streams", len(eventlog))
+	} else {
+		t.Errorf("comparison: %d total mismatches (eventlog=%d trace=%d)",
+			diffs, len(eventlog), len(trace))
+	}
 }
 
 // isElevated reports whether the current process is a member of the
