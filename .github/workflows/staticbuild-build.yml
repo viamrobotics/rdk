@@ -105,7 +105,6 @@ jobs:
         # Authorize GCP Upload step — the subsequent upload-cloud-storage
         # step needs GCP_CREDENTIALS, not the ev-code-signing SA.
         create_credentials_file: false
-        export_environment_variables: false
 
     - name: Set up Authenticode signing (windows)
       if: matrix.target == 'static-release-win'
@@ -120,7 +119,6 @@ jobs:
           "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
           | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
         printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
-        chmod 644 /tmp/cert.pem /tmp/gcp-access-token /tmp/jsign.jar
         cat > /tmp/sign-binary.sh <<'EOF'
         #!/bin/bash
         set -euo pipefail
