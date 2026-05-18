@@ -114,6 +114,8 @@ type viamClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
+
+	dialOverride func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error)
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
@@ -5235,6 +5237,17 @@ func (c *viamClient) connectToRobot(
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
+	if c.dialOverride != nil {
+		logger.Infow("connectToRobot: using dialOverride", "fqdn", fqdn, "rpcOptCount", len(rpcOpts))
+		rc, err := c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
+		if err != nil {
+			logger.Errorw("connectToRobot: dialOverride failed", "fqdn", fqdn, "error", err)
+			return nil, errors.Wrap(err, "could not connect to machine part (dialOverride)")
+		}
+		logger.Infow("connectToRobot: dialOverride succeeded", "fqdn", fqdn)
+		return rc, nil
+	}
+	logger.Infow("connectToRobot: using default client.New (mDNS path)", "fqdn", fqdn, "rpcOptCount", len(rpcOpts))
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")

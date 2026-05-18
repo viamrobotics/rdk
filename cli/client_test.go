@@ -29,6 +29,7 @@ import (
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -38,6 +39,7 @@ import (
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
 	_ "go.viam.com/rdk/services/shell/register"
@@ -219,6 +221,13 @@ func setupWithRunningPart(
 	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
 	ac.baseURL, _, err = utils.ParseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
+
+	ac.dialOverride = func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error) {
+		t.Logf("dialOverride: dialing addr=%q (fqdn=%q ignored)", addr, fqdn)
+		return client.New(ctx, addr, logger,
+			client.WithDialOptions(append(rpcOpts, rpc.WithForceDirectGRPC())...),
+		)
+	}
 
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
