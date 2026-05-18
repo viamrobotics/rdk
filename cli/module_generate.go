@@ -1429,7 +1429,7 @@ func renderManifest(
 	case python:
 		pythonEntrypoint := "dist/main"
 		if runtime.GOOS == osWindows {
-			pythonEntrypoint = "dist/main.exe"
+			pythonEntrypoint += ".exe"
 			manifest.Build = &manifestBuildInfo{
 				Setup: "setup.bat",
 				Build: "build.bat",
@@ -1455,14 +1455,14 @@ func renderManifest(
 					" cmd/module/main.go && tar czf module.tar.gz meta.json bin/" +
 					moduleBinary,
 				Path: "module.tar.gz",
-				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch: []string{"windows/amd64"},
 			}
 		} else {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "make setup",
 				Build: "make module.tar.gz",
 				Path:  "module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
