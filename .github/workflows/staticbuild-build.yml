@@ -48,9 +48,7 @@ jobs:
       - /tmp/node20:/__e/node20
     timeout-minutes: 15
     # id-token: write enables Workload Identity Federation for the windows-only signing step.
-    # The rest of this workflow still uses the GCP_CREDENTIALS SA key for GCS uploads; WIF is
-    # scoped to signing only because the EV code-signing key has a much larger blast radius
-    # than bucket upload. Migrating the upload path to WIF is tracked separately.
+    # The rest of this workflow still uses the GCP_CREDENTIALS SA key for GCS uploads.
     permissions:
       id-token: write
       contents: read
@@ -92,8 +90,6 @@ jobs:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Authorize signing (windows)
-      # Separate WIF-based auth so the signing access token is minted via OIDC for this repo,
-      # not derived from the long-lived GCP_CREDENTIALS SA key. Matches the viam_vnc setup.
       if: matrix.target == 'static-release-win'
       id: signing-auth
       uses: google-github-actions/auth@v3
@@ -117,13 +113,10 @@ jobs:
         SIGNING_CERT: ${{ steps.signing-cert.outputs.cert }}
         GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
       run: |
-        apt-get update
-        # jsign 7 needs Java 11+; antique2's apt may not have 17, so fall back if needed.
-        apt-get install -y openjdk-17-jre-headless || apt-get install -y openjdk-11-jre-headless
+        apt-get install -y openjdk-17-jre-headless
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
         printf '%s' "$SIGNING_CERT" > /tmp/cert.pem
         printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
-        # testbot (the build user) must be able to read the cert/token and execute the helper.
         chmod 644 /tmp/cert.pem /tmp/gcp-access-token /tmp/jsign.jar
         cat > /tmp/sign-binary.sh <<'EOF'
         #!/bin/bash
