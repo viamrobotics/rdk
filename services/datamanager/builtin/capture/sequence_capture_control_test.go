@@ -242,10 +242,8 @@ func TestOpenSequenceKey(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			kx, okX := newOpenSequenceKey(tc.x, logging.NewTestLogger(t))
-			ky, okY := newOpenSequenceKey(tc.y, logging.NewTestLogger(t))
-			test.That(t, okX, test.ShouldBeTrue)
-			test.That(t, okY, test.ShouldBeTrue)
+			kx := newOpenSequenceKey(tc.x)
+			ky := newOpenSequenceKey(tc.y)
 			if tc.eq {
 				test.That(t, kx, test.ShouldResemble, ky)
 			} else {

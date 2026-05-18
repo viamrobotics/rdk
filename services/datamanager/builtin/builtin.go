@@ -319,7 +319,8 @@ func (b *builtIn) runCaptureControlPoller(
 			return
 		}
 		if err != nil {
-			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+			b.logger.Warnw("error getting readings from capture control sensor; reverting to machine config and closing any open sequences",
+				"error", err.Error())
 		} else {
 			var parseErr error
 			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
@@ -334,7 +335,8 @@ func (b *builtIn) runCaptureControlPoller(
 			var seqErr error
 			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
 			if seqErr != nil {
-				b.logger.Warnw("failed to parse sequences from sensor reading", "error", seqErr)
+				b.logger.Warnw("failed to parse sequences from sensor reading; closing any open sequences",
+					"error", seqErr)
 			}
 		}
 

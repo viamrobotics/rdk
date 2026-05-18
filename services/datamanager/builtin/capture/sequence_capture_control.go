@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -43,10 +42,7 @@ func (c *Capture) SetActiveSequences(active []datamanager.SequenceReading) {
 	now := c.clk.Now()
 	activeKeys := make(map[openSequenceKey]struct{}, len(active))
 	for _, s := range active {
-		k, ok := newOpenSequenceKey(s, c.logger)
-		if !ok {
-			continue
-		}
+		k := newOpenSequenceKey(s)
 		activeKeys[k] = struct{}{}
 		if _, exists := c.openSequences[k]; !exists {
 			seq := &OpenSequence{
@@ -121,10 +117,8 @@ func (c *Capture) flushOpenSequences() {
 	}
 }
 
-// newOpenSequenceKey returns a comparable identity for s, sorted so input order doesn't matter.
-// Returns ok=false if the inputs can't be marshaled into a stable key; callers should drop the
-// sequence rather than risk colliding distinct sequences under a degenerate key.
-func newOpenSequenceKey(s datamanager.SequenceReading, logger logging.Logger) (openSequenceKey, bool) {
+// newOpenSequenceKey returns a comparable identity for s, sorted so input order doesn't matter
+func newOpenSequenceKey(s datamanager.SequenceReading) openSequenceKey {
 	resources := slices.Clone(s.Resources)
 	slices.SortFunc(resources, func(a, b datamanager.ResourceMethod) int {
 		if c := cmp.Compare(a.ResourceName, b.ResourceName); c != 0 {
@@ -134,20 +128,10 @@ func newOpenSequenceKey(s datamanager.SequenceReading, logger logging.Logger) (o
 	})
 	tags := slices.Clone(s.SequenceTags)
 	slices.Sort(tags)
-	resourcesJSON, err := json.Marshal(resources)
-	if err != nil {
-		logger.Errorw("failed to marshal sequence resources for key; dropping sequence",
-			"error", err, "resources", resources)
-		return openSequenceKey{}, false
-	}
-	tagsJSON, err := json.Marshal(tags)
-	if err != nil {
-		logger.Errorw("failed to marshal sequence tags for key; dropping sequence",
-			"error", err, "tags", tags)
-		return openSequenceKey{}, false
-	}
+	resourcesJSON, _ := json.Marshal(resources) //nolint:errcheck,errchkjson
+	tagsJSON, _ := json.Marshal(tags)           //nolint:errcheck,errchkjson
 	return openSequenceKey{
 		resources: string(resourcesJSON),
 		tags:      string(tagsJSON),
-	}, true
+	}
 }

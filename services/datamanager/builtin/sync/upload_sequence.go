@@ -103,11 +103,11 @@ func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 			continue
 		}
 		name := e.Name()
+		path := filepath.Join(dir, name)
 		// Stray .tmp files are partial atomic writes from a prior crash. Always junk; remove.
 		if strings.HasSuffix(name, ".tmp") {
-			tmpPath := filepath.Join(dir, name)
-			if err := os.Remove(tmpPath); err != nil {
-				logger.Warnw("failed to remove orphan sequence .tmp", "error", err, "path", tmpPath)
+			if err := os.Remove(path); err != nil {
+				logger.Warnw("failed to remove orphan sequence .tmp", "error", err, "path", path)
 			}
 			continue
 		}
@@ -115,14 +115,13 @@ func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 			continue
 		}
 		id := strings.TrimSuffix(name, data.InProgressSequenceFileExt)
-		progPath := filepath.Join(dir, name)
 		seqPath := filepath.Join(dir, id+data.CompletedSequenceFileExt)
 
 		// A matching .seq means we crashed between writing it and removing the .progseq; dedup.
 		if _, err := os.Stat(seqPath); err == nil {
-			if rmErr := os.Remove(progPath); rmErr != nil {
+			if rmErr := os.Remove(path); rmErr != nil {
 				logger.Warnw("failed to remove duplicate orphan .progseq",
-					"error", rmErr, "path", progPath)
+					"error", rmErr, "path", path)
 			}
 			continue
 		}
@@ -132,8 +131,8 @@ func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 			continue
 		}
 		dst := filepath.Join(failedDir, name)
-		if err := os.Rename(progPath, dst); err != nil {
-			logger.Errorw("failed to move orphan .progseq to failed/", "error", err, "path", progPath)
+		if err := os.Rename(path, dst); err != nil {
+			logger.Errorw("failed to move orphan .progseq to failed/", "error", err, "path", path)
 			continue
 		}
 		logger.Warnw("moved orphan open sequence to failed/", "path", dst)

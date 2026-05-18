@@ -24,23 +24,23 @@ func seqFilePath(captureDir, id string) string {
 
 // writeOpenSequence writes <id>.progseq for an opened sequence.
 func writeOpenSequence(captureDir string, opened OpenSequence) error {
-	pf := data.SequenceFile{
+	sf := data.SequenceFile{
 		StartTime:    opened.StartAt,
 		Resources:    toSequenceResources(opened.Resources),
 		SequenceTags: opened.SequenceTags,
 	}
-	return writeSequenceFile(progSeqFilePath(captureDir, opened.ID), pf)
+	return writeSequenceFile(progSeqFilePath(captureDir, opened.ID), sf)
 }
 
 // writeClosedSequence writes <id>.seq and removes the corresponding <id>.progseq.
 func writeClosedSequence(captureDir string, closed ClosedSequence) error {
-	pf := data.SequenceFile{
+	sf := data.SequenceFile{
 		StartTime:    closed.StartAt,
 		EndTime:      closed.EndAt,
 		Resources:    toSequenceResources(closed.Resources),
 		SequenceTags: closed.SequenceTags,
 	}
-	if err := writeSequenceFile(seqFilePath(captureDir, closed.ID), pf); err != nil {
+	if err := writeSequenceFile(seqFilePath(captureDir, closed.ID), sf); err != nil {
 		return err
 	}
 	if err := os.Remove(progSeqFilePath(captureDir, closed.ID)); err != nil && !os.IsNotExist(err) {
@@ -64,7 +64,7 @@ func writeSequenceFile(finalPath string, sf data.SequenceFile) error {
 		return fmt.Errorf("failed to write sequence tmp file: %w", err)
 	}
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		_ = os.Remove(tmpPath)
+		_ = os.Remove(tmpPath) //nolint:errcheck
 		return fmt.Errorf("failed to rename sequence tmp file: %w", err)
 	}
 	return nil
