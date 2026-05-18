@@ -11,10 +11,10 @@ package winlogproc
 
 import (
 	"bufio"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 )
@@ -66,18 +66,25 @@ func Eventlog(in, out string) error {
 	return writeSortedRows(out, rows)
 }
 
-// traceQuoted finds the quoted user-data fields in a tracerpt CSV row.
-// tracerpt doesn't escape inner quotes for the fields JSON column, so
-// matching after that field is unreliable — but the first five fields
-// (time, level, logger, caller, message) don't contain quotes in
-// practice, and we only need three of them.
-var traceQuoted = regexp.MustCompile(`"([^"]*)"`)
+// traceEvent matches the shape tracerpt -of XML emits per ETW event.
+// We only need the named Data children that carry our TraceLogging
+// fields; non-LogEntry events (e.g. tracerpt's own EventTrace headers)
+// have completely different Data names and get filtered out by the
+// "must have a time field" guard in Trace.
+type traceEvent struct {
+	EventData struct {
+		Data []struct {
+			Name  string `xml:"Name,attr"`
+			Value string `xml:",chardata"`
+		} `xml:"Data"`
+	} `xml:"EventData"`
+}
 
-// Trace reads a raw tracerpt CSV and writes a time<TAB>level<TAB>message
-// TSV sorted chronologically by the embedded zap timestamp. Skips
-// non-LogEntry rows (the EventTrace header rows tracerpt emits at the
-// top of the file). The first five quoted strings in a LogEntry row
-// are the first five user-data fields — we take indices 0, 1, and 4.
+// Trace reads a raw tracerpt XML dump and writes a
+// time<TAB>level<TAB>caller<TAB>message TSV sorted chronologically by
+// the embedded zap timestamp. Skips events whose RenderingInfo
+// EventName isn't "LogEntry" (the EventTrace header events tracerpt
+// emits, and anything else that may share the .etl).
 //
 // Sorting matters because ETW buffer interleaving across CPUs/threads
 // can deliver events slightly out of timestamp order on busy systems.
@@ -89,25 +96,40 @@ func Trace(in, out string) error {
 	defer inFile.Close()
 
 	var rows [][4]string
-	br := bufio.NewReader(inFile)
+	dec := xml.NewDecoder(inFile)
 	for {
-		line, readErr := br.ReadString('\n')
-		if len(line) > 0 {
-			row := strings.TrimRight(line, "\r\n")
-			first, _, ok := strings.Cut(row, ",")
-			if ok && strings.TrimSpace(first) == "LogEntry" {
-				matches := traceQuoted.FindAllStringSubmatch(row, 5)
-				if len(matches) >= 5 {
-					rows = append(rows, [4]string{matches[0][1], matches[1][1], matches[3][1], matches[4][1]})
-				}
-			}
-		}
-		if readErr == io.EOF {
+		tok, tokErr := dec.Token()
+		if tokErr == io.EOF {
 			break
 		}
-		if readErr != nil {
-			return readErr
+		if tokErr != nil {
+			return tokErr
 		}
+		se, ok := tok.(xml.StartElement)
+		if !ok || se.Name.Local != "Event" {
+			continue
+		}
+		var ev traceEvent
+		if err := dec.DecodeElement(&ev, &se); err != nil {
+			return err
+		}
+		var t, lvl, cal, msg string
+		for _, d := range ev.EventData.Data {
+			switch d.Name {
+			case "time":
+				t = d.Value
+			case "level":
+				lvl = d.Value
+			case "caller":
+				cal = d.Value
+			case "message":
+				msg = d.Value
+			}
+		}
+		if t == "" {
+			continue
+		}
+		rows = append(rows, [4]string{t, lvl, cal, msg})
 	}
 	return writeSortedRows(out, rows)
 }

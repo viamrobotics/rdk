@@ -73,7 +73,7 @@ func Collect(opts CollectOpts) (string, error) {
 		return "", fmt.Errorf("mkdir out: %w", err)
 	}
 
-	rawTrace := filepath.Join(opts.OutDir, "trace.csv")
+	rawTrace := filepath.Join(opts.OutDir, "trace.xml")
 	rawEventlog := filepath.Join(opts.OutDir, "eventlog.txt")
 
 	// Echo the resolved paths and parameters before we touch them so
@@ -83,7 +83,7 @@ func Collect(opts CollectOpts) (string, error) {
 	fmt.Fprintln(os.Stderr, "  ETW session     :", opts.SessionName)
 	fmt.Fprintln(os.Stderr, "  Eventlog source :", opts.EventlogSource)
 	fmt.Fprintln(os.Stderr, "  Out dir         :", opts.OutDir)
-	fmt.Fprintln(os.Stderr, "  Raw trace.csv   :", rawTrace)
+	fmt.Fprintln(os.Stderr, "  Raw trace.xml   :", rawTrace)
 	fmt.Fprintln(os.Stderr, "  Raw eventlog.txt:", rawEventlog)
 	if !opts.After.IsZero() {
 		fmt.Fprintln(os.Stderr, "  After           :", opts.After.Format(time.RFC3339Nano))
@@ -96,7 +96,7 @@ func Collect(opts CollectOpts) (string, error) {
 	// (e.g. viam-server already exited and stopped the session).
 	_ = exec.Command("logman", "update", opts.SessionName, "-fd", "-ets").Run()
 
-	if out, err := exec.Command("tracerpt", opts.ETLPath, "-o", rawTrace, "-of", "CSV", "-y").CombinedOutput(); err != nil {
+	if out, err := exec.Command("tracerpt", opts.ETLPath, "-o", rawTrace, "-of", "XML", "-y").CombinedOutput(); err != nil {
 		return "", fmt.Errorf("tracerpt %s: %w: %s", opts.ETLPath, err, out)
 	}
 
