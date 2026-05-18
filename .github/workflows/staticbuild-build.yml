@@ -95,7 +95,7 @@ jobs:
     - name: Authorize signing (windows)
       if: matrix.target == 'static-release-win'
       id: signing-auth
-      uses: google-github-actions/auth@v3.0.0
+      uses: google-github-actions/auth@v2
       with:
         token_format: 'access_token'
         project_id: 'engineering-tools-310515'
@@ -105,7 +105,7 @@ jobs:
     - name: Fetch code-signing cert (windows)
       if: matrix.target == 'static-release-win'
       id: signing-cert
-      uses: google-github-actions/get-secretmanager-secrets@v3.0.0
+      uses: google-github-actions/get-secretmanager-secrets@v2
       with:
         secrets: |
           cert:projects/385154741571/secrets/ev-code-signing-public-key
