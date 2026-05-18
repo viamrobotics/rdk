@@ -393,9 +393,6 @@ func TestDockerCommandStructure(t *testing.T) {
 }
 
 func TestValidateOutputWritable(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("RSDK-13917")
-	}
 	t.Run("valid writable path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "output.urdf")
@@ -414,7 +411,7 @@ func TestValidateOutputWritable(t *testing.T) {
 	})
 
 	t.Run("directory does not exist", func(t *testing.T) {
-		err := validateOutputWritable("/nonexistent/dir/output.urdf")
+		err := validateOutputWritable(filepath.Join(t.TempDir(), "nonexistent", "output.urdf"))
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "does not exist")
 	})
@@ -435,6 +432,9 @@ func TestValidateOutputWritable(t *testing.T) {
 	})
 
 	t.Run("read-only directory", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("POSIX file mode bits don't make a directory read-only on Windows")
+		}
 		if os.Getuid() == 0 {
 			t.Skip("Skipping read-only test when running as root")
 		}
