@@ -432,9 +432,6 @@ func TestValidateOutputWritable(t *testing.T) {
 	})
 
 	t.Run("read-only directory", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("POSIX file mode bits don't make a directory read-only on Windows")
-		}
 		if os.Getuid() == 0 {
 			t.Skip("Skipping read-only test when running as root")
 		}
