@@ -255,6 +255,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	shouldSync := func(ctx context.Context) bool {
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
+
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
 	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
@@ -333,9 +334,7 @@ func (b *builtIn) runCaptureControlPoller(
 			var seqErr error
 			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
 			if seqErr != nil {
-				b.logger.Warnw("failed to parse sequences from sensor reading; leaving open sequences unchanged",
-					"error", seqErr)
-				newSequences = nil
+				b.logger.Warnw("failed to parse sequences from sensor reading", "error", seqErr)
 			}
 		}
 
@@ -391,7 +390,7 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, reading := range controlList {
-		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.MethodName)] = reading
 	}
 	return result, nil
 }

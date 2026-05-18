@@ -25,7 +25,7 @@ func seqFilePath(captureDir, id string) string {
 // writeOpenSequence writes <id>.progseq for an opened sequence.
 func writeOpenSequence(captureDir string, opened OpenSequence) error {
 	pf := data.SequenceFile{
-		StartAt:      opened.StartAt,
+		StartTime:    opened.StartAt,
 		Resources:    toSequenceResources(opened.Resources),
 		SequenceTags: opened.SequenceTags,
 	}
@@ -35,8 +35,8 @@ func writeOpenSequence(captureDir string, opened OpenSequence) error {
 // writeClosedSequence writes <id>.seq and removes the corresponding <id>.progseq.
 func writeClosedSequence(captureDir string, closed ClosedSequence) error {
 	pf := data.SequenceFile{
-		StartAt:      closed.StartAt,
-		EndAt:        closed.EndAt,
+		StartTime:    closed.StartAt,
+		EndTime:      closed.EndAt,
 		Resources:    toSequenceResources(closed.Resources),
 		SequenceTags: closed.SequenceTags,
 	}
@@ -49,18 +49,23 @@ func writeClosedSequence(captureDir string, closed ClosedSequence) error {
 	return nil
 }
 
-// writeSequenceFile marshals pf to JSON and writes it to finalPath, creating the parent
-// directory if needed. Shared by writeOpenSequence and writeClosedSequence.
-func writeSequenceFile(finalPath string, pf data.SequenceFile) error {
-	bytes, err := json.MarshalIndent(pf, "", "  ")
+// writeSequenceFile marshals sf to JSON and writes it to finalPath atomically (via .tmp +
+// rename) so the sync walker never sees a partial file. Creates the parent dir if needed.
+func writeSequenceFile(finalPath string, sf data.SequenceFile) error {
+	bytes, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal sequence: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(finalPath), 0o700); err != nil {
 		return fmt.Errorf("failed to create sequences dir: %w", err)
 	}
-	if err := os.WriteFile(finalPath, bytes, 0o600); err != nil {
-		return fmt.Errorf("failed to write sequence file: %w", err)
+	tmpPath := finalPath + ".tmp"
+	if err := os.WriteFile(tmpPath, bytes, 0o600); err != nil {
+		return fmt.Errorf("failed to write sequence tmp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("failed to rename sequence tmp file: %w", err)
 	}
 	return nil
 }
@@ -68,10 +73,7 @@ func writeSequenceFile(finalPath string, pf data.SequenceFile) error {
 func toSequenceResources(rs []datamanager.ResourceMethod) []data.SequenceResource {
 	out := make([]data.SequenceResource, len(rs))
 	for i, r := range rs {
-		out[i] = data.SequenceResource{
-			ResourceName: r.ResourceName,
-			MethodName:   r.Method,
-		}
+		out[i] = data.SequenceResource(r)
 	}
 	return out
 }

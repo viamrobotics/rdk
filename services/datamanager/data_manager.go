@@ -204,8 +204,8 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 type ResourceMethod struct {
 	// ResourceName is the name of the resource (e.g. "camera-1").
 	ResourceName string `json:"resource_name"`
-	// Method is the capture method name (e.g. "GetImages").
-	Method string `json:"method"`
+	// MethodName is the capture method name (e.g. "GetImages").
+	MethodName string `json:"method"`
 }
 
 // CaptureConfigReading defines a capture config reading for a specific resource/method pair,

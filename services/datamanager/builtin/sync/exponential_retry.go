@@ -168,8 +168,7 @@ func getNextWait(lastWait time.Duration, isOffline bool) time.Duration {
 // terminalError returns true if retrying will never succeed so that
 // the data gets moved to the corrupted data directory and false otherwise.
 func terminalError(err error) bool {
-	code := status.Convert(err).Code()
-	if code == codes.InvalidArgument || errors.Is(err, proto.Error) {
+	if status.Convert(err).Code() == codes.InvalidArgument || errors.Is(err, proto.Error) {
 		return true
 	}
 

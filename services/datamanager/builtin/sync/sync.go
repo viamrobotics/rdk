@@ -165,7 +165,6 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.cloudConnManager = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runCloudConnManager(ctx, cloudConnSvc)
 		})
-		// Clean up any .progseq files left from a crashed previous process.
 		handleOrphanedOpenSequences(config.CaptureDir, s.logger)
 	}
 	if s.config.Equal(config) {
@@ -777,11 +776,16 @@ func isCompletedCaptureFile(path string) bool {
 }
 
 func isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int) bool {
+	// The sequences subdir is managed entirely by capture+sync. Anything in there that
+	// isn't a .seq (caught earlier in readyToSyncFile) is either a .progseq still being
+	// tracked, a .tmp from an in-flight atomic write, or junk from a crash — none of
+	// which should be uploaded as an arbitrary file.
+	if inSequencesDir(path) {
+		return false
+	}
 	ext := filepath.Ext(path)
 	return ext != data.InProgressCaptureFileExt &&
 		ext != data.CompletedCaptureFileExt &&
-		ext != data.InProgressSequenceFileExt &&
-		ext != data.CompletedSequenceFileExt &&
 		timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond &&
 		// if the file size is 0 then there is nothing to sync from this arbitrary file
 		info.Size() > 0

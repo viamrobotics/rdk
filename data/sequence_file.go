@@ -7,8 +7,8 @@ const SequencesDir = "sequences"
 
 // SequenceFile is the on-disk representation of a sequence.
 type SequenceFile struct {
-	StartAt      time.Time          `json:"start_at"`
-	EndAt        time.Time          `json:"end_at"`
+	StartTime    time.Time          `json:"start_time"`
+	EndTime      time.Time          `json:"end_time"`
 	Resources    []SequenceResource `json:"resources"`
 	SequenceTags []string           `json:"sequence_tags,omitempty"`
 }

@@ -31,7 +31,7 @@ func sequence(tags []string, resources ...datamanager.ResourceMethod) datamanage
 }
 
 func resources(name, method string) datamanager.ResourceMethod {
-	return datamanager.ResourceMethod{ResourceName: name, Method: method}
+	return datamanager.ResourceMethod{ResourceName: name, MethodName: method}
 }
 
 // readSeqFiles reads and unmarshals every .seq file in c.captureDir/sequences/.
@@ -100,8 +100,8 @@ func TestSetActiveSequences_EntryDisappears_Closes(t *testing.T) {
 
 	files := readSeqFiles(t, c)
 	test.That(t, len(files), test.ShouldEqual, 1)
-	test.That(t, files[0].StartAt, test.ShouldEqual, t0)
-	test.That(t, files[0].EndAt, test.ShouldEqual, t1)
+	test.That(t, files[0].StartTime, test.ShouldEqual, t0)
+	test.That(t, files[0].EndTime, test.ShouldEqual, t1)
 	test.That(t, files[0].SequenceTags, test.ShouldResemble, []string{"walking"})
 	test.That(t, files[0].Resources, test.ShouldResemble, []data.SequenceResource{
 		{ResourceName: "camera-1", MethodName: "GetImages"},
@@ -141,7 +141,7 @@ func TestSetActiveSequences_BackToBackIdenticalContent(t *testing.T) {
 
 	files := readSeqFiles(t, c)
 	test.That(t, len(files), test.ShouldEqual, 1)
-	test.That(t, files[0].StartAt, test.ShouldEqual, t0)
+	test.That(t, files[0].StartTime, test.ShouldEqual, t0)
 
 	// Same content again → fresh open with new start time.
 	clk.Add(5 * time.Second)
@@ -164,6 +164,47 @@ func TestSetActiveSequences_EmptyActiveClosesAll(t *testing.T) {
 
 	test.That(t, len(c.openSequences), test.ShouldEqual, 0)
 	test.That(t, len(readSeqFiles(t, c)), test.ShouldEqual, 2)
+}
+
+// flushOpenSequences closes everything in-flight, writes their .seq files with EndAt set
+// to the current clock, and removes the corresponding .progseq files.
+func TestFlushOpenSequences(t *testing.T) {
+	c, clk := newCaptureForTest(t)
+	t0 := clk.Now()
+
+	c.SetActiveSequences([]datamanager.SequenceReading{
+		sequence([]string{"a"}, resources("camera-1", "GetImages")),
+		sequence([]string{"b"}, resources("arm-1", "JointPositions")),
+	})
+	test.That(t, len(c.openSequences), test.ShouldEqual, 2)
+
+	clk.Add(15 * time.Second)
+	tEnd := clk.Now()
+	c.flushOpenSequences()
+
+	test.That(t, len(c.openSequences), test.ShouldEqual, 0)
+
+	dir := filepath.Join(c.captureDir, data.SequencesDir)
+	entries, err := os.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	var seqCount, progCount int
+	for _, e := range entries {
+		switch filepath.Ext(e.Name()) {
+		case data.CompletedSequenceFileExt:
+			seqCount++
+		case data.InProgressSequenceFileExt:
+			progCount++
+		}
+	}
+	test.That(t, seqCount, test.ShouldEqual, 2)
+	test.That(t, progCount, test.ShouldEqual, 0)
+
+	files := readSeqFiles(t, c)
+	test.That(t, len(files), test.ShouldEqual, 2)
+	for _, sf := range files {
+		test.That(t, sf.StartTime, test.ShouldEqual, t0)
+		test.That(t, sf.EndTime, test.ShouldEqual, tEnd)
+	}
 }
 
 func TestOpenSequenceKey(t *testing.T) {
@@ -201,8 +242,10 @@ func TestOpenSequenceKey(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			kx := newOpenSequenceKey(tc.x)
-			ky := newOpenSequenceKey(tc.y)
+			kx, okX := newOpenSequenceKey(tc.x, logging.NewTestLogger(t))
+			ky, okY := newOpenSequenceKey(tc.y, logging.NewTestLogger(t))
+			test.That(t, okX, test.ShouldBeTrue)
+			test.That(t, okY, test.ShouldBeTrue)
 			if tc.eq {
 				test.That(t, kx, test.ShouldResemble, ky)
 			} else {

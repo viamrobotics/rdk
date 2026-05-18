@@ -28,8 +28,8 @@ func (s *Sync) syncSequence(filePath string) {
 		return
 	}
 
-	var pf data.SequenceFile
-	if err := json.Unmarshal(bytes, &pf); err != nil {
+	var sf data.SequenceFile
+	if err := json.Unmarshal(bytes, &sf); err != nil {
 		logger.Errorw("failed to parse sequence file; moving to failed",
 			"path", filePath, "error", err)
 		moveSequenceToFailed(filePath, errors.Wrap(err, "unmarshal"), logger)
@@ -40,7 +40,7 @@ func (s *Sync) syncSequence(filePath string) {
 		if s.cloudConn.dataClient == nil {
 			return 0, errors.New("cloud connection not ready")
 		}
-		req := sequenceRequest(&pf, s.cloudConn.partID)
+		req := sequenceRequest(&sf, s.cloudConn.partID)
 		_, err := s.cloudConn.dataClient.CreateSequence(ctx, req)
 		return 0, err
 	})
@@ -60,9 +60,9 @@ func (s *Sync) syncSequence(filePath string) {
 	}
 }
 
-func sequenceRequest(pf *data.SequenceFile, partID string) *datapb.CreateSequenceRequest {
-	resources := make([]*datapb.SequenceResourceFilter, len(pf.Resources))
-	for i, r := range pf.Resources {
+func sequenceRequest(sf *data.SequenceFile, partID string) *datapb.CreateSequenceRequest {
+	resources := make([]*datapb.SequenceResourceFilter, len(sf.Resources))
+	for i, r := range sf.Resources {
 		resources[i] = &datapb.SequenceResourceFilter{
 			ResourceName: r.ResourceName,
 			MethodName:   r.MethodName,
@@ -71,20 +71,23 @@ func sequenceRequest(pf *data.SequenceFile, partID string) *datapb.CreateSequenc
 	return &datapb.CreateSequenceRequest{
 		PartId:       partID,
 		Resources:    resources,
-		SequenceTags: pf.SequenceTags,
-		StartTime:    timestamppb.New(pf.StartAt),
-		EndTime:      timestamppb.New(pf.EndAt),
+		SequenceTags: sf.SequenceTags,
+		StartTime:    timestamppb.New(sf.StartTime),
+		EndTime:      timestamppb.New(sf.EndTime),
 	}
 }
 
+// moveSequenceToFailed moves path to <captureDir>/failed/sequences/ for operator inspection.
+// path is expected to be <captureDir>/sequences/<id>.{seq,progseq}.
 func moveSequenceToFailed(path string, cause error, logger logging.Logger) {
-	if err := moveFailedData(path, filepath.Dir(path), cause, logger); err != nil {
+	captureDir := filepath.Dir(filepath.Dir(path))
+	if err := moveFailedData(path, captureDir, cause, logger); err != nil {
 		logger.Errorw("failed to move sequence to failed/", "path", path, "error", err)
 	}
 }
 
 // handleOrphanedOpenSequences cleans up .progseq files left from a crashed previous process.
-// Without a clean end_at we can't upload them, so we move them to failed.
+// Without a clean end_at we can't upload them, so we move them to <captureDir>/failed/sequences/.
 func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 	dir := filepath.Join(captureDir, data.SequencesDir)
 	entries, err := os.ReadDir(dir)
@@ -94,12 +97,20 @@ func handleOrphanedOpenSequences(captureDir string, logger logging.Logger) {
 		}
 		return
 	}
-	failedDir := filepath.Join(dir, FailedDir)
+	failedDir := filepath.Join(captureDir, FailedDir, data.SequencesDir)
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
 		}
 		name := e.Name()
+		// Stray .tmp files are partial atomic writes from a prior crash. Always junk; remove.
+		if strings.HasSuffix(name, ".tmp") {
+			tmpPath := filepath.Join(dir, name)
+			if err := os.Remove(tmpPath); err != nil {
+				logger.Warnw("failed to remove orphan sequence .tmp", "error", err, "path", tmpPath)
+			}
+			continue
+		}
 		if !strings.HasSuffix(name, data.InProgressSequenceFileExt) {
 			continue
 		}

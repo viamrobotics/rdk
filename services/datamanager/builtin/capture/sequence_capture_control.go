@@ -2,12 +2,13 @@ package capture
 
 import (
 	"cmp"
-	"fmt"
+	"encoding/json"
 	"slices"
 	"time"
 
 	"github.com/google/uuid"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
 )
 
@@ -37,12 +38,15 @@ type ClosedSequence struct {
 
 // SetActiveSequences reconciles open sequences against the sensor's latest readings.
 // Newly-opened sequences are written to <id>.progseq; ended ones are written to <id>.seq
-// (and the matching .progseq is removed). Must be called with collectorsMu held.
+// (and the matching .progseq is removed).
 func (c *Capture) SetActiveSequences(active []datamanager.SequenceReading) {
 	now := c.clk.Now()
 	activeKeys := make(map[openSequenceKey]struct{}, len(active))
 	for _, s := range active {
-		k := newOpenSequenceKey(s)
+		k, ok := newOpenSequenceKey(s, c.logger)
+		if !ok {
+			continue
+		}
 		activeKeys[k] = struct{}{}
 		if _, exists := c.openSequences[k]; !exists {
 			seq := &OpenSequence{
@@ -118,18 +122,32 @@ func (c *Capture) flushOpenSequences() {
 }
 
 // newOpenSequenceKey returns a comparable identity for s, sorted so input order doesn't matter.
-func newOpenSequenceKey(s datamanager.SequenceReading) openSequenceKey {
+// Returns ok=false if the inputs can't be marshaled into a stable key; callers should drop the
+// sequence rather than risk colliding distinct sequences under a degenerate key.
+func newOpenSequenceKey(s datamanager.SequenceReading, logger logging.Logger) (openSequenceKey, bool) {
 	resources := slices.Clone(s.Resources)
 	slices.SortFunc(resources, func(a, b datamanager.ResourceMethod) int {
 		if c := cmp.Compare(a.ResourceName, b.ResourceName); c != 0 {
 			return c
 		}
-		return cmp.Compare(a.Method, b.Method)
+		return cmp.Compare(a.MethodName, b.MethodName)
 	})
 	tags := slices.Clone(s.SequenceTags)
 	slices.Sort(tags)
-	return openSequenceKey{
-		resources: fmt.Sprintf("%+v", resources),
-		tags:      fmt.Sprintf("%+v", tags),
+	resourcesJSON, err := json.Marshal(resources)
+	if err != nil {
+		logger.Errorw("failed to marshal sequence resources for key; dropping sequence",
+			"error", err, "resources", resources)
+		return openSequenceKey{}, false
 	}
+	tagsJSON, err := json.Marshal(tags)
+	if err != nil {
+		logger.Errorw("failed to marshal sequence tags for key; dropping sequence",
+			"error", err, "tags", tags)
+		return openSequenceKey{}, false
+	}
+	return openSequenceKey{
+		resources: string(resourcesJSON),
+		tags:      string(tagsJSON),
+	}, true
 }
