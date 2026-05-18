@@ -101,6 +101,11 @@ jobs:
         project_id: 'engineering-tools-310515'
         workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
         service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
+        # Don't overwrite GOOGLE_APPLICATION_CREDENTIALS from the previous
+        # Authorize GCP Upload step — the subsequent upload-cloud-storage
+        # step needs GCP_CREDENTIALS, not the ev-code-signing SA.
+        create_credentials_file: false
+        export_environment_variables: false
 
     - name: Set up Authenticode signing (windows)
       if: matrix.target == 'static-release-win'
