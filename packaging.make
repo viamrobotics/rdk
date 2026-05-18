@@ -50,10 +50,10 @@ static-release-win:
 	rm -f bin/static/viam-server-windows.exe
 	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
-	# SIGN_CMD invoked against the unpacked viam-server-windows.exe to add an Authenticode signature. 
-	# CI sets this in the release workflow; local builds leave it empty and skips signing. Must run 
-	# before the deploy copies + subsystem_manifest step so  the manifest hashes the SIGNED binary.
-	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe√
+	# SIGN_CMD invoked against the unpacked viam-server-windows.exe to add an Authenticode signature.
+	# CI sets this in the release workflow; local builds leave it empty, skipping signing. Must run
+	# before the deploy copies + subsystem_manifest step so the manifest hashes the SIGNED binary.
+	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
 	rm -rf etc/packaging/static/deploy/
 	mkdir -p etc/packaging/static/deploy/
