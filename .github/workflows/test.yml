@@ -346,6 +346,13 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
+    - name: Allow mDNS loopback
+      shell: pwsh
+      run: |
+        New-NetFirewallRule -DisplayName "Allow mDNS loopback (test)" `
+          -Direction Inbound -Protocol UDP `
+          -LocalAddress 127.0.0.1 -RemoteAddress 127.0.0.1 `
+          -LocalPort 5353 -Action Allow
     - name: test
       shell: bash
       env:
