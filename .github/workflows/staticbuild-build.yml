@@ -102,23 +102,19 @@ jobs:
         workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
         service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
 
-    - name: Fetch code-signing cert (windows)
-      if: matrix.target == 'static-release-win'
-      id: signing-cert
-      uses: google-github-actions/get-secretmanager-secrets@v2
-      with:
-        secrets: |
-          cert:projects/385154741571/secrets/ev-code-signing-public-key
-
     - name: Set up Authenticode signing (windows)
       if: matrix.target == 'static-release-win'
       env:
-        SIGNING_CERT: ${{ steps.signing-cert.outputs.cert }}
         GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
       run: |
-        apt-get install -y openjdk-17-jre-headless
+        apt-get update
+        apt-get install -y openjdk-17-jre-headless jq
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
-        printf '%s' "$SIGNING_CERT" > /tmp/cert.pem
+        # Fetch cert directly via Secret Manager REST: the get-secretmanager-secrets
+        # action needs Node 18+ (Headers), but antique2 ships Node 16.
+        curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
+          "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
+          | jq -r '.payload.data' | base64 -d > /tmp/cert.pem
         printf '%s' "$GCP_ACCESS_TOKEN" > /tmp/gcp-access-token
         chmod 644 /tmp/cert.pem /tmp/gcp-access-token /tmp/jsign.jar
         cat > /tmp/sign-binary.sh <<'EOF'
