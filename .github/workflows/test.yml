@@ -346,13 +346,23 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version-file: go.mod
-    - name: Allow mDNS loopback
+    - name: Network setup for mDNS tests
       shell: pwsh
       run: |
-        New-NetFirewallRule -DisplayName "Allow mDNS loopback (test)" `
-          -Direction Inbound -Protocol UDP `
-          -LocalAddress 127.0.0.1 -RemoteAddress 127.0.0.1 `
-          -LocalPort 5353 -Action Allow
+        Set-NetFirewallProfile -All -Enabled False
+        netsh interface ipv4 set global multicastforwarding=enabled
+        New-NetFirewallRule -DisplayName "Allow mDNS (test)" `
+          -Direction Inbound -Protocol UDP -LocalPort 5353 -Action Allow
+        Write-Host "===== firewall profiles ====="
+        Get-NetFirewallProfile | Format-Table Name,Enabled,DefaultInboundAction,DefaultOutboundAction
+        Write-Host "===== our rule ====="
+        Get-NetFirewallRule -DisplayName "Allow mDNS (test)" | Format-List
+        Write-Host "===== network adapters ====="
+        Get-NetAdapter | Format-Table Name,InterfaceDescription,Status,MacAddress
+        Write-Host "===== ipv4 interfaces ====="
+        Get-NetIPInterface -AddressFamily IPv4 | Format-Table InterfaceAlias,InterfaceIndex,Forwarding,Multicast
+        Write-Host "===== mdns-like rules already present ====="
+        Get-NetFirewallRule -Direction Inbound | Where-Object DisplayName -Match "mDNS|Bonjour|multicast|5353" | Format-Table DisplayName,Enabled,Action
     - name: test
       shell: bash
       env:
