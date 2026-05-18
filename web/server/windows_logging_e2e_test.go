@@ -176,11 +176,9 @@ Get-EventLog -LogName Application -Source viam-server -After $start -Before $end
 		t.Logf("processTrace: %v", err)
 	}
 
-	t.Logf("eventlog dump: %s", eventlogPath)
-	t.Logf("ETW dump:      %s", tracerptOut)
-	t.Logf("processed:     %s", processedDir)
-	t.Logf("server stdout: %s", stdoutPath)
-	t.Logf("window:        %s -> %s", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
+	t.Logf("Test output:        %s", e2eDir)
+	t.Logf("Test output (unix): %s", filepath.ToSlash(e2eDir))
+	t.Logf("window:             %s -> %s", startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 }
 
 // eventlogPreamble matches the boilerplate Windows inserts when an event
@@ -284,6 +282,10 @@ func processTrace(in, out string) error {
 // writes them to out as tab-separated lines.
 func writeSortedRows(out string, rows [][3]string) error {
 	sort.Slice(rows, func(i, j int) bool {
+		// sort by log message if timestamp is the same
+		if rows[i][0] == rows[j][0] {
+			return rows[i][2] < rows[j][2]
+		}
 		return rows[i][0] < rows[j][0]
 	})
 	outFile, err := os.Create(out)
