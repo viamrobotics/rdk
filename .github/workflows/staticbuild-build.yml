@@ -112,7 +112,6 @@ jobs:
       env:
         GCP_ACCESS_TOKEN: ${{ steps.signing-auth.outputs.access_token }}
       run: |
-        apt-get update
         apt-get install -y openjdk-17-jre-headless jq
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
         # Fetch cert directly via Secret Manager REST: the get-secretmanager-secrets
