@@ -102,6 +102,13 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 		return nil, errBadBounds
 	}
 
+	// nlopt returns INVALID_ARGS for zero-range variables - nudge the upper bound by a small epsilon.
+	for i := range ss.lowerBound {
+		if ss.lowerBound[i] == ss.upperBound[i] {
+			ss.upperBound[i] += defaultGoalThreshold
+		}
+	}
+
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
 	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))

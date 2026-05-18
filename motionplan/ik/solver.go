@@ -178,17 +178,7 @@ func ComputeAdjustLimitsArray(seed []float64, limits []referenceframe.Limit, del
 		lmin, lmax, r := limits[i].GoodLimits()
 		d := r * deltas[i]
 
-		newMin := max(lmin, s-d)
-		newMax := min(lmax, s+d)
-		if newMin == newMax {
-			// nlopt returns INVALID_ARGS for zero range variables so we expand the range slightly
-			if newMax < lmax {
-				newMax = min(lmax, newMin+defaultGoalThreshold)
-			} else {
-				newMin = max(lmin, newMax-defaultGoalThreshold)
-			}
-		}
-		newLimits = append(newLimits, referenceframe.Limit{Min: newMin, Max: newMax})
+		newLimits = append(newLimits, referenceframe.Limit{max(lmin, s-d), min(lmax, s+d)})
 	}
 	return newLimits
 }

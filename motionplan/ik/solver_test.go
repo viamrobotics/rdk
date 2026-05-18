@@ -50,15 +50,6 @@ func TestCombinedIKinematics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestComputeAdjustLimitsArrayFixedJoint(t *testing.T) {
-	// When delta==0, lowerBound==upperBound causes nlopt INVALID_ARGS — verify we produce a nonzero range.
-	limits := []frame.Limit{{Min: 0, Max: 2224}}
-	seed := []float64{1112}
-	result := ComputeAdjustLimitsArray(seed, limits, []float64{0})
-	test.That(t, len(result), test.ShouldEqual, 1)
-	test.That(t, result[0].Max, test.ShouldBeGreaterThan, result[0].Min)
-}
-
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
