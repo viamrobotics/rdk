@@ -4,7 +4,9 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -91,8 +93,19 @@ func (a *etwAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	}
 
 	caller := ""
-	if entry.Caller.Defined {
+	if entry.Caller.String() == "" {
 		caller = callerToString(&entry.Caller)
+	} else if c, rest, ok := splitSmuggledCaller(msg); ok {
+		// Module logs forwarded over gRPC arrive here with Caller
+		// undefined and the caller string smuggled into Message as
+		// "file.go:line\tmessage". See robot/server/server.go:Log
+		// (`Caller is already encoded in Message above`). The classic
+		// eventlog appender accidentally renders these correctly
+		// because it joins everything with tabs on output; ETW writes
+		// fields structurally, so without this split the smuggled
+		// caller ends up concatenated into the message field.
+		caller = c
+		msg = rest
 	}
 
 	return a.provider.WriteEvent("LogEntry",
@@ -144,3 +157,24 @@ func zapToETWLevel(l zapcore.Level) etw.Level {
 type nopCloser struct{}
 
 func (nopCloser) Close() error { return nil }
+
+// smuggledCallerPattern detects the "file.go:NNN" shape that module
+// loggers prepend to Message (followed by a tab) when forwarding over
+// gRPC. We only treat a tab-prefixed Message as smuggled if the prefix
+// matches this shape, to avoid splitting legitimate messages that
+// happen to contain tabs.
+var smuggledCallerPattern = regexp.MustCompile(`.+\.go:\d+$`)
+
+// splitSmuggledCaller recognizes the "caller\tmessage" convention used
+// by robot/server/server.go's Log handler when a module's pb.LogRequest
+// is reconstructed into a zapcore.Entry without a Caller field. Returns
+// the split when msg begins with a "file.go:NNN" prefix followed by a
+// tab; otherwise returns ok=false and msg should be used unchanged.
+func splitSmuggledCaller(msg string) (caller, rest string, ok bool) {
+	fmt.Println("WE CALL SMUGGLED CALLER")
+	prefix, after, found := strings.Cut(msg, "\t")
+	if !found || !smuggledCallerPattern.MatchString(prefix) {
+		return "", msg, false
+	}
+	return prefix, after, true
+}
