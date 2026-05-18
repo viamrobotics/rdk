@@ -223,7 +223,6 @@ func setupWithRunningPart(
 	test.That(t, err, test.ShouldBeNil)
 
 	ac.dialOverride = func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error) {
-		t.Logf("dialOverride: dialing addr=%q (fqdn=%q ignored)", addr, fqdn)
 		return client.New(ctx, addr, logger,
 			client.WithDialOptions(append(rpcOpts, rpc.WithForceDirectGRPC())...),
 		)
