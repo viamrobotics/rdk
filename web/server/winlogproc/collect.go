@@ -111,7 +111,7 @@ func Collect(opts CollectOpts) (string, error) {
 	if err := Eventlog(rawEventlog, filepath.Join(processedDir, "eventlog.tsv")); err != nil {
 		return "", fmt.Errorf("processing eventlog: %w", err)
 	}
-	if err := Trace(rawTrace, filepath.Join(processedDir, "trace.tsv")); err != nil {
+	if err := Trace(rawTrace, filepath.Join(processedDir, "trace.tsv"), opts.After, opts.Before); err != nil {
 		return "", fmt.Errorf("processing trace: %w", err)
 	}
 

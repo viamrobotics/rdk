@@ -17,7 +17,13 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
+
+// traceTimeFormat matches logging.DefaultTimeFormatStr — the format
+// the ETW appender uses for the "time" field. Duplicated rather than
+// imported so winlogproc doesn't depend on rdk-logging.
+const traceTimeFormat = "2006-01-02T15:04:05.000Z0700"
 
 // eventlogPreamble is the boilerplate Windows inserts when an event
 // source isn't registered with a manifest. The actual log payload
@@ -82,13 +88,15 @@ type traceEvent struct {
 
 // Trace reads a raw tracerpt XML dump and writes a
 // time<TAB>level<TAB>caller<TAB>message TSV sorted chronologically by
-// the embedded zap timestamp. Skips events whose RenderingInfo
-// EventName isn't "LogEntry" (the EventTrace header events tracerpt
-// emits, and anything else that may share the .etl).
+// the embedded zap timestamp. Skips events without a "time" Data field
+// (tracerpt's own EventTrace header events).
+//
+// after and before optionally bound the window. Zero values mean
+// unbounded. tracerpt itself has no time filter, so we apply it here.
 //
 // Sorting matters because ETW buffer interleaving across CPUs/threads
 // can deliver events slightly out of timestamp order on busy systems.
-func Trace(in, out string) error {
+func Trace(in, out string, after, before time.Time) error {
 	inFile, err := os.Open(in)
 	if err != nil {
 		return err
@@ -128,6 +136,17 @@ func Trace(in, out string) error {
 		}
 		if t == "" {
 			continue
+		}
+		if !after.IsZero() || !before.IsZero() {
+			ts, err := time.Parse(traceTimeFormat, t)
+			if err == nil {
+				if !after.IsZero() && ts.Before(after) {
+					continue
+				}
+				if !before.IsZero() && ts.After(before) {
+					continue
+				}
+			}
 		}
 		rows = append(rows, [4]string{t, lvl, cal, msg})
 	}

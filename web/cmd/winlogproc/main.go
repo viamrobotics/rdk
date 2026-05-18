@@ -40,6 +40,7 @@ func main() {
 	out := flag.String("out", "", "output directory (default: ./winlogs-<timestamp>)")
 	afterStr := flag.String("after", "", "eventlog filter: only events at or after this RFC3339 time")
 	beforeStr := flag.String("before", "", "eventlog filter: only events at or before this RFC3339 time")
+	sinceStr := flag.String("since", "", "eventlog filter: only events from the last duration (e.g. 10s, 5m, 1h)")
 
 	// Process-only inputs.
 	eventlogIn := flag.String("eventlog", "", "process this existing eventlog.txt instead of collecting")
@@ -84,7 +85,18 @@ func main() {
 			OutDir:         *out,
 		}
 		var err error
-		if *afterStr != "" {
+		if *sinceStr != "" {
+			if *afterStr != "" {
+				fmt.Fprintln(os.Stderr, "-since and -after are mutually exclusive")
+				os.Exit(2)
+			}
+			d, derr := time.ParseDuration(*sinceStr)
+			if derr != nil {
+				fmt.Fprintln(os.Stderr, "parse -since:", derr)
+				os.Exit(2)
+			}
+			opts.After = time.Now().Add(-d)
+		} else if *afterStr != "" {
 			opts.After, err = time.Parse(time.RFC3339, *afterStr)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "parse -after:", err)
@@ -117,7 +129,7 @@ func runProcess(eventlogIn, traceIn, outDir string) {
 		fmt.Fprintln(os.Stderr, "eventlog:", err)
 		exit = 1
 	}
-	if err := winlogproc.Trace(traceIn, filepath.Join(outDir, "trace.tsv")); err != nil {
+	if err := winlogproc.Trace(traceIn, filepath.Join(outDir, "trace.tsv"), time.Time{}, time.Time{}); err != nil {
 		fmt.Fprintln(os.Stderr, "trace:", err)
 		exit = 1
 	}
