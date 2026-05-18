@@ -31,14 +31,17 @@ jobs:
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release
+            sign_cmd_arg: ''
           - arch: ubuntu-large-arm
             image: ghcr.io/viamrobotics/antique2:arm64-cache
             platform: linux/arm64
             target: static-release
+            sign_cmd_arg: ''
           - arch: ubuntu-large
             image: ghcr.io/viamrobotics/antique2:amd64-cache
             platform: linux/amd64
             target: static-release-win
+            sign_cmd_arg: 'SIGN_CMD=/tmp/sign-binary.sh'
     runs-on: ${{ matrix.arch }}
     container:
       image: ${{ matrix.image }}
@@ -136,12 +139,12 @@ jobs:
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="test-$(git rev-parse --short HEAD)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
       run: |
-        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make BUILD_CHANNEL="pr-${{ github.event.pull_request.number }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Upload Files (PR)
       if: contains(github.event.pull_request.labels.*.name, 'static-build') || contains(github.event.pull_request.labels.*.name, 'static-ignore-tests')
@@ -157,12 +160,12 @@ jobs:
     - name: Build (Latest)
       if: inputs.release_type == 'latest'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="latest" BUILD_CHANNEL="$(./etc/dev-version.sh)" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Build (Tagged)
       if: inputs.release_type == 'stable' || inputs.release_type == 'rc'
       run: |
-        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.target == 'static-release-win' && 'SIGN_CMD=/tmp/sign-binary.sh' || '' }} ${{ matrix.target }}'
+        sudo -Hu testbot bash -lc 'make RELEASE_TYPE="${{ inputs.release_type }}" BUILD_CHANNEL="${{ github.ref_name }}" ${{ matrix.sign_cmd_arg }} ${{ matrix.target }}'
 
     - name: Set Date and Channel
       id: build_date
