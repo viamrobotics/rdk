@@ -255,6 +255,7 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	shouldSync := func(ctx context.Context) bool {
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
+
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
 	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
@@ -294,9 +295,13 @@ func (b *builtIn) stopCaptureControlPoller() {
 	}
 }
 
-// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
-// it reverts to the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+// runCaptureControlPoller polls the capture control sensor at 10 Hz, applying capture configs
+// and active sequences each tick. On invalid readings it reverts to the machine config.
+func (b *builtIn) runCaptureControlPoller(
+	ctx context.Context,
+	s sensor.Sensor,
+	key string,
+) {
 	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
 	for {
@@ -307,13 +312,15 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 		}
 
 		var newConfigs map[string]datamanager.CaptureConfigReading
+		var newSequences []datamanager.SequenceReading
 
 		readings, err := s.Readings(ctx, nil)
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+			b.logger.Warnw("error getting readings from capture control sensor; reverting to machine config and closing any open sequences",
+				"error", err.Error())
 		} else {
 			var parseErr error
 			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
@@ -324,6 +331,13 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			} else {
 				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
 			}
+
+			var seqErr error
+			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
+			if seqErr != nil {
+				b.logger.Warnw("failed to parse sequences from sensor reading; closing any open sequences",
+					"error", seqErr)
+			}
 		}
 
 		b.mu.Lock()
@@ -332,6 +346,7 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			return
 		}
 		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.capture.SetActiveSequences(newSequences)
 		b.mu.Unlock()
 	}
 }
@@ -377,7 +392,41 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, reading := range controlList {
-		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.MethodName)] = reading
+	}
+	return result, nil
+}
+
+// parseSequencesFromReadings extracts active sequences from readings under SequencesKey.
+// Entries with no resources are dropped.
+func parseSequencesFromReadings(
+	readings map[string]interface{}, logger logging.Logger,
+) ([]datamanager.SequenceReading, error) {
+	raw, ok := readings[datamanager.SequencesKey]
+	if !ok {
+		return nil, nil
+	}
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal sequences reading: %w", err)
+	}
+	var sequences []datamanager.SequenceReading
+	if err := json.Unmarshal(jsonBytes, &sequences); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal sequences reading: %w", err)
+	}
+	if len(sequences) == 0 {
+		return nil, nil
+	}
+	result := make([]datamanager.SequenceReading, 0, len(sequences))
+	for i, s := range sequences {
+		if len(s.Resources) == 0 {
+			logger.Warnw("sequence reading has no resources; dropping", "index", i)
+			continue
+		}
+		result = append(result, s)
+	}
+	if len(result) == 0 {
+		return nil, nil
 	}
 	return result, nil
 }
