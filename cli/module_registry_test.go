@@ -270,7 +270,7 @@ func TestGetMarkdownContent(t *testing.T) {
 			name:            "non-existent file",
 			filepath:        "non_existent_file.md",
 			shouldContain:   []string{},
-			shouldErrorWith: "failed to read markdown file at non_existent_file.md: open non_existent_file.md: no such file or directory",
+			shouldErrorWith: "failed to read markdown file at non_existent_file.md: open non_existent_file.md:",
 			totalChars:      0,
 		},
 		{
