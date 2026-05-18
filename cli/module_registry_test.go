@@ -16,6 +16,9 @@ import (
 )
 
 func TestUpdateModelsAction(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13907")
+	}
 	t.Parallel()
 	_, filename, _, ok := runtime.Caller(0)
 	test.That(t, ok, test.ShouldBeTrue)

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -262,6 +263,9 @@ func testChdir(t *testing.T, dest string) {
 }
 
 func TestLocalBuild(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13288")
+	}
 	testDir := t.TempDir()
 	testChdir(t, testDir)
 

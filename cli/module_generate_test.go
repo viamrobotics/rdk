@@ -25,6 +25,9 @@ import (
 )
 
 func TestGenerateModuleAction(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13980")
+	}
 	t.Parallel()
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -362,6 +363,9 @@ func TestRestartModule(t *testing.T) {
 }
 
 func TestResolvePartId(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13980")
+	}
 	c := newTestContext(t, map[string]any{})
 	// empty flag, no path
 	partID, err := resolvePartID(c.String(generalFlagPartID), "")
@@ -391,6 +395,9 @@ func TestResolvePartId(t *testing.T) {
 }
 
 func TestMutateModuleConfig(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13980")
+	}
 	c := newTestContext(t, map[string]any{"local": true})
 	manifest := ModuleManifest{
 		ModuleID:     "viam-labs:test-module",

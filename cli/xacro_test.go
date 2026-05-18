@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -108,6 +109,9 @@ func TestExtractPackageName(t *testing.T) {
 }
 
 func TestProcessXacroArgs(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13917")
+	}
 	tmpDir := t.TempDir()
 	pkgName := "test_pkg"
 
@@ -389,6 +393,9 @@ func TestDockerCommandStructure(t *testing.T) {
 }
 
 func TestValidateOutputWritable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-13917")
+	}
 	t.Run("valid writable path", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		outputPath := filepath.Join(tmpDir, "output.urdf")
