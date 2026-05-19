@@ -498,7 +498,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
-			defaultCollisionBufferMM, false)
+			defaultCollisionBufferMM, false, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
 		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
@@ -512,7 +512,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -527,7 +527,7 @@ func TestCollisionDistance(t *testing.T) {
 
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
