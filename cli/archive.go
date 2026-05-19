@@ -9,25 +9,11 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"go.viam.com/utils"
 	"golang.org/x/exp/maps"
 )
-
-// windowsExecutableExtensions is the set of file extensions Windows
-// treats as natively executable. When tarballing a module on Windows,
-// files with these extensions need the Unix exec bit set in their tar
-// headers so server-side validators that check tar header mode bits
-// accept the entrypoint. Windows itself doesn't store Unix-style mode
-// bits, so tar.FileInfoHeader emits 0666 — we force exec bits here.
-var windowsExecutableExtensions = map[string]bool{
-	".exe": true,
-	".bat": true,
-	".cmd": true,
-	".ps1": true,
-}
 
 // getArchiveFilePaths traverses the provided rootpaths recursively,
 // collecting the file paths of all regular files and symlinks.
@@ -117,21 +103,6 @@ func addToArchive(tw *tar.Writer, filename string) error {
 	//   the file it describes, it may be necessary to modify Header.Name
 	//   to provide the full path name of the file.
 	header.Name = filename
-
-	// On Windows, tar.FileInfoHeader emits header.Mode = 0666 for every
-	// regular file because Windows file systems don't support Unix-style
-	// executable bits. The module-upload server-side validator checks
-	// the tar header for an executable bit on the entrypoint and rejects
-	// the upload if missing — see "the module archive contains a file at
-	// the entrypoint, but that file is not marked as executable". Force
-	// the exec bit on for natively-executable Windows extensions so the
-	// validator accepts a Windows-built entrypoint.
-	if runtime.GOOS == "windows" && info.Mode().IsRegular() {
-		ext := strings.ToLower(filepath.Ext(filename))
-		if windowsExecutableExtensions[ext] {
-			header.Mode |= 0o111
-		}
-	}
 
 	err = tw.WriteHeader(header)
 	if err != nil {
