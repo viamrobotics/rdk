@@ -381,7 +381,11 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 					filesInDir = append(filesInDir, entryFile)
 				}
 
-				if err := copyFiles(makeRelName(relDir, f), filesInDir); err != nil {
+				err = copyFiles(makeRelName(relDir, f), filesInDir)
+				for _, ef := range filesInDir {
+					utils.UncheckedError(ef.Close())
+				}
+				if err != nil {
 					return err
 				}
 			}
