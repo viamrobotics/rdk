@@ -983,6 +983,9 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 }
 
 func TestShellFileCopy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-11617")
+	}
 	logger := logging.NewTestLogger(t)
 
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
