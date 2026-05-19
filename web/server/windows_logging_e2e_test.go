@@ -24,7 +24,7 @@ import (
 	rtestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/web/server/winlogproc"
+	"go.viam.com/rdk/etc/winlogproc"
 )
 
 const (
