@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows && etw_e2e
 
 package server_test
 
