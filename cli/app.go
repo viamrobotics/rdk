@@ -97,6 +97,9 @@ const (
 	moduleFlagVisibility      = "visibility"
 	moduleFlagResourceType    = "resource-type"
 	moduleFlagRegister        = "register"
+	moduleFlagGenerateType    = "generate-type"
+	moduleFlagAppName         = "app-name"
+	moduleFlagAppType         = "app-type"
 	moduleFlagUpload          = "upload"
 	moduleFlagAnnotation      = "annotation"
 
@@ -105,6 +108,7 @@ const (
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
 	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagBuilder     = "builder"
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
 	moduleBuildFlagNoBuild     = "no-build"
@@ -3440,12 +3444,16 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					UsageText: createUsageText("module generate", nil, true, false),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
+							Name:  moduleFlagGenerateType,
+							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
+						},
+						&cli.StringFlag{
 							Name:  generalFlagName,
-							Usage: "name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
+							Usage: "(module only) name to use for module. for example, a module that contains sensor implementations might be named 'sensors'",
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagLanguage,
-							Usage: formatAcceptedValues("language to use for module", supportedModuleGenLanguages...),
+							Usage: formatAcceptedValues("(module only) language to use for module", supportedModuleGenLanguages...),
 						},
 						&cli.StringFlag{
 							Name:  moduleFlagVisibility,
@@ -3458,7 +3466,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
-							Usage: "resource subtype to use in module, for example arm, camera, or motion. see " +
+							Usage: "(module only) resource subtype to use in module, for example arm, camera, or motion. see " +
 								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
 						},
 						// This is unnecessary and creates a gotcha for users. Kept here
@@ -3470,7 +3478,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 						},
 						&cli.StringFlag{
 							Name: generalFlagModelName,
-							Usage: "name for the particular resource subtype implementation." +
+							Usage: "(module only) name for the particular resource subtype implementation." +
 								" for example, a sensor model that detects moisture might be named 'moisture'",
 						},
 						&cli.BoolFlag{
@@ -3481,6 +3489,14 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 							Name:   generalFlagDryRun,
 							Usage:  "indicate a dry test run, so skip regular checks",
 							Hidden: true,
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppName,
+							Usage: "(app only) name for the app",
+						},
+						&cli.StringFlag{
+							Name:  moduleFlagAppType,
+							Usage: formatAcceptedValues("(app only) app type", "single_machine", "multi_machine"),
 						},
 					},
 					Action: createActionCommandWithT[generateModuleArgs](GenerateModuleAction),
@@ -3659,6 +3675,11 @@ Example:
 									Name: moduleBuildFlagPlatforms,
 									// would use 'DefaultText' key, but defaults don't show for slice flags
 									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuilder,
+									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+									Value: "default",
 								},
 							},
 							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

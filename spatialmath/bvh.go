@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/num/quat"
 )
 
 // bvhNode represents a node in a Bounding Volume Hierarchy tree.
@@ -278,16 +279,41 @@ func aabbDistance(min1, max1, min2, max2 r3.Vector) float64 {
 }
 
 func transformAABB(minPt, maxPt r3.Vector, pose Pose) (r3.Vector, r3.Vector) {
-	rm := pose.Orientation().RotationMatrix()
-	q := pose.Orientation().Quaternion()
-	trans := pose.Point()
+	pc := newBVHPoseCache(pose)
+	return transformAABBCached(minPt, maxPt, &pc)
+}
 
+// bvhPoseCache holds a pose pre-decomposed into the forms used during BVH traversal.
+// Avoids repeatedly calling Orientation().RotationMatrix()/Quaternion() (which allocate
+// and recompute) on every recursive entry.
+type bvhPoseCache struct {
+	pose  Pose
+	q     quat.Number
+	rm    *RotationMatrix
+	trans r3.Vector
+}
+
+func newBVHPoseCache(p Pose) bvhPoseCache {
+	o := p.Orientation()
+	return bvhPoseCache{
+		pose:  p,
+		q:     o.Quaternion(),
+		rm:    o.RotationMatrix(),
+		trans: p.Point(),
+	}
+}
+
+func transformAABBCached(minPt, maxPt r3.Vector, pc *bvhPoseCache) (r3.Vector, r3.Vector) {
 	center := minPt.Add(maxPt).Mul(0.5)
 	extents := maxPt.Sub(minPt).Mul(0.5)
-
-	worldCenter := TransformPoint(q, trans, center)
-	worldExtents := rotatedAABBExtents(rm, extents)
+	worldCenter := TransformPoint(pc.q, pc.trans, center)
+	worldExtents := rotatedAABBExtents(pc.rm, extents)
 	return aabbFromCenterExtents(worldCenter, worldExtents)
+}
+
+func expandAABBBuffer(minPt, maxPt r3.Vector, buffer float64) (r3.Vector, r3.Vector) {
+	return r3.Vector{X: minPt.X - buffer, Y: minPt.Y - buffer, Z: minPt.Z - buffer},
+		r3.Vector{X: maxPt.X + buffer, Y: maxPt.Y + buffer, Z: maxPt.Z + buffer}
 }
 
 // bvhCollidesWithBVH checks if two BVH trees collide, using the given poses to transform them.
@@ -297,40 +323,49 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 		return false, math.Inf(1), nil
 	}
 
-	// Transform AABBs to world space
-	min1, max1 := transformAABB(node1.min, node1.max, pose1)
-	min2, max2 := transformAABB(node2.min, node2.max, pose2)
+	pc1 := newBVHPoseCache(pose1)
+	pc2 := newBVHPoseCache(pose2)
 
-	// Expand first AABB by collision buffer
-	min1.X -= collisionBufferMM
-	min1.Y -= collisionBufferMM
-	min1.Z -= collisionBufferMM
-	max1.X += collisionBufferMM
-	max1.Y += collisionBufferMM
-	max1.Z += collisionBufferMM
+	min1, max1 := transformAABBCached(node1.min, node1.max, &pc1)
+	min1, max1 = expandAABBBuffer(min1, max1, collisionBufferMM)
+	min2, max2 := transformAABBCached(node2.min, node2.max, &pc2)
 
-	// Check if AABBs overlap
+	return bvhCollidesWithBVHRec(node1, min1, max1, node2, min2, max2, &pc1, &pc2, collisionBufferMM)
+}
+
+// bvhCollidesWithBVHRec is the recursive worker for bvhCollidesWithBVH.
+// Caller invariants:
+//   - min1/max1 is node1's world-space AABB pre-expanded by collisionBufferMM.
+//   - min2/max2 is node2's world-space AABB (unexpanded).
+//
+// This lets each node's AABB be transformed exactly once across the traversal,
+// instead of recomputing both AABBs at every recursive entry.
+func bvhCollidesWithBVHRec(
+	node1 *bvhNode, min1, max1 r3.Vector,
+	node2 *bvhNode, min2, max2 r3.Vector,
+	pc1, pc2 *bvhPoseCache,
+	collisionBufferMM float64,
+) (bool, float64, error) {
 	if !aabbOverlap(min1, max1, min2, max2) {
 		return false, aabbDistance(min1, max1, min2, max2), nil
 	}
 
-	// Both are leaves - do geometry-geometry checks
 	if node1.geoms != nil && node2.geoms != nil {
-		return leafCollidesWithLeaf(node1.geoms, node2.geoms, pose1, pose2, collisionBufferMM)
+		return leafCollidesWithLeaf(node1.geoms, node2.geoms, pc1.pose, pc2.pose, collisionBufferMM)
 	}
 
-	// Recurse into children
-	// Strategy: descend into the larger node first for better culling
 	if node1.geoms != nil {
-		// node1 is leaf, recurse into node2's children
-		leftCollide, leftDist, err := bvhCollidesWithBVH(node1, node2.left, pose1, pose2, collisionBufferMM)
+		// node1 is leaf; transform node2's children once at this level.
+		l2Min, l2Max := transformAABBCached(node2.left.min, node2.left.max, pc2)
+		leftCollide, leftDist, err := bvhCollidesWithBVHRec(node1, min1, max1, node2.left, l2Min, l2Max, pc1, pc2, collisionBufferMM)
 		if err != nil {
 			return false, 0, err
 		}
 		if leftCollide {
 			return true, leftDist, nil
 		}
-		rightCollide, rightDist, err := bvhCollidesWithBVH(node1, node2.right, pose1, pose2, collisionBufferMM)
+		r2Min, r2Max := transformAABBCached(node2.right.min, node2.right.max, pc2)
+		rightCollide, rightDist, err := bvhCollidesWithBVHRec(node1, min1, max1, node2.right, r2Min, r2Max, pc1, pc2, collisionBufferMM)
 		if err != nil {
 			return false, 0, err
 		}
@@ -341,15 +376,19 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 	}
 
 	if node2.geoms != nil {
-		// node2 is leaf, recurse into node1's children
-		leftCollide, leftDist, err := bvhCollidesWithBVH(node1.left, node2, pose1, pose2, collisionBufferMM)
+		// node2 is leaf; transform node1's children once at this level.
+		l1Min, l1Max := transformAABBCached(node1.left.min, node1.left.max, pc1)
+		l1Min, l1Max = expandAABBBuffer(l1Min, l1Max, collisionBufferMM)
+		leftCollide, leftDist, err := bvhCollidesWithBVHRec(node1.left, l1Min, l1Max, node2, min2, max2, pc1, pc2, collisionBufferMM)
 		if err != nil {
 			return false, 0, err
 		}
 		if leftCollide {
 			return true, leftDist, nil
 		}
-		rightCollide, rightDist, err := bvhCollidesWithBVH(node1.right, node2, pose1, pose2, collisionBufferMM)
+		r1Min, r1Max := transformAABBCached(node1.right.min, node1.right.max, pc1)
+		r1Min, r1Max = expandAABBBuffer(r1Min, r1Max, collisionBufferMM)
+		rightCollide, rightDist, err := bvhCollidesWithBVHRec(node1.right, r1Min, r1Max, node2, min2, max2, pc1, pc2, collisionBufferMM)
 		if err != nil {
 			return false, 0, err
 		}
@@ -359,17 +398,37 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 		return false, math.Min(leftDist, rightDist), nil
 	}
 
-	// Both are internal nodes - check all 4 combinations
-	minDist := math.Inf(1)
-	pairs := [][2]*bvhNode{
-		{node1.left, node2.left},
-		{node1.left, node2.right},
-		{node1.right, node2.left},
-		{node1.right, node2.right},
+	// Both internal: transform all 4 children once, then evaluate overlapping pairs
+	// first so collision short-circuits don't get blocked by guaranteed-miss pairs.
+	// Non-overlapping pairs need not recurse — their AABB distance is the best info
+	// available and feeds the minDist return.
+	lmin1, lmax1 := transformAABBCached(node1.left.min, node1.left.max, pc1)
+	lmin1, lmax1 = expandAABBBuffer(lmin1, lmax1, collisionBufferMM)
+	rmin1, rmax1 := transformAABBCached(node1.right.min, node1.right.max, pc1)
+	rmin1, rmax1 = expandAABBBuffer(rmin1, rmax1, collisionBufferMM)
+	lmin2, lmax2 := transformAABBCached(node2.left.min, node2.left.max, pc2)
+	rmin2, rmax2 := transformAABBCached(node2.right.min, node2.right.max, pc2)
+
+	type pairEntry struct {
+		n1, n2                     *bvhNode
+		pMin1, pMax1, pMin2, pMax2 r3.Vector
+		overlap                    bool
+	}
+	pairs := [4]pairEntry{
+		{node1.left, node2.left, lmin1, lmax1, lmin2, lmax2, aabbOverlap(lmin1, lmax1, lmin2, lmax2)},
+		{node1.left, node2.right, lmin1, lmax1, rmin2, rmax2, aabbOverlap(lmin1, lmax1, rmin2, rmax2)},
+		{node1.right, node2.left, rmin1, rmax1, lmin2, lmax2, aabbOverlap(rmin1, rmax1, lmin2, lmax2)},
+		{node1.right, node2.right, rmin1, rmax1, rmin2, rmax2, aabbOverlap(rmin1, rmax1, rmin2, rmax2)},
 	}
 
-	for _, pair := range pairs {
-		collide, dist, err := bvhCollidesWithBVH(pair[0], pair[1], pose1, pose2, collisionBufferMM)
+	minDist := math.Inf(1)
+	// First pass: recurse only into overlapping pairs (where collisions are possible).
+	for i := range pairs {
+		p := &pairs[i]
+		if !p.overlap {
+			continue
+		}
+		collide, dist, err := bvhCollidesWithBVHRec(p.n1, p.pMin1, p.pMax1, p.n2, p.pMin2, p.pMax2, pc1, pc2, collisionBufferMM)
 		if err != nil {
 			return false, 0, err
 		}
@@ -380,13 +439,31 @@ func bvhCollidesWithBVH(node1, node2 *bvhNode, pose1, pose2 Pose, collisionBuffe
 			minDist = dist
 		}
 	}
-
+	// Second pass: non-overlapping pairs contribute only to minDist.
+	for i := range pairs {
+		p := &pairs[i]
+		if p.overlap {
+			continue
+		}
+		dist := aabbDistance(p.pMin1, p.pMax1, p.pMin2, p.pMax2)
+		if dist < minDist {
+			minDist = dist
+		}
+	}
 	return false, minDist, nil
 }
 
 // leafCollidesWithLeaf performs collision checks between two leaf nodes using the Geometry interface.
 // Geometries are stored in local space and transformed on-demand using the provided poses.
 func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
+	// Fast path: triangle-triangle leaves (the dominant case for Mesh-Mesh checks).
+	// Transforms triangles into stack-allocated Triangle values instead of allocating
+	// a new *Triangle per Geometry.Transform call. Eliminates ~8 heap allocations per
+	// leaf pair in the hot path.
+	if allLeafTriangles(geoms1) && allLeafTriangles(geoms2) {
+		return triangleLeafCollide(geoms1, geoms2, pose1, pose2, collisionBufferMM)
+	}
+
 	minDist := math.Inf(1)
 	// Pre-transform geoms2 once to avoid redundant transforms in inner loop.
 	worldGeoms2 := make([]Geometry, len(geoms2))
@@ -409,6 +486,63 @@ func leafCollidesWithLeaf(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisio
 		}
 	}
 
+	return false, minDist, nil
+}
+
+// allLeafTriangles reports whether every geometry in the slice is a *Triangle.
+// Cheap (≤ maxGeomsPerLeaf iterations) and lets leafCollidesWithLeaf take the
+// allocation-free triangle path when both leaves are all triangles.
+func allLeafTriangles(geoms []Geometry) bool {
+	for _, g := range geoms {
+		if _, ok := g.(*Triangle); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// triangleLeafCollide is the allocation-free fast path for triangle-vs-triangle leaf checks.
+// Transforms each triangle into a stack-local Triangle value (escape analysis keeps the
+// pointers off-heap because collidesWithTriangle does not retain the receivers) and
+// avoids the *Triangle allocation that Triangle.Transform performs.
+func triangleLeafCollide(geoms1, geoms2 []Geometry, pose1, pose2 Pose, collisionBufferMM float64) (bool, float64, error) {
+	q1 := pose1.Orientation().Quaternion()
+	t1 := pose1.Point()
+	q2 := pose2.Orientation().Quaternion()
+	t2 := pose2.Point()
+
+	// maxGeomsPerLeaf bounds the leaf size, so a fixed-size stack array is safe.
+	var worldT2s [maxGeomsPerLeaf]Triangle
+	n2 := len(geoms2)
+	for i := 0; i < n2; i++ {
+		tri := geoms2[i].(*Triangle)
+		worldT2s[i] = Triangle{
+			p0:     TransformPoint(q2, t2, tri.p0),
+			p1:     TransformPoint(q2, t2, tri.p1),
+			p2:     TransformPoint(q2, t2, tri.p2),
+			normal: transformDirection(q2, tri.normal),
+		}
+	}
+
+	minDist := math.Inf(1)
+	for _, g1 := range geoms1 {
+		tri1 := g1.(*Triangle)
+		worldT1 := Triangle{
+			p0:     TransformPoint(q1, t1, tri1.p0),
+			p1:     TransformPoint(q1, t1, tri1.p1),
+			p2:     TransformPoint(q1, t1, tri1.p2),
+			normal: transformDirection(q1, tri1.normal),
+		}
+		for i := 0; i < n2; i++ {
+			collides, dist := worldT1.collidesWithTriangle(&worldT2s[i], collisionBufferMM)
+			if collides {
+				return true, -1, nil
+			}
+			if dist < minDist {
+				minDist = dist
+			}
+		}
+	}
 	return false, minDist, nil
 }
 

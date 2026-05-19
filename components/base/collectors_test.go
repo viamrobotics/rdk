@@ -34,3 +34,12 @@ func newBase() base.Base {
 	}
 	return b
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       base.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newBase() },
+	})
+}

@@ -18,6 +18,7 @@ import (
 	armpb "go.viam.com/api/component/arm/v1"
 	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
+	utilsproto "go.viam.com/utils/protoutils"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -647,17 +648,36 @@ func TestModuleLogTimestamp(t *testing.T) {
 	injectRobot.LoggerFunc = func() logging.Logger { return logger }
 	srv := server.New(injectRobot)
 
-	_, err := srv.Log(context.Background(), &pb.LogRequest{
+	// Piggy back this test for roundtripping of the `Caller` field.
+	caller, err := utilsproto.StructToStructPb(logging.WrapEntryCaller(zapcore.EntryCaller{
+		Defined:  true,
+		PC:       0,
+		File:     "some_filename.go",
+		Line:     67,
+		Function: "TestModuleLogTimestamp",
+	}))
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = srv.Log(context.Background(), &pb.LogRequest{
 		Logs: []*commonpb.LogEntry{{
 			Level:   "info",
 			Time:    timestamppb.New(time.Now().Add(-2 * time.Hour)),
 			Message: "old log contains `log_ts`",
+			Caller:  caller,
 		}},
 	})
 	test.That(t, err, test.ShouldBeNil)
 	// Dan: This half of the test works "in the favor" of a race. If this fails, there's a real
 	// bug/change in expected behavior.
-	test.That(t, logs.FilterFieldKey("log_ts").Len(), test.ShouldEqual, 1)
+	logsWithTS := logs.FilterFieldKey("log_ts")
+	test.That(t, logsWithTS.Len(), test.ShouldEqual, 1)
+
+	// Assert that the caller roundtripped.
+	deserializedCaller := logsWithTS.All()[0].Caller
+	test.That(t, deserializedCaller.Defined, test.ShouldBeTrue)
+	test.That(t, deserializedCaller.File, test.ShouldEqual, "some_filename.go")
+	test.That(t, deserializedCaller.Line, test.ShouldEqual, 67)
+	test.That(t, deserializedCaller.Function, test.ShouldEqual, "TestModuleLogTimestamp")
 
 	logs.TakeAll() // clear logs
 

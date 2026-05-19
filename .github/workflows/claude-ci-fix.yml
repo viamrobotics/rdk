@@ -1,0 +1,55 @@
+name: Claude CI Fix
+
+on:
+  workflow_run:
+    workflows: ['Pull Request Update']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Failed workflow run ID (from gh run list)'
+        required: true
+      branch:
+        description: 'PR branch name (e.g., claude/RSDK-123)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  call-ci-fix:
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      issues: write
+      id-token: write
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'failure' &&
+        startsWith(github.event.workflow_run.head_branch, 'claude/')
+      )
+    # viamrobotics/claude-ci-workflows@v2.0.0
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-ci-fix.yml@aa76787c145ed43f8f7b9bae4d978da4f9850001
+    with:
+      container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
+      run_id: ${{ github.event.workflow_run.id || inputs.run_id }}
+      branch: ${{ github.event.workflow_run.head_branch || inputs.branch }}
+      install_command: make tool-install
+      allowed_tools: 'Edit,Read,Write,Glob,Grep,Bash(make build*),Bash(make build-go*),Bash(make lint*),Bash(make lint-go*),Bash(make test-go*),Bash(make test-go-no-race*),Bash(make tool-install*),Bash(go build*),Bash(go test*),Bash(go vet*),Bash(go list *),Bash(go doc *),Bash(go mod *),Bash(gofmt *),Bash(ls *),Bash(find *),Bash(git config *),Bash(git add *),Bash(git commit *),Bash(git push *),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git checkout *),Bash(git branch *),Bash(git rev-parse *),Bash(git fetch *)'
+      max_turns: 50
+      team_mention: '@viamrobotics/rdk'
+      extra_prompt: |
+        - Run only the verification commands relevant to the files you changed: `make lint-go` and `make test-go`.
+        - Do NOT run unrelated linters or test suites — they waste turns and time.
+        - If a test or lint command fails more than twice on the same issue, commit what you have, push, and note the unresolved issue in a PR comment.
+        - For Go test failures: read the failing test AND the function under test before making changes. Understand the data flow and what the test asserts, not just the error message.
+        - Before editing code, read 1-2 similar functions or tests in the same file to understand existing patterns and conventions.
+      extra_system_prompt: >-
+        This is a Go project (go.viam.com/rdk).
+        Verify with `make lint-go` and `make test-go`. The rdk-devenv container has Go tooling pre-installed.
+        Do NOT modify generated protobuf code (files ending in `.pb.go` or under `*/pb/` directories).
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GIT_ACCESS_TOKEN: ${{ secrets.GIT_ACCESS_TOKEN }}

@@ -81,14 +81,16 @@ func (l *Limit) Jog(val, percentJog float64) float64 {
 	return val
 }
 
-// GoodLimits gives min, max, range, but capped to -999,999.
+// GoodLimits gives min, max, range. Infinite limits are capped to +/- rangeLimit to bound
+// the search space. Finite limits are returned as-is so explicitly configured ranges
+// are not silently truncated.
 func (l *Limit) GoodLimits() (float64, float64, float64) {
 	a := l.Min
 	b := l.Max
-	if a < -1*rangeLimit {
+	if math.IsInf(a, -1) {
 		a = -1 * rangeLimit
 	}
-	if b > rangeLimit {
+	if math.IsInf(b, 1) {
 		b = rangeLimit
 	}
 	return a, b, b - a
@@ -926,6 +928,9 @@ func framesAlmostEqual(frame1, frame2 Frame, epsilon float64) (bool, error) {
 				return false, nil
 			}
 		}
+	case *namedFrame:
+		f2 := frame2.(*namedFrame)
+		return framesAlmostEqual(f1.Frame, f2.Frame, epsilon)
 	default:
 		return false, fmt.Errorf("equality conditions not defined for %t", frame1)
 	}

@@ -15,7 +15,9 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -25,9 +27,11 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/components/sensor"
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/datamanager/builtin/capture"
 	"go.viam.com/rdk/services/datamanager/builtin/shared"
@@ -145,7 +149,29 @@ func (b *builtIn) Close(ctx context.Context) error {
 	return nil
 }
 
-// TODO: Determine desired behavior if sync is disabled. Do we wan to allow manual syncs, then?
+// renameProgFilesToCapture walks dir recursively and renames any .prog files to .capture so
+// that orphaned in-progress files from a previous crash are picked up by the syncer on restart.
+func renameProgFilesToCapture(dir string, logger logging.Logger) {
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			//nolint:nilerr
+			return nil
+		}
+		if filepath.Ext(path) != data.InProgressCaptureFileExt {
+			return nil
+		}
+		newPath := path[:len(path)-len(data.InProgressCaptureFileExt)] + data.CompletedCaptureFileExt
+		if renameErr := os.Rename(path, newPath); renameErr != nil {
+			logger.Warnw("failed to rename in-progress capture file on startup", "path", path, "error", renameErr)
+		}
+		return nil
+	}); err != nil {
+		logger.Warnw("failed to walk capture directory on startup", "dir", dir, "error", err)
+	}
+}
+
+// TODO: Determine desired behavior if sync is disabled. Do we want to allow
+// manual syncs, then?
 //       If so, how could a user cancel it?
 
 // Sync performs a non-scheduled sync of the data in the capture directory.
@@ -205,24 +231,33 @@ func (b *builtIn) Reconfigure(ctx context.Context, deps resource.Dependencies, c
 	if err := os.MkdirAll(captureConfig.CaptureDir, 0o700); err != nil {
 		b.logger.Warnf("failed to create capture directory: %s", captureConfig.CaptureDir)
 	}
+	renameProgFilesToCapture(captureConfig.CaptureDir, b.logger)
 
 	syncSensor, syncSensorEnabled := syncSensorFromDeps(c.SelectiveSyncerName, deps, b.logger)
 	syncConfig := c.syncConfig(syncSensor, syncSensorEnabled, b.logger)
 
 	controlSensor, controlSensorKey := captureControlSensorFromDeps(c.CaptureControlSensor, deps, b.logger)
 
+	var frameSystem framesystem.Service
+	if svc, err := resource.FromProvider[framesystem.Service](deps, framesystem.InternalServiceName); err != nil {
+		b.logger.Warnw("frame system unavailable; GetWorldPose collectors will fail", "error", err)
+	} else {
+		frameSystem = svc
+	}
+
 	b.stopCaptureControlPoller()
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	// These Reconfigure calls are the only methods in builtin.Reconfigure which create / destroy resources.
-	// It is important that no errors happen for a given Reconfigure call after we being callin Reconfigure on capture & sync
+	// It is important that no errors happen for a given Reconfigure call after we begin calling Reconfigure on capture & sync
 	// or we could leak goroutines, wasting resources and causing bugs due to duplicate work.
 	shouldSync := func(ctx context.Context) bool {
 		return syncConfig.SchedulerEnabled() && datasync.ReadyToSyncDirectories(ctx, syncConfig, b.logger)
 	}
+
 	b.diskSummaryTracker.reconfigure(syncConfig.SyncPaths(), syncConfig.SyncIntervalMins, shouldSync)
-	b.capture.Reconfigure(ctx, collectorConfigsByResource, captureConfig)
+	b.capture.Reconfigure(ctx, frameSystem, collectorConfigsByResource, captureConfig)
 	b.sync.Reconfigure(ctx, syncConfig, cloudConnSvc)
 
 	if controlSensor != nil && !captureConfig.CaptureDisabled {
@@ -260,9 +295,13 @@ func (b *builtIn) stopCaptureControlPoller() {
 	}
 }
 
-// runCaptureControlPoller polls the capture control sensor at 10 Hz. On invalid or missing readings,
-// it reverts to the machine config by passing nil configs.
-func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, key string) {
+// runCaptureControlPoller polls the capture control sensor at 10 Hz, applying capture configs
+// and active sequences each tick. On invalid readings it reverts to the machine config.
+func (b *builtIn) runCaptureControlPoller(
+	ctx context.Context,
+	s sensor.Sensor,
+	key string,
+) {
 	ticker := time.NewTicker(capturePollFrequency)
 	defer ticker.Stop()
 	for {
@@ -273,13 +312,15 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 		}
 
 		var newConfigs map[string]datamanager.CaptureConfigReading
+		var newSequences []datamanager.SequenceReading
 
 		readings, err := s.Readings(ctx, nil)
 		if ctx.Err() != nil {
 			return
 		}
 		if err != nil {
-			b.logger.Warnw("error getting readings from capture control sensor, reverting to machine config", "error", err.Error())
+			b.logger.Warnw("error getting readings from capture control sensor; reverting to machine config and closing any open sequences",
+				"error", err.Error())
 		} else {
 			var parseErr error
 			newConfigs, parseErr = parseOverridesFromReadings(readings, key)
@@ -290,6 +331,13 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			} else {
 				b.logger.Debugw("capture control sensor parsed configs", "count", len(newConfigs))
 			}
+
+			var seqErr error
+			newSequences, seqErr = parseSequencesFromReadings(readings, b.logger)
+			if seqErr != nil {
+				b.logger.Warnw("failed to parse sequences from sensor reading; closing any open sequences",
+					"error", seqErr)
+			}
 		}
 
 		b.mu.Lock()
@@ -298,6 +346,7 @@ func (b *builtIn) runCaptureControlPoller(ctx context.Context, s sensor.Sensor, 
 			return
 		}
 		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.capture.SetActiveSequences(newSequences)
 		b.mu.Unlock()
 	}
 }
@@ -343,7 +392,41 @@ func parseOverridesFromReadings(readings map[string]interface{}, key string) (ma
 	}
 	result := make(map[string]datamanager.CaptureConfigReading, len(controlList))
 	for _, reading := range controlList {
-		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.Method)] = reading
+		result[capture.DataCaptureConfigKey(reading.ResourceName, reading.MethodName)] = reading
+	}
+	return result, nil
+}
+
+// parseSequencesFromReadings extracts active sequences from readings under SequencesKey.
+// Entries with no resources are dropped.
+func parseSequencesFromReadings(
+	readings map[string]interface{}, logger logging.Logger,
+) ([]datamanager.SequenceReading, error) {
+	raw, ok := readings[datamanager.SequencesKey]
+	if !ok {
+		return nil, nil
+	}
+	jsonBytes, err := json.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal sequences reading: %w", err)
+	}
+	var sequences []datamanager.SequenceReading
+	if err := json.Unmarshal(jsonBytes, &sequences); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal sequences reading: %w", err)
+	}
+	if len(sequences) == 0 {
+		return nil, nil
+	}
+	result := make([]datamanager.SequenceReading, 0, len(sequences))
+	for i, s := range sequences {
+		if len(s.Resources) == 0 {
+			logger.Warnw("sequence reading has no resources; dropping", "index", i)
+			continue
+		}
+		result = append(result, s)
+	}
+	if len(result) == 0 {
+		return nil, nil
 	}
 	return result, nil
 }

@@ -2,6 +2,7 @@
 package motionplan
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 
@@ -97,6 +98,27 @@ func NewGeoPlan(plan Plan, pt *geo.Point) Plan {
 		newPath = append(newPath, newStep)
 	}
 	return NewSimplePlan(newPath, plan.Trajectory())
+}
+
+type simplePlanJSON struct {
+	Path Path       `json:"path"`
+	Traj Trajectory `json:"trajectory"`
+}
+
+// MarshalJSON implements json.Marshaler for SimplePlan.
+func (plan *SimplePlan) MarshalJSON() ([]byte, error) {
+	return json.Marshal(simplePlanJSON{Path: plan.path, Traj: plan.traj})
+}
+
+// UnmarshalJSON implements json.Unmarshaler for SimplePlan.
+func (plan *SimplePlan) UnmarshalJSON(data []byte) error {
+	var planJSON simplePlanJSON
+	if err := json.Unmarshal(data, &planJSON); err != nil {
+		return err
+	}
+	plan.path = planJSON.Path
+	plan.traj = planJSON.Traj
+	return nil
 }
 
 // ExecutionState describes a plan and a particular state along it.

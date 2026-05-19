@@ -75,10 +75,6 @@ func TestNewProgressManager(t *testing.T) {
 	pm := newTestProgressManager(steps)
 	defer pm.Stop() // Clean up any active spinners
 
-	if pm == nil {
-		t.Fatal("NewProgressManager returned nil")
-	}
-
 	if len(pm.steps) != 3 {
 		t.Errorf("Expected 3 steps, got %d", len(pm.steps))
 	}

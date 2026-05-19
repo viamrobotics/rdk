@@ -34,3 +34,12 @@ func newSwitch() toggleswitch.Switch {
 	}
 	return s
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       toggleswitch.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newSwitch() },
+	})
+}

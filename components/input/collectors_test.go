@@ -34,3 +34,12 @@ func newInput() input.Controller {
 	}
 	return i
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       input.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newInput() },
+	})
+}
