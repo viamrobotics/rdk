@@ -41,6 +41,7 @@ func main() {
 	afterStr := flag.String("after", "", "eventlog filter: only events at or after this RFC3339 time")
 	beforeStr := flag.String("before", "", "eventlog filter: only events at or before this RFC3339 time")
 	sinceStr := flag.String("since", "", "eventlog filter: only events from the last duration (e.g. 10s, 5m, 1h)")
+	lastStr := flag.String("last", "", "filter: only the last duration of events anchored at the most recent log timestamp (offline-friendly version of -since); mutually exclusive with -since/-after/-before")
 
 	// Process-only inputs.
 	eventlogIn := flag.String("eventlog", "", "process this existing eventlog.txt instead of collecting")
@@ -84,6 +85,24 @@ func main() {
 			EventlogSource: *source,
 			OutDir:         *out,
 		}
+
+		// -last is mutually exclusive with -since/-after/-before and is
+		// applied as a post-Collect filter pass (we don't know the
+		// anchor until events are dumped).
+		var lastDur time.Duration
+		if *lastStr != "" {
+			if *sinceStr != "" || *afterStr != "" || *beforeStr != "" {
+				fmt.Fprintln(os.Stderr, "-last is mutually exclusive with -since/-after/-before")
+				os.Exit(2)
+			}
+			d, derr := time.ParseDuration(*lastStr)
+			if derr != nil {
+				fmt.Fprintln(os.Stderr, "parse -last:", derr)
+				os.Exit(2)
+			}
+			lastDur = d
+		}
+
 		var err error
 		if *sinceStr != "" {
 			if *afterStr != "" {
@@ -115,8 +134,41 @@ func main() {
 			fmt.Fprintln(os.Stderr, "collect:", err)
 			os.Exit(1)
 		}
+
+		if lastDur > 0 {
+			if err := applyLastFilter(dir, lastDur); err != nil {
+				fmt.Fprintln(os.Stderr, "-last filter:", err)
+				os.Exit(1)
+			}
+		}
+
 		fmt.Println(dir)
 	}
+}
+
+// applyLastFilter implements the -last flag by anchoring each stream
+// at its own latest timestamp, then rewriting each TSV in place to
+// drop anything older than (that stream's max - duration). Per-stream
+// anchors prevent one stream's tail from gutting the other.
+func applyLastFilter(dir string, dur time.Duration) error {
+	for _, name := range []string{"eventlog.tsv", "trace.tsv"} {
+		path := filepath.Join(dir, "processed", name)
+		max, err := winlogproc.MaxTimestampInTSV(path)
+		if err != nil {
+			return fmt.Errorf("max ts in %s: %w", name, err)
+		}
+		if max.IsZero() {
+			fmt.Fprintf(os.Stderr, "-last: %s has no parseable timestamps; skipping\n", name)
+			continue
+		}
+		cutoff := max.Add(-dur)
+		fmt.Fprintf(os.Stderr, "-last %s: anchor=%s cutoff=%s\n",
+			name, max.Format(time.RFC3339Nano), cutoff.Format(time.RFC3339Nano))
+		if err := winlogproc.FilterProcessedTSV(path, cutoff, time.Time{}); err != nil {
+			return fmt.Errorf("filter %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func runProcess(eventlogIn, traceIn, outDir string) {

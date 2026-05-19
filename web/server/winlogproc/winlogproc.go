@@ -153,6 +153,79 @@ func Trace(in, out string, after, before time.Time) error {
 	return writeSortedRows(out, rows)
 }
 
+// MaxTimestampInTSV scans a processed time<TAB>level<TAB>caller<TAB>
+// message TSV and returns the latest parseable timestamp in column 0.
+// Returns zero time if the file is empty or no rows parse.
+func MaxTimestampInTSV(path string) (time.Time, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+	defer f.Close()
+	var maxTime time.Time
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 64*1024), 1024*1024)
+	for sc.Scan() {
+		first, _, ok := strings.Cut(sc.Text(), "\t")
+		if !ok {
+			continue
+		}
+		ts, err := time.Parse(traceTimeFormat, first)
+		if err != nil {
+			continue
+		}
+		if ts.After(maxTime) {
+			maxTime = ts
+		}
+	}
+	return maxTime, sc.Err()
+}
+
+// FilterProcessedTSV rewrites a processed time<TAB>level<TAB>caller<TAB>
+// message TSV in place, keeping only rows whose timestamp is within
+// [after, before]. Zero values mean unbounded on that side. Rows whose
+// timestamp can't be parsed are kept (better than dropping mystery data).
+func FilterProcessedTSV(path string, after, before time.Time) error {
+	in, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var kept []string
+	for _, line := range strings.Split(string(in), "\n") {
+		if line == "" {
+			continue
+		}
+		first, _, ok := strings.Cut(line, "\t")
+		if !ok {
+			kept = append(kept, line)
+			continue
+		}
+		ts, err := time.Parse(traceTimeFormat, first)
+		if err == nil {
+			if !after.IsZero() && ts.Before(after) {
+				continue
+			}
+			if !before.IsZero() && ts.After(before) {
+				continue
+			}
+		}
+		kept = append(kept, line)
+	}
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	w := bufio.NewWriter(out)
+	defer w.Flush()
+	for _, line := range kept {
+		if _, err := w.WriteString(line + "\n"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // writeSortedRows sorts rows chronologically by column 0 (relying on
 // fixed-width RFC3339 UTC being lex-sortable) and writes them to out
 // as tab-separated lines: time<TAB>level<TAB>caller<TAB>message.
