@@ -936,11 +936,9 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			// waiting on the lock. Check for a context cancellation to avoid double
 			// starting and/or leaking a module process.
 			if err := ctx.Err(); err != nil {
-				mod.logger.Infow("Restart context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 			if err := oueCtx.Err(); err != nil {
-				mod.logger.Infow("pexec context canceled, abandoning restart attempt", "err", err)
 				return
 			}
 
