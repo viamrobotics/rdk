@@ -85,11 +85,6 @@ jobs:
         chown -R testbot:testbot .
         sudo -Hu testbot bash -lc 'make clean-all'
 
-    - name: Authorize GCP Upload
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
-
     - name: Authorize signing (windows)
       if: matrix.target == 'static-release-win'
       id: signing-auth
@@ -99,10 +94,6 @@ jobs:
         project_id: 'engineering-tools-310515'
         workload_identity_provider: 'projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs'
         service_account: 'ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com'
-        # Don't overwrite GOOGLE_APPLICATION_CREDENTIALS from the previous
-        # Authorize GCP Upload step — the subsequent upload-cloud-storage
-        # step needs GCP_CREDENTIALS, not the ev-code-signing SA.
-        create_credentials_file: false
 
     - name: Set up Authenticode signing (windows)
       if: matrix.target == 'static-release-win'
@@ -131,6 +122,11 @@ jobs:
           "$1"
         EOF
         chmod 755 /tmp/sign-binary.sh
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
     - name: Build (Test)
       if: github.event_name == 'workflow_dispatch' && inputs.release_type == 'pr'
