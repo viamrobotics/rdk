@@ -8,12 +8,15 @@
 // strip the per-system framing so the underlying log content can be
 // compared directly.
 //
-//nolint:errcheck
+// winlogproc is only called by developers and an e2e test that is
+// normally gated, so it carries per-line nolint directives for file
+// I/O on user-supplied paths.
 package winlogproc
 
 import (
 	"bufio"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,11 +49,13 @@ const eventlogPreamble = "The following information is part of the event:'"
 // fixed-width UTC RFC3339, so lexicographic sort == chronological
 // sort.
 func Eventlog(in, out string) error {
+	// This utility reads log files from a variable path, so there's no way around file reads
+	//nolint:gosec
 	inFile, err := os.Open(in)
 	if err != nil {
 		return err
 	}
-	defer inFile.Close()
+	defer inFile.Close() //nolint:errcheck // read-only file.
 
 	var rows [][4]string
 	sc := bufio.NewScanner(inFile)
@@ -99,17 +104,19 @@ type traceEvent struct {
 // Sorting matters because ETW buffer interleaving across CPUs/threads
 // can deliver events slightly out of timestamp order on busy systems.
 func Trace(in, out string, after, before time.Time) error {
+	// This utility reads log files from a variable path, so there's no way around file reads
+	//nolint:gosec
 	inFile, err := os.Open(in)
 	if err != nil {
 		return err
 	}
-	defer inFile.Close()
+	defer inFile.Close() //nolint:errcheck // read-only file.
 
 	var rows [][4]string
 	dec := xml.NewDecoder(inFile)
 	for {
 		tok, tokErr := dec.Token()
-		if tokErr == io.EOF {
+		if errors.Is(tokErr, io.EOF) {
 			break
 		}
 		if tokErr != nil {
@@ -159,11 +166,13 @@ func Trace(in, out string, after, before time.Time) error {
 // message TSV and returns the latest parseable timestamp in column 0.
 // Returns zero time if the file is empty or no rows parse.
 func MaxTimestampInTSV(path string) (time.Time, error) {
+	// This utility reads log files from a variable path, so there's no way around file reads
+	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
 		return time.Time{}, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only file.
 	var maxTime time.Time
 	sc := bufio.NewScanner(f)
 	sc.Buffer(make([]byte, 64*1024), 1024*1024)
@@ -188,6 +197,8 @@ func MaxTimestampInTSV(path string) (time.Time, error) {
 // [after, before]. Zero values mean unbounded on that side. Rows whose
 // timestamp can't be parsed are kept (better than dropping mystery data).
 func FilterProcessedTSV(path string, after, before time.Time) error {
+	// This utility reads log files from a variable path, so there's no way around file reads
+	//nolint:gosec
 	in, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -213,13 +224,14 @@ func FilterProcessedTSV(path string, after, before time.Time) error {
 		}
 		kept = append(kept, line)
 	}
+	//nolint:gosec // CLI-supplied path; rewrites the file we just read.
 	out, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer out.Close() //nolint:errcheck // best-effort; write errors surface via WriteString below.
 	w := bufio.NewWriter(out)
-	defer w.Flush()
+	defer w.Flush() //nolint:errcheck // best-effort flush on the deferred path.
 	for _, line := range kept {
 		if _, err := w.WriteString(line + "\n"); err != nil {
 			return err
@@ -241,13 +253,14 @@ func writeSortedRows(out string, rows [][4]string) error {
 		}
 		return rows[i][0] < rows[j][0]
 	})
+	//nolint:gosec // CLI-supplied output path.
 	outFile, err := os.Create(out)
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer outFile.Close() //nolint:errcheck
 	w := bufio.NewWriter(outFile)
-	defer w.Flush()
+	defer w.Flush() //nolint:errcheck
 	for _, r := range rows {
 		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", r[0], r[1], r[2], r[3]); err != nil {
 			return err

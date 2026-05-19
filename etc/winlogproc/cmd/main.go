@@ -41,7 +41,9 @@ func main() {
 	afterStr := flag.String("after", "", "eventlog filter: only events at or after this RFC3339 time")
 	beforeStr := flag.String("before", "", "eventlog filter: only events at or before this RFC3339 time")
 	sinceStr := flag.String("since", "", "eventlog filter: only events from the last duration (e.g. 10s, 5m, 1h)")
-	lastStr := flag.String("last", "", "filter: only the last duration of events anchored at the most recent log timestamp (offline-friendly version of -since); mutually exclusive with -since/-after/-before")
+	lastStr := flag.String("last", "",
+		"filter: only the last duration of events anchored at the most recent log timestamp "+
+			"(offline-friendly version of -since); mutually exclusive with -since/-after/-before")
 
 	// Process-only inputs.
 	eventlogIn := flag.String("eventlog", "", "process this existing eventlog.txt instead of collecting")
@@ -142,7 +144,7 @@ func main() {
 			}
 		}
 
-		fmt.Println(dir)
+		fmt.Println(dir) //nolint:forbidigo // CLI output: prints result dir for shell capture.
 	}
 }
 
@@ -153,17 +155,17 @@ func main() {
 func applyLastFilter(dir string, dur time.Duration) error {
 	for _, name := range []string{"eventlog.tsv", "trace.tsv"} {
 		path := filepath.Join(dir, "processed", name)
-		max, err := winlogproc.MaxTimestampInTSV(path)
+		latest, err := winlogproc.MaxTimestampInTSV(path)
 		if err != nil {
 			return fmt.Errorf("max ts in %s: %w", name, err)
 		}
-		if max.IsZero() {
+		if latest.IsZero() {
 			fmt.Fprintf(os.Stderr, "-last: %s has no parseable timestamps; skipping\n", name)
 			continue
 		}
-		cutoff := max.Add(-dur)
+		cutoff := latest.Add(-dur)
 		fmt.Fprintf(os.Stderr, "-last %s: anchor=%s cutoff=%s\n",
-			name, max.Format(time.RFC3339Nano), cutoff.Format(time.RFC3339Nano))
+			name, latest.Format(time.RFC3339Nano), cutoff.Format(time.RFC3339Nano))
 		if err := winlogproc.FilterProcessedTSV(path, cutoff, time.Time{}); err != nil {
 			return fmt.Errorf("filter %s: %w", name, err)
 		}
@@ -172,7 +174,7 @@ func applyLastFilter(dir string, dur time.Duration) error {
 }
 
 func runProcess(eventlogIn, traceIn, outDir string) {
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	if err := os.MkdirAll(outDir, 0o750); err != nil {
 		fmt.Fprintln(os.Stderr, "mkdir out:", err)
 		os.Exit(1)
 	}
@@ -185,6 +187,6 @@ func runProcess(eventlogIn, traceIn, outDir string) {
 		fmt.Fprintln(os.Stderr, "trace:", err)
 		exit = 1
 	}
-	fmt.Println(outDir)
+	fmt.Println(outDir) //nolint:forbidigo // CLI output: prints result dir for shell capture.
 	os.Exit(exit)
 }
