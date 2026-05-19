@@ -4029,7 +4029,7 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 		}()
 	}
 	wg.Wait()
-	return nil
+	return nil //nolint:nilerr
 }
 
 func (c *viamClient) robotPartTunnel(ctx context.Context, cmd *cli.Command, args robotsPartTunnelArgs) error {
