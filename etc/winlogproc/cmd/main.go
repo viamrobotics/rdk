@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"go.viam.com/rdk/web/server/winlogproc"
+	"go.viam.com/rdk/etc/winlogproc"
 )
 
 func main() {

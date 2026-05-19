@@ -7,6 +7,8 @@
 // but capture the same upstream zapcore entries — these processors
 // strip the per-system framing so the underlying log content can be
 // compared directly.
+//
+//nolint:errcheck
 package winlogproc
 
 import (
