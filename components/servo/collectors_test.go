@@ -74,3 +74,12 @@ func newServo() servo.Servo {
 	}
 	return s
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       servo.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newServo() },
+	})
+}

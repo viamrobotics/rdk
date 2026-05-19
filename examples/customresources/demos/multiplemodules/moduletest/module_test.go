@@ -19,6 +19,8 @@ import (
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	gtestutils "go.viam.com/utils/testutils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/components/motor"
 	"go.viam.com/rdk/config"
@@ -244,7 +246,7 @@ func connect(port int, logger logging.Logger, dialOpts ...rpc.DialOption) (robot
 			client.WithDisableSessions(), // TODO(PRODUCT-343): add session support to modules
 		)
 		dialCancel()
-		if !errors.Is(err, context.DeadlineExceeded) {
+		if !errors.Is(err, context.DeadlineExceeded) && status.Code(err) != codes.DeadlineExceeded {
 			return rc, err
 		}
 		select {

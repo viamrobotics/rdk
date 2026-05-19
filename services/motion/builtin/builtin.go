@@ -156,14 +156,14 @@ func NewBuiltIn(
 		configuredDefaultExtras: make(map[string]any),
 	}
 
-	if err := ms.BuiltInReconfigure(ctx, deps, conf); err != nil {
+	if err := ms.Reconfigure(ctx, deps, conf); err != nil {
 		return nil, err
 	}
 	return ms, nil
 }
 
 // Reconfigure updates the motion service when the config has changed.
-func (ms *builtIn) BuiltInReconfigure(
+func (ms *builtIn) Reconfigure(
 	ctx context.Context,
 	deps resource.Dependencies,
 	conf resource.Config,
@@ -816,5 +816,5 @@ func (ms *builtIn) writePlanRequest(
 	}
 
 	ms.logger.Infof("writing plan to %s", fn)
-	return req.WriteToFile(fn)
+	return req.WriteRequestAndResponseToFile(fn, plan)
 }

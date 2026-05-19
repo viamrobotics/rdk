@@ -64,9 +64,6 @@ const SubtypeName = "data_manager"
 // API is a variable that identifies the data manager service resource API.
 var API = resource.APINamespaceRDK.WithServiceType(SubtypeName)
 
-// InternalServiceName is used to refer to/depend on this service internally.
-var InternalServiceName = resource.NewName(API, "builtin")
-
 // Named is a helper for getting the named datamanager's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewName(API, name)
@@ -191,6 +188,9 @@ func (c *DataCaptureConfig) Equals(other *DataCaptureConfig) bool {
 // that indicates to the datamanager whether or not we want to sync.
 var ShouldSyncKey = "should_sync"
 
+// SequencesKey is the key under which a capture control sensor returns sequence readings.
+var SequencesKey = "sequences"
+
 // CreateShouldSyncReading is a helper for creating the expected reading for a modular sensor
 // that passes a bool to the datamanager to indicate whether or not we want to sync.
 func CreateShouldSyncReading(toSync bool) map[string]interface{} {
@@ -199,17 +199,34 @@ func CreateShouldSyncReading(toSync bool) map[string]interface{} {
 	return readings
 }
 
+// ResourceMethod identifies a resource/method pair. Shared by CaptureConfigReading and
+// SequenceReading.
+type ResourceMethod struct {
+	// ResourceName is the name of the resource (e.g. "camera-1").
+	ResourceName string `json:"resource_name"`
+	// MethodName is the capture method name (e.g. "GetImages").
+	MethodName string `json:"method"`
+}
+
 // CaptureConfigReading defines a capture config reading for a specific resource/method pair,
 // as emitted by the capture_control_sensor. Resource/method pairs should correspond with a configured data
 // manager service.
 type CaptureConfigReading struct {
-	// ResourceName is the name of the resource (e.g. "camera-1").
-	ResourceName string `json:"resource_name"`
-	// Method is the capture method name (e.g. "GetImages").
-	Method string `json:"method"`
+	// The resource method pair.
+	ResourceMethod
 	// CaptureFrequencyHz, when non-nil, overrides the capture frequency for this resource/method pair.
 	// A value of 0 disables capture.
 	CaptureFrequencyHz *float32 `json:"capture_frequency_hz,omitempty"`
 	// Tags, when non-nil, overrides the data manager's tags for this resource/method pair.
 	Tags []string `json:"tags"`
+}
+
+// SequenceReading represents one sequence emitted by the capture_control_sensor. Each entry
+// in the sensor's sequences list is tracked independently; a sequence opens when its entry
+// first appears and ends when it disappears.
+type SequenceReading struct {
+	// SequenceTags are tags to attach to the resulting sequence record.
+	SequenceTags []string `json:"sequence_tags,omitempty"`
+	// Resources are the resource/method pairs to include in the sequence. At least one is required.
+	Resources []ResourceMethod `json:"resources"`
 }

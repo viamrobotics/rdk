@@ -62,7 +62,7 @@ func (p *pathologicalAssociatedConfig) Link(conf *resource.Config)              
 
 func TestCollectorRegistry(t *testing.T) {
 	collectors := data.DumpRegisteredCollectors()
-	test.That(t, len(collectors), test.ShouldEqual, 54)
+	test.That(t, len(collectors), test.ShouldEqual, 73)
 	mds := slices.SortedFunc(maps.Keys(collectors), func(a, b data.MethodMetadata) int {
 		return cmp.Compare(a.String(), b.String())
 	})
@@ -71,48 +71,67 @@ func TestCollectorRegistry(t *testing.T) {
 	test.That(t, mds, test.ShouldResemble, []data.MethodMetadata{
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "EndPosition"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "arm"}, MethodName: "JointPositions"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "GetAudio"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_in"}, MethodName: "GetWorldPose"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "audio_out"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "base"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Analogs"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "board"}, MethodName: "Gpios"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "button"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "button"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetImages"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "NextPointCloud"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "camera"}, MethodName: "ReadImage"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "encoder"}, MethodName: "TicksCount"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Lengths"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gantry"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "generic"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "gripper"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "input_controller"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "IsPowered"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "motor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "AngularVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "CompassHeading"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearAcceleration"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "LinearVelocity"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Orientation"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "movement_sensor"}, MethodName: "Readings"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "pose_tracker"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "pose_tracker"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Current"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Power"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Readings"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "power_sensor"}, MethodName: "Voltage"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "sensor"}, MethodName: "Readings"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "servo"}, MethodName: "Position"},
 		{API: resource.API{Type: rdkComponent, SubtypeName: "switch"}, MethodName: "DoCommand"},
+		{API: resource.API{Type: rdkComponent, SubtypeName: "switch"}, MethodName: "GetWorldPose"},
 		{API: resource.API{Type: rdkService, SubtypeName: "base_remote_control"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkService, SubtypeName: "discovery"}, MethodName: "DoCommand"},
 		{API: resource.API{Type: rdkService, SubtypeName: "generic"}, MethodName: "DoCommand"},
@@ -214,7 +233,7 @@ func TestReconfigure(t *testing.T) {
 
 	t.Run("returns an error if called with a resource.Config that can't be converted into a builtin.*Config", func(t *testing.T) {
 		ctx := context.Background()
-		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, mockDeps(nil, nil), resource.Config{})
+		err := b.Reconfigure(ctx, mockDeps(nil, nil), resource.Config{})
 		expErr := errors.New("incorrect config type: NativeConfig expected *builtin.Config but got <nil>. " +
 			"Make sure the config type registered to the resource matches the one passed into NativeConfig")
 		test.That(t, err, test.ShouldBeError, expErr)
@@ -227,13 +246,13 @@ func TestReconfigure(t *testing.T) {
 			mockDeps := mockDeps(nil, nil)
 			c := &Config{}
 			test.That(t, c.getCaptureDir(logger), test.ShouldResemble, shared.ViamCaptureDotDir)
-			err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
+			err := b.Reconfigure(ctx, mockDeps, resource.Config{ConvertedAttributes: c})
 			test.That(t, err, test.ShouldBeNil)
 		})
 
 		t.Run("returns an error if booted in an untrusted environment with a non default capture_dir", func(t *testing.T) {
 			config := resource.Config{ConvertedAttributes: &Config{CaptureDir: "/tmp/sth/else"}}
-			err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, nil, config)
+			err := b.Reconfigure(ctx, nil, config)
 			test.That(t, err, test.ShouldBeError, ErrCaptureDirectoryConfigurationDisabled)
 		})
 	})
@@ -242,7 +261,7 @@ func TestReconfigure(t *testing.T) {
 		ctx := context.Background()
 		deps := resource.Dependencies{}
 		config := resource.Config{ConvertedAttributes: &Config{}}
-		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
+		err := b.Reconfigure(ctx, deps, config)
 		errExp := errors.New("Resource missing from dependencies. Resource: " +
 			"rdk-internal:service:cloud_connection/builtin")
 		test.That(t, err, test.ShouldBeError, errExp)
@@ -254,7 +273,7 @@ func TestReconfigure(t *testing.T) {
 		aa := map[resource.Name]resource.AssociatedConfig{arm.Named("arm1"): &pathologicalAssociatedConfig{}}
 		config := resource.Config{ConvertedAttributes: &Config{}, AssociatedAttributes: aa}
 		deps := mockDeps(nil, resource.Dependencies{arm.Named("arm1"): &inject.Arm{}})
-		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
+		err := b.Reconfigure(ctx, deps, config)
 		test.That(t, err, test.ShouldBeError, errors.New("expected *datamanager.AssociatedConfig but got *builtin.pathologicalAssociatedConfig"))
 	})
 
@@ -271,7 +290,7 @@ func TestReconfigure(t *testing.T) {
 			},
 		})
 		config, deps := setupConfig(t, r, enabledTabularCollectorConfigPath)
-		err := b.(resource.BuiltInResource).BuiltInReconfigure(ctx, deps, config)
+		err := b.Reconfigure(ctx, deps, config)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, b, test.ShouldNotBeNil)
 		test.That(t, b.Close(context.Background()), test.ShouldBeNil)
@@ -806,6 +825,29 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 			arm1:    updatedArmCaptureMethods,
 			camera1: updatedCamereaCaptureMethods,
 		})
+	})
+}
+
+func TestRenameProgFilesToCapture(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "subdir")
+	test.That(t, os.MkdirAll(subdir, 0o700), test.ShouldBeNil)
+
+	for _, p := range []string{
+		filepath.Join(dir, "file1.prog"),
+		filepath.Join(dir, "other.capture"),
+		filepath.Join(subdir, "file2.prog"),
+	} {
+		test.That(t, os.WriteFile(p, []byte("x"), 0o600), test.ShouldBeNil)
+	}
+
+	renameProgFilesToCapture(dir, logger)
+
+	test.That(t, getAllFilePaths(dir), test.ShouldResemble, []string{
+		filepath.Join(dir, "file1.capture"),
+		filepath.Join(dir, "other.capture"),
+		filepath.Join(subdir, "file2.capture"),
 	})
 }
 

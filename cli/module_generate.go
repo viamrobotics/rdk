@@ -1427,7 +1427,9 @@ func renderManifest(
 
 	switch module.Language {
 	case python:
+		pythonEntrypoint := "dist/main"
 		if runtime.GOOS == osWindows {
+			pythonEntrypoint += ".exe"
 			manifest.Build = &manifestBuildInfo{
 				Setup: "setup.bat",
 				Build: "build.bat",
@@ -1442,26 +1444,28 @@ func renderManifest(
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
-		manifest.Entrypoint = "dist/main"
+		manifest.Entrypoint = pythonEntrypoint
 	case golang:
+		moduleBinary := module.ModuleName
 		if runtime.GOOS == osWindows {
+			moduleBinary += ".exe"
 			manifest.Build = &manifestBuildInfo{
 				Setup: "go mod tidy",
-				Build: "go build -tags no_cgo -o bin/" + module.ModuleName +
+				Build: "go build -tags no_cgo -o bin/" + moduleBinary +
 					" cmd/module/main.go && tar czf module.tar.gz meta.json bin/" +
-					module.ModuleName,
+					moduleBinary,
 				Path: "module.tar.gz",
-				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch: []string{"windows/amd64"},
 			}
 		} else {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "make setup",
 				Build: "make module.tar.gz",
 				Path:  "module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
-		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
 			Build:  "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",

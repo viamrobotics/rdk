@@ -3,7 +3,6 @@ package base
 
 import (
 	"context"
-	"fmt"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/base/v1"
@@ -14,11 +13,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
-
-// ErrGeometriesNil is the returned error if base geometries are nil.
-var ErrGeometriesNil = func(baseName string) error {
-	return fmt.Errorf("base component %v Geometries should not return nil geometries", baseName)
-}
 
 // serviceServer implements the BaseService from base.proto.
 type serviceServer struct {
@@ -168,9 +162,6 @@ func (s *serviceServer) GetGeometries(ctx context.Context, req *commonpb.GetGeom
 	geometries, err := res.Geometries(ctx, req.Extra.AsMap())
 	if err != nil {
 		return nil, err
-	}
-	if geometries == nil {
-		return nil, ErrGeometriesNil(req.GetName())
 	}
 	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

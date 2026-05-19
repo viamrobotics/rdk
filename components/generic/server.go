@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
 
@@ -48,4 +49,25 @@ func (s *serviceServer) GetStatus(ctx context.Context, req *commonpb.GetStatusRe
 		return nil, err
 	}
 	return rprotoutils.GetStatusFromResourceServer(ctx, res, req)
+}
+
+// GetGeometries returns the geometries of the generic component in their current configuration. Generic component
+// implementations may opt in to providing geometries by implementing [resource.Shaped]; otherwise, an empty list is returned.
+func (s *serviceServer) GetGeometries(
+	ctx context.Context,
+	req *commonpb.GetGeometriesRequest,
+) (*commonpb.GetGeometriesResponse, error) {
+	res, err := s.coll.Resource(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	shaped, ok := res.(resource.Shaped)
+	if !ok {
+		return &commonpb.GetGeometriesResponse{}, nil
+	}
+	geometries, err := shaped.Geometries(ctx, req.Extra.AsMap())
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.GetGeometriesResponse{Geometries: referenceframe.NewGeometriesToProto(geometries)}, nil
 }

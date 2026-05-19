@@ -4,6 +4,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -301,5 +302,71 @@ func (req *PlanRequest) WriteToFile(fileName string) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// ReadRequestAndResponseFromFile reads a PlanRequest and optionally a motionplan.Plan from a JSON
+// file written by WriteRequestAndResponseToFile. The returned plan is nil if the file contains only
+// a request.
+func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.Plan, error) {
+	f, err := os.Open(fileName) //nolint:gosec
+	if err != nil {
+		return nil, nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	req := &PlanRequest{}
+	if err = decoder.Decode(req); err != nil {
+		return nil, nil, err
+	}
+
+	plan := &motionplan.SimplePlan{}
+	if err = decoder.Decode(plan); err != nil {
+		if errors.Is(err, io.EOF) {
+			return req, nil, nil
+		}
+		return nil, nil, err
+	}
+
+	return req, plan, nil
+}
+
+// WriteRequestAndResponseToFile writes the `req` as one JSON object followed by `resp` as a second
+// JSON object. This is backwards compatible with existing `ReadRequestFromFile`
+// implementations. Also see `ReadRequestAndResponseFromFile` to pull out both sets of
+// information. `resp` can be nil. Useful for cases where the request resulted in a motion plan
+// error.
+func (req *PlanRequest) WriteRequestAndResponseToFile(filename string, resp motionplan.Plan) error {
+	file, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+
+	if resp != nil {
+		data, err = json.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(data)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

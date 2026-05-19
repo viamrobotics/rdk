@@ -318,6 +318,8 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Mesh:
 		return m.collidesWithMesh(other, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(m, collisionBufferMM)
 	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
@@ -337,6 +339,15 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 		// Meshes are not treated as solid volumes for collision checks, so this uses conservative
 		// AABB containment to support collision-safe simplification checks.
 		return m.encompassedByMeshAABB(other), nil
+	case *Cylinder:
+		// Cylinder is convex and Mesh sample points are world-frame; analytic point-in-cylinder
+		// avoids the surface-only semantics of Point.CollidesWith(Cylinder).
+		for _, pt := range m.ToPoints(1) {
+			if !other.containsPoint(pt) {
+				return false, nil
+			}
+		}
+		return true, nil
 	}
 
 	// For all other geometry types, check if all vertices of all triangles are inside
@@ -373,6 +384,8 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromMesh(triMesh)
 	case *Mesh:
 		return m.distanceFromMesh(other)
+	case *Cylinder:
+		return other.DistanceFrom(m)
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 	}

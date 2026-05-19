@@ -242,8 +242,9 @@ func TestClient(t *testing.T) {
 		_, err = failingBaseClient.Properties(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errPropertiesFailed.Error())
 
-		_, err = failingBaseClient.Geometries(context.Background(), nil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, base.ErrGeometriesNil(failBaseName).Error())
+		geometries, err := failingBaseClient.Geometries(context.Background(), nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, geometries, test.ShouldBeEmpty)
 
 		err = failingBaseClient.Stop(context.Background(), nil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, errStopFailed.Error())

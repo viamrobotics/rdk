@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	datapb "go.viam.com/api/app/data/v1"
 	v1 "go.viam.com/api/app/datasync/v1"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -164,6 +165,7 @@ func (s *Sync) Reconfigure(_ context.Context, config Config, cloudConnSvc cloud.
 		s.cloudConnManager = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
 			s.runCloudConnManager(ctx, cloudConnSvc)
 		})
+		handleOrphanedOpenSequences(config.CaptureDir, s.logger)
 	}
 	if s.config.Equal(config) {
 		// if config has not changed then reconfigure doesn't need
@@ -291,10 +293,11 @@ func (s *Sync) Sync(ctx context.Context, _ map[string]interface{}) error {
 
 type cloudConn struct {
 	// closed by cloud conn manager
-	ready  chan struct{}
-	partID string
-	client v1.DataSyncServiceClient
-	conn   rgrpc.ConnectivityState
+	ready      chan struct{}
+	partID     string
+	client     v1.DataSyncServiceClient
+	dataClient datapb.DataServiceClient
+	conn       rgrpc.ConnectivityState
 }
 
 // BEGIN connection management
@@ -358,6 +361,7 @@ func (s *Sync) runCloudConnManager(
 		}
 		s.cloudConn.conn = checker
 		s.cloudConn.client = s.clientConstructor(conn)
+		s.cloudConn.dataClient = datapb.NewDataServiceClient(conn)
 		s.logger.Info("cloud connection ready")
 		close(s.cloudConn.ready)
 		// now that we have a connection ...
@@ -423,6 +427,14 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		return
 	}
 	defer s.fileTracker.unmarkInProgress(filePath)
+
+	// Sequence files upload via CreateSequence; dispatch by path before opening so we don't
+	// leak a file descriptor on the sequence path (which does its own os.ReadFile).
+	if isSequenceFile(filePath) {
+		s.syncSequence(filePath)
+		return
+	}
+
 	//nolint:gosec
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -734,7 +746,29 @@ func readyToSyncFile(timeSinceMod time.Duration, path string, info fs.FileInfo, 
 		return true
 	}
 
+	if isSequenceFile(path) {
+		return true
+	}
+	if isOpenSequenceFile(path) {
+		return false
+	}
+
 	return isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod, path, info, fileLastModifiedMillis)
+}
+
+// inSequencesDir reports whether path's parent directory is the sequences subdir.
+func inSequencesDir(path string) bool {
+	return filepath.Base(filepath.Dir(path)) == data.SequencesDir
+}
+
+// isSequenceFile returns true for *.seq files inside a sequences/ directory.
+func isSequenceFile(path string) bool {
+	return inSequencesDir(path) && filepath.Ext(path) == data.CompletedSequenceFileExt
+}
+
+// isOpenSequenceFile returns true for *.progseq files inside a sequences/ directory.
+func isOpenSequenceFile(path string) bool {
+	return inSequencesDir(path) && filepath.Ext(path) == data.InProgressSequenceFileExt
 }
 
 func isCompletedCaptureFile(path string) bool {
@@ -742,8 +776,16 @@ func isCompletedCaptureFile(path string) bool {
 }
 
 func isNonCaptureFileThatIsNotBeingWrittenTo(timeSinceMod time.Duration, path string, info fs.FileInfo, fileLastModifiedMillis int) bool {
-	return filepath.Ext(path) != data.InProgressCaptureFileExt &&
-		filepath.Ext(path) != data.CompletedCaptureFileExt &&
+	// The sequences subdir is managed entirely by capture+sync. Anything in there that
+	// isn't a .seq (caught earlier in readyToSyncFile) is either a .progseq still being
+	// tracked, a .tmp from an in-flight atomic write, or junk from a crash — none of
+	// which should be uploaded as an arbitrary file.
+	if inSequencesDir(path) {
+		return false
+	}
+	ext := filepath.Ext(path)
+	return ext != data.InProgressCaptureFileExt &&
+		ext != data.CompletedCaptureFileExt &&
 		timeSinceMod >= time.Duration(fileLastModifiedMillis)*time.Millisecond &&
 		// if the file size is 0 then there is nothing to sync from this arbitrary file
 		info.Size() > 0

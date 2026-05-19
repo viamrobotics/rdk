@@ -118,6 +118,76 @@ func TestNewWheeledOdometry(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 }
 
+func TestReconfigure(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	deps := make(resource.Dependencies)
+	deps[base.Named(baseName)] = createFakeBase(0.1, 0.1, 0)
+	deps[motor.Named(leftMotorName)] = createFakeMotor(true)
+	deps[motor.Named(rightMotorName)] = createFakeMotor(false)
+
+	fakecfg := resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{leftMotorName},
+			RightMotors:       []string{rightMotorName},
+			Base:              baseName,
+			TimeIntervalMSecs: 500,
+		},
+	}
+	fakeSensor, err := newWheeledOdometry(ctx, deps, fakecfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	od, ok := fakeSensor.(*odometry)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	newDeps := make(resource.Dependencies)
+	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
+	newDeps[motor.Named(newLeftMotorName)] = createFakeMotor(true)
+	newDeps[motor.Named(rightMotorName)] = createFakeMotor(false)
+
+	newconf := resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{newLeftMotorName},
+			RightMotors:       []string{rightMotorName},
+			Base:              newBaseName,
+			TimeIntervalMSecs: 500,
+		},
+	}
+
+	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 500)
+	props, err := od.base.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, 0.2)
+	test.That(t, props.WheelCircumferenceMeters, test.ShouldEqual, 0.2)
+
+	newDeps = make(resource.Dependencies)
+	newDeps[base.Named(newBaseName)] = createFakeBase(0.2, 0.2, 0)
+	newDeps[motor.Named(newLeftMotorName)] = createFakeMotor(true)
+	newDeps[motor.Named(newRightMotorName)] = createFakeMotor(false)
+
+	newconf = resource.Config{
+		Name: testSensorName,
+		ConvertedAttributes: &Config{
+			LeftMotors:        []string{newLeftMotorName},
+			RightMotors:       []string{newRightMotorName},
+			Base:              newBaseName,
+			TimeIntervalMSecs: 200,
+		},
+	}
+
+	err = fakeSensor.Reconfigure(ctx, newDeps, newconf)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, od.timeIntervalMSecs, test.ShouldEqual, 200)
+	props, err = od.base.Properties(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, props.WidthMeters, test.ShouldEqual, 0.2)
+	test.That(t, props.WheelCircumferenceMeters, test.ShouldEqual, 0.2)
+}
+
 func TestValidateConfig(t *testing.T) {
 	cfg := Config{
 		LeftMotors:        []string{leftMotorName},

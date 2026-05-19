@@ -8,4 +8,5 @@ var (
 	NewReadImageCollector      = newReadImageCollector
 	NewGetImagesCollector      = newGetImagesCollector
 	NewDoCommandCollector      = newDoCommandCollector
+	NewGetWorldPoseCollector   = newGetWorldPoseCollector
 )

@@ -218,3 +218,12 @@ func newMovementSensor() movementsensor.MovementSensor {
 	}
 	return m
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       movementsensor.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newMovementSensor() },
+	})
+}

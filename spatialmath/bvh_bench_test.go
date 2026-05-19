@@ -141,6 +141,56 @@ func benchmarkBuildBVHLegacyNode(geoms []Geometry) *bvhNode {
 	return node
 }
 
+func BenchmarkTriangleTriangleCollide(b *testing.B) {
+	b.ReportAllocs()
+	// Two triangles that are close but not overlapping — exercises the full
+	// segment-segment fallback path inside collidesWithTriangle.
+	t1 := NewTriangle(
+		r3.Vector{X: 0, Y: 0, Z: 0},
+		r3.Vector{X: 10, Y: 0, Z: 0},
+		r3.Vector{X: 0, Y: 10, Z: 0},
+	)
+	t2 := NewTriangle(
+		r3.Vector{X: 1, Y: 1, Z: 2},
+		r3.Vector{X: 11, Y: 1, Z: 2},
+		r3.Vector{X: 1, Y: 11, Z: 2},
+	)
+	for i := 0; i < b.N; i++ {
+		collides, d, _ := t1.CollidesWith(t2, 0)
+		benchmarkBoolSink = collides
+		benchmarkFloatSink = d
+	}
+}
+
+func BenchmarkSegmentSegmentClosest(b *testing.B) {
+	b.ReportAllocs()
+	a1 := r3.Vector{X: 0, Y: 0, Z: 0}
+	a2 := r3.Vector{X: 10, Y: 0, Z: 0}
+	b1 := r3.Vector{X: 5, Y: 1, Z: 1}
+	b2 := r3.Vector{X: 5, Y: 1, Z: 10}
+	for i := 0; i < b.N; i++ {
+		p, q := ClosestPointsSegmentSegment(a1, a2, b1, b2)
+		benchmarkVecSink = p
+		benchmarkVecSink = q
+	}
+}
+
+func BenchmarkSegmentPointClosest(b *testing.B) {
+	b.ReportAllocs()
+	pt1 := r3.Vector{X: 0, Y: 0, Z: 0}
+	pt2 := r3.Vector{X: 10, Y: 0, Z: 0}
+	// Cycle through queries that hit each branch of the function to avoid
+	// branch-prediction bias on a single hot path.
+	queries := [3]r3.Vector{
+		{X: -5, Y: 1, Z: 0}, // t <= 0 (returns pt1)
+		{X: 15, Y: 1, Z: 0}, // t >= 1 (returns pt2)
+		{X: 5, Y: 3, Z: 0},  // interpolated
+	}
+	for i := 0; i < b.N; i++ {
+		benchmarkVecSink = ClosestPointSegmentPoint(pt1, pt2, queries[i%3])
+	}
+}
+
 func BenchmarkTriangleCentroidExtraction(b *testing.B) {
 	b.ReportAllocs()
 	tri := NewTriangle(
@@ -330,6 +380,38 @@ func BenchmarkBVHVsBVHQuery(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
+			benchmarkFloatSink = d
+		}
+	})
+
+	// Realistic mid-range case: trees nearby but not colliding, forcing full traversal
+	// before the no-collision verdict. This is the typical workload shape — neither
+	// trivial-reject nor trivial-collide.
+	nearMissPose := NewPose(r3.Vector{X: 1100, Y: 0, Z: 0}, NewZeroOrientation())
+	b.Run("collides_near_miss", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			collides, d, err := bvhCollidesWithBVH(node1, node2, identity, nearMissPose, 0)
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchmarkBoolSink = collides
+			benchmarkFloatSink = d
+		}
+	})
+
+	// Rotated pose: exercises the cached pose decomposition path under a non-identity
+	// rotation matrix where the cache savings matter most.
+	rotatedPose := NewPose(
+		r3.Vector{X: 600, Y: 100, Z: 50},
+		&OrientationVector{OX: 0.2, OY: 0.7, OZ: 0.7, Theta: 0.4},
+	)
+	b.Run("collides_rotated_partial", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			collides, d, err := bvhCollidesWithBVH(node1, node2, identity, rotatedPose, 0)
+			if err != nil {
+				b.Fatal(err)
+			}
+			benchmarkBoolSink = collides
 			benchmarkFloatSink = d
 		}
 	})

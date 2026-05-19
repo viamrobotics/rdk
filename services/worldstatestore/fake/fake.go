@@ -76,6 +76,41 @@ func init() {
 		}})
 }
 
+// Reconfigure reconfigures the fake world state store.
+func (f *WorldStateStore) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	// Cancel existing background workers and wait for them to stop
+	f.mu.Lock()
+	f.cancel()
+	f.mu.Unlock()
+
+	f.activeBackgroundWorkers.Wait()
+
+	newConf, err := resource.NativeConfig[*Config](conf)
+	if err != nil {
+		return err
+	}
+
+	// Use context.Background() for background workers, not the passed ctx which may be short-lived
+	newCtx, cancel := context.WithCancel(context.Background())
+
+	f.mu.Lock()
+	f.transforms = make(map[string]*commonpb.Transform)
+	f.fps = 10
+	f.startTime = time.Now()
+	f.changeChan = make(chan worldstatestore.TransformChange, 100)
+	f.streamCtx = newCtx
+	f.cancel = cancel
+	f.worldName = newConf.WorldName
+	f.mu.Unlock()
+
+	f.logger.Infof("reconfiguring fake world state store with name: %s", newConf.WorldName)
+
+	// startWorld acquires its own locks internally, so we must not hold the lock here
+	f.startWorld()
+
+	return nil
+}
+
 // ListUUIDs returns all transform UUIDs currently in the store.
 func (f *WorldStateStore) ListUUIDs(ctx context.Context, extra map[string]any) ([][]byte, error) {
 	f.mu.RLock()

@@ -108,6 +108,7 @@ const (
 	moduleBuildFlagToken       = "token"
 	moduleBuildFlagWorkdir     = "workdir"
 	moduleBuildFlagPlatforms   = "platforms"
+	moduleBuildFlagBuilder     = "builder"
 	moduleBuildFlagGroupLogs   = "group-logs"
 	moduleBuildRestartOnly     = "restart-only"
 	moduleBuildFlagNoBuild     = "no-build"
@@ -3674,6 +3675,11 @@ Example:
 									Name: moduleBuildFlagPlatforms,
 									// would use 'DefaultText' key, but defaults don't show for slice flags
 									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuilder,
+									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+									Value: "default",
 								},
 							},
 							Action: createActionCommandWithT[moduleBuildStartArgs](ModuleBuildStartAction),

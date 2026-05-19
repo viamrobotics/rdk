@@ -124,7 +124,7 @@ func NewConfiguredGraphNodeWithPrefix(config Config, res Resource, resModel Mode
 	node := NewUninitializedNode()
 	node.SetNewConfig(config, nil)
 	node.setDependenciesResolved()
-	node.SwapResource(res, resModel, nil, true)
+	node.SwapResource(res, resModel, nil)
 	node.setPrefix(prefix)
 	return node
 }
@@ -240,15 +240,6 @@ func (w *GraphNode) UnsetResource() {
 	w.current = nil
 }
 
-func (w *GraphNode) incrementLogicalClock() {
-	if w.graphLogicalClock != nil {
-		w.updatedAt = w.graphLogicalClock.Add(1)
-		if w.logger != nil {
-			w.logger.Debugw("graph node logical clock updated", "updated_to", w.updatedAt)
-		}
-	}
-}
-
 // SwapResource emplaces the new resource. It may be the same as before
 // and expects the caller to close the old one. This is considered
 // to be a working resource and as such we unmark it for removal
@@ -259,7 +250,7 @@ func (w *GraphNode) incrementLogicalClock() {
 // The `ftdc` input may be nil (e.g: testing). If present, this will also updates FTDC to
 // communicate that the `Stats` method may return different values. As we'll now be calling `Stats`
 // on a potentially different underlying `Model`.
-func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC, incrementClock bool) {
+func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTDC) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current = newRes
@@ -272,8 +263,8 @@ func (w *GraphNode) SwapResource(newRes Resource, newModel Model, ftdc *ftdc.FTD
 	w.unresolvedDependencies = nil
 	w.needsDependencyResolution = false
 
-	if incrementClock {
-		w.incrementLogicalClock()
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
 	}
 	now := time.Now()
 	w.lastReconfigured = &now
@@ -293,7 +284,9 @@ func (w *GraphNode) MarkForRemoval() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.transitionTo(NodeStateRemoving)
-	w.incrementLogicalClock()
+	if w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
+	}
 }
 
 // MarkedForRemoval returns if this node is marked for removal.
@@ -314,8 +307,8 @@ func (w *GraphNode) LogAndSetLastError(err error, args ...any) {
 	wasUsable := w.lastErr == nil
 	w.lastErr = err
 	w.transitionTo(NodeStateUnhealthy)
-	if wasUsable {
-		w.incrementLogicalClock()
+	if wasUsable && w.graphLogicalClock != nil {
+		w.updatedAt = w.graphLogicalClock.Add(1)
 	}
 	w.mu.Unlock()
 
