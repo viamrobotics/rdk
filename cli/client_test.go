@@ -1617,11 +1617,7 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 
 func TestTunnelE2ECLI(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		// Test self-loops: sourcePort == destPort so tunnelTraffic's Listen silently
-		// fails (port taken by destListener) on Linux/Mac and the test Dial reaches
-		// destListener directly. Windows is stricter about port reuse and surfaces
-		// the bind conflict. Test needs a rewrite — see RSDK-13980.
-		t.Skip("RSDK-13980")
+		t.Skip("Currently doesn't work on windows, PR in progres")
 	}
 	t.Parallel()
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
