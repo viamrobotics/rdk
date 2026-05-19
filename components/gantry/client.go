@@ -21,7 +21,6 @@ import (
 type client struct {
 	resource.Named
 	resource.Shaped
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.GantryServiceClient
@@ -46,6 +45,14 @@ func NewClientFromConn(
 		client: c,
 		logger: logger,
 	}, nil
+}
+
+func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	c.mu.Lock()
+	c.model = nil
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {

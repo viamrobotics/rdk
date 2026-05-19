@@ -1091,6 +1091,8 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 		isModular := r.manager.moduleManager.Provides(conf)
 		if isModular {
 			err = r.manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps))
+			// For modular resources `res` is a client object. We call reconfigure to clear caches.
+			goutils.UncheckedError(res.Reconfigure(ctx, deps, conf))
 		} else {
 			err = res.Reconfigure(ctx, deps, conf)
 		}

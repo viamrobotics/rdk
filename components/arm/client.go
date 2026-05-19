@@ -21,7 +21,6 @@ import (
 // client implements ArmServiceClient.
 type client struct {
 	resource.Named
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.ArmServiceClient
@@ -46,6 +45,14 @@ func NewClientFromConn(
 		client: pbClient,
 		logger: logger,
 	}, nil
+}
+
+func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	c.mu.Lock()
+	c.model = nil
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *client) EndPosition(ctx context.Context, extra map[string]interface{}) (spatialmath.Pose, error) {
