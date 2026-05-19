@@ -3998,7 +3998,10 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 		return fmt.Errorf("failed to create listener %w", err)
 	}
 	infof(cmd.Root().Writer, "tunneling connections from local port %v to destination port %v on machine part...", local, dest)
-	defer func() {
+	go func() {
+		// Once the context has errored, close the listener so the loop below will exit from
+		// `Accept`ing new connections.
+		<-ctx.Done()
 		if err := li.Close(); err != nil {
 			warningf(cmd.Root().ErrWriter, "error closing listener: %s", err)
 		}
