@@ -34,7 +34,7 @@ import (
 
 func main() {
 	// Collect-mode overrides.
-	etl := flag.String("etl", "", "ETL file path (default: $VIAM_HOME/logs/viam-server-trace.etl)")
+	etlDir := flag.String("etl-dir", "", "directory containing per-session .etl files (default: $VIAM_HOME/logs)")
 	source := flag.String("source", "", "Application Event Log source (default: viam-server)")
 	session := flag.String("session", "", "ETW session name to flush before reading (default: viam-server-trace)")
 	out := flag.String("out", "", "output directory (default: ./winlogs-<timestamp>)")
@@ -79,7 +79,7 @@ func main() {
 	default:
 		// Collect mode (default).
 		opts := winlogproc.CollectOpts{
-			ETLPath:        *etl,
+			ETLDir:         *etlDir,
 			SessionName:    *session,
 			EventlogSource: *source,
 			OutDir:         *out,

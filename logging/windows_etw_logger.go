@@ -4,7 +4,11 @@ package logging
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,15 +21,33 @@ import (
 const providerGUID = "66AFF7FE-2451-47AA-A0E3-8E3D2E432B30"
 
 const (
-	etwSessionName      = "viam-server-trace"
-	etwDefaultMaxSizeMB = 512
-	etwLogmanTimeout    = 30 * time.Second
+	etwSessionName        = "viam-server-trace"
+	etwDefaultMaxSizeMB   = 64
+	etwDefaultTotalSizeMB = 448
+	etwLogmanTimeout      = 30 * time.Second
+
+	// etwFileTimeFormat is the timestamp embedded into per-session .etl
+	// filenames. Hyphens (not colons) so the path is valid on Windows.
+	etwFileTimeFormat = "2006-01-02T15-04-05"
 )
 
 // RegisterETWLogger registers an ETW provider with the pinned GUID, attaches
 // it as an Appender on rootLogger, and starts a logman-managed ETW session
-// that captures the provider's events into etlPath
-func RegisterETWLogger(rootLogger Logger, name, etlPath string) (io.Closer, error) {
+// that captures the provider's events to a timestamped .etl file inside
+// etlDir.
+//
+// Before starting the new session, older session files in etlDir matching
+// the etwSessionName-*.etl naming pattern are pruned (oldest first) until
+// total bytes fit under maxTotalSizeMB
+func RegisterETWLogger(rootLogger Logger, name, etlDir string) (io.Closer, error) {
+	if err := os.MkdirAll(etlDir, 0o755); err != nil {
+		rootLogger.Warnw("could not create ETL directory", "dir", etlDir, "err", err)
+	}
+	pruneOldETLFiles(rootLogger, etlDir, int64(etwDefaultTotalSizeMB)*1024*1024)
+
+	etlPath := filepath.Join(etlDir,
+		fmt.Sprintf("%s-%s.etl", etwSessionName, time.Now().UTC().Format(etwFileTimeFormat)))
+
 	g, err := guid.FromString(providerGUID)
 	if err != nil {
 		rootLogger.Errorw("invalid pinned ETW provider GUID", "err", err)
@@ -145,3 +167,44 @@ func zapToETWLevel(l zapcore.Level) etw.Level {
 type nopCloser struct{}
 
 func (nopCloser) Close() error { return nil }
+
+// pruneOldETLFiles enforces a total-bytes budget across all retained
+// session files in dir. Files matching <etwSessionName>-*.etl are
+// considered; the oldest (by mtime) are deleted first until total bytes
+// fit under maxTotalBytes. Errors are logged and otherwise ignored.
+func pruneOldETLFiles(rootLogger Logger, dir string, maxTotalBytes int64) {
+	matches, err := filepath.Glob(filepath.Join(dir, etwSessionName+"-*.etl"))
+	if err != nil || len(matches) == 0 {
+		return
+	}
+
+	type entry struct {
+		path  string
+		size  int64
+		mtime time.Time
+	}
+	var entries []entry
+	var total int64
+	for _, m := range matches {
+		st, err := os.Stat(m)
+		if err != nil {
+			continue
+		}
+		entries = append(entries, entry{m, st.Size(), st.ModTime()})
+		total += st.Size()
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].mtime.Before(entries[j].mtime)
+	})
+
+	for total > maxTotalBytes && len(entries) > 0 {
+		e := entries[0]
+		entries = entries[1:]
+		if err := os.Remove(e.path); err != nil {
+			rootLogger.Warnw("could not delete old ETL file", "path", e.path, "err", err)
+			continue
+		}
+		total -= e.size
+	}
+}

@@ -3,7 +3,6 @@
 package logging
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/Microsoft/go-winio/pkg/etw"
@@ -44,8 +43,8 @@ func TestETWAppenderLifecycle(t *testing.T) {
 func TestRegisterETWLogger(t *testing.T) {
 	logger := NewLogger("etw-register-test")
 
-	etlPath := filepath.Join(t.TempDir(), "test.etl")
-	closer, err := RegisterETWLogger(logger, "viam-server-test", etlPath)
+	etlDir := t.TempDir()
+	closer, err := RegisterETWLogger(logger, "viam-server-test", etlDir)
 	test.That(t, closer, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 

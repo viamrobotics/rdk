@@ -22,13 +22,14 @@ const DefaultEventlogSource = "viam-server"
 // CollectOpts configures Collect. Zero values fall back to defaults
 // that match viam-server's production behavior.
 type CollectOpts struct {
-	// ETLPath is the .etl file the ETW session writes to. Default:
-	// <VIAM_HOME>/logs/viam-server-trace.etl, with VIAM_HOME falling
-	// back to $USERPROFILE/.viam (matches utils.viamDotDir).
-	ETLPath string
+	// ETLDir is the directory containing per-session .etl files
+	// produced by the ETW logger. Collect globs *.etl inside and feeds
+	// every match to tracerpt in one invocation. Default:
+	// DefaultETLDir().
+	ETLDir string
 
 	// SessionName is the ETW session whose buffers Collect flushes
-	// before reading the .etl file. Empty means skip the flush.
+	// before reading the .etl files. Empty means skip the flush.
 	SessionName string
 
 	// EventlogSource is the classic Application Event Log source.
@@ -39,8 +40,9 @@ type CollectOpts struct {
 	// means a fresh ./winlogs-<timestamp>/ in the cwd.
 	OutDir string
 
-	// After and Before optionally bound the Get-EventLog dump window.
-	// Zero values mean unbounded.
+	// After and Before optionally bound the Get-EventLog dump window
+	// and the post-tracerpt trace.tsv filter. Zero values mean
+	// unbounded.
 	After, Before time.Time
 }
 
@@ -59,8 +61,8 @@ func Collect(opts CollectOpts) (string, error) {
 	if opts.OutDir == "" {
 		opts.OutDir = filepath.Join(".", "winlogs-"+time.Now().Format("2006-01-02T15-04-05"))
 	}
-	if opts.ETLPath == "" {
-		opts.ETLPath = DefaultETLPath()
+	if opts.ETLDir == "" {
+		opts.ETLDir = DefaultETLDir()
 	}
 	if opts.SessionName == "" {
 		opts.SessionName = DefaultSessionName
@@ -76,10 +78,22 @@ func Collect(opts CollectOpts) (string, error) {
 	rawTrace := filepath.Join(opts.OutDir, "trace.xml")
 	rawEventlog := filepath.Join(opts.OutDir, "eventlog.txt")
 
+	etlFiles, err := filepath.Glob(filepath.Join(opts.ETLDir, "*.etl"))
+	if err != nil {
+		return "", fmt.Errorf("glob %s: %w", opts.ETLDir, err)
+	}
+	if len(etlFiles) == 0 {
+		return "", fmt.Errorf("no .etl files found in %s", opts.ETLDir)
+	}
+
 	// Echo the resolved paths and parameters before we touch them so
 	// failures can be diagnosed without re-running with extra logging.
 	fmt.Fprintln(os.Stderr, "winlogproc.Collect:")
-	fmt.Fprintln(os.Stderr, "  ETL path        :", opts.ETLPath)
+	fmt.Fprintln(os.Stderr, "  ETL dir         :", opts.ETLDir)
+	fmt.Fprintln(os.Stderr, "  ETL files       :", len(etlFiles), "found")
+	for _, f := range etlFiles {
+		fmt.Fprintln(os.Stderr, "    ", f)
+	}
 	fmt.Fprintln(os.Stderr, "  ETW session     :", opts.SessionName)
 	fmt.Fprintln(os.Stderr, "  Eventlog source :", opts.EventlogSource)
 	fmt.Fprintln(os.Stderr, "  Out dir         :", opts.OutDir)
@@ -96,8 +110,12 @@ func Collect(opts CollectOpts) (string, error) {
 	// (e.g. viam-server already exited and stopped the session).
 	_ = exec.Command("logman", "update", opts.SessionName, "-fd", "-ets").Run()
 
-	if out, err := exec.Command("tracerpt", opts.ETLPath, "-o", rawTrace, "-of", "XML", "-y").CombinedOutput(); err != nil {
-		return "", fmt.Errorf("tracerpt %s: %w: %s", opts.ETLPath, err, out)
+	// tracerpt accepts multiple .etl inputs; merge all retained
+	// session files into one trace.xml.
+	args := append([]string{}, etlFiles...)
+	args = append(args, "-o", rawTrace, "-of", "XML", "-y")
+	if out, err := exec.Command("tracerpt", args...).CombinedOutput(); err != nil {
+		return "", fmt.Errorf("tracerpt: %w: %s", err, out)
 	}
 
 	if err := dumpEventlog(rawEventlog, opts.EventlogSource, opts.After, opts.Before); err != nil {
@@ -118,17 +136,17 @@ func Collect(opts CollectOpts) (string, error) {
 	return opts.OutDir, nil
 }
 
-// DefaultETLPath returns the .etl path viam-server writes to under its
-// production defaults — <VIAM_HOME>/logs/viam-server-trace.etl, with
-// VIAM_HOME falling back to /opt/viam.
-func DefaultETLPath() string {
+// DefaultETLDir returns the directory viam-server writes per-session
+// .etl files into under its production defaults — <VIAM_HOME>/logs,
+// with VIAM_HOME falling back to /opt/viam.
+func DefaultETLDir() string {
 	home := os.Getenv("VIAM_HOME")
 	if home == "" {
 		if _, err := os.UserHomeDir(); err == nil {
 			home = filepath.Join("/opt", "viam")
 		}
 	}
-	return filepath.Join(home, "logs", "viam-server-trace.etl")
+	return filepath.Join(home, "logs")
 }
 
 // dumpEventlog shells to PowerShell to write a Get-EventLog dump in

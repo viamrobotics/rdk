@@ -128,10 +128,10 @@ func TestWindowsLoggingE2E(t *testing.T) {
 	// startTime so unrelated viam-server runs on this machine don't
 	// bleed into the eventlog dump.
 	collectDir, err := winlogproc.Collect(winlogproc.CollectOpts{
-		ETLPath: filepath.Join(e2eDir, "logs", "viam-server-trace.etl"),
-		OutDir:  e2eDir,
-		After:   startTime,
-		Before:  endTime,
+		ETLDir: filepath.Join(e2eDir, "logs"),
+		OutDir: e2eDir,
+		After:  startTime,
+		Before: endTime,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	processedEventlog := filepath.Join(collectDir, "processed", "eventlog.tsv")

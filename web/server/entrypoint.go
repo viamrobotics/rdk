@@ -140,7 +140,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	etwCloser, etwErr := logging.RegisterETWLogger(rootLogger, "viam-server",
-		filepath.Join(rutils.ViamDotDir, "logs", "viam-server-trace.etl"))
+		filepath.Join(rutils.ViamDotDir, "logs"))
 	if etwErr != nil {
 		rootLogger.CWarn(ctx, "failed to start ETW logger, falling back to Event Logger for local logs: ", etwErr)
 		logging.RegisterEventLogger(rootLogger, "viam-server")

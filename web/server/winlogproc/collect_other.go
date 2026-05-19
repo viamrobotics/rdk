@@ -10,7 +10,7 @@ import (
 // CollectOpts is a no-op type on non-Windows so callers compile but
 // can't actually invoke Collect. See collect.go for the real definition.
 type CollectOpts struct {
-	ETLPath        string
+	ETLDir         string
 	SessionName    string
 	EventlogSource string
 	OutDir         string
@@ -25,6 +25,6 @@ func Collect(opts CollectOpts) (string, error) {
 	return "", errors.New("winlogproc.Collect is only supported on Windows")
 }
 
-// DefaultETLPath returns an empty string on non-Windows. See
+// DefaultETLDir returns an empty string on non-Windows. See
 // collect.go for the real implementation.
-func DefaultETLPath() string { return "" }
+func DefaultETLDir() string { return "" }
