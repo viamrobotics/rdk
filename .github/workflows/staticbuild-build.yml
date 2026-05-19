@@ -50,8 +50,6 @@ jobs:
       # otherwise we get a 'read-only filesystem' error when symlinking over this
       - /tmp/node20:/__e/node20
     timeout-minutes: 15
-    # id-token: write enables Workload Identity Federation for the windows-only signing step.
-    # The rest of this workflow still uses the GCP_CREDENTIALS SA key for GCS uploads.
     permissions:
       id-token: write
       contents: read
@@ -114,7 +112,7 @@ jobs:
         apt-get install -y openjdk-17-jre-headless jq
         curl -fsSL -o /tmp/jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
         # Fetch cert directly via Secret Manager REST: the get-secretmanager-secrets
-        # action needs Node 18+ (Headers), but antique2 ships Node 16.
+        # action needs Node 18+, but antique2 ships Node 16.
         curl -fsSL -H "Authorization: Bearer $GCP_ACCESS_TOKEN" \
           "https://secretmanager.googleapis.com/v1/projects/385154741571/secrets/ev-code-signing-public-key/versions/latest:access" \
           | jq -r '.payload.data' | base64 -d > /tmp/cert.pem

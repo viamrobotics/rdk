@@ -50,8 +50,6 @@ static-release-win:
 	rm -f bin/static/viam-server-windows.exe
 	GOOS=windows GOARCH=amd64 go build -tags no_cgo,osusergo,netgo -ldflags="-extldflags=-static $(COMMON_LDFLAGS)" -o bin/static/viam-server-windows.exe ./web/cmd/server
 	upx --best --lzma bin/static/viam-server-windows.exe
-	# Sign before the deploy copy so the subsystem manifest hashes the signed binary.
-	# Empty SIGN_CMD (local builds) is a no-op.
 	test -z "$(SIGN_CMD)" || $(SIGN_CMD) bin/static/viam-server-windows.exe
 
 	rm -rf etc/packaging/static/deploy/
