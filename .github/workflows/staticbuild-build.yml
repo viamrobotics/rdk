@@ -51,7 +51,12 @@ jobs:
       - /tmp/node20:/__e/node20
     timeout-minutes: 15
     permissions:
+      # Lets us mint an OIDC token for the WIF login used by the Windows
+      # code signing step. GCS uploads uses a stored SA key instead.
       id-token: write
+      # Job-level permissions replace workflow-level ones and any not
+      # explicitly granted are disallowed, so we need to re-grant this
+      # for actions/checkout to check out the code and build from it.
       contents: read
     outputs:
       date: ${{ steps.build_date.outputs.date }}
