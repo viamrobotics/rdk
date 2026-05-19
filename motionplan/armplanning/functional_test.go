@@ -184,6 +184,7 @@ func simpleXArmMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		defaultCollisionBufferMM,
 		nil,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -254,6 +255,7 @@ func simpleUR5eMotion(logger logging.Logger) (*planConfig, error) {
 		nil,
 		defaultCollisionBufferMM,
 		nil,
+		logger,
 	)
 	if err != nil {
 		return nil, err

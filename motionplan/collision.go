@@ -3,11 +3,11 @@ package motionplan
 import (
 	"fmt"
 	"math"
-	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -139,8 +139,9 @@ func CheckCollisions(
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
+	logger logging.Logger,
 ) ([]Collision, float64, error) {
-	return checkCollisionsHinted(gg, other, allowedCollisions, collisionBufferMM, collectAllCollisions, nil)
+	return checkCollisionsHinted(gg, other, allowedCollisions, collisionBufferMM, collectAllCollisions, nil, logger)
 }
 
 // checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
@@ -154,6 +155,7 @@ func checkCollisionsHinted(
 	collisionBufferMM float64,
 	collectAllCollisions bool,
 	hint *atomic.Pointer[[2]string],
+	logger logging.Logger,
 ) ([]Collision, float64, error) {
 	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
@@ -193,7 +195,7 @@ func checkCollisionsHinted(
 		}
 		if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
 			rp := relativePoseHash(xGeometry, yGeometry)
-			fmt.Fprintf(os.Stderr, "slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x\n",
+			logger.Debugf("slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x",
 				elapsed, xName, yName, isCollision, distance, rp)
 		}
 		if isCollision {

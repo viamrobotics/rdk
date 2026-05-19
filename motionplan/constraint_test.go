@@ -326,6 +326,7 @@ func TestCollisionConstraints(t *testing.T) {
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
 		nil,
+		logging.NewTestLogger(t),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -455,7 +456,7 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		// Test that initial collisions are detected and combined with specifications
 		collisionSpecs := []Collision{{"box1", "box3"}}
 		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static,
-			collisionSpecs, defaultCollisionBufferMM)
+			collisionSpecs, defaultCollisionBufferMM, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 2)
 
@@ -480,7 +481,7 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		moving := []spatial.Geometry{geom1}
 		static := []spatial.Geometry{geom2}
 
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 0)
 	})
@@ -584,6 +585,7 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
 		nil,
+		logging.NewTestLogger(b),
 	)
 	test.That(b, err, test.ShouldBeNil)
 
@@ -662,7 +664,7 @@ func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
 	handler := &ConstraintChecker{}
 	handler.collisionConstraints, err = CreateAllCollisionConstraints(
 		fs, movingRobotGeometries, staticRobotGeometries, worldGeometries.Geometries(),
-		nil, defaultCollisionBufferMM, nil)
+		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
 	test.That(b, err, test.ShouldBeNil)
 
 	// Walk a short trajectory that stays in collision throughout — simulates

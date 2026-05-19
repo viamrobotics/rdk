@@ -116,6 +116,7 @@ func NewConstraintChecker(
 		allowedCollisions,
 		collisionBufferMM,
 		cache,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -397,6 +398,7 @@ func CreateAllCollisionConstraints(
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	cache *CollisionCache,
+	logger logging.Logger,
 ) (CollisionConstraints, error) {
 	var constraints CollisionConstraints
 
@@ -419,6 +421,7 @@ func CreateAllCollisionConstraints(
 			false,
 			obstacleHint,
 			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -436,6 +439,7 @@ func CreateAllCollisionConstraints(
 			false,
 			robotHint,
 			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -453,6 +457,7 @@ func CreateAllCollisionConstraints(
 			true,
 			selfHint,
 			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -476,10 +481,11 @@ func NewCollisionConstraintFS(
 	isSelfCollision bool,
 	pairHint *atomic.Pointer[[2]string],
 	cache *CollisionCache,
+	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
 	_ = cache // reserved for future planner-level caches (edge memoization lives elsewhere on the same struct)
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
-		collisionSpecifications, collisionBufferMM)
+		collisionSpecifications, collisionBufferMM, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -515,7 +521,7 @@ func NewCollisionConstraintFS(
 		}
 
 		collisions, minDist, err := checkCollisionsHinted(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint)
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
 			return minDist, err
 		}
@@ -536,10 +542,11 @@ func computeInitialCollisionsToIgnore(
 	group1, group2 []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true)
+		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
 	if err != nil {
 		return nil, err
 	}
