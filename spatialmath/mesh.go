@@ -739,6 +739,32 @@ func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
 	return bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose)
 }
 
+// ResetCache clears the mesh's lazily-built collision state: the BVH, the
+// deduplicated vertex list, and the witness / negative caches living on the
+// shared *meshState. Intended for callers (e.g. the motion planner) that want
+// to release the memory held by these caches once a planning session is done.
+//
+// Because *meshState is shared across Transform-derived copies, clearing it
+// here is visible to all clones of this logical mesh. The per-instance bvh
+// and uniqueVerts on Transform-derived clones are not reset by this call;
+// resetting the original Mesh registered with the frame system is what frees
+// the BVH tree memory.
+//
+// Safe to call concurrently with collision checks — the cache is purely an
+// optimization, so racing readers may observe a torn view but cannot return a
+// wrong answer (they fall back to the BVH walk).
+func (m *Mesh) ResetCache() {
+	m.bvh = nil
+	m.bvhOnce = sync.Once{}
+	m.uniqueVerts = nil
+	m.uniqueVertsOnce = sync.Once{}
+	if m.state != nil {
+		m.state.witnesses = sync.Map{}
+		m.state.geomWitness = sync.Map{}
+		m.state.negCache = sync.Map{}
+	}
+}
+
 // SetLabel sets the name of the mesh.
 func (m *Mesh) SetLabel(label string) {
 	m.label = label
