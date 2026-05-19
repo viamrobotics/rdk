@@ -13,9 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// providerGUID is the pinned ETW provider ID. Don't change this — consumers
-// (PerfView/tracerpt sessions, dashboards, scripts) key off the GUID. The
-// provider name is decorative; the GUID is the stable identifier.
+// ETW provider GUID used by all ETW log consumers - should not be changed
 const providerGUID = "66AFF7FE-2451-47AA-A0E3-8E3D2E432B30"
 
 const (
@@ -26,24 +24,18 @@ const (
 
 // RegisterETWLogger registers an ETW provider with the pinned GUID, attaches
 // it as an Appender on rootLogger, and starts a logman-managed ETW session
-// that captures the provider's events into etlPath. Returns an io.Closer
-// that stops the session and unregisters the provider; the caller
-// defer-closes it.
-//
-// On any failure during registration, logs via rootLogger and returns a
-// no-op closer. The existing eventlog appender is unaffected, so logs still
-// reach Event Viewer regardless of ETW health.
-func RegisterETWLogger(rootLogger Logger, name, etlPath string) io.Closer {
+// that captures the provider's events into etlPath
+func RegisterETWLogger(rootLogger Logger, name, etlPath string) (io.Closer, error) {
 	g, err := guid.FromString(providerGUID)
 	if err != nil {
 		rootLogger.Errorw("invalid pinned ETW provider GUID", "err", err)
-		return nopCloser{}
+		return nopCloser{}, err
 	}
 
 	provider, err := etw.NewProviderWithID(name, g, nil)
 	if err != nil {
 		rootLogger.Errorw("unable to register ETW provider", "err", err)
-		return nopCloser{}
+		return nopCloser{}, err
 	}
 
 	sess := &logmanSessionController{
@@ -58,15 +50,17 @@ func RegisterETWLogger(rootLogger Logger, name, etlPath string) io.Closer {
 
 	var liveSession sessionController
 	if err := sess.Start(startCtx); err != nil {
-		rootLogger.Warnw("ETW session start failed; provider registered but events not captured to file",
+		rootLogger.Warnw("ETW session start failed; provider registered but file capture could not start",
 			"err", err, "session", etwSessionName, "outputPath", etlPath)
+		provider.Close()
+		return nopCloser{}, err
 	} else {
 		liveSession = sess
 	}
 
 	a := &etwAppender{provider: provider, session: liveSession}
 	rootLogger.AddAppender(a)
-	return a
+	return a, nil
 }
 
 // etwAppender writes each zap entry as a single ETW event with TraceLogging

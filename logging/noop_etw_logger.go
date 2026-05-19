@@ -7,8 +7,8 @@ import "io"
 // RegisterETWLogger does nothing on non-Windows platforms. On Windows it
 // registers an ETW provider as an Appender and starts a session capturing
 // those events to a .etl file.
-func RegisterETWLogger(rootLogger Logger, name, etlPath string) io.Closer {
-	return nopCloser{}
+func RegisterETWLogger(rootLogger Logger, name, etlPath string) (io.Closer, error) {
+	return nopCloser{}, nil
 }
 
 type nopCloser struct{}

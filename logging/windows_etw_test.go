@@ -45,8 +45,9 @@ func TestRegisterETWLogger(t *testing.T) {
 	logger := NewLogger("etw-register-test")
 
 	etlPath := filepath.Join(t.TempDir(), "test.etl")
-	closer := RegisterETWLogger(logger, "viam-server-test", etlPath)
+	closer, err := RegisterETWLogger(logger, "viam-server-test", etlPath)
 	test.That(t, closer, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 
 	logger.Info("message through registered ETW appender")
 
