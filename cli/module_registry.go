@@ -533,6 +533,7 @@ func (c *viamClient) uploadModuleFile(
 	if err != nil {
 		return nil, err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return nil, err
@@ -583,6 +584,7 @@ func validateModuleFile(
 	if err != nil {
 		return err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
