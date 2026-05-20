@@ -47,6 +47,8 @@ func NewClientFromConn(
 	}, nil
 }
 
+// Reconfigure invalidates the cached `model` value. It's expected to be invoked when this `client`
+// represents an rdk <-> modular gantry connection and the gantry rebuilds.
 func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
 	c.mu.Lock()
 	c.model = nil
