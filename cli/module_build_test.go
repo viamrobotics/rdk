@@ -269,8 +269,8 @@ func TestLocalBuild(t *testing.T) {
 	setupScriptCmd, setupFile, setupContent := "./setup.sh", "setup.sh", "echo setup step msg"
 	buildCmd, buildFile, buildContent := "make build", "Makefile", "make build:\n\techo build step msg"
 	if runtime.GOOS == "windows" {
-		setupScriptCmd, setupFile, setupContent = "setup.bat", "setup.bat", "@echo setup step msg"
-		buildCmd, buildFile, buildContent = "build.bat", "build.bat", "@echo build step msg"
+		setupScriptCmd, setupFile = "setup.bat", "setup.bat"
+		buildCmd, buildFile, buildContent = "build.bat", "build.bat", "echo build step msg"
 	}
 
 	manifestPath := createTestManifest(t, "", map[string]any{
