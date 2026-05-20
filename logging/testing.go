@@ -54,14 +54,12 @@ func NewTestAppender(tb testing.TB) Appender {
 func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	tapp.tb.Helper()
 
-	log := func(toPrint []string) {
-		// Do not attempt to log if the test has already completed; doing so can cause a race
-		// or a panic.
-		tapp.completedLock.RLock()
-		defer tapp.completedLock.RUnlock()
-		if !tapp.completed {
-			tapp.tb.Log(strings.Join(toPrint, "\t"))
-		}
+	tapp.completedLock.RLock()
+	defer tapp.completedLock.RUnlock()
+	// Do not attempt to log if the test has already completed; doing so can cause a race or
+	// a panic.
+	if tapp.completed {
+		return nil
 	}
 
 	const maxLength = 10
@@ -75,7 +73,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	}
 	toPrint = append(toPrint, entry.Message)
 	if len(fields) == 0 {
-		log(toPrint)
+		tapp.tb.Log(strings.Join(toPrint, "\t"))
 		return nil
 	}
 
@@ -86,11 +84,11 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
 	if err != nil {
 		// Log what we have and return the error.
-		log(toPrint)
+		tapp.tb.Log(strings.Join(toPrint, "\t"))
 		return err
 	}
 	toPrint = append(toPrint, string(buf.Bytes()))
-	log(toPrint)
+	tapp.tb.Log(strings.Join(toPrint, "\t"))
 	return nil
 }
 
