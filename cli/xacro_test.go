@@ -433,7 +433,7 @@ func TestValidateOutputWritable(t *testing.T) {
 
 	t.Run("read-only directory", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
-			t.Skip("Windows directories ignore POSIX mode bits; os.Mkdir(dir, 0o555) does not block writes")
+			t.Skip("Windows doesn't use permission bits to determine read-only directories")
 		}
 		if os.Getuid() == 0 {
 			t.Skip("Skipping read-only test when running as root")

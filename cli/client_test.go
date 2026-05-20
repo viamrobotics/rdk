@@ -1616,9 +1616,6 @@ func TestUpdateOAuthAppAction(t *testing.T) {
 }
 
 func TestTunnelE2ECLI(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Currently doesn't work on windows, PR in progres")
-	}
 	t.Parallel()
 	// `TestTunnelE2ECLI` attempts to send "Hello, World!" across a tunnel created by the
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
