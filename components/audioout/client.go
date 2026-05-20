@@ -2,7 +2,9 @@ package audioout
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
@@ -110,6 +112,13 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 		init.GetInit().AudioInfo = rutils.AudioInfoStructToPb(info)
 	}
 	if err := stream.Send(init); err != nil {
+		// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
+		if errors.Is(err, io.EOF) {
+			if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
+				return fmt.Errorf("audioout client: send init: %w", recvErr)
+			}
+			return fmt.Errorf("audioout client: send init: stream closed unexpectedly")
+		}
 		return fmt.Errorf("audioout client: send init: %w", err)
 	}
 
@@ -131,6 +140,13 @@ func (c *client) PlayStream(ctx context.Context, info *rutils.AudioInfo, chunks 
 				},
 			}
 			if err := stream.Send(msg); err != nil {
+				// On io.EOF the server closed the stream early; the reason is in CloseAndRecv.
+				if errors.Is(err, io.EOF) {
+					if _, recvErr := stream.CloseAndRecv(); recvErr != nil {
+						return fmt.Errorf("audioout client: send chunk: %w", recvErr)
+					}
+					return fmt.Errorf("audioout client: send chunk: stream closed unexpectedly")
+				}
 				return fmt.Errorf("audioout client: send chunk: %w", err)
 			}
 		}
