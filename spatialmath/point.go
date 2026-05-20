@@ -83,6 +83,8 @@ func (pt *point) CollidesWith(g Geometry, collisionBufferMM float64) (bool, floa
 	switch other := g.(type) {
 	case *Mesh:
 		return other.CollidesWith(pt, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(pt, collisionBufferMM)
 	case *box:
 		c, d := pointVsBoxCollision(pt.position, other, collisionBufferMM)
 		return c, d, nil
@@ -117,6 +119,8 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	switch other := g.(type) {
 	case *Mesh:
 		return other.DistanceFrom(pt)
+	case *Cylinder:
+		return other.DistanceFrom(pt)
 	case *box:
 		return pointVsBoxDistance(pt.position, other), nil
 	case *sphere:
@@ -131,7 +135,11 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 }
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
+// Cylinder is handled with an analytic solid-volume test rather than the (surface-based) CollidesWith path.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
+	if cyl, ok := g.(*Cylinder); ok {
+		return cyl.containsPoint(pt.position), nil
+	}
 	collides, _, err := pt.CollidesWith(g, defaultCollisionBufferMM)
 	return collides, err
 }
@@ -139,7 +147,8 @@ func (pt *point) EncompassedBy(g Geometry) (bool, error) {
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
 // true == collision / false == no collision.
 func pointVsBoxCollision(pt r3.Vector, b *box, collisionBufferMM float64) (bool, float64) {
-	d := b.closestPoint(pt).Sub(pt).Norm()
+	dSq := b.pointDistanceSq(pt)
+	d := math.Sqrt(dSq)
 	return d <= collisionBufferMM, d
 }
 

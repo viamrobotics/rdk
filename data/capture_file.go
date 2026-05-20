@@ -53,6 +53,13 @@ const (
 	// Non-exhaustive list of characters to strip from file paths, since not allowed
 	// on certain file systems.
 	filePathReservedChars = ":"
+
+	// InProgressSequenceFileExt is the extension for sequence files whose definition window
+	// is still open (the sensor is still emitting them). Sync skips files with this extension.
+	InProgressSequenceFileExt = ".progseq"
+	// CompletedSequenceFileExt is the extension for closed sequence files ready for upload.
+	// Sync picks up files with this extension and calls CreateSequence on each.
+	CompletedSequenceFileExt = ".seq"
 )
 
 // CaptureFile is the data structure containing data captured by collectors. It is backed by a file on disk containing

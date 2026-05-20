@@ -7,14 +7,25 @@ import (
 	"math"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	"github.com/chenzhekl/goply"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	commonpb "go.viam.com/api/common/v1"
+	"gonum.org/v1/gonum/num/quat"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+// meshStateIDCounter assigns a unique uint64 to every meshState at construction
+// so the negative cache key can mix in stable pair identity without unsafe.Pointer.
+var meshStateIDCounter atomic.Uint64
+
+// newMeshState constructs a meshState with a unique id.
+func newMeshState() *meshState {
+	return &meshState{id: meshStateIDCounter.Add(1)}
+}
 
 // This file incorporates work covered by the Brax project -- https://github.com/google/brax/blob/main/LICENSE.
 // Copyright 2021 The Brax Authors, which is licensed under the Apache License Version 2.0 (the "License").
@@ -50,6 +61,103 @@ type Mesh struct {
 	// Built lazily via ensureUniqueVertices(). Shared across Transform() copies.
 	uniqueVerts     []r3.Vector
 	uniqueVertsOnce sync.Once
+
+	// state carries per-logical-mesh witness caches that survive Transform copies
+	// (the pointer is shared across Transform-derived Meshes). The hot collision
+	// path reaches the witness caches via direct field access; this turned out
+	// measurably faster than threading an external cache through the call chain.
+	// Planning-level concerns (edge memoization, geometry-pair hints) live one
+	// layer up in motionplan.CollisionCache.
+	state *meshState
+}
+
+// meshState holds the per-logical-mesh witness caches. Its pointer doubles as
+// the stable identity used for mesh-vs-mesh witness keying — two Mesh values
+// that share a *meshState are the "same logical mesh" for caching purposes.
+type meshState struct {
+	// id is a process-unique identifier assigned at construction. Used as a
+	// stable pair identity in the negative cache hash without resorting to
+	// unsafe.Pointer arithmetic.
+	id uint64
+
+	// witnesses caches the colliding triangle pair for mesh-vs-mesh queries.
+	// Keyed by the other mesh's *meshState pointer; pointer keys avoid the
+	// per-call boxing cost of [2]string keys in sync.Map.
+	witnesses sync.Map // *meshState -> *witnessPair
+
+	// geomWitness caches the colliding triangle for mesh-vs-non-mesh queries
+	// (capsule, box, sphere). Keyed by the other geometry's label — non-mesh
+	// geometries don't have a shared meshState pointer to use as identity.
+	geomWitness sync.Map // string (other.Label()) -> *Triangle
+
+	// negCache memoizes "no collision" verdicts for mesh-vs-mesh queries.
+	// Witness caching only short-circuits *colliding* pairs; in workloads where
+	// the same two meshes are repeatedly checked at the same world poses and
+	// return "no collision" each time (e.g., arm self-collision between non-
+	// adjacent links during RRT smoothing), every call walks the full BVH.
+	// Diagnostic on salad1.json showed 7 unique relative poses accounting for
+	// ~380 ~1ms BVH walks; caching the verdict turns subsequent calls into a
+	// hash lookup.
+	//
+	// Key is a uint64 hash of (other's *meshState, m.pose, other.pose). Value
+	// is *negCacheEntry which carries the original key components so we can
+	// verify on lookup — hash collisions are rare but treated as cache misses
+	// (the cached entry is overwritten by the next BVH walk anyway).
+	negCache sync.Map // uint64 -> *negCacheEntry
+}
+
+// witnessPair records a previously-colliding triangle pair so subsequent
+// collision queries between the same meshes can short-circuit the BVH walk.
+type witnessPair struct {
+	t1, t2 *Triangle
+}
+
+// negCacheEntry stores a verified "no collision" verdict for a specific pair
+// at specific world poses. The pose snapshot lets us reject hash collisions
+// before returning a stale result.
+type negCacheEntry struct {
+	other     *meshState
+	aPt, bPt  r3.Vector
+	aq, bq    quat.Number
+	minDistSq float64
+}
+
+// negCacheKey hashes (other identity, both world poses) into a uint64. FNV-1a
+// over the 14 pose floats plus the other-state pointer address. We then verify
+// the actual values on lookup to neutralize hash collisions.
+func negCacheKey(other *meshState, aPose, bPose Pose) uint64 {
+	apt := aPose.Point()
+	bpt := bPose.Point()
+	aq := aPose.Orientation().Quaternion()
+	bq := bPose.Orientation().Quaternion()
+	const fnvPrime = 0x100000001b3
+	h := uint64(0xcbf29ce484222325)
+	h ^= other.id
+	h *= fnvPrime
+	for _, v := range [14]float64{
+		apt.X, apt.Y, apt.Z, aq.Real, aq.Imag, aq.Jmag, aq.Kmag,
+		bpt.X, bpt.Y, bpt.Z, bq.Real, bq.Imag, bq.Jmag, bq.Kmag,
+	} {
+		h ^= math.Float64bits(v)
+		h *= fnvPrime
+	}
+	return h
+}
+
+// negCacheEntryMatches verifies that a cache hit really represents the same
+// pair-at-same-poses we're querying — guards against the (rare) hash collision.
+func negCacheEntryMatches(e *negCacheEntry, other *meshState, aPose, bPose Pose) bool {
+	if e.other != other {
+		return false
+	}
+	apt := aPose.Point()
+	bpt := bPose.Point()
+	if e.aPt != apt || e.bPt != bpt {
+		return false
+	}
+	aq := aPose.Orientation().Quaternion()
+	bq := bPose.Orientation().Quaternion()
+	return e.aq == aq && e.bq == bq
 }
 
 // trianglesToGeoms converts a slice of triangles to Geometry without transforming them.
@@ -69,6 +177,7 @@ func NewMesh(pose Pose, triangles []*Triangle, label string) *Mesh {
 		pose:      pose,
 		triangles: triangles,
 		label:     label,
+		state:     newMeshState(),
 	}
 
 	// Convert triangles to PLY for protobuf
@@ -163,6 +272,7 @@ func newMeshFromBytes(pose Pose, data []byte, label string) (mesh *Mesh, err err
 		label:     label,
 		fileType:  plyType,
 		rawBytes:  data,
+		state:     newMeshState(),
 	}, nil
 }
 
@@ -215,6 +325,7 @@ func newMeshFromSTLBytes(pose Pose, data []byte, label string) (*Mesh, error) {
 		label:     label,
 		fileType:  stlType,
 		rawBytes:  data,
+		state:     newMeshState(),
 	}, nil
 }
 
@@ -301,13 +412,31 @@ func (m *Mesh) Transform(pose Pose) Geometry {
 		originalFilePath: m.originalFilePath,
 		bvh:              m.ensureBVH(),
 		uniqueVerts:      m.ensureUniqueVertices(),
+		// Share state across transforms so the witness cache survives per-config clones.
+		state: m.state,
 	}
 }
 
 // CollidesWith checks if the given mesh collides with the given geometry and returns true if it
 // does. If there's no collision, the method will return the distance between the mesh and input
 // geometry. If there is a collision, a negative number is returned.
+//
+// Mesh-vs-mesh and mesh-vs-non-mesh paths consult the per-mesh witness caches
+// on m.state to short-circuit the BVH walk under temporal coherence.
 func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float64, error) {
+	// Witness fast-path for non-mesh geometries. Runs ahead of the box-vertex
+	// sweep and the BVH walk so a still-colliding cached triangle short-circuits
+	// the whole call.
+	if _, isMesh := g.(*Mesh); !isMesh && m.state != nil {
+		if label := g.Label(); label != "" {
+			if v, ok := m.state.geomWitness.Load(label); ok {
+				if witnessTriCollidesWith(v.(*Triangle), m.pose, g, collisionBufferMM) {
+					return true, -1, nil
+				}
+			}
+		}
+	}
+
 	switch other := g.(type) {
 	case *box:
 		// Mesh-ifying the box misses the case where the box encompasses a mesh triangle without its surface intersecting a triangle.
@@ -318,6 +447,8 @@ func (m *Mesh) CollidesWith(g Geometry, collisionBufferMM float64) (bool, float6
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Mesh:
 		return m.collidesWithMesh(other, collisionBufferMM)
+	case *Cylinder:
+		return other.CollidesWith(m, collisionBufferMM)
 	case *capsule, *point, *sphere:
 		return m.collidesWithGeometryBVH(other, collisionBufferMM)
 	case *Triangle:
@@ -337,6 +468,15 @@ func (m *Mesh) EncompassedBy(g Geometry) (bool, error) {
 		// Meshes are not treated as solid volumes for collision checks, so this uses conservative
 		// AABB containment to support collision-safe simplification checks.
 		return m.encompassedByMeshAABB(other), nil
+	case *Cylinder:
+		// Cylinder is convex and Mesh sample points are world-frame; analytic point-in-cylinder
+		// avoids the surface-only semantics of Point.CollidesWith(Cylinder).
+		for _, pt := range m.ToPoints(1) {
+			if !other.containsPoint(pt) {
+				return false, nil
+			}
+		}
+		return true, nil
 	}
 
 	// For all other geometry types, check if all vertices of all triangles are inside
@@ -373,6 +513,8 @@ func (m *Mesh) DistanceFrom(g Geometry) (float64, error) {
 		return m.distanceFromMesh(triMesh)
 	case *Mesh:
 		return m.distanceFromMesh(other)
+	case *Cylinder:
+		return other.DistanceFrom(m)
 	default:
 		return math.Inf(-1), newCollisionTypeUnsupportedError(m, g)
 	}
@@ -461,23 +603,130 @@ func (m *Mesh) ensureBVH() *bvhNode {
 
 // collidesWithMesh checks if this mesh collides with another mesh.
 // Uses BVH acceleration for O(log n * log m) performance instead of O(n*m).
+//
+// Two-tier cache lives on m.state and is shared across all Transform-derived
+// copies of the same logical mesh:
+//
+//   - Positive witness: the previously-colliding triangle pair (keyed by the
+//     other mesh's *meshState pointer) is re-checked first; a still-colliding
+//     witness short-circuits the BVH walk.
+//   - Negative cache: previously-verified "no collision" verdicts keyed by
+//     (other-state, both world poses). When the planner re-checks the same
+//     pair at the same configuration (common with RRT-Connect rewire and path
+//     smoothing) this turns a ~1ms BVH walk into a hash lookup.
 func (m *Mesh) collidesWithMesh(other *Mesh, collisionBufferMM float64) (bool, float64, error) {
 	if len(m.triangles) == 0 || len(other.triangles) == 0 {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
-	// Pass poses to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+
+	var (
+		negKey         uint64
+		negKeyComputed bool
+	)
+	if m.state != nil && other.state != nil {
+		if v, ok := m.state.witnesses.Load(other.state); ok {
+			wp := v.(*witnessPair)
+			if witnessStillCollides(wp.t1, wp.t2, m.pose, other.pose, collisionBufferMM) {
+				return true, -1, nil
+			}
+		}
+		negKey = negCacheKey(other.state, m.pose, other.pose)
+		negKeyComputed = true
+		if v, ok := m.state.negCache.Load(negKey); ok {
+			e := v.(*negCacheEntry)
+			if negCacheEntryMatches(e, other.state, m.pose, other.pose) {
+				return false, math.Sqrt(e.minDistSq), nil
+			}
+		}
+	}
+
+	collides, dist, witness, err := bvhCollidesWithBVHTracked(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose, collisionBufferMM)
+	if err != nil {
+		return false, 0, err
+	}
+	if m.state != nil && other.state != nil {
+		if collides && witness[0] != nil && witness[1] != nil {
+			m.state.witnesses.Store(other.state, &witnessPair{t1: witness[0], t2: witness[1]})
+		} else if !collides {
+			if !negKeyComputed {
+				negKey = negCacheKey(other.state, m.pose, other.pose)
+			}
+			e := &negCacheEntry{
+				other:     other.state,
+				aPt:       m.pose.Point(),
+				bPt:       other.pose.Point(),
+				aq:        m.pose.Orientation().Quaternion(),
+				bq:        other.pose.Orientation().Quaternion(),
+				minDistSq: dist * dist,
+			}
+			m.state.negCache.Store(negKey, e)
+		}
+	}
+	return collides, dist, nil
+}
+
+// witnessStillCollides re-checks a cached colliding triangle pair under fresh
+// poses. Operates on stack-local Triangle values so the cache check itself
+// allocates nothing.
+func witnessStillCollides(t1, t2 *Triangle, pose1, pose2 Pose, collisionBufferMM float64) bool {
+	q1 := pose1.Orientation().Quaternion()
+	tr1 := pose1.Point()
+	q2 := pose2.Orientation().Quaternion()
+	tr2 := pose2.Point()
+	worldT1 := Triangle{
+		p0:     TransformPoint(q1, tr1, t1.p0),
+		p1:     TransformPoint(q1, tr1, t1.p1),
+		p2:     TransformPoint(q1, tr1, t1.p2),
+		normal: transformDirection(q1, t1.normal),
+	}
+	worldT2 := Triangle{
+		p0:     TransformPoint(q2, tr2, t2.p0),
+		p1:     TransformPoint(q2, tr2, t2.p1),
+		p2:     TransformPoint(q2, tr2, t2.p2),
+		normal: transformDirection(q2, t2.normal),
+	}
+	collides, _ := worldT1.collidesWithTriangle(&worldT2, collisionBufferMM)
+	return collides
 }
 
 // collidesWithGeometryBVH uses BVH to accelerate mesh vs single geometry collision.
+//
+// On a fresh collision the colliding triangle is stored as a witness keyed by
+// the other geometry's label. The matching load happens earlier in
+// Mesh.CollidesWith so we can skip the box-vertex sweep on cached hits.
 func (m *Mesh) collidesWithGeometryBVH(other Geometry, collisionBufferMM float64) (bool, float64, error) {
 	bvh := m.ensureBVH()
 	if bvh == nil {
 		return false, 0, errors.New("cannot check collision on mesh with no triangles")
 	}
+
 	otherMin, otherMax := computeGeometryAABB(other)
-	// Pass mesh pose to BVH collision - BVH stores geometries in local space
-	return bvhCollidesWithGeometry(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	collides, dist, witness, err := bvhCollidesWithGeometryTracked(bvh, m.pose, other, otherMin, otherMax, collisionBufferMM)
+	if err != nil {
+		return false, 0, err
+	}
+	if collides && witness != nil && m.state != nil {
+		if otherLabel := other.Label(); otherLabel != "" {
+			m.state.geomWitness.Store(otherLabel, witness)
+		}
+	}
+	return collides, dist, nil
+}
+
+// witnessTriCollidesWith re-checks a cached colliding triangle (from m's BVH)
+// against an arbitrary other geometry under fresh poses. Operates on a stack-
+// local world-space Triangle so the cache check itself allocates nothing.
+func witnessTriCollidesWith(tri *Triangle, meshPose Pose, other Geometry, collisionBufferMM float64) bool {
+	q := meshPose.Orientation().Quaternion()
+	trans := meshPose.Point()
+	worldT := Triangle{
+		p0:     TransformPoint(q, trans, tri.p0),
+		p1:     TransformPoint(q, trans, tri.p1),
+		p2:     TransformPoint(q, trans, tri.p2),
+		normal: transformDirection(q, tri.normal),
+	}
+	collides, _, err := worldT.CollidesWith(other, collisionBufferMM)
+	return err == nil && collides
 }
 
 // distanceFromMesh returns the minimum distance between this mesh and another mesh.
@@ -488,6 +737,32 @@ func (m *Mesh) distanceFromMesh(other *Mesh) (float64, error) {
 	}
 	// Pass poses to BVH distance - BVH stores geometries in local space
 	return bvhDistanceFromBVH(m.ensureBVH(), other.ensureBVH(), m.pose, other.pose)
+}
+
+// ResetCache clears the mesh's lazily-built collision state: the BVH, the
+// deduplicated vertex list, and the witness / negative caches living on the
+// shared *meshState. Intended for callers (e.g. the motion planner) that want
+// to release the memory held by these caches once a planning session is done.
+//
+// Because *meshState is shared across Transform-derived copies, clearing it
+// here is visible to all clones of this logical mesh. The per-instance bvh
+// and uniqueVerts on Transform-derived clones are not reset by this call;
+// resetting the original Mesh registered with the frame system is what frees
+// the BVH tree memory.
+//
+// Safe to call concurrently with collision checks — the cache is purely an
+// optimization, so racing readers may observe a torn view but cannot return a
+// wrong answer (they fall back to the BVH walk).
+func (m *Mesh) ResetCache() {
+	m.bvh = nil
+	m.bvhOnce = sync.Once{}
+	m.uniqueVerts = nil
+	m.uniqueVertsOnce = sync.Once{}
+	if m.state != nil {
+		m.state.witnesses = sync.Map{}
+		m.state.geomWitness = sync.Map{}
+		m.state.negCache = sync.Map{}
+	}
 }
 
 // SetLabel sets the name of the mesh.

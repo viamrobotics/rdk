@@ -533,6 +533,7 @@ func (c *viamClient) uploadModuleFile(
 	if err != nil {
 		return nil, err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return nil, err
@@ -583,6 +584,7 @@ func validateModuleFile(
 	if err != nil {
 		return err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
@@ -968,6 +970,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	if runtime.GOOS == osWindows {
+		// tcp mode needs to be true on windows python
+		parentAddrs = modconfig.ParentSockAddrs{TCPAddr: "127.0.0.1:0"}
+		cfg.TCPMode = true
+	}
 	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{
 		UntrustedEnv:            false,
 		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
