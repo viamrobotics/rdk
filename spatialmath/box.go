@@ -242,19 +242,51 @@ func (b *box) EncompassedBy(g Geometry) (bool, error) {
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L165
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 	result := b.centerPt
-	direction := pt.Sub(result)
-	rm := b.rotationMatrix()
+	dx, dy, dz := pt.X-result.X, pt.Y-result.Y, pt.Z-result.Z
+	m := b.rotationMatrix().mat
 	for i := 0; i < 3; i++ {
-		axis := rm.Row(i)
-		distance := direction.Dot(axis)
-		if distance > b.halfSize[i] {
-			distance = b.halfSize[i]
-		} else if distance < -b.halfSize[i] {
-			distance = -b.halfSize[i]
+		ax, ay, az := m[3*i], m[3*i+1], m[3*i+2]
+		distance := dx*ax + dy*ay + dz*az
+		if hs := b.halfSize[i]; distance > hs {
+			distance = hs
+		} else if distance < -hs {
+			distance = -hs
 		}
-		result = result.Add(axis.Mul(distance))
+		result.X += ax * distance
+		result.Y += ay * distance
+		result.Z += az * distance
 	}
 	return result
+}
+
+// pointDistanceSq returns the squared distance from pt to the closest point on b.
+// Computed entirely in the box-local frame; avoids the world-frame reconstruction
+// + r3.Vector ops that closestPoint + Sub + Norm does. Hot path for mesh-vs-box.
+func (b *box) pointDistanceSq(pt r3.Vector) float64 {
+	dx, dy, dz := pt.X-b.centerPt.X, pt.Y-b.centerPt.Y, pt.Z-b.centerPt.Z
+	m := b.rotationMatrix().mat
+	// Project diff onto each box-local axis. Rows of rm are the local axes in world frame.
+	lx := dx*m[0] + dy*m[1] + dz*m[2]
+	ly := dx*m[3] + dy*m[4] + dz*m[5]
+	lz := dx*m[6] + dy*m[7] + dz*m[8]
+
+	var ox, oy, oz float64
+	if hx := b.halfSize[0]; lx > hx {
+		ox = lx - hx
+	} else if lx < -hx {
+		ox = lx + hx
+	}
+	if hy := b.halfSize[1]; ly > hy {
+		oy = ly - hy
+	} else if ly < -hy {
+		oy = ly + hy
+	}
+	if hz := b.halfSize[2]; lz > hz {
+		oz = lz - hz
+	} else if lz < -hz {
+		oz = lz + hz
+	}
+	return ox*ox + oy*oy + oz*oz
 }
 
 // penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
@@ -291,7 +323,7 @@ func (b *box) vertices() []r3.Vector {
 // toMesh returns a 12-triangle mesh representation of the box, 2 right triangles for each face.
 func (b *box) toMesh() *Mesh {
 	if b.mesh == nil {
-		m := &Mesh{pose: NewZeroPose()}
+		m := &Mesh{pose: NewZeroPose(), state: newMeshState()}
 		triangles := make([]*Triangle, 0, 12)
 		verts := b.vertices()
 		for _, tri := range boxTriangles {
