@@ -2,13 +2,16 @@ package logging
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"go.uber.org/zap/zapcore"
 )
 
 type testAppender struct {
-	tb testing.TB
+	tb            testing.TB
+	completedLock sync.RWMutex
+	completed     bool
 }
 
 // NewTestAppender returns a logger appender that logs to the underlying `testing.TB`
@@ -38,12 +41,29 @@ type testAppender struct {
 //
 //nolint:lll
 func NewTestAppender(tb testing.TB) Appender {
-	return &testAppender{tb}
+	tapp := &testAppender{tb: tb}
+	tb.Cleanup(func() {
+		tapp.completedLock.Lock()
+		defer tapp.completedLock.Unlock()
+		tapp.completed = true
+	})
+	return tapp
 }
 
 // Write outputs the log entry to the underlying test object `Log` method.
 func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	tapp.tb.Helper()
+
+	log := func(toPrint []string) {
+		// Do not attempt to log if the test has already completed; doing so can cause a race
+		// or a panic.
+		tapp.completedLock.RLock()
+		defer tapp.completedLock.RUnlock()
+		if !tapp.completed {
+			tapp.tb.Log(strings.Join(toPrint, "\t"))
+		}
+	}
+
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
 	toPrint = append(toPrint, entry.Time.Format(DefaultTimeFormatStr))
@@ -55,7 +75,7 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	}
 	toPrint = append(toPrint, entry.Message)
 	if len(fields) == 0 {
-		tapp.tb.Log(strings.Join(toPrint, "\t"))
+		log(toPrint)
 		return nil
 	}
 
@@ -66,11 +86,11 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 	buf, err := jsonEncoder.EncodeEntry(zapcore.Entry{}, fields)
 	if err != nil {
 		// Log what we have and return the error.
-		tapp.tb.Log(strings.Join(toPrint, "\t"))
+		log(toPrint)
 		return err
 	}
 	toPrint = append(toPrint, string(buf.Bytes()))
-	tapp.tb.Log(strings.Join(toPrint, "\t"))
+	log(toPrint)
 	return nil
 }
 

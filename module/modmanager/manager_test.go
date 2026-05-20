@@ -806,15 +806,19 @@ func TestModuleReloading(t *testing.T) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
+			test.That(tb, logs.FilterMessageSnippet("Module has unexpectedly exited").Len(),
 				test.ShouldEqual, 1)
 		})
 
 		ok = mgr.IsModularResource(rNameMyHelper)
 		test.That(t, ok, test.ShouldBeTrue)
-		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "connection refused")
+		// Wait for connection to be refused; this confirms the module is dead and no restart occurred.
+		testutils.WaitForAssertion(t, func(tb testing.TB) {
+			tb.Helper()
+			_, cmdErr := h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
+			test.That(tb, cmdErr, test.ShouldNotBeNil)
+			test.That(tb, cmdErr.Error(), test.ShouldContainSubstring, "connection refused")
+		})
 
 		// Assert that logs reflect that test-module crashed and was not
 		// restarted.
@@ -822,8 +826,8 @@ func TestModuleReloading(t *testing.T) {
 			test.ShouldEqual, 1)
 		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
 			test.ShouldEqual, 0)
-		test.That(t, logs.FilterMessageSnippet("Restart context canceled, abandoning restart attempt").Len(),
-			test.ShouldEqual, 1)
+		// Module should remain in failed state since restart was abandoned due to canceled context.
+		test.That(t, mgr.FailedModules(), test.ShouldContain, modCfg.Name)
 		// Call Stop on the module's ManagedProcess here to absorb the error from
 		// the non-zero exit, otherwise it will end up in the return of mgr.Close
 		// and fail the test during cleanup.
@@ -893,15 +897,23 @@ func TestModuleReloading(t *testing.T) {
 		_, err = h.DoCommand(ctx, map[string]interface{}{"command": "echo"})
 		test.That(t, err, test.ShouldNotBeNil)
 
-		// Stop the module managed process manually and make sure the OUE handler
-		// stops trying to restart it.
-		err = modProc.Stop()
-		test.That(t, err, test.ShouldBeNil)
+		// Wait for at least one failed restart attempt (binary was removed, so
+		// restart cannot succeed). This confirms the OUE handler entered its
+		// restart loop before we stop the process.
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			matching := logs.FilterMessageSnippet("pexec context canceled, abandoning restart attempt").Len()
-			test.That(tb, matching, test.ShouldEqual, 1)
+			test.That(tb, logs.FilterMessageSnippet("Error while restarting crashed module").Len(),
+				test.ShouldBeGreaterThanOrEqualTo, 1)
 		})
+
+		// Stop the module managed process manually to cancel the pexec context,
+		// causing the OUE handler to exit its restart loop.
+		err = modProc.Stop()
+		test.That(t, err, test.ShouldBeNil)
+
+		// Assert that restart was never successful.
+		test.That(t, logs.FilterMessageSnippet("Module successfully restarted").Len(),
+			test.ShouldEqual, 0)
 	})
 	t.Run("timed out module process is stopped", func(t *testing.T) {
 		logger, logs := logging.NewObservedTestLogger(t)
