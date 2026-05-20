@@ -254,15 +254,26 @@ func closestSegPointToPlane(ap1, ap2, planePt, planeNormal r3.Vector) r3.Vector 
 
 // closestTriInsidePointCached is the cached variant of ClosestTriangleInsidePoint —
 // the triangle's e0, e1, a, b, c, det are taken from the precomputed cache.
+//
+// Returns the zero vector (and false) when the projected point falls outside the
+// triangle — the caller in planeProjDistN2 discards the point in that case, so
+// skipping the t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)) reconstruction saves real work
+// on the common "not inside" path. Also short-circuits on u alone before bothering
+// to compute v.
 func closestTriInsidePointCached(t *Triangle, tc *triCache, point r3.Vector) (r3.Vector, bool) {
 	const eps = 1e-6
 	d := point.Sub(t.p0)
 	e0DotD := tc.e0.Dot(d)
 	e1DotD := tc.e1.Dot(d)
 	u := (tc.c*e0DotD - tc.b*e1DotD) * tc.invDet
+	if u < -eps || u > 1+eps {
+		return r3.Vector{}, false
+	}
 	v := (-tc.b*e0DotD + tc.a*e1DotD) * tc.invDet
-	inside := (0 <= u+eps) && (u <= 1+eps) && (0 <= v+eps) && (v <= 1+eps) && (u+v <= 1+eps)
-	return t.p0.Add(tc.e0.Mul(u)).Add(tc.e1.Mul(v)), inside
+	if v < -eps || v > 1+eps || u+v > 1+eps {
+		return r3.Vector{}, false
+	}
+	return t.p0.Add(tc.e0.Mul(u)).Add(tc.e1.Mul(v)), true
 }
 
 // ClosestPointsSegmentPlane takes a line segment, plus a plane defined by a point and a normal vector, and returns the point on the

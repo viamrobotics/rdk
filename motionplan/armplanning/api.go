@@ -192,6 +192,13 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	ctx, span := trace.StartSpan(ctx, "PlanMotion")
 	defer func() {
 		meta.Duration = time.Since(start)
+		// We don't expect mesh caches to be useful from plan to plan, even when the start and goal
+		// states are exactly the same due to differing IK solutions (this was backed by
+		// profiling). Hence we clear the cache between plan requests.
+		//
+		// In the case of concurrent plans, this does mean we may stomp on the others cache. Which
+		// would mitigate the benefit of the cache, but should not be a correctness problem.
+		resetMeshCaches(ctx, logger, request)
 		span.End()
 	}()
 
@@ -237,6 +244,55 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	}
 
 	return t, meta, nil
+}
+
+// resetMeshCaches walks the robot link and world obstacle geometries reachable
+// from the plan request and clears any mesh-level collision caches that built
+// up during planning. The caches are an optimization, so a best-effort pass is
+// fine — failures here are logged and swallowed rather than surfaced as a
+// planning error.
+func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRequest) {
+	visit := func(geometry spatialmath.Geometry) {
+		if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+			mesh.ResetCache()
+		}
+	}
+
+	if request.StartState != nil && request.StartState.structuredConfiguration != nil {
+		frameSystemGeometries, err := referenceframe.FrameSystemGeometries(
+			request.FrameSystem,
+			request.StartState.structuredConfiguration,
+		)
+		if err != nil {
+			logger.CDebugf(ctx, "resetMeshCaches: skipping robot geometries: %v", err)
+			// Not expected to happen, but we still want to try walking the world state. Rely on
+			// ranging over a nil slice to be a no-op.
+		}
+
+		for _, geometriesInFrame := range frameSystemGeometries {
+			for _, geometry := range geometriesInFrame.Geometries() {
+				visit(geometry)
+			}
+		}
+	}
+
+	if request.WorldState != nil {
+		// Right now, the world state is getting entirely thrown away anyways. It's always a part of
+		// the user request that is about to go out of scope. In the future, this may include
+		// geometries saved in the `WorldStateStore` service.
+		obstacles, err := request.WorldState.ObstaclesInWorldFrame(
+			request.FrameSystem,
+			request.StartState.structuredConfiguration,
+		)
+		if err != nil {
+			logger.CDebugf(ctx, "resetMeshCaches: skipping world obstacles: %v", err)
+			return
+		}
+
+		for _, geometry := range obstacles.Geometries() {
+			visit(geometry)
+		}
+	}
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{

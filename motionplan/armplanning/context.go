@@ -2,6 +2,8 @@ package armplanning
 
 import (
 	"context"
+	"encoding/binary"
+	"hash/fnv"
 	"math"
 	"math/rand"
 	"strings"
@@ -28,6 +30,13 @@ type planContext struct {
 
 	planMeta *PlanMeta
 	logger   logging.Logger
+
+	// collisionCache is the per-plan temporal-coherence cache for collision
+	// checking. Threaded down through every ConstraintChecker built for this
+	// plan and into the mesh BVH layer via the CollisionWitnessCache interface.
+	// One cache per plan; lives for the plan's lifetime so witnesses + edge
+	// memoization accumulate.
+	collisionCache *motionplan.CollisionCache
 }
 
 func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
@@ -41,6 +50,7 @@ func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
 		planMeta:                  meta,
 		logger:                    logger,
+		collisionCache:            motionplan.NewCollisionCache(),
 	}
 
 	var err error
@@ -138,6 +148,7 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 		start,
 		pc.request.WorldState,
 		pc.logger.Sublogger("constraint"),
+		pc.collisionCache,
 	)
 	if err != nil {
 		return nil, err
@@ -149,6 +160,21 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
+
+	// Edge-result memoization: RRT-Connect rewire and path smoothing re-check
+	// the same (start, end) edges constantly. Skip the full interpolated sweep
+	// when the cache has already verified this edge collision-free under the
+	// same checkFinal setting. Negative results aren't cached — they depend on
+	// the failure step, which depends on resolution and buffer.
+	cache := psc.pc.collisionCache
+	hashA := hashLinearInputs(start)
+	hashB := hashLinearInputs(end)
+	if cache != nil && hashA != 0 && hashB != 0 {
+		if isClear, ok := cache.LookupEdgeResult(hashA, hashB); ok && isClear {
+			return nil
+		}
+	}
+
 	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
@@ -159,7 +185,30 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 		psc.pc.planOpts.Resolution,
 		checkFinal,
 	)
+	if err == nil && cache != nil && hashA != 0 && hashB != 0 {
+		cache.StoreEdgeResult(hashA, hashB, true)
+	}
 	return err
+}
+
+// hashLinearInputs computes a deterministic FNV-1a hash over the float values
+// in a LinearInputs, used as a cache key for edge memoization. Returns 0 for
+// nil inputs (cache layer treats 0 as "no key").
+func hashLinearInputs(li *referenceframe.LinearInputs) uint64 {
+	if li == nil {
+		return 0
+	}
+	floats := li.GetLinearizedInputs()
+	if len(floats) == 0 {
+		return 0
+	}
+	h := fnv.New64a()
+	var buf [8]byte
+	for _, f := range floats {
+		binary.LittleEndian.PutUint64(buf[:], math.Float64bits(f))
+		_, _ = h.Write(buf[:])
+	}
+	return h.Sum64()
 }
 
 func translateGoalsToWorldPosition(

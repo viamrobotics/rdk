@@ -4,10 +4,33 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync/atomic"
+	"time"
 
+	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
+
+// slowCollisionThreshold logs any single CollidesWith call that exceeds this.
+// Debug aid for tracking down which mesh pairs dominate planning time.
+const slowCollisionThreshold = 500 * time.Microsecond
+
+// relativePoseHash bins both geometries' world poses into a coarse integer key
+// so we can detect approximate repeats in the slow-check log. 1mm / 0.001-rad
+// granularity is fine for "are we re-doing the same check" diagnostics.
+func relativePoseHash(a, b spatialmath.Geometry) uint64 {
+	mix := func(h uint64, p spatialmath.Pose) uint64 {
+		pt := p.Point()
+		o := p.Orientation().Quaternion()
+		vals := [7]float64{pt.X, pt.Y, pt.Z, o.Real, o.Imag, o.Jmag, o.Kmag}
+		for _, v := range vals {
+			h ^= uint64(int64(v*1000)) + 0x9e3779b97f4a7c15 + (h << 6) + (h >> 2)
+		}
+		return h
+	}
+	return mix(mix(0xcbf29ce484222325, a.Pose()), b.Pose())
+}
 
 const unnamedCollisionGeometryPrefix = "unnamedCollisionGeometry_"
 
@@ -116,6 +139,23 @@ func CheckCollisions(
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
 	collectAllCollisions bool, // Allows us to exit early and skip lots of unnecessary computation
+	logger logging.Logger,
+) ([]Collision, float64, error) {
+	return checkCollisionsHinted(gg, other, allowedCollisions, collisionBufferMM, collectAllCollisions, nil, logger)
+}
+
+// checkCollisionsHinted is the workhorse for CheckCollisions plus an optional
+// "last-violated pair" hint. When hint is non-nil and the previously-violated
+// pair still exists, that pair is checked first; on a new collision the hint
+// is atomically updated. Per-mesh witness caching for the inner-loop short-
+// circuit lives on spatialmath.Mesh itself; no plumbing needed here.
+func checkCollisionsHinted(
+	gg, other []spatialmath.Geometry,
+	allowedCollisions []Collision,
+	collisionBufferMM float64,
+	collectAllCollisions bool,
+	hint *atomic.Pointer[[2]string],
+	logger logging.Logger,
 ) ([]Collision, float64, error) {
 	ggMap, err := createUniqueCollisionMap(gg)
 	if err != nil {
@@ -131,41 +171,81 @@ func CheckCollisions(
 	collisions := []Collision{}
 	minDistance := math.Inf(1)
 
-	// Check each geometry in gg against each in other, unless `skipCollisionCheck` says we shouldn't.
+	recordCollision := func(xName, yName string) bool {
+		n1, n2 := xName, yName
+		if n1 > n2 {
+			n1, n2 = n2, n1
+		}
+		collisions = append(collisions, Collision{name1: n1, name2: n2})
+		if hint != nil {
+			h := [2]string{n1, n2}
+			hint.Store(&h)
+		}
+		return !collectAllCollisions
+	}
+
+	checkOnePair := func(xName, yName string, xGeometry, yGeometry spatialmath.Geometry) (bool, error) {
+		start := time.Now()
+		isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
+		if err != nil {
+			isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
+			if err != nil {
+				return false, err
+			}
+		}
+		if elapsed := time.Since(start); elapsed > slowCollisionThreshold {
+			rp := relativePoseHash(xGeometry, yGeometry)
+			logger.Debugf("slow collision check %v: %s vs %s collides=%v dist=%.4f rposeHash=%x",
+				elapsed, xName, yName, isCollision, distance, rp)
+		}
+		if isCollision {
+			return recordCollision(xName, yName), nil
+		}
+		minDistance = min(minDistance, distance)
+		return false, nil
+	}
+
+	// Hint fast path: try the previously-violated pair first.
+	if hint != nil {
+		if h := hint.Load(); h != nil {
+			tryHint := func(xName, yName string) (bool, bool, error) {
+				xGeom, ok := ggMap[xName]
+				if !ok {
+					return false, false, nil
+				}
+				yGeom, ok := otherMap[yName]
+				if !ok {
+					return false, false, nil
+				}
+				if skipCollisionCheck(ignoreList, xName, yName) {
+					return false, true, nil
+				}
+				stop, err := checkOnePair(xName, yName, xGeom, yGeom)
+				return stop, true, err
+			}
+			for _, pair := range [2][2]string{{h[0], h[1]}, {h[1], h[0]}} {
+				stop, _, err := tryHint(pair[0], pair[1])
+				if err != nil {
+					return nil, 0, err
+				}
+				if stop {
+					return collisions, math.Inf(1), nil
+				}
+			}
+		}
+	}
+
 	for xName, xGeometry := range ggMap {
 		for yName, yGeometry := range otherMap {
-			// `skipCollisionCheck` can mutate the `ignoreList` in the event geometry labels are
-			// shared between the two input bags of geometries. Such that any pair of geometries are
-			// only checked once.
 			if skipCollisionCheck(ignoreList, xName, yName) {
 				continue
 			}
-
-			isCollision, distance, err := xGeometry.CollidesWith(yGeometry, collisionBufferMM)
+			stop, err := checkOnePair(xName, yName, xGeometry, yGeometry)
 			if err != nil {
-				// Due to how Geometry is currently set up, each geometry must know how to collide with each other type. But this is not
-				// always possible with geometries that live in different packages, due to Go circular dependency issues. Thus if we have
-				// an error, we need to check to opposite direction.
-				isCollision, distance, err = yGeometry.CollidesWith(xGeometry, collisionBufferMM)
-				if err != nil {
-					return nil, distance, err
-				}
+				return nil, math.Inf(-1), err
 			}
-
-			if isCollision {
-				// If there's a collision, add it to the return slice. And optionally early-return.
-				n1, n2 := xName, yName
-				if n1 > n2 {
-					// Deterministically order collisions to prevent noisy errors
-					n1, n2 = n2, n1
-				}
-				collisions = append(collisions, Collision{name1: n1, name2: n2})
-				if !collectAllCollisions {
-					return collisions, distance, nil
-				}
-			} else {
-				// If this pair does not collide, update the `minDistance`.
-				minDistance = min(minDistance, distance)
+			if stop {
+				return collisions, minDistance, nil
 			}
 		}
 	}
