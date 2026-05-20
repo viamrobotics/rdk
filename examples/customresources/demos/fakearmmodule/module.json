@@ -1,0 +1,22 @@
+{
+	"modules": [
+		{
+			"name": "FakeArmModule",
+			"executable_path": "./fakearmmodule"
+		}
+	],
+	"components": [
+		{
+			"namespace": "rdk",
+			"type": "arm",
+			"name": "arm1",
+			"model": "acme:demo:fakearm",
+			"attributes": {
+				"arm-model": "ur5e"
+			}
+		}
+	],
+	"network": {
+		"bind_address": ":8080"
+	}
+}
