@@ -394,9 +394,9 @@ func TestObserveArmKinematicReconfiguration(t *testing.T) {
 	// RSDK-13983: Arm clients were caching kinematics from remote arm's indefinitely. This led to
 	// problems where a reconfiguration of an arm could change kinematics. In the real world, this
 	// was observed when swapping to simple geometry kinematics to high-resolution URDF meshes. This
-	// test instead opts for changing a fake from from a lite6 to a ur5e and reads out the
-	// geometries from a couple of code paths to assert the frame system's understanding of the arm
-	// kinematics have been updated.
+	// test instead opts for changing a fake arm from a lite6 to a ur5e and reads out the geometries
+	// from a couple of code paths to assert the frame system's understanding of the arm kinematics
+	// have been updated.
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
