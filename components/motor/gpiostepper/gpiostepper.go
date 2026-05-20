@@ -58,10 +58,20 @@ type PinConfig struct {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             PinConfig `json:"pins"`
-	BoardName        string    `json:"board"`
-	StepperDelay     int       `json:"stepper_delay_usec,omitempty"` // When using stepper motors, the time to remain high
-	TicksPerRotation int       `json:"ticks_per_rotation"`
+	Pins      PinConfig `json:"pins"`
+	BoardName string    `json:"board"`
+	// TicksPerRotation is the number of full motor steps per shaft revolution
+	// (a motor spec, e.g. 200 for a NEMA 17). The effective pulses-per-revolution
+	// on the step pin is TicksPerRotation * Microsteps.
+	TicksPerRotation int `json:"ticks_per_rotation"`
+	// Microsteps is the driver's microstep divisor (1, 2, 4, 8, 16, 32, ...),
+	Microsteps int `json:"microsteps,omitempty"`
+	// MaxRPM is the motor's maximum shaft speed and is the preferred way to cap
+	// the step-pin pulse frequency: maxFreq = MaxRPM * TicksPerRotation * Microsteps / 60.
+	MaxRPM float64 `json:"max_rpm,omitempty"`
+	// StepperDelay is the minimum delay between step pulses in microseconds.
+	// Deprecated: set MaxRPM instead. Still honored when MaxRPM is unset.
+	StepperDelay int `json:"stepper_delay_usec,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -78,6 +88,12 @@ func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	}
 	if cfg.Pins.Step == "" {
 		return nil, nil, resource.NewConfigValidationFieldRequiredError(path, "step")
+	}
+	if cfg.Microsteps < 0 {
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("microsteps must be >= 0 (0 defaults to 1)"))
+	}
+	if cfg.MaxRPM < 0 {
+		return nil, nil, resource.NewConfigValidationError(path, errors.New("max_rpm must be >= 0"))
 	}
 	deps = append(deps, cfg.BoardName)
 	return deps, nil, nil
@@ -123,10 +139,12 @@ func newGPIOStepper(
 		return nil, errors.New("expected ticks_per_rotation in config for motor")
 	}
 
+	microsteps := max(mc.Microsteps, 1)
+
 	m := &gpioStepper{
 		Named:            conf.ResourceName().AsNamed(),
 		theBoard:         b,
-		stepsPerRotation: mc.TicksPerRotation,
+		stepsPerRotation: mc.TicksPerRotation * microsteps,
 		logger:           logger,
 		opMgr:            operation.NewSingleOperationManager(),
 	}
@@ -156,9 +174,29 @@ func newGPIOStepper(
 		return nil, err
 	}
 
-	if mc.StepperDelay > 0 {
-		m.minDelay = time.Duration(mc.StepperDelay * int(time.Microsecond))
+	switch {
+	case mc.MaxRPM > 0:
+		maxFreq := mc.MaxRPM * float64(m.stepsPerRotation) / 60.0
+		m.minDelay = time.Duration(float64(time.Second) / maxFreq)
+		if mc.StepperDelay > 0 {
+			logger.Warnf(
+				"motor (%s) has both max_rpm and stepper_delay_usec set; max_rpm wins. "+
+					"stepper_delay_usec is deprecated, drop it from the config.",
+				conf.ResourceName().Name,
+			)
+		}
+	case mc.StepperDelay > 0:
+		m.minDelay = time.Duration(mc.StepperDelay) * time.Microsecond
+		logger.Warnf(
+			"motor (%s) uses deprecated stepper_delay_usec; set max_rpm instead",
+			conf.ResourceName().Name,
+		)
 	}
+
+	logger.Infof(
+		"motor (%s) configured with %d full steps/rev * %d microsteps = %d pulses/rev",
+		conf.ResourceName().Name, mc.TicksPerRotation, microsteps, m.stepsPerRotation,
+	)
 
 	err = m.enable(ctx, false)
 	if err != nil {
