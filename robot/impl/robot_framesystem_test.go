@@ -390,12 +390,19 @@ func TestModularFramesystemDependency(t *testing.T) {
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
 }
 
-func TestLite6ArmGeometryLabels(t *testing.T) {
+func TestObserveArmKinematicReconfiguration(t *testing.T) {
+	// RSDK-13983: Arm clients were caching kinematics from remote arm's indefinitely. This led to
+	// problems where a reconfiguration of an arm could change kinematics. In the real world, this
+	// was observed when swapping to simple geometry kinematics to high-resolution URDF meshes. This
+	// test instead opts for changing a fake from from a lite6 to a ur5e and reads out the
+	// geometries from a couple of code paths to assert the frame system's understanding of the arm
+	// kinematics have been updated.
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
+	// This module is just a wrapper around the existing RDK fake arm. We need modules here because
+	// the affected code is in the client.
 	fakeArmModulePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/fakearmmodule")
-
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
@@ -418,6 +425,7 @@ func TestLite6ArmGeometryLabels(t *testing.T) {
 	rbtI := setupLocalRobot(t, ctx, cfg, logger)
 	rbt := rbtI.(*localRobot)
 
+	// A helper that pulls out all of the geometry labels from `myArm`.
 	armGeometryLabels := func() []string {
 		armResource, err := rbt.ResourceByName(arm.Named("myArm"))
 		test.That(t, err, test.ShouldBeNil)
@@ -435,6 +443,8 @@ func TestLite6ArmGeometryLabels(t *testing.T) {
 		return labels
 	}
 
+	// A helper that pulls out all of the geometries in the robot frame system. Given the robot only
+	// contains an arm, these should exactly match the geometry labels from the arm.
 	frameSystemGeometryLabels := func() []string {
 		fsCfg, err := rbt.frameSvc.FrameSystemConfig(ctx)
 		test.That(t, err, test.ShouldBeNil)
