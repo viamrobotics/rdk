@@ -161,7 +161,9 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 // checkPath returns an error if the interpolation between `start` and `end` violate a constraint
 // (e.g: we calculcate there will be a collision). If there is an error and `outPath` is non-nil,
 // `outPath` will be populated with more detailed information.
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *pathFeedback) error {
+func (psc *planSegmentContext) checkPath(
+	ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *pathFeedback,
+) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 

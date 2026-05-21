@@ -1,3 +1,6 @@
+// Package mpserver is a webserver for diagnosing motion plans.
+//
+//nolint:lll // HTML templates contain long lines that cannot be split
 package mpserver
 
 import (
@@ -672,7 +675,9 @@ func handleRenderShadows(logger logging.Logger) http.HandlerFunc {
 // on both ends). We hand-roll this instead of using InterpolateSegmentFS because that helper picks
 // step counts based on cartesian and per-joint deltas, which yields hundreds-to-thousands of steps
 // — fine for collision checking, too many for shadow rendering.
-func interpolateShadows(fs *referenceframe.FrameSystem, start, end *referenceframe.LinearInputs, count int) ([]*referenceframe.LinearInputs, error) {
+func interpolateShadows(
+	fs *referenceframe.FrameSystem, start, end *referenceframe.LinearInputs, count int,
+) ([]*referenceframe.LinearInputs, error) {
 	out := make([]*referenceframe.LinearInputs, 0, count+1)
 	for step := 0; step <= count; step++ {
 		t := float64(step) / float64(count)
@@ -762,10 +767,12 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		//nolint
 		fmt.Fprintf(w, "Rendered start state for %s", file)
 	}
 }
 
+// RunServer runs server.
 func RunServer() error {
 	logger := logging.NewLogger("mp-server")
 
@@ -778,5 +785,6 @@ func RunServer() error {
 
 	addr := "localhost:8080"
 	logger.Infof("listening on http://%s", addr)
+	//nolint
 	return http.ListenAndServe(addr, nil)
 }
