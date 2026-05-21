@@ -2,6 +2,8 @@ package audioout
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	commonpb "go.viam.com/api/common/v1"
 	pb "go.viam.com/api/component/audioout/v1"
@@ -40,6 +42,70 @@ func (s *serviceServer) Play(ctx context.Context, req *pb.PlayRequest) (*pb.Play
 	}
 
 	return &pb.PlayResponse{}, nil
+}
+
+func (s *serviceServer) PlayStream(stream pb.AudioOutService_PlayStreamServer) error {
+	first, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	init := first.GetInit()
+	if init == nil {
+		return errors.New("first PlayStreamRequest must be PlayStreamInit")
+	}
+
+	a, err := s.coll.Resource(init.GetName())
+	if err != nil {
+		return err
+	}
+
+	var info *rutils.AudioInfo
+	if init.GetAudioInfo() != nil {
+		info = rutils.AudioInfoPBToStruct(init.GetAudioInfo())
+	}
+
+	ctx := stream.Context()
+	chunks := make(chan []byte, 8)
+
+	// Forward chunks from the gRPC stream into the channel until EOF or error.
+	recvErr := make(chan error, 1)
+	go func() {
+		defer close(chunks)
+		for {
+			msg, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				recvErr <- nil
+				return
+			}
+			if err != nil {
+				recvErr <- err
+				return
+			}
+			chunkMsg := msg.GetAudioChunk()
+			if chunkMsg == nil {
+				// Skip non-chunk payloads
+				continue
+			}
+			select {
+			case <-ctx.Done():
+				recvErr <- ctx.Err()
+				return
+			case chunks <- chunkMsg.GetAudioData():
+			}
+		}
+	}()
+
+	playErr := a.PlayStream(ctx, info, chunks, init.GetExtra().AsMap())
+	if playErr != nil {
+		// Returning cancels stream.Context() so the recv goroutine exits.
+		return playErr
+	}
+	// PlayStream returning nil means recv already wrote to recvErr and exited.
+	if recvDone := <-recvErr; recvDone != nil {
+		return recvDone
+	}
+
+	return stream.SendAndClose(&pb.PlayStreamResponse{})
 }
 
 func (s *serviceServer) GetProperties(ctx context.Context, req *commonpb.GetPropertiesRequest) (*commonpb.GetPropertiesResponse, error) {
