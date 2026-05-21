@@ -22,9 +22,9 @@ const (
 
 	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
-	obstacleConstraintDescription       = "obstacle constraint"
+	ObstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
-	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+	RobotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
 
 	defaultCollisionBufferMM = 1e-8
 	defaultMinStepCount      = 2
@@ -286,8 +286,8 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		name string
 		fn   CollisionConstraintFunc
 	}{
-		{obstacleConstraintDescription, c.collisionConstraints.Obstacle},
-		{robotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
+		{ObstacleConstraintDescription, c.collisionConstraints.Obstacle},
+		{RobotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
 		{selfCollisionConstraintDescription, c.collisionConstraints.SelfCollision},
 	} {
 		if pair.fn == nil {

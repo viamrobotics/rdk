@@ -479,7 +479,7 @@ func TestSandingWallCollision(t *testing.T) {
 			end := trajectory[j+1].ToLinearInputs()
 
 			// Default resolution passes
-			err := psc.checkPath(ctx, start, end, false)
+			err := psc.checkPath(ctx, start, end, false, nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Small resolution noticed the collision when we had large jumps

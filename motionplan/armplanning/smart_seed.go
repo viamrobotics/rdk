@@ -667,6 +667,14 @@ var (
 	cacheBuildLogger = logging.NewLogger("smart-seed-cache-build")
 )
 
+// ClearSeedCache discards all cached smart-seed data. Call this between planning
+// requests that may use different frame systems to avoid stale cache entries.
+func ClearSeedCache() {
+	sscCacheLock.Lock()
+	sscCache = map[int]*cacheForFrame{}
+	sscCacheLock.Unlock()
+}
+
 func (ssc *smartSeedCache) buildCacheForFrame(frameName string, logger logging.Logger) error {
 	var err error
 

@@ -42,6 +42,7 @@ type planContext struct {
 func newPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planContext, error) {
 	_, span := trace.StartSpan(ctx, "newPlanContext")
 	defer span.End()
+	meta.CollectSolutionDiagnostics = request.PlannerOptions.CollectSolutionDiagnostics
 	pc := &planContext{
 		fs:                        request.FrameSystem,
 		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
@@ -157,7 +158,10 @@ func newPlanSegmentContext(ctx context.Context, pc *planContext, start *referenc
 	return psc, nil
 }
 
-func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool) error {
+// checkPath returns an error if the interpolation between `start` and `end` violate a constraint
+// (e.g: we calculcate there will be a collision). If there is an error and `outPath` is non-nil,
+// `outPath` will be populated with more detailed information.
+func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *pathFeedback) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
 
@@ -175,7 +179,7 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 		}
 	}
 
-	_, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
+	validSegment, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -187,6 +191,14 @@ func (psc *planSegmentContext) checkPath(ctx context.Context, start, end *refere
 	)
 	if err == nil && cache != nil && hashA != 0 && hashB != 0 {
 		cache.StoreEdgeResult(hashA, hashB, true)
+	}
+
+	if err != nil && outPath != nil {
+		*outPath = pathFeedback{
+			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
+				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
+			LastGoodInputs: validSegment.EndConfiguration,
+		}
 	}
 	return err
 }
