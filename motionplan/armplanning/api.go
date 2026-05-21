@@ -175,12 +175,44 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// SolutionNodeInfo captures per-node data from getSolutions for visualization and debugging.
+type SolutionNodeInfo struct {
+	// Score is the cost of moving from the start configuration to this node.
+	Score float64
+	// CheckPathError is nil when the straight-line path from start to this node passed all
+	// constraints, or the constraint violation error otherwise.
+	CheckPathError error
+	// Inputs is the goal configuration for this IK solution.
+	Inputs *referenceframe.LinearInputs
+	// LastGoodInputs is the last interpolated configuration before the checkPath failure.
+	// Nil when CheckPathError is nil.
+	LastGoodInputs *referenceframe.LinearInputs
+}
+
+// PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
+// Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
+type PerGoalMeta struct {
+	// SolutionNodes contains info about each IK solution node scored and path-checked.
+	SolutionNodes []SolutionNodeInfo
+	// ConstraintFailuresByType maps constraint error strings to the number of IK candidate
+	// solutions that failed that constraint.
+	ConstraintFailuresByType map[string]int
+}
+
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
 	Duration       time.Duration
 	Partial        bool
 	PartialError   error
 	GoalsProcessed int
+
+	// CollectSolutionDiagnostics is copied from PlannerOptions and gates whether PerGoal is
+	// populated.
+	CollectSolutionDiagnostics bool
+
+	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
+	// goal, sub-goal, and planning split produces one entry.
+	PerGoal []PerGoalMeta
 }
 
 // PlanMotion plans a motion from a provided plan request.

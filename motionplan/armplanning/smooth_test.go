@@ -14,7 +14,6 @@ import (
 
 type smoothNodeJSON struct {
 	Inputs referenceframe.FrameSystemInputs `json:"inputs"`
-	Corner bool                             `json:"corner"`
 }
 
 func loadTestSmoothNodes(t testing.TB) []*node {
@@ -29,7 +28,6 @@ func loadTestSmoothNodes(t testing.TB) []*node {
 	for i, r := range raw {
 		nodes[i] = &node{
 			inputs: r.Inputs.ToLinearInputs(),
-			corner: r.Corner,
 		}
 	}
 	return nodes

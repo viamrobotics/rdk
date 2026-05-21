@@ -237,6 +237,19 @@ func (li *LinearInputs) Items() iter.Seq2[string, []Input] {
 	}
 }
 
+// String returns the string value of `ToFrameSystemInputs()` with 0-DoF frames omitted. Such that
+// print formatting a `LinearInputs` gives something useful instead of a pointer value.
+func (li *LinearInputs) String() string {
+	ret := make(map[string][]float64)
+	for frameName, inputs := range li.Items() {
+		if len(inputs) > 0 {
+			ret[frameName] = inputs
+		}
+	}
+
+	return fmt.Sprint(ret)
+}
+
 // GetFrameInputs returns the inputs corresponding to the given frame within the LinearInputs
 // object. This method returns an error if the frame has non-zero DoF and the frame name does not
 // exist.

@@ -51,20 +51,32 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 	return newNear
 }
 
+type pathFeedback struct {
+	IsObstacleCollision bool
+	LastGoodInputs      *referenceframe.LinearInputs
+}
+
+func (pf *pathFeedback) String() string {
+	return fmt.Sprintf("IsObstacleCollision: %v LastGoodInputs: %v",
+		pf.IsObstacleCollision, pf.LastGoodInputs)
+}
+
 type node struct {
 	inputs *referenceframe.LinearInputs
-	// Dan: What is a corner?
-	corner bool
 	// cost of moving from seed to this inputs
 	cost float64
-	// checkPath is true when the path has been checked and was determined to meet constraints
+	// checkPathError is nil when the straight-line path to this node meets all constraints.
 	checkPath bool
+
+	// checkPathError and checkPathFeedback are only captured when
+	// PlanMeta.CollectSolutionDiagnostics is true.
+	checkPathError    error
+	checkPathFeedback pathFeedback
 }
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {
 	return &node{
 		inputs: q,
-		corner: false,
 	}
 }
 
@@ -210,6 +222,11 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
 
+	if psc.pc.planMeta.CollectSolutionDiagnostics {
+		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
+		perGoal.ConstraintFailuresByType = make(map[string]int)
+	}
+
 	sss.startTime = time.Now() // do this after we check the cache, etc.
 
 	return sss, nil
@@ -322,11 +339,16 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		sss.bestScoreWithProblem = max(1, myNode.cost)
 	}
 
-	whyNot := sss.psc.checkPath(ctx, sss.psc.start, step, false)
-	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v", myNode.cost, now, stepSolution.Meta, whyNot)
-	myNode.checkPath = whyNot == nil
+	if sss.psc.pc.planMeta.CollectSolutionDiagnostics {
+		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, &myNode.checkPathFeedback)
+	} else {
+		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, nil)
+	}
+	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v",
+		myNode.cost, now, stepSolution.Meta, myNode.checkPathError)
 
-	if whyNot == nil && myNode.cost < sss.bestScoreNoProblem {
+	myNode.checkPath = myNode.checkPathError == nil
+	if myNode.checkPath && myNode.cost < sss.bestScoreNoProblem {
 		sss.bestScoreNoProblem = myNode.cost
 	}
 }
@@ -528,6 +550,8 @@ solutionLoop:
 		return nil, fmt.Errorf("solver had an error: %w", solveError)
 	}
 
+	solvingState.flushFailuresToMeta()
+
 	if len(solvingState.solutions) == 0 {
 		if solvingState.fatal != nil {
 			return nil, solvingState.fatal
@@ -552,6 +576,18 @@ solutionLoop:
 	}
 
 	return solvingState.solutions, nil
+}
+
+func (sss *solutionSolvingState) flushFailuresToMeta() {
+	meta := sss.psc.pc.planMeta
+	if !meta.CollectSolutionDiagnostics {
+		return
+	}
+
+	perGoal := &meta.PerGoal[len(meta.PerGoal)-1]
+	for constraintErr, configurations := range sss.failures.FailuresByType {
+		perGoal.ConstraintFailuresByType[constraintErr] += len(configurations)
+	}
 }
 
 // neutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
