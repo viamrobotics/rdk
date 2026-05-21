@@ -61,13 +61,11 @@ type Config struct {
 	Pins      PinConfig `json:"pins"`
 	BoardName string    `json:"board"`
 	// TicksPerRotation is the number of full motor steps per shaft revolution
-	// (a motor spec, e.g. 200 for a NEMA 17). The effective pulses-per-revolution
-	// on the step pin is TicksPerRotation * Microsteps.
 	TicksPerRotation int `json:"ticks_per_rotation"`
-	// Microsteps is the driver's microstep divisor (1, 2, 4, 8, 16, 32, ...),
+	// Microsteps is the driver's microsteps (1, 2, 4, 8, 16, 32, ...),
 	Microsteps int `json:"microsteps,omitempty"`
 	// MaxRPM is the motor's maximum shaft speed and is the preferred way to cap
-	// the step-pin pulse frequency: maxFreq = MaxRPM * TicksPerRotation * Microsteps / 60.
+	// the step-pin pulse frequency. Therefore maxFreq = MaxRPM * TicksPerRotation * Microsteps / 60.
 	MaxRPM float64 `json:"max_rpm,omitempty"`
 	// StepperDelay is the minimum delay between step pulses in microseconds.
 	// Deprecated: set MaxRPM instead. Still honored when MaxRPM is unset.
@@ -284,6 +282,13 @@ func (m *gpioStepper) startPWM(ctx context.Context, forward bool, freqHz uint) (
 	if actualFreq == 0 {
 		actualFreq = float64(freqHz)
 	}
+
+	m.logger.Infow("PWM started on step pin",
+		"requested_freq_hz", freqHz,
+		"confirmed_freq_hz", actualFreq,
+		"forward", forward,
+		"steps_per_rotation", m.stepsPerRotation,
+	)
 
 	return actualFreq, nil
 }
