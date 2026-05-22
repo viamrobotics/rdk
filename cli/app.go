@@ -3439,6 +3439,30 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 					Action: createActionCommandWithT[createModuleActionArgs](CreateModuleAction),
 				},
 				{
+					Name:      "add-model",
+					Usage:     "add a new model to an existing module",
+					UsageText: createUsageText("module add-model", nil, false, false),
+					Description: `Adds a new resource model to a module created with 'viam module generate'.
+Run this command from within the module directory.`,
+					Flags: []cli.Flag{
+						&cli.StringFlag{
+							Name: generalFlagResourceSubtype,
+							Usage: "resource subtype for the new model, for example arm, camera, or motion. see " +
+								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+						},
+						&cli.StringFlag{
+							Name:  generalFlagModelName,
+							Usage: "name for the new model implementation, for example 'my-arm'",
+						},
+						&cli.BoolFlag{
+							Name:   generalFlagDryRun,
+							Usage:  "indicate a dry test run, so skip regular checks",
+							Hidden: true,
+						},
+					},
+					Action: createActionCommandWithT[addModelArgs](AddModelAction),
+				},
+				{
 					Name:      "generate",
 					Usage:     "generate a new modular resource via prompts",
 					UsageText: createUsageText("module generate", nil, true, false),
