@@ -24,6 +24,329 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+func TestAddModel(t *testing.T) {
+	t.Parallel()
+
+	baseModule := modulegen.ModuleInputs{
+		ModuleName:            "my-module",
+		Visibility:            moduleVisibilityPrivate,
+		Namespace:             "my-org",
+		Language:              "go",
+		Resource:              "arm component",
+		ResourceType:          "component",
+		ResourceSubtype:       "arm",
+		ModelName:             "my-model",
+		GeneratorVersion:      "0.1.0",
+		GeneratedOn:           time.Now().UTC(),
+		ModulePascal:          "MyModule",
+		ModuleLowercase:       "mymodule",
+		ModuleCamel:           "myModule",
+		ModuleSnake:           "my_module",
+		ResourceSubtypeAlias:  "arm",
+		ResourceSubtypePascal: "Arm",
+		ResourceTypePascal:    "Component",
+		API:                   "rdk:component:arm",
+		ModelPascal:           "MyModel",
+		ModelCamel:            "myModel",
+		ModelSnake:            "my-model",
+		ModelTriple:           "my-org:my-module:my-model",
+		ModelReadmeLink:       "my-org_my-module_my-model.md",
+		ModuleReadmeLink:      "README.md",
+		SDKVersion:            "0.44.0",
+	}
+
+	cCtx := newTestContext(t, map[string]any{"local": true})
+	gArgs, _ := getGlobalArgs(cCtx)
+	globalArgs := *gArgs
+
+	t.Run("readViamGenInfo succeeds with valid file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		data, err := json.Marshal(baseModule)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(filepath.Join(dir, ".viam-gen-info"), data, 0o600), test.ShouldBeNil)
+
+		info, err := readViamGenInfo(dir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.ModuleName, test.ShouldEqual, baseModule.ModuleName)
+		test.That(t, info.Language, test.ShouldEqual, baseModule.Language)
+		test.That(t, info.Namespace, test.ShouldEqual, baseModule.Namespace)
+	})
+
+	t.Run("readViamGenInfo errors when file is missing", func(t *testing.T) {
+		t.Parallel()
+		_, err := readViamGenInfo(t.TempDir())
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, ".viam-gen-info not found")
+	})
+
+	t.Run("addPythonModelImport inserts before if __name__", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		mainPy := filepath.Join(dir, "main.py")
+		original := "import asyncio\n" +
+			"from viam.module.module import Module\n" +
+			"from models.first import First as FirstModel\n\n\n" +
+			"if __name__ == '__main__':\n" +
+			"    asyncio.run(Module.run_from_registry())\n"
+		test.That(t, os.WriteFile(mainPy, []byte(original), 0o600), test.ShouldBeNil)
+
+		test.That(t, addPythonModelImport(mainPy, "second_model", "SecondModel"), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainPy)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+		test.That(t, content, test.ShouldContainSubstring, "from models.second_model import SecondModel as SecondModelModel\n")
+		// new import must appear before the main guard
+		importIdx := strings.Index(content, "from models.second_model")
+		guardIdx := strings.Index(content, "if __name__")
+		test.That(t, importIdx, test.ShouldBeLessThan, guardIdx)
+		// original imports must still be present
+		test.That(t, content, test.ShouldContainSubstring, "from models.first import First as FirstModel")
+	})
+
+	t.Run("addPythonModelImport falls back to append when no main guard", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		mainPy := filepath.Join(dir, "main.py")
+		original := "import asyncio\nfrom models.first import First as FirstModel\n"
+		test.That(t, os.WriteFile(mainPy, []byte(original), 0o600), test.ShouldBeNil)
+
+		test.That(t, addPythonModelImport(mainPy, "second", "Second"), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainPy)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(result), test.ShouldContainSubstring, "from models.second import Second as SecondModel")
+	})
+
+	t.Run("addModelToManifest appends model entry", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		manifestPath := filepath.Join(dir, defaultManifestFilename)
+
+		initial := ModuleManifest{
+			Schema:     "https://dl.viam.dev/module.schema.json",
+			ModuleID:   "my-org:my-module",
+			Visibility: moduleVisibilityPrivate,
+		}
+		test.That(t, writeManifest(manifestPath, initial), test.ShouldBeNil)
+
+		test.That(t, addModelToManifest(manifestPath, baseModule), test.ShouldBeNil)
+
+		manifest, err := loadManifest(manifestPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(manifest.Models), test.ShouldEqual, 1)
+		test.That(t, manifest.Models[0].API, test.ShouldEqual, "rdk:component:arm")
+		test.That(t, manifest.Models[0].Model, test.ShouldEqual, "my-org:my-module:my-model")
+		test.That(t, manifest.Models[0].MarkdownLink, test.ShouldNotBeNil)
+		test.That(t, *manifest.Models[0].MarkdownLink, test.ShouldEqual, baseModule.ModelReadmeLink)
+	})
+
+	t.Run("addModelToManifest preserves existing models", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		manifestPath := filepath.Join(dir, defaultManifestFilename)
+
+		markdownLink := "existing.md"
+		initial := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+			Models: []ModuleComponent{
+				{API: "rdk:component:camera", Model: "my-org:my-module:existing-model", MarkdownLink: &markdownLink},
+			},
+		}
+		test.That(t, writeManifest(manifestPath, initial), test.ShouldBeNil)
+
+		test.That(t, addModelToManifest(manifestPath, baseModule), test.ShouldBeNil)
+
+		manifest, err := loadManifest(manifestPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(manifest.Models), test.ShouldEqual, 2)
+		test.That(t, manifest.Models[0].Model, test.ShouldEqual, "my-org:my-module:existing-model")
+		test.That(t, manifest.Models[1].Model, test.ShouldEqual, "my-org:my-module:my-model")
+	})
+
+	t.Run("renderModelDocToDir creates the model doc file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		test.That(t, renderModelDocToDir(dir, baseModule), test.ShouldBeNil)
+		docPath := filepath.Join(dir, baseModule.ModelReadmeLink)
+		_, err := os.Stat(docPath)
+		test.That(t, err, test.ShouldBeNil)
+		b, err := os.ReadFile(docPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(b), test.ShouldContainSubstring, baseModule.ModelTriple)
+	})
+
+	t.Run("addGolangModelFile creates <model_snake>.go", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		goModule := baseModule
+		goModule.Language = "go"
+		goModule.SDKVersion = "0.44.0"
+
+		_, currentFile, _, ok := runtime.Caller(0)
+		if !ok {
+			t.Fatal("cannot get current test file path")
+		}
+		testDir := filepath.Dir(currentFile)
+		clientCode, err := os.ReadFile(filepath.Join(testDir, "mock_client_arm.txt"))
+		test.That(t, err, test.ShouldBeNil)
+		resourceCode, err := os.ReadFile(filepath.Join(testDir, "mock_resource_arm.txt"))
+		test.That(t, err, test.ShouldBeNil)
+
+		serverClient := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write(clientCode)
+		}))
+		defer serverClient.Close()
+		serverResource := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write(resourceCode)
+		}))
+		defer serverResource.Close()
+
+		origClient := modgen.CreateGetClientCodeRequest
+		origResource := modgen.CreateGetResourceCodeRequest
+		modgen.CreateGetClientCodeRequest = func(module modulegen.ModuleInputs) (*http.Request, error) {
+			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverClient.URL, nil)
+		}
+		modgen.CreateGetResourceCodeRequest = func(module modulegen.ModuleInputs, tryagain bool) (*http.Request, error) {
+			return http.NewRequestWithContext(context.Background(), http.MethodGet, serverResource.URL, nil)
+		}
+		defer func() {
+			modgen.CreateGetClientCodeRequest = origClient
+			modgen.CreateGetResourceCodeRequest = origResource
+		}()
+
+		test.That(t, addGolangModelFile(dir, goModule), test.ShouldBeNil)
+
+		expectedPath := filepath.Join(dir, goModule.ModelSnake+".go")
+		_, err = os.Stat(expectedPath)
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("addCppModelToMainCpp inserts include, registration, and push_back", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		mainCppContent := `#include "my_model.hpp"
+
+#include <viam/sdk/registry/registry.hpp>
+
+int main(int argc, char** argv) try {
+    viam::sdk::Instance inst;
+    viam::sdk::Model model("my-org", "my-module", "my_model");
+
+    auto mr = std::make_shared<viam::sdk::ModelRegistration>(
+        viam::sdk::API::get<viam::sdk::Arm>(),
+        model,
+        [](viam::sdk::Dependencies deps, viam::sdk::ResourceConfig cfg) {
+            return std::make_unique<my-module::MyModel>(deps, cfg);
+        },
+        &my-module::MyModel::validate);
+
+    std::vector<std::shared_ptr<viam::sdk::ModelRegistration>> mrs = {mr};
+    auto my_mod = std::make_shared<viam::sdk::ModuleService>(argc, argv, mrs);
+    my_mod->serve();
+    return EXIT_SUCCESS;
+} catch (...) {}
+`
+		mainCppPath := filepath.Join(dir, "main.cpp")
+		test.That(t, os.WriteFile(mainCppPath, []byte(mainCppContent), 0o600), test.ShouldBeNil)
+
+		newModel := baseModule
+		newModel.ModelSnake = "my_camera"
+		newModel.ModelPascal = "MyCamera"
+		newModel.ResourceSubtypePascal = "Camera"
+
+		test.That(t, addCppModelToMainCpp(mainCppPath, newModel), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainCppPath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+
+		test.That(t, content, test.ShouldContainSubstring, `#include "my_camera.hpp"`)
+		test.That(t, content, test.ShouldContainSubstring, `my_camera_model(`)
+		test.That(t, content, test.ShouldContainSubstring, `auto my_camera_mr`)
+		test.That(t, content, test.ShouldContainSubstring, `mrs.push_back(my_camera_mr)`)
+		// original model must still be present
+		test.That(t, content, test.ShouldContainSubstring, `#include "my_model.hpp"`)
+		test.That(t, content, test.ShouldContainSubstring, `mrs = {mr}`)
+	})
+
+	t.Run("addCppModelToCMakeLists inserts new source file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		cmakeContent := `cmake_minimum_required(VERSION 3.25 FATAL_ERROR)
+project(my-module LANGUAGES CXX)
+find_package(viam-cpp-sdk CONFIG REQUIRED COMPONENTS viamsdk)
+
+add_executable(my-module
+    main.cpp
+    src/my_model.cpp
+)
+
+target_include_directories(my-module PUBLIC src)
+target_link_libraries(my-module viam-cpp-sdk::viamsdk)
+`
+		cmakePath := filepath.Join(dir, "CMakeLists.txt")
+		test.That(t, os.WriteFile(cmakePath, []byte(cmakeContent), 0o600), test.ShouldBeNil)
+
+		newModel := baseModule
+		newModel.ModelSnake = "my_camera"
+
+		test.That(t, addCppModelToCMakeLists(cmakePath, newModel), test.ShouldBeNil)
+
+		result, err := os.ReadFile(cmakePath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+
+		test.That(t, content, test.ShouldContainSubstring, "src/my_camera.cpp")
+		// original source must still be present
+		test.That(t, content, test.ShouldContainSubstring, "src/my_model.cpp")
+		// new source must appear before the closing paren
+		newIdx := strings.Index(content, "src/my_camera.cpp")
+		closingIdx := strings.Index(content, ")\n\ntarget_include_directories")
+		test.That(t, newIdx, test.ShouldBeLessThan, closingIdx)
+	})
+
+	t.Run("AddModelAction dry run", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		testChdir(t, dir)
+
+		// Write .viam-gen-info so the action can read module context
+		data, err := json.Marshal(baseModule)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(".viam-gen-info", data, 0o600), test.ShouldBeNil)
+
+		// Write a stub meta.json
+		manifest := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+		}
+		test.That(t, writeManifest(defaultManifestFilename, manifest), test.ShouldBeNil)
+
+		// Stub out SDK version fetch
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(`[{"tag_name": "v0.44.0"}]`))
+		}))
+		defer server.Close()
+
+		setupDirectories(cCtx, baseModule.ModuleName, globalArgs)
+
+		args := addModelArgs{
+			ResourceSubtype: "arm",
+			ModelName:       "second-model",
+			DryRun:          true,
+		}
+		err = AddModelAction(context.Background(), cCtx, args)
+		// dry-run returns nil without touching files
+		test.That(t, err, test.ShouldBeNil)
+	})
+}
+
 func TestGenerateModuleAction(t *testing.T) {
 	t.Parallel()
 	testModule := modulegen.ModuleInputs{
