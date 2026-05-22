@@ -208,6 +208,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		}
 
 		logger.Debugf("got %d altSeeds", len(altSeeds))
+		logger.Debugf("\t altLimitDivisors %v", logging.FloatArrayFormat{"",altLimitDivisors})
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
