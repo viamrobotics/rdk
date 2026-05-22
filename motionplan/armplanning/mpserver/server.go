@@ -150,6 +150,7 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 
 <h2>Motion Planning</h2>
 <label>Timeout (seconds): <input id="timeout" type="number" min="0" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
+&nbsp;<label>Seed: <input id="seed" type="number" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
 &nbsp;<button onclick="runPlanning()">Do Motion Planning</button>
 &nbsp;<button onclick="renderState()">Render Start State</button>
 <div id="result"></div>
@@ -199,8 +200,11 @@ function runPlanning() {
   planAbortController = new AbortController();
   const div = document.getElementById('result');
   const timeout = document.getElementById('timeout').value;
+  const seed = document.getElementById('seed').value;
   div.textContent = 'Running…';
-  fetch('/plan/run?file=' + encodeURIComponent('{{.File}}') + '&timeout=' + encodeURIComponent(timeout),
+  fetch('/plan/run?file=' + encodeURIComponent('{{.File}}') +
+        '&timeout=' + encodeURIComponent(timeout) +
+        '&seed=' + encodeURIComponent(seed),
         { signal: planAbortController.signal })
     .then(r => r.json())
     .then(data => {
@@ -553,6 +557,11 @@ func handlePlanRun(logger logging.Logger) http.HandlerFunc {
 		if timeoutStr := r.URL.Query().Get("timeout"); timeoutStr != "" {
 			if secs, err := strconv.ParseFloat(timeoutStr, 64); err == nil && secs > 0 {
 				req.PlannerOptions.Timeout = secs
+			}
+		}
+		if seedStr := r.URL.Query().Get("seed"); seedStr != "" {
+			if seed, err := strconv.Atoi(seedStr); err == nil {
+				req.PlannerOptions.RandomSeed = seed
 			}
 		}
 
