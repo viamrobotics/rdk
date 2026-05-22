@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,9 +26,24 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// rdkRoot is resolved from this source file's location so the server runs
+// against whichever checkout it was built from. server.go lives at
+// motionplan/armplanning/mpserver/server.go — three directories deep from
+// the repo root.
+var (
+	rdkRoot       = resolveRDKRoot()
+	planFilesRoot = filepath.Join(rdkRoot, "mplans")
+)
+
+func resolveRDKRoot() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+}
+
 const (
-	rdkRoot           = "/home/dgottlieb/viam/rdk"
-	planFilesRoot     = rdkRoot + "/mplans"
 	renderFramePeriod = 5 * time.Millisecond
 	// shadowCount is the number of intermediate configurations to draw between start and end when
 	// rendering shadows along a straight-line path. We interpolate directly instead of going through

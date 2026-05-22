@@ -277,6 +277,54 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
+	if !sss.processInternal(ctx, stepSolution) {
+		return
+	}
+
+	// processInternal accepted this configuration. See whether any rotational
+	// joint took the long way around from the start. If so, build an
+	// equivalent configuration with each such joint unwrapped to within one
+	// full rotation of the start and feed that through processInternal too.
+	startInputs := sss.psc.start.GetLinearizedInputs()
+	limits := sss.psc.pc.lis.GetLimits()
+	cfg := stepSolution.Configuration
+
+	const twoPi = 2 * math.Pi
+	adjusted := make([]float64, len(cfg))
+	copy(adjusted, cfg)
+	changed := false
+	for i := range cfg {
+		if !limits[i].IsRotational() {
+			continue
+		}
+		diff := cfg[i] - startInputs[i]
+		if math.Abs(diff) <= twoPi {
+			continue
+		}
+		// Round to the nearest integer number of full rotations and subtract
+		// them off — lands within (-pi, pi] of start.
+		wraps := math.Round(diff / twoPi)
+		candidate := cfg[i] - wraps*twoPi
+		if candidate < limits[i].Min || candidate > limits[i].Max {
+			continue
+		}
+		adjusted[i] = candidate
+		changed = true
+	}
+	if !changed {
+		return
+	}
+
+	sss.processInternal(ctx, &ik.Solution{
+		Configuration: adjusted,
+		Score:         stepSolution.Score,
+		Exact:         stepSolution.Exact,
+		Meta:          stepSolution.Meta + "+unwrap",
+	})
+}
+
+// Returns true if a node was appended.
+func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -284,7 +332,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	step, err := sss.psc.pc.lis.FloatsToInputs(stepSolution.Configuration)
 	if err != nil {
 		sss.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
-		return
+		return false
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -298,7 +346,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
-		return
+		return false
 	}
 
 	for _, oldSol := range sss.solutions {
@@ -309,7 +357,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
-			return
+			return false
 		}
 	}
 
@@ -324,7 +372,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 			sss.fatal = fmt.Errorf("fatal early collision: %w", err)
 		}
 		sss.failures.add(step, err)
-		return
+		return false
 	}
 
 	now := time.Since(sss.startTime)
@@ -351,6 +399,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	if myNode.checkPath && myNode.cost < sss.bestScoreNoProblem {
 		sss.bestScoreNoProblem = myNode.cost
 	}
+	return true
 }
 
 // return bool is if we should stop because we're done.
