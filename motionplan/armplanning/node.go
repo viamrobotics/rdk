@@ -283,35 +283,14 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	}
 
 	// processInternal accepted this configuration. See whether any rotational
-	// joint took the long way around from the start. If so, build an
-	// equivalent configuration with each such joint unwrapped to within one
-	// full rotation of the start and feed that through processInternal too.
-	startInputs := sss.psc.start.GetLinearizedInputs()
-	limits := sss.psc.pc.lis.GetLimits()
-	cfg := stepSolution.Configuration
-
-	const twoPi = 2 * math.Pi
-	adjusted := make([]float64, len(cfg))
-	copy(adjusted, cfg)
-	changed := false
-	for i := range cfg {
-		if !limits[i].IsRotational() {
-			continue
-		}
-		diff := cfg[i] - startInputs[i]
-		if math.Abs(diff) <= twoPi {
-			continue
-		}
-		// Round to the nearest integer number of full rotations and subtract
-		// them off — lands within (-pi, pi] of start.
-		wraps := math.Round(diff / twoPi)
-		candidate := cfg[i] - wraps*twoPi
-		if candidate < limits[i].Min || candidate > limits[i].Max {
-			continue
-		}
-		adjusted[i] = candidate
-		changed = true
-	}
+	// joint took the long way around from the start. If so, feed an equivalent
+	// configuration (each over-rotated joint unwrapped to within one full
+	// rotation of start) through processInternal too.
+	adjusted, changed := unwrapRotationalJoints(
+		stepSolution.Configuration,
+		sss.psc.start.GetLinearizedInputs(),
+		sss.psc.pc.lis.GetLimits(),
+	)
 	if !changed {
 		return
 	}
@@ -322,6 +301,38 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		Exact:         stepSolution.Exact,
 		Meta:          stepSolution.Meta + "+unwrap",
 	})
+}
+
+// unwrapRotationalJoints returns a copy of cfg with any rotational joint that
+// moved more than a full rotation from start replaced by its nearest-wrap
+// equivalent (still describing the same physical end pose, but reached by a
+// smaller joint move). For each rotational joint i where |cfg[i] - start[i]| >
+// 2π, the result lands within (-π, π] of start[i]; any joint whose unwrapped
+// value would fall outside the joint's own [Min, Max] is left untouched.
+//
+// The second return value is true if any joint was changed.
+func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit) ([]float64, bool) {
+	const twoPi = 2 * math.Pi
+	adjusted := make([]float64, len(cfg))
+	copy(adjusted, cfg)
+	changed := false
+	for i := range cfg {
+		if !limits[i].IsRotational() {
+			continue
+		}
+		diff := cfg[i] - start[i]
+		if math.Abs(diff) <= twoPi {
+			continue
+		}
+		wraps := math.Round(diff / twoPi)
+		candidate := cfg[i] - wraps*twoPi
+		if candidate < limits[i].Min || candidate > limits[i].Max {
+			continue
+		}
+		adjusted[i] = candidate
+		changed = true
+	}
+	return adjusted, changed
 }
 
 // Returns true if a node was appended.
