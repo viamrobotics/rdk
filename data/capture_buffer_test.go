@@ -782,6 +782,36 @@ func getCaptureFiles(dir string) (dcFiles, progFiles []string) {
 	return dcFiles, progFiles
 }
 
+// TestFlushFailsAfterProgRenamedExternally reproduces the APP-16267 regression:
+// renameProgFilesToCapture() is called during Reconfigure while collectors are still
+// running. On Linux, renaming a file doesn't invalidate open fds, so writes continue
+// normally — but when the collector eventually calls Flush it tries to rename the .prog
+// path which no longer exists, producing ENOENT.
+func TestFlushFailsAfterProgRenamedExternally(t *testing.T) {
+	dir := t.TempDir()
+	md := &v1.DataCaptureMetadata{Type: CaptureTypeTabular.ToProto()}
+	buf := NewCaptureBuffer(dir, md, 1<<20)
+
+	// Write one item so buf.nextFile is set and a .prog file exists on disk.
+	test.That(t, buf.WriteTabular(structSensorData), test.ShouldBeNil)
+
+	// Simulate renameProgFilesToCapture() running mid-capture: rename every .prog → .capture.
+	entries, err := os.ReadDir(dir)
+	test.That(t, err, test.ShouldBeNil)
+	for _, e := range entries {
+		if filepath.Ext(e.Name()) == InProgressCaptureFileExt {
+			src := filepath.Join(dir, e.Name())
+			dst := src[:len(src)-len(InProgressCaptureFileExt)] + CompletedCaptureFileExt
+			test.That(t, os.Rename(src, dst), test.ShouldBeNil)
+		}
+	}
+
+	// Flush now tries to rename the (gone) .prog path → .capture and should get ENOENT.
+	err = buf.Flush()
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no such file or directory")
+}
+
 func TestIsBinary(t *testing.T) {
 	test.That(t, IsBinary(nil), test.ShouldBeFalse)
 	test.That(t, IsBinary(&v1.SensorData{Data: &v1.SensorData_Struct{}}), test.ShouldBeFalse)
