@@ -828,29 +828,6 @@ func TestLookupCollectorConfigsByResource(t *testing.T) {
 	})
 }
 
-func TestRenameProgFilesToCapture(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	dir := t.TempDir()
-	subdir := filepath.Join(dir, "subdir")
-	test.That(t, os.MkdirAll(subdir, 0o700), test.ShouldBeNil)
-
-	for _, p := range []string{
-		filepath.Join(dir, "file1.prog"),
-		filepath.Join(dir, "other.capture"),
-		filepath.Join(subdir, "file2.prog"),
-	} {
-		test.That(t, os.WriteFile(p, []byte("x"), 0o600), test.ShouldBeNil)
-	}
-
-	renameProgFilesToCapture(dir, logger)
-
-	test.That(t, getAllFilePaths(dir), test.ShouldResemble, []string{
-		filepath.Join(dir, "file1.capture"),
-		filepath.Join(dir, "other.capture"),
-		filepath.Join(subdir, "file2.capture"),
-	})
-}
-
 func builtinWithEmptyConfig(t *testing.T, logger logging.Logger) (datamanager.Service, func()) {
 	mockDeps := mockDeps(nil, nil)
 	b, err := New(
