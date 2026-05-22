@@ -208,6 +208,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		}
 
 		logger.Debugf("got %d altSeeds", len(altSeeds))
+		logger.Debugf("\t altLimitDivisors %v", logging.FloatArrayFormat{"", altLimitDivisors})
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.linearSeeds = append(sss.linearSeeds, si)
@@ -277,6 +278,65 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 // return bool is if we should stop because we're done.
 func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
+	if !sss.processInternal(ctx, stepSolution) {
+		return
+	}
+
+	// processInternal accepted this configuration. See whether any rotational
+	// joint took the long way around from the start. If so, feed an equivalent
+	// configuration (each over-rotated joint unwrapped to within one full
+	// rotation of start) through processInternal too.
+	adjusted, changed := unwrapRotationalJoints(
+		stepSolution.Configuration,
+		sss.psc.start.GetLinearizedInputs(),
+		sss.psc.pc.lis.GetLimits(),
+	)
+	if !changed {
+		return
+	}
+
+	sss.processInternal(ctx, &ik.Solution{
+		Configuration: adjusted,
+		Score:         stepSolution.Score,
+		Exact:         stepSolution.Exact,
+		Meta:          stepSolution.Meta + "+unwrap",
+	})
+}
+
+// unwrapRotationalJoints returns a copy of cfg with any rotational joint that
+// moved more than a full rotation from start replaced by its nearest-wrap
+// equivalent (still describing the same physical end pose, but reached by a
+// smaller joint move). For each rotational joint i where |cfg[i] - start[i]| >
+// 2π, the result lands within (-π, π] of start[i]; any joint whose unwrapped
+// value would fall outside the joint's own [Min, Max] is left untouched.
+//
+// The second return value is true if any joint was changed.
+func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit) ([]float64, bool) {
+	const twoPi = 2 * math.Pi
+	adjusted := make([]float64, len(cfg))
+	copy(adjusted, cfg)
+	changed := false
+	for i := range cfg {
+		if !limits[i].IsRotational() {
+			continue
+		}
+		diff := cfg[i] - start[i]
+		if math.Abs(diff) <= twoPi {
+			continue
+		}
+		wraps := math.Round(diff / twoPi)
+		candidate := cfg[i] - wraps*twoPi
+		if candidate < limits[i].Min || candidate > limits[i].Max {
+			continue
+		}
+		adjusted[i] = candidate
+		changed = true
+	}
+	return adjusted, changed
+}
+
+// Returns true if a node was appended.
+func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -284,7 +344,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	step, err := sss.psc.pc.lis.FloatsToInputs(stepSolution.Configuration)
 	if err != nil {
 		sss.logger.Warnf("bad stepSolution.Configuration %v %v", stepSolution.Configuration, err)
-		return
+		return false
 	}
 
 	stepArc := &motionplan.SegmentFS{
@@ -298,7 +358,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
-		return
+		return false
 	}
 
 	for _, oldSol := range sss.solutions {
@@ -309,7 +369,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 		}
 		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
-			return
+			return false
 		}
 	}
 
@@ -324,7 +384,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 			sss.fatal = fmt.Errorf("fatal early collision: %w", err)
 		}
 		sss.failures.add(step, err)
-		return
+		return false
 	}
 
 	now := time.Since(sss.startTime)
@@ -351,6 +411,7 @@ func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.S
 	if myNode.checkPath && myNode.cost < sss.bestScoreNoProblem {
 		sss.bestScoreNoProblem = myNode.cost
 	}
+	return true
 }
 
 // return bool is if we should stop because we're done.

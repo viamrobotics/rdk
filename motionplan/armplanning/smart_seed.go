@@ -619,7 +619,12 @@ func (ssc *smartSeedCache) findSeedsForFrame(
 			} else if r == 0 {
 				divisors = append(divisors, 1)
 			} else {
-				divisors = append(divisors, min(1, 2/(r+1)))
+				// Window must span at least one cache bucket on each side of
+				// the seed (spacing ≈ r/jogRatio). 2/(r+1) only covered ~2
+				// buckets total, leaving targets that happened to fall 2-3
+				// buckets from the nearest seed unreachable; 3/(r+1) gives a
+				// safer ±1.5-bucket envelope. Verified by TestSmartSeedPallette2.
+				divisors = append(divisors, min(1, 3/(r+1)))
 			}
 		}
 	} else {

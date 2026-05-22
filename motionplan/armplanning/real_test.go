@@ -556,6 +556,32 @@ func TestWineBadBottleMoveGoodCost(t *testing.T) {
 	test.That(t, dist, test.ShouldBeLessThan, 2)
 }
 
+func TestPallette1TotalL2(t *testing.T) {
+	t.Parallel()
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/pallette1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	totalL2 := 0.0
+	traj := plan.Trajectory()
+	for idx := 1; idx < len(traj); idx++ {
+		for k := range traj[idx] {
+			totalL2 += referenceframe.InputsL2Distance(traj[idx-1][k], traj[idx][k])
+		}
+	}
+	logger.Infof("totalL2: %0.4f", totalL2)
+	test.That(t, totalL2, test.ShouldBeLessThan, 6)
+}
+
 func BenchmarkBigPlanRequest(b *testing.B) {
 	if IsTooSmallForCache() {
 		b.Skip()

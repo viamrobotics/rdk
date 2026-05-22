@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,9 +26,24 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// rdkRoot is resolved from this source file's location so the server runs
+// against whichever checkout it was built from. server.go lives at
+// motionplan/armplanning/mpserver/server.go — three directories deep from
+// the repo root.
+var (
+	rdkRoot       = resolveRDKRoot()
+	planFilesRoot = filepath.Join(rdkRoot, "mplans")
+)
+
+func resolveRDKRoot() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
+}
+
 const (
-	rdkRoot           = "/home/dgottlieb/viam/rdk"
-	planFilesRoot     = rdkRoot + "/mplans"
 	renderFramePeriod = 5 * time.Millisecond
 	// shadowCount is the number of intermediate configurations to draw between start and end when
 	// rendering shadows along a straight-line path. We interpolate directly instead of going through
@@ -134,6 +150,7 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 
 <h2>Motion Planning</h2>
 <label>Timeout (seconds): <input id="timeout" type="number" min="0" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
+&nbsp;<label>Seed: <input id="seed" type="number" step="1" value="0" style="width:6ch; padding:4px 8px; border:1px solid black;"></label>
 &nbsp;<button onclick="runPlanning()">Do Motion Planning</button>
 &nbsp;<button onclick="renderState()">Render Start State</button>
 <div id="result"></div>
@@ -183,8 +200,11 @@ function runPlanning() {
   planAbortController = new AbortController();
   const div = document.getElementById('result');
   const timeout = document.getElementById('timeout').value;
+  const seed = document.getElementById('seed').value;
   div.textContent = 'Running…';
-  fetch('/plan/run?file=' + encodeURIComponent('{{.File}}') + '&timeout=' + encodeURIComponent(timeout),
+  fetch('/plan/run?file=' + encodeURIComponent('{{.File}}') +
+        '&timeout=' + encodeURIComponent(timeout) +
+        '&seed=' + encodeURIComponent(seed),
         { signal: planAbortController.signal })
     .then(r => r.json())
     .then(data => {
@@ -537,6 +557,11 @@ func handlePlanRun(logger logging.Logger) http.HandlerFunc {
 		if timeoutStr := r.URL.Query().Get("timeout"); timeoutStr != "" {
 			if secs, err := strconv.ParseFloat(timeoutStr, 64); err == nil && secs > 0 {
 				req.PlannerOptions.Timeout = secs
+			}
+		}
+		if seedStr := r.URL.Query().Get("seed"); seedStr != "" {
+			if seed, err := strconv.Atoi(seedStr); err == nil {
+				req.PlannerOptions.RandomSeed = seed
 			}
 		}
 
