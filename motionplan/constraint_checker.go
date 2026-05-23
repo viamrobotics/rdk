@@ -563,6 +563,33 @@ func computeInitialCollisionsToIgnore(
 func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
 	skipList := []Collision{}
 
+	// Build a reverse lookup for geometries whose label is namespaced under a
+	// frame (e.g. "follower-gripper:gripper_body_0" on the "follower-gripper"
+	// frame). Only frames with zero DoF qualify — for kinematic models (e.g.
+	// SimpleModel) all link geometries appear under one frame name in the
+	// frame system, but they're separated by internal joints and do NOT share
+	// rigid motion.
+	geomLabelToStaticFrame := map[string]referenceframe.Frame{}
+	for _, name := range fs.FrameNames() {
+		f := fs.Frame(name)
+		if f == nil || len(f.DoF()) != 0 {
+			continue
+		}
+		gif, err := f.Geometries(nil)
+		if err != nil || gif == nil {
+			continue
+		}
+		for _, g := range gif.Geometries() {
+			geomLabelToStaticFrame[g.Label()] = f
+		}
+	}
+	resolveFrame := func(geomLabel string) referenceframe.Frame {
+		if f := fs.Frame(geomLabel); f != nil {
+			return f
+		}
+		return geomLabelToStaticFrame[geomLabel]
+	}
+
 	for _, g1 := range group1 {
 		g1Name := g1.Label()
 		for _, g2 := range group2 {
@@ -571,8 +598,8 @@ func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 [
 				continue
 			}
 
-			x := fs.Frame(g1Name)
-			y := fs.Frame(g2Name)
+			x := resolveFrame(g1Name)
+			y := resolveFrame(g2Name)
 
 			if x == nil || y == nil {
 				// Geometry not in frame system (e.g. internal to a component), must check for collision
