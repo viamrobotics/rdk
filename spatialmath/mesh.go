@@ -51,9 +51,9 @@ type Mesh struct {
 	// access via ensurePLYBytes(). The serialization is ASCII PLY and showed
 	// up at ~13% of total CPU when eagerly computed inside the collision-check
 	// hot path (Mesh.CollidesWith wraps single triangles in throwaway meshes).
-	fileType        meshType
-	rawBytes        []byte
-	rawBytesOnce    sync.Once
+	fileType     meshType
+	rawBytes     []byte
+	rawBytesOnce sync.Once
 
 	// originalFilePath stores the original URDF mesh path for round-tripping
 	originalFilePath string
