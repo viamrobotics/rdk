@@ -276,12 +276,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 			}
 			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
 
-			if i < numSteps {
-				to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
-			} else {
-				// If this is the last step, copy over any goal cloud the plan request declared.
-				to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
-			}
+			// Dan: We copy the PoseCloud over to each intermediate (and final goal) waypoint. We do
+			// this thinking that if the PoseCloud describes a set of desirable orientations to make
+			// IK easier, we would like all of the intermediate waypoints to also be more easily
+			// solved for.
+			to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
 		}
 
 		waypoints = append(waypoints, to)
