@@ -139,7 +139,7 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig, false)
+	err = psc.checkPath(ctx, start, fullConfig, false, nil)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
@@ -276,12 +276,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 			}
 			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
 
-			if i < numSteps {
-				to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
-			} else {
-				// If this is the last step, copy over any goal cloud the plan request declared.
-				to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
-			}
+			// Dan: We copy the PoseCloud over to each intermediate (and final goal) waypoint. We do
+			// this thinking that if the PoseCloud describes a set of desirable orientations to make
+			// IK easier, we would like all of the intermediate waypoints to also be more easily
+			// solved for.
+			to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
 		}
 
 		waypoints = append(waypoints, to)
@@ -316,6 +315,10 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 		},
 	}
 
+	if psc.pc.planMeta.CollectSolutionDiagnostics {
+		psc.pc.planMeta.PerGoal = append(psc.pc.planMeta.PerGoal, PerGoalMeta{})
+	}
+
 	seed := newConfigurationNode(psc.start)
 	// goalNodes are sorted from lowest cost to highest.
 	goalNodes, err := getSolutions(ctx, psc, logger)
@@ -325,6 +328,18 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 
 	rrt.maps.optNode = goalNodes[0]
 	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
+
+	if psc.pc.planMeta.CollectSolutionDiagnostics {
+		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
+		for _, goalNode := range goalNodes {
+			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
+				Score:          goalNode.cost,
+				CheckPathError: goalNode.checkPathError,
+				Inputs:         goalNode.inputs,
+				LastGoodInputs: goalNode.checkPathFeedback.LastGoodInputs,
+			})
+		}
+	}
 
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple

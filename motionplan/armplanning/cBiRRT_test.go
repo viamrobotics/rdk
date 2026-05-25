@@ -88,9 +88,6 @@ func TestSimpleLinearMotion(t *testing.T) {
 	)
 	test.That(t, dist, test.ShouldBeLessThan, pc.planOpts.InputIdentDist)
 
-	seedReached.corner = true
-	goalReached.corner = true
-
 	// extract the path to the seed
 	for seedReached != nil {
 		inputSteps = append(inputSteps, seedReached)
