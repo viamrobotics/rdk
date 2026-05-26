@@ -4029,6 +4029,9 @@ func tunnelTraffic(ctx context.Context, cmd *cli.Command, robotClient *client.Ro
 		}()
 	}
 	wg.Wait()
+
+	// nilerr is needed because Go wants us to return the ctx.Err() from the loop above, but
+	// any ctx.Err() from that loop should just halt tunnelTraffic without error.
 	return nil //nolint:nilerr
 }
 
