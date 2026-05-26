@@ -665,7 +665,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 
 // TestWeakReconfigureFailureMarksUnhealthy proves the use-after-failed-reconfigure bug:
 // when a resource's weak/optional Reconfigure fails it is left in an indeterminate
-// state (per the PR-desc singleton-arm pattern: side-effects fire before the error),
+// state,
 // but ResourceByName still hands it out as if healthy. The fix marks the node
 // unhealthy so callers see a clear error instead of dispatching into a broken instance.
 func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
