@@ -84,6 +84,7 @@ require (
 	github.com/u2takey/ffmpeg-go v0.4.1
 	github.com/urfave/cli/v3 v3.7.0
 	github.com/viam-labs/motion-tools v1.9.0
+	github.com/viam-modules/trajex v0.100.1-0.20260526204215-d073aafe9649
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/viamrobotics/webrtc/v3 v3.99.16
 	github.com/xfmoulet/qoi v0.2.0
