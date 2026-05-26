@@ -290,7 +290,7 @@ func NewSerialModel(name string, frames []Frame) (*SimpleModel, error) {
 // joint limits overridden. Overrides are keyed by frame name. Each override replaces the
 // first DoF limit of the matching frame.
 func NewModelWithLimitOverrides(base *SimpleModel, overrides map[string]Limit) (*SimpleModel, error) {
-	newFS, err := cloneFrameSystem(base.internalFS)
+	newFS, err := base.internalFS.Clone()
 	if err != nil {
 		return nil, err
 	}
