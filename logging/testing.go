@@ -39,13 +39,12 @@ type testAppender struct {
 //
 //nolint:lll
 func NewTestAppender(tb testing.TB) Appender {
-	return &testAppender{tb: tb}
+	return &testAppender{tb}
 }
 
 // Write outputs the log entry to the underlying test object `Log` method.
 func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	tapp.tb.Helper()
-
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
 	toPrint = append(toPrint, entry.Time.Format(DefaultTimeFormatStr))
