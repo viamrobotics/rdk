@@ -127,9 +127,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
 			},
 			{
 				Name:  base1Name.Name,
@@ -156,9 +157,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
 			},
 			{
 				Name:  base1Name.Name,
@@ -654,4 +656,47 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+}
+
+// TestWeakReconfigureFailureMarksUnhealthy proves the use-after-failed-reconfigure bug:
+// when a resource's weak/optional Reconfigure fails it is left in an indeterminate
+// state (per the PR-desc singleton-arm pattern: side-effects fire before the error),
+// but ResourceByName still hands it out as if healthy. The fix marks the node
+// unhealthy so callers see a clear error instead of dispatching into a broken instance.
+func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(weakAPI, weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
+			},
+			// Wildcard weak dep so updateWeakAndOptionalDependents fires on weak1
+			// every time any component changes.
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	// weak1 has no ConvertedAttributes; its Reconfigure (invoked by
+	// updateWeakAndOptionalDependents once base1 is constructed) will return a
+	// NativeConfig error after already mutating internal state (deps + count).
+	// That is the indeterminate state the fix must guard against.
+	cfg := config.Config{
+		Components: []resource.Config{
+			{Name: weak1Name.Name, API: weakAPI, Model: weakModel},
+			{Name: "base1", API: base.API, Model: fake.Model},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, context.Background(), &cfg, logger)
+
+	_, err := robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"failed to reconfigure resource during weak/optional dependencies update")
 }
