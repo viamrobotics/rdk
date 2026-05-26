@@ -1105,7 +1105,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	deps, err := lr.getDependencies(resName, gNode)
+	deps, weakOptionalSnapshot, err := lr.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1124,11 +1124,13 @@ func (manager *resourceManager) processResource(
 			}
 			// For modular resources, `currentRes` is a client object. Call reconfigure to clear caches.
 			goutils.UncheckedError(currentRes.Reconfigure(ctx, deps, conf))
+			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 			return currentRes, false, nil
 		}
 
 		err = currentRes.Reconfigure(ctx, deps, conf)
 		if err == nil {
+			gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 			return currentRes, false, nil
 		}
 
