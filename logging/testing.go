@@ -9,9 +9,7 @@ import (
 )
 
 type testAppender struct {
-	tb            testing.TB
-	completedLock sync.RWMutex
-	completed     bool
+	tb testing.TB
 }
 
 // NewTestAppender returns a logger appender that logs to the underlying `testing.TB`
@@ -41,26 +39,12 @@ type testAppender struct {
 //
 //nolint:lll
 func NewTestAppender(tb testing.TB) Appender {
-	tapp := &testAppender{tb: tb}
-	tb.Cleanup(func() {
-		tapp.completedLock.Lock()
-		defer tapp.completedLock.Unlock()
-		tapp.completed = true
-	})
-	return tapp
+	return &testAppender{tb: tb}
 }
 
 // Write outputs the log entry to the underlying test object `Log` method.
 func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	tapp.tb.Helper()
-
-	tapp.completedLock.RLock()
-	defer tapp.completedLock.RUnlock()
-	// Do not attempt to log if the test has already completed; doing so can cause a race or
-	// a panic.
-	if tapp.completed {
-		return nil
-	}
 
 	const maxLength = 10
 	toPrint := make([]string, 0, maxLength)
@@ -95,4 +79,34 @@ func (tapp *testAppender) Write(entry zapcore.Entry, fields []zapcore.Field) err
 // Sync is a no-op.
 func (tapp *testAppender) Sync() error {
 	return nil
+}
+
+// silentAfterCompleteTestAppender is like testAppender but silences writes after the test
+// has completed to prevent races or panics from late-emitting goroutines.
+type silentAfterCompleteTestAppender struct {
+	*testAppender
+	completedLock sync.RWMutex
+	completed     bool
+}
+
+func newSilentAfterCompleteTestAppender(tb testing.TB) Appender {
+	stapp := &silentAfterCompleteTestAppender{testAppender: &testAppender{tb: tb}}
+	tb.Cleanup(func() {
+		stapp.completedLock.Lock()
+		defer stapp.completedLock.Unlock()
+		stapp.completed = true
+	})
+	return stapp
+}
+
+// Write checks if the associated test has completed before Writing like a normal test
+// appender.
+func (stapp *silentAfterCompleteTestAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
+	stapp.completedLock.RLock()
+	defer stapp.completedLock.RUnlock()
+	if stapp.completed {
+		return nil
+	}
+
+	return stapp.testAppender.Write(entry, fields)
 }
