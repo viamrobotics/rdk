@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -10,15 +11,19 @@ import (
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/components/sensor"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/base"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
+	// register fake sensor (model rdk:builtin:fake)
+	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -699,4 +704,65 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		"failed to reconfigure resource during weak/optional dependencies update")
+}
+
+// TestModularWeakReconfigureFailureMarksUnhealthy is the integration-level
+// reproduction of the same bug, faithful to the PR description. It compiles the
+// singleton-sensor module (examples/customresources/demos/singletonsensor) and
+// runs it as a real subprocess against an in-process parent robot.
+//
+// The singleton sensor:
+//   - Refuses to construct twice over the same lock file.
+//   - Sets a "closed" atomic on Close that Readings returns as an error.
+//   - Declares an optional dep on the sensor named "opt", which causes
+//     updateWeakAndOptionalDependents to reconfigure it after construction.
+//
+// On the parent side: construction succeeds, completeConfig fires
+// updateWeakAndOptionalDependents, moduleManager.ReconfigureResource asks the
+// module to rebuild, the module SDK Closes the live instance and the
+// constructor refuses because the lock file is still on disk. Without the
+// fix the closed instance is left reachable through the parent graph; with
+// the fix the graph node is marked Unhealthy and ResourceByName surfaces the
+// reconfigure error.
+func TestModularWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	modulePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/singletonsensor")
+	lockPath := filepath.Join(t.TempDir(), "singleton.lock")
+
+	singletonModel := resource.NewModel("viam-test", "demo", "singleton-sensor")
+	mySensor := sensor.Named("mysensor")
+	opt := sensor.Named("opt")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{Name: "singletonsensor", ExePath: modulePath},
+		},
+		Components: []resource.Config{
+			{
+				Name:       mySensor.Name,
+				API:        sensor.API,
+				Model:      singletonModel,
+				Attributes: rutils.AttributeMap{"lock_path": lockPath},
+			},
+			{
+				Name:  opt.Name,
+				API:   sensor.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, ctx, cfg, logger)
+
+	_, err := robot.ResourceByName(mySensor)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"failed to reconfigure resource during weak/optional dependencies update")
+	// "lock present at" proves the FIRST construction succeeded (it wrote the
+	// lock) and only the rebuild failed — guards against the test passing
+	// because the module simply never started.
+	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
 }
