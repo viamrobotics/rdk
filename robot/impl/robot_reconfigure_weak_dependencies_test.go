@@ -186,6 +186,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg3.Ensure(false, logger), test.ShouldBeNil)
+	prevReconfigCount := weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg3)
 
 	weakRes, err = robot.ResourceByName(weak1Name)
@@ -197,8 +198,8 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
 	// Adding arm1 changes weak1's resolved weak-dep set, so updateWeakAndOptionalDependents
-	// reconfigures it: previous count + 1.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{1, 2})
+	// reconfigures it exactly once.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -228,13 +229,14 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg5.Ensure(false, logger), test.ShouldBeNil)
+	prevReconfigCount = weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg5)
 
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
-	// reconfigCount will not increment as the error happens before Reconfigure is called on the resource.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{1, 2})
+	// reconfigCount does not change: the error happens before Reconfigure is called on the resource.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount)
 
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
@@ -298,6 +300,7 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
+	prevReconfigCount = weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg7)
 
 	weakRes, err = robot.ResourceByName(weak1Name)
@@ -307,9 +310,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
-	// In-place Reconfigure for the config change adds +1; the subsequent
+	// In-place Reconfigure for the config change adds exactly one; the subsequent
 	// updateWeakAndOptionalDependents pass sees an unchanged dep set and skips.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{1, 2})
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
 }
 
 func TestWeakDependentsExplicitDependency(t *testing.T) {
@@ -401,7 +404,10 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 1)
+	// 0 if construction already saw base1, base2, and motion (snapshot stable so the
+	// post-levels updateWeakAndOptionalDependents skips); 1 if construction did not see
+	// all of them and the follow-up pass picked up the rest.
+	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{0, 1})
 
 	lRobot := robot.(*localRobot)
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
@@ -436,6 +442,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 2) and `lastWeakDependentsRound`
 	//    will be updated to 5.
 	t.Log("Reconfigure base1")
+	prevReconfigCount := weak1.reconfigCount
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -443,7 +450,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 2)
+	// base1 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
+	// sees a stale snapshot for base1 and reconfigures weak1 exactly once.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
@@ -470,6 +479,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 3) and `lastWeakDependentsRound`
 	//    will be updated to 6.
 	t.Log("Reconfigure base2")
+	prevReconfigCount = weak1.reconfigCount
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -477,21 +487,24 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	// base2 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
+	// reconfigures weak1 exactly once more.
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount
+	postReconfigCount := weak1.reconfigCount
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(weak1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, 3)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
 }
 
 func TestWeakDependentsDependedOn(t *testing.T) {
