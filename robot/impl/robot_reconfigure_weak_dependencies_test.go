@@ -11,13 +11,13 @@ import (
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
-	"go.viam.com/rdk/components/sensor"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm/fake"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/base"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/sensor"
 	// register fake sensor (model rdk:builtin:fake)
 	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"

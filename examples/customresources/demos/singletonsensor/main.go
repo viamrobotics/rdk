@@ -77,7 +77,7 @@ func (s *singletonSensor) Close(context.Context) error {
 
 func (s *singletonSensor) Readings(context.Context, map[string]interface{}) (map[string]interface{}, error) {
 	if s.closed.Load() {
-		return nil, errors.New("sensor is closed!")
+		return nil, errors.New("sensor is closed")
 	}
 	return map[string]interface{}{}, nil
 }
