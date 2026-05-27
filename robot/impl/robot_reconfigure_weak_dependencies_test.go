@@ -718,7 +718,7 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 //
 // On the parent side: construction succeeds, completeConfig fires
 // updateWeakAndOptionalDependents, moduleManager.ReconfigureResource asks the
-// module to rebuild, the module SDK Closes the live instance and the
+// module to rebuild the resource, the module SDK Closes the live instance and the
 // constructor refuses because the lock file is still on disk. Without the
 // fix the closed instance is left reachable through the parent graph; with
 // the fix the graph node is marked Unhealthy and ResourceByName surfaces the
