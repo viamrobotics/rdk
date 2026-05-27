@@ -724,7 +724,7 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 // fix the closed instance is left reachable through the parent graph; with
 // the fix the graph node is marked Unhealthy and ResourceByName surfaces the
 // reconfigure error.
-func TestModularWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
+func TestOptionalReconfigureFailureMarksUnhealthy(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
