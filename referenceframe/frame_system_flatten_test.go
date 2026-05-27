@@ -243,7 +243,7 @@ func TestFlattenedSubsetClonesEquivalent(t *testing.T) {
 	subset, err := fs.FrameSystemSubset(fs.Frame("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 
-	cloned, err := cloneFrameSystem(subset)
+	cloned, err := subset.Clone()
 	test.That(t, err, test.ShouldBeNil)
 
 	eq, err := frameSystemsAlmostEqual(subset, cloned, defaultFloatPrecision)
