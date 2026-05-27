@@ -801,11 +801,8 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 }
 
 // getOptionalDependenciesAndSnapshot resolves each entry in conf.ImplicitOptionalDependsOn
-// and, for each resolved dep, also records the graph-clock value of its GraphNode at the
-// moment of resolution. Building deps and snapshot in the same pass guarantees they
-// describe the same point-in-time view; a separate snapshot pass could observe sibling
-// resources being SwapResource'd in between and over-claim deps the resource was never
-// actually given.
+// and records its GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
 func (r *localRobot) getOptionalDependenciesAndSnapshot(
 	conf resource.Config,
 ) (resource.Dependencies, map[resource.Name]int64) {
@@ -883,9 +880,9 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 	return optDeps, snapshot
 }
 
-// weakOptionalDepClocksEqual reports whether two weak/optional dependency snapshots
-// describe the same dep set with the same generations. A nil receiver (no snapshot yet
-// recorded) is never equal to any other snapshot.
+// weakOptionalDepClocksEqual reports whether two weak/optional dependency snapshots have
+// identical key sets and identical clock values. A nil argument (no snapshot yet recorded)
+// is never equal to any other.
 func weakOptionalDepClocksEqual(a, b map[resource.Name]int64) bool {
 	if a == nil || b == nil {
 		return false
@@ -904,9 +901,8 @@ func weakOptionalDepClocksEqual(a, b map[resource.Name]int64) bool {
 
 // getWeakDependenciesAndSnapshot matches all currently-available resources against the
 // caller's weak dependency matchers, returning the resolved dep map alongside a snapshot
-// of each matched dep's GraphNode.UpdatedAt at the moment of resolution. Like
-// getOptionalDependenciesAndSnapshot, building deps and snapshot together makes the pair
-// describe the same point-in-time view.
+// of each matched dep's GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
 func (r *localRobot) getWeakDependenciesAndSnapshot(
 	resName resource.Name,
 	api resource.API,
@@ -1000,11 +996,8 @@ func (r *localRobot) newResource(
 		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
 	}
-	// Record the snapshot of weak/optional dependency logical clock times that were visible
-	// at the moment getDependencies ran. updateWeakAndOptionalDependents compares against
-	// this and skips a reconfigure when the resolved dep set has not changed. Storing here,
-	// before SwapResource, ensures the snapshot reflects what was actually
-	// passed to the constructor.
+	// Record the snapshot before SwapResource so it reflects what the constructor
+	// actually received, not whatever the graph looks like by the time we get here.
 	gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 	return res, nil
 }

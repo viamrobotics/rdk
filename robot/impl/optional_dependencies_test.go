@@ -687,9 +687,10 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	//
 	// The optional child _might_ get 'builtin' as a dependency as part of its initial
 	// construction (if builtin initializes first), in which case no log will be emitted, or
-	// it _might_ get 'builtin' as a dependency only during the reconfigure triggered by the
-	// unconditional call to `updateWeakAndOptionalDependents`, in which case one log will be
-	// emitted due to the initial construction lacking the 'builtin' dependency.
+	// it _might_ get 'builtin' as a dependency only during the reconfigure triggered by
+	// `updateWeakAndOptionalDependents` detecting that the snapshot changed, in which case
+	// one log will be emitted due to the initial construction lacking the 'builtin'
+	// dependency.
 	//
 	// Optional dependencies are _not_ represented as edges in the resource graph and have no
 	// influence on build order. 0 logs would mean the order was m -> builtin -> oc. 1 log
@@ -906,10 +907,10 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	// Ensures that a modular resource can optionally depend upon a remote resource on a remote with prefix.
 	//
-	// In this case, the modular resource will be constructed with the remote resource as a
-	// dependency since it will be available at the time of construction. The modular
-	// resource will then also be _reconfigured_ to have the optional resource (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
+	// In this case, the modular resource is constructed with the remote resource as a
+	// dependency since it is available at the time of construction. Because the resolved
+	// set of optional dependencies is unchanged after construction,
+	// updateWeakAndOptionalDependents does not trigger a follow-up reconfigure.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
