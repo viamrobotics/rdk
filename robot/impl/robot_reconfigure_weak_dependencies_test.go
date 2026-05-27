@@ -745,14 +745,10 @@ func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
 
-	// Recovery: triggering the worker is equivalent to a tick firing.
-	robot.(*localRobot).sendTriggerConfig("test-recovery")
-
-	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
-		tb.Helper()
-		_, err := robot.ResourceByName(mySensor)
-		test.That(tb, err, test.ShouldBeNil)
-	})
+	// Recovery: run the worker's retry path synchronously (equivalent to a
+	// tick firing) so we don't need to poll for the resource to come back.
+	anyChanges := robot.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
 
 	res, err := robot.ResourceByName(mySensor)
 	test.That(t, err, test.ShouldBeNil)
