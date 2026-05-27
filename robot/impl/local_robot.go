@@ -1105,7 +1105,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 				)
 			} else {
 				// A failed Reconfigure can leave the resource in an indeterminate state
-				// (side-effects may have already fired before the error), so mark the
+				// , so mark the
 				// node unhealthy. Callers will see a clear error from ResourceByName
 				// instead of dispatching into a broken instance.
 				resNode.LogAndSetLastError(
