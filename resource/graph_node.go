@@ -91,12 +91,13 @@ type GraphNode struct {
 	prefix string
 
 	// lastWeakOptionalDepsClocks records the graph logical clock value
-	// (GraphNode.UpdatedAt) of every weak/optional dependency that was visible to
-	// this resource the last time it was constructed or reconfigured via the
-	// weak/optional dependency update path. It lets that update path skip a
-	// reconfigure when the set of weak/optional deps and their last-built
-	// generations are unchanged. A nil map means "not yet recorded"; an empty
-	// non-nil map means "no weak/optional deps were resolvable."
+	// of every weak and optional dependency that was resolved for this
+	// resource the last time it was successfully rebuilt.
+	// updateWeakAndOptionalDependents reads this on each pass and skips
+	// an unnecessary reconfigure when the current set of resolvable weak/optional
+	// dependencies match what this resource was last given. A nil map means
+	// "not yet recorded"; an empty non-nil map means "no weak/optional
+	// dependencies were resolvable at the time."
 	lastWeakOptionalDepsClocks map[Name]int64
 }
 
