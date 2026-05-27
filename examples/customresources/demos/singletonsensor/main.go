@@ -17,13 +17,13 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-var Model = resource.NewModel("viam-test", "demo", "singleton-sensor")
+var model = resource.NewModel("viam-test", "demo", "singleton-sensor")
 
-type Config struct {
+type config struct {
 	LockPath string `json:"lock_path"`
 }
 
-func (cfg *Config) Validate(path string) ([]string, []string, error) {
+func (cfg *config) Validate(path string) ([]string, []string, error) {
 	if cfg.LockPath == "" {
 		return nil, nil, errors.New("lock_path required")
 	}
@@ -41,14 +41,14 @@ type singletonSensor struct {
 var refused atomic.Bool
 
 func main() {
-	resource.RegisterComponent(sensor.API, Model, resource.Registration[sensor.Sensor, *Config]{
+	resource.RegisterComponent(sensor.API, model, resource.Registration[sensor.Sensor, *config]{
 		Constructor: newSensor,
 	})
-	module.ModularMain(resource.APIModel{API: sensor.API, Model: Model})
+	module.ModularMain(resource.APIModel{API: sensor.API, Model: model})
 }
 
 func newSensor(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (sensor.Sensor, error) {
-	cfg, err := resource.NativeConfig[*Config](conf)
+	cfg, err := resource.NativeConfig[*config](conf)
 	if err != nil {
 		return nil, err
 	}
