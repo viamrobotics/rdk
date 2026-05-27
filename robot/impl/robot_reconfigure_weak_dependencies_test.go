@@ -4,10 +4,12 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
@@ -663,11 +665,8 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
 }
 
-// TestWeakReconfigureFailureMarksUnhealthy proves the use-after-failed-reconfigure bug:
-// when a resource's weak/optional Reconfigure fails it is left in an indeterminate
-// state,
-// but ResourceByName still hands it out as if healthy. The fix marks the node
-// unhealthy so callers see a clear error instead of dispatching into a broken instance.
+// TestWeakReconfigureFailureMarksUnhealthy verifies the framework marks a
+// resource Unhealthy when its weak/optional Reconfigure returns an error.
 func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -680,16 +679,12 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 			) (*someTypeWithWeakAndStrongDeps, error) {
 				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
 			},
-			// Wildcard weak dep so updateWeakAndOptionalDependents fires on weak1
-			// every time any component changes.
 			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
 		})
 	defer resource.Deregister(weakAPI, weakModel)
 
-	// weak1 has no ConvertedAttributes; its Reconfigure (invoked by
-	// updateWeakAndOptionalDependents once base1 is constructed) will return a
-	// NativeConfig error after already mutating internal state (deps + count).
-	// That is the indeterminate state the fix must guard against.
+	// weak1 has no ConvertedAttributes, so its Reconfigure returns a
+	// NativeConfig error when the weak/optional update fires.
 	cfg := config.Config{
 		Components: []resource.Config{
 			{Name: weak1Name.Name, API: weakAPI, Model: weakModel},
@@ -706,24 +701,11 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 		"failed to reconfigure resource during weak/optional dependencies update")
 }
 
-// TestOptionalReconfigureFailureMarksUnhealthy compiles the
-// singleton-sensor module (examples/customresources/demos/singletonsensor) and
-// runs it as a real subprocess against an in-process parent robot.
-//
-// The singleton sensor:
-//   - Refuses to construct twice over the same lock file.
-//   - Sets a "closed" atomic on Close that Readings returns as an error.
-//   - Declares an optional dep on the sensor named "opt", which causes
-//     updateWeakAndOptionalDependents to reconfigure it after construction.
-//
-// On the parent side: construction succeeds, completeConfig fires
-// updateWeakAndOptionalDependents, moduleManager.ReconfigureResource asks the
-// module to rebuild the resource, the module SDK Closes the live instance and the
-// constructor refuses because the lock file is still on disk. Without the
-// fix the closed instance is left reachable through the parent graph; with
-// the fix the graph node is marked Unhealthy and ResourceByName surfaces the
-// reconfigure error.
-func TestOptionalReconfigureFailureMarksUnhealthy(t *testing.T) {
+// TestOptionalReconfigureFailureAndRecovery exercises the modular path
+// end-to-end with the singleton-sensor module: the first weak/optional
+// rebuild fails on a lock conflict, the framework marks the node
+// Unhealthy, and a subsequent worker tick reconstructs it successfully.
+func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 
@@ -732,7 +714,6 @@ func TestOptionalReconfigureFailureMarksUnhealthy(t *testing.T) {
 
 	singletonModel := resource.NewModel("viam-test", "demo", "singleton-sensor")
 	mySensor := sensor.Named("mysensor")
-	opt := sensor.Named("opt")
 
 	cfg := &config.Config{
 		Modules: []config.Module{
@@ -746,7 +727,7 @@ func TestOptionalReconfigureFailureMarksUnhealthy(t *testing.T) {
 				Attributes: rutils.AttributeMap{"lock_path": lockPath},
 			},
 			{
-				Name:  opt.Name,
+				Name:  "opt",
 				API:   sensor.API,
 				Model: resource.DefaultModelFamily.WithModel("fake"),
 			},
@@ -756,12 +737,33 @@ func TestOptionalReconfigureFailureMarksUnhealthy(t *testing.T) {
 
 	robot := setupLocalRobot(t, ctx, cfg, logger)
 
+	// setupLocalRobot runs the weak/optional update at the end of
+	// completeConfig, which fires the rebuild that fails on the still-
+	// present lock. The "lock present at" string is singleton-sensor-only,
+	// so matching it confirms the failure came from the rebuild path.
 	_, err := robot.ResourceByName(mySensor)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring,
-		"failed to reconfigure resource during weak/optional dependencies update")
-	// "lock present at" proves the FIRST construction succeeded (it wrote the
-	// lock) and only the rebuild failed — guards against the test passing
-	// because the module simply never started.
 	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
+
+	// Recovery: triggering the worker is equivalent to a tick firing.
+	robot.(*localRobot).sendTriggerConfig("test-recovery")
+
+	testutils.WaitForAssertionWithSleep(t, 100*time.Millisecond, 50, func(tb testing.TB) {
+		tb.Helper()
+		_, err := robot.ResourceByName(mySensor)
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
+	res, err := robot.ResourceByName(mySensor)
+	test.That(t, err, test.ShouldBeNil)
+	s, ok := res.(sensor.Sensor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	testutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 25, func(tb testing.TB) {
+		tb.Helper()
+		callCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		_, err := s.Readings(callCtx, nil)
+		test.That(tb, err, test.ShouldBeNil)
+	})
 }

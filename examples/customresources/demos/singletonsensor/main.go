@@ -1,9 +1,8 @@
-// Package main is a module that exposes a single sensor model used to
-// reproduce the use-after-failed-reconfigure bug. The sensor:
-//   - Refuses to construct twice over the same lock file (singleton on disk).
-//   - Sets an atomic "closed" flag on Close that Readings returns as an error.
-//   - Declares an optional dep on a sensor named "opt", so reconfiguring the
-//     "opt" sensor fires updateWeakAndOptionalDependents on this resource.
+// Package main is a singleton-on-disk sensor used by
+// TestOptionalReconfigureFailureAndRecovery. First construction writes a
+// lock file; the next construction (the one fired by the weak/optional
+// reconfigure path) finds the lock and is refused, but clears it on the
+// way out so the following worker tick can recover.
 package main
 
 import (
@@ -18,22 +17,17 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// Model identifies the singleton sensor in the registry.
 var Model = resource.NewModel("viam-test", "demo", "singleton-sensor")
 
-const optionalDepName = "opt"
-
-// Config holds the on-disk path of the singleton sentinel.
 type Config struct {
 	LockPath string `json:"lock_path"`
 }
 
-// Validate requires a lock path and declares the optional dep that drives the trigger.
 func (cfg *Config) Validate(path string) ([]string, []string, error) {
 	if cfg.LockPath == "" {
 		return nil, nil, errors.New("lock_path required")
 	}
-	return nil, []string{sensor.Named(optionalDepName).String()}, nil
+	return nil, []string{sensor.Named("opt").String()}, nil
 }
 
 type singletonSensor struct {
@@ -41,6 +35,10 @@ type singletonSensor struct {
 	resource.AlwaysRebuild
 	closed atomic.Bool
 }
+
+// refused gates the bug pattern to a single failure; subsequent attempts
+// succeed so the test can observe recovery.
+var refused atomic.Bool
 
 func main() {
 	resource.RegisterComponent(sensor.API, Model, resource.Registration[sensor.Sensor, *Config]{
@@ -55,8 +53,12 @@ func newSensor(_ context.Context, _ resource.Dependencies, conf resource.Config,
 		return nil, err
 	}
 	if _, err := os.Stat(cfg.LockPath); err == nil {
-		return nil, errors.New("singleton-sensor: lock present at " + cfg.LockPath +
-			"; previous instance did not release it")
+		if rmErr := os.Remove(cfg.LockPath); rmErr != nil {
+			return nil, rmErr
+		}
+		if !refused.Swap(true) {
+			return nil, errors.New("singleton-sensor: lock present at " + cfg.LockPath)
+		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
