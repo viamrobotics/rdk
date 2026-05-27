@@ -1104,11 +1104,12 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 					"resource", resName,
 				)
 			} else {
-				r.Logger().CErrorw(
-					ctx,
-					"failed to reconfigure resource during weak/optional dependencies update",
+				// A failed Reconfigure can leave the resource in an indeterminate state,
+				// so mark the node unhealthy. Callers will see a clear error from
+				// ResourceByName instead of dispatching into a broken instance.
+				resNode.LogAndSetLastError(
+					fmt.Errorf("failed to reconfigure resource during weak/optional dependencies update: %w", err),
 					"resource", resName,
-					"error", err,
 				)
 			}
 		}
