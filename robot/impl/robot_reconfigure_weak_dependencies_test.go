@@ -706,8 +706,7 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 		"failed to reconfigure resource during weak/optional dependencies update")
 }
 
-// TestModularWeakReconfigureFailureMarksUnhealthy is the integration-level
-// reproduction of the same bug, faithful to the PR description. It compiles the
+// TestOptionalReconfigureFailureMarksUnhealthy compiles the
 // singleton-sensor module (examples/customresources/demos/singletonsensor) and
 // runs it as a real subprocess against an in-process parent robot.
 //
