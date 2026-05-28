@@ -394,9 +394,9 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.OpMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.OpMgr.CancelRunning(ctx)
 
 	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)

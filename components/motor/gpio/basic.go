@@ -315,9 +315,9 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.opMgr.CancelRunning(ctx)
 	return m.setPWM(context.Background(), 0, extra)
 }
 
