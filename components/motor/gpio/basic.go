@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
@@ -227,6 +228,10 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
+	return m.setPower(ctx, powerPct, extra)
+}
+
+func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx, extra)
 	}
@@ -270,6 +275,9 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	ctx, finish := m.opMgr.New(ctx)
+	defer finish()
+
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
@@ -287,12 +295,12 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err = m.SetPower(ctx, powerPct, extra)
+	err = m.setPower(ctx, powerPct, extra)
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
 
-	if m.opMgr.NewTimedWaitOp(ctx, waitDur) {
+	if utils.SelectContextOrWait(ctx, waitDur) {
 		return m.Stop(ctx, extra)
 	}
 	return nil

@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 var (
@@ -286,6 +287,9 @@ func checkSpeed(rpm, max float64) (string, error) { //nolint: revive
 // GoFor sets the given direction and an arbitrary power percentage.
 // If rpm is 0, the motor should immediately move to the final position.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	warning, err := checkSpeed(rpm, m.MaxRPM)
 	if warning != "" {
 		m.Logger.CWarn(ctx, warning)
@@ -314,7 +318,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		return err
 	}
 
-	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
+	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err
@@ -329,6 +333,9 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
 func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	if m.Encoder == nil {
 		return errors.New("encoder is not defined")
 	}
@@ -359,7 +366,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 		return err
 	}
 
-	if m.OpMgr.NewTimedWaitOp(ctx, waitDur) {
+	if utils.SelectContextOrWait(ctx, waitDur) {
 		err = m.Stop(ctx, nil)
 		if err != nil {
 			return err
@@ -387,6 +394,7 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.OpMgr.CancelRunning(ctx)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
