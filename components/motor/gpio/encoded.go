@@ -438,6 +438,7 @@ func (m *EncodedMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops makeAdjustments and stops the real motor.
 func (m *EncodedMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	m.opMgr.CancelRunning(ctx)
 	if m.makeAdjustmentsDone != nil {
 		m.makeAdjustmentsDone()
 	}

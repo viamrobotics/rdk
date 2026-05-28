@@ -188,6 +188,7 @@ func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	cm.opMgr.CancelRunning(ctx)
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
 	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
@@ -282,7 +283,6 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
@@ -323,7 +323,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
