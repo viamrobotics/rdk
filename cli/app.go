@@ -1673,6 +1673,10 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
+								&cli.StringFlag{
+									Name:  dataFlagPipelineName,
+									Usage: "pipeline name (required when --collection-type is 'pipeline-sink')",
+								},
 							},
 							Action: createActionCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
 						},
