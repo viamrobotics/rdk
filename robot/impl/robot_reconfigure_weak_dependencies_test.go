@@ -2,11 +2,14 @@ package robotimpl
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/testutils"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
@@ -16,9 +19,13 @@ import (
 	"go.viam.com/rdk/components/base"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/components/sensor"
+	// register fake sensor (model rdk:builtin:fake)
+	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -127,9 +134,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
 			},
 			{
 				Name:  base1Name.Name,
@@ -156,9 +164,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
 			},
 			{
 				Name:  base1Name.Name,
@@ -654,4 +663,103 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, 4)
+}
+
+// TestWeakReconfigureFailureMarksUnhealthy verifies the framework marks a
+// resource Unhealthy when its weak/optional Reconfigure returns an error.
+func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(weakAPI, weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	// weak1 has no ConvertedAttributes, so its Reconfigure returns a
+	// NativeConfig error when the weak/optional update fires.
+	cfg := config.Config{
+		Components: []resource.Config{
+			{Name: weak1Name.Name, API: weakAPI, Model: weakModel},
+			{Name: "base1", API: base.API, Model: fake.Model},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, context.Background(), &cfg, logger)
+
+	_, err := robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring,
+		"failed to reconfigure resource during weak/optional dependencies update")
+}
+
+// TestOptionalReconfigureFailureAndRecovery exercises the modular path
+// end-to-end with the singleton-sensor module: the first weak/optional
+// rebuild fails on a lock conflict, the framework marks the node
+// Unhealthy, and a subsequent worker tick reconstructs it successfully.
+func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	modulePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/singletonsensor")
+	lockPath := filepath.Join(t.TempDir(), "singleton.lock")
+
+	singletonModel := resource.NewModel("viam-test", "demo", "singleton-sensor")
+	mySensor := sensor.Named("mysensor")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{Name: "singletonsensor", ExePath: modulePath},
+		},
+		Components: []resource.Config{
+			{
+				Name:       mySensor.Name,
+				API:        sensor.API,
+				Model:      singletonModel,
+				Attributes: rutils.AttributeMap{"lock_path": lockPath},
+			},
+			{
+				Name:  "opt",
+				API:   sensor.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+			},
+		},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, ctx, cfg, logger)
+
+	// setupLocalRobot runs the weak/optional update at the end of
+	// completeConfig, which fires the rebuild that fails on the still-
+	// present lock. The "lock present at" string is singleton-sensor-only,
+	// so matching it confirms the failure came from the rebuild path.
+	_, err := robot.ResourceByName(mySensor)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
+
+	// Recovery: run the worker's retry path synchronously (equivalent to a
+	// tick firing) so we don't need to poll for the resource to come back.
+	anyChanges := robot.(*localRobot).updateRemotesAndRetryResourceConfigure()
+	test.That(t, anyChanges, test.ShouldBeTrue)
+
+	res, err := robot.ResourceByName(mySensor)
+	test.That(t, err, test.ShouldBeNil)
+	s, ok := res.(sensor.Sensor)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	testutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 25, func(tb testing.TB) {
+		tb.Helper()
+		callCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		_, err := s.Readings(callCtx, nil)
+		test.That(tb, err, test.ShouldBeNil)
+	})
 }

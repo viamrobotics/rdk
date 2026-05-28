@@ -1097,14 +1097,14 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 
 type downloadModuleFlags struct {
 	Destination string
-	ModuleID    string
+	ID          string
 	OrgID       string
 	Version     string
 	Platform    string
 }
 
 func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
-	moduleID := flags.ModuleID
+	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {
