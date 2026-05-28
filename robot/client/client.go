@@ -476,7 +476,7 @@ func (rc *RobotClient) Connected() bool {
 	return rc.connected.Load()
 }
 
-// GetWebRTCStats returns the stats report for the underlying WebRTC peer
+// WebRTCStats returns the stats report for the underlying WebRTC peer
 // connection. Returns nil if the client is not connected via WebRTC.
 func (rc *RobotClient) WebRTCStats() webrtc.StatsReport {
 	pc := rc.conn.PeerConn()
