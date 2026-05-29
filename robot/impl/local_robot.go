@@ -1442,8 +1442,44 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.initializing.Store(newConfig.Initial)
 	}()
 
-	if !r.reconfigureAllowed(ctx, newConfig, true) {
-		return
+	// No need to check whether reconfiguring is allowed if this is initialization.
+	var reconfigureAllowedErr error
+	if !r.initializing.Load() {
+		var reconfigureAllowed bool
+		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		if !reconfigureAllowed {
+			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
+			// or resources changed), otherwise silently return.
+			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+			if err != nil {
+				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+				return
+			}
+			if diff != nil && !diff.NetworkEqual {
+				if reconfigureAllowedErr != nil {
+					r.logger.CInfow(
+						ctx,
+						"Reconfigure NOT allowed due to error but Cloud/Auth/Network config changes will be applied",
+						"error",
+						reconfigureAllowedErr.Error(),
+					)
+				} else {
+					r.logger.CInfow(
+						ctx,
+						"Reconfigure NOT allowed by maintenance sensor but Cloud/Auth/Network config changes will be applied",
+						"sensor",
+						newConfig.MaintenanceConfig.SensorName,
+					)
+				}
+			} else if diff != nil && !diff.ResourcesEqual {
+				if reconfigureAllowedErr != nil {
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed due to error", "error", reconfigureAllowedErr.Error())
+				} else {
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed by maintenance sensor", "sensor", newConfig.MaintenanceConfig.SensorName)
+				}
+			}
+			return
+		}
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
@@ -1642,6 +1678,23 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() {
 		logVerb = "Reconfigur"
 		logNoun = "reconfiguration"
+		if newConfig.MaintenanceConfig != nil {
+			if reconfigureAllowedErr != nil {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed despite error while checking",
+					"error",
+					reconfigureAllowedErr.Error(),
+				)
+			} else {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed by maintenance sensor",
+					"sensor",
+					newConfig.MaintenanceConfig.SensorName,
+				)
+			}
+		}
 	}
 	r.logger.CInfof(ctx, "%ving robot", logVerb)
 
@@ -2001,85 +2054,54 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 	return robot.Version, nil
 }
 
-// reconfigureAllowed returns whether the local robot can reconfigure.
-func (r *localRobot) reconfigureAllowed(ctx context.Context, cfg *config.Config, log bool) bool {
-	// Hack: if we should not log (allowance of reconfiguration is being checked
-	// from the `/restart_status` endpoint), then use a no-op logger. Otherwise
-	// use robot's logger.
-	logger := r.logger
-	if !log {
-		logger = logging.NewBlankLogger("")
-	}
-
+// reconfigureAllowed returns whether the local robot can reconfigure and any encountered
+// error.
+func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.MaintenanceConfig) (bool, error) {
 	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
-	if cfg.MaintenanceConfig == nil {
-		return true
+	if mCfg == nil {
+		return true, nil
 	}
 
-	// Maintenance config can be configured to block reconfigure based off of a sensor reading
-	// These sensors can be configured on the main robot, or a remote
-	// In situations where there are conflicting sensor names the following behavior happens
-	// Main robot and remote share sensor name -> main robot sensor is chosen
-	// Only remote has the sensor name -> remote sensor is read
-	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
-	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
-	name, err := resource.NewFromString(cfg.MaintenanceConfig.SensorName)
+	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
+	// allowed).
+	name, err := resource.NewFromString(mCfg.SensorName)
 	if err != nil {
-		logger.Warnf("sensor_name %s in maintenance config is not in a supported format", cfg.MaintenanceConfig.SensorName)
-		return true
+		return true, fmt.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName)
 	}
 	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 	if err != nil {
-		logger.Warnf("%s, Starting reconfiguration", err.Error())
-		return true
+		return true, fmt.Errorf("could not find sensor named %s: %w", mCfg.SensorName, err)
 	}
-	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, cfg.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-	// The boolean return value of checkMaintenanceSensorReadings
-	// (canReconfigure) is meaningful even when an error is also returned. Check
-	// it first.
-	if !canReconfigure {
-		if err != nil {
-			logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
-		} else {
-			logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
-		}
-		diff, err := config.DiffConfigs(*r.Config(), *cfg, false)
-		if err != nil {
-			logger.CErrorw(ctx, "error diffing the configs", "error", err)
-		}
-		// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-		if diff != nil && !diff.NetworkEqual {
-			logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
-		}
-		return false
-	}
-	logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
 
-	return true
+	// If there was any error checking sensor readings on a valid sensor, return false
+	// (reconfigure NOT allowed).
+	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, mCfg.MaintenanceAllowedKey, sensorComponent)
+	if err != nil {
+		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
+	}
+	return canReconfigure, nil
 }
 
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
 func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	maintenanceAllowedKey string, sensor resource.Sensor,
 ) (bool, error) {
-	timeout := 5 * time.Second
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Context timeouts on this call should be handled by grpc
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
-		// if the sensor errors or timeouts we return false to block reconfigure
-		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+		return false, fmt.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return false, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, fmt.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, fmt.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
+
 	return canReconfigure, nil
 }
 
@@ -2087,12 +2109,17 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 // can be safely restarted if the robot is not in the middle of a reconfigure,
 // and a reconfigure would be allowed.
 func (r *localRobot) RestartAllowed() bool {
-	ctx := context.Background()
-
-	if !r.reconfiguring.Load() && r.reconfigureAllowed(ctx, r.Config(), false) {
-		return true
+	if r.reconfiguring.Load() {
+		return false
 	}
-	return false
+
+	// The error return is insignificant here; any reconfigureAllowed errors will be logged
+	// in the main reconfigure method. We do not want to log them every time viam-agent hits
+	// the restart_allowed endpoint.
+	//
+	//nolint:errcheck
+	reconfigureAllowed, _ := r.reconfigureAllowed(context.Background(), r.Config().MaintenanceConfig)
+	return reconfigureAllowed
 }
 
 // ListTunnels returns information on available traffic tunnels.
