@@ -2050,18 +2050,18 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	// allowed).
 	name, err := resource.NewFromString(mCfg.SensorName)
 	if err != nil {
-		return true, errors.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName)
+		return true, fmt.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName)
 	}
 	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 	if err != nil {
-		return true, errors.Errorf("could not find sensor named %s: err", mCfg.SensorName)
+		return true, fmt.Errorf("could not find sensor named %s: err", mCfg.SensorName)
 	}
 
 	// If there was any error checking sensor readings on a valid sensor, return false
 	// (reconfigue NOT allowed).
 	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, mCfg.MaintenanceAllowedKey, sensorComponent)
 	if err != nil {
-		return false, errors.Errorf("failed to check maintenance sensor readings: %w", err)
+		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
 	}
 	return canReconfigure, nil
 }
@@ -2075,15 +2075,15 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
-		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+		return false, fmt.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return false, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, fmt.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, fmt.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
 
 	return canReconfigure, nil
