@@ -85,7 +85,6 @@ Generator::Generator(GeneratorCompDB db,
         resourceSubtypePascal_ +=
             (resourceType_ == ResourceType::component) ? "Component" : "Service";
     }
-    llvm::errs() << "Appended " << resourceSubtypePascal_ << "\n";
 }
 
 void Generator::header_prefix() {
