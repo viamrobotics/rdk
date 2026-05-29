@@ -27,7 +27,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	pb "go.viam.com/api/robot/v1"
-	"go.viam.com/rdk/utils/contextutils"
 	"go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
@@ -51,6 +50,7 @@ import (
 	weboptions "go.viam.com/rdk/robot/web/options"
 	webstream "go.viam.com/rdk/robot/web/stream"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // SubtypeName is a constant that identifies the internal web resource subtype string.
@@ -299,6 +299,8 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
+
 	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
 	// request manages to cause an internal panic.
 	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
@@ -668,6 +670,8 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
 	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
+
 	rpcOpts = append(
 		rpcOpts,
 		rpc.WithUnknownServiceHandler(svc.foreignServiceHandler),

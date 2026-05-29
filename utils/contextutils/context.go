@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"go.viam.com/utils/rpc"
@@ -22,6 +23,9 @@ type contextKey string
 const (
 	// MetadataContextKey is the key used to access metadata from a context with metadata.
 	MetadataContextKey = contextKey("viam-metadata")
+
+	// arbitraryMetadataKey records the metadata keys provided by the user (as opposed to those for internal use)
+	arbitraryMetadataKey = string(MetadataContextKey)
 
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
@@ -89,9 +93,38 @@ func ContextWithMetadataServerToClientUnaryServerInterceptor(
 	ctx, md := ContextWithMetadata(ctx)
 	resp, err := handler(ctx, req)
 	if len(md) > 0 {
-		_ = grpc.SetHeader(ctx, md)
+		_ = grpc.SetHeader(ctx, md) //nolint:errcheck
 	}
 	return resp, err
+}
+
+// ContextWithMetadataClientToServerUnaryServerInterceptor retrieves metadata from the incoming context and appends to the outgoing context.
+func ContextWithMetadataClientToServerUnaryServerInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (any, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+
+	// dedupe key list to prevent duplicative appends with multiple hops
+	keys := slices.Clone(md.Get(arbitraryMetadataKey))
+	slices.Sort(keys)
+	keys = slices.Compact(keys)
+
+	for _, key := range keys {
+		if key == arbitraryMetadataKey {
+			continue
+		}
+		ctx = metadata.AppendToOutgoingContext(ctx, arbitraryMetadataKey, key)
+		for _, val := range md.Get(key) {
+			ctx = metadata.AppendToOutgoingContext(ctx, key, val)
+		}
+	}
+	return handler(ctx, req)
 }
 
 // ContextWithTimeoutIfNoDeadline returns a child timeout context derived from `ctx` if a
@@ -101,6 +134,24 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 		return context.WithTimeout(ctx, timeout)
 	}
 	return context.WithCancel(ctx)
+}
+
+// AppendToOutgoingContext functions like metadata.AppendToOutgoingContext, but also tracks the unique list of arbitrary keys
+// under the arbitraryMetadataKey key.
+func AppendToOutgoingContext(ctx context.Context, kv ...string) context.Context {
+	ctx = metadata.AppendToOutgoingContext(ctx, kv...)
+
+	// dedup for repeated keys (values is []string)
+	seenKeys := make(map[string]struct{})
+	arbitraryKeys := make([]string, 0, len(kv))
+	for i := 0; i < len(kv); i += 2 {
+		if _, dup := seenKeys[kv[i]]; dup {
+			continue
+		}
+		seenKeys[kv[i]] = struct{}{}
+		arbitraryKeys = append(arbitraryKeys, arbitraryMetadataKey, kv[i])
+	}
+	return metadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
 }
 
 // GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether an environment variable is set,
