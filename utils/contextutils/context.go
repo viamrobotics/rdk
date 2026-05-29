@@ -74,8 +74,15 @@ func ContextWithMetadataServerToClientUnaryClientInterceptor(
 
 	md := ctx.Value(MetadataContextKey)
 	if mdMap, ok := md.(map[string][]string); ok {
-		for key, value := range header {
-			mdMap[key] = value
+		keys := header.Get(arbitraryMetadataKey)
+		if len(keys) > 0 {
+			mdMap[arbitraryMetadataKey] = keys
+			for _, k := range keys {
+				v := header.Get(k)
+				if len(v) > 0 {
+					mdMap[k] = v
+				}
+			}
 		}
 	}
 
@@ -152,6 +159,32 @@ func AppendToOutgoingContext(ctx context.Context, kv ...string) context.Context 
 		arbitraryKeys = append(arbitraryKeys, arbitraryMetadataKey, kv[i])
 	}
 	return metadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
+}
+
+// SetHeader functions like grpc.SetHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key.
+func SetHeader(ctx context.Context, md metadata.MD) error {
+	keys := make([]string, 0, len(md))
+	for k := range md {
+		keys = append(keys, k)
+	}
+	for _, k := range keys {
+		md.Append(arbitraryMetadataKey, k)
+	}
+
+	return grpc.SetHeader(ctx, md)
+}
+
+// SendHeader functions like grpc.SendHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key.
+func SendHeader(ctx context.Context, md metadata.MD) error {
+	keys := make([]string, 0, len(md))
+	for k := range md {
+		keys = append(keys, k)
+	}
+	for _, k := range keys {
+		md.Append(arbitraryMetadataKey, k)
+	}
+
+	return grpc.SendHeader(ctx, md)
 }
 
 // GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether an environment variable is set,

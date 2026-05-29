@@ -298,9 +298,6 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors, svc.requestCounter.UnaryInterceptor)
 	streamInterceptors = append(streamInterceptors, svc.requestCounter.StreamInterceptor)
 
-	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
-	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
-
 	// Add recovery handler interceptors to avoid crashing the rdk when a module's gRPC
 	// request manages to cause an internal panic.
 	unaryInterceptors = append(unaryInterceptors, grpc_recovery.UnaryServerInterceptor(grpc_recovery.WithRecoveryHandler(
@@ -320,6 +317,9 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 	unaryInterceptors = append(unaryInterceptors,
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
+
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
+	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
 
 	// TODO(PRODUCT-343): Add session manager interceptors
 
