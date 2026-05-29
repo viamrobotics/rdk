@@ -51,9 +51,9 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 	return ctx, md
 }
 
-// ContextWithMetadataUnaryClientInterceptor attempts to read metadata from the gRPC header and
+// ContextWithMetadataServerToClientUnaryClientInterceptor attempts to read metadata from the gRPC header and
 // injects the metadata into the context if the caller has passed in a context with metadata.
-func ContextWithMetadataUnaryClientInterceptor(
+func ContextWithMetadataServerToClientUnaryClientInterceptor(
 	ctx context.Context,
 	method string,
 	req, reply interface{},
@@ -78,9 +78,9 @@ func ContextWithMetadataUnaryClientInterceptor(
 	return nil
 }
 
-// ContextWithMetadataUnaryServerInterceptor upgrades the incoming context to a ContextWithMetadata,
+// ContextWithMetadataServerToClientUnaryServerInterceptor upgrades the incoming context to a ContextWithMetadata,
 // before calling the handler function. After, it sets the header metadata to the metadata map (if any).
-func ContextWithMetadataUnaryServerInterceptor(
+func ContextWithMetadataServerToClientUnaryServerInterceptor(
 	ctx context.Context,
 	req any,
 	info *grpc.UnaryServerInfo,

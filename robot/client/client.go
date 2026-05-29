@@ -308,7 +308,7 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
-		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptor),
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor),
 		// error handling
 		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
 		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),

@@ -162,7 +162,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 		client.ViamClientInfoUnaryServerInterceptor,
-		contextutils.ContextWithMetadataUnaryServerInterceptor,
+		contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,

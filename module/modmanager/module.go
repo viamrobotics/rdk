@@ -92,7 +92,7 @@ func (m *module) dial() error {
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
-			contextutils.ContextWithMetadataUnaryClientInterceptor,
+			contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor,
 		),
 		grpc.WithChainStreamInterceptor(
 			grpc_retry.StreamClientInterceptor(),

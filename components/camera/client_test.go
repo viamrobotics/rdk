@@ -662,7 +662,7 @@ func TestClientWithInterceptor(t *testing.T) {
 		context.Background(),
 		listener1.Addr().String(),
 		logger,
-		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptor),
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
