@@ -4,6 +4,7 @@ package logging
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"github.com/Microsoft/go-winio/pkg/etw"
 	"github.com/Microsoft/go-winio/pkg/guid"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sys/windows"
 )
 
 // ETW provider GUID used by all ETW log consumers - should not be changed
@@ -118,7 +120,7 @@ func (a *etwAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 		}
 	}
 
-	return a.provider.WriteEvent("LogEntry",
+	err := a.provider.WriteEvent("LogEntry",
 		[]etw.EventOpt{etw.WithLevel(zapToETWLevel(entry.Level))},
 		[]etw.FieldOpt{
 			etw.StringField("time", entry.Time.UTC().Format(DefaultTimeFormatStr)),
@@ -129,6 +131,17 @@ func (a *etwAppender) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 			etw.JSONStringField("fields", fieldsJSON),
 		},
 	)
+	// ERROR_MORE_DATA means the event was delivered but the consumer session
+	// could not write it because its buffer is full
+
+	// Microsoft advises treating this as success, so just suppress it.
+
+	// Also, from testing, this seems to only happen during shutdown
+	// i.e. when ending the consumer session
+	if errors.Is(err, windows.ERROR_MORE_DATA) {
+		return nil
+	}
+	return err
 }
 
 func (a *etwAppender) Sync() error { return nil }
