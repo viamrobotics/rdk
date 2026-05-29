@@ -3948,6 +3948,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 							Name:  moduleFlagAnnotation,
 							Usage: "Annotation to describe the purpose of the reload build",
 						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagBuilder,
+							Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+							Value: "default",
+						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),
 				},
