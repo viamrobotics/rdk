@@ -526,6 +526,19 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 	}
 	debugf(c.c.Root().Writer, args.Debug, "Attempting to download binary files: %v", ids)
 
+	// Skip ids whose data file is already present and non-zero on disk so a
+	// re-export doesn't re-download what we already have. This uses a
+	// metadata-only lookup (no binary payload) — necessary because images are
+	// small enough to be returned inline, so checking after the fetch wouldn't
+	// save the download.
+	ids, err = c.skipAlreadyDownloaded(ctx, dst, ids, args.Debug)
+	if err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
 	var resp *datapb.BinaryDataByIDsResponse
 	largeFile := false
 	// To begin, we assume the files are small and downloadable, so we try getting the binary directly
@@ -646,20 +659,15 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 			r = io.NopCloser(bytes.NewReader(datum.GetBinary()))
 		}
 
-		dataPath := filepath.Join(dst, dataDir, fileName)
-		ext := datum.GetMetadata().GetFileExt()
+		dataPath := dataFilePath(dst, fileName, datum.GetMetadata().GetFileExt())
 
 		// If the file is gzipped, unzip.
-		if ext == gzFileExt {
+		if datum.GetMetadata().GetFileExt() == gzFileExt {
 			r, err = gzip.NewReader(r)
 			if err != nil {
 				debugf(c.c.Root().Writer, args.Debug, "Failed unzipping file %s: %s", id, err)
 				return err
 			}
-		} else if filepath.Ext(dataPath) != ext {
-			// If the file name did not already include the extension (e.g. for data capture files), add it.
-			// Don't do this for files that we're unzipping.
-			dataPath += ext
 		}
 
 		if err := os.MkdirAll(filepath.Dir(dataPath), 0o700); err != nil {
@@ -683,6 +691,60 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 		}
 	}
 	return nil
+}
+
+// dataFilePath returns the on-disk path a binary datum is written to, given the
+// download file name (from filenameForDownload) and the datum's file extension.
+// The extension handling mirrors downloadBinary so the skip-existing check and
+// the writer agree on the path.
+func dataFilePath(dst, fileName, ext string) string {
+	dataPath := filepath.Join(dst, dataDir, fileName)
+	// Gzipped files are unzipped on download, so the stored file has no .gz
+	// suffix and the path is left as-is. Otherwise append the extension if the
+	// file name didn't already include it (e.g. data-capture files).
+	if ext != gzFileExt && filepath.Ext(dataPath) != ext {
+		dataPath += ext
+	}
+	return dataPath
+}
+
+// skipAlreadyDownloaded returns the subset of ids whose data file is not yet on
+// disk (or is zero-length). It does a metadata-only lookup so files we already
+// have aren't re-downloaded. On any uncertainty (request failure, mismatched
+// response count) it returns all ids so nothing is silently skipped.
+func (c *viamClient) skipAlreadyDownloaded(ctx context.Context, dst string, ids []string, debug bool) ([]string, error) {
+	var resp *datapb.BinaryDataByIDsResponse
+	var err error
+	for count := 0; count < maxRetryCount; count++ {
+		resp, err = c.dataClient.BinaryDataByIDs(ctx, &datapb.BinaryDataByIDsRequest{
+			BinaryDataIds: ids,
+			IncludeBinary: false,
+		})
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, serverErrorMessage)
+	}
+
+	data := resp.GetData()
+	if len(data) != len(ids) {
+		// Can't reliably line metadata up with ids; download everything.
+		return ids, nil
+	}
+
+	remaining := make([]string, 0, len(ids))
+	for i, datum := range data {
+		meta := datum.GetMetadata()
+		dataPath := dataFilePath(dst, filenameForDownload(meta), meta.GetFileExt())
+		if info, statErr := os.Stat(dataPath); statErr == nil && info.Size() > 0 {
+			debugf(c.c.Root().Writer, debug, "Skipping %s; already downloaded", ids[i])
+			continue
+		}
+		remaining = append(remaining, ids[i])
+	}
+	return remaining, nil
 }
 
 // transform datum's filename to a destination path on this computer.
