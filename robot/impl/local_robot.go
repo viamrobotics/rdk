@@ -2070,11 +2070,11 @@ func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.Mainte
 	}
 	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 	if err != nil {
-		return true, fmt.Errorf("could not find sensor named %s: err", mCfg.SensorName)
+		return true, fmt.Errorf("could not find sensor named %s: %w", mCfg.SensorName, err)
 	}
 
 	// If there was any error checking sensor readings on a valid sensor, return false
-	// (reconfigue NOT allowed).
+	// (reconfigure NOT allowed).
 	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, mCfg.MaintenanceAllowedKey, sensorComponent)
 	if err != nil {
 		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
