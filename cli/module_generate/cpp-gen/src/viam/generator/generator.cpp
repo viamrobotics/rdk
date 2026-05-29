@@ -81,12 +81,11 @@ Generator::Generator(GeneratorCompDB db,
       resourcePath_(std::move(resourcePath)),
       headerOut_(std::move(headerOut)),
       srcOut_(std::move(srcOut)) {
-    if (llvm::StringRef(resourceSubtypeSnake_).startswith("generic_")) {
-        resourceSubtypeSnake_ = "generic";
-
+    if (resourceSubtypeSnake_ == "generic") {
         resourceSubtypePascal_ +=
             (resourceType_ == ResourceType::component) ? "Component" : "Service";
     }
+    llvm::errs() << "Appended " << resourceSubtypePascal_ << "\n";
 }
 
 void Generator::header_prefix() {
