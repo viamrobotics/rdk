@@ -4994,6 +4994,143 @@ func TestMaintenanceConfig(t *testing.T) {
 	})
 }
 
+func TestMaintenanceConfigLogs(t *testing.T) {
+	ctx := context.Background()
+	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	modelErrorSensor := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
+	resource.RegisterComponent(
+		sensor.API,
+		model,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newValidSensor(), nil
+		}})
+	resource.RegisterComponent(
+		sensor.API,
+		modelErrorSensor,
+		resource.Registration[sensor.Sensor, resource.NoNativeConfig]{Constructor: func(
+			ctx context.Context,
+			deps resource.Dependencies,
+			conf resource.Config,
+			logger logging.Logger,
+		) (sensor.Sensor, error) {
+			return newErrorSensor(), nil
+		}})
+	defer func() {
+		resource.Deregister(sensor.API, model)
+		resource.Deregister(sensor.API, modelErrorSensor)
+	}()
+
+	sensor1 := []resource.Config{
+		{Name: "sensor", Model: model, API: sensor.API},
+	}
+	sensor2 := []resource.Config{
+		{Name: "sensor2", Model: model, API: sensor.API},
+	}
+	errorSensor1 := []resource.Config{
+		{Name: "sensor", Model: modelErrorSensor, API: sensor.API},
+	}
+
+	t.Run("sensor allows reconfigure", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsNotMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithMore := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsNotMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgWithMore)
+
+		test.That(t, logs.FilterMessage("Reconfigure allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("sensor blocks reconfigure", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgBlocked)
+
+		test.That(t, logs.FilterMessage("Reconfigure NOT allowed by maintenance sensor").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("error sensor", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: errorSensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgBlocked := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/sensor",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(errorSensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgBlocked)
+
+		test.That(t, logs.FilterMessage("Reconfigure NOT allowed due to error").Len(), test.ShouldEqual, 1)
+	})
+
+	t.Run("sensor not found", func(t *testing.T) {
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/nonexistent",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: sensor1,
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+
+		cfgWithMore := &config.Config{
+			MaintenanceConfig: &config.MaintenanceConfig{
+				SensorName:            "rdk:component:sensor/nonexistent",
+				MaintenanceAllowedKey: "ThatsMyWallet",
+			},
+			Components: append(sensor1, sensor2...),
+		}
+		r.Reconfigure(ctx, cfgWithMore)
+
+		// Construction and reconfiguration should both log here (setupLocalRobot does not go
+		// through the "initializing" state that robot constructed through entrypoint code
+		// does), so expect 2 logs.
+		test.That(t, logs.FilterMessage("Reconfigure allowed despite error while checking").Len(), test.ShouldEqual, 2)
+	})
+}
+
 func TestRemovingOfflineRemote(t *testing.T) {
 	logger, _ := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
