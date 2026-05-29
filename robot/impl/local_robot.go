@@ -1443,12 +1443,10 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	}()
 
 	// No need to check whether reconfiguring is allowed if this is initialization.
+	var reconfigureAllowedErr error
 	if !r.initializing.Load() {
-		reconfigureAllowed, err := r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
-		if err != nil {
-			r.logger.CWarnw(ctx, "Error checking whether reconfigure is allowed", "error", err.Error())
-		}
-
+		var reconfigureAllowed bool
+		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
 		if !reconfigureAllowed {
 			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
 			// or resources changed), otherwise silently return.
@@ -1458,25 +1456,26 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 				return
 			}
 			if diff != nil && !diff.NetworkEqual {
-				if err != nil {
+				if reconfigureAllowedErr != nil {
 					r.logger.CInfow(
 						ctx,
-						"Reconfigure NOT allowed due to maintenance sensor error but Cloud/Auth/Network config changes will be applied",
+						"Reconfigure NOT allowed due to error but Cloud/Auth/Network config changes will be applied",
 						"error",
-						err.Error(),
+						reconfigureAllowedErr.Error(),
 					)
 				} else {
-					r.logger.CInfo(
+					r.logger.CInfow(
 						ctx,
 						"Reconfigure NOT allowed by maintenance sensor but Cloud/Auth/Network config changes will be applied",
+						"sensor",
+						newConfig.MaintenanceConfig.SensorName,
 					)
 				}
-			}
-			if diff != nil && !diff.ResourcesEqual {
-				if err != nil {
-					r.logger.CInfow(ctx, "Reconfigure NOT allowed due to maintenance sensor error", "error", err.Error())
+			} else if diff != nil && !diff.ResourcesEqual {
+				if reconfigureAllowedErr != nil {
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed due to error", "error", reconfigureAllowedErr.Error())
 				} else {
-					r.logger.CInfo(ctx, "Reconfigure NOT allowed by maintenance sensor")
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed by maintenance sensor", "sensor", newConfig.MaintenanceConfig.SensorName)
 				}
 			}
 			return
@@ -1679,6 +1678,23 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() {
 		logVerb = "Reconfigur"
 		logNoun = "reconfiguration"
+		if newConfig.MaintenanceConfig != nil {
+			if reconfigureAllowedErr != nil {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed despite error while checking",
+					"error",
+					reconfigureAllowedErr.Error(),
+				)
+			} else {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed by maintenance sensor",
+					"sensor",
+					newConfig.MaintenanceConfig.SensorName,
+				)
+			}
+		}
 	}
 	r.logger.CInfof(ctx, "%ving robot", logVerb)
 
@@ -2097,6 +2113,11 @@ func (r *localRobot) RestartAllowed() bool {
 		return false
 	}
 
+	// The error return is insignificant here; any reconfigureAllowed errors will be logged
+	// in the main reconfigure method. We do not want to log them every time viam-agent hits
+	// the restart_allowed endpoint.
+	//
+	//nolint:errcheck
 	reconfigureAllowed, _ := r.reconfigureAllowed(context.Background(), r.Config().MaintenanceConfig)
 	return reconfigureAllowed
 }
