@@ -12,12 +12,15 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -482,4 +485,52 @@ func TestObserveArmKinematicReconfiguration(t *testing.T) {
 
 	postFSLabels := frameSystemGeometryLabels()
 	test.That(t, postFSLabels, test.ShouldResemble, postArmLabels)
+}
+
+func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	cfg := config.Config{
+		Components: []resource.Config{
+			resource.Config{
+				Name:  "camera",
+				API:   camera.API,
+				Model: fakecamera.Model,
+				Frame: &referenceframe.LinkConfig{
+					ID:     "special-frame-name",
+					Parent: "world",
+				},
+				ConvertedAttributes: &fakecamera.Config{},
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	// fss, err := resource.FromProvider[framesystem.Service](robot, framesystem.InternalServiceName)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame := fs.Frame("special-frame-name_origin")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	geomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+
+	camGeomFromFS := geomsInFrame.Geometries()[0]
+	test.That(t, camGeomFromFS.Label(), test.ShouldEqual, "special-frame-name_origin")
+
+	cam, err := camera.FromProvider(robot, "camera")
+	test.That(t, err, test.ShouldBeNil)
+	geoms, err := cam.Geometries(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geoms, test.ShouldHaveLength, 1)
+
+	camGeomFromCam := geoms[0]
+	test.That(t, camGeomFromCam.Label(), test.ShouldEqual, "box")
+	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
 }

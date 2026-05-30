@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 )
 
 var (
@@ -188,6 +189,12 @@ type Camera struct {
 	cacheImage              image.Image
 	cachePointCloud         pointcloud.PointCloud
 	logger                  logging.Logger
+}
+
+// Geometries returns Geometries.
+func (c *Camera) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	box, err := spatialmath.NewBox(spatialmath.NewZeroPose(), r3.Vector{X: 40, Y: 40, Z: 10}, "box")
+	return []spatialmath.Geometry{box}, err
 }
 
 // Read always returns the same image of a yellow to blue gradient.
