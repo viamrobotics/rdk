@@ -1291,9 +1291,9 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			if err != nil {
 				logger.Debugw("`Geometries` method returned error.", "err", err)
 			} else {
+				//nolint
 				switch len(resGeometries) {
 				case 0:
-					//nolint
 				default: // > 1
 					logger.Warnw(
 						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
