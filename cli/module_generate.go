@@ -1309,6 +1309,16 @@ func createModuleAndManifest(
 			return "", errors.Wrap(err, "failed to parse module identifier")
 		}
 		registryURL = moduleResponse.GetUrl()
+		if err := c.recordModuleLanguage(
+			ctx,
+			module.OrgID,
+			module.ModuleName,
+			module.Language,
+			"",
+			module.Visibility,
+		); err != nil {
+			warningf(cmd.Root().Writer, "Module registered, but failed to record language: %v", err)
+		}
 	} else {
 		debugf(cmd.Root().Writer, globalArgs.Debug, "Creating a local-only module")
 		moduleID.name = module.ModuleName

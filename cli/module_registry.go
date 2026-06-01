@@ -469,6 +469,50 @@ func (c *viamClient) createModule(ctx context.Context, moduleName, organizationI
 	return c.client.CreateModule(ctx, &req)
 }
 
+func cliLanguageToProto(language string) (apppb.ModuleLanguage, bool) {
+	switch language {
+	case python:
+		return apppb.ModuleLanguage_MODULE_LANGUAGE_PYTHON, true
+	case golang:
+		return apppb.ModuleLanguage_MODULE_LANGUAGE_GOLANG, true
+	case cpp:
+		return apppb.ModuleLanguage_MODULE_LANGUAGE_CPP, true
+	default:
+		return apppb.ModuleLanguage_MODULE_LANGUAGE_UNSPECIFIED, false
+	}
+}
+
+func (c *viamClient) recordModuleLanguage(
+	ctx context.Context,
+	orgID, moduleName, language, description, visibility string,
+) error {
+	langProto, ok := cliLanguageToProto(language)
+	if !ok {
+		return nil
+	}
+
+	visibilityProto, err := visibilityToProto(visibility)
+	if err != nil {
+		return err
+	}
+
+	sourceType := apppb.ModuleSourceType_MODULE_SOURCE_TYPE_EXTERNAL
+	itemID := fmt.Sprintf("%s:%s", orgID, moduleName)
+	_, err = c.client.UpdateRegistryItem(ctx, &apppb.UpdateRegistryItemRequest{
+		ItemId:      itemID,
+		Type:        packagespb.PackageType_PACKAGE_TYPE_MODULE,
+		Description: description,
+		Visibility:  visibilityProto,
+		Metadata: &apppb.UpdateRegistryItemRequest_UpdateModuleMetadata{
+			UpdateModuleMetadata: &apppb.UpdateModuleMetadata{
+				SourceType: &sourceType,
+				Language:   &langProto,
+			},
+		},
+	})
+	return err
+}
+
 func (c *viamClient) getModule(ctx context.Context, moduleID moduleID) (*apppb.GetModuleResponse, error) {
 	req := apppb.GetModuleRequest{
 		ModuleId: moduleID.String(),

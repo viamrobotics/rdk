@@ -481,3 +481,27 @@ func TestParseMetaJSONWithBrandingFields(t *testing.T) {
 		})
 	}
 }
+
+func TestCliLanguageToProto(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		language string
+		expected v1.ModuleLanguage
+		ok       bool
+	}{
+		{language: python, expected: v1.ModuleLanguage_MODULE_LANGUAGE_PYTHON, ok: true},
+		{language: golang, expected: v1.ModuleLanguage_MODULE_LANGUAGE_GOLANG, ok: true},
+		{language: cpp, expected: v1.ModuleLanguage_MODULE_LANGUAGE_CPP, ok: true},
+		{language: "rust", expected: v1.ModuleLanguage_MODULE_LANGUAGE_UNSPECIFIED, ok: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.language, func(t *testing.T) {
+			t.Parallel()
+			language, ok := cliLanguageToProto(tc.language)
+			test.That(t, ok, test.ShouldEqual, tc.ok)
+			test.That(t, language, test.ShouldEqual, tc.expected)
+		})
+	}
+}
