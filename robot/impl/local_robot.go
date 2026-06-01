@@ -814,11 +814,8 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 		// by simple name.
 		//
 		// Not checking whether the resource actually exists because that is done later in the function.
-		var graphNodeName resource.Name
 		resolvedOptionalDepName, err := resource.NewFromString(optionalDepNameString)
-		if err == nil {
-			graphNodeName = resolvedOptionalDepName
-		} else {
+		if err != nil {
 			matchingResourceNames := r.manager.resources.FindBySimpleName(optionalDepNameString)
 			switch len(matchingResourceNames) {
 			case 0:
@@ -841,18 +838,27 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 				)
 				continue
 			}
-			// matchingResourceNames[0] is the full graph node name (including any
-			// remote prefix). Keep that for the GraphNode lookup below.
-			graphNodeName = matchingResourceNames[0]
-
 			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
 			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 			// dependency map in a resource constructor.
-			resolvedOptionalDepName = graphNodeName.PopRemote()
+			resolvedOptionalDepName = matchingResourceNames[0].PopRemote()
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
-		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		// Resolve via simpleNameCache so the resource and the snapshot entry come from
+		// one lookup; a direct g.nodes lookup misses FQNs that resolve to a
+		// remote-resident node via the short-name fallback.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+			continue
+		}
+		optionalDep, err := node.Resource()
 		if err != nil {
 			r.logger.Infow(
 				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
@@ -865,9 +871,7 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 
 		optDeps[resolvedOptionalDepName] = optionalDep
 		found = append(found, resolvedOptionalDepName)
-		if node, ok := r.manager.resources.Node(graphNodeName); ok {
-			snapshot[resolvedOptionalDepName] = node.UpdatedAt()
-		}
+		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
@@ -917,7 +921,16 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		// Resolve via simpleNameCache so the resource and the snapshot entry come from
+		// one lookup; a direct g.nodes lookup misses prefixed remote names.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
+		if err != nil {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
+			}
+			continue
+		}
+		res, err := node.Resource()
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
@@ -930,9 +943,7 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 				// dependency map in a resource constructor.
 				popped := n.PopRemote()
 				deps[popped] = res
-				if node, ok := r.manager.resources.Node(n); ok {
-					snapshot[popped] = node.UpdatedAt()
-				}
+				snapshot[popped] = node.UpdatedAt()
 				break
 			}
 		}

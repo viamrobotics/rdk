@@ -361,6 +361,11 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				"reason", err)
 			continue
 		}
+		// MarkForRemoval bumps the graph's logical clock and transitions the node to
+		// Removing, so any local resource with a weak/optional dependency on this
+		// dropped remote resource is detected as stale by updateWeakAndOptionalDependents
+		// on the next pass. Close then clears `current` and shuts down the gRPC client.
+		gNode.MarkForRemoval()
 		if err := gNode.Close(ctx); err != nil {
 			resLogger.CErrorw(ctx,
 				"failed to close remote resource node",
