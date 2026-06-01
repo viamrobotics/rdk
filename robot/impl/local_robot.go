@@ -845,9 +845,9 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
-		// Resolve via simpleNameCache so the resource and the snapshot entry come from
-		// one lookup; a direct g.nodes lookup misses FQNs that resolve to a
-		// remote-resident node via the short-name fallback.
+		// Resolve via simpleNameCache so the resource and UpdatedAt come from one
+		// lookup. The split (ResourceByName + g.nodes) would miss prefixed remote
+		// names on the g.nodes side.
 		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
 		if err != nil {
 			r.logger.Infow(
@@ -921,8 +921,9 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		// Resolve via simpleNameCache so the resource and the snapshot entry come from
-		// one lookup; a direct g.nodes lookup misses prefixed remote names.
+		// Resolve via simpleNameCache so the resource and UpdatedAt come from one
+		// lookup. The split (ResourceByName + g.nodes) would miss prefixed remote
+		// names on the g.nodes side.
 		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
@@ -932,6 +933,8 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		}
 		res, err := node.Resource()
 		if err != nil {
+			// Wrap as NotAvailableError to match the prior ResourceByName behavior
+			err = resource.NewNotAvailableError(n, err)
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
 			}
