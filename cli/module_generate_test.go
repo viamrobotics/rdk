@@ -233,7 +233,6 @@ func TestAddModel(t *testing.T) {
 	})
 
 	t.Run("addGoModelToMain registers new model", func(t *testing.T) {
-		t.Parallel()
 		dir := t.TempDir()
 
 		// A minimal main.go matching the generated template.
@@ -274,7 +273,6 @@ func main() {
 	})
 
 	t.Run("addGoModelToMain skips duplicate import", func(t *testing.T) {
-		t.Parallel()
 		dir := t.TempDir()
 
 		// main.go already imports arm; adding another arm model should not duplicate it.
@@ -411,7 +409,8 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 	})
 
 	t.Run("AddModelAction dry run", func(t *testing.T) {
-		t.Parallel()
+		// No t.Parallel(): calls testChdir which mutates process-wide CWD,
+		// which races with parallel subtests that call go install / use relative paths.
 		dir := t.TempDir()
 		testChdir(t, dir)
 
@@ -447,7 +446,8 @@ file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 }
 
 func TestGenerateModuleAction(t *testing.T) {
-	t.Parallel()
+	// No t.Parallel(): subtests use relative paths that depend on CWD (set by testChdir),
+	// so this test must run sequentially to avoid races with TestAddModel's testChdir calls.
 	testModule := modulegen.ModuleInputs{
 		ModuleName:       "my-module",
 		Visibility:       moduleVisibilityPrivate,
