@@ -1,6 +1,7 @@
 namespace viam::gen::fmt_str {
 
 constexpr auto orgID = "{{ .OrgID }}";
+constexpr auto ns = "{{ .Namespace }}";
 
 constexpr auto moduleName = "{{ .ModuleName }}";
 constexpr auto modulePascal = "{{ .ModulePascal }}";
@@ -8,6 +9,7 @@ constexpr auto moduleSnake = "{{ .ModuleSnake }}";
 
 constexpr auto modelPascal = "{{ .ModelPascal }}";
 constexpr auto modelSnake = "{{ .ModelSnake }}";
+constexpr auto modelName = "{{ .ModelName }}";
 
 constexpr auto resourceSubtypePascal = "{{ .ResourceSubtypePascal }}";
 constexpr auto resourceSubtypeSnake = "{{ .ResourceSubtypeSnake }}";

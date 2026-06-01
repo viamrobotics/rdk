@@ -1107,7 +1107,7 @@ func generateCppStubs(module modulegen.ModuleInputs) error {
 }
 
 func generateGolangStubs(module modulegen.ModuleInputs) error {
-	out, err := gen.RenderGoTemplates(module)
+	out, err := gen.RenderGoTemplates(module, false)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate go stubs -- generator script encountered an error")
 	}
@@ -1536,7 +1536,7 @@ func readViamGenInfo(dir string) (*modulegen.ModuleInputs, error) {
 // addGolangModelFile generates a Go source file with method stubs for the new model.
 // It writes to <model_snake>.go in dir (the module root).
 func addGolangModelFile(dir string, module modulegen.ModuleInputs) error {
-	out, err := gen.RenderGoTemplates(module)
+	out, err := gen.RenderGoTemplates(module, true)
 	if err != nil {
 		return errors.Wrap(err, "generator script encountered an error")
 	}
@@ -1554,6 +1554,49 @@ func addGolangModelFile(dir string, module modulegen.ModuleInputs) error {
 		return errors.Wrap(err, "unable to sort imports")
 	}
 	return nil
+}
+
+// addGoModelToMain updates cmd/module/main.go to register the new model in module.ModularMain.
+// It inserts a resource.APIModel entry for the new model and adds the subtype import if needed.
+func addGoModelToMain(mainGoPath string, module modulegen.ModuleInputs) error {
+	//nolint:gosec
+	data, err := os.ReadFile(mainGoPath)
+	if err != nil {
+		return errors.Wrap(err, "unable to read main.go")
+	}
+	content := string(data)
+
+	// Add the import for the new resource subtype if it isn't already present.
+	importPath := fmt.Sprintf("go.viam.com/rdk/%ss/%s", module.ResourceType, module.ResourceSubtype)
+	if !strings.Contains(content, importPath) {
+		newImport := fmt.Sprintf("\t%s \"go.viam.com/rdk/%ss/%s\"",
+			module.ResourceSubtypeAlias, module.ResourceType, module.ResourceSubtype)
+		// Insert before the blank line + closing ) that ends the import block.
+		const importBlockEnd = "\n)\n\nfunc main"
+		if !strings.Contains(content, importBlockEnd) {
+			return errors.New("cannot locate import block closing in main.go; file may have been manually edited")
+		}
+		content = strings.Replace(content, importBlockEnd, "\n"+newImport+importBlockEnd, 1)
+	}
+
+	// Insert the new APIModel entry into the module.ModularMain(...) call.
+	const mmFunc = "module.ModularMain("
+	mmIdx := strings.Index(content, mmFunc)
+	if mmIdx == -1 {
+		return errors.New("cannot find module.ModularMain call in main.go; file may have been manually edited")
+	}
+	afterMM := content[mmIdx+len(mmFunc):]
+	closingIdx := strings.Index(afterMM, ")")
+	if closingIdx == -1 {
+		return errors.New("cannot find closing ) of module.ModularMain in main.go")
+	}
+	newAPIModel := fmt.Sprintf(", resource.APIModel{%s.API, %s.%s}",
+		module.ResourceSubtypeAlias, module.ModuleLowercase, module.ModelPascal)
+	insertAt := mmIdx + len(mmFunc) + closingIdx
+	content = content[:insertAt] + newAPIModel + content[insertAt:]
+
+	//nolint:gosec
+	return os.WriteFile(mainGoPath, []byte(content), 0o644)
 }
 
 // addPythonModelFiles generates a Python stub file for the new model in src/models/ and
@@ -1584,6 +1627,10 @@ func addPythonModelFiles(module modulegen.ModuleInputs) error {
 		module.ResourceSubtype, module.Namespace, module.ModuleName, module.ModelName)
 	out, err := stubCmd.Output()
 	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return fmt.Errorf("generator script encountered an error:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
 		return errors.Wrap(err, "generator script encountered an error")
 	}
 
@@ -1700,17 +1747,24 @@ func addCppModelToMainCpp(mainCppPath string, module modulegen.ModuleInputs) err
 	if mrsIdx == -1 {
 		return errors.New("cannot find model registrations vector in main.cpp")
 	}
+	// %[1]s = ModelSnake  (underscores, for C++ variable names)
+	// %[2]s = Namespace   (namespace string in model triple)
+	// %[3]s = ModuleName  (original name with dashes, for model triple string)
+	// %[4]s = ResourceSubtypePascal
+	// %[5]s = ModelPascal (C++ class name)
+	// %[6]s = ModuleSnake (underscores, for C++ namespace)
+	// %[7]s = ModelName   (original name with dashes, for model triple string)
 	registrationBlock := fmt.Sprintf(
-		"\n    viam::sdk::Model %[1]s_model(\"%[2]s\", \"%[3]s\", \"%[1]s\");"+
+		"\n    viam::sdk::Model %[1]s_model(\"%[2]s\", \"%[3]s\", \"%[7]s\");"+
 			"\n\n    auto %[1]s_mr = std::make_shared<viam::sdk::ModelRegistration>("+
 			"\n        viam::sdk::API::get<viam::sdk::%[4]s>(),"+
 			"\n        %[1]s_model,"+
 			"\n        [](viam::sdk::Dependencies deps, viam::sdk::ResourceConfig cfg) {"+
-			"\n            return std::make_unique<%[3]s::%[5]s>(deps, cfg);"+
+			"\n            return std::make_unique<%[6]s::%[5]s>(deps, cfg);"+
 			"\n        },"+
-			"\n        &%[3]s::%[5]s::validate);",
+			"\n        &%[6]s::%[5]s::validate);",
 		module.ModelSnake, module.Namespace, module.ModuleName,
-		module.ResourceSubtypePascal, module.ModelPascal,
+		module.ResourceSubtypePascal, module.ModelPascal, module.ModuleSnake, module.ModelName,
 	)
 	content = content[:mrsIdx] + registrationBlock + content[mrsIdx:]
 
@@ -1873,6 +1927,10 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 		case golang:
 			if err := addGolangModelFile(".", *newModel); err != nil {
 				fatalError = errors.Wrap(err, "failed to generate Go model file")
+				return
+			}
+			if err := addGoModelToMain(filepath.Join("cmd", "module", "main.go"), *newModel); err != nil {
+				fatalError = errors.Wrap(err, "failed to update cmd/module/main.go")
 				return
 			}
 		case python:
