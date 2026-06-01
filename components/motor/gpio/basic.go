@@ -227,18 +227,17 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
-	return m.setPower(ctx, powerPct, extra)
-}
-
-func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	if math.Abs(powerPct) <= 0.01 {
-		return m.Stop(ctx, extra)
-	}
-	// Stop locks/unlocks the mutex as well so in the case that the power ~= 0
-	// we want to simply rely on the mutex use in Stop
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.opMgr.CancelRunning(ctx)
+	return m.setPowerInLock(ctx, powerPct, extra)
+}
+
+// setPowerInLock drives the pins for the requested power. Callers MUST hold m.mu.
+func (m *Motor) setPowerInLock(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	if math.Abs(powerPct) <= 0.01 {
+		return m.stopInLock(ctx, extra)
+	}
 
 	switch m.motorType {
 	case DirectionPwm:
@@ -275,9 +274,6 @@ func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string
 // for this so power is determined via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	ctx, finish := m.opMgr.New(ctx)
-	defer finish()
-
 	if m.maxRPM == 0 {
 		return errors.New("not supported, define max_rpm attribute != 0")
 	}
@@ -295,7 +291,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err = m.setPower(ctx, powerPct, extra)
+
+	// Register the op and drive the pins atomically so an interleaved GoFor/SetPower/Stop
+	// can't slip its pin writes in between our opMgr.New and our setPower.
+	m.mu.Lock()
+	ctx, finish := m.opMgr.New(ctx)
+	defer finish()
+	err = m.setPowerInLock(ctx, powerPct, extra)
+	m.mu.Unlock()
 	if err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
@@ -317,6 +320,11 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.stopInLock(ctx, extra)
+}
+
+// stopInLock cancels any running op and drives the motor off. Callers MUST hold m.mu.
+func (m *Motor) stopInLock(ctx context.Context, extra map[string]interface{}) error {
 	m.opMgr.CancelRunning(ctx)
 	return m.setPWM(context.Background(), 0, extra)
 }
