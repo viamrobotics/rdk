@@ -12,12 +12,15 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -388,4 +391,151 @@ func TestModularFramesystemDependency(t *testing.T) {
 	test.That(t, resp["fsCfg"], test.ShouldNotBeNil)
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "foo")
 	test.That(t, resp["fsCfg"], test.ShouldContainSubstring, "myParentIsFoo")
+}
+
+func TestObserveArmKinematicReconfiguration(t *testing.T) {
+	// RSDK-13983: Arm clients were caching kinematics from remote arm's indefinitely. This led to
+	// problems where a reconfiguration of an arm could change kinematics. In the real world, this
+	// was observed when swapping to simple geometry kinematics to high-resolution URDF meshes. This
+	// test instead opts for changing a fake arm from a lite6 to a ur5e and reads out the geometries
+	// from a couple of code paths to assert the frame system's understanding of the arm kinematics
+	// have been updated.
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// This module is just a wrapper around the existing RDK fake arm. We need modules here because
+	// the affected code is in the client.
+	fakeArmModulePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/fakearmmodule")
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "fakearmmodule",
+				ExePath: fakeArmModulePath,
+			},
+		},
+		Components: []resource.Config{
+			{
+				Name:       "myArm",
+				API:        arm.API,
+				Model:      resource.NewModel("acme", "demo", "fakearm"),
+				Attributes: rutils.AttributeMap{"arm-model": "lite6"},
+				Frame: &referenceframe.LinkConfig{
+					Parent: referenceframe.World,
+				},
+			},
+		},
+	}
+	rbtI := setupLocalRobot(t, ctx, cfg, logger)
+	rbt := rbtI.(*localRobot)
+
+	// A helper that pulls out all of the geometry labels from `myArm`.
+	armGeometryLabels := func() []string {
+		armResource, err := rbt.ResourceByName(arm.Named("myArm"))
+		test.That(t, err, test.ShouldBeNil)
+
+		armComponent, ok := armResource.(arm.Arm)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		geometries, err := armComponent.Geometries(ctx, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		labels := make([]string, 0)
+		for _, geometry := range geometries {
+			labels = append(labels, geometry.Label())
+		}
+		return labels
+	}
+
+	// A helper that pulls out all of the geometries in the robot frame system. Given the robot only
+	// contains an arm, these should exactly match the geometry labels from the arm.
+	frameSystemGeometryLabels := func() []string {
+		fsCfg, err := rbt.frameSvc.FrameSystemConfig(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		frameSystem, err := referenceframe.NewFrameSystem("test", fsCfg.Parts, nil)
+		test.That(t, err, test.ShouldBeNil)
+
+		labels := make([]string, 0)
+		for _, frameName := range frameSystem.FrameNames() {
+			frame := frameSystem.Frame(frameName)
+			if frame == nil {
+				continue
+			}
+
+			zeroInputs := make([]referenceframe.Input, len(frame.DoF()))
+			gif, err := frame.Geometries(zeroInputs)
+			test.That(t, err, test.ShouldBeNil)
+
+			for _, geometry := range gif.Geometries() {
+				labels = append(labels, geometry.Label())
+			}
+		}
+		return labels
+	}
+
+	preArmLabels := armGeometryLabels()
+	preFSLabels := frameSystemGeometryLabels()
+	test.That(t, preFSLabels, test.ShouldResemble, preArmLabels)
+
+	cfg.Components[0].Attributes = rutils.AttributeMap{"arm-model": "ur5e"}
+	rbt.Reconfigure(ctx, cfg)
+
+	postArmLabels := armGeometryLabels()
+	test.That(t, postArmLabels, test.ShouldNotResemble, preArmLabels)
+
+	postFSLabels := frameSystemGeometryLabels()
+	test.That(t, postFSLabels, test.ShouldResemble, postArmLabels)
+}
+
+func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// RSDK-14034: The fake camera implements a `Geometries` method. We want to assert that
+	// component's geometry shows up when constructing a frame system from the robot's frame system
+	// service. Such that it would be used as an obstacle for motion planning.
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "camera",
+				API:   camera.API,
+				Model: fakecamera.Model,
+				Frame: &referenceframe.LinkConfig{
+					ID:     "special-frame-name",
+					Parent: "world",
+				},
+				ConvertedAttributes: &fakecamera.Config{},
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame := fs.Frame("special-frame-name_origin")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	geomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+
+	camGeomFromFS := geomsInFrame.Geometries()[0]
+	test.That(t, camGeomFromFS.Label(), test.ShouldEqual, "special-frame-name_origin")
+
+	cam, err := camera.FromProvider(robot, "camera")
+	test.That(t, err, test.ShouldBeNil)
+	geoms, err := cam.Geometries(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geoms, test.ShouldHaveLength, 1)
+
+	camGeomFromCam := geoms[0]
+	test.That(t, camGeomFromCam.Label(), test.ShouldEqual, "box")
+	// Assert geometry identify by using `ToPoints` with the same resolution. The camera is parented
+	// with no translation to the world frame. Hence we can expect the X/Y/Z points of the frame
+	// system geometry to match the camera's.
+	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
 }

@@ -121,7 +121,10 @@ func TestCrashShortCircuit(t *testing.T) {
 	for _, mode := range []string{"unix", "tcp"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx := context.Background()
-			logger := logging.NewTestLogger(t)
+			// This test is known to have an OUE that logs after the test completes ("Restart
+			// context canceled; abandoning restart attempt"). We want a "silent after complete"
+			// logger here.
+			logger := logging.NewTestLoggerSilentAfterComplete(t)
 
 			if mode == "tcp" {
 				os.Setenv("VIAM_TCP_SOCKETS", "yes")

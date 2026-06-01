@@ -20,7 +20,6 @@ import (
 // client implements GripperServiceClient.
 type client struct {
 	resource.Named
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.GripperServiceClient
@@ -44,6 +43,16 @@ func NewClientFromConn(
 		client: pb.NewGripperServiceClient(conn),
 		logger: logger,
 	}, nil
+}
+
+// Reconfigure invalidates the cached `model` value. It's expected to be invoked when this `client`
+// represents an rdk <-> modular gripper connection and the gripper rebuilds.
+func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	c.mu.Lock()
+	c.model = nil
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {

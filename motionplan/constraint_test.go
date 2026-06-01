@@ -117,6 +117,7 @@ func TestConstraintPath(t *testing.T) {
 		referenceframe.NewNeutralLinearInputs(fs),
 		&referenceframe.WorldState{},
 		logger,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -223,6 +224,7 @@ func TestLineFollow(t *testing.T) {
 		startCfg,
 		&referenceframe.WorldState{},
 		logger,
+		nil,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -271,7 +273,7 @@ func TestCollisionConstraints(t *testing.T) {
 	}{
 		{zeroPos, true, ""},
 		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 0, 0}, true, ""},
-		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, obstacleConstraintDescription},
+		{[]referenceframe.Input{math.Pi, 0, 0, 0, 0, 0}, false, ObstacleConstraintDescription},
 		{[]referenceframe.Input{math.Pi / 4, 0, 0, 0, 2, 0}, false, selfCollisionConstraintDescription},
 	}
 
@@ -323,6 +325,8 @@ func TestCollisionConstraints(t *testing.T) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		nil,
+		logging.NewTestLogger(t),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -452,7 +456,7 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		// Test that initial collisions are detected and combined with specifications
 		collisionSpecs := []Collision{{"box1", "box3"}}
 		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static,
-			collisionSpecs, defaultCollisionBufferMM)
+			collisionSpecs, defaultCollisionBufferMM, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 2)
 
@@ -477,7 +481,7 @@ func TestComputeInitialCollisionsToIgnore(t *testing.T) {
 		moving := []spatial.Geometry{geom1}
 		static := []spatial.Geometry{geom2}
 
-		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM)
+		ignoreList, err := computeInitialCollisionsToIgnore(fs, moving, static, nil, defaultCollisionBufferMM, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(ignoreList), test.ShouldEqual, 0)
 	})
@@ -494,7 +498,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, _, err := CheckCollisions([]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil,
-			defaultCollisionBufferMM, false)
+			defaultCollisionBufferMM, false, logging.NewTestLogger(t))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldNotBeEmpty)
 		test.That(t, collisions[0].name1, test.ShouldBeIn, "box1", "box2")
@@ -508,7 +512,7 @@ func TestCollisionDistance(t *testing.T) {
 		geom2.SetLabel("box2")
 
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, nil, defaultCollisionBufferMM, false, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -523,7 +527,7 @@ func TestCollisionDistance(t *testing.T) {
 
 		ignoreList := []Collision{{"box1", "box2"}}
 		collisions, minDist, err := CheckCollisions(
-			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false,
+			[]spatial.Geometry{geom1}, []spatial.Geometry{geom2}, ignoreList, defaultCollisionBufferMM, false, logging.NewTestLogger(t),
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, collisions, test.ShouldBeEmpty)
@@ -580,6 +584,8 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		worldGeometries.Geometries(),
 		nil, // allowedCollisions
 		defaultCollisionBufferMM,
+		nil,
+		logging.NewTestLogger(b),
 	)
 	test.That(b, err, test.ShouldBeNil)
 
@@ -594,5 +600,103 @@ func BenchmarkCollisionConstraints(b *testing.B) {
 		}
 		_, err = handler.CheckStateFSConstraints(context.Background(), stateFS)
 		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+// BenchmarkCollisionConstraintsObstructedEdge models the motion-planner edge-
+// rejection path: a colliding configuration probed many times with tiny
+// perturbations, the way checkPath interpolates along an obstructed edge. The
+// last-violated-pair hint inside the collision constraint should let each call
+// after the first reject in O(1) pair checks instead of O(N·M).
+func BenchmarkCollisionConstraintsObstructedEdge(b *testing.B) {
+	// Place one box that's actually in the way, plus many decoy boxes far away
+	// so the pair-iteration cost dominates. Without the hint, the constraint
+	// has to scan most pairs before finding the colliding one; with the hint,
+	// the previously-found pair is checked first and the call returns in O(1).
+	obstacles := []spatial.Geometry{}
+	blocker, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 300}),
+		r3.Vector{X: 400, Y: 400, Z: 400}, "blocker")
+	test.That(b, err, test.ShouldBeNil)
+	obstacles = append(obstacles, blocker)
+	for i := 0; i < 30; i++ {
+		decoy, err := spatial.NewBox(
+			spatial.NewPoseFromPoint(r3.Vector{X: 5000 + float64(i)*100, Y: 0, Z: 0}),
+			r3.Vector{X: 10, Y: 10, Z: 10},
+			fmt.Sprintf("decoy_%d", i),
+		)
+		test.That(b, err, test.ShouldBeNil)
+		obstacles = append(obstacles, decoy)
+	}
+	worldState, err := referenceframe.NewWorldState([]*referenceframe.GeometriesInFrame{
+		referenceframe.NewGeometriesInFrame(referenceframe.World, obstacles),
+	}, nil)
+	test.That(b, err, test.ShouldBeNil)
+
+	model, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("components/arm/fake/kinematics/xarm6.json"), "")
+	test.That(b, err, test.ShouldBeNil)
+	fs := referenceframe.NewEmptyFrameSystem("test")
+	err = fs.AddFrame(model, fs.Frame(referenceframe.World))
+	test.That(b, err, test.ShouldBeNil)
+
+	// Seed config: arm folded away from blocker. Used by
+	// computeInitialCollisionsToIgnore to build the ignore list — must NOT
+	// collide with the obstacle or the obstacle pair gets filtered forever.
+	seedConfig := []referenceframe.Input{0, -1.5, -1.5, 0, 1.5, 0}
+	seedMap := referenceframe.FrameSystemInputs{model.Name(): seedConfig}
+
+	// Colliding config: zero pose puts the wrist/forearm inside the blocker box.
+	collidingConfig := []referenceframe.Input{0, 0, 0, 0, 0, 0}
+
+	movingGeometriesInFrame, err := model.Geometries(seedMap[model.Name()])
+	test.That(b, err, test.ShouldBeNil)
+	movingRobotGeometries := movingGeometriesInFrame.Geometries()
+	staticRobotGeometries := []spatial.Geometry{}
+	frameSystemGeometries, err := referenceframe.FrameSystemGeometries(fs, seedMap)
+	test.That(b, err, test.ShouldBeNil)
+	for name, geometries := range frameSystemGeometries {
+		if name != model.Name() {
+			staticRobotGeometries = append(staticRobotGeometries, geometries.Geometries()...)
+		}
+	}
+	worldGeometries, err := worldState.ObstaclesInWorldFrame(fs, seedMap)
+	test.That(b, err, test.ShouldBeNil)
+
+	handler := &ConstraintChecker{}
+	handler.collisionConstraints, err = CreateAllCollisionConstraints(
+		fs, movingRobotGeometries, staticRobotGeometries, worldGeometries.Geometries(),
+		nil, defaultCollisionBufferMM, nil, logging.NewTestLogger(b))
+	test.That(b, err, test.ShouldBeNil)
+
+	// Walk a short trajectory that stays in collision throughout — simulates
+	// the planner discovering an obstructed edge and walking forward looking
+	// for the first valid sub-state.
+	const steps = 32
+	configs := make([]referenceframe.FrameSystemInputs, steps)
+	for i := 0; i < steps; i++ {
+		t := float64(i) / float64(steps-1)
+		perturbed := make([]referenceframe.Input, len(collidingConfig))
+		for j, v := range collidingConfig {
+			perturbed[j] = v + referenceframe.Input(t*0.02)
+		}
+		configs[i] = referenceframe.FrameSystemInputs{model.Name(): perturbed}
+	}
+
+	// Sanity-check that the trajectory actually collides — without this the
+	// bench would silently measure the non-colliding fast path on both sides
+	// and the hint would never get populated.
+	{
+		stateFS := &StateFS{Configuration: configs[0].ToLinearInputs(), FS: fs}
+		_, err = handler.CheckStateFSConstraints(context.Background(), stateFS)
+		test.That(b, err, test.ShouldNotBeNil)
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for n := 0; n < b.N; n++ {
+		stateFS := &StateFS{
+			Configuration: configs[n%steps].ToLinearInputs(),
+			FS:            fs,
+		}
+		_, _ = handler.CheckStateFSConstraints(context.Background(), stateFS)
 	}
 }

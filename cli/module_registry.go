@@ -533,6 +533,7 @@ func (c *viamClient) uploadModuleFile(
 	if err != nil {
 		return nil, err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	stream, err := c.client.UploadModuleFile(ctx)
 	if err != nil {
 		return nil, err
@@ -583,6 +584,7 @@ func validateModuleFile(
 	if err != nil {
 		return err
 	}
+	defer vutils.UncheckedErrorFunc(file.Close)
 	archive, err := gzip.NewReader(file)
 	if err != nil {
 		return err
@@ -968,6 +970,11 @@ func readModels(path string, logger logging.Logger) ([]ModuleComponent, error) {
 	}
 
 	parentAddrs := modconfig.ParentSockAddrs{UnixAddr: parentAddr}
+	if runtime.GOOS == osWindows {
+		// tcp mode needs to be true on windows python
+		parentAddrs = modconfig.ParentSockAddrs{TCPAddr: "127.0.0.1:0"}
+		cfg.TCPMode = true
+	}
 	mgr, err := modmanager.NewManager(context.Background(), parentAddrs, logger, modmanageroptions.Options{
 		UntrustedEnv:            false,
 		HandleOrphanedResources: func(_ context.Context, _ []resource.Name) {},
@@ -1090,14 +1097,14 @@ func getNextModuleUploadRequest(file *os.File) (*apppb.UploadModuleFileRequest, 
 
 type downloadModuleFlags struct {
 	Destination string
-	ModuleID    string
+	ID          string
 	OrgID       string
 	Version     string
 	Platform    string
 }
 
 func (c *viamClient) downloadModuleAction(ctx context.Context, cmd *cli.Command, flags downloadModuleFlags) (string, error) {
-	moduleID := flags.ModuleID
+	moduleID := flags.ID
 	if moduleID == "" {
 		manifest, err := loadManifest(defaultManifestFilename)
 		if err != nil {

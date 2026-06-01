@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
+	"go.viam.com/rdk/motionplan/armplanning/mpserver"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -49,6 +50,7 @@ func realMain() error {
 	ctx := context.Background()
 	logger, reg := logging.NewLoggerWithRegistry("cmd-plan")
 
+	runMotionPlanServer := flag.Bool("mp", false, "run the motion planning server. does not take a file as input.")
 	pseudolinearLine := flag.Float64("pseudolinear-line", 0, "")
 	pseudolinearOrientation := flag.Float64("pseudolinear-orientation", 0, "")
 	seed := flag.Int("seed", -1, "")
@@ -64,6 +66,10 @@ func realMain() error {
 	quiet := flag.Bool("quiet", false, "quiet")
 
 	flag.Parse()
+
+	if *runMotionPlanServer {
+		return mpserver.RunServer()
+	}
 
 	if len(flag.Args()) == 0 {
 		return fmt.Errorf("need a json file")
