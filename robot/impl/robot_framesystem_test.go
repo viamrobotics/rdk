@@ -491,6 +491,9 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
+	// RSDK-14034: The fake camera implements a `Geometries` method. We want to assert that
+	// component's geometry shows up when constructing a frame system from the robot's frame system
+	// service. Such that it would be used as an obstacle for motion planning.
 	cfg := config.Config{
 		Components: []resource.Config{
 			{
@@ -508,7 +511,6 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 
 	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
 	fss, err := framesystem.FromProvider(robot)
-	// fss, err := resource.FromProvider[framesystem.Service](robot, framesystem.InternalServiceName)
 	test.That(t, err, test.ShouldBeNil)
 
 	fs, err := framesystem.NewFromService(ctx, fss, nil)
@@ -532,5 +534,8 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 
 	camGeomFromCam := geoms[0]
 	test.That(t, camGeomFromCam.Label(), test.ShouldEqual, "box")
+	// Assert geometry identify by using `ToPoints` with the same resolution. The camera is parented
+	// with no translation to the world frame. Hence we can expect the X/Y/Z points of the frame
+	// system geometry to match the camera's.
 	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
 }
