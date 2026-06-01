@@ -493,7 +493,7 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 
 	cfg := config.Config{
 		Components: []resource.Config{
-			resource.Config{
+			{
 				Name:  "camera",
 				API:   camera.API,
 				Model: fakecamera.Model,
