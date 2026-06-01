@@ -4,11 +4,15 @@ package mysum
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
+
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // Model is the full model definition.
@@ -56,6 +60,42 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 	if len(nums) == 0 {
 		return 0, errors.New("must provide at least one number to sum")
 	}
+
+	arbitraryMDFromServer := metadata.MD{}
+	foundKeys := 0
+	expectedKeys := 0
+	if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+		for k, vals := range incoming {
+			switch {
+			case k == "arbitrary-md-from-client" &&
+				len(vals) == 4 && // middle module adds val2 again, so there will be 2
+				slices.Contains(vals, "arbitrary-md-from-client-val1") &&
+				slices.Contains(vals, "arbitrary-md-from-client-val2") &&
+				slices.Contains(vals, "arbitrary-md-from-client-val3-from-middle"):
+				arbitraryMDFromServer["from_client_md_good"] = []string{"true"}
+				foundKeys++
+			case k == "arbitrary-md-from-middle" &&
+				len(vals) == 1 &&
+				slices.Contains(vals, "arbitrary-md-from-middle-val1"):
+				arbitraryMDFromServer["from_middle_md_good"] = []string{"true"}
+				foundKeys++
+			case k == "viam-metadata":
+				expectedKeys = len(vals)
+			case k == "opid":
+				if len(vals) > 1 {
+					arbitraryMDFromServer["duplicate_opid"] = []string{"true"}
+				}
+			}
+		}
+	}
+	if foundKeys != expectedKeys {
+		arbitraryMDFromServer["unknown_metadata_found"] = []string{"true"}
+	}
+	arbitraryMDFromServer["arbitrary-md-to-client-from-end"] = []string{"arbitrary-md-to-client-from-end-val1"}
+	arbitraryMDFromServer["arbitrary-md-to-client-from-end2"] = []string{"arbitrary-md-to-client-from-end2-val1"}
+	//nolint:errcheck
+	_ = contextutils.SetHeader(ctx, arbitraryMDFromServer)
+
 	var ret float64
 	for _, n := range nums {
 		if m.subtract {

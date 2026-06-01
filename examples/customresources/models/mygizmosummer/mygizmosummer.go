@@ -7,10 +7,13 @@ import (
 	"strconv"
 	"sync"
 
+	"google.golang.org/grpc/metadata"
+
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/utils/contextutils"
 )
 
 // Model is the full model definition.
@@ -91,6 +94,24 @@ func (g *myActualGizmo) Reconfigure(ctx context.Context, deps resource.Dependenc
 func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+		for k, vals := range incoming {
+			if k == "arbitrary-md-from-client" && len(vals) == 2 {
+				// test merge
+				ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val2")
+				ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val3-from-middle")
+			}
+		}
+		ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
+	}
+
+	arbitraryMDToClient := metadata.MD{}
+	arbitraryMDToClient["arbitrary-md-to-client-from-middle"] = []string{"arbitrary-md-to-client-from-middle"}
+	// test merge
+	arbitraryMDToClient["arbitrary-md-to-client-from-end2"] = []string{"arbitrary-md-to-client-from-end2-val-from-middle"}
+	//nolint:errcheck
+	_ = contextutils.SetHeader(ctx, arbitraryMDToClient)
 
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
