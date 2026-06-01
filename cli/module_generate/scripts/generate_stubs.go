@@ -224,8 +224,15 @@ func setGoModuleTemplate(
 	clientCode string,
 	module modulegen.ModuleInputs,
 	docMap map[string]*ast.CommentGroup,
+	additionalModel bool,
 ) (*modulegen.GoModuleTmpl, error) {
 	var goTmplInputs modulegen.GoModuleTmpl
+	if additionalModel {
+		goTmplInputs.ConfigType = module.ModelPascal + "Config"
+		goTmplInputs.IsAdditionalModel = true
+	} else {
+		goTmplInputs.ConfigType = "Config"
+	}
 
 	if module.ResourceSubtype == "input" {
 		module.ResourceSubtypePascal = "Controller"
@@ -606,7 +613,9 @@ func RenderCppTemplates(module modulegen.ModuleInputs) (modulegen.CppRenderedFil
 }
 
 // RenderGoTemplates outputs the method stubs for created module.
-func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
+// additionalModel must be true when generating a second (or later) model in the same package,
+// which changes Config → <ModelPascal>Config and omits the package-level errUnimplemented.
+func RenderGoTemplates(module modulegen.ModuleInputs, additionalModel bool) ([]byte, error) {
 	clientCode, err := getClientCode(module)
 	var empty []byte
 	if err != nil {
@@ -620,7 +629,7 @@ func RenderGoTemplates(module modulegen.ModuleInputs) ([]byte, error) {
 	if err != nil {
 		return empty, err
 	}
-	goModule, err := setGoModuleTemplate(clientCode, module, docMap)
+	goModule, err := setGoModuleTemplate(clientCode, module, docMap, additionalModel)
 	if err != nil {
 		return empty, err
 	}

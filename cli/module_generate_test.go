@@ -221,29 +221,119 @@ func TestAddModel(t *testing.T) {
 		test.That(t, addGolangModelFile(dir, goModule), test.ShouldBeNil)
 
 		expectedPath := filepath.Join(dir, goModule.ModelSnake+".go")
-		_, err = os.Stat(expectedPath)
+		b, err := os.ReadFile(expectedPath)
 		test.That(t, err, test.ShouldBeNil)
+		content := string(b)
+		// Additional model must not redeclare package-level errUnimplemented.
+		test.That(t, content, test.ShouldNotContainSubstring, "errUnimplemented")
+		// Config type must be model-scoped, not the bare "Config".
+		test.That(t, content, test.ShouldContainSubstring, "MyModelConfig")
+		// Top-level "type Config" declaration must not be present (the comment example is tab-indented).
+		test.That(t, content, test.ShouldNotContainSubstring, "\ntype Config struct")
+	})
+
+	t.Run("addGoModelToMain registers new model", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		// A minimal main.go matching the generated template.
+		mainGoContent := `package main
+
+import (
+	"mymodule"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/resource"
+	arm "go.viam.com/rdk/components/arm"
+)
+
+func main() {
+	module.ModularMain(resource.APIModel{arm.API, mymodule.MyModel})
+}
+`
+		mainGoPath := filepath.Join(dir, "main.go")
+		test.That(t, os.WriteFile(mainGoPath, []byte(mainGoContent), 0o600), test.ShouldBeNil)
+
+		boardModel := baseModule
+		boardModel.ResourceType = "component"
+		boardModel.ResourceSubtype = "board"
+		boardModel.ResourceSubtypeAlias = "board"
+		boardModel.ModelPascal = "MyBoard"
+
+		test.That(t, addGoModelToMain(mainGoPath, boardModel), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainGoPath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+
+		// New APIModel entry must be present.
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{board.API, mymodule.MyBoard}`)
+		// New subtype import must be present.
+		test.That(t, content, test.ShouldContainSubstring, `board "go.viam.com/rdk/components/board"`)
+		// Original model must still be registered.
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{arm.API, mymodule.MyModel}`)
+	})
+
+	t.Run("addGoModelToMain skips duplicate import", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		// main.go already imports arm; adding another arm model should not duplicate it.
+		mainGoContent := `package main
+
+import (
+	"mymodule"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/resource"
+	arm "go.viam.com/rdk/components/arm"
+)
+
+func main() {
+	module.ModularMain(resource.APIModel{arm.API, mymodule.MyModel})
+}
+`
+		mainGoPath := filepath.Join(dir, "main.go")
+		test.That(t, os.WriteFile(mainGoPath, []byte(mainGoContent), 0o600), test.ShouldBeNil)
+
+		secondArm := baseModule
+		secondArm.ResourceType = "component"
+		secondArm.ResourceSubtype = "arm"
+		secondArm.ResourceSubtypeAlias = "arm"
+		secondArm.ModelPascal = "MySecondArm"
+
+		test.That(t, addGoModelToMain(mainGoPath, secondArm), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainGoPath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+
+		test.That(t, content, test.ShouldContainSubstring, `resource.APIModel{arm.API, mymodule.MySecondArm}`)
+		// Import must appear exactly once.
+		test.That(t, strings.Count(content, `"go.viam.com/rdk/components/arm"`), test.ShouldEqual, 1)
 	})
 
 	t.Run("addCppModelToMainCpp inserts include, registration, and push_back", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 
+		// mainCppContent mirrors what the fixed generator produces (fixCppMainTemplate applied):
+		// - namespace arg uses .Namespace (not .OrgID)
+		// - model name arg uses .ModelName with dashes (not .ModelSnake with underscores)
+		// - C++ namespace qualifiers use .ModuleSnake (not .ModuleName)
 		mainCppContent := `#include "my_model.hpp"
 
 #include <viam/sdk/registry/registry.hpp>
 
 int main(int argc, char** argv) try {
     viam::sdk::Instance inst;
-    viam::sdk::Model model("my-org", "my-module", "my_model");
+    viam::sdk::Model model("my-org", "my-module", "my-model");
 
     auto mr = std::make_shared<viam::sdk::ModelRegistration>(
         viam::sdk::API::get<viam::sdk::Arm>(),
         model,
         [](viam::sdk::Dependencies deps, viam::sdk::ResourceConfig cfg) {
-            return std::make_unique<my-module::MyModel>(deps, cfg);
+            return std::make_unique<my_module::MyModel>(deps, cfg);
         },
-        &my-module::MyModel::validate);
+        &my_module::MyModel::validate);
 
     std::vector<std::shared_ptr<viam::sdk::ModelRegistration>> mrs = {mr};
     auto my_mod = std::make_shared<viam::sdk::ModuleService>(argc, argv, mrs);
@@ -255,6 +345,7 @@ int main(int argc, char** argv) try {
 		test.That(t, os.WriteFile(mainCppPath, []byte(mainCppContent), 0o600), test.ShouldBeNil)
 
 		newModel := baseModule
+		newModel.ModelName = "my-camera"
 		newModel.ModelSnake = "my_camera"
 		newModel.ModelPascal = "MyCamera"
 		newModel.ResourceSubtypePascal = "Camera"
@@ -266,9 +357,15 @@ int main(int argc, char** argv) try {
 		content := string(result)
 
 		test.That(t, content, test.ShouldContainSubstring, `#include "my_camera.hpp"`)
+		// Variable names use snake_case.
 		test.That(t, content, test.ShouldContainSubstring, `my_camera_model(`)
 		test.That(t, content, test.ShouldContainSubstring, `auto my_camera_mr`)
 		test.That(t, content, test.ShouldContainSubstring, `mrs.push_back(my_camera_mr)`)
+		// Model triple strings preserve original names (dashes, not underscores).
+		test.That(t, content, test.ShouldContainSubstring, `"my-org", "my-module", "my-camera"`)
+		// C++ namespace uses snake_case.
+		test.That(t, content, test.ShouldContainSubstring, `std::make_unique<my_module::MyCamera>`)
+		test.That(t, content, test.ShouldContainSubstring, `&my_module::MyCamera::validate`)
 		// original model must still be present
 		test.That(t, content, test.ShouldContainSubstring, `#include "my_model.hpp"`)
 		test.That(t, content, test.ShouldContainSubstring, `mrs = {mr}`)
@@ -289,6 +386,8 @@ add_executable(my-module
 
 target_include_directories(my-module PUBLIC src)
 target_link_libraries(my-module viam-cpp-sdk::viamsdk)
+
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/meta.json" _META_JSON)
 `
 		cmakePath := filepath.Join(dir, "CMakeLists.txt")
 		test.That(t, os.WriteFile(cmakePath, []byte(cmakeContent), 0o600), test.ShouldBeNil)
