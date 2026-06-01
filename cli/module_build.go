@@ -988,17 +988,6 @@ func (c *viamClient) triggerCloudReloadBuild(
 	archivePath, partID string,
 	reloadUnixTS int64,
 ) (string, error) {
-	stream, err := c.buildClient.StartReloadBuild(ctx)
-	if err != nil {
-		return "", err
-	}
-
-	//nolint:gosec
-	file, err := os.Open(archivePath)
-	if err != nil {
-		return "", err
-	}
-
 	part, err := c.getRobotPart(ctx, partID)
 	if err != nil {
 		return "", err
@@ -1006,21 +995,23 @@ func (c *viamClient) triggerCloudReloadBuild(
 	if part.Part == nil {
 		return "", fmt.Errorf("part with id=%s not found", partID)
 	}
-
 	if part.Part.UserSuppliedInfo == nil {
 		return "", errors.New("unable to determine platform for part")
 	}
 
-	// use the primary org id for the machine as the reload
-	// module org
+	// use the primary org id for the machine as the reload module org
 	orgID, err := c.getOrgIDForPart(ctx, part.Part)
 	if err != nil {
 		return "", err
 	}
 
-	// App expects `BuildInfo` as the first request
+	moduleID, err := parseModuleID(manifest.ModuleID)
+	if err != nil {
+		return "", err
+	}
+
 	platform := part.Part.UserSuppliedInfo.Fields["platform"].GetStringValue()
-	req := &buildpb.StartReloadBuildRequest{
+	buildInfoReq := &buildpb.StartReloadBuildRequest{
 		CloudBuild: &buildpb.StartReloadBuildRequest_BuildInfo{
 			BuildInfo: &buildpb.ReloadBuildInfo{
 				Platform: platform,
@@ -1031,53 +1022,42 @@ func (c *viamClient) triggerCloudReloadBuild(
 		},
 	}
 	if args.Builder != "" && args.Builder != "default" {
-		req.Builder = &args.Builder
-	}
-	if err := stream.Send(req); err != nil {
-		return "", err
+		buildInfoReq.Builder = &args.Builder
 	}
 
-	moduleID, err := parseModuleID(manifest.ModuleID)
+	pkgInfoReq := &buildpb.StartReloadBuildRequest{
+		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
+			Package: &v1.CreatePackageRequest{
+				Package: &v1.CreatePackageRequest_Info{
+					Info: &v1.PackageInfo{
+						OrganizationId: orgID,
+						Name:           moduleID.name,
+						Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
+						Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
+					},
+				},
+			},
+		},
+	}
+
+	stream, err := c.buildClient.StartReloadBuild(ctx)
 	if err != nil {
 		return "", err
 	}
-
-	pkgInfo := v1.PackageInfo{
-		OrganizationId: orgID,
-		Name:           moduleID.name,
-		Version:        getReloadVersion(reloadSourceVersionPrefix, partID, reloadUnixTS),
-		Type:           v1.PackageType_PACKAGE_TYPE_MODULE,
-	}
-	reqInner := &v1.CreatePackageRequest{
-		Package: &v1.CreatePackageRequest_Info{
-			Info: &pkgInfo,
-		},
-	}
-	req = &buildpb.StartReloadBuildRequest{
-		CloudBuild: &buildpb.StartReloadBuildRequest_Package{
-			Package: reqInner,
-		},
-	}
-
-	if err := stream.Send(req); err != nil {
+	resp, err := streamArchiveBuild(
+		ctx,
+		stream,
+		archivePath,
+		[]*buildpb.StartReloadBuildRequest{buildInfoReq, pkgInfoReq},
+		getNextReloadBuildUploadRequest,
+	)
+	if err != nil {
 		return "", err
-	}
-
-	var errs error
-	// Suppress the "Uploading... X%" progress bar output since we have our own spinner
-	if err := sendUploadRequests(
-		ctx, stream, file, io.Discard, getNextReloadBuildUploadRequest); err != nil && !errors.Is(err, io.EOF) {
-		errs = multierr.Combine(errs, errors.Wrapf(err, "could not upload %s", file.Name()))
-	}
-
-	resp, closeErr := stream.CloseAndRecv()
-	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
-		errs = multierr.Combine(errs, closeErr)
 	}
 	if msg := resp.GetBuilderFallbackMessage(); msg != "" {
 		printf(cmd.Root().ErrWriter, "Warning: %s", msg)
 	}
-	return resp.GetBuildId(), errs
+	return resp.GetBuildId(), nil
 }
 
 func getNextReloadBuildUploadRequest(file *os.File) (*buildpb.StartReloadBuildRequest, int, error) {

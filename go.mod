@@ -355,3 +355,5 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
+
+replace go.viam.com/api => github.com/viamrobotics/api v0.1.557-0.20260601174852-e7919fb0d0a9 // gmulitz-start-source-upload-build
