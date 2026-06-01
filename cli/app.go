@@ -3831,6 +3831,62 @@ Example:
 							Action: createActionCommandWithT[moduleBuildLocalArgs](ModuleBuildLocalAction),
 						},
 						{
+							Name:  "cloud",
+							Usage: "upload your local source and publish a new version via cloud build",
+							Description: `Upload the contents of a local directory to the cloud builder and publish
+a new registry version of your module from it, without requiring a git push.
+
+Example:
+viam module build cloud --version 0.5.0
+viam module build cloud --version 0.5.0 --platforms linux/amd64,linux/arm64 --wait
+
+Honors .gitignore when packaging the source directory. Requires a "build" section
+in meta.json (same as 'viam module build start').`,
+							UsageText: createUsageText("module build cloud", []string{generalFlagVersion}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:      moduleFlagPath,
+									Usage:     "path to meta.json",
+									Value:     "./meta.json",
+									TakesFile: true,
+								},
+								&cli.StringFlag{
+									Name:     generalFlagVersion,
+									Usage:    "version of the module to publish (semver2.0) ex: \"0.1.0\"",
+									Required: true,
+								},
+								&cli.StringFlag{
+									Name:      generalFlagPath,
+									Usage:     "path to the local source directory to upload",
+									Value:     ".",
+									TakesFile: true,
+								},
+								&cli.StringSliceFlag{
+									Name:  moduleBuildFlagPlatforms,
+									Usage: "list of platforms to build, e.g. linux/amd64,linux/arm64 (default: build.arch in meta.json)",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagWorkdir,
+									Usage: "use this to indicate that your meta.json is in a subdirectory of the uploaded source",
+									Value: ".",
+								},
+								&cli.StringFlag{
+									Name:  moduleBuildFlagBuilder,
+									Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+									Value: "default",
+								},
+								&cli.BoolFlag{
+									Name:  moduleBuildFlagWait,
+									Usage: "wait for the build to finish; surface failed-platform logs and a non-zero exit code on failure",
+								},
+								&cli.BoolFlag{
+									Name:  generalFlagNoProgress,
+									Usage: "hide the progress spinner",
+								},
+							},
+							Action: createActionCommandWithT[moduleBuildCloudArgs](ModuleBuildCloudAction),
+						},
+						{
 							Name:      "start",
 							Usage:     "start a remote build",
 							UsageText: createUsageText("module build start", []string{generalFlagVersion}, true, false),
