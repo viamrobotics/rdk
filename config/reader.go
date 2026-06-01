@@ -19,6 +19,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sys/cpu"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -652,6 +654,22 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
+// cloudConfigErrorKind classifies why a cloud config fetch failed. It determines how
+// getFromCloudOrCache reports the failure when falling back to a cached config.
+type cloudConfigErrorKind int
+
+const (
+	// configErrorTransient indicates the cloud could not be reached (connectivity/timeout) or a
+	// local error occurred before the request was answered. Falling back to a cached config is
+	// expected, so it is logged quietly.
+	configErrorTransient cloudConfigErrorKind = iota
+	// configErrorRejected indicates the cloud responded but rejected this robot's config or
+	// returned a config we could not use (e.g. the config is malformed). This is a legitimate,
+	// likely-permanent error: we still fall back to the cache so a previously-good robot keeps
+	// running, but we surface the rejection loudly so it is not silently hidden.
+	configErrorRejected
+)
+
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
 // local cache if the error indicates it should.
 func getFromCloudOrCache(
@@ -666,13 +684,16 @@ func getFromCloudOrCache(
 	ctxWithTimeout, cancel := contextutils.GetTimeoutCtx(ctx, shouldReadFromCache, cloudCfg.ID, logger)
 	defer cancel()
 
-	cfg, errorShouldCheckCache, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
+	cfg, errKind, err := getFromCloudGRPC(ctxWithTimeout, cloudCfg, logger, conn)
 	if err != nil {
-		if shouldReadFromCache && errorShouldCheckCache {
+		if shouldReadFromCache {
 			cachedConfig, cacheErr := readFromCache(cloudCfg.ID)
 			if cacheErr != nil {
 				if os.IsNotExist(cacheErr) {
-					// Return original http error if failed to load from cache.
+					// Return original error if failed to load from cache.
+					if errKind == configErrorRejected {
+						return nil, cached, errors.Wrap(err, "cloud rejected this robot's config and no cached config exists")
+					}
 					return nil, cached, errors.Wrap(
 						err,
 						"error getting cloud config, cached config does not exist; returning error from cloud config attempt",
@@ -687,7 +708,16 @@ func getFromCloudOrCache(
 				// Use logging.DefaultTimeFormatStr since this time will be logged.
 				lastUpdated = fInfo.ModTime().Format(logging.DefaultTimeFormatStr)
 			}
-			logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
+			// A rejected config is a legitimate, likely-permanent error: the robot keeps running on its
+			// cached config, but we surface the rejection loudly so it is not silently hidden. A transient
+			// connectivity error is expected (e.g. a network blip) and is logged quietly.
+			if errKind == configErrorRejected {
+				logger.Errorw(
+					"cloud rejected this robot's config; the new config was NOT applied. continuing on cached config",
+					"config last updated", lastUpdated, "error", err)
+			} else {
+				logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
+			}
 			cached = true
 			return cachedConfig, cached, nil
 		}
@@ -699,27 +729,37 @@ func getFromCloudOrCache(
 }
 
 // getFromCloudGRPC actually does the fetching of the robot config from the gRPC endpoint.
-func getFromCloudGRPC(ctx context.Context, cloudCfg *Cloud, logger logging.Logger, conn rpc.ClientConn) (*Config, bool, error) {
-	shouldCheckCacheOnFailure := true
-
+func getFromCloudGRPC(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	logger logging.Logger,
+	conn rpc.ClientConn,
+) (*Config, cloudConfigErrorKind, error) {
 	agentInfo, err := getAgentInfo(logger)
 	if err != nil {
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting agent info")
+		return nil, configErrorTransient, errors.WithMessage(err, "error getting agent info")
 	}
 
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
-		// Check cache?
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error getting config from config endpoint")
+		// If the cloud could not be reached (a connectivity or timeout error) the failure is transient and
+		// falling back to a cached config is expected. Any other status code means the cloud responded and
+		// actively rejected this robot's config (e.g. the config is malformed); that is a legitimate,
+		// likely-permanent error that we surface loudly rather than hide behind the cache.
+		errKind := configErrorRejected
+		if code := status.Code(err); code == codes.Unavailable || code == codes.DeadlineExceeded || code == codes.Canceled {
+			errKind = configErrorTransient
+		}
+		return nil, errKind, errors.WithMessage(err, "error getting config from config endpoint")
 	}
 	cfg, err := FromProto(res.Config, logger)
 	if err != nil {
-		// Check cache?
-		return nil, shouldCheckCacheOnFailure, errors.WithMessage(err, "error converting config from proto")
+		// The cloud returned a config we could not use; treat it as a rejection so the failure is surfaced.
+		return nil, configErrorRejected, errors.WithMessage(err, "error converting config from proto")
 	}
 
-	return cfg, false, nil
+	return cfg, configErrorTransient, nil
 }
 
 // CreateNewGRPCClient creates a new grpc cloud configured to communicate with the robot service based on the cloud config given.

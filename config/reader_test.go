@@ -11,9 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config/testutils"
 	"go.viam.com/rdk/grpc"
@@ -181,6 +184,95 @@ func TestFromReader(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		expectedCloud.AppAddress = ""
 		test.That(t, cachedCfg.Cloud, test.ShouldResemble, &expectedCloud)
+	})
+}
+
+// TestGetFromCloudOrCacheErrorClassification verifies that when the cloud config endpoint fails
+// and we fall back to a cached config, a connectivity error is logged quietly (Warn) while a
+// config rejection from the cloud is surfaced loudly (Error) so it is not silently hidden.
+func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
+	const (
+		robotPartID = "forCachingTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	ctx := context.Background()
+
+	// Seed the cache so the fallback path is exercised in every case.
+	setupCache := func(t *testing.T) {
+		t.Helper()
+		clearCache(robotPartID)
+		cachedConf := &Config{Cloud: &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn"}}
+		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
+		cfgToCache.SetToCache(cachedConf)
+		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+	}
+
+	newAppConn := func(t *testing.T, failWith error) (*Cloud, rpc.ClientConn, func()) {
+		t.Helper()
+		logger := logging.NewTestLogger(t)
+		fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+		fakeServer.FailOnConfigAndCertsWith(failWith)
+		fakeServer.StoreDeviceConfig(robotPartID, nil, nil)
+
+		appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+		cloudCfg := &Cloud{ID: robotPartID, Secret: secret, AppAddress: appAddress}
+		appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudCfg.GetCloudCredsDialOpt(), logger)
+		test.That(t, err, test.ShouldBeNil)
+		return cloudCfg, appConn, func() {
+			test.That(t, appConn.Close(), test.ShouldBeNil)
+			cleanup()
+		}
+	}
+
+	t.Run("connectivity error is logged quietly and falls back to cache", func(t *testing.T) {
+		setupCache(t)
+		defer clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unavailable, "cloud is down"))
+		defer cleanup()
+
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cached, test.ShouldBeTrue)
+		test.That(t, cfg, test.ShouldNotBeNil)
+
+		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 1)
+		test.That(t, logs.FilterMessageSnippet("cloud rejected this robot's config").Len(), test.ShouldEqual, 0)
+	})
+
+	t.Run("rejected config is surfaced loudly and falls back to cache", func(t *testing.T) {
+		setupCache(t)
+		defer clearCache(robotPartID)
+
+		// codes.Unknown is what the real config conversion failure surfaces (a plain error returned by the
+		// cloud config endpoint).
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
+		defer cleanup()
+
+		logger, logs := logging.NewObservedTestLogger(t)
+		cfg, cached, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, cached, test.ShouldBeTrue)
+		test.That(t, cfg, test.ShouldNotBeNil)
+
+		rejected := logs.FilterMessageSnippet("cloud rejected this robot's config")
+		test.That(t, rejected.Len(), test.ShouldEqual, 1)
+		test.That(t, rejected.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
+		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 0)
+	})
+
+	t.Run("rejected config with no cache returns a clear error", func(t *testing.T) {
+		clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
+		defer cleanup()
+
+		logger := logging.NewTestLogger(t)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cloud rejected this robot's config and no cached config exists")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
 	})
 }
 
