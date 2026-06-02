@@ -1,0 +1,71 @@
+{
+    "components": [
+        {
+            "name": "pieceGripper",
+            "type": "gripper",
+            "model": "fake",
+            "frame": {
+                "parent": "pieceArm"
+            }
+        },
+        {
+            "name": "cameraOver",
+            "type": "camera",
+            "model": "file",
+            "attributes": {
+                "color": "artifact_data/vision/chess/board3.png",
+                "depth": "artifact_data/vision/chess/board3.dat.gz",
+                "aligned": true
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 2000,
+                    "y": 500,
+                    "z": 1300
+                },
+                "orientation": {
+                    "type": "ov_degrees",
+                    "value": {
+                        "x": 0,
+                        "y": 0,
+                        "z": 1,
+                        "th": 180
+                    }
+                }
+            }
+        },
+        {
+           "name": "pieceArm",
+            "type": "arm",
+            "model": "fake",
+            "attributes": {
+                "model-path": "../../components/arm/fake/kinematics/fake.json"
+            },
+            "frame": {
+                "parent": "world",
+                "translation": {
+                    "x": 500,
+                    "y": 500,
+                    "z": 1000
+                }
+            }
+        },
+        {
+            "name": "movement_sensor1",
+            "type": "movement_sensor",
+            "model": "fake"
+        },
+        {
+            "model": "fake",
+            "name": "world",
+            "type": "movement_sensor",
+            "frame": {
+                "parent": "pieceGripper"
+            },
+            "attributes": {
+                "relative": true
+            }
+        }
+    ]
+}

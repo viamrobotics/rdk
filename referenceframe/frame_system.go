@@ -117,6 +117,19 @@ func NewFrameSystem(name string, parts []*FrameSystemPart, additionalTransforms 
 		allParts = append(allParts, transformPart)
 	}
 
+	if len(allParts) != 0 {
+		hasWorld := false
+		for _, part := range allParts {
+			if part.FrameConfig.Parent() == World {
+				hasWorld = true
+				break
+			}
+		}
+		if !hasWorld {
+			return nil, ErrNoWorldConnection
+		}
+	}
+
 	// Topologically sort parts. After sorting, unlinked parts may reference frames
 	// that will only exist after model flattening (e.g., "arm1:joint1"). Those will
 	// be processed in a second pass after flattening.
