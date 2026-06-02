@@ -345,6 +345,39 @@ func TestOptionalDependencies(t *testing.T) {
 		test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
 		test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
 	}
+
+	// Reconfigure 'm1' in place by giving it a config diff so that it remains resolvable
+	// in oc's optional depenency set but its GraphNode clock advances via SwapResource,
+	// so oc's recorded snapshot of m1's clock goes stale. This exercises the clock-value-mismatch
+	// branch of weakOptionalDepClocksEqual — the steps above only add or remove a key,
+	// never bump the clock of a key that stays present.
+	cfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	ocRes, err := lr.ResourceByName(ocName)
+	test.That(t, err, test.ShouldBeNil)
+	oc, err := resource.AsType[*optionalChild](ocRes)
+	test.That(t, err, test.ShouldBeNil)
+	countBeforeInPlace := oc.reconfigCount
+	missingLogsBeforeInPlace := logs.FilterMessageSnippet("could not get optional motor").Len()
+
+	lr.Reconfigure(ctx, &cfg)
+
+	{ // Assertions
+		ocRes, err := lr.ResourceByName(ocName)
+		test.That(t, err, test.ShouldBeNil)
+		oc, err := resource.AsType[*optionalChild](ocRes)
+		test.That(t, err, test.ShouldBeNil)
+
+		// 'm1's in-place reconfigure bumped its clock, so oc reconfigures exactly once.
+		test.That(t, oc.reconfigCount, test.ShouldEqual, countBeforeInPlace+1)
+		// 'm1' stayed resolvable, so no new "could not get optional motor" log.
+		test.That(t, logs.FilterMessageSnippet("could not get optional motor").Len(),
+			test.ShouldEqual, missingLogsBeforeInPlace)
+		// Both motors remain set.
+		test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
+		test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
+	}
 }
 
 func TestModularOptionalDependencies(t *testing.T) {
@@ -2398,14 +2431,25 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 		test.That(t, holderResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
 
+	// currentTargetID returns target's live instance id. A change to that id between two
+	// calls means target was rebuilt; an unchanged id means it was not.
+	currentTargetID := func() any {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
+		test.That(t, err, test.ShouldBeNil)
+		return resp["instance_id"]
+	}
+
 	// Initial Reconfigure — builds target_v1 and holder_v1, then
 	// updateWeakAndOptionalDependents rebuilds target (to target_v2) and the module's
 	// cascade rebuilds holder (to holder_v2) so it points at target_v2.
 	lr.Reconfigure(ctx, &cfg)
 	assertHolderPointsToCurrentTarget("initial")
+	targetIDInitial := currentTargetID()
 
 	// Add an unrelated motor to advance the clock and re-trigger
-	// updateWeakAndOptionalDependents — the second cascade must keep holder fresh.
+	// updateWeakAndOptionalDependents.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2415,7 +2459,30 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// An unrelated change leaves target's optional-dep snapshot untouched, so
+	// target must NOT be rebuilt — its instance is identical.
+	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
 	assertHolderPointsToCurrentTarget("after-unrelated-change")
+
+	// Reconfigure target's opt-dep (Components[0]) in place. opt-dep stays present,
+	// but its config diff makes it reconfigure and bump its graph clock. That stales
+	// target's recorded  optional-dep snapshot, so updateWeakAndOptionalDependents
+	// rebuilds target to a fresh instance, and the module cascade must rebuild holder
+	// to point at it.
+	targetIDBefore := currentTargetID()
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+
+	// holder was cascaded along with that rebuild, so it points at the new target instance
+	// rather than the closed prior one.
+	assertHolderPointsToCurrentTarget("after-optdep-change")
 }
 
 func TestModularStalePointerCascadeFanOut(t *testing.T) {
@@ -2498,10 +2565,23 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 		}
 	}
 
+	// currentTargetID returns target's live instance id; comparing it across a reconfigure
+	// tells us whether target was rebuilt. Phrased to survive the upcoming
+	// Reconfigure->rebuild change (identity, not reconfigure counts).
+	currentTargetID := func() any {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
+		test.That(t, err, test.ShouldBeNil)
+		return resp["instance_id"]
+	}
+
 	lr.Reconfigure(ctx, &cfg)
 	assertAllHoldersPointToCurrentTarget("initial")
+	targetIDInitial := currentTargetID()
 
-	// Push a config change to advance the clock and re-trigger updateWeakAndOptionalDependents.
+	// Push an unrelated config change to advance the clock and re-trigger
+	// updateWeakAndOptionalDependents.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2511,7 +2591,29 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// Skip held: the unrelated change leaves target's optional-dep snapshot untouched, so
+	// target is not rebuilt and its instance is identical. (Without this, the holder==target
+	// checks below pass even if the skip regressed.)
+	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
 	assertAllHoldersPointToCurrentTarget("after-unrelated-change")
+
+	// Force an actual rebuild: change target's optional dependency (opt-dep, Components[0])
+	// in place so its clock bumps, staling target's snapshot and rebuilding target to a new
+	// instance. Capturing the id beforehand lets us assert the rebuild really fired.
+	targetIDBefore := currentTargetID()
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+
+	// The fan-out is now meaningfully exercised: all three holders must have cascaded to
+	// the new target instance.
+	assertAllHoldersPointToCurrentTarget("after-optdep-change")
 }
 
 func TestModularStalePointerCascadeChain(t *testing.T) {
@@ -2600,10 +2702,22 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 		test.That(t, topResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
 
+	// currentTargetID returns target's live instance id; comparing it across a reconfigure
+	// tells us whether target was rebuilt. Phrased to survive the upcoming
+	// Reconfigure->rebuild change (identity, not reconfigure counts).
+	currentTargetID := func() any {
+		targetRes, err := lr.ResourceByName(targetName)
+		test.That(t, err, test.ShouldBeNil)
+		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
+		test.That(t, err, test.ShouldBeNil)
+		return resp["instance_id"]
+	}
+
 	lr.Reconfigure(ctx, &cfg)
 	assertTopHolderReachesCurrentTarget("initial")
+	targetIDInitial := currentTargetID()
 
-	// Push a config change to advance the clock and re-trigger the cascade.
+	// Push an unrelated config change to advance the clock and re-trigger the cascade path.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2613,5 +2727,103 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// The unrelated change leaves target's optional-dep snapshot untouched, so
+	// target is not rebuilt and its instance is identical.
+	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
 	assertTopHolderReachesCurrentTarget("after-unrelated-change")
+
+	// Force an actual rebuild: change target's opt-dep (Components[0]) in place so
+	// its clock bumps, staling target's snapshot and rebuilding target to a new
+	// instance.
+	targetIDBefore := currentTargetID()
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+
+	// The transitive cascade is now meaningfully exercised: top-holder must reach the new
+	// target instance through the freshly rebuilt mid-holder.
+	assertTopHolderReachesCurrentTarget("after-optdep-change")
+}
+
+func TestWeakOptionalDepClocksEqual(t *testing.T) {
+	// Unit tests for the snapshot comparison that gates the weak/optional reconfigure skip.
+	// A nil snapshot means "not yet recorded" and must never compare equal (so a freshly
+	// built resource is always considered for a follow-up update); two non-nil snapshots
+	// are equal iff they have identical key sets and identical clock values.
+	m := motor.Named("m")
+	m1 := motor.Named("m1")
+
+	for _, tc := range []struct {
+		name string
+		a, b map[resource.Name]int64
+		want bool
+	}{
+		{
+			name: "both nil are not equal",
+			a:    nil,
+			b:    nil,
+			want: false,
+		},
+		{
+			name: "nil vs empty is not equal",
+			a:    nil,
+			b:    map[resource.Name]int64{},
+			want: false,
+		},
+		{
+			name: "two empty non-nil snapshots are equal",
+			a:    map[resource.Name]int64{},
+			b:    map[resource.Name]int64{},
+			want: true,
+		},
+		{
+			name: "same single key and value is equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 1},
+			want: true,
+		},
+		{
+			name: "same key, different clock value is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 2},
+			want: false,
+		},
+		{
+			name: "same length, different key is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m1: 1},
+			want: false,
+		},
+		{
+			name: "differing length (extra key) is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 1, m1: 2},
+			want: false,
+		},
+		{
+			name: "multiple identical keys and values is equal",
+			a:    map[resource.Name]int64{m: 1, m1: 2},
+			b:    map[resource.Name]int64{m: 1, m1: 2},
+			want: true,
+		},
+		{
+			name: "multiple keys, one clock value differs is not equal",
+			a:    map[resource.Name]int64{m: 1, m1: 2},
+			b:    map[resource.Name]int64{m: 1, m1: 3},
+			want: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, weakOptionalDepClocksEqual(tc.a, tc.b), test.ShouldEqual, tc.want)
+			// The comparison must be symmetric: swapping the arguments must not change the
+			// result.
+			test.That(t, weakOptionalDepClocksEqual(tc.b, tc.a), test.ShouldEqual, tc.want)
+		})
+	}
 }

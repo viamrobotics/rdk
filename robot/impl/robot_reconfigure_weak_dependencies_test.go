@@ -201,6 +201,37 @@ func TestUpdateWeakDependents(t *testing.T) {
 	// reconfigures it exactly once.
 	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
 
+	// Reconfigure removing arm1 while weak1 and base1 stay. weak1 survives but its
+	// resolved weak set shrinks back to just base1 so updateWeakAndOptionalDependents
+	// reconfigures weak1 exactly once. This is the subtractive mirror of adding arm1 above.
+	weakCfg4 := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
+			},
+			{
+				Name:  base1Name.Name,
+				API:   base.API,
+				Model: fake.Model,
+			},
+		},
+	}
+	test.That(t, weakCfg4.Ensure(false, logger), test.ShouldBeNil)
+	prevReconfigCount = weak1.reconfigCount
+	robot.Reconfigure(context.Background(), &weakCfg4)
+
+	weakRes, err = robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
+	test.That(t, err, test.ShouldBeNil)
+	// arm1 dropped out of the resolved weak set; base1 remains.
+	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
+	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
+	test.That(t, weak1.resources, test.ShouldNotContainKey, arm1Name)
+	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
 		Components: []resource.Config{
