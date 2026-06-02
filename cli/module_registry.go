@@ -885,6 +885,7 @@ func writeManifest(manifestPath string, manifest ModuleManifest) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to create %s", manifestPath)
 	}
+	defer func() { vutils.UncheckedError(manifestFile.Close()) }()
 	if _, err := manifestFile.Write(manifestBytes); err != nil {
 		return errors.Wrapf(err, "failed to write manifest to %s", manifestPath)
 	}

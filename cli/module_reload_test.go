@@ -379,6 +379,7 @@ func TestResolvePartId(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = fi.WriteString(`{"cloud":{"app_address":"https://app.viam.com:443","id":"JSON-PART","secret":"SECRET"}}`)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fi.Close(), test.ShouldBeNil)
 	partID, err = resolvePartID(c.String(generalFlagPartID), path)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, partID, test.ShouldEqual, "JSON-PART")
@@ -399,7 +400,9 @@ func TestMutateModuleConfig(t *testing.T) {
 	}
 	expectedName := "viam-labs_test-module"
 	expectedVersion := "latest-with-prerelease"
-	remoteReloadPath := ".viam/packages-local/viam-labs_test-module-module.tar.gz"
+	expectedEntrypoint, err := filepath.Abs(manifest.Entrypoint)
+	test.That(t, err, test.ShouldBeNil)
+	remoteReloadPath := filepath.Join(".viam", "packages-local", "viam-labs_test-module-module.tar.gz")
 	testUser := "test@viam.com"
 	testReloadUnixTS := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC).Unix()
 
@@ -448,7 +451,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, needsRestart, test.ShouldBeFalse)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
 		test.That(t, modules[0]["reload_time"], test.ShouldNotBeEmpty)
@@ -464,7 +467,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, dirty, test.ShouldBeTrue)
 		test.That(t, needsRestart, test.ShouldBeFalse)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
 		test.That(t, modules[0]["reload_time"], test.ShouldNotBeEmpty)
@@ -475,7 +478,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		modules, _, _, _ = mutateModuleConfig(c, modules, manifest, true, false, testUser, "", testReloadUnixTS)
 		test.That(t, modules[0]["module_id"], test.ShouldEqual, manifest.ModuleID)
 		test.That(t, modules[0]["name"], test.ShouldEqual, expectedName)
-		test.That(t, modules[0]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, modules[0]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, modules[0]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, modules[0]["version"], test.ShouldEqual, expectedVersion)
 		test.That(t, modules[0]["reload_user"], test.ShouldEqual, testUser)
@@ -490,7 +493,7 @@ func TestMutateModuleConfig(t *testing.T) {
 		}}
 		updatedModules, _, _, _ := mutateModuleConfig(c, modules, manifest, true, false, testUser, "", testReloadUnixTS)
 		test.That(t, len(updatedModules), test.ShouldEqual, 2)
-		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, manifest.Entrypoint)
+		test.That(t, updatedModules[1]["reload_path"], test.ShouldEqual, expectedEntrypoint)
 		test.That(t, updatedModules[1]["reload_enabled"], test.ShouldBeTrue)
 		test.That(t, updatedModules[1]["version"], test.ShouldEqual, expectedVersion)
 		test.That(t, updatedModules[1]["reload_user"], test.ShouldEqual, testUser)

@@ -48,6 +48,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
 	"go.viam.com/utils/rpc"
+	"golang.org/x/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	reflectpb "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
@@ -114,6 +115,8 @@ type viamClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
+
+	dialOverride func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error)
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
@@ -5241,6 +5244,9 @@ func (c *viamClient) connectToRobot(
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
 	}
+	if c.dialOverride != nil {
+		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
+	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not connect to machine part")
@@ -5342,24 +5348,13 @@ func (c *viamClient) startRobotPartShell(
 		})
 	}
 
-	setRaw := func(isRaw bool) error {
-		// NOTE(benjirewis): Linux systems seem to need both "raw" (no processing) and "-echo"
-		// (no echoing back inputted characters) in order to allow the input and output loops
-		// below to completely control the terminal.
-		args := []string{"raw", "-echo", "-echoctl"}
-		if !isRaw {
-			args = []string{"-raw", "echo", "echoctl"}
-		}
-
-		rawMode := exec.Command("stty", args...)
-		rawMode.Stdin = os.Stdin
-		return rawMode.Run()
-	}
-	if err := setRaw(true); err != nil {
+	stdinFd := int(os.Stdin.Fd())
+	oldTermState, err := term.MakeRaw(stdinFd)
+	if err != nil {
 		return err
 	}
 	defer func() {
-		utils.UncheckedError(setRaw(false))
+		utils.UncheckedError(term.Restore(stdinFd, oldTermState))
 	}()
 
 	utils.PanicCapturingGo(func() {
