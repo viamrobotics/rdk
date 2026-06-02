@@ -193,6 +193,7 @@ type SolutionNodeInfo struct {
 // Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
 type PerGoalMeta struct {
 	StartConfiguration *referenceframe.LinearInputs
+	GoalPoses          referenceframe.FrameSystemPoses
 	ReasonableCost     float64
 	// SolutionNodes contains info about each IK solution node scored and path-checked.
 	SolutionNodes []SolutionNodeInfo
@@ -242,8 +243,8 @@ func (meta *PlanMeta) OutputToLogger(logger logging.Logger) {
 
 	logger.Infof("  perGoal entries: %d", len(meta.PerGoal))
 	for idx, pg := range meta.PerGoal {
-		logger.Infof("  [goal %d] startConfig=%v reasonableCost=%.4f solutionNodes=%d constraintFailures=%d",
-			idx, pg.StartConfiguration, pg.ReasonableCost, len(pg.SolutionNodes), len(pg.ConstraintFailuresByType))
+		logger.Infof("  [goal %d] startConfig=%v goal=%v reasonableCost=%.4f solutionNodes=%d constraintFailures=%d",
+			idx, pg.StartConfiguration, pg.GoalPoses, pg.ReasonableCost, len(pg.SolutionNodes), len(pg.ConstraintFailuresByType))
 		for failType, count := range pg.ConstraintFailuresByType {
 			logger.Infof("    constraintFailure %q: %d", failType, count)
 		}

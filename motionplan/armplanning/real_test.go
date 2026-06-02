@@ -307,7 +307,7 @@ func TestBadSpray1(t *testing.T) {
 		// Pass in a `newChattyMotionPlanTestLogger` that disables motion planning INFO/DEBUG logs
 		// for performance. Lest we timeout due to excessive I/O.
 		_, meta, err := PlanMotion(context.Background(), newChattyMotionPlanTestLogger(t), req)
-		if err != nil {
+		if err != nil || true {
 			meta.OutputToLogger(logger)
 		}
 		test.That(t, err, test.ShouldBeNil)

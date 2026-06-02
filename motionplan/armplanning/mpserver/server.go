@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -170,6 +171,32 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 <p><em>No moving-frame inputs in start state.</em></p>
 {{end}}
 
+<h2>Goals</h2>
+{{if .Goals}}
+{{range .Goals}}
+<h3>Goal {{.Index}} — <a href="{{.IKInspectURL}}">Inspect IK</a></h3>
+<h4>Start Configuration</h4>
+{{if .StartConfig}}
+<table>
+  <tr><th>Frame</th><th>Inputs</th></tr>
+  {{range .StartConfig}}
+  <tr><td>{{.Name}}</td><td><code>{{.Inputs}}</code></td></tr>
+  {{end}}
+</table>
+{{else}}
+<p><em>No moving-frame inputs.</em></p>
+{{end}}
+<h4>Goal Poses (World Frame)</h4>
+{{if .GoalPoses}}
+<ul>{{range .GoalPoses}}<li><strong>{{.Frame}}</strong>: <code>{{.Pose}}</code></li>{{end}}</ul>
+{{else}}
+<p><em>No goal poses.</em></p>
+{{end}}
+{{end}}
+{{else}}
+<p><em>No goals.</em></p>
+{{end}}
+
 <h2>Frame System</h2>
 <table>
   <tr><th>Frame</th><th>DoF</th><th>Parent</th></tr>
@@ -216,7 +243,9 @@ function runPlanning() {
                  ' &nbsp; <strong>Duration:</strong> ' + data.duration +
                  ' &nbsp; <strong>Goals processed:</strong> ' + data.goals_processed + '</p>';
       (data.per_goal || []).forEach((pg, goalIdx) => {
-        html += '<h3>Goal ' + goalIdx + '</h3>';
+        let goalHeader = 'Goal ' + goalIdx;
+        if (pg.ik_inspect_url) goalHeader += ' — <a href="' + escHtml(pg.ik_inspect_url) + '">Inspect IK</a>';
+        html += '<h3>' + goalHeader + '</h3>';
         html += buildSolutionTable('{{.File}}', 'Valid solutions', pg.valid_solutions || [], false);
         html += buildSolutionTable('{{.File}}', 'checkPath failures', pg.check_path_failures || [], true);
         if (pg.constraint_failures_by_type && Object.keys(pg.constraint_failures_by_type).length) {
@@ -228,8 +257,20 @@ function runPlanning() {
         }
       });
       div.innerHTML = html;
+      if (data.trajectory && data.trajectory.length) {
+        renderPlan('{{.File}}', data.trajectory);
+      }
     })
     .catch(err => { if (err.name !== 'AbortError') div.textContent = 'Fetch error: ' + err; });
+}
+
+function renderPlan(file, trajectory) {
+  fetch('/render-plan?file=' + encodeURIComponent(file), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(trajectory),
+  }).then(r => { if (!r.ok) r.text().then(msg => console.error('Render error: ' + msg)); })
+    .catch(err => console.error('Render error: ' + err));
 }
 
 function buildSolutionTable(file, title, solutions, showError) {
@@ -261,9 +302,10 @@ function buildSolutionTable(file, title, solutions, showError) {
   return html;
 }
 
+// inputs is map[string][]string — values are already full-precision strings from the server.
 function formatInputs(inputs) {
   return Object.entries(inputs)
-    .map(([f, vs]) => f + ': [' + vs.map(v => v.toFixed(4)).join(', ') + ']')
+    .map(([f, vs]) => f + ': [' + vs.join(', ') + ']')
     .join('<br>');
 }
 
@@ -293,6 +335,77 @@ function escHtml(s) {
 </html>
 `))
 
+var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE html>
+<html>
+<head>
+<title>IK Inspect — {{.File}}</title>
+<style>
+  body {
+    background-color: azure;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 20px;
+  }
+  h1, h2 { color: #333; }
+  table {
+    background-color: #D0EEFF;
+    border-spacing: 8px;
+    border: 1px solid black;
+  }
+  th, td {
+    background-color: bisque;
+    border: 1px solid black;
+    padding: 4px 8px;
+    vertical-align: top;
+  }
+  button {
+    padding: 4px 8px;
+    border: 1px solid black;
+    background-color: #D0EEFF;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<h1>IK Inspect</h1>
+<p>{{.File}} — <a href="/detail?file={{.File}}">← Back to Detail</a></p>
+
+<button onclick="renderStartAndGoals()">Render Start + Goals</button>
+
+<h2>Start Configuration</h2>
+{{if .StartConfig}}
+<table>
+  <tr><th>Frame</th><th>Inputs</th></tr>
+  {{range .StartConfig}}
+  <tr>
+    <td>{{.Name}}</td>
+    <td><code>{{.Inputs}}</code></td>
+  </tr>
+  {{end}}
+</table>
+{{else}}
+<p><em>No moving-frame inputs in start state.</em></p>
+{{end}}
+
+<h2>Goal Poses (World Frame)</h2>
+{{if .GoalPoses}}
+<ul>
+  {{range .GoalPoses}}<li><strong>{{.Frame}}</strong>: <code>{{.Pose}}</code></li>{{end}}
+</ul>
+{{else}}
+<p><em>No goal poses.</em></p>
+{{end}}
+
+<script>
+function renderStartAndGoals() {
+  fetch('/render-start?file=' + encodeURIComponent('{{.File}}'))
+    .then(r => { if (!r.ok) r.text().then(msg => console.error('Render error: ' + msg)); })
+    .catch(err => console.error('Render error: ' + err));
+}
+</script>
+</body>
+</html>
+`))
+
 // ---- data types ----
 
 type frameInfo struct {
@@ -301,59 +414,96 @@ type frameInfo struct {
 	Parent string
 }
 
-type detailData struct {
-	File        string
-	Frames      []frameInfo
-	StartInputs []frameInputs
-}
-
 type frameInputs struct {
 	Name   string
 	Inputs string
 }
 
+// poseDisplay holds a single frame's pose as a human-readable string for template rendering.
+type poseDisplay struct {
+	Frame string
+	Pose  string
+}
+
+type goalDetail struct {
+	Index        int
+	StartConfig  []frameInputs
+	GoalPoses    []poseDisplay
+	IKInspectURL string
+}
+
+type detailData struct {
+	File        string
+	Frames      []frameInfo
+	StartInputs []frameInputs
+	Goals       []goalDetail
+}
+
+type ikInspectData struct {
+	File        string
+	StartConfig []frameInputs
+	GoalPoses   []poseDisplay
+}
+
 type planRunResult struct {
-	Error          string          `json:"error,omitempty"`
-	Steps          int             `json:"steps,omitempty"`
-	Duration       string          `json:"duration,omitempty"`
-	GoalsProcessed int             `json:"goals_processed,omitempty"`
-	Partial        bool            `json:"partial,omitempty"`
-	PartialError   string          `json:"partial_error,omitempty"`
-	PerGoal        []perGoalResult `json:"per_goal,omitempty"`
+	Error          string               `json:"error,omitempty"`
+	Steps          int                  `json:"steps,omitempty"`
+	Duration       string               `json:"duration,omitempty"`
+	GoalsProcessed int                  `json:"goals_processed,omitempty"`
+	Partial        bool                 `json:"partial,omitempty"`
+	PartialError   string               `json:"partial_error,omitempty"`
+	PerGoal        []perGoalResult      `json:"per_goal,omitempty"`
+	Trajectory     []map[string][]string `json:"trajectory,omitempty"`
 }
 
 type perGoalResult struct {
+	IKInspectURL             string               `json:"ik_inspect_url,omitempty"`
 	ValidSolutions           []solutionNodeResult `json:"valid_solutions,omitempty"`
 	CheckPathFailures        []solutionNodeResult `json:"check_path_failures,omitempty"`
 	ConstraintFailuresByType map[string]int       `json:"constraint_failures_by_type,omitempty"`
 }
 
+// solutionNodeResult uses string-valued inputs to preserve full float64 precision across
+// the Go→JSON→JS→JSON→Go round-trip.
 type solutionNodeResult struct {
-	Score          float64              `json:"score"`
-	CheckPathError string               `json:"check_path_error,omitempty"`
-	Inputs         map[string][]float64 `json:"inputs"`
-	LastGoodInputs map[string][]float64 `json:"last_good_inputs,omitempty"`
+	Score          float64             `json:"score"`
+	CheckPathError string              `json:"check_path_error,omitempty"`
+	Inputs         map[string][]string `json:"inputs"`
+	LastGoodInputs map[string][]string `json:"last_good_inputs,omitempty"`
 }
 
-func linearInputsToFloats(li *referenceframe.LinearInputs) map[string][]float64 {
-	out := make(map[string][]float64)
+// linearInputsToStrings converts LinearInputs to a map of string slices so that float64 values
+// are transmitted to the frontend without precision loss.
+func linearInputsToStrings(li *referenceframe.LinearInputs) map[string][]string {
+	out := make(map[string][]string)
 	for frameName, inputs := range li.Items() {
 		if len(inputs) == 0 {
 			continue
 		}
-		floats := make([]float64, len(inputs))
-		copy(floats, inputs)
-		out[frameName] = floats
+		strs := make([]string, len(inputs))
+		for idx, v := range inputs {
+			strs[idx] = strconv.FormatFloat(v, 'g', -1, 64)
+		}
+		out[frameName] = strs
 	}
 	return out
 }
 
-func floatsToLinearInputs(data map[string][]float64) *referenceframe.LinearInputs {
+// stringsToLinearInputs parses string-valued inputs (as sent from the frontend) back to LinearInputs.
+func stringsToLinearInputs(data map[string][]string) (*referenceframe.LinearInputs, error) {
 	li := referenceframe.NewLinearInputs()
-	for frameName, floats := range data {
+	for frameName, strs := range data {
+		floats := make([]float64, len(strs))
+		for idx, s := range strs {
+			v, err := strconv.ParseFloat(s, 64)
+			if err != nil {
+				return nil, fmt.Errorf("frame %s index %d: %w", frameName, idx, err)
+			}
+			floats[idx] = v
+		}
 		li.Put(frameName, floats)
 	}
-	return li
+	return li, nil
 }
 
 // ---- helpers ----
@@ -407,12 +557,78 @@ func buildStartInputs(cfg referenceframe.FrameSystemInputs) []frameInputs {
 		}
 		parts := make([]string, len(inputs))
 		for i, v := range inputs {
-			parts[i] = strconv.FormatFloat(v, 'f', 4, 64)
+			parts[i] = strconv.FormatFloat(v, 'g', -1, 64)
 		}
 		rows = append(rows, frameInputs{Name: name, Inputs: "[" + strings.Join(parts, ", ") + "]"})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
 	return rows
+}
+
+// formatPose formats a Pose as a human-readable string with full float64 precision.
+func formatPose(pose spatialmath.Pose) string {
+	pt := pose.Point()
+	q := pose.Orientation().Quaternion()
+	return fmt.Sprintf(
+		"pos=[%s, %s, %s] quat=[w=%s, i=%s, j=%s, k=%s]",
+		strconv.FormatFloat(pt.X, 'g', -1, 64),
+		strconv.FormatFloat(pt.Y, 'g', -1, 64),
+		strconv.FormatFloat(pt.Z, 'g', -1, 64),
+		strconv.FormatFloat(q.Real, 'g', -1, 64),
+		strconv.FormatFloat(q.Imag, 'g', -1, 64),
+		strconv.FormatFloat(q.Jmag, 'g', -1, 64),
+		strconv.FormatFloat(q.Kmag, 'g', -1, 64),
+	)
+}
+
+// computeGoalPoseMap returns full-precision pose strings for one goal, keyed by frame name,
+// transformed into the world frame.
+func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]string, error) {
+	if goalIdx < 0 || goalIdx >= len(req.Goals) {
+		return nil, fmt.Errorf("goal index %d out of range (have %d goals)", goalIdx, len(req.Goals))
+	}
+	poses, err := req.Goals[goalIdx].ComputePoses(context.Background(), req.FrameSystem)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(poses))
+	for frameName, poseValue := range poses {
+		poseInWorldFrame := poseValue.Transform(
+			referenceframe.NewPoseInFrame(
+				req.FrameSystem.World().Name(),
+				spatialmath.NewZeroPose())).(*referenceframe.PoseInFrame)
+		result[frameName] = formatPose(poseInWorldFrame.Pose())
+	}
+	return result, nil
+}
+
+// poseMapToDisplays converts a frame→poseString map into a sorted slice for template rendering.
+func poseMapToDisplays(poseMap map[string]string) []poseDisplay {
+	displays := make([]poseDisplay, 0, len(poseMap))
+	for frame, pose := range poseMap {
+		displays = append(displays, poseDisplay{Frame: frame, Pose: pose})
+	}
+	sort.Slice(displays, func(i, j int) bool { return displays[i].Frame < displays[j].Frame })
+	return displays
+}
+
+// frameSystemPosesToMap formats a FrameSystemPoses (already world-frame) as a frame→poseString map.
+func frameSystemPosesToMap(poses referenceframe.FrameSystemPoses) map[string]string {
+	result := make(map[string]string, len(poses))
+	for frameName, pif := range poses {
+		result[frameName] = formatPose(pif.Pose())
+	}
+	return result
+}
+
+// buildIKInspectURL constructs the /ik-inspect URL with start config and goal poses encoded as
+// JSON query params so all float64 values survive the round-trip as strings.
+func buildIKInspectURL(file string, startConfig *referenceframe.LinearInputs, goalPoseMap map[string]string) string {
+	startJSON, _ := json.Marshal(linearInputsToStrings(startConfig))
+	goalJSON, _ := json.Marshal(goalPoseMap)
+	return "/ik-inspect?file=" + url.QueryEscape(file) +
+		"&start_config=" + url.QueryEscape(string(startJSON)) +
+		"&goal_poses=" + url.QueryEscape(string(goalJSON))
 }
 
 func drawGoalPoses(req *armplanning.PlanRequest) error {
@@ -454,7 +670,8 @@ func renderState(relPath string) error {
 	return nil
 }
 
-func visualizePlan(req *armplanning.PlanRequest, plan motionplan.Plan) error {
+// visualizeLinearTrajectory renders a sequence of LinearInputs steps in the visualizer.
+func visualizeLinearTrajectory(req *armplanning.PlanRequest, steps []*referenceframe.LinearInputs) error {
 	startInputs := req.StartState.Configuration()
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -468,12 +685,12 @@ func visualizePlan(req *armplanning.PlanRequest, plan motionplan.Plan) error {
 	if err := drawGoalPoses(req); err != nil {
 		return err
 	}
-	for idx := range plan.Path() {
+	for idx, step := range steps {
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
 				&motionplan.SegmentFS{
-					StartConfiguration: plan.Trajectory()[idx-1].ToLinearInputs(),
-					EndConfiguration:   plan.Trajectory()[idx].ToLinearInputs(),
+					StartConfiguration: steps[idx-1],
+					EndConfiguration:   step,
 					FS:                 req.FrameSystem,
 				}, 2)
 			if err != nil {
@@ -486,12 +703,21 @@ func visualizePlan(req *armplanning.PlanRequest, plan motionplan.Plan) error {
 				time.Sleep(renderFramePeriod)
 			}
 		}
-		if err := viz.DrawFrameSystem(req.FrameSystem, plan.Trajectory()[idx]); err != nil {
+		if err := viz.DrawFrameSystem(req.FrameSystem, step.ToFrameSystemInputs()); err != nil {
 			return err
 		}
 		time.Sleep(renderFramePeriod)
 	}
 	return nil
+}
+
+func planTrajectoryToStrings(plan motionplan.Plan) []map[string][]string {
+	traj := plan.Trajectory()
+	result := make([]map[string][]string, len(traj))
+	for idx := range plan.Path() {
+		result[idx] = linearInputsToStrings(traj[idx].ToLinearInputs())
+	}
+	return result
 }
 
 // ---- handlers ----
@@ -522,14 +748,71 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
 			return
 		}
+		startConfig := buildStartInputs(req.StartState.Configuration())
+		startLI := req.StartState.Configuration().ToLinearInputs()
+		goals := make([]goalDetail, len(req.Goals))
+		for idx := range req.Goals {
+			poseMap, err := computeGoalPoseMap(req, idx)
+			if err != nil {
+				logger.Warnf("computing goal poses for goal %d: %v", idx, err)
+			}
+			goals[idx] = goalDetail{
+				Index:        idx,
+				StartConfig:  startConfig,
+				GoalPoses:    poseMapToDisplays(poseMap),
+				IKInspectURL: buildIKInspectURL(file, startLI, poseMap),
+			}
+		}
 		data := detailData{
 			File:        file,
 			Frames:      buildFrameInfo(req.FrameSystem),
-			StartInputs: buildStartInputs(req.StartState.Configuration()),
+			StartInputs: startConfig,
+			Goals:       goals,
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := detailTmpl.Execute(w, data); err != nil {
 			logger.Errorf("rendering detail: %v", err)
+		}
+	}
+}
+
+func handleIKInspect(logger logging.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Query().Get("file")
+		if file == "" {
+			http.Error(w, "missing file parameter", http.StatusBadRequest)
+			return
+		}
+		var startConfigStrings map[string][]string
+		if sc := r.URL.Query().Get("start_config"); sc != "" {
+			if err := json.Unmarshal([]byte(sc), &startConfigStrings); err != nil {
+				http.Error(w, fmt.Sprintf("parsing start_config: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+		var goalPoseStrings map[string]string
+		if gp := r.URL.Query().Get("goal_poses"); gp != "" {
+			if err := json.Unmarshal([]byte(gp), &goalPoseStrings); err != nil {
+				http.Error(w, fmt.Sprintf("parsing goal_poses: %v", err), http.StatusBadRequest)
+				return
+			}
+		}
+		startConfig := make([]frameInputs, 0, len(startConfigStrings))
+		for frameName, vals := range startConfigStrings {
+			startConfig = append(startConfig, frameInputs{
+				Name:   frameName,
+				Inputs: "[" + strings.Join(vals, ", ") + "]",
+			})
+		}
+		sort.Slice(startConfig, func(i, j int) bool { return startConfig[i].Name < startConfig[j].Name })
+		data := ikInspectData{
+			File:        file,
+			StartConfig: startConfig,
+			GoalPoses:   poseMapToDisplays(goalPoseStrings),
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if err := ikInspectTmpl.Execute(w, data); err != nil {
+			logger.Errorf("rendering ik-inspect: %v", err)
 		}
 	}
 }
@@ -571,10 +854,6 @@ func handlePlanRun(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
-		if vizErr := visualizePlan(req, plan); vizErr != nil {
-			logger.Warnf("visualization failed (motion-tools server may not be running): %v", vizErr)
-		}
-
 		result := planRunResult{
 			Steps:          len(plan.Path()),
 			Duration:       meta.Duration.String(),
@@ -585,18 +864,20 @@ func handlePlanRun(logger logging.Logger) http.HandlerFunc {
 			result.PartialError = meta.PartialError.Error()
 		}
 		for _, pg := range meta.PerGoal {
+			poseMap := frameSystemPosesToMap(pg.GoalPoses)
 			pgResult := perGoalResult{
+				IKInspectURL:             buildIKInspectURL(file, pg.StartConfiguration, poseMap),
 				ConstraintFailuresByType: pg.ConstraintFailuresByType,
 			}
 			for _, sn := range pg.SolutionNodes {
 				row := solutionNodeResult{
 					Score:  sn.Score,
-					Inputs: linearInputsToFloats(sn.Inputs),
+					Inputs: linearInputsToStrings(sn.Inputs),
 				}
 				if sn.CheckPathError != nil {
 					row.CheckPathError = sn.CheckPathError.Error()
 					if sn.LastGoodInputs != nil {
-						row.LastGoodInputs = linearInputsToFloats(sn.LastGoodInputs)
+						row.LastGoodInputs = linearInputsToStrings(sn.LastGoodInputs)
 					}
 					pgResult.CheckPathFailures = append(pgResult.CheckPathFailures, row)
 				} else {
@@ -605,6 +886,7 @@ func handlePlanRun(logger logging.Logger) http.HandlerFunc {
 			}
 			result.PerGoal = append(result.PerGoal, pgResult)
 		}
+		result.Trajectory = planTrajectoryToStrings(plan)
 
 		writeJSON(w, result)
 	}
@@ -622,12 +904,16 @@ func handleRenderSolution(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
 			return
 		}
-		var inputFloats map[string][]float64
-		if err := json.NewDecoder(r.Body).Decode(&inputFloats); err != nil {
+		var inputStrings map[string][]string
+		if err := json.NewDecoder(r.Body).Decode(&inputStrings); err != nil {
 			http.Error(w, fmt.Sprintf("decoding inputs: %v", err), http.StatusBadRequest)
 			return
 		}
-		li := floatsToLinearInputs(inputFloats)
+		li, err := stringsToLinearInputs(inputStrings)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("parsing inputs: %v", err), http.StatusBadRequest)
+			return
+		}
 		startInputs := req.StartState.Configuration()
 		if err := viz.RemoveAllSpatialObjects(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -659,12 +945,16 @@ func handleRenderShadows(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
 			return
 		}
-		var inputFloats map[string][]float64
-		if err := json.NewDecoder(r.Body).Decode(&inputFloats); err != nil {
+		var inputStrings map[string][]string
+		if err := json.NewDecoder(r.Body).Decode(&inputStrings); err != nil {
 			http.Error(w, fmt.Sprintf("decoding inputs: %v", err), http.StatusBadRequest)
 			return
 		}
-		end := floatsToLinearInputs(inputFloats)
+		end, err := stringsToLinearInputs(inputStrings)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("parsing inputs: %v", err), http.StatusBadRequest)
+			return
+		}
 		startInputs := req.StartState.Configuration()
 		start := startInputs.ToLinearInputs()
 
@@ -781,6 +1071,38 @@ func writeJSON(w http.ResponseWriter, v any) {
 	}
 }
 
+func handleRenderPlan(logger logging.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		file := r.URL.Query().Get("file")
+		if file == "" {
+			http.Error(w, "missing file parameter", http.StatusBadRequest)
+			return
+		}
+		req, err := armplanning.ReadRequestFromFile(filepath.Join(rdkRoot, file))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("reading plan file: %v", err), http.StatusInternalServerError)
+			return
+		}
+		var trajStrings []map[string][]string
+		if err := json.NewDecoder(r.Body).Decode(&trajStrings); err != nil {
+			http.Error(w, fmt.Sprintf("decoding trajectory: %v", err), http.StatusBadRequest)
+			return
+		}
+		steps := make([]*referenceframe.LinearInputs, len(trajStrings))
+		for idx, step := range trajStrings {
+			li, err := stringsToLinearInputs(step)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("parsing step %d: %v", idx, err), http.StatusBadRequest)
+				return
+			}
+			steps[idx] = li
+		}
+		if err := visualizeLinearTrajectory(req, steps); err != nil {
+			logger.Warnf("visualization failed (motion-tools server may not be running): %v", err)
+		}
+	}
+}
+
 func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file := r.URL.Query().Get("file")
@@ -803,7 +1125,9 @@ func RunServer() error {
 
 	http.HandleFunc("/", handleIndex(logger))
 	http.HandleFunc("/detail", handleDetail(logger))
+	http.HandleFunc("/ik-inspect", handleIKInspect(logger))
 	http.HandleFunc("/plan/run", handlePlanRun(logger))
+	http.HandleFunc("/render-plan", handleRenderPlan(logger))
 	http.HandleFunc("/render-start", handleRenderStart(logger))
 	http.HandleFunc("/render-solution", handleRenderSolution(logger))
 	http.HandleFunc("/render-shadows", handleRenderShadows(logger))

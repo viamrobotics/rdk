@@ -338,6 +338,7 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 	if psc.pc.planMeta.CollectSolutionDiagnostics {
 		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
 		perGoal.StartConfiguration = psc.start
+		perGoal.GoalPoses = psc.goal
 		perGoal.ReasonableCost = reasonableCost
 		for _, goalNode := range goalNodes {
 			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
