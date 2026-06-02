@@ -207,9 +207,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg4 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:  weak1Name.Name,
-				API:   weakAPI,
-				Model: weakModel,
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
 			},
 			{
 				Name:  base1Name.Name,
