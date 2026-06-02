@@ -294,16 +294,22 @@ func TestBadSpray1(t *testing.T) {
 		return
 	}
 
-	logger := newChattyMotionPlanTestLogger(t)
+	logger := logging.NewTestLogger(t)
 
 	start := time.Now()
 	req, err := ReadRequestFromFile("data/spray-bad1.json")
 	test.That(t, err, test.ShouldBeNil)
+	req.PlannerOptions.CollectSolutionDiagnostics = true
 
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
 	t.Run("basic", func(t *testing.T) {
-		_, _, err = PlanMotion(context.Background(), logger, req)
+		// Pass in a `newChattyMotionPlanTestLogger` that disables motion planning INFO/DEBUG logs
+		// for performance. Lest we timeout due to excessive I/O.
+		_, meta, err := PlanMotion(context.Background(), newChattyMotionPlanTestLogger(t), req)
+		if err != nil {
+			meta.OutputToLogger(logger)
+		}
 		test.That(t, err, test.ShouldBeNil)
 	})
 
