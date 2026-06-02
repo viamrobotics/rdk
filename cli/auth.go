@@ -149,8 +149,7 @@ func (c *viamClient) loginAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if _, isAPIKey := c.conf.Auth.(*apiKey); isAPIKey {
-		warningf(c.c.Root().ErrWriter, "was logged in with an api-key. logging out")
-		utils.UncheckedError(c.logout())
+		warningf(c.c.Root().ErrWriter, "was logged in with an api-key. re-authenticating via user credentials")
 	}
 	currentToken, _ := c.conf.Auth.(*token) // currentToken can be nil
 	if currentToken != nil && !currentToken.isExpired() {
