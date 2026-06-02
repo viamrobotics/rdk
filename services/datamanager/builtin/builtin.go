@@ -327,7 +327,7 @@ func (b *builtIn) runCaptureControlPoller(
 			b.mu.Unlock()
 			return
 		}
-		b.capture.SetCaptureConfigs(ctx, newConfigs)
+		b.capture.SetCaptureConfigs(newConfigs)
 		b.capture.SetActiveSequences(newSequences)
 		b.mu.Unlock()
 	}

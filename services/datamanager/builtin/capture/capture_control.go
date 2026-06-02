@@ -1,7 +1,6 @@
 package capture
 
 import (
-	"context"
 	"fmt"
 	"slices"
 
@@ -36,8 +35,8 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
 // the resource is looked up by short name in c.resourcesByShortName and a collector is built from
 // the sensor reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios)
-// cannot be enabled this way; they must remain in the static machine config.
-func (c *Capture) SetCaptureConfigs(ctx context.Context, captureConfigReadings map[string]datamanager.CaptureConfigReading) {
+// cannot be enabled this way — the user must list them under capture_methods in the machine config.
+func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	effectiveCollectors := c.buildEffectiveCollectors(captureConfigReadings)
 	c.updateCollectors(effectiveCollectors)
 }
@@ -58,11 +57,11 @@ func (c *Capture) buildEffectiveCollectors(
 
 			// Start from a copy of default config.
 			effectiveCfg := defaultCfg
-			effectiveCfg.Tags = c.serviceTags
+			effectiveCfg.Tags = c.defaultTags
 
 			// Apply override if present, otherwise use default config as-is.
 			if override, ok := captureConfigReadings[key]; ok {
-				applyOverride(&effectiveCfg, override)
+				effectiveCfg = applyOverride(effectiveCfg, override)
 			}
 			if effectivelyDisabled(effectiveCfg) {
 				continue
@@ -77,30 +76,20 @@ func (c *Capture) buildEffectiveCollectors(
 		if _, seen := defaultKeys[key]; seen {
 			continue
 		}
-		res, ok := c.resourcesByShortName[override.ResourceName]
+
+		res, ok := c.shouldAutoEnable(override)
 		if !ok {
-			c.logger.Warnw("capture control sensor referenced unknown resource",
-				"resource", override.ResourceName, "method", override.MethodName)
 			continue
 		}
-		// Methods that take additional_params (e.g. board.Analogs, board.Gpios) can't be
-		// auto-enabled — the sensor reading doesn't carry params, so the collector would
-		// either fail to construct or capture useless data.
-		if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(res.Name().API.String(), override.MethodName)]; needsParams {
-			c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
-				"resource", override.ResourceName, "method", override.MethodName)
-			continue
-		}
-		// Synthesize a fresh DataCaptureConfig from the resolved resource and the sensor
-		// reading. The static config didn't provide one for this key, so this is "auto-enable."
-		// Service-level tags as the base; applyOverride may replace them.
+
+		// create a fresh data capture config from the resolved resource.
 		effectiveCfg := datamanager.DataCaptureConfig{
 			Name:             res.Name(),
 			Method:           override.MethodName,
 			CaptureDirectory: c.captureDir,
-			Tags:             c.serviceTags,
+			Tags:             c.defaultTags,
 		}
-		applyOverride(&effectiveCfg, override)
+		effectiveCfg = applyOverride(effectiveCfg, override)
 		if effectivelyDisabled(effectiveCfg) {
 			continue
 		}
@@ -117,8 +106,7 @@ func effectivelyDisabled(cfg datamanager.DataCaptureConfig) bool {
 	return cfg.Disabled || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0
 }
 
-// updateCollectors makes c.collectors match effectiveCollectors: build/update what's in effectiveCollectors but
-// not running correctly, close what's running but not in effectiveCollectors.
+// updateCollectors builds and updates c.collectors to match effectiveCollectors, and closes collectors that aren't in effectiveCollectors.
 func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]effectiveCollectorConfig) {
 	c.collectorsMu.Lock()
 	defer c.collectorsMu.Unlock()
@@ -141,10 +129,6 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 		coll, err := c.buildCollector(res, metadata, effectiveCfg, c.maxCaptureFileSize, c.mongo.collection)
 		if err != nil {
 			c.logger.Warnw("failed to build collector", "error", err, "key", key)
-			continue
-		}
-		if coll == nil {
-			// Defensive: buildEffectiveCollectors's effectivelyDisabled filter should have prevented this.
 			continue
 		}
 		if existing != nil {
@@ -183,9 +167,9 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 	}
 }
 
-// applyOverride mutates cfg in place with whichever fields the sensor reading provides.
+// applyOverride returns cfg with whichever fields the sensor reading provides applied on top.
 // Fields that are nil on the reading leave cfg untouched.
-func applyOverride(cfg *datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) {
+func applyOverride(cfg datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) datamanager.DataCaptureConfig {
 	if override.CaptureFrequencyHz != nil {
 		cfg.CaptureFrequencyHz = *override.CaptureFrequencyHz
 		cfg.Disabled = *override.CaptureFrequencyHz <= 0
@@ -193,14 +177,15 @@ func applyOverride(cfg *datamanager.DataCaptureConfig, override datamanager.Capt
 	if override.Tags != nil {
 		cfg.Tags = override.Tags
 	}
+	return cfg
 }
 
-// captureConfigUnchanged returns true when CaptureFrequencyHz, Disabled, and Tags (the only fields
-// that can be changed via the capture_control_sensor) are identical between an existing and new
-// collector config.
+// captureConfigUnchanged returns true when the fields the capture_control_sensor can change
+// (CaptureFrequencyHz and Tags) are identical between an existing and a desired collector config.
+// Disabled isn't checked here: effectivelyDisabled filters disabled configs out of
+// effectiveCollectors upstream, so both sides are guaranteed Disabled=false at this point.
 func captureConfigUnchanged(existing, effective datamanager.DataCaptureConfig) bool {
 	return existing.CaptureFrequencyHz == effective.CaptureFrequencyHz &&
-		existing.Disabled == effective.Disabled &&
 		slices.Equal(existing.Tags, effective.Tags)
 }
 
@@ -220,4 +205,28 @@ func (c *Capture) logCaptureConfigChange(key string, existing *collectorAndConfi
 	if !slices.Equal(prev.Tags, effectiveCfg.Tags) {
 		c.logger.Infof("capture control sensor changing tags for %s: %v -> %v", key, prev.Tags, effectiveCfg.Tags)
 	}
+}
+
+// shouldAutoEnable validates that the sensor's override can produce a running collector when
+// data capture is not configured on the machine config for that resource/method pair
+func (c *Capture) shouldAutoEnable(override datamanager.CaptureConfigReading) (resource.Resource, bool) {
+	res, ok := c.resourcesByShortName[override.ResourceName]
+	if !ok {
+		c.logger.Warnw("capture control sensor referenced unknown resource",
+			"resource", override.ResourceName, "method", override.MethodName)
+		return nil, false
+	}
+
+	if data.CollectorLookup(data.MethodMetadata{API: res.Name().API, MethodName: override.MethodName}) == nil {
+		c.logger.Warnw("capture control sensor referenced unknown method for resource",
+			"resource", override.ResourceName, "method", override.MethodName, "api", res.Name().API)
+		return nil, false
+	}
+
+	if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(res.Name().API.String(), override.MethodName)]; needsParams {
+		c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
+			"resource", override.ResourceName, "method", override.MethodName)
+		return nil, false
+	}
+	return res, true
 }

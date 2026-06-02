@@ -71,15 +71,12 @@ type Capture struct {
 	// These are stored in order to be compared to any capture override readings.
 	defaultCollectorConfigs CollectorConfigsByResource
 
-	// resourcesByShortName lets the capture control sensor enable capture on resources that have
-	// no matching entry in defaultCollectorConfigs. Populated from the data manager's weak
-	// dependencies at Reconfigure time, so it covers every component/service the robot knows about —
-	// regardless of whether the user added a data capture config for it.
+	// resourcesByShortName keeps track of every weak-dep resource by short name, so the capture
+	// control sensor can auto enable capture for resources that do not have it specified in the machine config.
 	resourcesByShortName map[string]resource.Resource
 
-	// serviceTags is the service-level Tags from the data manager Config, applied to every
-	// collector built by newCollectors or SetCaptureConfigs.
-	serviceTags []string
+	// defaultTags is the service-level tags from the data manager service config.
+	defaultTags []string
 
 	// openSequences holds in-flight sequences emitted by the capture control sensor.
 	openSequences map[openSequenceKey]*OpenSequence
@@ -269,7 +266,7 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
 	c.resourcesByShortName = resourcesByShortName
-	c.serviceTags = config.Tags
+	c.defaultTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
