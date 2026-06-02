@@ -1661,14 +1661,17 @@ func TestJobManagerServices(t *testing.T) {
 			},
 		},
 		Jobs: []config.JobConfig{
-			{
-				config.JobConfigData{
-					Name:     "discovery job",
-					Schedule: "3s",
-					Resource: "discovery",
-					Method:   "DiscoverResources",
-				},
-			},
+			// {
+			// TODO(RSDK-9718)
+			// Discovery Service is currently excluded from the list of services; it will be
+			// available after a change in the API repo.
+			// config.JobConfigData{
+			// Name:     "discovery job",
+			// Schedule: "3s",
+			// Resource: "discovery",
+			// Method:   "DiscoverResources",
+			//  },
+			// },
 			{
 				config.JobConfigData{
 					Name:     "data manager job",

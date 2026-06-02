@@ -128,6 +128,11 @@ type PlannerOptions struct {
 
 	// Setting indicating that all mesh geometries should be converted into octrees.
 	MeshesAsOctrees bool `json:"meshes_as_octrees"`
+
+	// CollectSolutionDiagnostics enables collection of per-node IK solution data into PlanMeta.
+	// This includes SolutionNodes and ConstraintFailuresByType. Disabled by default because
+	// accumulating this data can be expensive for large solution sets.
+	CollectSolutionDiagnostics bool `json:"collect_solution_diagnostics"`
 }
 
 // NewPlannerOptionsFromExtra returns basic default settings updated by overridden parameters

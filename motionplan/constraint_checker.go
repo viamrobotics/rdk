@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils/trace"
@@ -21,9 +22,9 @@ const (
 
 	// collision constraint descriptions used in error messages.
 	boundingRegionConstraintDescription = "bounding region constraint"
-	obstacleConstraintDescription       = "obstacle constraint"
+	ObstacleConstraintDescription       = "obstacle constraint"
 	selfCollisionConstraintDescription  = "self-collision constraint"
-	robotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
+	RobotCollisionConstraintDescription = "robot constraint" // collision between a moving robot component and one that is stationary
 
 	defaultCollisionBufferMM = 1e-8
 	defaultMinStepCount      = 2
@@ -59,6 +60,9 @@ func NewEmptyConstraintChecker(logger logging.Logger) *ConstraintChecker {
 }
 
 // NewConstraintChecker - creates a ConstraintChecker with all the params.
+// When cache is non-nil, the resulting constraint closures use it for
+// temporal-coherence short-circuits (pair hints + per-triangle witnesses).
+// Typically supplied by the planner from planContext.cache; nil disables caching.
 func NewConstraintChecker(
 	collisionBufferMM float64,
 	constraints *Constraints,
@@ -68,6 +72,7 @@ func NewConstraintChecker(
 	seedMap *referenceframe.LinearInputs,
 	worldState *referenceframe.WorldState,
 	logger logging.Logger,
+	cache *CollisionCache,
 ) (*ConstraintChecker, error) {
 	if constraints == nil {
 		// Constraints may be nil, but if a motion profile is set in planningOpts
@@ -110,6 +115,8 @@ func NewConstraintChecker(
 		worldGeometries,
 		allowedCollisions,
 		collisionBufferMM,
+		cache,
+		logger,
 	)
 	if err != nil {
 		return nil, err
@@ -279,8 +286,8 @@ func (c *ConstraintChecker) CheckStateFSConstraints(ctx context.Context, state *
 		name string
 		fn   CollisionConstraintFunc
 	}{
-		{obstacleConstraintDescription, c.collisionConstraints.Obstacle},
-		{robotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
+		{ObstacleConstraintDescription, c.collisionConstraints.Obstacle},
+		{RobotCollisionConstraintDescription, c.collisionConstraints.RobotToRobot},
 		{selfCollisionConstraintDescription, c.collisionConstraints.SelfCollision},
 	} {
 		if pair.fn == nil {
@@ -381,17 +388,30 @@ func (c *ConstraintChecker) CheckStateConstraintsAcrossSegmentFS(
 	return nil, nil
 }
 
-// CreateAllCollisionConstraints -.
+// CreateAllCollisionConstraints builds the three collision constraint
+// functions (obstacle / robot-vs-robot / self-collision). When cache is non-nil,
+// each constraint registers its pair labels for witness-slot caching and uses
+// its dedicated pair-hint slot.
 func CreateAllCollisionConstraints(
 	fs *referenceframe.FrameSystem,
 	movingRobotGeometries, staticRobotGeometries, worldGeometries []spatialmath.Geometry,
 	allowedCollisions []Collision,
 	collisionBufferMM float64,
+	cache *CollisionCache,
+	logger logging.Logger,
 ) (CollisionConstraints, error) {
 	var constraints CollisionConstraints
 
+	// Each constraint type gets its own pair-hint slot from the cache so the
+	// three hints don't trample each other across constraint invocations.
+	var obstacleHint, robotHint, selfHint *atomic.Pointer[[2]string]
+	if cache != nil {
+		obstacleHint = &cache.obstaclePairHint
+		robotHint = &cache.robotPairHint
+		selfHint = &cache.selfPairHint
+	}
+
 	if len(worldGeometries) > 0 {
-		// create constraint to keep moving geometries from hitting world state obstacles
 		obstacleConstraintFS, err := NewCollisionConstraintFS(
 			fs,
 			movingRobotGeometries,
@@ -399,6 +419,9 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			obstacleHint,
+			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -414,6 +437,9 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			false,
+			robotHint,
+			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -421,7 +447,6 @@ func CreateAllCollisionConstraints(
 		constraints.RobotToRobot = robotConstraintFS
 	}
 
-	// create constraint to keep moving geometries from hitting themselves
 	if len(movingRobotGeometries) > 1 {
 		selfCollisionConstraintFS, err := NewCollisionConstraintFS(
 			fs,
@@ -430,6 +455,9 @@ func CreateAllCollisionConstraints(
 			allowedCollisions,
 			collisionBufferMM,
 			true,
+			selfHint,
+			cache,
+			logger,
 		)
 		if err != nil {
 			return CollisionConstraints{}, err
@@ -442,15 +470,22 @@ func CreateAllCollisionConstraints(
 // NewCollisionConstraintFS is the most general method to create a collision constraint for a frame system,
 // which will be violated if geometries constituting the given frame ever come into collision with obstacle geometries
 // outside of the collisions present for the observationInput. Collisions specified as collisionSpecifications will also be ignored.
+//
+// When pairHint is non-nil, the closure uses it to remember the most-recently-
+// violated (geomA, geomB) pair and try that pair first on the next call.
 func NewCollisionConstraintFS(
 	fs *referenceframe.FrameSystem,
 	moving, static []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
 	isSelfCollision bool,
+	pairHint *atomic.Pointer[[2]string],
+	cache *CollisionCache,
+	logger logging.Logger,
 ) (CollisionConstraintFunc, error) {
+	_ = cache // reserved for future planner-level caches (edge memoization lives elsewhere on the same struct)
 	ignoreCollisions, err := computeInitialCollisionsToIgnore(fs, moving, static,
-		collisionSpecifications, collisionBufferMM)
+		collisionSpecifications, collisionBufferMM, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -485,8 +520,8 @@ func NewCollisionConstraintFS(
 			staticToCheck = internalGeoms
 		}
 
-		collisions, minDist, err := CheckCollisions(
-			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false)
+		collisions, minDist, err := checkCollisionsHinted(
+			internalGeoms, staticToCheck, ignoreCollisions, collisionBufferMM, false, pairHint, logger)
 		if err != nil {
 			return minDist, err
 		}
@@ -507,10 +542,11 @@ func computeInitialCollisionsToIgnore(
 	group1, group2 []spatialmath.Geometry,
 	collisionSpecifications []Collision,
 	collisionBufferMM float64,
+	logger logging.Logger,
 ) ([]Collision, error) {
 	// Geometries in collision at move start should thereafter be ignored
 	initialCollisions, _, err := CheckCollisions(
-		group1, group2, collisionSpecifications, collisionBufferMM, true)
+		group1, group2, collisionSpecifications, collisionBufferMM, true, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -527,6 +563,33 @@ func computeInitialCollisionsToIgnore(
 func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 []spatialmath.Geometry) []Collision {
 	skipList := []Collision{}
 
+	// Build a reverse lookup for geometries whose label is namespaced under a
+	// frame (e.g. "follower-gripper:gripper_body_0" on the "follower-gripper"
+	// frame). Only frames with zero DoF qualify — for kinematic models (e.g.
+	// SimpleModel) all link geometries appear under one frame name in the
+	// frame system, but they're separated by internal joints and do NOT share
+	// rigid motion.
+	geomLabelToStaticFrame := map[string]referenceframe.Frame{}
+	for _, name := range fs.FrameNames() {
+		f := fs.Frame(name)
+		if f == nil || len(f.DoF()) != 0 {
+			continue
+		}
+		gif, err := f.Geometries(nil)
+		if err != nil || gif == nil {
+			continue
+		}
+		for _, g := range gif.Geometries() {
+			geomLabelToStaticFrame[g.Label()] = f
+		}
+	}
+	resolveFrame := func(geomLabel string) referenceframe.Frame {
+		if f := fs.Frame(geomLabel); f != nil {
+			return f
+		}
+		return geomLabelToStaticFrame[geomLabel]
+	}
+
 	for _, g1 := range group1 {
 		g1Name := g1.Label()
 		for _, g2 := range group2 {
@@ -535,8 +598,8 @@ func findCoparentedStaticFrames(fs *referenceframe.FrameSystem, group1, group2 [
 				continue
 			}
 
-			x := fs.Frame(g1Name)
-			y := fs.Frame(g2Name)
+			x := resolveFrame(g1Name)
+			y := resolveFrame(g2Name)
 
 			if x == nil || y == nil {
 				// Geometry not in frame system (e.g. internal to a component), must check for collision

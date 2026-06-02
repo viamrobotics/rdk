@@ -398,11 +398,11 @@ func TestMutateModuleConfig(t *testing.T) {
 		JSONManifest: rdkConfig.JSONManifest{Entrypoint: "/bin/mod"},
 		Build:        &manifestBuildInfo{Path: "module.tar.gz"},
 	}
-	expectedName := "viam-labs_test-module_from_reload"
+	expectedName := "viam-labs_test-module"
 	expectedVersion := "latest-with-prerelease"
 	expectedEntrypoint, err := filepath.Abs(manifest.Entrypoint)
 	test.That(t, err, test.ShouldBeNil)
-	remoteReloadPath := filepath.Join(".viam", "packages-local", "viam-labs_test-module_from_reload-module.tar.gz")
+	remoteReloadPath := filepath.Join(".viam", "packages-local", "viam-labs_test-module-module.tar.gz")
 	testUser := "test@viam.com"
 	testReloadUnixTS := time.Date(2024, 3, 18, 12, 0, 0, 0, time.UTC).Unix()
 
