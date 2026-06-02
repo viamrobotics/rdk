@@ -87,6 +87,44 @@ func NewEmptyFrameSystem(name string) *FrameSystem {
 	}
 }
 
+// ResetCaches walks the frame system for all mesh geometries and invokes their `ResetCache`
+// method. This is only required to avoid piling up too much memory usage with cache values are low
+// value. Cached values are important in the context of a single motion plan request, but become
+// increasingly irrelevant when degrees of freedom change.
+func (sfs *FrameSystem) ResetCaches() {
+	resetMesh := func(geom spatial.Geometry) {
+		if mesh, isMesh := geom.(*spatial.Mesh); isMesh {
+			mesh.ResetCache()
+		}
+	}
+
+	var resetFrame func(Frame)
+	resetFrame = func(frameI Frame) {
+		switch frame := frameI.(type) {
+		case *staticFrame:
+			resetMesh(frame.geometry)
+		case *tailGeometryStaticFrame:
+			resetMesh(frame.geometry)
+		case *translationalFrame:
+			resetMesh(frame.geometry)
+		case *rotationalFrame:
+			// no geometries
+		case *namedFrame:
+			resetFrame(frameI)
+		case *poseFrame:
+			for _, geom := range frame.geometries {
+				resetMesh(geom)
+			}
+		case *SimpleModel:
+			frame.internalFS.ResetCaches()
+		}
+	}
+
+	for _, frameI := range sfs.frames {
+		resetFrame(frameI)
+	}
+}
+
 // resolveFrameInputs is a fallback for when linearInputs.Get(frameName) returns nil.
 // It checks if frameName belongs to a flattened model and, if so, extracts the right
 // slice from a component-name-keyed entry in the LinearInputs.

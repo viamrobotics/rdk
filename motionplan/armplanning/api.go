@@ -284,29 +284,9 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 // fine — failures here are logged and swallowed rather than surfaced as a
 // planning error.
 func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRequest) {
-	visit := func(geometry spatialmath.Geometry) {
-		if mesh, ok := geometry.(*spatialmath.Mesh); ok {
-			mesh.ResetCache()
-		}
-	}
-
-	if request.StartState != nil && request.StartState.structuredConfiguration != nil {
-		frameSystemGeometries, err := referenceframe.FrameSystemGeometries(
-			request.FrameSystem,
-			request.StartState.structuredConfiguration,
-		)
-		if err != nil {
-			logger.CDebugf(ctx, "resetMeshCaches: skipping robot geometries: %v", err)
-			// Not expected to happen, but we still want to try walking the world state. Rely on
-			// ranging over a nil slice to be a no-op.
-		}
-
-		for _, geometriesInFrame := range frameSystemGeometries {
-			for _, geometry := range geometriesInFrame.Geometries() {
-				visit(geometry)
-			}
-		}
-	}
+	// The request frame system holds mesh geometries that are shared are expected to persist across an entire
+	// process lifetime.
+	request.FrameSystem.ResetCaches()
 
 	if request.WorldState != nil {
 		// Right now, the world state is getting entirely thrown away anyways. It's always a part of
@@ -322,7 +302,9 @@ func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRe
 		}
 
 		for _, geometry := range obstacles.Geometries() {
-			visit(geometry)
+			if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+				mesh.ResetCache()
+			}
 		}
 	}
 }
