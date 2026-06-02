@@ -1673,6 +1673,10 @@ Note: There is no progress meter while copying is in progress.
 									Required: true,
 									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
 								},
+								&cli.StringFlag{
+									Name:  dataFlagPipelineName,
+									Usage: "pipeline name (required when --collection-type is 'pipeline-sink')",
+								},
 							},
 							Action: createActionCommandWithT[listCustomIndexesArgs](ListCustomIndexesAction),
 						},
@@ -3943,6 +3947,11 @@ This won't work unless you have an existing installation of our GitHub app on yo
 						&cli.StringFlag{
 							Name:  moduleFlagAnnotation,
 							Usage: "Annotation to describe the purpose of the reload build",
+						},
+						&cli.StringFlag{
+							Name:  moduleBuildFlagBuilder,
+							Usage: formatAcceptedValues("target build service", "default", "viam-cloudbuild-test"),
+							Value: "default",
 						},
 					},
 					Action: createActionCommandWithT[reloadModuleArgs](ReloadModuleAction),

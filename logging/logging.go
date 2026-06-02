@@ -183,6 +183,26 @@ func NewObservedTestLoggerWithRegistry(tb testing.TB, name string) (Logger, *obs
 	return logger, observedLogs, registry
 }
 
+// NewTestLoggerSilentAfterComplete is like NewTestLogger but drops log writes after the
+// test has completed, preventing races or panics from late-emitting goroutines. It should
+// only be used by tests that _expect_ to have a log emitted after/during test completion.
+// Most tests should use NewTestLogger, so that goroutines logging after test completion
+// can be seen through data race or panic test failures.
+func NewTestLoggerSilentAfterComplete(tb testing.TB) Logger {
+	return &impl{
+		name:  tb.Name(),
+		level: NewAtomicLevelAt(DEBUG),
+		appenders: []Appender{
+			newSilentAfterCompleteTestAppender(tb),
+		},
+		registry:                 newRegistry(),
+		testHelper:               tb.Helper,
+		recentMessageCounts:      make(map[string]int),
+		recentMessageEntries:     make(map[string]LogEntry),
+		recentMessageWindowStart: time.Now(),
+	}
+}
+
 // MemLogger stores test logs in memory. And can write them on request with `OutputLogs`.
 type MemLogger struct {
 	Logger
