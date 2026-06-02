@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	viz "github.com/viam-labs/motion-tools/client/client"
@@ -53,6 +54,33 @@ const (
 	shadowCount       = 10
 	shadowFramePeriod = 100 * time.Millisecond
 )
+
+// ---- render coordination ----
+//
+// All rendering targets a single shared visualizer (the package-level `viz`
+// client), so only one render may own it at a time. Renders are driven by
+// independent HTTP requests that may originate from different pages (e.g. the
+// detail page's trajectory playback and the IK-inspect page's "Render Start +
+// Goals" button), so coordination has to live here on the server rather than in
+// any single page's JavaScript. beginRender cancels whatever render is currently
+// in flight and returns a context that the next render will cancel in turn;
+// long-running renders (trajectory playback, shadows) must check it and bail out
+// promptly once superseded.
+var (
+	renderMu     sync.Mutex
+	renderCancel context.CancelFunc
+)
+
+func beginRender() context.Context {
+	renderMu.Lock()
+	defer renderMu.Unlock()
+	if renderCancel != nil {
+		renderCancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	renderCancel = cancel
+	return ctx
+}
 
 // ---- templates ----
 
@@ -671,7 +699,8 @@ func renderState(relPath string) error {
 }
 
 // visualizeLinearTrajectory renders a sequence of LinearInputs steps in the visualizer.
-func visualizeLinearTrajectory(req *armplanning.PlanRequest, steps []*referenceframe.LinearInputs) error {
+// It bails out early (without error) if ctx is cancelled by a newer render.
+func visualizeLinearTrajectory(ctx context.Context, req *armplanning.PlanRequest, steps []*referenceframe.LinearInputs) error {
 	startInputs := req.StartState.Configuration()
 	if err := viz.RemoveAllSpatialObjects(); err != nil {
 		return err
@@ -686,6 +715,9 @@ func visualizeLinearTrajectory(req *armplanning.PlanRequest, steps []*referencef
 		return err
 	}
 	for idx, step := range steps {
+		if ctx.Err() != nil {
+			return nil
+		}
 		if idx > 0 {
 			midPoints, err := motionplan.InterpolateSegmentFS(
 				&motionplan.SegmentFS{
@@ -697,6 +729,9 @@ func visualizeLinearTrajectory(req *armplanning.PlanRequest, steps []*referencef
 				return err
 			}
 			for _, mp := range midPoints {
+				if ctx.Err() != nil {
+					return nil
+				}
 				if err := viz.DrawFrameSystem(req.FrameSystem, mp.ToFrameSystemInputs()); err != nil {
 					return err
 				}
@@ -914,6 +949,7 @@ func handleRenderSolution(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("parsing inputs: %v", err), http.StatusBadRequest)
 			return
 		}
+		beginRender()
 		startInputs := req.StartState.Configuration()
 		if err := viz.RemoveAllSpatialObjects(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -955,6 +991,7 @@ func handleRenderShadows(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("parsing inputs: %v", err), http.StatusBadRequest)
 			return
 		}
+		ctx := beginRender()
 		startInputs := req.StartState.Configuration()
 		start := startInputs.ToLinearInputs()
 
@@ -979,7 +1016,7 @@ func handleRenderShadows(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, fmt.Sprintf("interpolating: %v", err), http.StatusInternalServerError)
 			return
 		}
-		if err := drawShadows(req.FrameSystem, midPoints); err != nil {
+		if err := drawShadows(ctx, req.FrameSystem, midPoints); err != nil {
 			http.Error(w, fmt.Sprintf("drawing shadows: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -1014,7 +1051,7 @@ func interpolateShadows(
 // drawShadows draws each interpolated configuration as a static "shadow" so the user can see the
 // full straight-line path at once. Only frames with DoF (or descendants of moving frames) get
 // shadows. Colors alternate per step to make ordering visible.
-func drawShadows(fs *referenceframe.FrameSystem, configs []*referenceframe.LinearInputs) error {
+func drawShadows(ctx context.Context, fs *referenceframe.FrameSystem, configs []*referenceframe.LinearInputs) error {
 	isMovingFrame := func(frameName string) bool {
 		frame := fs.Frame(frameName)
 		if frame == nil {
@@ -1035,6 +1072,9 @@ func drawShadows(fs *referenceframe.FrameSystem, configs []*referenceframe.Linea
 
 	shadowColors := []string{"blue", "red"}
 	for idx, cfg := range configs {
+		if ctx.Err() != nil {
+			return nil
+		}
 		gifs, err := referenceframe.FrameSystemGeometries(fs, cfg.ToFrameSystemInputs())
 		if err != nil {
 			return err
@@ -1097,7 +1137,8 @@ func handleRenderPlan(logger logging.Logger) http.HandlerFunc {
 			}
 			steps[idx] = li
 		}
-		if err := visualizeLinearTrajectory(req, steps); err != nil {
+		ctx := beginRender()
+		if err := visualizeLinearTrajectory(ctx, req, steps); err != nil {
 			logger.Warnf("visualization failed (motion-tools server may not be running): %v", err)
 		}
 	}
@@ -1110,6 +1151,7 @@ func handleRenderStart(logger logging.Logger) http.HandlerFunc {
 			http.Error(w, "missing file parameter", http.StatusBadRequest)
 			return
 		}
+		beginRender()
 		if err := renderState(file); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
