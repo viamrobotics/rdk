@@ -1,0 +1,140 @@
+name: Build CLI Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        default: pr
+        required: true
+        type: choice
+        options: [pr, latest, stable]
+  workflow_call:
+    inputs:
+      release_type:
+        required: true
+        type: string
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    permissions:
+      contents: "read"
+      id-token: "write"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The EV signing key lives in a GCP Workload Identity Pool scoped to
+      # viam org repos. Auth + signing only succeed when running from the
+      # upstream repo; on forks (e.g. someone iterating before merge) these
+      # steps are skipped and the workflow produces an unsigned installer.
+      - id: auth
+        if: github.repository == 'viamrobotics/rdk'
+        uses: "google-github-actions/auth@v2"
+        with:
+          token_format: "access_token"
+          project_id: "engineering-tools-310515"
+          workload_identity_provider: "projects/385154741571/locations/global/workloadIdentityPools/ev-signing-id/providers/github-repos-viam-and-labs"
+          service_account: "ev-code-signing@engineering-tools-310515.iam.gserviceaccount.com"
+
+      - id: secrets
+        if: github.repository == 'viamrobotics/rdk'
+        uses: "google-github-actions/get-secretmanager-secrets@v2"
+        with:
+          secrets: |-
+            public_key:projects/385154741571/secrets/ev-code-signing-public-key
+
+      - if: github.repository == 'viamrobotics/rdk'
+        run: echo '${{ steps.secrets.outputs.public_key }}' > cert.pem
+        shell: bash
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      # Prefer the windows binary built by the cli job in the same workflow run
+      # (the common case when this workflow is invoked from stable.yml or main.yml).
+      # If no artifact exists (e.g. standalone workflow_dispatch), fall back to
+      # compiling viam.exe from source.
+      - name: Download viam binary from cli build
+        id: download_binary
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: viam-cli-windows-amd64
+          path: bin/windows-amd64
+
+      - uses: actions/setup-go@v5
+        if: steps.download_binary.outcome != 'success'
+        with:
+          go-version-file: go.mod
+
+      - name: Build viam.exe (fallback when no artifact)
+        if: steps.download_binary.outcome != 'success'
+        shell: bash
+        run: GOOS=windows GOARCH=amd64 make cli
+
+      - name: Stage viam.exe for installer
+        shell: bash
+        run: |
+          mkdir -p cli/windows-installer/build
+          cp bin/windows-amd64/viam-cli cli/windows-installer/build/viam.exe
+
+      - name: Download jsign
+        shell: bash
+        run: curl -L -o jsign.jar https://github.com/ebourg/jsign/releases/download/7.1/jsign-7.1.jar
+
+      - name: Sign viam.exe
+        if: github.repository == 'viamrobotics/rdk'
+        run: java -jar jsign.jar
+          --name "Viam CLI"
+          --storetype GOOGLECLOUD
+          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key
+          --storepass "${{ steps.auth.outputs.access_token }}"
+          --alias ev-code-signing-key/cryptoKeyVersions/2
+          --tsaurl http://timestamp.digicert.com
+          --tsmode rfc3161
+          --certfile cert.pem cli\windows-installer\build\viam.exe
+
+      - name: Compile installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
+        with:
+          path: cli/windows-installer/windows_setup.iss
+          options: /DMyAppVersion=${{ github.ref_name }}
+
+      - name: Sign installer
+        if: github.repository == 'viamrobotics/rdk'
+        run: java -jar jsign.jar
+          --name "Viam CLI Installer"
+          --storetype GOOGLECLOUD
+          --keystore projects/engineering-tools-310515/locations/global/keyRings/release_signing_key
+          --storepass "${{ steps.auth.outputs.access_token }}"
+          --alias ev-code-signing-key/cryptoKeyVersions/2
+          --tsaurl http://timestamp.digicert.com
+          --tsmode rfc3161
+          --certfile cert.pem cli\windows-installer\releases\viam-cli-windows-installer.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: viam-cli-windows-installer
+          path: cli/windows-installer/releases/viam-cli-windows-installer.exe
+
+      - name: Authorize GCP Upload
+        if: inputs.release_type != 'pr'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+      - name: Upload installer to GCS
+        if: inputs.release_type != 'pr'
+        uses: google-github-actions/upload-cloud-storage@v0.10.4
+        with:
+          headers: "cache-control: no-cache"
+          path: cli/windows-installer/releases/viam-cli-windows-installer.exe
+          destination: packages.viam.com/apps/viam-cli/
+          parent: false
