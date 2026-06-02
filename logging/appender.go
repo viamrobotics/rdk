@@ -14,7 +14,7 @@ import (
 // DefaultTimeFormatStr is the default time format string for log appenders.
 const DefaultTimeFormatStr = "2006-01-02T15:04:05.000Z0700"
 
-// Definitions for configuring Event Tracing for Windows (ETW) logging
+// ETWProvider defines constants for configuring Event Tracing for Windows (ETW) logging
 type ETWProvider struct {
 	// human-readable name of the trace
 	ProviderName string
