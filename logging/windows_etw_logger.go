@@ -19,11 +19,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// ETW provider GUID used by all ETW log consumers - should not be changed
-const providerGUID = "66AFF7FE-2451-47AA-A0E3-8E3D2E432B30"
-
 const (
-	etwSessionName        = "viam-server-trace"
 	etwDefaultMaxSizeMB   = 128
 	etwDefaultTotalSizeMB = 384
 	etwLogmanTimeout      = 30 * time.Second
@@ -39,32 +35,32 @@ const (
 // etlDir.
 //
 // Before starting the new session, older session files in etlDir matching
-// the etwSessionName-*.etl naming pattern are pruned (oldest first) until
+// the <p.SessionName>-*.etl naming pattern are pruned (oldest first) until
 // total bytes fit under maxTotalSizeMB
-func RegisterETWLogger(rootLogger Logger, name, etlDir string) (io.Closer, error) {
+func RegisterETWLogger(rootLogger Logger, etlDir string, p ETWProvider) (io.Closer, error) {
 	if err := os.MkdirAll(etlDir, 0o755); err != nil {
 		rootLogger.Warnw("could not create ETL directory", "dir", etlDir, "err", err)
 	}
-	pruneOldETLFiles(rootLogger, etlDir, int64(etwDefaultTotalSizeMB)*1024*1024)
+	pruneOldETLFiles(rootLogger, etlDir, p.SessionName, int64(etwDefaultTotalSizeMB)*1024*1024)
 
 	etlPath := filepath.Join(etlDir,
-		fmt.Sprintf("%s-%s.etl", etwSessionName, time.Now().UTC().Format(etwFileTimeFormat)))
+		fmt.Sprintf("%s-%s.etl", p.SessionName, time.Now().UTC().Format(etwFileTimeFormat)))
 
-	g, err := guid.FromString(providerGUID)
+	g, err := guid.FromString(p.ProviderGUID)
 	if err != nil {
 		rootLogger.Errorw("invalid pinned ETW provider GUID", "err", err)
 		return nopCloser{}, err
 	}
 
-	provider, err := etw.NewProviderWithID(name, g, nil)
+	provider, err := etw.NewProviderWithID(p.ProviderName, g, nil)
 	if err != nil {
 		rootLogger.Errorw("unable to register ETW provider", "err", err)
 		return nopCloser{}, err
 	}
 
 	sess := &logmanSessionController{
-		name:         etwSessionName,
-		providerGUID: providerGUID,
+		name:         p.SessionName,
+		providerGUID: p.ProviderGUID,
 		outputPath:   etlPath,
 		maxSizeMB:    etwDefaultMaxSizeMB,
 	}
@@ -75,7 +71,7 @@ func RegisterETWLogger(rootLogger Logger, name, etlDir string) (io.Closer, error
 	var liveSession sessionController
 	if err := sess.Start(startCtx); err != nil {
 		rootLogger.Warnw("ETW session start failed; provider registered but file capture could not start",
-			"err", err, "session", etwSessionName, "outputPath", etlPath)
+			"err", err, "session", p.SessionName, "outputPath", etlPath)
 		provider.Close()
 		return nopCloser{}, err
 	} else {
@@ -182,11 +178,11 @@ type nopCloser struct{}
 func (nopCloser) Close() error { return nil }
 
 // pruneOldETLFiles enforces a total-bytes budget across all retained
-// session files in dir. Files matching <etwSessionName>-*.etl are
+// session files in dir. Files matching <sessionName>-*.etl are
 // considered; the oldest (by mtime) are deleted first until total bytes
 // fit under maxTotalBytes. Errors are logged and otherwise ignored.
-func pruneOldETLFiles(rootLogger Logger, dir string, maxTotalBytes int64) {
-	matches, err := filepath.Glob(filepath.Join(dir, etwSessionName+"-*.etl"))
+func pruneOldETLFiles(rootLogger Logger, dir, sessionName string, maxTotalBytes int64) {
+	matches, err := filepath.Glob(filepath.Join(dir, sessionName+"-*.etl"))
 	if err != nil || len(matches) == 0 {
 		return
 	}

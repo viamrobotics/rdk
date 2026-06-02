@@ -9,15 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"go.viam.com/rdk/logging"
 )
-
-// DefaultSessionName is the ETW session name viam-server uses (matches
-// the constant in logging/windows_etw_logger.go).
-const DefaultSessionName = "viam-server-trace"
-
-// DefaultEventlogSource is the classic Application Event Log source
-// viam-server registers (matches the call in web/server/entrypoint.go).
-const DefaultEventlogSource = "viam-server"
 
 // CollectOpts configures Collect. Zero values fall back to defaults
 // that match viam-server's production behavior.
@@ -65,10 +59,10 @@ func Collect(opts CollectOpts) (string, error) {
 		opts.ETLDir = DefaultETLDir()
 	}
 	if opts.SessionName == "" {
-		opts.SessionName = DefaultSessionName
+		opts.SessionName = logging.ServerETW.SessionName
 	}
 	if opts.EventlogSource == "" {
-		opts.EventlogSource = DefaultEventlogSource
+		opts.EventlogSource = logging.ServerETW.ProviderName
 	}
 
 	if err := os.MkdirAll(opts.OutDir, 0o755); err != nil {

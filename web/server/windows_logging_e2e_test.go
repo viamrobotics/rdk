@@ -35,10 +35,6 @@ const (
 	// shutdownGracePeriod caps how long the test waits for viam-server
 	// to exit after Ctrl+Break before force-killing.
 	shutdownGracePeriod = 15 * time.Second
-
-	// etwSessionName must match the constant in
-	// logging/windows_etw_logger.go.
-	etwSessionName = "viam-server-trace"
 )
 
 // TestWindowsLoggingE2E builds viam-server, runs it for runDuration with
@@ -121,7 +117,7 @@ func TestWindowsLoggingE2E(t *testing.T) {
 	// Belt-and-braces: if the in-process closer didn't run (force-kill
 	// path above), stop the session ourselves. No-op when already
 	// stopped.
-	_ = exec.Command("logman", "stop", etwSessionName, "-ets").Run()
+	_ = exec.Command("logman", "stop", logging.ServerETW.SessionName, "-ets").Run()
 
 	// Collect: flush + tracerpt + Get-EventLog + process, all in one
 	// call against the test's per-run VIAM_HOME. After is set to

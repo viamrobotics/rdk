@@ -14,6 +14,25 @@ import (
 // DefaultTimeFormatStr is the default time format string for log appenders.
 const DefaultTimeFormatStr = "2006-01-02T15:04:05.000Z0700"
 
+// Definitions for configuring Event Tracing for Windows (ETW) logging
+type ETWProvider struct {
+	// human-readable name of the trace
+	ProviderName string
+	// stable provider identity required by ETW
+	ProviderGUID string
+	// name for the log consumer session, global on the machine where the trace is running
+	// also used to name the log file
+	SessionName string
+}
+
+// ServerETW is the ETW identity for viam-server. winlogproc and external
+// tooling key off these values, so they must not change.
+var ServerETW = ETWProvider{
+	ProviderName: "viam-server",
+	ProviderGUID: "66AFF7FE-2451-47AA-A0E3-8E3D2E432B30",
+	SessionName:  "viam-server-trace",
+}
+
 // Appender is an output for log entries. This is a subset of the `zapcore.Core` interface.
 type Appender interface {
 	// Write submits a structured log entry to the appender for logging.

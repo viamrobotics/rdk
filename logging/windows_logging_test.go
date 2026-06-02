@@ -23,7 +23,7 @@ func TestETWNulls(t *testing.T) {
 	logger := NewLogger("etw-register-test")
 
 	etlDir := t.TempDir()
-	closer, err := RegisterETWLogger(logger, "viam-server-test", etlDir)
+	closer, err := RegisterETWLogger(logger, etlDir, ServerETW)
 	test.That(t, closer, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -40,7 +40,7 @@ func TestETWNulls(t *testing.T) {
 // appender directly (no session). Doesn't depend on logman or admin
 // privileges — provider registration is unprivileged.
 func TestETWAppenderLifecycle(t *testing.T) {
-	g, err := guid.FromString(providerGUID)
+	g, err := guid.FromString(ServerETW.ProviderGUID)
 	test.That(t, err, test.ShouldBeNil)
 
 	provider, err := etw.NewProviderWithID("viam-server-test", g, nil)
