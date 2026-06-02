@@ -79,6 +79,7 @@ func newTestCapture(
 	defaultCollectorConfigs CollectorConfigsByResource,
 	existingCollectors collectors,
 	resourcesByShortName map[string]resource.Resource,
+	serviceTags []string,
 ) *Capture {
 	t.Helper()
 	if existingCollectors == nil {
@@ -95,6 +96,7 @@ func newTestCapture(
 		maxCaptureFileSize:      256 * 1024,
 		defaultCollectorConfigs: defaultCollectorConfigs,
 		resourcesByShortName:    resourcesByShortName,
+		serviceTags:             serviceTags,
 	}
 }
 
@@ -105,6 +107,10 @@ func TestSetCaptureConfig(t *testing.T) {
 		CaptureFrequencyHz: 1.0,
 	}
 	fakeMD := newCollectorMetadata(fakeCfg)
+
+	// A board-API resource so we can exercise the additional_params guard rail.
+	boardAPI := resource.APINamespaceRDK.WithComponentType("board")
+	boardRes := &fakeResource{name: resource.NewName(boardAPI, "board-1")}
 
 	toggledCollector := &mockCollector{}
 	tagsCollector := &mockCollector{}
@@ -196,11 +202,52 @@ func TestSetCaptureConfig(t *testing.T) {
 			},
 			expectedCollectorCount: 0,
 		},
+		{
+			name:           "auto-enabled collector inherits service-level tags",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"fake-1": fakeRes},
+			defaultTags:    []string{"service-tag"},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": {
+					ResourceMethod:     datamanager.ResourceMethod{ResourceName: "fake-1", MethodName: "GetReadings"},
+					CaptureFrequencyHz: float32Ptr(1.0),
+				},
+			},
+			expectedCollectorCount: 1,
+			expectedNewTags:        []string{"service-tag"},
+		},
+		{
+			name:           "skips auto-enable for method requiring additional_params",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"board-1": boardRes},
+			input: map[string]datamanager.CaptureConfigReading{
+				"board-1/Analogs": {
+					ResourceMethod:     datamanager.ResourceMethod{ResourceName: "board-1", MethodName: "Analogs"},
+					CaptureFrequencyHz: float32Ptr(1.0),
+				},
+			},
+			expectedCollectorCount: 0,
+		},
+		{
+			name:           "sensor-driven rebuild of static collector preserves service-level tags",
+			defaultConfigs: CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+			existingColls: collectors{fakeMD: {
+				Resource: fakeRes,
+				Collector: &mockCollector{},
+				Config:   datamanager.DataCaptureConfig{Name: fakeCfg.Name, Method: fakeCfg.Method, CaptureFrequencyHz: 1.0, Tags: []string{"service-tag"}},
+			}},
+			defaultTags: []string{"service-tag"},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": {CaptureFrequencyHz: float32Ptr(5.0)},
+			},
+			expectedCollectorCount: 1,
+			expectedNewTags:        []string{"service-tag"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			registerFakeCollector()
 
-			c := newTestCapture(t, tc.defaultConfigs, tc.existingColls, tc.catalog)
+			c := newTestCapture(t, tc.defaultConfigs, tc.existingColls, tc.catalog, tc.defaultTags)
 
 			c.SetCaptureConfigs(context.Background(), tc.input)
 
@@ -222,7 +269,7 @@ func TestSetCaptureConfig(t *testing.T) {
 
 func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	registerFakeCollector()
-	c := newTestCapture(t, nil, nil, nil)
+	c := newTestCapture(t, nil, nil, nil, nil)
 
 	fakeCfg := datamanager.DataCaptureConfig{
 		Name:               resource.NewName(fakeAPI, "fake-1"),
@@ -244,7 +291,7 @@ func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 // stops returning that override on the next tick.
 func TestSensorEnabledCollectorClosedWhenOverrideDropped(t *testing.T) {
 	registerFakeCollector()
-	c := newTestCapture(t, CollectorConfigsByResource{}, nil, map[string]resource.Resource{"fake-1": fakeRes})
+	c := newTestCapture(t, CollectorConfigsByResource{}, nil, map[string]resource.Resource{"fake-1": fakeRes}, nil)
 
 	override := map[string]datamanager.CaptureConfigReading{
 		"fake-1/GetReadings": {

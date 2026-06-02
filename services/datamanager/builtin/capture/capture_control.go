@@ -58,6 +58,7 @@ func (c *Capture) buildEffectiveCollectors(
 
 			// Start from a copy of default config.
 			effectiveCfg := defaultCfg
+			effectiveCfg.Tags = c.serviceTags
 
 			// Apply override if present, otherwise use default config as-is.
 			if override, ok := captureConfigReadings[key]; ok {
@@ -82,12 +83,22 @@ func (c *Capture) buildEffectiveCollectors(
 				"resource", override.ResourceName, "method", override.MethodName)
 			continue
 		}
+		// Methods that take additional_params (e.g. board.Analogs, board.Gpios) can't be
+		// auto-enabled — the sensor reading doesn't carry params, so the collector would
+		// either fail to construct or capture useless data.
+		if _, needsParams := metadataToAdditionalParamFields[generateMetadataKey(res.Name().API.String(), override.MethodName)]; needsParams {
+			c.logger.Warnw("capture control sensor cannot auto-enable method requiring additional_params",
+				"resource", override.ResourceName, "method", override.MethodName)
+			continue
+		}
 		// Synthesize a fresh DataCaptureConfig from the resolved resource and the sensor
 		// reading. The static config didn't provide one for this key, so this is "auto-enable."
+		// Service-level tags as the base; applyOverride may replace them.
 		effectiveCfg := datamanager.DataCaptureConfig{
 			Name:             res.Name(),
 			Method:           override.MethodName,
 			CaptureDirectory: c.captureDir,
+			Tags:             c.serviceTags,
 		}
 		applyOverride(&effectiveCfg, override)
 		if effectivelyDisabled(effectiveCfg) {
@@ -116,6 +127,7 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 	for metadata, effective := range effectiveCollectors {
 		res, effectiveCfg, key := effective.res, effective.cfg, effective.key
 		existing := c.collectors[metadata]
+
 		// Skip if the effective config is unchanged.
 		if existing != nil && res == existing.Resource && captureConfigUnchanged(existing.Config, effectiveCfg) {
 			continue

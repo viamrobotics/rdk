@@ -77,6 +77,10 @@ type Capture struct {
 	// robot knows about — regardless of whether the user added a data manager service_config to it.
 	resourcesByShortName map[string]resource.Resource
 
+	// serviceTags is the service-level Tags from the data manager Config, applied to every
+	// collector built by newCollectors.
+	serviceTags []string
+
 	// openSequences holds in-flight sequences emitted by the capture control sensor.
 	openSequences map[openSequenceKey]*OpenSequence
 }
@@ -265,6 +269,7 @@ func (c *Capture) Reconfigure(
 	c.collectorsMu.Unlock()
 	c.defaultCollectorConfigs = collectorConfigsByResource
 	c.resourcesByShortName = resourcesByShortName
+	c.serviceTags = config.Tags
 	c.captureDir = config.CaptureDir
 	c.maxCaptureFileSize = config.MaximumCaptureFileSizeBytes
 }
