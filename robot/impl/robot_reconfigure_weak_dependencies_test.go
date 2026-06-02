@@ -20,7 +20,6 @@ import (
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
-
 	// register fake sensor (model rdk:builtin:fake)
 	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"
@@ -751,17 +750,37 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 
 	// weak1 has no ConvertedAttributes, so its Reconfigure returns a
 	// NativeConfig error when the weak/optional update fires.
+	//
+	// weak1 starts alone so its construction resolves an empty weak set (weak
+	// dependencies impose no construction ordering, so a config with base1
+	// present from the start would race: if base1 built first, weak1's weak set
+	// would already be stable at construction and the no-delta update would be
+	// skipped). Bringing up base1 in a later reconfigure deterministically adds
+	// a key to weak1's resolved weak set; that delta drives the weak/optional
+	// update, which calls weak1.Reconfigure, fails, and marks weak1 Unhealthy.
+	weak1Cfg := resource.Config{Name: weak1Name.Name, API: weakAPI, Model: weakModel}
 	cfg := config.Config{
-		Components: []resource.Config{
-			{Name: weak1Name.Name, API: weakAPI, Model: weakModel},
-			{Name: "base1", API: base.API, Model: fake.Model},
-		},
+		Components: []resource.Config{weak1Cfg},
 	}
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 
 	robot := setupLocalRobot(t, context.Background(), &cfg, logger)
 
+	// With no other component present, weak1's weak set is empty and its
+	// construction succeeds.
 	_, err := robot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+
+	cfgWithBase := config.Config{
+		Components: []resource.Config{
+			weak1Cfg,
+			{Name: "base1", API: base.API, Model: fake.Model},
+		},
+	}
+	test.That(t, cfgWithBase.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(context.Background(), &cfgWithBase)
+
+	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring,
 		"failed to reconfigure resource during weak/optional dependencies update")
