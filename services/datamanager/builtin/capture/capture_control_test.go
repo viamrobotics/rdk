@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/datamanager"
-	"go.viam.com/rdk/testutils/inject"
 )
 
 func float32Ptr(f float32) *float32 { return &f }
@@ -30,9 +29,32 @@ func (m *mockCollector) Flush()   {}
 func (m *mockCollector) Collect() {}
 
 var (
-	fakeAPI = resource.APINamespaceRDK.WithComponentType("fake")
-	fakeRes = inject.NewSensor("fake-1")
+	fakeAPI                   = resource.APINamespaceRDK.WithComponentType("fake")
+	fakeRes resource.Resource = newFakeRes("fake-1")
 )
+
+// fakeResource is a minimal resource.Resource whose Name() uses fakeAPI. We need this (rather
+// than inject.NewSensor) so the auto-enable code path — which derives a collector's API from
+// res.Name().API — lines up with the fakeAPI/GetReadings constructor registered in
+// registerFakeCollector.
+type fakeResource struct {
+	name resource.Name
+}
+
+func newFakeRes(name string) *fakeResource {
+	return &fakeResource{name: resource.NewName(fakeAPI, name)}
+}
+
+func (f *fakeResource) Name() resource.Name { return f.name }
+func (f *fakeResource) Reconfigure(_ context.Context, _ resource.Dependencies, _ resource.Config) error {
+	return nil
+}
+
+func (f *fakeResource) DoCommand(_ context.Context, _ map[string]interface{}) (map[string]interface{}, error) {
+	return nil, nil
+}
+func (f *fakeResource) Status(_ context.Context) (map[string]interface{}, error) { return nil, nil }
+func (f *fakeResource) Close(_ context.Context) error                            { return nil }
 
 // registerFakeCollector registers a no-op collector constructor for fake/GetReadings so that
 // tests which trigger collector rebuilds don't fail on a missing constructor lookup.
@@ -51,14 +73,19 @@ func registerFakeCollector() {
 
 // newTestCapture returns a Capture with the given defaultCollectorConfigs and
 // an optional pre-populated collectors map. captureDir is always a temp dir.
+// resourcesByShortName, when nil, defaults to an empty catalog.
 func newTestCapture(
 	t *testing.T,
 	defaultCollectorConfigs CollectorConfigsByResource,
 	existingCollectors collectors,
+	resourcesByShortName map[string]resource.Resource,
 ) *Capture {
 	t.Helper()
 	if existingCollectors == nil {
 		existingCollectors = make(collectors)
+	}
+	if resourcesByShortName == nil {
+		resourcesByShortName = map[string]resource.Resource{}
 	}
 	return &Capture{
 		logger:                  logging.NewTestLogger(t),
@@ -67,6 +94,7 @@ func newTestCapture(
 		captureDir:              t.TempDir(),
 		maxCaptureFileSize:      256 * 1024,
 		defaultCollectorConfigs: defaultCollectorConfigs,
+		resourcesByShortName:    resourcesByShortName,
 	}
 }
 
@@ -87,6 +115,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		name                   string
 		defaultConfigs         CollectorConfigsByResource
 		existingColls          collectors
+		catalog                map[string]resource.Resource
 		defaultTags            []string
 		input                  map[string]datamanager.CaptureConfigReading
 		expectedClosed         *mockCollector
@@ -143,11 +172,35 @@ func TestSetCaptureConfig(t *testing.T) {
 			expectedCollectorCount: 1,
 			expectedNewTags:        []string{"override-tag"},
 		},
+		{
+			name:           "enables capture for a resource not in defaultConfigs",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{"fake-1": fakeRes},
+			input: map[string]datamanager.CaptureConfigReading{
+				"fake-1/GetReadings": {
+					ResourceMethod:     datamanager.ResourceMethod{ResourceName: "fake-1", MethodName: "GetReadings"},
+					CaptureFrequencyHz: float32Ptr(1.0),
+				},
+			},
+			expectedCollectorCount: 1,
+		},
+		{
+			name:           "skips override for unknown resource",
+			defaultConfigs: CollectorConfigsByResource{},
+			catalog:        map[string]resource.Resource{},
+			input: map[string]datamanager.CaptureConfigReading{
+				"unknown/GetReadings": {
+					ResourceMethod:     datamanager.ResourceMethod{ResourceName: "unknown", MethodName: "GetReadings"},
+					CaptureFrequencyHz: float32Ptr(1.0),
+				},
+			},
+			expectedCollectorCount: 0,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			registerFakeCollector()
 
-			c := newTestCapture(t, tc.defaultConfigs, tc.existingColls)
+			c := newTestCapture(t, tc.defaultConfigs, tc.existingColls, tc.catalog)
 
 			c.SetCaptureConfigs(context.Background(), tc.input)
 
@@ -169,7 +222,7 @@ func TestSetCaptureConfig(t *testing.T) {
 
 func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	registerFakeCollector()
-	c := newTestCapture(t, nil, nil)
+	c := newTestCapture(t, nil, nil, nil)
 
 	fakeCfg := datamanager.DataCaptureConfig{
 		Name:               resource.NewName(fakeAPI, "fake-1"),
@@ -179,9 +232,31 @@ func TestNearZeroFrequencySkipsCollector(t *testing.T) {
 	c.Reconfigure(context.Background(),
 		nil,
 		CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+		nil,
 		Config{MaximumCaptureFileSizeBytes: 256 * 1024, CaptureDir: t.TempDir()},
 	)
 
+	test.That(t, len(c.collectors), test.ShouldEqual, 0)
+}
+
+// TestSensorEnabledCollectorClosedWhenOverrideDropped verifies that a collector enabled solely
+// via the capture control sensor (no matching static config entry) is closed when the sensor
+// stops returning that override on the next tick.
+func TestSensorEnabledCollectorClosedWhenOverrideDropped(t *testing.T) {
+	registerFakeCollector()
+	c := newTestCapture(t, CollectorConfigsByResource{}, nil, map[string]resource.Resource{"fake-1": fakeRes})
+
+	override := map[string]datamanager.CaptureConfigReading{
+		"fake-1/GetReadings": {
+			ResourceMethod:     datamanager.ResourceMethod{ResourceName: "fake-1", MethodName: "GetReadings"},
+			CaptureFrequencyHz: float32Ptr(1.0),
+		},
+	}
+	c.SetCaptureConfigs(context.Background(), override)
+	test.That(t, len(c.collectors), test.ShouldEqual, 1)
+
+	// Sensor stops returning the override; the orphan pass should close the collector.
+	c.SetCaptureConfigs(context.Background(), nil)
 	test.That(t, len(c.collectors), test.ShouldEqual, 0)
 }
 
@@ -238,6 +313,7 @@ func TestMaxCaptureFileSize(t *testing.T) {
 				c.Reconfigure(context.Background(),
 					nil,
 					CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
+					nil,
 					Config{MaximumCaptureFileSizeBytes: maxSize, CaptureDir: captureDir},
 				)
 			}
