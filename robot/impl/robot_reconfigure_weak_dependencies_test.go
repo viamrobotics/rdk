@@ -20,6 +20,7 @@ import (
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
+
 	// register fake sensor (model rdk:builtin:fake)
 	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"
@@ -767,9 +768,15 @@ func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
 }
 
 // TestOptionalReconfigureFailureAndRecovery exercises the modular path
-// end-to-end with the singleton-sensor module: the first weak/optional
-// rebuild fails on a lock conflict, the framework marks the node
-// Unhealthy, and a subsequent worker tick reconstructs it successfully.
+// end-to-end with the singleton-sensor module: bringing up an optional
+// dependency fires a weak/optional rebuild that fails on a lock conflict,
+// the framework marks the node Unhealthy, and a subsequent worker tick
+// reconstructs it successfully.
+//
+// The robot starts with mysensor alone so its first construction resolves
+// no optional dependency. Adding "opt" in a later reconfigure introduces a
+// genuine delta in mysensor's resolved optional set, which is what drives
+// the weak/optional reconfigure path.
 func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
@@ -780,17 +787,40 @@ func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 	singletonModel := resource.NewModel("viam-test", "demo", "singleton-sensor")
 	mySensor := sensor.Named("mysensor")
 
+	mySensorCfg := resource.Config{
+		Name:       mySensor.Name,
+		API:        sensor.API,
+		Model:      singletonModel,
+		Attributes: rutils.AttributeMap{"lock_path": lockPath},
+	}
+
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{Name: "singletonsensor", ExePath: modulePath},
 		},
+		Components: []resource.Config{mySensorCfg},
+	}
+	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+
+	robot := setupLocalRobot(t, ctx, cfg, logger)
+
+	// With no optional dependency present, the first construction succeeds and
+	// writes the lock file. mysensor's resolved optional set is empty, so the
+	// weak/optional update has nothing to act on yet.
+	_, err := robot.ResourceByName(mySensor)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Bringing up "opt" adds a key to mysensor's resolved optional set. That
+	// delta drives the weak/optional update, which rebuilds mysensor; the
+	// rebuild hits the still-present lock and fails. The "lock present at"
+	// string is singleton-sensor-only, so matching it confirms the failure
+	// came from the rebuild path.
+	cfgWithOpt := &config.Config{
+		Modules: []config.Module{
+			{Name: "singletonsensor", ExePath: modulePath},
+		},
 		Components: []resource.Config{
-			{
-				Name:       mySensor.Name,
-				API:        sensor.API,
-				Model:      singletonModel,
-				Attributes: rutils.AttributeMap{"lock_path": lockPath},
-			},
+			mySensorCfg,
 			{
 				Name:  "opt",
 				API:   sensor.API,
@@ -798,15 +828,10 @@ func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 			},
 		},
 	}
-	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
+	test.That(t, cfgWithOpt.Ensure(false, logger), test.ShouldBeNil)
+	robot.Reconfigure(ctx, cfgWithOpt)
 
-	robot := setupLocalRobot(t, ctx, cfg, logger)
-
-	// setupLocalRobot runs the weak/optional update at the end of
-	// completeConfig, which fires the rebuild that fails on the still-
-	// present lock. The "lock present at" string is singleton-sensor-only,
-	// so matching it confirms the failure came from the rebuild path.
-	_, err := robot.ResourceByName(mySensor)
+	_, err = robot.ResourceByName(mySensor)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
 
