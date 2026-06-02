@@ -114,6 +114,8 @@ type viamClient struct {
 	// caches
 	orgs *[]*apppb.Organization
 	locs *[]*apppb.Location
+
+	dialOverride func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error)
 }
 
 // ListOrganizationsAction is the corresponding Action for 'organizations list'.
@@ -5240,6 +5242,9 @@ func (c *viamClient) connectToRobot(
 ) (*client.RobotClient, error) {
 	if debug {
 		printf(c.c.Root().Writer, "Establishing connection...")
+	}
+	if c.dialOverride != nil {
+		return c.dialOverride(dialCtx, fqdn, rpcOpts, logger)
 	}
 	robotClient, err := client.New(dialCtx, fqdn, logger, client.WithDialOptions(rpcOpts...))
 	if err != nil {
