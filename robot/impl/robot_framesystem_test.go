@@ -539,3 +539,43 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	// system geometry to match the camera's.
 	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
 }
+
+func TestGripperAPIStaticObstacleInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "obstacle",
+				API:   gripper.API,
+				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Frame: &referenceframe.LinkConfig{
+					ID:     "obstacle-frame",
+					Parent: "world",
+					Geometry: &spatialmath.GeometryConfig{
+						Type:  "box",
+						X:     100,
+						Y:     200,
+						Z:     300,
+						Label: "obstacle-geom",
+					},
+				},
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame := fs.Frame("obstacle-frame")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	gif, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gif.Geometries(), test.ShouldHaveLength, 1)
+}
