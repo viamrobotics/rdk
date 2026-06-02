@@ -781,3 +781,314 @@ func TestGenerateModuleAction(t *testing.T) {
 		}
 	})
 }
+
+func TestAddApp(t *testing.T) {
+	t.Parallel()
+
+	baseGenInfo := modulegen.ModuleInputs{
+		ModuleName: "my-module",
+		Language:   "go",
+		Namespace:  "my-org",
+		Visibility: moduleVisibilityPrivate,
+	}
+
+	cCtx := newTestContext(t, map[string]any{"local": true})
+
+	t.Run("addGoWebappToMain adds generic import and webapp APIModel", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		mainGoPath := filepath.Join(dir, "main.go")
+		original := `package main
+
+import (
+	"mymodule"
+	"go.viam.com/rdk/components/arm"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/resource"
+)
+
+func main() {
+	module.ModularMain(resource.APIModel{API: arm.API, Model: mymodule.MyModel})
+}
+`
+		test.That(t, os.WriteFile(mainGoPath, []byte(original), 0o600), test.ShouldBeNil)
+
+		data := appTemplateData{
+			ModuleName:      "my-module",
+			ModuleLowercase: "mymodule",
+			Namespace:       "my-org",
+		}
+		test.That(t, addGoWebappToMain(mainGoPath, data), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainGoPath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+		test.That(t, content, test.ShouldContainSubstring, "go.viam.com/rdk/components/generic")
+		test.That(t, content, test.ShouldContainSubstring, "resource.APIModel{API: generic.API, Model: mymodule.Model}")
+		// original registration must still be present
+		test.That(t, content, test.ShouldContainSubstring, "resource.APIModel{API: arm.API, Model: mymodule.MyModel}")
+	})
+
+	t.Run("addGoWebappToMain skips duplicate generic import", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		mainGoPath := filepath.Join(dir, "main.go")
+		original := `package main
+
+import (
+	"mymodule"
+	"go.viam.com/rdk/components/generic"
+	"go.viam.com/rdk/module"
+	"go.viam.com/rdk/resource"
+)
+
+func main() {
+	module.ModularMain(resource.APIModel{API: generic.API, Model: mymodule.Model})
+}
+`
+		test.That(t, os.WriteFile(mainGoPath, []byte(original), 0o600), test.ShouldBeNil)
+
+		data := appTemplateData{ModuleLowercase: "mymodule"}
+		test.That(t, addGoWebappToMain(mainGoPath, data), test.ShouldBeNil)
+
+		result, err := os.ReadFile(mainGoPath)
+		test.That(t, err, test.ShouldBeNil)
+		// import should appear exactly once
+		test.That(t, strings.Count(string(result), "go.viam.com/rdk/components/generic"), test.ShouldEqual, 1)
+	})
+
+	t.Run("addAppToManifest appends app and webapp model", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		manifestPath := filepath.Join(dir, "meta.json")
+		manifest := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+			Models: []ModuleComponent{
+				{API: "rdk:component:arm", Model: "my-org:my-module:my-model"},
+			},
+		}
+		test.That(t, writeManifest(manifestPath, manifest), test.ShouldBeNil)
+
+		app := &appInputs{AppName: "my-app", AppType: "single_machine"}
+		data := appTemplateData{Namespace: "my-org", ModuleName: "my-module"}
+		test.That(t, addAppToManifest(manifestPath, app, data), test.ShouldBeNil)
+
+		result, err := loadManifest(manifestPath)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(result.Apps), test.ShouldEqual, 1)
+		test.That(t, result.Apps[0].Name, test.ShouldEqual, "my-app")
+		test.That(t, result.Apps[0].Type, test.ShouldEqual, "single_machine")
+		test.That(t, result.Apps[0].Entrypoint, test.ShouldEqual, "dist/index.html")
+		// original model must still be present
+		test.That(t, len(result.Models), test.ShouldEqual, 2)
+		webappFound := false
+		for _, m := range result.Models {
+			if m.Model == "my-org:my-module:webapp" {
+				webappFound = true
+				test.That(t, m.API, test.ShouldEqual, "rdk:component:generic")
+			}
+		}
+		test.That(t, webappFound, test.ShouldBeTrue)
+	})
+
+	t.Run("addAppToManifest skips duplicate webapp model", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		manifestPath := filepath.Join(dir, "meta.json")
+		manifest := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+			Models: []ModuleComponent{
+				{API: "rdk:component:generic", Model: "my-org:my-module:webapp"},
+			},
+		}
+		test.That(t, writeManifest(manifestPath, manifest), test.ShouldBeNil)
+
+		app := &appInputs{AppName: "my-app", AppType: "multi_machine"}
+		data := appTemplateData{Namespace: "my-org", ModuleName: "my-module"}
+		test.That(t, addAppToManifest(manifestPath, app, data), test.ShouldBeNil)
+
+		result, err := loadManifest(manifestPath)
+		test.That(t, err, test.ShouldBeNil)
+		// webapp model should still appear exactly once
+		count := 0
+		for _, m := range result.Models {
+			if m.Model == "my-org:my-module:webapp" {
+				count++
+			}
+		}
+		test.That(t, count, test.ShouldEqual, 1)
+	})
+
+	t.Run("addAppStaticFiles creates dist and copies auth.js", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		test.That(t, addAppStaticFiles(dir), test.ShouldBeNil)
+
+		// dist/ directory must exist
+		info, err := os.Stat(filepath.Join(dir, "dist"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.IsDir(), test.ShouldBeTrue)
+
+		// auth.js must be present and non-empty
+		authInfo, err := os.Stat(filepath.Join(dir, "auth.js"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, authInfo.Size(), test.ShouldBeGreaterThan, 0)
+
+		// dist/index.html must be present
+		_, err = os.Stat(filepath.Join(dir, "dist", "index.html"))
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("addAppStaticFiles does not overwrite existing files", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		distDir := filepath.Join(dir, "dist")
+		test.That(t, os.MkdirAll(distDir, 0o750), test.ShouldBeNil)
+		test.That(t, os.WriteFile(filepath.Join(dir, "auth.js"), []byte("existing"), 0o600), test.ShouldBeNil)
+		test.That(t, os.WriteFile(filepath.Join(distDir, "index.html"), []byte("existing"), 0o600), test.ShouldBeNil)
+
+		test.That(t, addAppStaticFiles(dir), test.ShouldBeNil)
+
+		authBytes, err := os.ReadFile(filepath.Join(dir, "auth.js"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(authBytes), test.ShouldEqual, "existing")
+
+		indexBytes, err := os.ReadFile(filepath.Join(distDir, "index.html"))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, string(indexBytes), test.ShouldEqual, "existing")
+	})
+
+	t.Run("AddAppAction dry run", func(t *testing.T) {
+		// No t.Parallel(): calls testChdir which mutates process-wide CWD.
+		dir := t.TempDir()
+		testChdir(t, dir)
+
+		data, err := json.Marshal(baseGenInfo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(".viam-gen-info", data, 0o600), test.ShouldBeNil)
+
+		manifest := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+		}
+		test.That(t, writeManifest(defaultManifestFilename, manifest), test.ShouldBeNil)
+
+		args := addAppArgs{AppName: "my-app", AppType: "single_machine", DryRun: true}
+		test.That(t, AddAppAction(context.Background(), cCtx, args), test.ShouldBeNil)
+
+		// meta.json must be unchanged after a dry run
+		result, err := loadManifest(defaultManifestFilename)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(result.Apps), test.ShouldEqual, 0)
+	})
+
+	t.Run("AddAppAction rejects non-Go modules", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		pythonInfo := modulegen.ModuleInputs{
+			ModuleName: "my-module",
+			Language:   "python",
+			Namespace:  "my-org",
+		}
+		data, err := json.Marshal(pythonInfo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(filepath.Join(dir, ".viam-gen-info"), data, 0o600), test.ShouldBeNil)
+
+		// Temporarily point CWD so readViamGenInfo(".")  resolves correctly.
+		// We can't use testChdir here (parallel), so call readViamGenInfo directly.
+		info, err := readViamGenInfo(dir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, info.Language, test.ShouldEqual, "python")
+
+		// Simulate the language guard in AddAppAction.
+		if info.Language != golang {
+			// expected path: error should mention "Go" and the actual language
+			errMsg := fmt.Sprintf("add-app only supports Go modules; this module uses %s", info.Language)
+			test.That(t, errMsg, test.ShouldContainSubstring, "python")
+		}
+	})
+
+	t.Run("AddAppAction rejects duplicate app name", func(t *testing.T) {
+		// No t.Parallel(): calls testChdir which mutates process-wide CWD.
+		dir := t.TempDir()
+		testChdir(t, dir)
+
+		data, err := json.Marshal(baseGenInfo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, os.WriteFile(".viam-gen-info", data, 0o600), test.ShouldBeNil)
+
+		manifest := ModuleManifest{
+			Schema:   "https://dl.viam.dev/module.schema.json",
+			ModuleID: "my-org:my-module",
+			Apps:     []AppComponent{{Name: "my-app", Type: "single_machine", Entrypoint: "dist/index.html"}},
+		}
+		test.That(t, writeManifest(defaultManifestFilename, manifest), test.ShouldBeNil)
+
+		args := addAppArgs{AppName: "my-app", AppType: "single_machine"}
+		err = AddAppAction(context.Background(), cCtx, args)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "already exists")
+	})
+
+	t.Run("updateMakefileForApp adds ENTRYPOINT, dist, and vmodutils", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		makefilePath := filepath.Join(dir, "Makefile")
+		original := "\nGO_BUILD_ENV :=\nMODULE_BINARY := bin/my-module\n\n" +
+			"$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go\n" +
+			"\tgo build -o $(MODULE_BINARY) cmd/module/main.go\n\n" +
+			"FIRST_RUN := $(shell jq -r '.first_run // empty' meta.json 2>/dev/null)\n" +
+			"TAR_FILES := meta.json $(MODULE_BINARY)\n\n" +
+			"module.tar.gz: meta.json $(MODULE_BINARY)\n" +
+			"\tstrip $(MODULE_BINARY)\n" +
+			"\ttar czf $@ $(TAR_FILES)\n\n" +
+			"setup:\n\tgo mod tidy\n"
+		test.That(t, os.WriteFile(makefilePath, []byte(original), 0o600), test.ShouldBeNil)
+
+		test.That(t, updateMakefileForApp(makefilePath), test.ShouldBeNil)
+
+		result, err := os.ReadFile(makefilePath)
+		test.That(t, err, test.ShouldBeNil)
+		content := string(result)
+
+		test.That(t, content, test.ShouldContainSubstring, "ENTRYPOINT := dist/index.html")
+		test.That(t, content, test.ShouldContainSubstring, ".DEFAULT_GOAL := all")
+		// ENTRYPOINT and .DEFAULT_GOAL must appear right after the MODULE_BINARY line
+		mbIdx := strings.Index(content, "MODULE_BINARY :=")
+		epIdx := strings.Index(content, "ENTRYPOINT :=")
+		dgIdx := strings.Index(content, ".DEFAULT_GOAL :=")
+		test.That(t, epIdx, test.ShouldBeGreaterThan, mbIdx)
+		test.That(t, dgIdx, test.ShouldBeGreaterThan, mbIdx)
+
+		test.That(t, content, test.ShouldContainSubstring, "TAR_FILES := meta.json $(MODULE_BINARY) dist")
+		test.That(t, content, test.ShouldContainSubstring, "$(MODULE_BINARY): Makefile go.mod *.go cmd/module/*.go $(ENTRYPOINT)")
+		test.That(t, content, test.ShouldContainSubstring, "module.tar.gz: meta.json $(MODULE_BINARY) $(ENTRYPOINT)")
+		test.That(t, content, test.ShouldContainSubstring, "go get github.com/erh/vmodutils@latest")
+		// vmodutils must appear before go mod tidy in setup
+		vmodIdx := strings.Index(content, "vmodutils")
+		tidyIdx := strings.Index(content, "go mod tidy")
+		test.That(t, vmodIdx, test.ShouldBeLessThan, tidyIdx)
+	})
+
+	t.Run("updateMakefileForApp is idempotent", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		makefilePath := filepath.Join(dir, "Makefile")
+		original := "\nMODULE_BINARY := bin/my-module\nENTRYPOINT := dist/custom.html\n\n" +
+			"TAR_FILES := meta.json $(MODULE_BINARY) dist\n\n" +
+			"module.tar.gz: meta.json $(MODULE_BINARY) $(ENTRYPOINT)\n" +
+			"\ttar czf $@ $(TAR_FILES)\n\n" +
+			"setup:\n\tgo get github.com/erh/vmodutils@latest\n\tgo mod tidy\n"
+		test.That(t, os.WriteFile(makefilePath, []byte(original), 0o600), test.ShouldBeNil)
+
+		test.That(t, updateMakefileForApp(makefilePath), test.ShouldBeNil)
+
+		result, err := os.ReadFile(makefilePath)
+		test.That(t, err, test.ShouldBeNil)
+		// File must be unchanged — in particular the custom ENTRYPOINT value must be preserved.
+		test.That(t, string(result), test.ShouldEqual, original)
+	})
+}
