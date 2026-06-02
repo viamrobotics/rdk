@@ -35,7 +35,7 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
 // the resource is looked up by short name in c.resourcesByShortName and a collector is built from
 // the sensor reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios)
-// cannot be enabled this way — the user must list them under capture_methods in the machine config.
+// cannot be enabled this way — the user must specify them in the machine config.
 func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	effectiveCollectors := c.buildEffectiveCollectors(captureConfigReadings)
 	c.updateCollectors(effectiveCollectors)
@@ -94,7 +94,8 @@ func (c *Capture) buildEffectiveCollectors(
 	return effectiveCollectors
 }
 
-// updateCollectors builds and updates c.collectors to match effectiveCollectors, and closes collectors that aren't in effectiveCollectors.
+// updateCollectors builds and updates c.collectors to match the desired effectiveCollectors,
+// and closes collectors that aren't in effectiveCollectors.
 func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]effectiveCollectorConfig) {
 	c.collectorsMu.Lock()
 	defer c.collectorsMu.Unlock()
@@ -116,7 +117,7 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 		c.logCaptureConfigChange(key, existing, effectiveCfg)
 		coll, err := c.buildCollector(res, metadata, effectiveCfg, c.maxCaptureFileSize, c.mongo.collection)
 		if err != nil {
-			c.logger.Warnw("failed to build collector", "error", err, "key", key)
+			c.logger.Errorw("failed to build collector", "error", err, "key", key)
 			continue
 		}
 		if existing != nil {

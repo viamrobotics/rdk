@@ -88,7 +88,7 @@ func newTestCapture(
 	defaultCollectorConfigs CollectorConfigsByResource,
 	existingCollectors collectors,
 	resourcesByShortName map[string]resource.Resource,
-	serviceTags []string,
+	defaultTags []string,
 ) *Capture {
 	t.Helper()
 	if existingCollectors == nil {
@@ -105,7 +105,7 @@ func newTestCapture(
 		maxCaptureFileSize:      256 * 1024,
 		defaultCollectorConfigs: defaultCollectorConfigs,
 		resourcesByShortName:    resourcesByShortName,
-		defaultTags:             serviceTags,
+		defaultTags:             defaultTags,
 	}
 }
 
@@ -148,7 +148,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		// expectedTags, when non-nil, asserts every remaining collector has these tags.
 		expectedTags []string
 	}{
-		// --- Static-config path: defaults present, sensor either matches or doesn't override. ---
+		// --- machine config path: defaults present, sensor either matches or doesn't override. ---
 		{
 			name:           "no-op when effective config is unchanged",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
