@@ -73,12 +73,12 @@ type Capture struct {
 
 	// resourcesByShortName lets the capture control sensor enable capture on resources that have
 	// no matching entry in defaultCollectorConfigs. Populated from the data manager's weak
-	// dependencies at Reconfigure time, so it covers every component/service the
-	// robot knows about — regardless of whether the user added a data manager service_config to it.
+	// dependencies at Reconfigure time, so it covers every component/service the robot knows about —
+	// regardless of whether the user added a data capture config for it.
 	resourcesByShortName map[string]resource.Resource
 
 	// serviceTags is the service-level Tags from the data manager Config, applied to every
-	// collector built by newCollectors.
+	// collector built by newCollectors or SetCaptureConfigs.
 	serviceTags []string
 
 	// openSequences holds in-flight sequences emitted by the capture control sensor.

@@ -71,7 +71,7 @@ func (c *Capture) buildEffectiveCollectors(
 		}
 	}
 
-	// 2. iterate through sensor readings to override resources that dont have data capture configured.
+	// 2. iterate through sensor readings to override resources that don't have data capture configured.
 	for key, override := range captureConfigReadings {
 		// Skip readings whose key matches a static default — those were already merged in step 1.
 		if _, seen := defaultKeys[key]; seen {
@@ -120,6 +120,9 @@ func effectivelyDisabled(cfg datamanager.DataCaptureConfig) bool {
 // updateCollectors makes c.collectors match effectiveCollectors: build/update what's in effectiveCollectors but
 // not running correctly, close what's running but not in effectiveCollectors.
 func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]effectiveCollectorConfig) {
+	c.collectorsMu.Lock()
+	defer c.collectorsMu.Unlock()
+
 	var toClose []*collectorAndConfig
 	var updates []collectorUpdate
 
@@ -167,8 +170,6 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 	}
 
 	// Close old collectors and update the collectors map atomically.
-	c.collectorsMu.Lock()
-	defer c.collectorsMu.Unlock()
 	for _, old := range toClose {
 		old.Collector.Close()
 	}

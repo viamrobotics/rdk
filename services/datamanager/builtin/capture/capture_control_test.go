@@ -232,9 +232,10 @@ func TestSetCaptureConfig(t *testing.T) {
 			name:           "sensor-driven rebuild of static collector preserves service-level tags",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: []datamanager.DataCaptureConfig{fakeCfg}},
 			existingColls: collectors{fakeMD: {
-				Resource: fakeRes,
+				Resource:  fakeRes,
 				Collector: &mockCollector{},
-				Config:   datamanager.DataCaptureConfig{Name: fakeCfg.Name, Method: fakeCfg.Method, CaptureFrequencyHz: 1.0, Tags: []string{"service-tag"}},
+				Config: datamanager.DataCaptureConfig{Name: fakeCfg.Name, Method: fakeCfg.Method,
+					CaptureFrequencyHz: 1.0, Tags: []string{"service-tag"}},
 			}},
 			defaultTags: []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
