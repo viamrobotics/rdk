@@ -42,7 +42,7 @@ func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager
 }
 
 // buildEffectiveCollectors computes the merged state of every collector that should be running,
-// from static defaults and the sensor's current reading.
+// from the defaults and the sensor's current reading.
 func (c *Capture) buildEffectiveCollectors(
 	captureConfigReadings map[string]datamanager.CaptureConfigReading,
 ) map[collectorMetadata]effectiveCollectorConfig {
@@ -58,15 +58,11 @@ func (c *Capture) buildEffectiveCollectors(
 			// Start from a copy of default config.
 			effectiveCfg := defaultCfg
 			effectiveCfg.Tags = c.defaultTags
-
-			// Apply override if present, otherwise use default config as-is.
-			if override, ok := captureConfigReadings[key]; ok {
-				effectiveCfg = applyOverride(effectiveCfg, override)
-			}
-			if effectivelyDisabled(effectiveCfg) {
+			result := applyOverride(effectiveCfg, captureConfigReadings[key])
+			if result == nil {
 				continue
 			}
-			effectiveCollectors[newCollectorMetadata(effectiveCfg)] = effectiveCollectorConfig{res, effectiveCfg, key}
+			effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
 		}
 	}
 
@@ -83,27 +79,19 @@ func (c *Capture) buildEffectiveCollectors(
 		}
 
 		// create a fresh data capture config from the resolved resource.
-		effectiveCfg := datamanager.DataCaptureConfig{
+		result := applyOverride(datamanager.DataCaptureConfig{
 			Name:             res.Name(),
 			Method:           override.MethodName,
 			CaptureDirectory: c.captureDir,
 			Tags:             c.defaultTags,
-		}
-		effectiveCfg = applyOverride(effectiveCfg, override)
-		if effectivelyDisabled(effectiveCfg) {
+		}, override)
+		if result == nil {
 			continue
 		}
-		effectiveCollectors[newCollectorMetadata(effectiveCfg)] = effectiveCollectorConfig{res, effectiveCfg, key}
+		effectiveCollectors[newCollectorMetadata(*result)] = effectiveCollectorConfig{res, *result, key}
 	}
 
 	return effectiveCollectors
-}
-
-// effectivelyDisabled returns true when this config should not produce a running collector —
-// either because Disabled is set, or because the frequency is so close to zero that
-// data.GetDurationFromHz rounds to a non-positive interval.
-func effectivelyDisabled(cfg datamanager.DataCaptureConfig) bool {
-	return cfg.Disabled || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0
 }
 
 // updateCollectors builds and updates c.collectors to match effectiveCollectors, and closes collectors that aren't in effectiveCollectors.
@@ -167,23 +155,26 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 	}
 }
 
-// applyOverride returns cfg with whichever fields the sensor reading provides applied on top.
-// Fields that are nil on the reading leave cfg untouched.
-func applyOverride(cfg datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) datamanager.DataCaptureConfig {
+// applyOverride applies whichever fields the sensor reading provides on top of cfg.
+// Fields that are nil on the reading leave cfg untouched. Returns nil when the resulting
+// config is a disabled collector.
+func applyOverride(cfg datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) *datamanager.DataCaptureConfig {
 	if override.CaptureFrequencyHz != nil {
 		cfg.CaptureFrequencyHz = *override.CaptureFrequencyHz
-		cfg.Disabled = *override.CaptureFrequencyHz <= 0
+		cfg.Disabled = data.GetDurationFromHz(*override.CaptureFrequencyHz) <= 0
 	}
 	if override.Tags != nil {
 		cfg.Tags = override.Tags
 	}
-	return cfg
+	if cfg.Disabled || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0 {
+		return nil
+	}
+	return &cfg
 }
 
 // captureConfigUnchanged returns true when the fields the capture_control_sensor can change
 // (CaptureFrequencyHz and Tags) are identical between an existing and a desired collector config.
-// Disabled isn't checked here: effectivelyDisabled filters disabled configs out of
-// effectiveCollectors upstream, so both sides are guaranteed Disabled=false at this point.
+// Assumes capture config is not disabled.
 func captureConfigUnchanged(existing, effective datamanager.DataCaptureConfig) bool {
 	return existing.CaptureFrequencyHz == effective.CaptureFrequencyHz &&
 		slices.Equal(existing.Tags, effective.Tags)
