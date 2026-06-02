@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	etwDefaultMaxSizeMB   = 128
-	etwDefaultTotalSizeMB = 384
+	etwDefaultMaxSizeMB   = 10
+	etwDefaultTotalSizeMB = 20
 	etwLogmanTimeout      = 30 * time.Second
 
 	// etwFileTimeFormat is the timestamp embedded into per-session .etl
