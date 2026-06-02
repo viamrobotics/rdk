@@ -3,6 +3,7 @@ package shell
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 
 	pb "go.viam.com/api/service/shell/v1"
@@ -131,9 +132,14 @@ func (c *client) Shell(
 		for {
 			resp, err := client.Recv()
 			if err != nil {
+				errMsg := ""
+				if !errors.Is(err, io.EOF) {
+					errMsg = err.Error()
+				}
 				select {
 				case output <- Output{
-					EOF: true,
+					Error: errMsg,
+					EOF:   true,
 				}:
 				case <-ctx.Done():
 				}
