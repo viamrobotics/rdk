@@ -16,6 +16,7 @@ import (
 	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
+	fakegripper "go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
@@ -506,6 +507,21 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 				},
 				ConvertedAttributes: &fakecamera.Config{},
 			},
+			{
+				Name:  "gripper",
+				API:   gripper.API,
+				Model: fakegripper.Model,
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Geometry: &spatialmath.GeometryConfig{
+						Type: spatialmath.BoxType,
+						X:    10,
+						Y:    20,
+						Z:    30,
+					},
+				},
+				ConvertedAttributes: &fakegripper.Config{},
+			},
 		},
 	}
 
@@ -519,11 +535,12 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	frame := fs.Frame("special-frame-name_origin")
 	test.That(t, frame, test.ShouldNotBeNil)
 
-	geomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	// Cameras exercise the non-InputEnabled code paths.
+	camGeomsInFrame, err := frame.Geometries([]referenceframe.Input{})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, geomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+	test.That(t, camGeomsInFrame.Geometries(), test.ShouldHaveLength, 1)
 
-	camGeomFromFS := geomsInFrame.Geometries()[0]
+	camGeomFromFS := camGeomsInFrame.Geometries()[0]
 	test.That(t, camGeomFromFS.Label(), test.ShouldEqual, "special-frame-name_origin")
 
 	cam, err := camera.FromProvider(robot, "camera")
@@ -538,4 +555,17 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	// with no translation to the world frame. Hence we can expect the X/Y/Z points of the frame
 	// system geometry to match the camera's.
 	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
+
+	// Grippers exercise the InputEnabled code paths. Here we specifically care about the unusual
+	// case where we want to make sure that a geometry declared in the frame configuration comes
+	// through. When the gripper is not configured to return a useful kinematics model.
+	frame = fs.Frame("gripper_origin")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	gripperGeomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gripperGeomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+
+	gripperGeomFromFS := gripperGeomsInFrame.Geometries()[0]
+	test.That(t, gripperGeomFromFS.Label(), test.ShouldEqual, "gripper_origin")
 }
