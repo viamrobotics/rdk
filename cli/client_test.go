@@ -1625,10 +1625,7 @@ func TestTunnelE2ECLI(t *testing.T) {
 	//
 	// test-process <-> source-listener <-> machine <-> dest-listener
 	//
-	// Ports are reserved dynamically. ReserveRandomPort hands back a live listener
-	// for the dest port so unrelated tests can't race in; the machine bind address
-	// and source port use TryReserveRandomPort since the server and the CLI's
-	// tunnelTraffic open those sockets themselves.
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
 
