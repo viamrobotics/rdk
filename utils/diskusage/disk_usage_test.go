@@ -6,6 +6,26 @@ import (
 	"go.viam.com/test"
 )
 
+func TestEnoughFreeSpace(t *testing.T) {
+	// The temp dir lives on a real volume, which on any test machine will have far
+	// more than a handful of bytes free but less than an absurdly large threshold.
+	dir := t.TempDir()
+
+	t.Run("plenty of free space", func(t *testing.T) {
+		enough, available, err := EnoughFreeSpace(dir, 1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, enough, test.ShouldBeTrue)
+		test.That(t, available, test.ShouldBeGreaterThan, uint64(0))
+	})
+
+	t.Run("threshold larger than disk", func(t *testing.T) {
+		enough, available, err := EnoughFreeSpace(dir, 1<<62)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, enough, test.ShouldBeFalse)
+		test.That(t, available, test.ShouldBeGreaterThan, uint64(0))
+	})
+}
+
 func TestDiskUsage(t *testing.T) {
 	t.Run("String()", func(t *testing.T) {
 		type testCase struct {
