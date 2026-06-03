@@ -227,17 +227,20 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64, extra map[string]i
 // SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.opMgr.CancelRunning(ctx)
-	return m.setPowerInLock(ctx, powerPct, extra)
+	ctx, finish := m.opMgr.New(ctx)
+	defer finish()
+	return m.setPower(ctx, powerPct, extra)
 }
 
-// setPowerInLock drives the pins for the requested power. Callers MUST hold m.mu.
-func (m *Motor) setPowerInLock(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+// setPower drives the pins for the requested power. m.mu is taken internally to serialize
+// pin writes; ordering against other public motor operations is provided by opMgr.New in
+// each public entrypoint that invokes this method.
+func (m *Motor) setPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
 	if math.Abs(powerPct) <= 0.01 {
-		return m.stopInLock(ctx, extra)
+		return m.Stop(ctx, extra)
 	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	switch m.motorType {
 	case DirectionPwm:
@@ -292,14 +295,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
 
-	// Register the op and drive the pins atomically so an interleaved GoFor/SetPower/Stop
-	// can't slip its pin writes in between our opMgr.New and our setPower.
-	m.mu.Lock()
+	// opMgr.New cancels any prior op and waits for it to finish before registering us as
+	// the current op. That handshake — not m.mu — is what serializes us against concurrent
+	// GoFor / SetPower / Stop calls.
 	ctx, finish := m.opMgr.New(ctx)
 	defer finish()
-	err = m.setPowerInLock(ctx, powerPct, extra)
-	m.mu.Unlock()
-	if err != nil {
+
+	if err := m.setPower(ctx, powerPct, extra); err != nil {
 		return errors.Wrap(err, "error in GoFor")
 	}
 
@@ -318,14 +320,13 @@ func (m *Motor) IsPowered(ctx context.Context, extra map[string]interface{}) (bo
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	// Discard the op ctx: Stop's pin writes must fire even if the caller's ctx is canceled
+	// or a concurrent op preempts us, so setPWM uses Background. opMgr.New is here purely
+	// for the cancel-and-wait-and-register handshake.
+	_, finish := m.opMgr.New(ctx)
+	defer finish()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.stopInLock(ctx, extra)
-}
-
-// stopInLock cancels any running op and drives the motor off. Callers MUST hold m.mu.
-func (m *Motor) stopInLock(ctx context.Context, extra map[string]interface{}) error {
-	m.opMgr.CancelRunning(ctx)
 	return m.setPWM(context.Background(), 0, extra)
 }
 
