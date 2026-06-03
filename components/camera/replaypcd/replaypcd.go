@@ -320,7 +320,7 @@ func addGRPCMetadata(ctx context.Context, timeRequested, timeReceived *timestamp
 		if timeReceived != nil {
 			grpcMetadata.Set(contextutils.TimeReceivedMetadataKey, timeReceived.AsTime().Format(time.RFC3339Nano))
 		}
-		if err := grpc.SetHeader(ctx, grpcMetadata); err != nil {
+		if err := contextutils.SetHeader(ctx, grpcMetadata); err != nil {
 			return err
 		}
 	}
