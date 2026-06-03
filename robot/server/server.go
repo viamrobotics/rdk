@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/protoutils"
@@ -556,6 +557,36 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 
 		result.Resources = append(result.Resources, pbResStatus)
+	}
+	result.Modules = make([]*pb.ModuleStatus, 0, len(mStatus.Modules))
+	for _, modStatus := range mStatus.Modules {
+		pbModStatus := &pb.ModuleStatus{
+			ModuleName:          modStatus.Name,
+			LastUpdated:         timestamppb.New(modStatus.LastUpdated),
+			ConsecutiveFailures: int32(modStatus.ConsecutiveFailures),
+		}
+		switch modStatus.State {
+		case modulestatus.ModuleStateUnknown:
+			s.robot.Logger().CErrorw(ctx, "module in an unknown state", "module", modStatus.Name)
+			pbModStatus.State = pb.ModuleStatus_STATE_UNSPECIFIED
+		case modulestatus.ModuleStatePending:
+			pbModStatus.State = pb.ModuleStatus_STATE_PENDING
+		case modulestatus.ModuleStateFirstRun:
+			pbModStatus.State = pb.ModuleStatus_STATE_FIRST_RUN
+		case modulestatus.ModuleStateStarting:
+			pbModStatus.State = pb.ModuleStatus_STATE_STARTING
+		case modulestatus.ModuleStateReady:
+			pbModStatus.State = pb.ModuleStatus_STATE_READY
+		case modulestatus.ModuleStateUnhealthy:
+			pbModStatus.State = pb.ModuleStatus_STATE_UNHEALTHY
+		case modulestatus.ModuleStateRemoving:
+			pbModStatus.State = pb.ModuleStatus_STATE_REMOVING
+		}
+		if modStatus.Error != nil {
+			pbModStatus.Error = modStatus.Error.Error()
+		}
+
+		result.Modules = append(result.Modules, pbModStatus)
 	}
 
 	switch mStatus.State {

@@ -64,6 +64,8 @@ type module struct {
 	pendingRemoval bool
 	restartCancel  context.CancelFunc
 
+	status robotpb.ModuleStatus
+
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
 }

@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
@@ -349,6 +350,7 @@ const (
 // MachineStatus encapsulates the current status of the robot.
 type MachineStatus struct {
 	Resources   []resource.Status
+	Modules     []modulestatus.Status
 	Config      config.Revision
 	State       MachineState
 	JobStatuses map[string]JobStatus
