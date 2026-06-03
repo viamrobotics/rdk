@@ -540,7 +540,57 @@ func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
 	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
 }
 
+type staticObstacleGripper struct {
+	resource.Named
+	resource.TriviallyCloseable
+	resource.TriviallyReconfigurable
+}
+
+func (g *staticObstacleGripper) Open(context.Context, map[string]interface{}) error {
+	return nil
+}
+
+func (g *staticObstacleGripper) Grab(context.Context, map[string]interface{}) (bool, error) {
+	return false, nil
+}
+
+func (g *staticObstacleGripper) IsHoldingSomething(context.Context, map[string]interface{}) (gripper.HoldingStatus, error) {
+	return gripper.HoldingStatus{}, nil
+}
+
+func (g *staticObstacleGripper) Stop(context.Context, map[string]interface{}) error {
+	return nil
+}
+
+func (g *staticObstacleGripper) IsMoving(context.Context) (bool, error) {
+	return false, nil
+}
+
+func (g *staticObstacleGripper) Geometries(context.Context, map[string]interface{}) ([]spatialmath.Geometry, error) {
+	return nil, nil
+}
+
+func (g *staticObstacleGripper) Kinematics(context.Context) (referenceframe.Model, error) {
+	return referenceframe.NewSimpleModel(g.Name().ShortName()), nil
+}
+
+func (g *staticObstacleGripper) CurrentInputs(context.Context) ([]referenceframe.Input, error) {
+	return nil, nil
+}
+
+func (g *staticObstacleGripper) GoToInputs(context.Context, ...[]referenceframe.Input) error {
+	return nil
+}
+
 func TestGripperAPIStaticObstacleInFrameSystem(t *testing.T) {
+	staticObstacleModel := resource.NewModel("test", "test", "static-obstacle-gripper")
+	resource.RegisterComponent(gripper.API, staticObstacleModel, resource.Registration[gripper.Gripper, resource.NoNativeConfig]{
+		Constructor: func(_ context.Context, _ resource.Dependencies, conf resource.Config, _ logging.Logger) (gripper.Gripper, error) {
+			return &staticObstacleGripper{Named: conf.ResourceName().AsNamed()}, nil
+		},
+	})
+	defer resource.Deregister(gripper.API, staticObstacleModel)
+
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
 
@@ -549,7 +599,7 @@ func TestGripperAPIStaticObstacleInFrameSystem(t *testing.T) {
 			{
 				Name:  "obstacle",
 				API:   gripper.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
+				Model: staticObstacleModel,
 				Frame: &referenceframe.LinkConfig{
 					ID:     "obstacle-frame",
 					Parent: "world",
