@@ -33,15 +33,15 @@ var debugConstrainNear = false
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
-	pc     *planContext
-	psc    *planSegmentContext
+	pc     *PlanContext
+	psc    *PlanSegmentContext
 	logger logging.Logger
 
 	fastGradDescent *ik.NloptIK
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
-func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegmentContext, logger logging.Logger,
+func newCBiRRTMotionPlanner(ctx context.Context, pc *PlanContext, psc *PlanSegmentContext, logger logging.Logger,
 ) (*cBiRRTMotionPlanner, error) {
 	_, span := trace.StartSpan(ctx, "newCBiRRTMotionPlanner")
 	defer span.End()

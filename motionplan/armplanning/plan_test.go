@@ -306,7 +306,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger,
+	pc, err := NewPlanContext(ctx, logger,
 		&PlanRequest{
 			FrameSystem:    fs,
 			PlannerOptions: &PlannerOptions{},

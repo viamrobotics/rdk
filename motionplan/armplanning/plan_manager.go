@@ -15,13 +15,13 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	pc      *planContext
+	pc      *PlanContext
 	request *PlanRequest
 	logger  logging.Logger
 }
 
 func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
-	pc, err := newPlanContext(ctx, logger, request, meta)
+	pc, err := NewPlanContext(ctx, logger, request, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goalPoses)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (pm *planManager) planSingleGoal(
 	pm.logger.Debug("start configuration", logging.FloatArrayFormat{"", start.GetLinearizedInputs()})
 	pm.logger.Debug("going to", goal)
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +308,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
-func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
 	rrt := &rrtSolution{

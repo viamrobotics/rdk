@@ -261,10 +261,10 @@ func TestSandingLargeMove1(t *testing.T) {
 		}
 	}
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
@@ -471,10 +471,10 @@ func TestSandingWallCollision(t *testing.T) {
 
 	t.Run("check collision checks pass with smaller resolution", func(t *testing.T) {
 		// Create plan context to validate the path
-		pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+		pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 		test.That(t, err, test.ShouldBeNil)
 
-		psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+		psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 		test.That(t, err, test.ShouldBeNil)
 
 		trajectory := plan.Trajectory()
@@ -540,13 +540,13 @@ func TestWineBadBottleMoveGoodCost(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-bad-bottle-move.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
-	sss, err := newSolutionSolvingState(ctx, psc, logger)
+	sss, err := NewSolutionSolvingState(ctx, psc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("goodCost: %0.4f", sss.goodCost)

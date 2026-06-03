@@ -120,8 +120,8 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*refe
 	return path
 }
 
-type solutionSolvingState struct {
-	psc          *planSegmentContext
+type SolutionSolvingState struct {
+	psc          *PlanSegmentContext
 	maxSolutions int
 
 	linearSeeds [][]float64
@@ -147,13 +147,13 @@ type solutionSolvingState struct {
 	logger logging.Logger
 }
 
-func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*solutionSolvingState, error) {
-	ctx, span := trace.StartSpan(ctx, "newSolutionSolvingState")
+func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*SolutionSolvingState, error) {
+	ctx, span := trace.StartSpan(ctx, "NewSolutionSolvingState")
 	defer span.End()
 
 	var err error
 
-	sss := &solutionSolvingState{
+	sss := &SolutionSolvingState{
 		psc:                  psc,
 		solutions:            []*node{},
 		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
@@ -233,7 +233,7 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	return sss, nil
 }
 
-func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
+func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
 		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
 	if err != nil {
@@ -277,7 +277,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
+func (sss *SolutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
 	if !sss.processInternal(ctx, stepSolution) {
 		return
 	}
@@ -336,7 +336,7 @@ func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit)
 }
 
 // Returns true if a node was appended.
-func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
+func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -415,7 +415,7 @@ func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSoluti
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) shouldStopEarly() bool {
+func (sss *SolutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
 
 	if sss.fatal != nil {
@@ -514,12 +514,12 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) ([]*node, error) {
+func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) ([]*node, error) {
 	if psc.start.Len() == 0 {
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
-	solvingState, err := newSolutionSolvingState(ctx, psc, logger)
+	solvingState, err := NewSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ solutionLoop:
 	return solvingState.solutions, nil
 }
 
-func (sss *solutionSolvingState) flushFailuresToMeta() {
+func (sss *SolutionSolvingState) flushFailuresToMeta() {
 	meta := sss.psc.pc.planMeta
 	if !meta.CollectSolutionDiagnostics {
 		return
@@ -667,7 +667,7 @@ func neutralBias(limits []referenceframe.Limit, configuration []float64) float64
 	return bias
 }
 
-func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
+func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
 	if sss.logger.GetLevel() != logging.DEBUG {
 		return nil
 	}

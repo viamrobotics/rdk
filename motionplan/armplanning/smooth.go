@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs, step int,
+func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs, step int,
 ) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
 	defer span.End()
@@ -30,7 +30,7 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*ref
 
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
+func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
 	steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "smoothPathSimple")
@@ -51,7 +51,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 }
 
 func smoothPath(
-	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
+	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
@@ -70,7 +70,7 @@ func smoothPath(
 // where the path comes within twice the minimum distance of an obstacle.
 // This prevents the smoothed path from getting too close to obstacles during interpolation.
 func addCloseObstacleWaypoints(
-	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
+	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "addCloseObstacleWaypoints")
 	defer span.End()
@@ -108,7 +108,7 @@ func addCloseObstacleWaypoints(
 // in each zone.
 func findCloseObstacleWaypoints(
 	ctx context.Context,
-	psc *planSegmentContext,
+	psc *PlanSegmentContext,
 	start, end *referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	segment := &motionplan.SegmentFS{
@@ -147,7 +147,7 @@ func findCloseObstacleWaypoints(
 	return closeWaypoints, nil
 }
 
-func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegmentContext,
+func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegmentContext,
 	steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
 	moving, _ := psc.motionChains.framesFilteredByMovingAndNonmoving()
