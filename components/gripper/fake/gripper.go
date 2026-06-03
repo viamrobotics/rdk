@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-var model = resource.DefaultModelFamily.WithModel("fake")
+var Model = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is used for converting config attributes.
 type Config struct {
@@ -30,7 +30,7 @@ func (conf *Config) Validate(path string) ([]string, []string, error) {
 }
 
 func init() {
-	resource.RegisterComponent(gripper.API, model, resource.Registration[gripper.Gripper, *Config]{Constructor: NewGripper})
+	resource.RegisterComponent(gripper.API, Model, resource.Registration[gripper.Gripper, *Config]{Constructor: NewGripper})
 }
 
 // Gripper is a fake gripper that can simply read and set properties.
