@@ -63,6 +63,7 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	callCtx = contextutils.AppendToOutgoingContext(callCtx,
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val1",
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val2",
+		"opid", "custom",
 	)
 
 	_, err = giz.DoOne(callCtx, "1.0")
@@ -78,8 +79,8 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	// unknown arbitrary metadata made it to the end (maybe filtering not working)
 	test.That(t, md["unknown_metadata_found"], test.ShouldNotResemble, []string{"true"})
 
-	// no duplicate opid
-	test.That(t, md["duplicate_opid"], test.ShouldNotResemble, []string{"true"})
+	// our (shadowed) opid made it to the end
+	test.That(t, md["custom_opid_good"], test.ShouldResemble, []string{"true"})
 
 	// Server to Client sending:
 	// end to client md made it to client

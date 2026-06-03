@@ -95,7 +95,7 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+	if incoming, ok := contextutils.FromIncomingContext(ctx); ok {
 		for k, vals := range incoming {
 			if k == "arbitrary-md-from-client" && len(vals) == 2 {
 				// test merge
