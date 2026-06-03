@@ -30,6 +30,11 @@ const partialsDirName = "part"
 // cleanup partial downloads that were started this long ago
 const maxPartialAge = 72 * time.Hour
 
+// enoughFreeSpace reports whether the volume holding path has at least minBytes
+// available. It is a package var so tests can inject a low-space result without
+// having to actually fill a disk.
+var enoughFreeSpace = diskusage.EnoughFreeSpace
+
 // create a partials folder for this URL and return a destination path for the file.
 func partialDownloadPath(parentDir, rawURL string) (string, error) {
 	var filename string
@@ -60,10 +65,14 @@ func installPackage(
 	supportsPartial bool,
 	installFn installCallback,
 ) error {
-	// Refuse to download if the volume holding the packages directory is critically low
-	// on free space. This guards every download path (cloud packages, local tarball
-	// modules, ML models, and registry modules), all of which funnel through here.
-	if enough, available, err := diskusage.EnoughFreeSpace(packagesDir, diskusage.MinFreeBytes); err != nil {
+	// Refuse to install if the volume holding the packages directory is critically low on
+	// free space. This is a coarse, size-unaware floor that guards every install path that
+	// funnels through here: cloud packages, ML models, and registry modules (all fetched over
+	// HTTP) as well as local tarball modules (copied from a local file). HTTP downloads are
+	// additionally guarded by a size-aware check against Content-Length in
+	// (*cloudManager).downloadFileWithChecksum; this floor is the fallback for paths with no
+	// known size (local copies, or downloads with no Content-Length).
+	if enough, available, err := enoughFreeSpace(packagesDir, diskusage.MinFreeBytes); err != nil {
 		logger.Warnw("could not check free disk space before downloading package; proceeding",
 			"package", p.Name, "packagesDir", packagesDir, "error", err)
 	} else if !enough {

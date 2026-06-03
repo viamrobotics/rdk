@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/services/datamanager/builtin"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 func main() {
@@ -47,7 +47,7 @@ func deriveFormatInfo(summary []builtin.DirSummary) formatInfo {
 
 	for _, s := range summary {
 		maxFilePathLen = max(maxFilePathLen, len(s.Path))
-		maxFileSizeLen = max(maxFileSizeLen, len(data.FormatBytesI64(s.FileSize)))
+		maxFileSizeLen = max(maxFileSizeLen, len(diskusage.FormatBytesI64(s.FileSize)))
 		maxFileCounteLen = max(maxFileCounteLen, len(fmt.Sprintf("%d", s.FileCount)))
 		if s.Err != nil {
 			maxErrLen = max(maxErrLen, len(s.Err.Error()))
@@ -70,7 +70,7 @@ func format(ds builtin.DirSummary, fi formatInfo) string {
 	paddedPath := ds.Path + strings.Repeat(" ", 1+fi.maxFilePathLen-len(ds.Path)) + "| "
 	countStr := fmt.Sprintf("%d", ds.FileCount)
 	paddedCount := strings.Repeat(" ", fi.maxFileCounteLen-len(countStr)) + countStr + " |"
-	sizeStr := data.FormatBytesI64(ds.FileSize)
+	sizeStr := diskusage.FormatBytesI64(ds.FileSize)
 	paddedSize := strings.Repeat(" ", fi.maxFileSizeLen-len(sizeStr)) + sizeStr + " |"
 	dataTimeRangeStr := formatDataTimeRange(ds.DataTimeRange, fi)
 	if dataTimeRangeStr != "" {
