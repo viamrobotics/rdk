@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// Model is the fake gripper model.
 var Model = resource.DefaultModelFamily.WithModel("fake")
 
 // Config is used for converting config attributes.
