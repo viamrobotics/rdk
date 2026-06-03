@@ -1623,7 +1623,9 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// The tunnel is:
 	//
 	// test-process <-> source-listener(localhost:23659) <-> machine(localhost:23658) <-> dest-listener(localhost:23657)
-
+	if runtime.GOOS == osWindows {
+		t.Skip("RSDK-14061")
+	}
 	tunnelMsg := "Hello, World!"
 	destPort := 23657
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
