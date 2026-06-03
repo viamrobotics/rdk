@@ -28,10 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The EV signing key lives in a GCP Workload Identity Pool scoped to
-      # viam org repos. Auth + signing only succeed when running from the
-      # upstream repo; on forks (e.g. someone iterating before merge) these
-      # steps are skipped and the workflow produces an unsigned installer.
       - id: auth
         if: github.repository == 'viamrobotics/rdk'
         uses: "google-github-actions/auth@v2"
