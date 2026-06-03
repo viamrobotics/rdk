@@ -165,15 +165,11 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 	}
 	globalArgs := *gArgs
 
-	// logTitle updates the spinner in interactive mode, prints a status line
-	// in non-interactive mode, and is a no-op in debug mode.
-	logTitle := func(string) {}
-	interactive := isInteractive()
-	if interactive && !globalArgs.Debug {
+	// Avoid the live spinner when emitting debug logs; its redraws conflict with logged output.
+	logTitle := func(msg string) { printf(cmd.Root().Writer, "%s", msg) }
+	if isInteractive() && !globalArgs.Debug {
 		s = spinner.New()
 		logTitle = func(msg string) { s.Title(msg) }
-	} else if !globalArgs.Debug {
-		logTitle = func(msg string) { printf(cmd.Root().Writer, "%s", msg) }
 	}
 
 	action := func() {
@@ -227,7 +223,7 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		}
 	}
 
-	if interactive && !globalArgs.Debug {
+	if s != nil {
 		s.Action(action)
 		err := s.Run()
 		if err != nil {
