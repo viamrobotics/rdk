@@ -3496,7 +3496,7 @@ Run this command from within the module directory.`,
 					Flags: []cli.Flag{
 						&cli.StringFlag{
 							Name:  moduleFlagGenerateType,
-							Usage: formatAcceptedValues("type of project to generate", "module", "app"),
+							Usage: formatAcceptedValues("type of project to generate", "module", "app", "module+app"),
 						},
 						&cli.StringFlag{
 							Name:  generalFlagName,

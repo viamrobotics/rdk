@@ -142,6 +142,8 @@ func promptGenerateType() (string, error) {
 						return "A modular resource to add custom components or services to your machine."
 					case "app":
 						return "A web application that connects to your machine via the Viam SDK."
+					case "module+app":
+						return "A Go modular resource and a web application together in the same module."
 					default:
 						return ""
 					}
@@ -149,6 +151,7 @@ func promptGenerateType() (string, error) {
 				Options(
 					huh.NewOption("Module", "module"),
 					huh.NewOption("App", "app"),
+					huh.NewOption("Module + App", "module+app"),
 				).
 				Value(&generateType),
 		),
@@ -185,8 +188,10 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 		return c.generateModule(ctx, cmd, args, shared)
 	case "app":
 		return c.generateApp(ctx, cmd, args, shared)
+	case "module+app":
+		return c.generateModuleAndApp(ctx, cmd, args, shared)
 	default:
-		return fmt.Errorf("invalid generate type %q: must be module or app", generateType)
+		return fmt.Errorf("invalid generate type %q: must be module, app, or module+app", generateType)
 	}
 }
 
@@ -607,6 +612,125 @@ func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args 
 	return nil
 }
 
+// generateModuleAndApp generates a Go module and then immediately adds a web app to it.
+// All inputs (module and app) are collected upfront so generation runs without interruption.
+func (c *viamClient) generateModuleAndApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
+	// Collect module inputs. Language is always Go for module+app; the prompt skips the
+	// language field when it is pre-set so the user is never asked to choose.
+	newModule := &modulegen.ModuleInputs{
+		ModuleName:      args.Name,
+		Language:        golang,
+		Namespace:       shared.Namespace,
+		Visibility:      shared.Visibility,
+		ResourceSubtype: args.ResourceSubtype,
+		ModelName:       args.ModelName,
+		RegisterOnApp:   args.Register,
+	}
+	if err := newModule.CheckResourceAndSetType(); err != nil {
+		return err
+	}
+	if newModule.HasEmptyInput() {
+		if err := promptModuleInputs(newModule); err != nil {
+			return err
+		}
+		newModule.Namespace = shared.Namespace
+		newModule.Visibility = shared.Visibility
+		newModule.RegisterOnApp = shared.RegisterOnApp
+	}
+
+	// Collect app inputs.
+	app := &appInputs{AppName: args.AppName, AppType: args.AppType}
+	if app.AppName == "" || app.AppType == "" {
+		if err := promptAddAppInputs(app); err != nil {
+			return err
+		}
+	}
+
+	// Generate the module. Pass pre-collected inputs through args so generateModule
+	// sees HasEmptyInput() == false and skips re-prompting.
+	// ResourceSubtype is derived from Resource (e.g. "arm component" → "arm") because
+	// promptModuleInputs sets Resource but not ResourceSubtype; HasEmptyInput checks the latter.
+	filledArgs := args
+	filledArgs.Name = newModule.ModuleName
+	filledArgs.Language = newModule.Language
+	filledArgs.PublicNamespace = newModule.Namespace
+	filledArgs.Visibility = newModule.Visibility
+	filledArgs.Register = newModule.RegisterOnApp
+	filledArgs.ResourceSubtype = strings.Split(newModule.Resource, " ")[0]
+	filledArgs.ModelName = newModule.ModelName
+	if err := c.generateModule(ctx, cmd, filledArgs, shared); err != nil {
+		return err
+	}
+
+	// Add the app to the newly generated module directory.
+	moduleDir := newModule.ModuleName
+	data := appTemplateData{
+		ModuleName:      newModule.ModuleName,
+		ModuleLowercase: strings.ReplaceAll(strings.ToLower(newModule.ModuleName), "-", ""),
+		AppName:         app.AppName,
+		AppType:         app.AppType,
+		Namespace:       newModule.Namespace,
+		Visibility:      newModule.Visibility,
+		ConfigName:      "WebappConfig",
+	}
+
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	s := spinner.New()
+	var fatalError error
+	action := func() {
+		s.Title("Generating webapp component file...")
+		if err := addGoWebappFile(moduleDir, data); err != nil {
+			fatalError = errors.Wrap(err, "failed to generate webapp.go")
+			return
+		}
+		if err := addGoWebappToMain(filepath.Join(moduleDir, "cmd", "module", "main.go"), data); err != nil {
+			fatalError = errors.Wrap(err, "failed to update cmd/module/main.go")
+			return
+		}
+
+		s.Title("Setting up app directories and static files...")
+		if err := addAppStaticFiles(moduleDir); err != nil {
+			fatalError = errors.Wrap(err, "failed to set up app files")
+			return
+		}
+		if err := updateMakefileForApp(filepath.Join(moduleDir, "Makefile")); err != nil {
+			fatalError = errors.Wrap(err, "failed to update Makefile")
+			return
+		}
+
+		s.Title("Updating meta.json...")
+		if err := addAppToManifest(filepath.Join(moduleDir, defaultManifestFilename), app, data); err != nil {
+			fatalError = errors.Wrap(err, "failed to update meta.json")
+			return
+		}
+	}
+
+	if globalArgs.Debug {
+		action()
+	} else {
+		s.Action(action)
+		if err := s.Run(); err != nil {
+			return err
+		}
+	}
+
+	if fatalError != nil {
+		return fatalError
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	printAppBuildNextSteps(cmd.Root().Writer, filepath.Join(cwd, moduleDir, "README.md"))
+	return nil
+}
+
 // returns model name based on chosen resource
 func modelName(module *modulegen.ModuleInputs) string {
 	resourceName := strings.Fields(module.Resource)[0]
@@ -771,14 +895,16 @@ func promptModuleInputs(module *modulegen.ModuleInputs) error {
 				}
 				return nil
 			}),
-		huh.NewSelect[string]().
+	}
+	if module.Language == "" {
+		fields = append(fields, huh.NewSelect[string]().
 			Title("Specify the language for the module:").
 			Options(
 				huh.NewOption("Python", python),
 				huh.NewOption("Go", golang),
 				huh.NewOption("C++", cpp),
 			).
-			Value(&module.Language),
+			Value(&module.Language))
 	}
 	fields = append(fields, resourceAndModelFields(module)...)
 	form := huh.NewForm(huh.NewGroup(fields...)).WithHeight(25).WithWidth(88)
@@ -2267,7 +2393,8 @@ func AddAppAction(_ context.Context, cmd *cli.Command, args addAppArgs) error {
 	}
 
 	if genInfo.Language != golang {
-		return fmt.Errorf("add-app only supports Go modules; this module uses %s", genInfo.Language)
+		return fmt.Errorf("add-app currently only supports Go modules (this module uses %s); "+
+			"build-system integration for other languages is not yet implemented", genInfo.Language)
 	}
 
 	app := &appInputs{
