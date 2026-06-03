@@ -121,13 +121,11 @@ jobs:
           path: cli/windows-installer/releases/viam-cli-windows-installer.exe
 
       - name: Authorize GCP Upload
-        if: inputs.release_type != 'pr'
         uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
       - name: Upload installer to GCS
-        if: inputs.release_type != 'pr'
         uses: google-github-actions/upload-cloud-storage@v0.10.4
         with:
           headers: "cache-control: no-cache"
