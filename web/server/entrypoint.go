@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -369,7 +369,7 @@ func (s *robotServer) processConfig(in *config.Config) (*config.Config, error) {
 
 	// Use ~/.viam/packages for package path if one was not specified.
 	if in.PackagePath == "" {
-		out.PackagePath = path.Join(rutils.ViamDotDir, "packages")
+		out.PackagePath = filepath.Join(rutils.ViamDotDir, "packages")
 	}
 
 	return out, nil
