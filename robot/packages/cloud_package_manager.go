@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 const (
@@ -431,6 +432,24 @@ func (m *cloudManager) downloadFileWithChecksum(
 
 	if resp.StatusCode != http.StatusOK {
 		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
+	}
+
+	// Refuse to download if this specific package won't fit. We require 3x Content-Length
+	// to leave room for unpacking: peak disk usage is the compressed tarball plus its
+	// unpacked contents. Content-Length is -1 for chunked responses; in that case we can't
+	// size the download here and fall back to the MinFreeBytes floor enforced in installPackage.
+	if resp.ContentLength > 0 {
+		required := uint64(resp.ContentLength) * 3
+		if enough, available, err := enoughFreeSpace(downloadPath, required); err != nil {
+			m.logger.Warnw("could not check free disk space before downloading package; proceeding",
+				"path", downloadPath, "error", err)
+		} else if !enough {
+			m.logger.Warnw("not enough free disk space to download package; skipping download",
+				"path", downloadPath, "available", diskusage.FormatBytes(available),
+				"required", diskusage.FormatBytes(required))
+			return "", "", fmt.Errorf("not enough free disk space to download package: %s available, %s required (3x download size)",
+				diskusage.FormatBytes(available), diskusage.FormatBytes(required))
+		}
 	}
 
 	contentType := resp.Header.Get("Content-Type")

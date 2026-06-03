@@ -7,7 +7,6 @@ import (
 
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils/diskusage"
 )
@@ -175,7 +174,7 @@ func (poller *diskSummaryTracker) checkAndLogStaleData(ctx context.Context, earl
 		"There are %d files (%s) waiting to sync. "+
 		"Data may be generating faster than it can be uploaded, or uploads may be failing.",
 		age.Round(time.Second), staleThreshold.Round(time.Second),
-		totalFiles, data.FormatBytesI64(totalBytes),
+		totalFiles, diskusage.FormatBytesI64(totalBytes),
 	)
 }
 

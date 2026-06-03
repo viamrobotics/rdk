@@ -660,6 +660,27 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
+	t.Run("refuses when low on space", func(t *testing.T) {
+		// Inject a low-space result and confirm the download is refused before any file
+		// is written, and that we ask for 3x the Content-Length reported by the HEAD.
+		orig := enoughFreeSpace
+		var gotRequired uint64
+		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+			gotRequired = minBytes
+			return false, 5, nil
+		}
+		t.Cleanup(func() { enoughFreeSpace = orig })
+
+		dest := filepath.Join(packagesDir, "download-lowspace")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace", dest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
+		test.That(t, gotRequired, test.ShouldEqual, uint64(len(handler.content))*3)
+
+		_, statErr := os.Stat(dest)
+		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
+	})
+
 	t.Run("resumable", func(t *testing.T) {
 		maxBytesForTesting = int64(len(handler.content)/2) + 1
 		t.Cleanup(func() { maxBytesForTesting = 0 })

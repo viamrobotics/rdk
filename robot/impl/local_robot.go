@@ -244,9 +244,7 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 	r.activeBackgroundWorkers.Wait()
-	if r.diskMonitor != nil {
-		r.diskMonitor.stop()
-	}
+	r.diskMonitor.stop() // nil-safe; diskMonitor is nil when no package path is configured
 	r.sessionManager.Close()
 
 	var err error
