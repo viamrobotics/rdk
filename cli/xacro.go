@@ -243,11 +243,9 @@ func validateOutputWritable(outputPath string) error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			err = closeErr
-		}
-	}()
+	if err := f.Close(); err != nil {
+		return err
+	}
 
 	// Remove empty test file (don't leave artifacts if we just created it)
 	if info, statErr := os.Stat(outputPath); statErr == nil && info.Size() == 0 {

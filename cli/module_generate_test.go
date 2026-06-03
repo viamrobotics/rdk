@@ -544,9 +544,13 @@ func TestGenerateModuleAction(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, "src"))
 		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(modulePath, "build.sh"))
+		scriptExt := ".sh"
+		if runtime.GOOS == "windows" {
+			scriptExt = ".bat"
+		}
+		_, err = os.Stat(filepath.Join(modulePath, "build"+scriptExt))
 		test.That(t, err, test.ShouldBeNil)
-		_, err = os.Stat(filepath.Join(modulePath, "setup.sh"))
+		_, err = os.Stat(filepath.Join(modulePath, "setup"+scriptExt))
 		test.That(t, err, test.ShouldBeNil)
 		_, err = os.Stat(filepath.Join(modulePath, ".gitignore"))
 		test.That(t, err, test.ShouldBeNil)
