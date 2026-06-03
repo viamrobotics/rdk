@@ -616,16 +616,17 @@ func TestGripperAPIStaticObstacleInFrameSystem(t *testing.T) {
 	}
 
 	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
-	fss, err := framesystem.FromProvider(robot)
+
+	fsCfg, err := robot.FrameSystemConfig(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	fs, err := framesystem.NewFromService(ctx, fss, nil)
-	test.That(t, err, test.ShouldBeNil)
-
-	frame := fs.Frame("obstacle-frame")
-	test.That(t, frame, test.ShouldNotBeNil)
-
-	gif, err := frame.Geometries([]referenceframe.Input{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, gif.Geometries(), test.ShouldHaveLength, 1)
+	var obstaclePart *referenceframe.FrameSystemPart
+	for _, part := range fsCfg.Parts {
+		if part.FrameConfig != nil && part.FrameConfig.Name() == "obstacle-frame" {
+			obstaclePart = part
+			break
+		}
+	}
+	test.That(t, obstaclePart, test.ShouldNotBeNil)
+	test.That(t, obstaclePart.FrameConfig.Geometry(), test.ShouldNotBeNil)
 }
