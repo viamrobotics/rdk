@@ -162,11 +162,12 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 func applyOverride(cfg datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) *datamanager.DataCaptureConfig {
 	if override.CaptureFrequencyHz != nil {
 		cfg.CaptureFrequencyHz = *override.CaptureFrequencyHz
+		cfg.Disabled = data.GetDurationFromHz(*override.CaptureFrequencyHz) <= 0
 	}
 	if override.Tags != nil {
 		cfg.Tags = override.Tags
 	}
-	if cfg.Disabled || data.GetDurationFromHz(cfg.CaptureFrequencyHz) <= 0 {
+	if cfg.Disabled {
 		return nil
 	}
 	return &cfg
