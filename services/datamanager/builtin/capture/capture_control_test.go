@@ -133,9 +133,9 @@ func TestSetCaptureConfig(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name           string
-		defaultConfigs CollectorConfigsByResource
-		existingDCConfig         *datamanager.DataCaptureConfig
+		name                   string
+		defaultConfigs         CollectorConfigsByResource
+		existingDCConfig       *datamanager.DataCaptureConfig
 		catalog                map[string]resource.Resource
 		defaultTags            []string
 		input                  map[string]datamanager.CaptureConfigReading
@@ -147,9 +147,9 @@ func TestSetCaptureConfig(t *testing.T) {
 	}{
 		// --- machine config path: defaults present, sensor either matches or doesn't override. ---
 		{
-			name:           "no-op when effective config is unchanged",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingDCConfig:    &fakeCfg,
+			name:             "no-op when effective config is unchanged",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
 			},
@@ -157,9 +157,9 @@ func TestSetCaptureConfig(t *testing.T) {
 			expectedCollectorCount: 1,
 		},
 		{
-			name:           "disables collector on zero frequency",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingDCConfig:    &fakeCfg,
+			name:             "disables collector on zero frequency",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(0), nil),
 			},
@@ -167,9 +167,9 @@ func TestSetCaptureConfig(t *testing.T) {
 			expectedCollectorCount: 0,
 		},
 		{
-			name:           "disables collector on near-zero frequency",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingDCConfig:    &fakeCfg,
+			name:             "disables collector on near-zero frequency",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1e-7), nil),
 			},
@@ -190,10 +190,10 @@ func TestSetCaptureConfig(t *testing.T) {
 			expectedCollectorCount: 1,
 		},
 		{
-			name:           "service-level tags are overridden by capture config tags",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingDCConfig:    &fakeCfg,
-			defaultTags:    []string{"service-tag"},
+			name:             "service-level tags are overridden by capture config tags",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfg,
+			defaultTags:      []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", nil, []string{"override-tag"}),
 			},
@@ -202,10 +202,10 @@ func TestSetCaptureConfig(t *testing.T) {
 			expectedTags:           []string{"override-tag"},
 		},
 		{
-			name:           "sensor-driven rebuild of static collector preserves service-level tags",
-			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingDCConfig:    &fakeCfgWithServiceTag,
-			defaultTags:    []string{"service-tag"},
+			name:             "sensor-driven rebuild of static collector preserves service-level tags",
+			defaultConfigs:   CollectorConfigsByResource{fakeRes: {fakeCfg}},
+			existingDCConfig: &fakeCfgWithServiceTag,
+			defaultTags:      []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(5.0), nil),
 			},
