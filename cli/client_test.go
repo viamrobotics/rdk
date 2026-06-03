@@ -1622,15 +1622,16 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
 	// The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23659) <-> machine(localhost:23658) <-> dest-listener(localhost:23657)
-	if runtime.GOOS == osWindows {
-		t.Skip("RSDK-14061")
-	}
+	// test-process <-> source-listener(localhost:23662) <-> machine(localhost:23661) <-> dest-listener(localhost:23660)
+	//
+	// Ports are kept higher than those used by `TestTunnelE2E` so the two can run in
+	// parallel without colliding.
+
 	tunnelMsg := "Hello, World!"
-	destPort := 23657
+	destPort := 23660
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23658")
-	sourcePort := 23659
+	machineAddr := net.JoinHostPort("localhost", "23661")
+	sourcePort := 23662
 	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
 
 	logger := logging.NewTestLogger(t)
