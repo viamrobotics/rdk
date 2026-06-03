@@ -435,6 +435,7 @@ var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE ht
 {{end}}
 
 <script>
+const START_CONFIG = {{.StartConfigJSON}};
 const GOAL_POSES = {{.GoalPosesJSON}};
 
 function renderStartAndGoals() {
@@ -451,6 +452,7 @@ function runIKInspect() {
   const div = document.getElementById('ik-result');
   div.textContent = 'Running IK inspection…';
   fetch('/ik-inspect/run?file=' + encodeURIComponent('{{.File}}') +
+        '&start_config=' + encodeURIComponent(JSON.stringify(START_CONFIG)) +
         '&goal_poses=' + encodeURIComponent(JSON.stringify(GOAL_POSES)),
         { signal: ikInspectAbort.signal })
     .then(r => r.json())
@@ -550,10 +552,11 @@ type detailData struct {
 }
 
 type ikInspectData struct {
-	File          string
-	StartConfig   []frameInputs
-	GoalPoses     []poseDisplay
-	GoalPosesJSON template.JS
+	File            string
+	StartConfig     []frameInputs
+	StartConfigJSON template.JS
+	GoalPoses       []poseDisplay
+	GoalPosesJSON   template.JS
 }
 
 type planRunResult struct {
@@ -997,12 +1000,14 @@ func handleIKInspect(logger logging.Logger) http.HandlerFunc {
 			})
 		}
 		sort.Slice(startConfig, func(i, j int) bool { return startConfig[i].Name < startConfig[j].Name })
+		startConfigJSONBytes, _ := json.Marshal(startConfigStrings)
 		goalPosesJSONBytes, _ := json.Marshal(goalPoseMap)
 		data := ikInspectData{
-			File:          file,
-			StartConfig:   startConfig,
-			GoalPoses:     poseMapToDisplays(goalPoseMap),
-			GoalPosesJSON: template.JS(goalPosesJSONBytes), //nolint:gosec
+			File:            file,
+			StartConfig:     startConfig,
+			StartConfigJSON: template.JS(startConfigJSONBytes), //nolint:gosec
+			GoalPoses:       poseMapToDisplays(goalPoseMap),
+			GoalPosesJSON:   template.JS(goalPosesJSONBytes), //nolint:gosec
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := ikInspectTmpl.Execute(w, data); err != nil {
@@ -1016,6 +1021,22 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 		file := r.URL.Query().Get("file")
 		if file == "" {
 			writeJSON(w, ikInspectRunResult{Error: "missing file parameter"})
+			return
+		}
+		var startConfigStrings map[string][]string
+		if sc := r.URL.Query().Get("start_config"); sc != "" {
+			if err := json.Unmarshal([]byte(sc), &startConfigStrings); err != nil {
+				writeJSON(w, ikInspectRunResult{Error: fmt.Sprintf("parsing start_config: %v", err)})
+				return
+			}
+		}
+		if len(startConfigStrings) == 0 {
+			writeJSON(w, ikInspectRunResult{Error: "start_config is required"})
+			return
+		}
+		segmentStart, err := stringsToLinearInputs(startConfigStrings)
+		if err != nil {
+			writeJSON(w, ikInspectRunResult{Error: fmt.Sprintf("parsing start_config values: %v", err)})
 			return
 		}
 		var goalPoseMap map[string]poseComponents
@@ -1046,7 +1067,7 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 		}
 
 		armplanning.ClearSeedCache()
-		result, err := InspectIK(r.Context(), logger.Sublogger("ik-inspect"), req.FrameSystem, goalPoses, 10)
+		result, err := InspectIK(r.Context(), logger.Sublogger("ik-inspect"), req, segmentStart.ToFrameSystemInputs(), goalPoses, 10)
 		if err != nil {
 			writeJSON(w, ikInspectRunResult{Error: err.Error()})
 			return

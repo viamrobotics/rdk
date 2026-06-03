@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -37,6 +38,22 @@ type IKInspectTable struct {
 	Threads [][]IKInspectCell
 }
 
-func InspectIK(ctx context.Context, logger logging.Logger, fs *referenceframe.FrameSystem, goal referenceframe.FrameSystemPoses, numSolutions int) (*IKInspectTable, error) {
+func InspectIK(ctx context.Context, logger logging.Logger,
+	req *armplanning.PlanRequest,
+	segmentStart referenceframe.FrameSystemInputs,
+	segmentGoal referenceframe.FrameSystemPoses,
+	numSolutions int,
+) (*IKInspectTable, error) {
+	// var meta armplanning.PlanMeta
+	// pc, err := armplanning.NewPlanContext(ctx, logger, req, &meta)
+	// if err != nil {
+	//  	return nil, err
+	// }
+	//
+	// psc, err := armplanning.NewPlanSegmentContext(ctx, pc, segmentStart, segmentGoal)
+	// if err != nil {
+	//  	return nil, err
+	// }
+
 	return nil, errors.New("unimplemented")
 }
