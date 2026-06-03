@@ -567,6 +567,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		}
 		switch modStatus.State {
 		case modulestatus.ModuleStateUnknown:
+			// TODO: we might not want this to be an error
 			s.robot.Logger().CErrorw(ctx, "module in an unknown state", "module", modStatus.Name)
 			pbModStatus.State = pb.ModuleStatus_STATE_UNSPECIFIED
 		case modulestatus.ModuleStatePending:
