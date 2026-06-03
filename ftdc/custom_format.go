@@ -152,7 +152,7 @@ func flatten(value reflect.Value) ([]string, []float32, error) {
 	value = flattenPtr(value)
 
 	// why is the default case not sufficient to be considered exhaustive?
-	
+	//nolint:exhaustive
 	switch value.Kind() {
 	case reflect.Struct:
 		return flattenStruct(value)
