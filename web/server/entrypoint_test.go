@@ -395,10 +395,7 @@ func TestTunnelE2E(t *testing.T) {
 	//
 	// test-process <-> source-listener <-> machine <-> dest-listener
 	//
-	// Ports are reserved dynamically. ReserveRandomPort hands back a live listener
-	// so unrelated tests can't race in on the dest/source/timeout ports; the
-	// machine bind address uses TryReserveRandomPort since the server itself
-	// opens that socket.
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
 
