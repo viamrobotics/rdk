@@ -1254,8 +1254,8 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 				ID:          frameName,
 				Translation: resConfig.Frame.Translation,
 				Orientation: resConfig.Frame.Orientation,
-				// Geometry:    resConfig.Frame.Geometry,
-				Parent: resConfig.Frame.Parent,
+				Geometry:    resConfig.Frame.Geometry,
+				Parent:      resConfig.Frame.Parent,
 			}).ParseConfig()
 			if err != nil {
 				logger.Warnw("Failed to create LinkInFrame.", "err", err)
