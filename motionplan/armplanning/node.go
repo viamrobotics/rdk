@@ -124,8 +124,8 @@ type SolutionSolvingState struct {
 	psc          *PlanSegmentContext
 	maxSolutions int
 
-	linearSeeds [][]float64
-	seedLimits  [][]referenceframe.Limit
+	LinearSeeds [][]float64
+	SeedLimits  [][]referenceframe.Limit
 
 	moving, nonmoving []string
 
@@ -168,8 +168,8 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
-	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
+	sss.LinearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
+	sss.SeedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
 
 	// For multi-arm systems, `rawRatios` elements will be -1 for non-moving arms. `minRatio` will
 	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
@@ -178,18 +178,18 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		return nil, err
 	}
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:1
-	sss.seedLimits = append(sss.seedLimits,
-		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
+	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:1
+	sss.SeedLimits = append(sss.SeedLimits,
+		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .03)))
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:2
-	sss.seedLimits = append(sss.seedLimits,
-		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
+	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:2
+	sss.SeedLimits = append(sss.SeedLimits,
+		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .25)))
 
 	if len(rawRatios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.
-			seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, 1)))
+		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
+		sss.SeedLimits = append(sss.
+			SeedLimits, ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, 1)))
 	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
@@ -211,14 +211,14 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 		logger.Debugf("\t altLimitDivisors %v", logging.FloatArrayFormat{"", altLimitDivisors})
 		for _, s := range altSeeds {
 			si := s.GetLinearizedInputs()
-			sss.linearSeeds = append(sss.linearSeeds, si)
-			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
-			sss.seedLimits = append(sss.seedLimits, ll)
-			logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			sss.LinearSeeds = append(sss.LinearSeeds, si)
+			ll := ik.ComputeAdjustLimitsArray(si, sss.SeedLimits[0], altLimitDivisors)
+			sss.SeedLimits = append(sss.SeedLimits, ll)
+			logger.Debugf("\t ss (%d): %v", len(sss.LinearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	} else {
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
+		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
+		sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(sss.LinearSeeds[0], sss.SeedLimits[0], .05))
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -235,7 +235,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 
 func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
+		sss.psc.pc.planOpts.GetGoalMetric(goal), sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
@@ -251,7 +251,7 @@ func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
-		val := sss.linearSeeds[0][idx]
+		val := sss.LinearSeeds[0][idx]
 		if r > 0 {
 			// we use min ratio here because we're pretty sure that if we moved every joint minRatio amount
 			// we'd move plenty
@@ -525,7 +525,7 @@ func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.L
 	}
 
 	// Spawn the IK solver to generate solutions until done
-	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	minFunc := psc.pc.LinearizeFSMetric(psc.pc.planOpts.GetGoalMetric(psc.goal))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -568,7 +568,7 @@ func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.L
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
-			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
+			solvingState.LinearSeeds, solvingState.SeedLimits, minFunc, psc.pc.randseed.Int())
 		if err == nil {
 			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)
 		} else {
@@ -694,13 +694,13 @@ func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 			fmt.Fprintf(&builder, "\t joint %d min: %0.2f, max: %0.2f range: %0.2f\n", jointNumber, min, max, r)
 			fmt.Fprintf(&builder, "\t\t winner: %0.2f\n", winningValue)
 
-			for seedNumber, s := range sss.linearSeeds {
+			for seedNumber, s := range sss.LinearSeeds {
 				step, err := sss.psc.pc.lis.FloatsToInputs(s)
 				if err != nil {
 					return err
 				}
 				v := step.Get(frameName)[jointNumber]
-				myLimit := sss.seedLimits[seedNumber][jointNumber]
+				myLimit := sss.SeedLimits[seedNumber][jointNumber]
 				fmt.Fprintf(&builder, "\t\t  seed %d %0.2f delta: %0.2f valid: %v limits: %v\n",
 					seedNumber, v, math.Abs(v-winningValue)/r, myLimit.IsValid(winningValue), myLimit)
 				if !myLimit.IsValid(winningValue) {
@@ -712,7 +712,7 @@ func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 
 	for idx, m := range solveMeta {
 		fmt.Fprintf(&builder, "seed: %d %#v\n", idx, m)
-		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.linearSeeds[idx]})
+		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.LinearSeeds[idx]})
 		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
 	}
 

@@ -1073,13 +1073,12 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
-		out := ikInspectRunResult{Threads: make([][]ikInspectCellResult, len(result.Threads))}
-		for threadIdx, cells := range result.Threads {
+		out := ikInspectRunResult{Threads: make([][]ikInspectCellResult, len(result.Rows))}
+		for threadIdx, cells := range result.Rows {
 			rows := make([]ikInspectCellResult, len(cells))
 			for cellIdx, cell := range cells {
 				row := ikInspectCellResult{
 					Cost:        cell.Cost,
-					GoalDist:    cell.GoalDist,
 					Exact:       cell.Exact,
 					Valid:       cell.Valid,
 					CheckPathOK: cell.CheckPathOK,

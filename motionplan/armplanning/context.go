@@ -70,7 +70,11 @@ func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	return pc, nil
 }
 
-func (pc *PlanContext) linearizeFSmetric(metric motionplan.StateFSMetric) ik.CostFunc {
+func (pc *PlanContext) GetLinearInputsSchema() *referenceframe.LinearInputsSchema {
+	return pc.lis
+}
+
+func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.CostFunc {
 	return func(ctx context.Context, linearizedInputs []float64) float64 {
 		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
 		if err != nil {
