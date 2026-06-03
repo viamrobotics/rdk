@@ -35,7 +35,7 @@ func DataCaptureConfigKey(resourceString, method string) string {
 // Overrides may target resource/method pairs that are not in the static config. When that happens,
 // the resource is looked up by short name in c.resourcesByShortName and a collector is built from
 // the sensor reading. Methods that require additional_params (e.g. board.Analogs, board.Gpios)
-// cannot be enabled this way — the user must specify them in the machine config.
+// cannot be enabled this way.
 func (c *Capture) SetCaptureConfigs(captureConfigReadings map[string]datamanager.CaptureConfigReading) {
 	effectiveCollectors := c.buildEffectiveCollectors(captureConfigReadings)
 	c.updateCollectors(effectiveCollectors)
@@ -162,7 +162,6 @@ func (c *Capture) updateCollectors(effectiveCollectors map[collectorMetadata]eff
 func applyOverride(cfg datamanager.DataCaptureConfig, override datamanager.CaptureConfigReading) *datamanager.DataCaptureConfig {
 	if override.CaptureFrequencyHz != nil {
 		cfg.CaptureFrequencyHz = *override.CaptureFrequencyHz
-		cfg.Disabled = data.GetDurationFromHz(*override.CaptureFrequencyHz) <= 0
 	}
 	if override.Tags != nil {
 		cfg.Tags = override.Tags

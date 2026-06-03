@@ -135,10 +135,7 @@ func TestSetCaptureConfig(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
 		defaultConfigs CollectorConfigsByResource
-		// existingCfg, when non-nil, pre-populates c.collectors with one collector built
-		// from this config. A fresh *mockCollector is allocated per case so closed state
-		// can't bleed between cases.
-		existingCfg            *datamanager.DataCaptureConfig
+		existingDCConfig         *datamanager.DataCaptureConfig
 		catalog                map[string]resource.Resource
 		defaultTags            []string
 		input                  map[string]datamanager.CaptureConfigReading
@@ -152,7 +149,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		{
 			name:           "no-op when effective config is unchanged",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg:    &fakeCfg,
+			existingDCConfig:    &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1.0), nil),
 			},
@@ -162,7 +159,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		{
 			name:           "disables collector on zero frequency",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg:    &fakeCfg,
+			existingDCConfig:    &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(0), nil),
 			},
@@ -172,7 +169,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		{
 			name:           "disables collector on near-zero frequency",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg:    &fakeCfg,
+			existingDCConfig:    &fakeCfg,
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(1e-7), nil),
 			},
@@ -185,7 +182,7 @@ func TestSetCaptureConfig(t *testing.T) {
 			// built at the default freq=1.
 			name:           "reverts to default config on nil input",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg: &datamanager.DataCaptureConfig{
+			existingDCConfig: &datamanager.DataCaptureConfig{
 				Name: fakeCfg.Name, Method: fakeCfg.Method, CaptureFrequencyHz: 5.0,
 			},
 			input:                  nil,
@@ -195,7 +192,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		{
 			name:           "service-level tags are overridden by capture config tags",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg:    &fakeCfg,
+			existingDCConfig:    &fakeCfg,
 			defaultTags:    []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", nil, []string{"override-tag"}),
@@ -207,7 +204,7 @@ func TestSetCaptureConfig(t *testing.T) {
 		{
 			name:           "sensor-driven rebuild of static collector preserves service-level tags",
 			defaultConfigs: CollectorConfigsByResource{fakeRes: {fakeCfg}},
-			existingCfg:    &fakeCfgWithServiceTag,
+			existingDCConfig:    &fakeCfgWithServiceTag,
 			defaultTags:    []string{"service-tag"},
 			input: map[string]datamanager.CaptureConfigReading{
 				"fake-1/GetReadings": fakeReading("fake-1", "GetReadings", float32Ptr(5.0), nil),
@@ -262,11 +259,11 @@ func TestSetCaptureConfig(t *testing.T) {
 
 			var existing collectors
 			var existingMock *mockCollector
-			if tc.existingCfg != nil {
+			if tc.existingDCConfig != nil {
 				existingMock = &mockCollector{}
 				existing = collectors{
-					newCollectorMetadata(*tc.existingCfg): {
-						Resource: fakeRes, Collector: existingMock, Config: *tc.existingCfg,
+					newCollectorMetadata(*tc.existingDCConfig): {
+						Resource: fakeRes, Collector: existingMock, Config: *tc.existingDCConfig,
 					},
 				}
 			}
