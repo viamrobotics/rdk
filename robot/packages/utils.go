@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 const partialsDirName = "part"
@@ -59,6 +60,20 @@ func installPackage(
 	supportsPartial bool,
 	installFn installCallback,
 ) error {
+	// Refuse to download if the volume holding the packages directory is critically low
+	// on free space. This guards every download path (cloud packages, local tarball
+	// modules, ML models, and registry modules), all of which funnel through here.
+	if enough, available, err := diskusage.EnoughFreeSpace(packagesDir, diskusage.MinFreeBytes); err != nil {
+		logger.Warnw("could not check free disk space before downloading package; proceeding",
+			"package", p.Name, "packagesDir", packagesDir, "error", err)
+	} else if !enough {
+		logger.Warnw("not enough free disk space to download package; skipping download",
+			"package", p.Name, "available", diskusage.FormatBytes(available),
+			"required", diskusage.FormatBytes(diskusage.MinFreeBytes))
+		return fmt.Errorf("not enough free disk space to download package %q: %s available, %s required",
+			p.Name, diskusage.FormatBytes(available), diskusage.FormatBytes(diskusage.MinFreeBytes))
+	}
+
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
 		return err
