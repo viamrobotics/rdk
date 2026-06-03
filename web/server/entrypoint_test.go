@@ -393,35 +393,45 @@ func TestTunnelE2E(t *testing.T) {
 	t.Parallel()
 	// `TestTunnelE2E` attempts to send "Hello, World!" across a tunnel. The tunnel is:
 	//
-	// test-process <-> source-listener(127.0.0.1:23658) <-> machine(127.0.0.1:23657) <-> dest-listener(127.0.0.1:23656)
+	// test-process <-> source-listener <-> machine <-> dest-listener
+	//
+	// Ports are reserved dynamically. ReserveRandomPort hands back a live listener
+	// so unrelated tests can't race in on the dest/source/timeout ports; the
+	// machine bind address uses TryReserveRandomPort since the server itself
+	// opens that socket.
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23656
+
+	destPort, destListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
 	destListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("127.0.0.1", "23657")
-	sourceListenerAddr := net.JoinHostPort("127.0.0.1", "23658")
+	defer func() {
+		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	// Mock listener for the timeout endpoint — windows requires a real listener
+	// even though we never accept on it.
+	timeoutDestPort, timeoutDestListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
+	}()
+
+	machinePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	machineAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(machinePort))
+
+	sourcePort, sourceListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	sourceListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(sourcePort))
+	defer func() {
+		test.That(t, sourceListener.Close(), test.ShouldBeNil)
+	}()
 
 	logger := logging.NewTestLogger(t)
 	ctx := context.Background()
 	runServerCtx, runServerCtxCancel := context.WithCancel(ctx)
 	var wg sync.WaitGroup
-
-	// Start "destination" listener.
-	destListener, err := net.Listen("tcp", destListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, destListener.Close(), test.ShouldBeNil)
-	}()
-
-	// Start mock "destination" listener, even if we don't intend on actually accepting any messages.
-	// This is because windows doesn't seem to allow for dialing to ports there aren't listeners on.
-	timeoutDestPort := 65534
-	timeoutDestListenerAddr := net.JoinHostPort("127.0.0.1", strconv.Itoa(timeoutDestPort))
-	timeoutDestListener, err := net.Listen("tcp", timeoutDestListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, timeoutDestListener.Close(), test.ShouldBeNil)
-	}()
 
 	wg.Add(1)
 	go func() {
@@ -511,11 +521,6 @@ func TestTunnelE2E(t *testing.T) {
 	}
 
 	// Start "source" listener (a `RobotClient` running `Tunnel`.)
-	sourceListener, err := net.Listen("tcp", sourceListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, sourceListener.Close(), test.ShouldBeNil)
-	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
