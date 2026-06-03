@@ -36,13 +36,19 @@ func DistToLineSegment(pt1, pt2, query r3.Vector) float64 {
 // which is closest to the query point.
 func ClosestPointSegmentPoint(pt1, pt2, query r3.Vector) r3.Vector {
 	ab := pt2.Sub(pt1)
-	t := query.Sub(pt1).Dot(ab.Mul(1 / ab.Norm2()))
-	if t <= 0 {
+	qb := query.Sub(pt1)
+	// t = (qb . ab) / |ab|^2. Check the numerator sign first: if (qb . ab) <= 0,
+	// the projection lies before pt1, so the closest segment point is pt1 itself.
+	// This avoids computing |ab|^2 entirely for the most common path.
+	qbDotAb := qb.Dot(ab)
+	if qbDotAb <= 0 {
 		return pt1
-	} else if t >= 1 {
+	}
+	abN2 := ab.Norm2()
+	if qbDotAb >= abN2 {
 		return pt2
 	}
-	return pt1.Add(ab.Mul(t))
+	return pt1.Add(ab.Mul(qbDotAb / abN2))
 }
 
 // SegmentDistanceToSegment will compute the distance separating two line segments at their closest point.
@@ -52,42 +58,58 @@ func SegmentDistanceToSegment(ap1, ap2, bp1, bp2 r3.Vector) float64 {
 }
 
 // ClosestPointsSegmentSegment will return the points at which two line segments are closest to one another.
+// See https://math.stackexchange.com/a/2812513 (with a sign-error correction). The actual math is in
+// closestPointsSegmentSegmentCached; this wrapper just precomputes the first segment's edge vector.
 func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector) {
-	// Proceed according to this math.stackexchange answer: https://math.stackexchange.com/a/2812513
-	// The stack solution has a sign error, which we correct
-	// These (ugly) variable names were chosen to match those in the stack exchange answer, for easy reference
+	d21 := a2.Sub(a1)
+	return closestPointsSegmentSegmentCached(a1, a2, d21, d21.Norm2(), b1, b2)
+}
 
-	d3121 := b1.Sub(a1).Dot(a2.Sub(a1))
-	d4321 := b2.Sub(b1).Dot(a2.Sub(a1))
-	d4331 := b2.Sub(b1).Dot(b1.Sub(a1))
-	r1pow2 := a2.Sub(a1).Norm2()
-	r2pow2 := b2.Sub(b1).Norm2()
+// closestOnSegmentCached returns the point on segment pt1->pt2 closest to a query
+// whose precomputed projection numerator (qb·ab) and segment squared-length (|ab|²)
+// are passed in. Equivalent to ClosestPointSegmentPoint but skips the redundant
+// Sub/Dot/Norm2 work whenever the caller already has those values cached.
+func closestOnSegmentCached(pt1, pt2, ab r3.Vector, qbDotAb, abN2 float64) r3.Vector {
+	if qbDotAb <= 0 {
+		return pt1
+	}
+	if qbDotAb >= abN2 {
+		return pt2
+	}
+	return pt1.Add(ab.Mul(qbDotAb / abN2))
+}
+
+// closestPointsSegmentSegmentCached is the same as ClosestPointsSegmentSegment but
+// with the first segment's edge vector (d21 = a2-a1) and squared-length (r1pow2)
+// already computed by the caller. Saves a Sub + Norm2 per call — material when the
+// same segment is checked against many other segments (e.g. one triangle edge vs.
+// the three edges of another triangle).
+func closestPointsSegmentSegmentCached(a1, a2, d21 r3.Vector, r1pow2 float64, b1, b2 r3.Vector) (r3.Vector, r3.Vector) {
+	d43 := b2.Sub(b1)
+	d31 := b1.Sub(a1)
+	d3121 := d31.Dot(d21)
+	d4321 := d43.Dot(d21)
+	d4331 := d43.Dot(d31)
+	r2pow2 := d43.Norm2()
 
 	denom := r1pow2*r2pow2 - d4321*d4321
-	// If denom is 0, the segments are parallel, and we can jump to the endpt case below
-	// If denom is not 0, we finish our algebra
 	if math.Abs(denom) > floatEpsilon {
-		// Find the closest points on the lines each segment define
-		// If s or t lie outside of [0,1], the closest points on the lines are NOT on the finite segments
 		s := (d3121*r2pow2 - d4331*d4321) / denom
 		t := (d3121*d4321 - d4331*r1pow2) / denom
 		if 0 <= s && s <= 1 && 0 <= t && t <= 1 {
-			bestSeg1Pt := a1.Add(a2.Sub(a1).Mul(s))
-			bestSeg2Pt := b1.Add(b2.Sub(b1).Mul(t))
-			return bestSeg1Pt, bestSeg2Pt
+			return a1.Add(d21.Mul(s)), b1.Add(d43.Mul(t))
 		}
 	}
 
-	// If we're here, the lines are either parallel or their closest points lie off at least one of the segments
-	// It suffices to just check each segment against the other segment's endpoints
 	bestSeg1Pt := a1
-	bestSeg2Pt := ClosestPointSegmentPoint(b1, b2, a1)
-	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2() // actually squared distance, but doesn't matter
-	if bestDist < defaultCollisionBufferMM {       // this could be problematic if a lesser collision buffer is ever desired
+	bestSeg2Pt := closestOnSegmentCached(b1, b2, d43, -d4331, r2pow2)
+	bestDist := bestSeg1Pt.Sub(bestSeg2Pt).Norm2()
+	if bestDist < defaultCollisionBufferMM {
 		return bestSeg1Pt, bestSeg2Pt
 	}
+
 	seg1Pt := a2
-	seg2Pt := ClosestPointSegmentPoint(b1, b2, a2)
+	seg2Pt := closestOnSegmentCached(b1, b2, d43, d4321-d4331, r2pow2)
 	dist := seg2Pt.Sub(seg1Pt).Norm2()
 	if dist < defaultCollisionBufferMM {
 		return seg1Pt, seg2Pt
@@ -96,7 +118,8 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
 		bestDist = dist
 	}
-	seg1Pt = ClosestPointSegmentPoint(a1, a2, b1)
+
+	seg1Pt = closestOnSegmentCached(a1, a2, d21, d3121, r1pow2)
 	seg2Pt = b1
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
 	if dist < defaultCollisionBufferMM {
@@ -106,7 +129,8 @@ func ClosestPointsSegmentSegment(a1, a2, b1, b2 r3.Vector) (r3.Vector, r3.Vector
 		bestSeg1Pt, bestSeg2Pt = seg1Pt, seg2Pt
 		bestDist = dist
 	}
-	seg1Pt = ClosestPointSegmentPoint(a1, a2, b2)
+
+	seg1Pt = closestOnSegmentCached(a1, a2, d21, d3121+d4321, r1pow2)
 	seg2Pt = b2
 	dist = seg2Pt.Sub(seg1Pt).Norm2()
 	if dist < bestDist {
@@ -141,27 +165,57 @@ func BoundingSphere(geometry Geometry) (Geometry, error) {
 
 // ClosestPointsSegmentTriangle takes a line segment and a triangle, and returns the point on each closest to the other.
 func ClosestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, bestTriPt r3.Vector) {
-	// The closest triangle point is either on the edge or within the triangle.
+	props := computeTriCache(t)
+	return closestPointsSegmentTriangleCached(ap1, ap2, t, &props)
+}
 
-	// First, handle the case where the closest triangle point is inside the
-	// triangle. This returns a good value if either the line segment intersects the triangle or a segment
-	// endpoint is closest to a point inside the triangle.
-	// If the line overlaps the triangle and is parallel to the triangle plane,
-	// the chosen triangle point is arbitrary.
-	segPt, _ := ClosestPointsSegmentPlane(ap1, ap2, t.p0, t.normal)
-	triPt, inside := ClosestTriangleInsidePoint(t, segPt)
+// triCache holds per-triangle quantities that ClosestTriangleInsidePoint and
+// ClosestPointsSegmentTriangle need. Computed once per outer triangle then
+// reused across the 3 segment-vs-triangle checks done by collidesWithTriangle.
+type triCache struct {
+	e0, e1  r3.Vector // edge vectors p1-p0, p2-p0
+	a, b, c float64   // |e0|², e0·e1, |e1|²
+	invDet  float64   // 1 / (a*c - b²)
+}
+
+func computeTriCache(t *Triangle) triCache {
+	e0 := t.p1.Sub(t.p0)
+	e1 := t.p2.Sub(t.p0)
+	a := e0.Norm2()
+	b := e0.Dot(e1)
+	c := e1.Norm2()
+	return triCache{
+		e0:     e0,
+		e1:     e1,
+		a:      a,
+		b:      b,
+		c:      c,
+		invDet: 1.0 / (a*c - b*b),
+	}
+}
+
+// closestPointsSegmentTriangleCached is the workhorse of ClosestPointsSegmentTriangle.
+// Reuses the caller's triCache across the inside-point test and shares the
+// segment edge vector across the three segment-segment edge checks (saves a Sub
+// and a Norm2 per CPSS call relative to going through the uncached entry point).
+func closestPointsSegmentTriangleCached(ap1, ap2 r3.Vector, t *Triangle, tc *triCache) (bestSegPt, bestTriPt r3.Vector) {
+	segPt := closestSegPointToPlane(ap1, ap2, t.p0, t.normal)
+	triPt, inside := closestTriInsidePointCached(t, tc, segPt)
 	if inside {
-		// If inside is false, then these will not be the best points, because they are based on the segment-plane intersection
 		return segPt, triPt
 	}
 
-	// If not inside, check triangle edges for the closest point.
-	bestSegPt, bestTriPt = ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p1)
+	// Cache the segment edge vector + squared length: shared by all three
+	// triangle-edge checks below.
+	d21 := ap2.Sub(ap1)
+	r1pow2 := d21.Norm2()
+
+	bestSegPt, bestTriPt = closestPointsSegmentSegmentCached(ap1, ap2, d21, r1pow2, t.p0, t.p1)
 	bestDist := bestSegPt.Sub(bestTriPt).Norm2()
 	if bestDist < defaultCollisionBufferMM {
 		return bestSegPt, bestTriPt
 	}
-	segPt2, triPt2 := ClosestPointsSegmentSegment(ap1, ap2, t.p1, t.p2)
+	segPt2, triPt2 := closestPointsSegmentSegmentCached(ap1, ap2, d21, r1pow2, t.p1, t.p2)
 	d2 := segPt2.Sub(triPt2).Norm2()
 	if d2 < defaultCollisionBufferMM {
 		return segPt2, triPt2
@@ -170,13 +224,56 @@ func ClosestPointsSegmentTriangle(ap1, ap2 r3.Vector, t *Triangle) (bestSegPt, b
 		bestSegPt, bestTriPt = segPt2, triPt2
 		bestDist = d2
 	}
-	segPt3, triPt3 := ClosestPointsSegmentSegment(ap1, ap2, t.p0, t.p2)
+	segPt3, triPt3 := closestPointsSegmentSegmentCached(ap1, ap2, d21, r1pow2, t.p0, t.p2)
 	d3 := segPt3.Sub(triPt3).Norm2()
 	if d3 < bestDist {
 		return segPt3, triPt3
 	}
-
 	return bestSegPt, bestTriPt
+}
+
+// closestSegPointToPlane returns just the segment-side closest point (no
+// coplanar pt, since CPST discards it). Equivalent to ClosestPointsSegmentPlane's
+// first return value, but skips the coplanarPt Sub/Mul/Add when t is out of [0,1].
+func closestSegPointToPlane(ap1, ap2, planePt, planeNormal r3.Vector) r3.Vector {
+	segVec := ap2.Sub(ap1)
+	denom := planeNormal.Dot(segVec)
+	if math.Abs(denom) < floatEpsilon {
+		return ap1
+	}
+	d := planePt.Dot(planeNormal)
+	t := (d - planeNormal.Dot(ap1)) / denom
+	if t <= 0 {
+		return ap1
+	}
+	if t >= 1 {
+		return ap2
+	}
+	return segVec.Mul(t).Add(ap1)
+}
+
+// closestTriInsidePointCached is the cached variant of ClosestTriangleInsidePoint —
+// the triangle's e0, e1, a, b, c, det are taken from the precomputed cache.
+//
+// Returns the zero vector (and false) when the projected point falls outside the
+// triangle — the caller in planeProjDistN2 discards the point in that case, so
+// skipping the t.p0.Add(e0.Mul(u)).Add(e1.Mul(v)) reconstruction saves real work
+// on the common "not inside" path. Also short-circuits on u alone before bothering
+// to compute v.
+func closestTriInsidePointCached(t *Triangle, tc *triCache, point r3.Vector) (r3.Vector, bool) {
+	const eps = 1e-6
+	d := point.Sub(t.p0)
+	e0DotD := tc.e0.Dot(d)
+	e1DotD := tc.e1.Dot(d)
+	u := (tc.c*e0DotD - tc.b*e1DotD) * tc.invDet
+	if u < -eps || u > 1+eps {
+		return r3.Vector{}, false
+	}
+	v := (-tc.b*e0DotD + tc.a*e1DotD) * tc.invDet
+	if v < -eps || v > 1+eps || u+v > 1+eps {
+		return r3.Vector{}, false
+	}
+	return t.p0.Add(tc.e0.Mul(u)).Add(tc.e1.Mul(v)), true
 }
 
 // ClosestPointsSegmentPlane takes a line segment, plus a plane defined by a point and a normal vector, and returns the point on the

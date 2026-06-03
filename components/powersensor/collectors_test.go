@@ -139,3 +139,12 @@ func newPowerSensor() powersensor.PowerSensor {
 	}
 	return p
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       powersensor.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newPowerSensor() },
+	})
+}

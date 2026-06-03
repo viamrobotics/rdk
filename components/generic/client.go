@@ -11,7 +11,9 @@ import (
 
 	"go.viam.com/rdk/logging"
 	rprotoutils "go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client implements GenericServiceClient.
@@ -59,4 +61,21 @@ func (c *client) DoCommand(ctx context.Context, cmd map[string]interface{}) (map
 
 func (c *client) Status(ctx context.Context) (map[string]interface{}, error) {
 	return rprotoutils.GetStatusFromResourceClient(ctx, c.client, c.name)
+}
+
+// Geometries returns the geometries of the generic component in their current configuration. Generic component implementations
+// may opt in to providing geometries by implementing [resource.Shaped]; otherwise, an empty slice is returned.
+func (c *client) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.GetGeometries(ctx, &commonpb.GetGeometriesRequest{
+		Name:  c.name,
+		Extra: ext,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.NewGeometriesFromProto(resp.GetGeometries())
 }

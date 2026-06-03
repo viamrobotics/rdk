@@ -13,4 +13,5 @@ func TestGetDurationFromHz(t *testing.T) {
 	test.That(t, GetDurationFromHz(1), test.ShouldEqual, time.Second)
 	test.That(t, GetDurationFromHz(1000), test.ShouldEqual, time.Millisecond)
 	test.That(t, GetDurationFromHz(0), test.ShouldEqual, 0)
+	test.That(t, GetDurationFromHz(1e-7), test.ShouldEqual, 0)
 }

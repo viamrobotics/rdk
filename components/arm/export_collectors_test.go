@@ -6,4 +6,5 @@ var (
 	NewEndPositionCollector    = newEndPositionCollector
 	NewJointPositionsCollector = newJointPositionsCollector
 	NewDoCommandCollector      = newDoCommandCollector
+	NewGetWorldPoseCollector   = newGetWorldPoseCollector
 )

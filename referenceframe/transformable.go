@@ -81,7 +81,8 @@ func (pF *PoseInFrame) SetName(name string) {
 // Transform changes the PoseInFrame pF into the reference frame specified by the tf argument.
 // The tf PoseInFrame represents the pose of the pF reference frame with respect to the destination reference frame.
 func (pF *PoseInFrame) Transform(tf *PoseInFrame) Transformable {
-	return NewPoseInFrame(tf.parent, spatialmath.Compose(tf.pose, pF.pose))
+	return NewPoseInFrameWithGoalCloud(
+		tf.parent, spatialmath.Compose(tf.pose, pF.pose), pF.GoalCloud)
 }
 
 // TransformOpt transforms the `pF` as a DualQuaternion in place.
@@ -94,7 +95,7 @@ func (pF *PoseInFrame) TransformOpt(tf *PoseInFrame) {
 
 // String returns the string representation of the PoseInFrame.
 func (pF *PoseInFrame) String() string {
-	return fmt.Sprintf("parent: %s, pose: %v", pF.parent, pF.pose)
+	return fmt.Sprintf("name: %v parent: %v, pose: %v", pF.name, pF.parent, pF.pose)
 }
 
 // MarshalJSON converts a PoseInFrame to JSON through its protobuf representation.
@@ -130,6 +131,14 @@ func NewLinkInFrame(frame string, pose spatialmath.Pose, name string, geometry s
 		},
 		geometry: geometry,
 	}
+}
+
+// SetGeometry replaces the existing geometry with the input. This only exists to deal with the
+// clunkiness of the `LinkConfig` type that only speaks `GeometryConfig`s while we also allow for
+// resources to simply declare their `[]Geometry` objects. Which is a different kind of impedance at
+// the moment.
+func (lF *LinkInFrame) SetGeometry(geom spatialmath.Geometry) {
+	lF.geometry = geom
 }
 
 // Geometry returns the Geometry of the LinkInFrame.
@@ -178,6 +187,7 @@ func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
 	result := &PoseInFrame{}
 	result.pose = spatialmath.NewPoseFromProtobuf(proto.GetPose())
 	result.parent = proto.GetReferenceFrame()
+	result.GoalCloud = PoseCloudFromProto(proto.GetGoalCloud())
 	return result
 }
 

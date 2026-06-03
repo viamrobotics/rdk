@@ -23,6 +23,8 @@ type Gripper struct {
 	CloseFunc              func(ctx context.Context) error
 	GeometriesFunc         func(ctx context.Context) ([]spatialmath.Geometry, error)
 	KinematicsFunc         func(ctx context.Context) (referenceframe.Model, error)
+	CurrentInputsFunc      func(ctx context.Context) ([]referenceframe.Input, error)
+	GoToInputsFunc         func(ctx context.Context, inputSteps ...[]referenceframe.Input) error
 }
 
 // NewGripper returns a new injected gripper.
@@ -108,6 +110,22 @@ func (g *Gripper) Kinematics(ctx context.Context) (referenceframe.Model, error) 
 		return g.Gripper.Kinematics(ctx)
 	}
 	return g.KinematicsFunc(ctx)
+}
+
+// CurrentInputs calls the injected CurrentInputs or the real version.
+func (g *Gripper) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+	if g.CurrentInputsFunc == nil {
+		return g.Gripper.CurrentInputs(ctx)
+	}
+	return g.CurrentInputsFunc(ctx)
+}
+
+// GoToInputs calls the injected GoToInputs or the real version.
+func (g *Gripper) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	if g.GoToInputsFunc == nil {
+		return g.Gripper.GoToInputs(ctx, inputSteps...)
+	}
+	return g.GoToInputsFunc(ctx, inputSteps...)
 }
 
 // Status calls the injected Status or the real version.

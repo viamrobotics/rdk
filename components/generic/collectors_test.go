@@ -34,3 +34,12 @@ func newResource() generic.Resource {
 	}
 	return g
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       generic.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newResource() },
+	})
+}

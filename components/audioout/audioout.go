@@ -6,6 +6,7 @@ import (
 
 	pb "go.viam.com/api/component/audioout/v1"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
@@ -18,6 +19,10 @@ func init() {
 		RPCServiceDesc:              &pb.AudioOutService_ServiceDesc,
 		RPCClient:                   NewClientFromConn,
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		API:        API,
+		MethodName: getWorldPose.String(),
+	}, newGetWorldPoseCollector)
 }
 
 // SubtypeName is a constant that identifies the audio out resource subtype string.
@@ -35,6 +40,7 @@ func Named(name string) resource.Name {
 type AudioOut interface {
 	resource.Resource
 	Play(ctx context.Context, data []byte, info *utils.AudioInfo, extra map[string]interface{}) error
+	PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, extra map[string]interface{}) error
 	Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error)
 }
 

@@ -23,6 +23,7 @@ const (
 	orientation
 	readings
 	doCommand
+	getWorldPose
 )
 
 func (m method) String() string {
@@ -43,8 +44,23 @@ func (m method) String() string {
 		return "Readings"
 	case doCommand:
 		return "DoCommand"
+	case getWorldPose:
+		return "GetWorldPose"
 	}
 	return "Unknown"
+}
+
+// newGetWorldPoseCollector returns a collector to capture the movement sensor's world-space pose via the frame system.
+// If one is already registered with the same MethodMetadata it will panic.
+func newGetWorldPoseCollector(resource interface{}, params data.CollectorParams) (data.Collector, error) {
+	if _, err := assertMovementSensor(resource); err != nil {
+		return nil, err
+	}
+	cFunc, err := data.NewGetWorldPoseCaptureFunc(params)
+	if err != nil {
+		return nil, err
+	}
+	return data.NewCollector(cFunc, params)
 }
 
 func assertMovementSensor(resource interface{}) (MovementSensor, error) {

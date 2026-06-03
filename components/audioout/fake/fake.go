@@ -79,6 +79,50 @@ func (a *AudioOut) Play(ctx context.Context, data []byte, info *utils.AudioInfo,
 	}
 }
 
+// PlayStream simulates streamed playback by draining the chunk channel and pretending to
+// play each chunk for its real-time duration.
+func (a *AudioOut) PlayStream(ctx context.Context, info *utils.AudioInfo, chunks <-chan []byte, _ map[string]interface{}) error {
+	if info == nil {
+		return fmt.Errorf("audio info is required")
+	}
+	if info.Codec != "pcm16" {
+		return fmt.Errorf("codec %s not supported, only pcm16 is supported", info.Codec)
+	}
+	if info.NumChannels <= 0 || info.SampleRateHz <= 0 {
+		return fmt.Errorf("invalid audio info, sample rate and num channels must be above zero")
+	}
+
+	bytesPerSample := 2
+	totalBytes := 0
+	totalChunks := 0
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case chunk, ok := <-chunks:
+			if !ok {
+				duration := float64(totalBytes) / float64(bytesPerSample*int(info.NumChannels)*int(info.SampleRateHz))
+				a.logger.Infof("Fake stream playback done: chunks=%d, bytes=%d, duration=%.3fs",
+					totalChunks, totalBytes, duration)
+				return nil
+			}
+			totalChunks++
+			totalBytes += len(chunk)
+			a.logger.Debugf("Fake stream chunk %d (%d bytes)", totalChunks, len(chunk))
+
+			// Simulate real-time playback: block for the duration of this chunk so
+			// the fake behaves like a real device draining samples at the configured rate.
+			chunkSamples := len(chunk) / (bytesPerSample * int(info.NumChannels))
+			chunkDuration := time.Duration(float64(chunkSamples) / float64(info.SampleRateHz) * float64(time.Second))
+			select {
+			case <-time.After(chunkDuration):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+}
+
 // Properties returns the audio output's properties.
 func (a *AudioOut) Properties(ctx context.Context, extra map[string]interface{}) (utils.Properties, error) {
 	return utils.Properties{

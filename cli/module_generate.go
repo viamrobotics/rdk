@@ -23,6 +23,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/huh/spinner"
 	"github.com/pkg/errors"
+	"github.com/russross/blackfriday/v2"
 	"github.com/urfave/cli/v3"
 	"go.viam.com/utils"
 	"golang.org/x/text/cases"
@@ -65,6 +66,7 @@ var (
 var unauthenticatedMode = false
 
 type generateModuleArgs struct {
+	GenerateType    string
 	Name            string
 	Language        string
 	Visibility      string
@@ -73,6 +75,8 @@ type generateModuleArgs struct {
 	ModelName       string
 	Register        bool
 	DryRun          bool
+	AppName         string
+	AppType         string
 }
 
 // GenerateModuleAction runs the module generate cli and generates necessary module templates based on user input.
@@ -117,7 +121,293 @@ func promptUnauthenticated() bool {
 	return true
 }
 
+func promptGenerateType() (string, error) {
+	var generateType string
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("What would you like to generate?").
+				DescriptionFunc(func() string {
+					switch generateType {
+					case "module":
+						return "A modular resource to add custom components or services to your machine."
+					case "app":
+						return "A web application that connects to your machine via the Viam SDK."
+					default:
+						return ""
+					}
+				}, &generateType).
+				Options(
+					huh.NewOption("Module", "module"),
+					huh.NewOption("App", "app"),
+				).
+				Value(&generateType),
+		),
+	).WithWidth(77)
+	if err := form.Run(); err != nil {
+		return "", err
+	}
+	return generateType, nil
+}
+
 func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command, args generateModuleArgs) error {
+	generateType := args.GenerateType
+	if generateType == "" {
+		var err error
+		generateType, err = promptGenerateType()
+		if err != nil {
+			return err
+		}
+	}
+
+	shared := &sharedInputs{
+		Visibility:    args.Visibility,
+		Namespace:     args.PublicNamespace,
+		RegisterOnApp: args.Register,
+	}
+	if shared.Visibility == "" || shared.Namespace == "" {
+		if err := promptSharedInputs(shared); err != nil {
+			return err
+		}
+	}
+
+	switch generateType {
+	case "module", "":
+		return c.generateModule(ctx, cmd, args, shared)
+	case "app":
+		return c.generateApp(ctx, cmd, args, shared)
+	default:
+		return fmt.Errorf("invalid generate type %q: must be module or app", generateType)
+	}
+}
+
+type appInputs struct {
+	AppName string
+	AppType string
+}
+
+// appTemplateData is the struct passed to app template rendering.
+type appTemplateData struct {
+	ModuleName      string
+	ModuleLowercase string
+	AppName         string
+	AppType         string
+	Namespace       string
+	Visibility      string
+}
+
+func (c *viamClient) generateApp(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
+	app := &appInputs{
+		AppName: args.AppName,
+		AppType: args.AppType,
+	}
+
+	if app.AppName == "" || app.AppType == "" {
+		if err := promptAppUser(app); err != nil {
+			return err
+		}
+	}
+
+	gArgs, err := getGlobalArgs(cmd)
+	if err != nil {
+		return err
+	}
+	globalArgs := *gArgs
+
+	// Use app name as the module name (the app module wraps the webapp)
+	moduleName := app.AppName
+
+	// Resolve org and optionally register with Viam
+	moduleInputs := &modulegen.ModuleInputs{
+		ModuleName:    moduleName,
+		Namespace:     shared.Namespace,
+		RegisterOnApp: shared.RegisterOnApp,
+	}
+	if !args.DryRun {
+		if err := wrapResolveOrg(ctx, cmd, c, moduleInputs); err != nil {
+			return err
+		}
+	}
+
+	var registryURL string
+	if shared.RegisterOnApp {
+		debugf(cmd.Root().Writer, globalArgs.Debug, "Registering app with Viam")
+		moduleResponse, err := c.createModule(ctx, moduleName, moduleInputs.OrgID)
+		if err != nil {
+			return errors.Wrap(err, "failed to register app")
+		}
+		registryURL = moduleResponse.GetUrl()
+	}
+
+	data := appTemplateData{
+		ModuleName:      moduleName,
+		ModuleLowercase: strings.ReplaceAll(strings.ToLower(moduleName), "-", ""),
+		AppName:         app.AppName,
+		AppType:         app.AppType,
+		Namespace:       moduleInputs.Namespace,
+		Visibility:      shared.Visibility,
+	}
+
+	// Create root directory
+	if err := setupDirectories(cmd, moduleName, globalArgs); err != nil {
+		return err
+	}
+
+	// Generate meta.json using the shared manifest function with app fields
+	var modID moduleID
+	if shared.RegisterOnApp {
+		parsedID, err := parseModuleID(fmt.Sprintf("%s:%s", moduleInputs.Namespace, moduleName))
+		if err != nil {
+			return errors.Wrap(err, "failed to parse module identifier")
+		}
+		modID = parsedID
+	} else {
+		modID.name = moduleName
+		modID.prefix = moduleInputs.Namespace
+	}
+	appModuleInputs := modulegen.ModuleInputs{
+		ModuleName: moduleName,
+		Language:   golang,
+		Visibility: shared.Visibility,
+		Namespace:  moduleInputs.Namespace,
+	}
+	if err := renderManifest(cmd, modID.String(), appModuleInputs, globalArgs, app); err != nil {
+		return err
+	}
+
+	// Copy non-template files and render template files (skip meta.json since we generated it above)
+	if err := copyLanguageTemplate(cmd, "app", moduleName, globalArgs); err != nil {
+		return err
+	}
+	if err := renderAppTemplate(cmd, moduleName, data, globalArgs); err != nil {
+		return err
+	}
+
+	// Render README content into dist/index.html so the default page shows setup instructions
+	readmeBytes, err := os.ReadFile(filepath.Join(moduleName, "README.md")) //nolint:gosec
+	if err == nil {
+		renderedHTML := blackfriday.Run(readmeBytes)
+		indexHTML := fmt.Sprintf(`<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>%s</title>
+<style>body{max-width:800px;margin:40px auto;padding:0 20px;}pre{background:#f4f4f4;padding:12px;border-radius:4px;overflow-x:auto;}</style>
+</head><body>%s</body></html>`,
+			data.AppName, string(renderedHTML))
+		os.WriteFile(filepath.Join(moduleName, "dist", "index.html"), []byte(indexHTML), 0o644) //nolint:gosec,errcheck
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
+	}
+	appPath := filepath.Join(cwd, moduleName)
+	printf(cmd.Root().Writer, "App module successfully generated at %s", appPath)
+	if registryURL != "" {
+		printf(cmd.Root().Writer, "You can view it here: %s", registryURL)
+	}
+	printf(cmd.Root().Writer, "\n--- Build your frontend ---")
+	printf(cmd.Root().Writer, "This module has no frontend yet. Bring your own using any framework (e.g. Svelte, Vue, React).")
+	printf(cmd.Root().Writer, "\n1. Install the Viam SDK:")
+	printf(cmd.Root().Writer, "     npm install @viamrobotics/sdk typescript-cookie")
+	printf(cmd.Root().Writer, "\n2. Build your frontend into the dist/ directory.")
+	printf(cmd.Root().Writer, "\n3. Build the module:")
+	printf(cmd.Root().Writer, "     make setup")
+	printf(cmd.Root().Writer, "     make")
+	printf(cmd.Root().Writer, "\nSee %s for full details, including how to test during development and upload to viamapplications.com.",
+		filepath.Join(appPath, "README.md"))
+	return nil
+}
+
+// renderAppTemplate renders tmpl- prefixed files from _templates/app/ with app-specific data.
+func renderAppTemplate(cmd *cli.Command, moduleName string, data appTemplateData, globalArgs globalArgs) error {
+	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering app template files")
+	appPath := path.Join(templatesPath, "app")
+	tempDir, err := fs.Sub(templates, appPath)
+	if err != nil {
+		return err
+	}
+	return fs.WalkDir(tempDir, ".", func(filePath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && strings.HasPrefix(d.Name(), templatePrefix) {
+			destPath := filepath.Join(moduleName, strings.ReplaceAll(filePath, templatePrefix, ""))
+			debugf(cmd.Root().Writer, globalArgs.Debug, "\tRendering file %s", destPath)
+
+			tFile, err := templates.Open(path.Join(appPath, filePath))
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(tFile.Close)
+			tBytes, err := io.ReadAll(tFile)
+			if err != nil {
+				return err
+			}
+
+			tmpl, err := template.New(filePath).Parse(string(tBytes))
+			if err != nil {
+				return err
+			}
+
+			//nolint:gosec
+			destFile, err := os.Create(destPath)
+			if err != nil {
+				return err
+			}
+			defer utils.UncheckedErrorFunc(destFile.Close)
+
+			if err := tmpl.Execute(destFile, data); err != nil {
+				return errors.Wrapf(err, "error rendering template %s", destPath)
+			}
+		}
+		return nil
+	})
+}
+
+func promptAppUser(app *appInputs) error {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Generate a new Viam app").
+				Description("This will generate a web app module that connects to your machine via the Viam SDK.\n"+
+					"For more details, view the documentation at \nhttps://docs.viam.com/build-apps/hosting/"),
+			huh.NewInput().
+				Title("Set an app name:").
+				Description("The app name can contain only alphanumeric characters, dashes, and underscores.").
+				Value(&app.AppName).
+				Placeholder("my-app").
+				Suggestions([]string{"my-app"}).
+				Validate(func(s string) error {
+					if s == "" {
+						return errors.New("app name must not be empty")
+					}
+					match, err := regexp.MatchString("^[a-zA-Z]+(?:[_\\-a-zA-Z0-9]+)*$", s)
+					if !match || err != nil {
+						return errors.New("app names can only contain alphanumeric characters, dashes, and underscores,\nand must start with a letter")
+					}
+					if _, err := os.Stat(s); err == nil {
+						return errors.New("this app directory already exists")
+					}
+					return nil
+				}),
+			huh.NewSelect[string]().
+				Title("App type:").
+				Description("Single machine apps connect to one machine.\n"+
+					"Multi machine apps can connect to multiple machines in your fleet.").
+				Options(
+					huh.NewOption("Single Machine", "single_machine"),
+					huh.NewOption("Multi Machine", "multi_machine"),
+				).
+				Value(&app.AppType),
+		),
+	).WithHeight(25).WithWidth(88)
+	if err := form.Run(); err != nil {
+		return errors.Wrap(err, "encountered an error generating app")
+	}
+
+	return nil
+}
+
+func (c *viamClient) generateModule(ctx context.Context, cmd *cli.Command, args generateModuleArgs, shared *sharedInputs) error {
 	var newModule *modulegen.ModuleInputs
 	var err error
 
@@ -140,10 +430,12 @@ func (c *viamClient) generateModuleAction(ctx context.Context, cmd *cli.Command,
 			return errors.New("missing required flags for non-interactive mode; " +
 				"provide --name, --language, --public-namespace, --resource-subtype, and --model-name")
 		}
-		err = promptUser(newModule)
-		if err != nil {
+		if err := promptModuleInputs(newModule); err != nil {
 			return err
 		}
+		newModule.Visibility = shared.Visibility
+		newModule.Namespace = shared.Namespace
+		newModule.RegisterOnApp = shared.RegisterOnApp
 	}
 	if err := checkLanguageVersion(newModule.Language); err != nil {
 		return err
@@ -272,9 +564,65 @@ func modelName(module *modulegen.ModuleInputs) string {
 	return resourceName
 }
 
-// Prompt the user for information regarding the module they want to create
-// returns the modulegen.ModuleInputs struct that contains the information the user entered.
-func promptUser(module *modulegen.ModuleInputs) error {
+// sharedInputs holds fields common to both module and app generation.
+type sharedInputs struct {
+	Visibility    string
+	Namespace     string
+	RegisterOnApp bool
+}
+
+// promptSharedInputs prompts for visibility, namespace, and registration — shared across module and app flows.
+func promptSharedInputs(shared *sharedInputs) error {
+	var registerWidget huh.Field
+	if unauthenticatedMode {
+		registerWidget = huh.NewSelect[bool]().
+			Title("Register with Viam").
+			Description("You are unauthenticated and cannot register with Viam.\n\nThis will be local-only.").
+			Options(
+				huh.NewOption("Continue", false),
+			).
+			Value(&shared.RegisterOnApp)
+	} else {
+		registerWidget = huh.NewConfirm().
+			Title("Register with Viam").
+			Description("Register with Viam.\nIf selected, " +
+				"this will associate with your organization.\n" +
+				"Otherwise, this will be local-only.",
+			).
+			Value(&shared.RegisterOnApp)
+	}
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Visibility:").
+				Options(
+					huh.NewOption("Public", moduleVisibilityPublic),
+					huh.NewOption("Private", moduleVisibilityPrivate),
+					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
+				).
+				Value(&shared.Visibility),
+			huh.NewInput().
+				Title("Namespace/Organization ID").
+				Value(&shared.Namespace).
+				Placeholder("my-namespace").
+				Validate(func(s string) error {
+					if s == "" {
+						return errors.New("namespace or org ID must not be empty")
+					}
+					return nil
+				}),
+			registerWidget,
+		),
+	).WithHeight(25).WithWidth(88)
+	if err := form.Run(); err != nil {
+		return errors.Wrap(err, "encountered an error in shared prompts")
+	}
+	return nil
+}
+
+// promptModuleInputs prompts for module-specific fields: name, language, resource subtype, model name.
+func promptModuleInputs(module *modulegen.ModuleInputs) error {
 	titleCaser := cases.Title(language.Und)
 	resourceOptions := []huh.Option[string]{}
 	for _, resource := range modulegen.Resources {
@@ -303,25 +651,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 			resType = strings.Join(words, " ")
 		}
 		resourceOptions = append(resourceOptions, huh.NewOption(resType, resource))
-	}
-
-	var registerWidget huh.Field
-	if unauthenticatedMode {
-		registerWidget = huh.NewSelect[bool]().
-			Title("Register module").
-			Description("You are unauthenticated and cannot register this module with Viam.\n\nThis module will be a local-only module.").
-			Options(
-				huh.NewOption("Continue", false),
-			).
-			Value(&module.RegisterOnApp)
-	} else {
-		registerWidget = huh.NewConfirm().
-			Title("Register module").
-			Description("Register this module with Viam.\nIf selected, " +
-				"this will associate the module with your organization.\n" +
-				"Otherwise, this will be a local-only module.",
-			).
-			Value(&module.RegisterOnApp)
 	}
 
 	form := huh.NewForm(
@@ -359,24 +688,6 @@ func promptUser(module *modulegen.ModuleInputs) error {
 				).
 				Value(&module.Language),
 			huh.NewSelect[string]().
-				Title("Visibility:").
-				Options(
-					huh.NewOption("Public", moduleVisibilityPublic),
-					huh.NewOption("Private", moduleVisibilityPrivate),
-					huh.NewOption("Public Unlisted", moduleVisibilityPublicUnlisted),
-				).
-				Value(&module.Visibility),
-			huh.NewInput().
-				Title("Namespace/Organization ID").
-				Value(&module.Namespace).
-				Placeholder("my-namespace").
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.New("namespace or org ID must not be empty")
-					}
-					return nil
-				}),
-			huh.NewSelect[string]().
 				Title("Select a resource to be added to the module:").
 				Description("A resource is a component or service that provides functionality to your machine.\n"+
 					"You can navigate and scroll this list with arrow keys and vim bindings,\n"+
@@ -405,14 +716,11 @@ func promptUser(module *modulegen.ModuleInputs) error {
 					}
 					return nil
 				}),
-			registerWidget,
 		),
 	).WithHeight(25).WithWidth(88)
-	err := form.Run()
-	if err != nil {
+	if err := form.Run(); err != nil {
 		return errors.Wrap(err, "encountered an error generating module")
 	}
-
 	return nil
 }
 
@@ -493,6 +801,7 @@ func populateAdditionalInfo(newModule *modulegen.ModuleInputs) {
 	newModule.ModulePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ModuleName)))
 	newModule.ModuleCamel = strings.ToLower(string(newModule.ModulePascal[0])) + newModule.ModulePascal[1:]
 	newModule.ModuleLowercase = strings.ToLower(newModule.ModulePascal)
+	newModule.ModuleSnake = snakeReplacer.Replace(newModule.ModuleName)
 	newModule.API = fmt.Sprintf("rdk:%s:%s", newModule.ResourceType, newModule.ResourceSubtype)
 	newModule.ResourceSubtypePascal = spaceReplacer.Replace(titleCaser.String(replacer.Replace(newModule.ResourceSubtype)))
 	if newModule.Language == golang {
@@ -631,7 +940,7 @@ func copyLanguageTemplate(cmd *cli.Command, language, moduleName string, globalA
 		if d.IsDir() {
 			if d.Name() != language {
 				debugf(cmd.Root().Writer, globalArgs.Debug, "\tCopying %s directory", d.Name())
-				err = os.Mkdir(filepath.Join(moduleName, filePath), 0o750)
+				err = os.MkdirAll(filepath.Join(moduleName, filePath), 0o750)
 				if err != nil {
 					return err
 				}
@@ -814,7 +1123,11 @@ func runGoImports(moduleFile *os.File) error {
 	}
 
 	// check if goimports exists in the bin directory
-	goImportsPath := fmt.Sprintf("%s/bin/goimports", goPath)
+	goImportsName := "goimports"
+	if runtime.GOOS == osWindows {
+		goImportsName = "goimports.exe"
+	}
+	goImportsPath := filepath.Join(goPath, "bin", goImportsName)
 	if _, err := os.Stat(goImportsPath); os.IsNotExist(err) {
 		// installing goimports
 		installCmd := exec.Command("go", "install", "golang.org/x/tools/cmd/goimports@latest")
@@ -1016,7 +1329,7 @@ func createModuleAndManifest(
 		moduleID.name = module.ModuleName
 		moduleID.prefix = module.Namespace
 	}
-	err := renderManifest(cmd, moduleID.String(), module, globalArgs)
+	err := renderManifest(cmd, moduleID.String(), module, globalArgs, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to render manifest")
 	}
@@ -1089,8 +1402,10 @@ func renderModelDoc(module modulegen.ModuleInputs) error {
 	return nil
 }
 
-// Create the meta.json manifest.
-func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs) error {
+// Create the meta.json manifest. If appInfo is non-nil, app-specific fields are added.
+func renderManifest(
+	cmd *cli.Command, moduleID string, module modulegen.ModuleInputs, globalArgs globalArgs, appInfo *appInputs,
+) error {
 	debugf(cmd.Root().Writer, globalArgs.Debug, "Rendering module manifest")
 
 	visibility := module.Visibility
@@ -1106,9 +1421,30 @@ func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleIn
 		Description:  fmt.Sprintf("Modular %s %s: %s", module.ResourceSubtype, module.ResourceType, module.ModelName),
 		MarkdownLink: &module.ModuleReadmeLink,
 	}
+
+	if appInfo != nil {
+		manifest.Description = fmt.Sprintf("%s app", appInfo.AppName)
+		manifest.MarkdownLink = nil
+		manifest.Models = []ModuleComponent{
+			{
+				API:   "rdk:component:generic",
+				Model: fmt.Sprintf("%s:%s:webapp", module.Namespace, module.ModuleName),
+			},
+		}
+		manifest.Apps = []AppComponent{
+			{
+				Name:       appInfo.AppName,
+				Type:       appInfo.AppType,
+				Entrypoint: "dist/index.html",
+			},
+		}
+	}
+
 	switch module.Language {
 	case python:
+		pythonEntrypoint := "dist/main"
 		if runtime.GOOS == osWindows {
+			pythonEntrypoint += ".exe"
 			manifest.Build = &manifestBuildInfo{
 				Setup: "setup.bat",
 				Build: "build.bat",
@@ -1123,32 +1459,33 @@ func renderManifest(cmd *cli.Command, moduleID string, module modulegen.ModuleIn
 				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
-		manifest.Entrypoint = "dist/main"
+		manifest.Entrypoint = pythonEntrypoint
 	case golang:
+		moduleBinary := module.ModuleName
 		if runtime.GOOS == osWindows {
+			moduleBinary += ".exe"
 			manifest.Build = &manifestBuildInfo{
 				Setup: "go mod tidy",
-				Build: "go build -tags no_cgo -o bin/" + module.ModuleName +
+				Build: "go build -tags no_cgo -o bin/" + moduleBinary +
 					" cmd/module/main.go && tar czf module.tar.gz meta.json bin/" +
-					module.ModuleName,
+					moduleBinary,
 				Path: "module.tar.gz",
-				Arch: []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch: []string{"windows/amd64"},
 			}
 		} else {
 			manifest.Build = &manifestBuildInfo{
 				Setup: "make setup",
 				Build: "make module.tar.gz",
 				Path:  "module.tar.gz",
-				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64", "windows/amd64"},
+				Arch:  []string{"linux/amd64", "linux/arm64", "darwin/arm64"},
 			}
 		}
-		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
+		manifest.Entrypoint = fmt.Sprintf("bin/%s", moduleBinary)
 	case cpp:
 		manifest.Build = &manifestBuildInfo{
-			Build:  "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
-			Path:   "build/Release/module.tar.gz",
-			Distro: "bookworm",
-			Arch:   []string{"linux/amd64", "linux/arm64"},
+			Build: "conan build . --build missing -s:a compiler.cppstd=17 --lockfile-partial",
+			Path:  "build/Release/module.tar.gz",
+			Arch:  []string{"linux/amd64", "linux/arm64"},
 		}
 		manifest.Entrypoint = fmt.Sprintf("bin/%s", module.ModuleName)
 	}

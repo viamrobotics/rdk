@@ -106,3 +106,12 @@ func newMotor() motor.Motor {
 	}
 	return m
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       motor.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newMotor() },
+	})
+}

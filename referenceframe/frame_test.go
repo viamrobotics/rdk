@@ -416,6 +416,20 @@ func TestLimitMethods(t *testing.T) {
 	test.That(t, b, test.ShouldEqual, 10)
 	test.That(t, c, test.ShouldEqual, 10)
 
+	// finite limits above rangeLimit must pass through unchanged (prismatic mm-scale joints)
+	prismatic := Limit{0, 2224}
+	a, b, c = prismatic.GoodLimits()
+	test.That(t, a, test.ShouldEqual, 0)
+	test.That(t, b, test.ShouldEqual, 2224)
+	test.That(t, c, test.ShouldEqual, 2224)
+
+	// infinite limits are capped to +/- rangeLimit
+	infinite := Limit{math.Inf(-1), math.Inf(1)}
+	a, b, c = infinite.GoodLimits()
+	test.That(t, a, test.ShouldEqual, -rangeLimit)
+	test.That(t, b, test.ShouldEqual, rangeLimit)
+	test.That(t, c, test.ShouldEqual, 2*rangeLimit)
+
 	d := l.Jog(5, .25)
 	test.That(t, d, test.ShouldEqual, 7.5)
 

@@ -6,15 +6,17 @@ import (
 
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // GenericComponent is an injectable generic component.
 type GenericComponent struct {
 	resource.Resource
-	name       resource.Name
-	DoFunc     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
-	StatusFunc func(ctx context.Context) (map[string]interface{}, error)
-	CloseFunc  func(ctx context.Context) error
+	name           resource.Name
+	DoFunc         func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
+	StatusFunc     func(ctx context.Context) (map[string]interface{}, error)
+	CloseFunc      func(ctx context.Context) error
+	GeometriesFunc func(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error)
 }
 
 // NewGenericComponent returns a new injected generic component.
@@ -55,4 +57,15 @@ func (g *GenericComponent) Status(ctx context.Context) (map[string]interface{}, 
 		return g.Resource.Status(ctx)
 	}
 	return map[string]interface{}{}, nil
+}
+
+// Geometries calls the injected GeometriesFunc or the embedded resource's Geometries if it implements [resource.Shaped].
+func (g *GenericComponent) Geometries(ctx context.Context, extra map[string]interface{}) ([]spatialmath.Geometry, error) {
+	if g.GeometriesFunc != nil {
+		return g.GeometriesFunc(ctx, extra)
+	}
+	if shaped, ok := g.Resource.(resource.Shaped); ok {
+		return shaped.Geometries(ctx, extra)
+	}
+	return nil, nil
 }

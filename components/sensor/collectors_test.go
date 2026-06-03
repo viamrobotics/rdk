@@ -80,3 +80,12 @@ func newSensor() sensor.Sensor {
 	}
 	return s
 }
+
+func TestGetWorldPoseCollector(t *testing.T) {
+	datatu.TestGetWorldPoseCollector(t, datatu.GetWorldPoseTestConfig{
+		ComponentName:   componentName,
+		CaptureInterval: captureInterval,
+		Collector:       sensor.NewGetWorldPoseCollector,
+		ResourceFactory: func() interface{} { return newSensor() },
+	})
+}

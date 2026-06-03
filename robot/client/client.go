@@ -476,6 +476,16 @@ func (rc *RobotClient) Connected() bool {
 	return rc.connected.Load()
 }
 
+// WebRTCStats returns the stats report for the underlying WebRTC peer
+// connection. Returns nil if the client is not connected via WebRTC.
+func (rc *RobotClient) WebRTCStats() webrtc.StatsReport {
+	pc := rc.conn.PeerConn()
+	if pc == nil {
+		return nil
+	}
+	return pc.GetStats()
+}
+
 // Changed watches for whether the remote has changed.
 func (rc *RobotClient) Changed() <-chan bool {
 	rc.mu.Lock()
@@ -1151,7 +1161,10 @@ func (rc *RobotClient) StopAll(ctx context.Context, extra map[resource.Name]map[
 // Log sends a log entry to the server. To be used by Golang modules wanting to
 // log over gRPC and not by normal Golang SDK clients.
 func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.Field) error {
-	message := fmt.Sprintf("%v\t%v", log.Caller.TrimmedPath(), log.Message)
+	caller, err := protoutils.StructToStructPb(logging.WrapEntryCaller(log.Caller))
+	if err != nil {
+		caller = nil
+	}
 
 	fieldsP := make([]*structpb.Struct, 0, len(fields))
 	for _, field := range fields {
@@ -1169,7 +1182,8 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 			Level:      log.Level.String(),
 			Time:       timestamppb.New(log.Time),
 			LoggerName: log.LoggerName,
-			Message:    message,
+			Message:    log.Message,
+			Caller:     caller,
 			// Leave out Caller; Caller is already in Message field above. We put
 			// the Caller in Message as other languages may also do this in the
 			// future. We do not want other languages to have to force their caller
@@ -1179,7 +1193,7 @@ func (rc *RobotClient) Log(ctx context.Context, log zapcore.Entry, fields []zap.
 		}},
 	}
 
-	_, err := rc.client.Log(ctx, logRequest)
+	_, err = rc.client.Log(ctx, logRequest)
 	return err
 }
 

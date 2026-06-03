@@ -559,7 +559,7 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 			r3.Vector{X: -0.5, Y: 0.5, Z: 0},
 		)
 
-		collides, _, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
+		collides, _, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil)
 		test.That(t, collides, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -576,7 +576,7 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 			r3.Vector{X: 0, Y: 1, Z: 5},
 		)
 
-		collides, dist, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
+		collides, dist, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, dist, test.ShouldAlmostEqual, 5, 1e-9)
 		test.That(t, err, test.ShouldBeNil)
@@ -595,12 +595,12 @@ func TestLeafCollidesWithLeaf(t *testing.T) {
 		)
 
 		// No collision without buffer
-		collides, _, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0)
+		collides, _, err := leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 0, nil)
 		test.That(t, collides, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldBeNil)
 
 		// Collision with buffer
-		collides, _, err = leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 1)
+		collides, _, err = leafCollidesWithLeaf(trianglesToGeometries(tri1), trianglesToGeometries(tri2), zeroPose, zeroPose, 1, nil)
 		test.That(t, collides, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})

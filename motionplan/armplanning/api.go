@@ -4,6 +4,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -174,12 +175,44 @@ func PlanFrameMotion(ctx context.Context,
 	return plan.Trajectory().GetFrameInputs(f.Name())
 }
 
+// SolutionNodeInfo captures per-node data from getSolutions for visualization and debugging.
+type SolutionNodeInfo struct {
+	// Score is the cost of moving from the start configuration to this node.
+	Score float64
+	// CheckPathError is nil when the straight-line path from start to this node passed all
+	// constraints, or the constraint violation error otherwise.
+	CheckPathError error
+	// Inputs is the goal configuration for this IK solution.
+	Inputs *referenceframe.LinearInputs
+	// LastGoodInputs is the last interpolated configuration before the checkPath failure.
+	// Nil when CheckPathError is nil.
+	LastGoodInputs *referenceframe.LinearInputs
+}
+
+// PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
+// Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
+type PerGoalMeta struct {
+	// SolutionNodes contains info about each IK solution node scored and path-checked.
+	SolutionNodes []SolutionNodeInfo
+	// ConstraintFailuresByType maps constraint error strings to the number of IK candidate
+	// solutions that failed that constraint.
+	ConstraintFailuresByType map[string]int
+}
+
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
 	Duration       time.Duration
 	Partial        bool
 	PartialError   error
 	GoalsProcessed int
+
+	// CollectSolutionDiagnostics is copied from PlannerOptions and gates whether PerGoal is
+	// populated.
+	CollectSolutionDiagnostics bool
+
+	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
+	// goal, sub-goal, and planning split produces one entry.
+	PerGoal []PerGoalMeta
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -191,6 +224,13 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	ctx, span := trace.StartSpan(ctx, "PlanMotion")
 	defer func() {
 		meta.Duration = time.Since(start)
+		// We don't expect mesh caches to be useful from plan to plan, even when the start and goal
+		// states are exactly the same due to differing IK solutions (this was backed by
+		// profiling). Hence we clear the cache between plan requests.
+		//
+		// In the case of concurrent plans, this does mean we may stomp on the others cache. Which
+		// would mitigate the benefit of the cache, but should not be a correctness problem.
+		resetMeshCaches(ctx, logger, request)
 		span.End()
 	}()
 
@@ -236,6 +276,55 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	}
 
 	return t, meta, nil
+}
+
+// resetMeshCaches walks the robot link and world obstacle geometries reachable
+// from the plan request and clears any mesh-level collision caches that built
+// up during planning. The caches are an optimization, so a best-effort pass is
+// fine — failures here are logged and swallowed rather than surfaced as a
+// planning error.
+func resetMeshCaches(ctx context.Context, logger logging.Logger, request *PlanRequest) {
+	visit := func(geometry spatialmath.Geometry) {
+		if mesh, ok := geometry.(*spatialmath.Mesh); ok {
+			mesh.ResetCache()
+		}
+	}
+
+	if request.StartState != nil && request.StartState.structuredConfiguration != nil {
+		frameSystemGeometries, err := referenceframe.FrameSystemGeometries(
+			request.FrameSystem,
+			request.StartState.structuredConfiguration,
+		)
+		if err != nil {
+			logger.CDebugf(ctx, "resetMeshCaches: skipping robot geometries: %v", err)
+			// Not expected to happen, but we still want to try walking the world state. Rely on
+			// ranging over a nil slice to be a no-op.
+		}
+
+		for _, geometriesInFrame := range frameSystemGeometries {
+			for _, geometry := range geometriesInFrame.Geometries() {
+				visit(geometry)
+			}
+		}
+	}
+
+	if request.WorldState != nil {
+		// Right now, the world state is getting entirely thrown away anyways. It's always a part of
+		// the user request that is about to go out of scope. In the future, this may include
+		// geometries saved in the `WorldStateStore` service.
+		obstacles, err := request.WorldState.ObstaclesInWorldFrame(
+			request.FrameSystem,
+			request.StartState.structuredConfiguration,
+		)
+		if err != nil {
+			logger.CDebugf(ctx, "resetMeshCaches: skipping world obstacles: %v", err)
+			return
+		}
+
+		for _, geometry := range obstacles.Geometries() {
+			visit(geometry)
+		}
+	}
 }
 
 var defaultArmPlannerOptions = &motionplan.Constraints{
@@ -301,5 +390,71 @@ func (req *PlanRequest) WriteToFile(fileName string) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// ReadRequestAndResponseFromFile reads a PlanRequest and optionally a motionplan.Plan from a JSON
+// file written by WriteRequestAndResponseToFile. The returned plan is nil if the file contains only
+// a request.
+func ReadRequestAndResponseFromFile(fileName string) (*PlanRequest, motionplan.Plan, error) {
+	f, err := os.Open(fileName) //nolint:gosec
+	if err != nil {
+		return nil, nil, err
+	}
+	defer utils.UncheckedErrorFunc(f.Close)
+
+	decoder := json.NewDecoder(f)
+
+	req := &PlanRequest{}
+	if err = decoder.Decode(req); err != nil {
+		return nil, nil, err
+	}
+
+	plan := &motionplan.SimplePlan{}
+	if err = decoder.Decode(plan); err != nil {
+		if errors.Is(err, io.EOF) {
+			return req, nil, nil
+		}
+		return nil, nil, err
+	}
+
+	return req, plan, nil
+}
+
+// WriteRequestAndResponseToFile writes the `req` as one JSON object followed by `resp` as a second
+// JSON object. This is backwards compatible with existing `ReadRequestFromFile`
+// implementations. Also see `ReadRequestAndResponseFromFile` to pull out both sets of
+// information. `resp` can be nil. Useful for cases where the request resulted in a motion plan
+// error.
+func (req *PlanRequest) WriteRequestAndResponseToFile(filename string, resp motionplan.Plan) error {
+	file, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	defer utils.UncheckedErrorFunc(file.Close)
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	_, err = file.Write(data)
+	if err != nil {
+		return err
+	}
+
+	if resp != nil {
+		data, err = json.Marshal(resp)
+		if err != nil {
+			return err
+		}
+
+		_, err = file.Write(data)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

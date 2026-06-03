@@ -3,7 +3,6 @@ package gripper
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	commonpb "go.viam.com/api/common/v1"
@@ -21,7 +20,6 @@ import (
 // client implements GripperServiceClient.
 type client struct {
 	resource.Named
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.GripperServiceClient
@@ -45,6 +43,16 @@ func NewClientFromConn(
 		client: pb.NewGripperServiceClient(conn),
 		logger: logger,
 	}, nil
+}
+
+// Reconfigure invalidates the cached `model` value. It's expected to be invoked when this `client`
+// represents an rdk <-> modular gripper connection and the gripper rebuilds.
+func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	c.mu.Lock()
+	c.model = nil
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *client) Open(ctx context.Context, extra map[string]interface{}) error {
@@ -163,23 +171,29 @@ func (c *client) Kinematics(ctx context.Context) (referenceframe.Model, error) {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	model, err := c.Kinematics(ctx)
+	resp, err := c.client.GetCurrentInputs(ctx, &pb.GetCurrentInputsRequest{Name: c.name})
 	if err != nil {
 		return nil, err
 	}
-	if model != nil && len(model.DoF()) != 0 {
-		return nil, errors.New("CurrentInputs is unimplemented for gripper models with DoF != 0")
+	inputs := make([]referenceframe.Input, len(resp.Values))
+	for i, v := range resp.Values {
+		inputs[i] = referenceframe.Input(v)
 	}
-	return []referenceframe.Input{}, nil
+	return inputs, nil
 }
 
-func (c *client) GoToInputs(ctx context.Context, inputs ...[]referenceframe.Input) error {
-	model, err := c.Kinematics(ctx)
-	if err != nil {
-		return err
-	}
-	if model != nil && len(model.DoF()) != 0 {
-		return errors.New("GoToInputs is unimplemented for gripper models with DoF != 0")
+func (c *client) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
+	for _, inputs := range inputSteps {
+		values := make([]float64, len(inputs))
+		for i, in := range inputs {
+			values[i] = float64(in)
+		}
+		if _, err := c.client.GoToInputs(ctx, &pb.GoToInputsRequest{
+			Name:   c.name,
+			Values: values,
+		}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

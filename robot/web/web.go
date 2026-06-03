@@ -597,7 +597,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 		ExternalSignalingAddress:  options.SignalingAddress,
 		ExternalSignalingHosts:    hosts.External,
 		InternalSignalingHosts:    hosts.Internal,
-		Config:                    &grpc.DefaultWebRTCConfiguration,
 	}
 	if options.DisallowWebRTC {
 		webrtcOptions = rpc.WebRTCServerOptions{
@@ -796,7 +795,7 @@ func (svc *webService) initMux(options weboptions.Options) *goji.Mux {
 	// Note: used by viam-agent for health checks
 	mux.HandleFunc(pat.New("/"), func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte("healthy")); err != nil {
+		if _, err := w.Write([]byte("I am a viam-server, navigate to https://app.viam.com to manage me.")); err != nil {
 			svc.logger.Warnf("unable to write healthy response: %w", err)
 		}
 	})
