@@ -24,6 +24,28 @@ jobs:
       pull-requests: read
       issues: write
     steps:
+      # Flaky-test fixes and dependabot bumps only require a single approval;
+      # everything else needs two. Title/branch are read via env (never interpolated
+      # into the script) to avoid injection.
+      - name: Determine required approvals
+        id: approvals
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          title_lc="${PR_TITLE,,}"
+          if [[ "$title_lc" == *flaky* ]]; then
+            echo "min_approvals=1" >> "$GITHUB_OUTPUT"
+            echo "Flaky-test PR detected; requiring 1 approval."
+          elif [[ "$HEAD_REF" == claude/dependabot* ]]; then
+            echo "min_approvals=1" >> "$GITHUB_OUTPUT"
+            echo "Dependabot PR detected; requiring 1 approval."
+          else
+            echo "min_approvals=2" >> "$GITHUB_OUTPUT"
+            echo "Requiring 2 approvals."
+          fi
+
       # viamrobotics/claude-ci-workflows@v2.1.0
       - name: Checkout claude-ci-workflows for composite action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -39,5 +61,5 @@ jobs:
         uses: ./.claude-ci-workflows/.github/actions/check-approvals
         with:
           pr_number: ${{ github.event.pull_request.number }}
-          min_approvals: '2'
+          min_approvals: ${{ steps.approvals.outputs.min_approvals }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
