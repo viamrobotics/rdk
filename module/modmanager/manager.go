@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/framesystem"
 	"go.viam.com/rdk/robot/packages"
@@ -1186,4 +1187,33 @@ func (mgr *Manager) ClearFailedModules() {
 	mgr.failedModulesMu.Lock()
 	mgr.failedModules = make(map[string]bool)
 	mgr.failedModulesMu.Unlock()
+}
+
+func (mgr *Manager) Status() []modulestatus.Status {
+	// make a map so we can easily check if a module has already been added
+	// since we have to iterate through modules and failedModules, and a module can be in both
+	statusmap := map[string]modulestatus.Status{}
+
+	mgr.modules.Range(func(modname string, mod *module) bool {
+		statusmap[modname] = mod.status
+		return true
+	})
+
+	mgr.failedModulesMu.RLock()
+	for modname, _ := range mgr.failedModules {
+		// TODO: if we've already seen a module, skip it? not sure what to do here
+		if _, ok := statusmap[modname]; ok {
+			continue
+		}
+
+		var status modulestatus.Status
+
+		status.Name = modname
+		status.State = modulestatus.ModuleStateUnhealthy
+		status.LastUpdated = time.Now()
+		status.Error = nil
+		status.ConsecutiveFailures = 0
+	}
+
+	defer mgr.failedModulesMu.RUnlock()
 }

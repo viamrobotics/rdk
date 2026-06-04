@@ -34,6 +34,7 @@ import (
 	rdkgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
 	modlib "go.viam.com/rdk/module"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
@@ -64,7 +65,7 @@ type module struct {
 	pendingRemoval bool
 	restartCancel  context.CancelFunc
 
-	status robotpb.ModuleStatus
+	status modulestatus.Status
 
 	logger logging.Logger
 	ftdc   *ftdc.FTDC
