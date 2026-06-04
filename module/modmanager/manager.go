@@ -1245,28 +1245,11 @@ func (mgr *Manager) ClearFailedModules() {
 }
 
 func (mgr *Manager) Status() []modulestatus.Status {
-	// make a map so we can easily check if a module has already been added
-	// since we have to iterate through modules and moduleStatusMap, and a module can be in both
-	statusmap := map[string]modulestatus.Status{}
-
-	mgr.modules.Range(func(modname string, mod *module) bool {
-		statusmap[modname] = mod.status
-		return true
-	})
-
 	mgr.moduleStatusMu.RLock()
-	for modname, modstatus := range mgr.moduleStatusMap {
-		// TODO: if we've already seen a module, skip it? not sure what to do here
-		if _, ok := statusmap[modname]; ok {
-			continue
-		}
-
-		statusmap[modname] = modstatus
-	}
+	defer mgr.moduleStatusMu.RUnlock()
 
 	var statuses []modulestatus.Status
-	defer mgr.moduleStatusMu.RUnlock()
-	for _, modstatus := range statusmap {
+	for _, modstatus := range mgr.moduleStatusMap {
 		statuses = append(statuses, modstatus)
 	}
 	return statuses
