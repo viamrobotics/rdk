@@ -22,7 +22,7 @@ type PlanContext struct {
 
 	movableFrames []string
 
-	configurationDistanceFunc motionplan.SegmentFSMetric
+	ConfigurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	request                   *PlanRequest
 
@@ -45,7 +45,7 @@ func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	meta.CollectSolutionDiagnostics = request.PlannerOptions.CollectSolutionDiagnostics
 	pc := &PlanContext{
 		fs:                        request.FrameSystem,
-		configurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
+		ConfigurationDistanceFunc: motionplan.GetConfigurationDistanceFunc(request.PlannerOptions.ConfigurationDistanceMetric),
 		planOpts:                  request.PlannerOptions,
 		request:                   request,
 		randseed:                  rand.New(rand.NewSource(int64(request.PlannerOptions.RandomSeed))), //nolint:gosec
@@ -98,7 +98,7 @@ type PlanSegmentContext struct {
 	startPoses referenceframe.FrameSystemPoses
 
 	motionChains *motionChains
-	checker      *motionplan.ConstraintChecker
+	Checker      *motionplan.ConstraintChecker
 }
 
 func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenceframe.LinearInputs,
@@ -143,7 +143,7 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 
 	movingRobotGeometries, staticRobotGeometries := psc.motionChains.geometries(pc.fs, frameSystemGeometries)
 
-	psc.checker, err = motionplan.NewConstraintChecker(
+	psc.Checker, err = motionplan.NewConstraintChecker(
 		pc.planOpts.CollisionBufferMM,
 		pc.request.Constraints,
 		psc.startPoses,
@@ -162,11 +162,11 @@ func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenc
 	return psc, nil
 }
 
-// checkPath returns an error if the interpolation between `start` and `end` violate a constraint
+// CheckPath returns an error if the interpolation between `start` and `end` violate a constraint
 // (e.g: we calculcate there will be a collision). If there is an error and `outPath` is non-nil,
 // `outPath` will be populated with more detailed information.
-func (psc *PlanSegmentContext) checkPath(
-	ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *pathFeedback,
+func (psc *PlanSegmentContext) CheckPath(
+	ctx context.Context, start, end *referenceframe.LinearInputs, checkFinal bool, outPath *PathFeedback,
 ) error {
 	ctx, span := trace.StartSpan(ctx, "checkPath")
 	defer span.End()
@@ -185,7 +185,7 @@ func (psc *PlanSegmentContext) checkPath(
 		}
 	}
 
-	validSegment, err := psc.checker.CheckStateConstraintsAcrossSegmentFS(
+	validSegment, err := psc.Checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: start,
@@ -200,7 +200,7 @@ func (psc *PlanSegmentContext) checkPath(
 	}
 
 	if err != nil && outPath != nil {
-		*outPath = pathFeedback{
+		*outPath = PathFeedback{
 			IsObstacleCollision: strings.Contains(err.Error(), motionplan.ObstacleConstraintDescription) ||
 				strings.Contains(err.Error(), motionplan.RobotCollisionConstraintDescription),
 			LastGoodInputs: validSegment.EndConfiguration,

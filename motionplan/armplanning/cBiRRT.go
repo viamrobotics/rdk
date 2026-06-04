@@ -145,7 +145,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 
 		map1reached, map2reached := tryExtend(target)
 
-		reachedDelta := mp.pc.configurationDistanceFunc(
+		reachedDelta := mp.pc.ConfigurationDistanceFunc(
 			&motionplan.SegmentFS{
 				StartConfiguration: map1reached.inputs,
 				EndConfiguration:   map2reached.inputs,
@@ -161,7 +161,7 @@ func (mp *cBiRRTMotionPlanner) rrtRunner(
 			target = newConfigurationNode(targetConf)
 			map1reached, map2reached = tryExtend(target)
 
-			reachedDelta = mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
+			reachedDelta = mp.pc.ConfigurationDistanceFunc(&motionplan.SegmentFS{
 				StartConfiguration: map1reached.inputs,
 				EndConfiguration:   map2reached.inputs,
 			})
@@ -209,7 +209,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 	// 4) further iterations change our best node by close-to-zero amounts
 	// 5) we have iterated more than maxExtendIter times
 	for i := 0; i < maxExtendIter; i++ {
-		configDistMetric := mp.pc.configurationDistanceFunc
+		configDistMetric := mp.pc.ConfigurationDistanceFunc
 		dist := configDistMetric(
 			&motionplan.SegmentFS{StartConfiguration: near.inputs, EndConfiguration: target.inputs})
 		oldDist := configDistMetric(
@@ -232,7 +232,7 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(
 			return oldNear
 		}
 
-		nearDist := mp.pc.configurationDistanceFunc(
+		nearDist := mp.pc.ConfigurationDistanceFunc(
 			&motionplan.SegmentFS{StartConfiguration: oldNear.inputs, EndConfiguration: newNear})
 
 		if nearDist < math.Pow(mp.pc.planOpts.InputIdentDist, 3) {
@@ -281,7 +281,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 	}
 
 	// Check if the arc of "seedInputs" to "target" is valid
-	_, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
+	_, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(ctx, newArc, mp.pc.planOpts.Resolution, true)
 	if debugConstrainNear {
 		mp.logger.Infof("\t err %v", err)
 	}
@@ -342,7 +342,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		}
 	}
 
-	failpos, err := mp.psc.checker.CheckStateConstraintsAcrossSegmentFS(
+	failpos, err := mp.psc.Checker.CheckStateConstraintsAcrossSegmentFS(
 		ctx,
 		&motionplan.SegmentFS{
 			StartConfiguration: seedInputs,
@@ -364,7 +364,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(
 		return nil
 	}
 
-	dist := mp.pc.configurationDistanceFunc(&motionplan.SegmentFS{
+	dist := mp.pc.ConfigurationDistanceFunc(&motionplan.SegmentFS{
 		StartConfiguration: seedInputs,
 		EndConfiguration:   failpos.EndConfiguration,
 	})

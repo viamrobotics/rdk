@@ -51,12 +51,12 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 	return newNear
 }
 
-type pathFeedback struct {
+type PathFeedback struct {
 	IsObstacleCollision bool
 	LastGoodInputs      *referenceframe.LinearInputs
 }
 
-func (pf *pathFeedback) String() string {
+func (pf *PathFeedback) String() string {
 	return fmt.Sprintf("IsObstacleCollision: %v LastGoodInputs: %v",
 		pf.IsObstacleCollision, pf.LastGoodInputs)
 }
@@ -71,7 +71,7 @@ type node struct {
 	// checkPathError and checkPathFeedback are only captured when
 	// PlanMeta.CollectSolutionDiagnostics is true.
 	checkPathError    error
-	checkPathFeedback pathFeedback
+	checkPathFeedback PathFeedback
 }
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {
@@ -156,7 +156,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 	sss := &SolutionSolvingState{
 		psc:                  psc,
 		solutions:            []*node{},
-		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
+		failures:             newIkConstraintError(psc.pc.fs, psc.Checker),
 		firstSolutionTime:    time.Hour,
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
@@ -271,7 +271,7 @@ func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 		FS:                 sss.psc.pc.fs,
 	}
 
-	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
+	sss.goodCost = sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 	sss.logger.Debugf("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
 	return rawRatios, minRatio, nil
 }
@@ -352,9 +352,9 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 		EndConfiguration:   step,
 		FS:                 sss.psc.pc.fs,
 	}
-	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
+	myCost := sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 
-	myCost += neutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
@@ -367,14 +367,14 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 			EndConfiguration:   step,
 			FS:                 sss.psc.pc.fs,
 		}
-		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
+		simscore := sss.psc.pc.ConfigurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
 			return false
 		}
 	}
 
 	// Ensure the end state is a valid one
-	_, err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = sss.psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
@@ -400,9 +400,9 @@ func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSoluti
 	}
 
 	if sss.psc.pc.planMeta.CollectSolutionDiagnostics {
-		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, &myNode.checkPathFeedback)
+		myNode.checkPathError = sss.psc.CheckPath(ctx, sss.psc.start, step, false, &myNode.checkPathFeedback)
 	} else {
-		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, nil)
+		myNode.checkPathError = sss.psc.CheckPath(ctx, sss.psc.start, step, false, nil)
 	}
 	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v",
 		myNode.cost, now, stepSolution.Meta, myNode.checkPathError)
@@ -651,9 +651,9 @@ func (sss *SolutionSolvingState) flushFailuresToMeta() {
 	}
 }
 
-// neutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
+// NeutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
 // This favors solutions where rotational joints are near the midpoint rather than at the extremes.
-func neutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
+func NeutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
 	bias := 0.0
 	for i, limit := range limits {
 		if limit.IsRotational() {

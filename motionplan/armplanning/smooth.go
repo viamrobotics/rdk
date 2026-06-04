@@ -17,7 +17,7 @@ func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*ref
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
-		err := psc.checkPath(ctx, steps[i-step-1], steps[i], false, nil)
+		err := psc.CheckPath(ctx, steps[i-step-1], steps[i], false, nil)
 		if err != nil {
 			continue
 		}
@@ -134,7 +134,7 @@ func findCloseObstacleWaypoints(
 			Configuration: interpolated[i],
 		}
 
-		closestObstacle, err := psc.checker.CheckStateFSConstraints(ctx, state)
+		closestObstacle, err := psc.Checker.CheckStateFSConstraints(ctx, state)
 		if err != nil {
 			return nil, err
 		}
@@ -172,7 +172,7 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegment
 			updated.Put(component, prevInputs)
 		}
 
-		err := psc.checkPath(ctx, prev, updated, false, nil)
+		err := psc.CheckPath(ctx, prev, updated, false, nil)
 		if err == nil {
 			steps[idx] = updated
 		}

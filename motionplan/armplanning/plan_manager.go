@@ -142,13 +142,13 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig, false, nil)
+	err = psc.CheckPath(ctx, start, fullConfig, false, nil)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
 
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
-	_, err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
 		FS:            psc.pc.fs,
 	})
