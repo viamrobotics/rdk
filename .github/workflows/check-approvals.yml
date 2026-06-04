@@ -5,7 +5,7 @@ name: Check PR Approvals
 # branch-protection rule (or ruleset) that targets `main`.
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [main]
   pull_request_review:
@@ -21,8 +21,8 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'claude/')
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
-      issues: write
+      pull-requests: read   # list reviews + get the PR
+      issues: write         # post/update the "Review Required" comment
     steps:
       # Flaky-test fixes and dependabot bumps only require a single approval;
       # everything else needs two. Title/branch are read via env (never interpolated
@@ -46,12 +46,12 @@ jobs:
             echo "Requiring 2 approvals."
           fi
 
-      # viamrobotics/claude-ci-workflows@v2.1.1
+      # viamrobotics/claude-ci-workflows@v2.1.2
       - name: Checkout claude-ci-workflows for composite action
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: viamrobotics/claude-ci-workflows
-          ref: f55f0995718f073950100a1fe030577cdc23adb6
+          ref: 467bc6f62151c399c33fe54073896160bda25b9b
           path: .claude-ci-workflows
           sparse-checkout: |
             .github/actions/check-approvals/
