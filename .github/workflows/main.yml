@@ -29,6 +29,22 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
+  # Detect whether a push to main touched anything other than workflow YAML.
+  # Used to skip the dev/latest release (build + deploy) for workflow-only changes,
+  # while still running tests/lint and the license check below.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      # dorny/paths-filter@v4.0.1
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
+        id: filter
+        with:
+          filters: |
+            code:
+              - '!.github/workflows/**'
+
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     with:
@@ -38,6 +54,8 @@ jobs:
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.code == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -54,6 +72,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.code == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -72,6 +92,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   full-static-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.code == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@main
     with:
       channel: ${{ inputs.release_type || 'latest' }}
@@ -89,7 +111,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   droid:
-    needs: test
+    needs: [test, changes]
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.code == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -97,6 +120,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   cli:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.code == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/cli.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
