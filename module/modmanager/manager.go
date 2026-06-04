@@ -282,7 +282,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				return
 			}
 			// module started successfully, remove it from moduleStatusMap
-			mgr.deleteFromFailedModules(conf.Name)
+			// mgr.deleteFromFailedModules(conf.Name)
+			mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateReady)
 		}(i, conf)
 	}
 	wg.Wait()
@@ -305,10 +306,14 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		mgr.logger.CWarnw(ctx, "Not adding module that already exists", "module", conf.Name)
 		return nil
 	}
+	// wait to track the module status until we know it doesn't already exist
+	mgr.AddToModuleStatusMap(conf.Name, modulestatus.ModuleStatePending)
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
-		return errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
+		err := errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
+		mgr.AddToFailedModules(conf.Name, err)
+		return err
 	}
 
 	var moduleDataDir string
@@ -318,6 +323,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
+			mgr.AddToFailedModules(conf.Name, err)
 			return err
 		}
 	}
@@ -331,6 +337,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
+		mgr.AddToFailedModules(mod.cfg.Name, err)
 		return err
 	}
 	return nil
@@ -345,6 +352,7 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateStarting)
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
@@ -377,18 +385,24 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	var moduleRestartCtx context.Context
 	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
 	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
-		return errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+		fullErr := errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		return fullErr
 	}
 
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
-		return errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
+		fullErr := errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		return fullErr
 	}
 
 	// Sends a ReadyRequest and waits on a ReadyResponse. The PeerConnection will async connect
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
-		return errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+		fullErr := errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		return fullErr
 	}
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
@@ -398,6 +412,8 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
+
 	success = true
 	return nil
 }
@@ -445,7 +461,8 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	}
 
 	// reconfiguration successful, remove from failed modules
-	mgr.deleteFromFailedModules(conf.Name)
+	// mgr.deleteFromFailedModules(conf.Name)
+	mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateReady)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -956,7 +973,8 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
 				// restart successful, remove module from moduleStatusMap
-				mgr.deleteFromFailedModules(mod.cfg.Name)
+				// mgr.deleteFromFailedModules(mod.cfg.Name)
+				mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
 				break
 			}
 			// could not restart crashed module, add it to moduleStatusMap
@@ -1075,6 +1093,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	pkgsDir := packages.LocalPackagesDir(mgr.packagesDir)
+	mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateFirstRun)
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1161,6 +1180,19 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 }
 
 // AddToFailedModules adds a failing module to the moduleStatusMap map.
+func (mgr *Manager) AddToModuleStatusMap(moduleName string, state modulestatus.State) {
+	mgr.moduleStatusMu.Lock()
+	mgr.moduleStatusMap[moduleName] = modulestatus.Status{
+		Name:                moduleName,
+		State:               state,
+		LastUpdated:         time.Now(),
+		Error:               nil,
+		ConsecutiveFailures: 0,
+	}
+	mgr.moduleStatusMu.Unlock()
+}
+
+// AddToFailedModules adds a failing module to the moduleStatusMap map.
 func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 	mgr.moduleStatusMu.Lock()
 	mgr.moduleStatusMap[moduleName] = modulestatus.Status{
@@ -1173,9 +1205,23 @@ func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 	mgr.moduleStatusMu.Unlock()
 }
 
-func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+// func (mgr *Manager) deleteFromFailedModules(moduleName string) {
+// 	mgr.moduleStatusMu.Lock()
+// 	delete(mgr.moduleStatusMap, moduleName)
+// 	mgr.moduleStatusMu.Unlock()
+// }
+
+func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.State) {
 	mgr.moduleStatusMu.Lock()
-	delete(mgr.moduleStatusMap, moduleName)
+	if status, ok := mgr.moduleStatusMap[moduleName]; ok {
+		status.State = state
+		status.LastUpdated = time.Now()
+
+		mgr.moduleStatusMap[moduleName] = status
+	} else {
+		// TODO: DO NOT MERGE
+		panic("for now this is a panic because I want to know if the module isn't there")
+	}
 	mgr.moduleStatusMu.Unlock()
 }
 
