@@ -27,8 +27,8 @@ jobs:
         (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
         (github.event_name == 'pull_request_review' && github.event.review.state != 'approved' && github.event.review.user.type != 'Bot' && startsWith(github.event.pull_request.head.ref, 'claude/'))
       )
-    # viamrobotics/claude-ci-workflows@v2.0.4
-    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-pr-assistant.yml@46b3c2c12d72f19c639608803b565a99df77fcc5
+    # viamrobotics/claude-ci-workflows@v2.1.0
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-pr-assistant.yml@97b61edeb3aebf3b9bfc93129ac9beae053e5aab
     with:
       container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
       install_command: make tool-install
