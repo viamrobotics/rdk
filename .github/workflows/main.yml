@@ -29,6 +29,37 @@ on:
 # Don't forget to tag back to @main before merge.
 
 jobs:
+  # Skip the dev/latest release for pushes that only touch non-release workflow YAML.
+  # Release still runs for any non-workflow change or edits to the build/deploy workflows.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.decide.outputs.release }}
+    steps:
+      # dorny/paths-filter@v4.0.1
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d
+        id: filter
+        with:
+          filters: |
+            non_workflow:
+              - '!.github/workflows/**'
+            release_workflow:
+              - '.github/workflows/main.yml'
+              - '.github/workflows/*-build.yml'
+              - '.github/workflows/*-deploy.yml'
+              - '.github/workflows/droid.yml'
+              - '.github/workflows/cli.yml'
+      - id: decide
+        env:
+          NON_WORKFLOW: ${{ steps.filter.outputs.non_workflow }}
+          RELEASE_WORKFLOW: ${{ steps.filter.outputs.release_workflow }}
+        run: |
+          if [ "$NON_WORKFLOW" = "true" ] || [ "$RELEASE_WORKFLOW" = "true" ]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     uses: viamrobotics/rdk/.github/workflows/test.yml@main
     with:
@@ -38,6 +69,8 @@ jobs:
       DOCKER_PUBLIC_READONLY_PAT: ${{ secrets.DOCKER_PUBLIC_READONLY_PAT }}
 
   appimage-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/appimage-build.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -54,6 +87,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   staticbuild-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/staticbuild-build.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -72,6 +107,8 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
   full-static-build:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/full-static-build.yml@main
     with:
       channel: ${{ inputs.release_type || 'latest' }}
@@ -89,7 +126,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   droid:
-    needs: test
+    needs: [test, changes]
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/droid.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
@@ -97,6 +135,8 @@ jobs:
       GCP_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
 
   cli:
+    needs: changes
+    if: ${{ github.event_name != 'push' || needs.changes.outputs.release == 'true' }}
     uses: viamrobotics/rdk/.github/workflows/cli.yml@main
     with:
       release_type: ${{ inputs.release_type || 'latest' }}
