@@ -64,7 +64,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
-		failedModules:           make(map[string]modulestatus.Status),
+		moduleStatusMap:         make(map[string]modulestatus.Status),
 	}
 	return ret, nil
 }
@@ -152,8 +152,8 @@ type Manager struct {
 	// PeerConnections.
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 
-	failedModulesMu sync.RWMutex
-	failedModules   map[string]modulestatus.Status
+	moduleStatusMu  sync.RWMutex
+	moduleStatusMap map[string]modulestatus.Status
 }
 
 // Close terminates module connections and processes.
@@ -281,7 +281,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				errs[i] = err
 				return
 			}
-			// module started successfully, remove it from failedModules
+			// module started successfully, remove it from moduleStatusMap
 			mgr.deleteFromFailedModules(conf.Name)
 		}(i, conf)
 	}
@@ -438,7 +438,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		// could not start module during reconfiguration, add it to failedModules
+		// could not start module during reconfiguration, add it to moduleStatusMap
 		mgr.AddToFailedModules(conf.Name, err)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
@@ -900,7 +900,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		fullErr := fmt.Errorf("Module has unexpectedly exited. module: %s exitcode: %d", mod.cfg.Name, exitCode)
 		mod.logger.Errorw("error", fullErr)
 
-		// Add to failedModules when crash is detected
+		// Add to moduleStatusMap when crash is detected
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 
 		// There are two relevant calls that may race with a crashing module:
@@ -955,11 +955,11 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
-				// restart successful, remove module from failedModules
+				// restart successful, remove module from moduleStatusMap
 				mgr.deleteFromFailedModules(mod.cfg.Name)
 				break
 			}
-			// could not restart crashed module, add it to failedModules
+			// could not restart crashed module, add it to moduleStatusMap
 			mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
@@ -1160,47 +1160,47 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-// AddToFailedModules adds a failing module to the failedModules map.
+// AddToFailedModules adds a failing module to the moduleStatusMap map.
 func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
-	mgr.failedModulesMu.Lock()
-	mgr.failedModules[moduleName] = modulestatus.Status{
+	mgr.moduleStatusMu.Lock()
+	mgr.moduleStatusMap[moduleName] = modulestatus.Status{
 		Name:                moduleName,
 		State:               modulestatus.ModuleStateUnhealthy,
 		LastUpdated:         time.Now(),
 		Error:               err,
 		ConsecutiveFailures: 1,
 	}
-	mgr.failedModulesMu.Unlock()
+	mgr.moduleStatusMu.Unlock()
 }
 
 func (mgr *Manager) deleteFromFailedModules(moduleName string) {
-	mgr.failedModulesMu.Lock()
-	delete(mgr.failedModules, moduleName)
-	mgr.failedModulesMu.Unlock()
+	mgr.moduleStatusMu.Lock()
+	delete(mgr.moduleStatusMap, moduleName)
+	mgr.moduleStatusMu.Unlock()
 }
 
 // FailedModules returns the names of all failing modules.
 func (mgr *Manager) FailedModules() []string {
-	mgr.failedModulesMu.RLock()
-	defer mgr.failedModulesMu.RUnlock()
+	mgr.moduleStatusMu.RLock()
+	defer mgr.moduleStatusMu.RUnlock()
 	var failedModuleNames []string
-	for moduleName := range mgr.failedModules {
+	for moduleName := range mgr.moduleStatusMap {
 		failedModuleNames = append(failedModuleNames, moduleName)
 	}
 	return failedModuleNames
 }
 
-// ClearFailedModules clears the failedModules map at the start of reconfigure.
-// Modules will be added to failedModules as they fail during the reconfigure process.
+// ClearFailedModules clears the moduleStatusMap map at the start of reconfigure.
+// Modules will be added to moduleStatusMap as they fail during the reconfigure process.
 func (mgr *Manager) ClearFailedModules() {
-	mgr.failedModulesMu.Lock()
-	mgr.failedModules = make(map[string]modulestatus.Status)
-	mgr.failedModulesMu.Unlock()
+	mgr.moduleStatusMu.Lock()
+	mgr.moduleStatusMap = make(map[string]modulestatus.Status)
+	mgr.moduleStatusMu.Unlock()
 }
 
 func (mgr *Manager) Status() []modulestatus.Status {
 	// make a map so we can easily check if a module has already been added
-	// since we have to iterate through modules and failedModules, and a module can be in both
+	// since we have to iterate through modules and moduleStatusMap, and a module can be in both
 	statusmap := map[string]modulestatus.Status{}
 
 	mgr.modules.Range(func(modname string, mod *module) bool {
@@ -1208,8 +1208,8 @@ func (mgr *Manager) Status() []modulestatus.Status {
 		return true
 	})
 
-	mgr.failedModulesMu.RLock()
-	for modname, modstatus := range mgr.failedModules {
+	mgr.moduleStatusMu.RLock()
+	for modname, modstatus := range mgr.moduleStatusMap {
 		// TODO: if we've already seen a module, skip it? not sure what to do here
 		if _, ok := statusmap[modname]; ok {
 			continue
@@ -1219,7 +1219,7 @@ func (mgr *Manager) Status() []modulestatus.Status {
 	}
 
 	var statuses []modulestatus.Status
-	defer mgr.failedModulesMu.RUnlock()
+	defer mgr.moduleStatusMu.RUnlock()
 	for _, modstatus := range statusmap {
 		statuses = append(statuses, modstatus)
 	}
