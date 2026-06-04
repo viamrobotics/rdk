@@ -3,6 +3,7 @@ package modmanager
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,7 +64,7 @@ func NewManager(
 		packagesDir:             options.PackagesDir,
 		ftdc:                    options.FTDC,
 		modPeerConnTracker:      options.ModPeerConnTracker,
-		failedModules:           make(map[string]bool),
+		failedModules:           make(map[string]modulestatus.Status),
 	}
 	return ret, nil
 }
@@ -152,7 +153,7 @@ type Manager struct {
 	modPeerConnTracker *rdkgrpc.ModPeerConnTracker
 
 	failedModulesMu sync.RWMutex
-	failedModules   map[string]bool
+	failedModules   map[string]modulestatus.Status
 }
 
 // Close terminates module connections and processes.
@@ -257,8 +258,10 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 
 		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
-			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
-			mgr.AddToFailedModules(conf.Name)
+			fullErr := fmt.Errorf("Module config validation error; skipping; module: %s, error: %w", conf.Name, err)
+			mgr.logger.CErrorw(ctx, "error", fullErr)
+			mgr.AddToFailedModules(conf.Name, fullErr)
+
 			errs[i] = err
 			continue
 		}
@@ -272,8 +275,9 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
-				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
-				mgr.AddToFailedModules(conf.Name)
+				fullErr := fmt.Errorf("Error adding module; module: %s, error: %w", conf.Name, err)
+				moduleLogger.CErrorw(ctx, "error", fullErr)
+				mgr.AddToFailedModules(conf.Name, fullErr)
 				errs[i] = err
 				return
 			}
@@ -435,7 +439,7 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 
 	if err := mgr.startModule(ctx, mod); err != nil {
 		// could not start module during reconfiguration, add it to failedModules
-		mgr.AddToFailedModules(conf.Name)
+		mgr.AddToFailedModules(conf.Name, err)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
@@ -893,12 +897,11 @@ var oueRestartInterval = 5 * time.Second
 func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
 	return func(oueCtx context.Context, exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
-		mod.logger.Errorw(
-			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
-		)
+		fullErr := fmt.Errorf("Module has unexpectedly exited. module: %s exitcode: %d", mod.cfg.Name, exitCode)
+		mod.logger.Errorw("error", fullErr)
 
 		// Add to failedModules when crash is detected
-		mgr.AddToFailedModules(mod.cfg.Name)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
@@ -957,7 +960,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 				break
 			}
 			// could not restart crashed module, add it to failedModules
-			mgr.AddToFailedModules(mod.cfg.Name)
+			mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1158,9 +1161,15 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 }
 
 // AddToFailedModules adds a failing module to the failedModules map.
-func (mgr *Manager) AddToFailedModules(moduleName string) {
+func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 	mgr.failedModulesMu.Lock()
-	mgr.failedModules[moduleName] = true
+	mgr.failedModules[moduleName] = modulestatus.Status{
+		Name:                moduleName,
+		State:               modulestatus.ModuleStateUnhealthy,
+		LastUpdated:         time.Now(),
+		Error:               err,
+		ConsecutiveFailures: 1,
+	}
 	mgr.failedModulesMu.Unlock()
 }
 
@@ -1185,7 +1194,7 @@ func (mgr *Manager) FailedModules() []string {
 // Modules will be added to failedModules as they fail during the reconfigure process.
 func (mgr *Manager) ClearFailedModules() {
 	mgr.failedModulesMu.Lock()
-	mgr.failedModules = make(map[string]bool)
+	mgr.failedModules = make(map[string]modulestatus.Status)
 	mgr.failedModulesMu.Unlock()
 }
 
@@ -1200,20 +1209,19 @@ func (mgr *Manager) Status() []modulestatus.Status {
 	})
 
 	mgr.failedModulesMu.RLock()
-	for modname, _ := range mgr.failedModules {
+	for modname, modstatus := range mgr.failedModules {
 		// TODO: if we've already seen a module, skip it? not sure what to do here
 		if _, ok := statusmap[modname]; ok {
 			continue
 		}
 
-		var status modulestatus.Status
-
-		status.Name = modname
-		status.State = modulestatus.ModuleStateUnhealthy
-		status.LastUpdated = time.Now()
-		status.Error = nil
-		status.ConsecutiveFailures = 0
+		statusmap[modname] = modstatus
 	}
 
+	var statuses []modulestatus.Status
 	defer mgr.failedModulesMu.RUnlock()
+	for _, modstatus := range statusmap {
+		statuses = append(statuses, modstatus)
+	}
+	return statuses
 }

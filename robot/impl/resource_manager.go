@@ -65,7 +65,7 @@ type moduleManager interface {
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
 	ClearFailedModules()
-	AddToFailedModules(moduleName string)
+	AddToFailedModules(moduleName string, err error)
 }
 
 // resourceManager manages the actual parts that make up a robot.
@@ -1270,8 +1270,9 @@ func (manager *resourceManager) updateResources(
 		// The config was already validated, but we must check again before attempting
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
-			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
-			manager.moduleManager.AddToFailedModules(mod.Name)
+			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %s", mod.Name, err)
+			manager.logger.CErrorw(ctx, "error", fullErr)
+			manager.moduleManager.AddToFailedModules(mod.Name, fullErr)
 			continue
 		}
 		affectedResourceNames, err := manager.moduleManager.Reconfigure(ctx, mod)
