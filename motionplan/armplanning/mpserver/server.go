@@ -524,6 +524,7 @@ function renderIKCell(file, cell) {
   if (cell.check_path_error) tip.push('checkPath: ' + cell.check_path_error);
 
   let inner = '<strong>' + cell.cost.toFixed(4) + '</strong>';
+  if (cell.check_path_error) inner += '<br><small>' + escHtml(cell.check_path_error) + '</small>';
   if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
     inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
