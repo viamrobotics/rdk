@@ -461,13 +461,13 @@ function runIKInspect() {
         div.innerHTML = '<pre style="color:#cc0000">Error: ' + escHtml(data.error) + '</pre>';
         return;
       }
-      div.innerHTML = buildIKTable(data.threads || []);
+      div.innerHTML = buildIKTable('{{.File}}', data.threads || []);
     })
     .catch(err => { if (err.name !== 'AbortError') div.textContent = 'Fetch error: ' + err; });
 }
 
 // threads is column-major: threads[col] is the ordered list of solutions thread col emitted.
-function buildIKTable(threads) {
+function buildIKTable(file, threads) {
   const legend = '<p class="legend">' +
     '<span class="cell-green" style="background:#b6e7b0">valid + checkPath ok</span>' +
     '<span class="cell-yellow" style="background:#f3e6a0">valid, checkPath failed</span>' +
@@ -486,7 +486,7 @@ function buildIKTable(threads) {
     for (let c = 0; c < threads.length; c++) {
       const cell = threads[c][row];
       if (!cell) { html += '<td class="cell-empty"></td>'; continue; }
-      html += renderIKCell(cell);
+      html += renderIKCell(file, cell);
     }
     html += '</tr>';
   }
@@ -494,7 +494,7 @@ function buildIKTable(threads) {
   return html;
 }
 
-function renderIKCell(cell) {
+function renderIKCell(file, cell) {
   let cls = 'cell-red';
   if (cell.valid && cell.check_path_ok) cls = 'cell-green';
   else if (cell.valid) cls = 'cell-yellow';
@@ -506,8 +506,23 @@ function renderIKCell(cell) {
   if (cell.check_path_error) tip.push('checkPath: ' + cell.check_path_error);
 
   const goalDist = (typeof cell.goal_dist === 'number') ? cell.goal_dist.toExponential(2) : cell.goal_dist;
-  const inner = '<strong>' + cell.cost.toFixed(4) + '</strong><br><small>d=' + goalDist + '</small>';
+  let inner = '<strong>' + cell.cost.toFixed(4) + '</strong><br><small>d=' + goalDist + '</small>';
+  if (cell.inputs) {
+    const inputsArg = JSON.stringify(cell.inputs);
+    inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
+  }
   return '<td class="' + cls + '" title="' + escHtml(tip.join('\n')) + '">' + inner + '</td>';
+}
+
+// renderIKSolution draws a single IK cell's configuration in the visualizer, reusing the
+// detail page's /render-solution endpoint (inputs are string-valued floats).
+function renderIKSolution(file, inputs) {
+  fetch('/render-solution?file=' + encodeURIComponent(file), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(inputs),
+  }).then(r => { if (!r.ok) r.text().then(msg => console.error('Render error: ' + msg)); })
+    .catch(err => console.error('Render error: ' + err));
 }
 
 function escHtml(s) {
