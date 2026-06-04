@@ -192,6 +192,9 @@ type SolutionNodeInfo struct {
 // PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
 // Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
 type PerGoalMeta struct {
+	StartConfiguration *referenceframe.LinearInputs
+	GoalPoses          referenceframe.FrameSystemPoses
+	ReasonableCost     float64
 	// SolutionNodes contains info about each IK solution node scored and path-checked.
 	SolutionNodes []SolutionNodeInfo
 	// ConstraintFailuresByType maps constraint error strings to the number of IK candidate
@@ -201,10 +204,19 @@ type PerGoalMeta struct {
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration       time.Duration
-	Partial        bool
-	PartialError   error
+	Duration     time.Duration
+	Partial      bool
+	PartialError error
+	// GoalsProcessed is how many user-defined goals were solved for.
 	GoalsProcessed int
+	// SubgoalsPerGoal will have size of `GoalsProcessed`. If there are no linear/orientation
+	// constraints, we do not create any additional subgoals/waypoints. SubgoalsPerGoal in that case
+	// will be set to 1 for each goal index. Otherwise it will be sent to the number of internal
+	// waypoints created + 1 (for the final user goal).
+	SubgoalsPerGoal []int
+	// SubgoalsProcessed may be non-zero when a plan request has linear/orientation
+	// constraints. Satisfying those constraints internally creates additional goals.
+	SubgoalsProcessed int
 
 	// CollectSolutionDiagnostics is copied from PlannerOptions and gates whether PerGoal is
 	// populated.
@@ -213,6 +225,40 @@ type PlanMeta struct {
 	// PerGoal holds diagnostic data indexed by initRRTSolutions invocation order. Each top-level
 	// goal, sub-goal, and planning split produces one entry.
 	PerGoal []PerGoalMeta
+}
+
+// OutputToLogger dumps all PerGoal diagnostic data to the logger in a human-readable format.
+// Only useful when CollectSolutionDiagnostics was set on the PlannerOptions.
+func (meta *PlanMeta) OutputToLogger(logger logging.Logger) {
+	logger.Infof("PlanMeta: duration=%v partial=%v goalsProcessed=%d subgoalsProcessed=%d subgoalsPerGoal=%v",
+		meta.Duration, meta.Partial, meta.GoalsProcessed, meta.SubgoalsProcessed, meta.SubgoalsPerGoal)
+	if meta.PartialError != nil {
+		logger.Infof("  partialError: %v", meta.PartialError)
+	}
+
+	if !meta.CollectSolutionDiagnostics {
+		logger.Infof("  (CollectSolutionDiagnostics was false — no PerGoal data)")
+		return
+	}
+
+	logger.Infof("  perGoal entries: %d", len(meta.PerGoal))
+	for idx, pg := range meta.PerGoal {
+		logger.Infof("  [goal %d] startConfig=%v goal=%v reasonableCost=%.4f solutionNodes=%d constraintFailures=%d",
+			idx, pg.StartConfiguration, pg.GoalPoses, pg.ReasonableCost, len(pg.SolutionNodes), len(pg.ConstraintFailuresByType))
+		for failType, count := range pg.ConstraintFailuresByType {
+			logger.Infof("    constraintFailure %q: %d", failType, count)
+		}
+
+		for nodeIdx, node := range pg.SolutionNodes {
+			if node.CheckPathError != nil {
+				logger.Infof("    [node %d] score=%.4f checkPathError=%v lastGoodInputs=%v inputs=%v",
+					nodeIdx, node.Score, node.CheckPathError, node.LastGoodInputs, node.Inputs)
+			} else {
+				logger.Infof("    [node %d] score=%.4f checkPath=ok inputs=%v",
+					nodeIdx, node.Score, node.Inputs)
+			}
+		}
+	}
 }
 
 // PlanMotion plans a motion from a provided plan request.
@@ -258,6 +304,7 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 	}
 
 	trajAsInps, goalsProcessed, err := sfPlanner.planMultiWaypoint(ctx)
+	meta.GoalsProcessed = goalsProcessed
 	if err != nil {
 		if request.PlannerOptions.ReturnPartialPlan {
 			meta.Partial = true
@@ -267,8 +314,6 @@ func PlanMotion(ctx context.Context, parentLogger logging.Logger, request *PlanR
 			return nil, meta, err
 		}
 	}
-
-	meta.GoalsProcessed = goalsProcessed
 
 	t, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	if err != nil {

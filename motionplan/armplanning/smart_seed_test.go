@@ -328,10 +328,10 @@ func TestSmartSeedPallette2(t *testing.T) {
 	req, err := ReadRequestFromFile("data/pallette2.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
 	// Resolve which frame is actually moving toward the goal, and where the goal

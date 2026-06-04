@@ -15,13 +15,13 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	pc      *planContext
+	pc      *PlanContext
 	request *PlanRequest
 	logger  logging.Logger
 }
 
 func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
-	pc, err := newPlanContext(ctx, logger, request, meta)
+	pc, err := NewPlanContext(ctx, logger, request, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		return nil, 0, err
 	}
 
+	pm.pc.planMeta.SubgoalsPerGoal = make([]int, len(pm.request.Goals))
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
 			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
@@ -84,6 +85,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			if err != nil {
 				return linearTraj, i, err
 			}
+			pm.pc.planMeta.SubgoalsPerGoal[i] = len(subGoals)
 
 			if len(subGoals) > 1 {
 				pm.logger.Debugf("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
@@ -97,6 +99,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			for subGoalIdx, sg := range subGoals {
 				singleGoalStart := time.Now()
 				newTraj, err := pm.planSingleGoal(ctx, linearTraj[len(linearTraj)-1], sg, cbirrtAllowed)
+				pm.pc.planMeta.SubgoalsProcessed = subGoalIdx
 				if err != nil {
 					pm.logger.Infof("\t subgoal %d failed after %v with: %v", subGoalIdx, time.Since(singleGoalStart), err)
 					return linearTraj, i, err
@@ -134,18 +137,18 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goalPoses)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig, false, nil)
+	err = psc.CheckPath(ctx, start, fullConfig, false, nil)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
 
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
-	_, err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
 		FS:            psc.pc.fs,
 	})
@@ -186,7 +189,7 @@ func (pm *planManager) planSingleGoal(
 	pm.logger.Debug("start configuration", logging.FloatArrayFormat{"", start.GetLinearizedInputs()})
 	pm.logger.Debug("going to", goal)
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +308,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
-func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
 	rrt := &rrtSolution{
@@ -329,8 +332,14 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 	rrt.maps.optNode = goalNodes[0]
 	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
 
+	// `defaultOptimalityMultiple` is > 1.0
+	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
+
 	if psc.pc.planMeta.CollectSolutionDiagnostics {
 		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
+		perGoal.StartConfiguration = psc.start
+		perGoal.GoalPoses = psc.goal
+		perGoal.ReasonableCost = reasonableCost
 		for _, goalNode := range goalNodes {
 			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
 				Score:          goalNode.cost,
@@ -341,8 +350,6 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 		}
 	}
 
-	// `defaultOptimalityMultiple` is > 1.0
-	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
 	for _, solution := range goalNodes {
 		if solution.cost > reasonableCost {
 			// if it's this bad, we don't want for cbirrt or going straight
