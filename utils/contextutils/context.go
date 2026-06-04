@@ -189,6 +189,21 @@ func FromIncomingContext(ctx context.Context) (metadata.MD, bool) {
 	return md, true
 }
 
+// FromOutgoingContext functions like metadata.FromOutgoingContext but strips the prefix added by AppendToOutgoingContext.
+func FromOutgoingContext(ctx context.Context) (metadata.MD, bool) {
+	outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		return nil, false
+	}
+	md := metadata.MD{}
+	for k, v := range outgoingMD {
+		if strings.HasPrefix(k, arbitraryMetadataKey+"-") {
+			md[strings.TrimPrefix(k, arbitraryMetadataKey+"-")] = v
+		}
+	}
+	return md, true
+}
+
 // SetHeader functions like grpc.SetHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key
 // and prepends keys with the prefix arbitraryMetadataKey- to allow shadowing internal keys.
 func SetHeader(ctx context.Context, md metadata.MD) error {
