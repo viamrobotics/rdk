@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 )
 
-// IKInspectCell describes a single IK solution emitted by one nlopt thread, scored and validated the
+// IKInspectCell describes a single IK solution emitted from one seed, scored and validated the
 // same way getSolutions would score and validate it.
 type IKInspectCell struct {
 	// Cost is IK score, but without any "neutral bias".
@@ -34,7 +35,8 @@ type IKInspectCell struct {
 }
 
 type IKInspectTable struct {
-	Rows [][]IKInspectCell
+	Rows         [][]IKInspectCell
+	SeedLabels   []string
 }
 
 func InspectIK(ctx context.Context, logger logging.Logger,
@@ -49,7 +51,8 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
-	startLinear, err := pc.GetLinearInputsSchema().GetLinearInputs(segmentStart)
+	linearSchema := pc.GetLinearInputsSchema()
+	startLinear, err := linearSchema.GetLinearInputs(segmentStart)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +68,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 	}
 
 	randSeed := rand.New(rand.NewSource(int64(req.PlannerOptions.RandomSeed)))
-	minimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
+	ikMinimizingFunc := pc.LinearizeFSMetric(req.PlannerOptions.GetGoalMetric(segmentGoal))
 	retChan := make(chan *ik.Solution, 10)
 
 	sss, err := armplanning.NewSolutionSolvingState(ctx, psc, logger)
@@ -73,42 +76,61 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
-	var seeds [][]float64 = sss.LinearSeeds
-	var limits [][]referenceframe.Limit = sss.SeedLimits
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	var solveErr error
-	go func() {
-		_, _, solveErr = solver.Solve(ctxWithCancel, retChan, nil,
-			seeds, limits, minimizingFunc, randSeed.Int())
-		cancel()
-	}()
-
 	var ret IKInspectTable
-	rowIdx := len(ret.Rows)
-	ret.Rows = append(ret.Rows, make([]IKInspectCell, 0, 10))
-	for len(ret.Rows[rowIdx]) < 10 {
-		select {
-		case <-ctxWithCancel.Done():
-			// Solver error
-			return nil, solveErr
-		case solution := <-retChan:
-			cells := &ret.Rows[rowIdx]
-			inputs, err := pc.GetLinearInputsSchema().FloatsToInputs(solution.Configuration)
-			if err != nil {
-				return nil, err
-			}
+	ret.SeedLabels = sss.SeedDescriptions
+	for seedIdx, seed := range sss.LinearSeeds {
+		seeds := [][]float64{seed}
+		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
 
-			*cells = append(*cells, IKInspectCell{
-				Cost:        solution.Score,
-				Exact:       solution.Exact,
-				Inputs:      inputs,
-				Valid:       true,
-				CheckPathOK: true,
-			})
+		ctxWithCancel, cancel := context.WithCancel(ctx)
+		var solveErr error
+		go func() {
+			_, _, solveErr = solver.Solve(ctxWithCancel, retChan, nil,
+				seeds, limits, ikMinimizingFunc, randSeed.Int())
+			cancel()
+		}()
+
+		rowIdx := len(ret.Rows)
+		ret.Rows = append(ret.Rows, make([]IKInspectCell, 0, 10))
+		for len(ret.Rows[rowIdx]) < 10 {
+			select {
+			case <-ctxWithCancel.Done():
+				// Solver error
+				return nil, solveErr
+			case solution := <-retChan:
+				cells := &ret.Rows[rowIdx]
+				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
+				if err != nil {
+					return nil, err
+				}
+
+				_, finalStateErr := psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+					Configuration: inputs,
+					FS:            req.FrameSystem,
+				})
+
+				var pathFeedback armplanning.PathFeedback
+				pathError := psc.CheckPath(ctx, startLinear, inputs, false, &pathFeedback)
+
+				stepArc := &motionplan.SegmentFS{
+					StartConfiguration: startLinear,
+					EndConfiguration:   inputs,
+					FS:                 req.FrameSystem,
+				}
+				*cells = append(*cells, IKInspectCell{
+					Cost: pc.ConfigurationDistanceFunc(stepArc) +
+						armplanning.NeutralBias(linearSchema.GetLimits(), solution.Configuration),
+					Exact:          solution.Exact,
+					Inputs:         inputs,
+					Valid:          finalStateErr == nil,
+					StateError:     finalStateErr,
+					CheckPathOK:    pathError == nil,
+					CheckPathError: pathError,
+				})
+			}
 		}
+		cancel()
 	}
-	cancel()
 
 	return &ret, nil
 }

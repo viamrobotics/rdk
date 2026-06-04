@@ -405,11 +405,6 @@ var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE ht
 <h1>IK Inspect</h1>
 <p>{{.File}} — <a href="/detail?file={{.File}}">← Back to Detail</a></p>
 
-<button onclick="renderStartAndGoals()">Render Start + Goals</button>
-&nbsp;<button onclick="runIKInspect()">Run IK Inspection</button>
-
-<div id="ik-result" style="margin-top:16px;"></div>
-
 <h2>Start Configuration</h2>
 {{if .StartConfig}}
 <table>
@@ -433,6 +428,18 @@ var ikInspectTmpl = template.Must(template.New("ik-inspect").Parse(`<!DOCTYPE ht
 {{else}}
 <p><em>No goal poses.</em></p>
 {{end}}
+
+<button onclick="renderStartAndGoals()">Render Start + Goals</button>
+&nbsp;<button onclick="runIKInspect()">Run IK Inspection</button>
+
+<div id="rendered-config" style="display:none; margin-top:16px;">
+  <h2>Rendered Configuration</h2>
+  <table>
+    <tr><th>Frame</th><th>Inputs</th></tr>
+  </table>
+</div>
+
+<div id="ik-result" style="margin-top:16px;"></div>
 
 <script>
 const START_CONFIG = {{.StartConfigJSON}};
@@ -461,30 +468,42 @@ function runIKInspect() {
         div.innerHTML = '<pre style="color:#cc0000">Error: ' + escHtml(data.error) + '</pre>';
         return;
       }
-      div.innerHTML = buildIKTable('{{.File}}', data.threads || []);
+      div.innerHTML = buildIKTable('{{.File}}', data.seeds || [], data.seed_labels || []);
     })
     .catch(err => { if (err.name !== 'AbortError') div.textContent = 'Fetch error: ' + err; });
 }
 
-// threads is column-major: threads[col] is the ordered list of solutions thread col emitted.
-function buildIKTable(file, threads) {
-  const legend = '<p class="legend">' +
+// seeds is column-major: seeds[col] is the ordered list of solutions seed col emitted.
+function buildIKTable(file, seeds, seedLabels) {
+  const cellLegend = '<p class="legend">' +
     '<span class="cell-green" style="background:#b6e7b0">valid + checkPath ok</span>' +
     '<span class="cell-yellow" style="background:#f3e6a0">valid, checkPath failed</span>' +
     '<span class="cell-red" style="background:#f0b0b0">invalid (e.g. collision)</span>' +
     '</p>';
 
-  let maxRows = 0;
-  for (const col of threads) maxRows = Math.max(maxRows, col.length);
-  if (maxRows === 0) return legend + '<p><em>No IK solutions were emitted.</em></p>';
+  let seedLegend = '';
+  if (seedLabels && seedLabels.length) {
+    seedLegend = '<table style="margin-bottom:12px"><tr><th>Seed</th><th>Scenario</th></tr>';
+    for (let c = 0; c < seedLabels.length; c++) {
+      seedLegend += '<tr><td>' + c + '</td><td>' + escHtml(seedLabels[c]) + '</td></tr>';
+    }
+    seedLegend += '</table>';
+  }
 
-  let html = legend + '<table id="ik-table"><tr><th></th>';
-  for (let c = 0; c < threads.length; c++) html += '<th>thread ' + c + '</th>';
+  let maxRows = 0;
+  for (const col of seeds) maxRows = Math.max(maxRows, col.length);
+  if (maxRows === 0) return seedLegend + cellLegend + '<p><em>No IK solutions were emitted.</em></p>';
+
+  let html = seedLegend + cellLegend + '<table id="ik-table"><tr><th></th>';
+  for (let c = 0; c < seeds.length; c++) {
+    const label = (seedLabels && seedLabels[c]) ? escHtml(seedLabels[c]) : ('seed ' + c);
+    html += '<th title="' + label + '">seed ' + c + '</th>';
+  }
   html += '</tr>';
   for (let row = 0; row < maxRows; row++) {
     html += '<tr><th>' + row + '</th>';
-    for (let c = 0; c < threads.length; c++) {
-      const cell = threads[c][row];
+    for (let c = 0; c < seeds.length; c++) {
+      const cell = seeds[c][row];
       if (!cell) { html += '<td class="cell-empty"></td>'; continue; }
       html += renderIKCell(file, cell);
     }
@@ -500,13 +519,11 @@ function renderIKCell(file, cell) {
   else if (cell.valid) cls = 'cell-yellow';
 
   const tip = [];
-  tip.push('cost: ' + cell.cost);
-  tip.push('goalDist: ' + cell.goal_dist + (cell.exact ? ' (exact)' : ''));
+  tip.push('cost: ' + cell.cost + (cell.exact ? ' (exact)' : ''));
   if (cell.state_error) tip.push('invalid: ' + cell.state_error);
   if (cell.check_path_error) tip.push('checkPath: ' + cell.check_path_error);
 
-  const goalDist = (typeof cell.goal_dist === 'number') ? cell.goal_dist.toExponential(2) : cell.goal_dist;
-  let inner = '<strong>' + cell.cost.toFixed(4) + '</strong><br><small>d=' + goalDist + '</small>';
+  let inner = '<strong>' + cell.cost.toFixed(4) + '</strong>';
   if (cell.inputs) {
     const inputsArg = JSON.stringify(cell.inputs);
     inner += '<br><button onclick=\'renderIKSolution(' + JSON.stringify(file) + ',' + inputsArg + ')\'>Render</button>';
@@ -517,6 +534,15 @@ function renderIKCell(file, cell) {
 // renderIKSolution draws a single IK cell's configuration in the visualizer, reusing the
 // detail page's /render-solution endpoint (inputs are string-valued floats).
 function renderIKSolution(file, inputs) {
+  const configDiv = document.getElementById('rendered-config');
+  const tbody = configDiv.querySelector('table');
+  let rows = '<tr><th>Frame</th><th>Inputs</th></tr>';
+  for (const [frame, vals] of Object.entries(inputs).sort(([a], [b]) => a < b ? -1 : 1)) {
+    rows += '<tr><td>' + escHtml(frame) + '</td><td><code>[' + vals.join(', ') + ']</code></td></tr>';
+  }
+  tbody.innerHTML = rows;
+  configDiv.style.display = '';
+
   fetch('/render-solution?file=' + encodeURIComponent(file), {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -601,18 +627,18 @@ type solutionNodeResult struct {
 	LastGoodInputs map[string][]string `json:"last_good_inputs,omitempty"`
 }
 
-// ikInspectRunResult is the JSON payload for the IK-inspect table. Threads is column-major:
-// Threads[i] is the ordered list of solutions nlopt thread i emitted.
+// ikInspectRunResult is the JSON payload for the IK-inspect table. Seeds is column-major:
+// Seeds[i] is the ordered list of solutions seed i emitted.
 type ikInspectRunResult struct {
-	Error   string                  `json:"error,omitempty"`
-	Threads [][]ikInspectCellResult `json:"threads,omitempty"`
+	Error      string                  `json:"error,omitempty"`
+	Seeds      [][]ikInspectCellResult `json:"seeds,omitempty"`
+	SeedLabels []string                `json:"seed_labels,omitempty"`
 }
 
-// ikInspectCellResult is one solution emitted by one thread. Inputs use string-valued floats to
+// ikInspectCellResult is one solution emitted from one seed. Inputs use string-valued floats to
 // preserve precision, matching solutionNodeResult.
 type ikInspectCellResult struct {
 	Cost           float64             `json:"cost"`
-	GoalDist       float64             `json:"goal_dist"`
 	Exact          bool                `json:"exact"`
 	Inputs         map[string][]string `json:"inputs,omitempty"`
 	Valid          bool                `json:"valid"`
@@ -802,13 +828,19 @@ func computeGoalPoseMap(req *armplanning.PlanRequest, goalIdx int) (map[string]p
 }
 
 // poseMapToDisplays converts a frame→poseComponents map into a sorted slice for template rendering.
+// Orientation is shown as an orientation vector (axis + angle in degrees).
 func poseMapToDisplays(poseMap map[string]poseComponents) []poseDisplay {
 	displays := make([]poseDisplay, 0, len(poseMap))
 	for frame, pc := range poseMap {
-		displays = append(displays, poseDisplay{
-			Frame: frame,
-			Pose:  fmt.Sprintf("pos=[%s, %s, %s] quat=[w=%s, i=%s, j=%s, k=%s]", pc.X, pc.Y, pc.Z, pc.W, pc.I, pc.J, pc.K),
-		})
+		var poseStr string
+		if pose, err := componentsToSpatialPose(pc); err == nil {
+			ov := pose.Orientation().OrientationVectorDegrees()
+			poseStr = fmt.Sprintf("pos=[%s, %s, %s] ov=[%.4g°, (%.4g, %.4g, %.4g)]",
+				pc.X, pc.Y, pc.Z, ov.Theta, ov.OX, ov.OY, ov.OZ)
+		} else {
+			poseStr = fmt.Sprintf("pos=[%s, %s, %s] quat=[w=%s, i=%s, j=%s, k=%s]", pc.X, pc.Y, pc.Z, pc.W, pc.I, pc.J, pc.K)
+		}
+		displays = append(displays, poseDisplay{Frame: frame, Pose: poseStr})
 	}
 	sort.Slice(displays, func(i, j int) bool { return displays[i].Frame < displays[j].Frame })
 	return displays
@@ -1088,8 +1120,8 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 			return
 		}
 
-		out := ikInspectRunResult{Threads: make([][]ikInspectCellResult, len(result.Rows))}
-		for threadIdx, cells := range result.Rows {
+		out := ikInspectRunResult{Seeds: make([][]ikInspectCellResult, len(result.Rows)), SeedLabels: result.SeedLabels}
+		for seedIdx, cells := range result.Rows {
 			rows := make([]ikInspectCellResult, len(cells))
 			for cellIdx, cell := range cells {
 				row := ikInspectCellResult{
@@ -1109,7 +1141,7 @@ func handleIKInspectRun(logger logging.Logger) http.HandlerFunc {
 				}
 				rows[cellIdx] = row
 			}
-			out.Threads[threadIdx] = rows
+			out.Seeds[seedIdx] = rows
 		}
 		writeJSON(w, out)
 	}

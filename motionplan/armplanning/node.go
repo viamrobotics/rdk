@@ -124,8 +124,9 @@ type SolutionSolvingState struct {
 	psc          *PlanSegmentContext
 	maxSolutions int
 
-	LinearSeeds [][]float64
-	SeedLimits  [][]referenceframe.Limit
+	LinearSeeds      [][]float64
+	SeedLimits       [][]referenceframe.Limit
+	SeedDescriptions []string
 
 	moving, nonmoving []string
 
@@ -170,6 +171,7 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 
 	sss.LinearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
 	sss.SeedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
+	sss.SeedDescriptions = []string{"start · full limits"}
 
 	// For multi-arm systems, `rawRatios` elements will be -1 for non-moving arms. `minRatio` will
 	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
@@ -181,15 +183,18 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:1
 	sss.SeedLimits = append(sss.SeedLimits,
 		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .03)))
+	sss.SeedDescriptions = append(sss.SeedDescriptions, "start · sensitivity 3%")
 
 	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:2
 	sss.SeedLimits = append(sss.SeedLimits,
 		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .25)))
+	sss.SeedDescriptions = append(sss.SeedDescriptions, "start · sensitivity 25%")
 
 	if len(rawRatios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
 		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
 		sss.SeedLimits = append(sss.
 			SeedLimits, ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, 1)))
+		sss.SeedDescriptions = append(sss.SeedDescriptions, "start · moving-arm full freedom (multi-arm)")
 	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
@@ -209,16 +214,18 @@ func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logge
 
 		logger.Debugf("got %d altSeeds", len(altSeeds))
 		logger.Debugf("\t altLimitDivisors %v", logging.FloatArrayFormat{"", altLimitDivisors})
-		for _, s := range altSeeds {
+		for seedCacheIndex, s := range altSeeds {
 			si := s.GetLinearizedInputs()
 			sss.LinearSeeds = append(sss.LinearSeeds, si)
 			ll := ik.ComputeAdjustLimitsArray(si, sss.SeedLimits[0], altLimitDivisors)
 			sss.SeedLimits = append(sss.SeedLimits, ll)
+			sss.SeedDescriptions = append(sss.SeedDescriptions, fmt.Sprintf("Seed cache %d", seedCacheIndex))
 			logger.Debugf("\t ss (%d): %v", len(sss.LinearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	} else {
 		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
 		sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(sss.LinearSeeds[0], sss.SeedLimits[0], .05))
+		sss.SeedDescriptions = append(sss.SeedDescriptions, "start · tight (5%)")
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
