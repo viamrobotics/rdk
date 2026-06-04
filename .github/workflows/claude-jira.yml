@@ -58,8 +58,8 @@ jobs:
       contents: write
       pull-requests: write
       id-token: write
-    # viamrobotics/claude-ci-workflows@v2.1.2
-    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@467bc6f62151c399c33fe54073896160bda25b9b
+    # viamrobotics/claude-ci-workflows@v2.2.1
+    uses: viamrobotics/claude-ci-workflows/.github/workflows/claude-jira.yml@5506bdaf04cc7d1adbd2df0f31f108834b01aea6
     with:
       container: ghcr.io/viamrobotics/rdk-devenv:amd64-cache
       ticket_id: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
