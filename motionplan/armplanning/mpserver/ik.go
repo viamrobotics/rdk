@@ -1,3 +1,4 @@
+//nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -35,8 +36,8 @@ type IKInspectCell struct {
 }
 
 type IKInspectTable struct {
-	Rows         [][]IKInspectCell
-	SeedLabels   []string
+	Rows       [][]IKInspectCell
+	SeedLabels []string
 }
 
 func InspectIK(ctx context.Context, logger logging.Logger,

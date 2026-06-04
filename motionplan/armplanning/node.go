@@ -51,9 +51,14 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 	return newNear
 }
 
+// PathFeedback contains diagnostics from `CheckPath`.
 type PathFeedback struct {
+	// IsObstacleCollision is true if the path collided with an obstacle.
 	IsObstacleCollision bool
-	LastGoodInputs      *referenceframe.LinearInputs
+
+	// LastGoodInputs is the configuration of the last interepolated position before hitting a
+	// problem.
+	LastGoodInputs *referenceframe.LinearInputs
 }
 
 func (pf *PathFeedback) String() string {
@@ -120,6 +125,8 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*refe
 	return path
 }
 
+// SolutionSolvingState wraps a bunch of variables that are involved in doing IK for motion
+// planning.
 type SolutionSolvingState struct {
 	psc          *PlanSegmentContext
 	maxSolutions int
@@ -148,6 +155,7 @@ type SolutionSolvingState struct {
 	logger logging.Logger
 }
 
+// NewSolutionSolvingState creates a new SolutionSolvingState.
 func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*SolutionSolvingState, error) {
 	ctx, span := trace.StartSpan(ctx, "NewSolutionSolvingState")
 	defer span.End()

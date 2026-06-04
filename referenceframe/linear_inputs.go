@@ -62,7 +62,7 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 
 // GetLinearInputs converts a FrameSystemInputs to LinearInputs using this schema.
 func (lis *LinearInputsSchema) GetLinearInputs(fsi FrameSystemInputs) (*LinearInputs, error) {
-	inputs := make([]Input, 0, 0)
+	inputs := make([]Input, 0)
 	for _, meta := range lis.metas {
 		frameInputs := fsi[meta.frameName]
 		if len(frameInputs) != meta.dof {

@@ -192,9 +192,15 @@ type SolutionNodeInfo struct {
 // PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
 // Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
 type PerGoalMeta struct {
+	// StartConfiguration is the start configuration.
 	StartConfiguration *referenceframe.LinearInputs
-	GoalPoses          referenceframe.FrameSystemPoses
-	ReasonableCost     float64
+
+	// GoalPoses are the goal poses.
+	GoalPoses referenceframe.FrameSystemPoses
+
+	// ReasonableCost is what's used to filter out IK solutions that require much more joint
+	// movement than we expect should be necessary.
+	ReasonableCost float64
 
 	// SolutionNodes contains info about each IK solution node scored and path-checked.
 	SolutionNodes []SolutionNodeInfo
@@ -206,8 +212,15 @@ type PerGoalMeta struct {
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration     time.Duration
-	Partial      bool
+	// Duration is how long the plan took to generate.
+	Duration time.Duration
+
+	// Partial is true if we're returning a trajectory that satisfies a prefix of the requested
+	// goals. As opposed to satisfying all of the goals.
+	Partial bool
+
+	// PartialError includes the error that halted execution when the algorithm decided to return a
+	// partial answer.
 	PartialError error
 
 	// GoalsProcessed is how many user-defined goals were solved for.

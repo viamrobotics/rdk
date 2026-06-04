@@ -16,12 +16,15 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
+// PlanContext wraps a bunch of variables related to performing a single `PlanMotion` API call.
 type PlanContext struct {
 	fs  *referenceframe.FrameSystem
 	lis *referenceframe.LinearInputsSchema
 
 	movableFrames []string
 
+	// ConfigurationDistanceFunc computes the cost between a start and end position. For arms, this
+	// is typically measured in terms of joint angle movement.
 	ConfigurationDistanceFunc motionplan.SegmentFSMetric
 	planOpts                  *PlannerOptions
 	request                   *PlanRequest
@@ -39,6 +42,7 @@ type PlanContext struct {
 	collisionCache *motionplan.CollisionCache
 }
 
+// NewPlanContext creates a new PlanContext.
 func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*PlanContext, error) {
 	_, span := trace.StartSpan(ctx, "NewPlanContext")
 	defer span.End()
@@ -70,10 +74,14 @@ func NewPlanContext(ctx context.Context, logger logging.Logger, request *PlanReq
 	return pc, nil
 }
 
+// GetLinearInputsSchema gets the LinearInputsSchema.
 func (pc *PlanContext) GetLinearInputsSchema() *referenceframe.LinearInputsSchema {
 	return pc.lis
 }
 
+// LinearizeFSMetric wraps the input minimizing cost function such that the caller (IK callback) can
+// pass in an array of float64. Internally that array gets turned into a LinearInputs that maps the
+// actual inputs to the specific frames (typically arm joints).
 func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.CostFunc {
 	return func(ctx context.Context, linearizedInputs []float64) float64 {
 		conf, err := pc.lis.FloatsToInputs(linearizedInputs)
@@ -88,6 +96,8 @@ func (pc *PlanContext) LinearizeFSMetric(metric motionplan.StateFSMetric) ik.Cos
 	}
 }
 
+// PlanSegmentContext wraps variables related to a single call to `planSingleGoal`. There may be
+// many PlanSegmentContext for a single PlanContext.
 type PlanSegmentContext struct {
 	pc *PlanContext
 
@@ -101,6 +111,7 @@ type PlanSegmentContext struct {
 	Checker      *motionplan.ConstraintChecker
 }
 
+// NewPlanSegmentContext returns a new PlanSegmentContext.
 func NewPlanSegmentContext(ctx context.Context, pc *PlanContext, start *referenceframe.LinearInputs,
 	goal referenceframe.FrameSystemPoses,
 ) (*PlanSegmentContext, error) {

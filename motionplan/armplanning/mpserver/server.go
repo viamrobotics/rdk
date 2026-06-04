@@ -1,6 +1,6 @@
 // Package mpserver is a webserver for diagnosing motion plans.
 //
-//nolint:lll // HTML templates contain long lines that cannot be split
+//nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
@@ -1093,9 +1093,9 @@ func handleIKInspect(logger logging.Logger) http.HandlerFunc {
 		data := ikInspectData{
 			File:            file,
 			StartConfig:     startConfig,
-			StartConfigJSON: template.JS(startConfigJSONBytes), //nolint:gosec
+			StartConfigJSON: template.JS(startConfigJSONBytes),
 			GoalPoses:       poseMapToDisplays(goalPoseMap),
-			GoalPosesJSON:   template.JS(goalPosesJSONBytes), //nolint:gosec
+			GoalPosesJSON:   template.JS(goalPosesJSONBytes),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := ikInspectTmpl.Execute(w, data); err != nil {
