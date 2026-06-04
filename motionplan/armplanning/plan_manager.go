@@ -54,6 +54,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		return nil, 0, err
 	}
 
+	pm.pc.planMeta.SubgoalsPerGoal = make([]int, len(pm.request.Goals))
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
 			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
@@ -84,6 +85,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			if err != nil {
 				return linearTraj, i, err
 			}
+			pm.pc.planMeta.SubgoalsPerGoal[i] = len(subGoals)
 
 			if len(subGoals) > 1 {
 				pm.logger.Debugf("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
@@ -328,9 +330,15 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 
 	rrt.maps.optNode = goalNodes[0]
 	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
+	// `defaultOptimalityMultiple` is > 1.0
+	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
 
 	if psc.pc.planMeta.CollectSolutionDiagnostics {
 		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
+		perGoal.StartConfiguration = psc.start
+		perGoal.GoalPoses = psc.goal
+		perGoal.ReasonableCost = reasonableCost
+
 		for _, goalNode := range goalNodes {
 			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
 				Score:          goalNode.cost,
@@ -341,8 +349,6 @@ func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger loggi
 		}
 	}
 
-	// `defaultOptimalityMultiple` is > 1.0
-	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
 	for _, solution := range goalNodes {
 		if solution.cost > reasonableCost {
 			// if it's this bad, we don't want for cbirrt or going straight

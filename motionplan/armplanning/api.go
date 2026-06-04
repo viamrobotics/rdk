@@ -192,8 +192,13 @@ type SolutionNodeInfo struct {
 // PerGoalMeta holds diagnostic data for a single invocation of initRRTSolutions.
 // Only populated when PlannerOptions.CollectSolutionDiagnostics is true.
 type PerGoalMeta struct {
+	StartConfiguration *referenceframe.LinearInputs
+	GoalPoses          referenceframe.FrameSystemPoses
+	ReasonableCost     float64
+
 	// SolutionNodes contains info about each IK solution node scored and path-checked.
 	SolutionNodes []SolutionNodeInfo
+
 	// ConstraintFailuresByType maps constraint error strings to the number of IK candidate
 	// solutions that failed that constraint.
 	ConstraintFailuresByType map[string]int
@@ -201,10 +206,22 @@ type PerGoalMeta struct {
 
 // PlanMeta is meta data about plan generation.
 type PlanMeta struct {
-	Duration       time.Duration
-	Partial        bool
-	PartialError   error
+	Duration     time.Duration
+	Partial      bool
+	PartialError error
+
+	// GoalsProcessed is how many user-defined goals were solved for.
 	GoalsProcessed int
+
+	// SubgoalsPerGoal will have size of `GoalsProcessed`. If there are no linear/orientation
+	// constraints, we do not create any additional subgoals/waypoints. SubgoalsPerGoal in that case
+	// will be set to 1 for each goal index. Otherwise it will be sent to the number of internal
+	// waypoints created + 1 (for the final user goal).
+	SubgoalsPerGoal []int
+
+	// SubgoalsProcessed may be non-zero when a plan request has linear/orientation
+	// constraints. Satisfying those constraints internally creates additional goals.
+	SubgoalsProcessed int
 
 	// CollectSolutionDiagnostics is copied from PlannerOptions and gates whether PerGoal is
 	// populated.
