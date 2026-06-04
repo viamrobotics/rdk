@@ -172,6 +172,13 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
     white-space: pre-wrap;
   }
   #result { margin-top: 16px; }
+  .warning-box {
+    background-color: #fff3cd;
+    border: 1px solid #b8860b;
+    padding: 10px 14px;
+    margin: 16px 0;
+  }
+  .warning-box ul { margin: 4px 0 0 0; padding-left: 20px; }
 </style>
 </head>
 <body>
@@ -200,10 +207,21 @@ var detailTmpl = template.Must(template.New("detail").Parse(`<!DOCTYPE html>
 <p><em>No moving-frame inputs in start state.</em></p>
 {{end}}
 
-<h2>Goals</h2>
+<h2>User Goals</h2>
+{{if .Constraints}}
+<div class="warning-box">
+  <strong>Constrained motion</strong> — motion planning will subdivide these user goals into additional sub-goals to satisfy the following constraints:
+  {{if .Constraints.Linear}}
+  <p><strong>Linear:</strong></p><ul>{{range .Constraints.Linear}}<li>{{.}}</li>{{end}}</ul>
+  {{end}}
+  {{if .Constraints.Orientation}}
+  <p><strong>Orientation:</strong></p><ul>{{range .Constraints.Orientation}}<li>{{.}}</li>{{end}}</ul>
+  {{end}}
+</div>
+{{end}}
 {{if .Goals}}
 {{range .Goals}}
-<h3>Goal {{.Index}} — <a href="{{.IKInspectURL}}">Inspect IK</a></h3>
+<h3>User Goal {{.Index}} — <a href="{{.IKInspectURL}}">Inspect IK</a></h3>
 <h4>Start Configuration</h4>
 {{if .StartConfig}}
 <table>
@@ -586,11 +604,17 @@ type goalDetail struct {
 	IKInspectURL string
 }
 
+type detailConstraints struct {
+	Linear      []string // pre-formatted per-constraint descriptions
+	Orientation []string
+}
+
 type detailData struct {
 	File        string
 	Frames      []frameInfo
 	StartInputs []frameInputs
 	Goals       []goalDetail
+	Constraints *detailConstraints // nil when no linear/orientation constraints are present
 }
 
 type ikInspectData struct {
@@ -683,6 +707,21 @@ func stringsToLinearInputs(data map[string][]string) (*referenceframe.LinearInpu
 }
 
 // ---- helpers ----
+
+func buildDetailConstraints(c *motionplan.Constraints) *detailConstraints {
+	if c == nil || (len(c.LinearConstraint) == 0 && len(c.OrientationConstraint) == 0) {
+		return nil
+	}
+	dc := &detailConstraints{}
+	for _, lc := range c.LinearConstraint {
+		dc.Linear = append(dc.Linear, fmt.Sprintf("line tolerance %.4g mm, orientation tolerance %.4g°",
+			lc.LineToleranceMm, lc.OrientationToleranceDegs))
+	}
+	for _, oc := range c.OrientationConstraint {
+		dc.Orientation = append(dc.Orientation, fmt.Sprintf("orientation tolerance %.4g°", oc.OrientationToleranceDegs))
+	}
+	return dc
+}
 
 func findPlanFiles(root string) ([]string, error) {
 	var files []string
@@ -1011,6 +1050,7 @@ func handleDetail(logger logging.Logger) http.HandlerFunc {
 			Frames:      buildFrameInfo(req.FrameSystem),
 			StartInputs: startConfig,
 			Goals:       goals,
+			Constraints: buildDetailConstraints(req.Constraints),
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		if err := detailTmpl.Execute(w, data); err != nil {
