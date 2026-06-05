@@ -303,9 +303,7 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 		}
 
-		if nodeAlreadyExists {
-			gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
-		} else {
+		if !nodeAlreadyExists {
 			// Check for a full resource name collision and log an error if there is one.
 			prefixedSimpleName := prefix + resName.Name
 			_, err = manager.resources.FindBySimpleNameAndAPI(prefixedSimpleName, resName.API)
@@ -328,6 +326,8 @@ func (manager *resourceManager) updateRemoteResourceNames(
 				resLogger.CErrorw(ctx, "failed to add remote resource node", "error", err)
 			}
 		}
+
+		gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 
 		err = manager.resources.AddChild(resName, remoteName)
 		if err != nil {

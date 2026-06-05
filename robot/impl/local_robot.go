@@ -845,9 +845,8 @@ func (r *localRobot) getOptionalDependenciesAndSnapshot(
 			resolvedOptionalDepName.Name = optionalDepNameString
 		}
 
-		// Resolve via simpleNameCache so the resource and UpdatedAt come from one
-		// lookup. The split (ResourceByName + g.nodes) would miss prefixed remote
-		// names on the g.nodes side.
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
 		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
 		if err != nil {
 			r.logger.Infow(
@@ -921,9 +920,8 @@ func (r *localRobot) getWeakDependenciesAndSnapshot(
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		// Resolve via simpleNameCache so the resource and UpdatedAt come from one
-		// lookup. The split (ResourceByName + g.nodes) would miss prefixed remote
-		// names on the g.nodes side.
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
 		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
@@ -1182,7 +1180,7 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			return
 		}
 
-		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
+		r.Logger().CInfow(ctx, "handling weak/optional update for resource", "resource", resName)
 
 		// Use the module manager to reconfigure the resource if it's a modular resource. This
 		// would be a modular resource that has optional dependencies.

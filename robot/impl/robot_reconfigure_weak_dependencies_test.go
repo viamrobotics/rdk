@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
 	rtestutils "go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -871,4 +872,93 @@ func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
 		_, err := s.Readings(callCtx, nil)
 		test.That(tb, err, test.ShouldBeNil)
 	})
+}
+
+// TestWeakDependencyOnNewRemoteResource verifies that a local resource with a weak
+// dependency is reconfigured to pick up a resource that appears on a remote after
+// initial construction.
+func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	// Remote robot starts with no components.
+	remoteCfg := &config.Config{}
+	test.That(t, remoteCfg.Ensure(false, logger), test.ShouldBeNil)
+	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
+
+	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
+	test.That(t, remoteRobot.StartWeb(ctx, options), test.ShouldBeNil)
+
+	// Register a weak-dependency resource that weakly depends on every component.
+	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
+	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
+	weak1Name := resource.NewName(weakAPI, "weak1")
+	resource.Register(weakAPI, weakModel,
+		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
+			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
+			) (*someTypeWithWeakAndStrongDeps, error) {
+				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
+			},
+			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
+		})
+	defer resource.Deregister(weakAPI, weakModel)
+
+	// Main robot: weak1 plus a connection to the (currently empty) remote.
+	mainCfg := &config.Config{
+		Components: []resource.Config{
+			{
+				Name:                weak1Name.Name,
+				API:                 weakAPI,
+				Model:               weakModel,
+				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
+			},
+		},
+		Remotes: []config.Remote{{Name: "foo", Address: addr}},
+	}
+	test.That(t, mainCfg.Ensure(false, logger), test.ShouldBeNil)
+	mainRobot := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
+
+	remoteBaseName := base.Named("remotebase")
+
+	// weak1 came up with an empty weak set: the remote has no components yet.
+	res, err := mainRobot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldNotContainKey, remoteBaseName)
+
+	// Add a base to the remote after the fact.
+	newRemoteCfg := &config.Config{
+		Components: []resource.Config{
+			{Name: remoteBaseName.Name, API: base.API, Model: fake.Model},
+		},
+	}
+	test.That(t, newRemoteCfg.Ensure(false, logger), test.ShouldBeNil)
+	remoteRobot.Reconfigure(ctx, newRemoteCfg)
+
+	lr := mainRobot.(*localRobot)
+
+	// Wait until the main robot's remote client has discovered the new resource and
+	// added it to the graph, driving the remote-update path each iteration.
+	prefixedName := base.Named("foo:remotebase")
+	testutils.WaitForAssertionWithSleep(t, time.Second, 30, func(tb testing.TB) {
+		tb.Helper()
+		lr.updateRemotesAndRetryResourceConfigure()
+		_, err := mainRobot.ResourceByName(prefixedName)
+		test.That(tb, err, test.ShouldBeNil)
+	})
+
+	// Sanity check: the remote resource is genuinely available on the main robot.
+	_, err = mainRobot.ResourceByName(prefixedName)
+	test.That(t, err, test.ShouldBeNil)
+
+	// The new remote resource matches weak1's component matcher, so a weak/optional
+	// update should reconfigure weak1 to include it. If adding the remote node didn't
+	// bump the clock and the round-counter short-circuited the update, weak1 will not
+	// have picked it up and this assertion fails.
+	res, err = mainRobot.ResourceByName(weak1Name)
+	test.That(t, err, test.ShouldBeNil)
+	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, weak1.resources, test.ShouldContainKey, remoteBaseName)
 }
