@@ -188,11 +188,7 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 
 	// Ensure VIAM_HOME is set in the environment so that config placeholder substitution
 	// (e.g. ${environment.VIAM_HOME}) and spawned modules see the same home directory we
-	// fall back to internally. When viam-server is launched by viam-agent, VIAM_HOME is
-	// already set and this is a no-op; when run directly, nothing else exports the fallback.
-	// Set this in the environment (rather than just relying on the rutils.ViamDotDir
-	// fallback) so that VIAM_HOME is logged by logViamEnvVariables below and is visible to
-	// config placeholder substitution.
+	// fall back to internally.
 	if _, ok := os.LookupEnv(rutils.HomeEnvVar); !ok {
 		if err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir); err != nil {
 			rootLogger.Warnw("failed to set VIAM_HOME environment variable", "error", err)
