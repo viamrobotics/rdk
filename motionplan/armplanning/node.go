@@ -51,12 +51,17 @@ func fixedStepInterpolation(start, target *node, qstep map[string][]float64) *re
 	return newNear
 }
 
-type pathFeedback struct {
+// PathFeedback contains diagnostics from `CheckPath`.
+type PathFeedback struct {
+	// IsObstacleCollision is true if the path collided with an obstacle.
 	IsObstacleCollision bool
-	LastGoodInputs      *referenceframe.LinearInputs
+
+	// LastGoodInputs is the configuration of the last interepolated position before hitting a
+	// problem.
+	LastGoodInputs *referenceframe.LinearInputs
 }
 
-func (pf *pathFeedback) String() string {
+func (pf *PathFeedback) String() string {
 	return fmt.Sprintf("IsObstacleCollision: %v LastGoodInputs: %v",
 		pf.IsObstacleCollision, pf.LastGoodInputs)
 }
@@ -71,7 +76,7 @@ type node struct {
 	// checkPathError and checkPathFeedback are only captured when
 	// PlanMeta.CollectSolutionDiagnostics is true.
 	checkPathError    error
-	checkPathFeedback pathFeedback
+	checkPathFeedback PathFeedback
 }
 
 func newConfigurationNode(q *referenceframe.LinearInputs) *node {
@@ -120,12 +125,15 @@ func extractPath(startMap, goalMap rrtMap, pair *nodePair, matched bool) []*refe
 	return path
 }
 
-type solutionSolvingState struct {
-	psc          *planSegmentContext
+// SolutionSolvingState wraps a bunch of variables that are involved in doing IK for motion
+// planning.
+type SolutionSolvingState struct {
+	psc          *PlanSegmentContext
 	maxSolutions int
 
-	linearSeeds [][]float64
-	seedLimits  [][]referenceframe.Limit
+	LinearSeeds      [][]float64
+	SeedLimits       [][]referenceframe.Limit
+	SeedDescriptions []string
 
 	moving, nonmoving []string
 
@@ -147,16 +155,17 @@ type solutionSolvingState struct {
 	logger logging.Logger
 }
 
-func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*solutionSolvingState, error) {
-	ctx, span := trace.StartSpan(ctx, "newSolutionSolvingState")
+// NewSolutionSolvingState creates a new SolutionSolvingState.
+func NewSolutionSolvingState(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*SolutionSolvingState, error) {
+	ctx, span := trace.StartSpan(ctx, "NewSolutionSolvingState")
 	defer span.End()
 
 	var err error
 
-	sss := &solutionSolvingState{
+	sss := &SolutionSolvingState{
 		psc:                  psc,
 		solutions:            []*node{},
-		failures:             newIkConstraintError(psc.pc.fs, psc.checker),
+		failures:             newIkConstraintError(psc.pc.fs, psc.Checker),
 		firstSolutionTime:    time.Hour,
 		bestScoreNoProblem:   10000000,
 		bestScoreWithProblem: 10000000,
@@ -168,8 +177,9 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		sss.maxSolutions = defaultSolutionsToSeed
 	}
 
-	sss.linearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
-	sss.seedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
+	sss.LinearSeeds = [][]float64{psc.start.GetLinearizedInputs()} // s:0
+	sss.SeedLimits = [][]referenceframe.Limit{psc.pc.lis.GetLimits()}
+	sss.SeedDescriptions = []string{"start · full limits"}
 
 	// For multi-arm systems, `rawRatios` elements will be -1 for non-moving arms. `minRatio` will
 	// be the smallest (currently bumped to a 0.03 minimum) ratio value for joints in moving arms.
@@ -178,18 +188,21 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 		return nil, err
 	}
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:1
-	sss.seedLimits = append(sss.seedLimits,
-		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .03)))
+	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:1
+	sss.SeedLimits = append(sss.SeedLimits,
+		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .03)))
+	sss.SeedDescriptions = append(sss.SeedDescriptions, "start · sensitivity 3%")
 
-	sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0]) // s:2
-	sss.seedLimits = append(sss.seedLimits,
-		ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, .25)))
+	sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0]) // s:2
+	sss.SeedLimits = append(sss.SeedLimits,
+		ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, .25)))
+	sss.SeedDescriptions = append(sss.SeedDescriptions, "start · sensitivity 25%")
 
 	if len(rawRatios) > 6 { // for multi-arms, add a seed that moves just the moving arms with complete freedom
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.
-			seedLimits, ik.ComputeAdjustLimitsArray(sss.linearSeeds[0], sss.seedLimits[0], clampSensitivities(rawRatios, 1)))
+		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
+		sss.SeedLimits = append(sss.
+			SeedLimits, ik.ComputeAdjustLimitsArray(sss.LinearSeeds[0], sss.SeedLimits[0], clampSensitivities(rawRatios, 1)))
+		sss.SeedDescriptions = append(sss.SeedDescriptions, "start · moving-arm full freedom (multi-arm)")
 	}
 
 	if sss.goodCost > 1 && minRatio > .05 {
@@ -209,16 +222,18 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 
 		logger.Debugf("got %d altSeeds", len(altSeeds))
 		logger.Debugf("\t altLimitDivisors %v", logging.FloatArrayFormat{"", altLimitDivisors})
-		for _, s := range altSeeds {
+		for seedCacheIndex, s := range altSeeds {
 			si := s.GetLinearizedInputs()
-			sss.linearSeeds = append(sss.linearSeeds, si)
-			ll := ik.ComputeAdjustLimitsArray(si, sss.seedLimits[0], altLimitDivisors)
-			sss.seedLimits = append(sss.seedLimits, ll)
-			logger.Debugf("\t ss (%d): %v", len(sss.linearSeeds)-1, logging.FloatArrayFormat{"", si})
+			sss.LinearSeeds = append(sss.LinearSeeds, si)
+			ll := ik.ComputeAdjustLimitsArray(si, sss.SeedLimits[0], altLimitDivisors)
+			sss.SeedLimits = append(sss.SeedLimits, ll)
+			sss.SeedDescriptions = append(sss.SeedDescriptions, fmt.Sprintf("Seed cache %d", seedCacheIndex))
+			logger.Debugf("\t ss (%d): %v", len(sss.LinearSeeds)-1, logging.FloatArrayFormat{"", si})
 		}
 	} else {
-		sss.linearSeeds = append(sss.linearSeeds, sss.linearSeeds[0])
-		sss.seedLimits = append(sss.seedLimits, ik.ComputeAdjustLimits(sss.linearSeeds[0], sss.seedLimits[0], .05))
+		sss.LinearSeeds = append(sss.LinearSeeds, sss.LinearSeeds[0])
+		sss.SeedLimits = append(sss.SeedLimits, ik.ComputeAdjustLimits(sss.LinearSeeds[0], sss.SeedLimits[0], .05))
+		sss.SeedDescriptions = append(sss.SeedDescriptions, "start · tight (5%)")
 	}
 
 	sss.moving, sss.nonmoving = sss.psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -233,9 +248,9 @@ func newSolutionSolvingState(ctx context.Context, psc *planSegmentContext, logge
 	return sss, nil
 }
 
-func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
+func (sss *SolutionSolvingState) computeGoodCost(goal referenceframe.FrameSystemPoses) ([]float64, float64, error) {
 	rawRatios, err := computeJointSensitivities(sss.psc.motionChains, sss.psc.start, sss.psc.pc.fs,
-		sss.psc.pc.planOpts.getGoalMetric(goal), sss.logger)
+		sss.psc.pc.planOpts.GetGoalMetric(goal), sss.logger)
 	if err != nil {
 		return nil, 1, err
 	}
@@ -251,7 +266,7 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 
 	adjusted := []float64{}
 	for idx, r := range ratios {
-		val := sss.linearSeeds[0][idx]
+		val := sss.LinearSeeds[0][idx]
 		if r > 0 {
 			// we use min ratio here because we're pretty sure that if we moved every joint minRatio amount
 			// we'd move plenty
@@ -271,13 +286,13 @@ func (sss *solutionSolvingState) computeGoodCost(goal referenceframe.FrameSystem
 		FS:                 sss.psc.pc.fs,
 	}
 
-	sss.goodCost = sss.psc.pc.configurationDistanceFunc(stepArc)
+	sss.goodCost = sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 	sss.logger.Debugf("goodCost: %0.2f minRatio: %0.2f", sss.goodCost, minRatio)
 	return rawRatios, minRatio, nil
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
+func (sss *SolutionSolvingState) process(ctx context.Context, stepSolution *ik.Solution) {
 	if !sss.processInternal(ctx, stepSolution) {
 		return
 	}
@@ -336,7 +351,7 @@ func unwrapRotationalJoints(cfg, start []float64, limits []referenceframe.Limit)
 }
 
 // Returns true if a node was appended.
-func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
+func (sss *SolutionSolvingState) processInternal(ctx context.Context, stepSolution *ik.Solution) bool {
 	ctx, span := trace.StartSpan(ctx, "process")
 	defer span.End()
 	sss.processCalls++
@@ -352,9 +367,9 @@ func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSoluti
 		EndConfiguration:   step,
 		FS:                 sss.psc.pc.fs,
 	}
-	myCost := sss.psc.pc.configurationDistanceFunc(stepArc)
+	myCost := sss.psc.pc.ConfigurationDistanceFunc(stepArc)
 
-	myCost += neutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
+	myCost += NeutralBias(sss.psc.pc.lis.GetLimits(), stepSolution.Configuration)
 
 	if myCost > sss.bestScoreNoProblem {
 		sss.logger.Debugf("got score %0.4f worse than bestScoreNoProblem", myCost)
@@ -367,14 +382,14 @@ func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSoluti
 			EndConfiguration:   step,
 			FS:                 sss.psc.pc.fs,
 		}
-		simscore := sss.psc.pc.configurationDistanceFunc(similarity)
+		simscore := sss.psc.pc.ConfigurationDistanceFunc(similarity)
 		if simscore < defaultSimScore {
 			return false
 		}
 	}
 
 	// Ensure the end state is a valid one
-	_, err = sss.psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = sss.psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: step,
 		FS:            sss.psc.pc.fs,
 	})
@@ -400,9 +415,9 @@ func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSoluti
 	}
 
 	if sss.psc.pc.planMeta.CollectSolutionDiagnostics {
-		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, &myNode.checkPathFeedback)
+		myNode.checkPathError = sss.psc.CheckPath(ctx, sss.psc.start, step, false, &myNode.checkPathFeedback)
 	} else {
-		myNode.checkPathError = sss.psc.checkPath(ctx, sss.psc.start, step, false, nil)
+		myNode.checkPathError = sss.psc.CheckPath(ctx, sss.psc.start, step, false, nil)
 	}
 	sss.logger.Debugf("got score %0.4f @ %v - %s - result: %v",
 		myNode.cost, now, stepSolution.Meta, myNode.checkPathError)
@@ -415,7 +430,7 @@ func (sss *solutionSolvingState) processInternal(ctx context.Context, stepSoluti
 }
 
 // return bool is if we should stop because we're done.
-func (sss *solutionSolvingState) shouldStopEarly() bool {
+func (sss *SolutionSolvingState) shouldStopEarly() bool {
 	elapsed := time.Since(sss.startTime)
 
 	if sss.fatal != nil {
@@ -514,18 +529,18 @@ func (sss *solutionSolvingState) shouldStopEarly() bool {
 //
 // If minScore is positive, if a solution scoring below that amount is found, the solver will
 // terminate and return that one solution.
-func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) ([]*node, error) {
+func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) ([]*node, error) {
 	if psc.start.Len() == 0 {
 		return nil, fmt.Errorf("getSolutions start can't be empty")
 	}
 
-	solvingState, err := newSolutionSolvingState(ctx, psc, logger)
+	solvingState, err := NewSolutionSolvingState(ctx, psc, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	// Spawn the IK solver to generate solutions until done
-	minFunc := psc.pc.linearizeFSmetric(psc.pc.planOpts.getGoalMetric(psc.goal))
+	minFunc := psc.pc.LinearizeFSMetric(psc.pc.planOpts.GetGoalMetric(psc.goal))
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -568,7 +583,7 @@ func getSolutions(ctx context.Context, psc *planSegmentContext, logger logging.L
 		// This channel close doubles as signaling that the goroutine has exited.
 		defer close(solutionGen)
 		nSol, m, err := solver.Solve(ctxWithCancel, solutionGen, &solvingState.totalIkAttempts,
-			solvingState.linearSeeds, solvingState.seedLimits, minFunc, psc.pc.randseed.Int())
+			solvingState.LinearSeeds, solvingState.SeedLimits, minFunc, psc.pc.randseed.Int())
 		if err == nil {
 			solvingState.logger.Debugf("Solver stopped, no errors. Solutions: %v IK Meta: %v", nSol, m)
 		} else {
@@ -639,7 +654,7 @@ solutionLoop:
 	return solvingState.solutions, nil
 }
 
-func (sss *solutionSolvingState) flushFailuresToMeta() {
+func (sss *SolutionSolvingState) flushFailuresToMeta() {
 	meta := sss.psc.pc.planMeta
 	if !meta.CollectSolutionDiagnostics {
 		return
@@ -651,9 +666,9 @@ func (sss *solutionSolvingState) flushFailuresToMeta() {
 	}
 }
 
-// neutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
+// NeutralBias computes a small cost penalty for rotational joints that are far from the center of their range.
 // This favors solutions where rotational joints are near the midpoint rather than at the extremes.
-func neutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
+func NeutralBias(limits []referenceframe.Limit, configuration []float64) float64 {
 	bias := 0.0
 	for i, limit := range limits {
 		if limit.IsRotational() {
@@ -667,7 +682,7 @@ func neutralBias(limits []referenceframe.Limit, configuration []float64) float64
 	return bias
 }
 
-func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
+func (sss *SolutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.LinearInputs, solveMeta []ik.SeedSolveMetaData) error {
 	if sss.logger.GetLevel() != logging.DEBUG {
 		return nil
 	}
@@ -694,13 +709,13 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 			fmt.Fprintf(&builder, "\t joint %d min: %0.2f, max: %0.2f range: %0.2f\n", jointNumber, min, max, r)
 			fmt.Fprintf(&builder, "\t\t winner: %0.2f\n", winningValue)
 
-			for seedNumber, s := range sss.linearSeeds {
+			for seedNumber, s := range sss.LinearSeeds {
 				step, err := sss.psc.pc.lis.FloatsToInputs(s)
 				if err != nil {
 					return err
 				}
 				v := step.Get(frameName)[jointNumber]
-				myLimit := sss.seedLimits[seedNumber][jointNumber]
+				myLimit := sss.SeedLimits[seedNumber][jointNumber]
 				fmt.Fprintf(&builder, "\t\t  seed %d %0.2f delta: %0.2f valid: %v limits: %v\n",
 					seedNumber, v, math.Abs(v-winningValue)/r, myLimit.IsValid(winningValue), myLimit)
 				if !myLimit.IsValid(winningValue) {
@@ -712,7 +727,7 @@ func (sss *solutionSolvingState) debugSeedInfoForWinner(winner *referenceframe.L
 
 	for idx, m := range solveMeta {
 		fmt.Fprintf(&builder, "seed: %d %#v\n", idx, m)
-		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.linearSeeds[idx]})
+		fmt.Fprintf(&builder, "\t %v\n", logging.FloatArrayFormat{"", sss.LinearSeeds[idx]})
 		fmt.Fprintf(&builder, "\t valid: %v\n", !inValid[idx])
 	}
 
