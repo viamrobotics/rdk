@@ -177,7 +177,12 @@ func (server *serviceServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(req.CameraName, objects)
+	props, err := svc.GetProperties(ctx, nil)
+	cameraName := req.CameraName
+	if cameraName == "" && *props.DefaultCamera != "" {
+		cameraName = *props.DefaultCamera
+	}
+	protoSegments, err := segmentsToProto(cameraName, objects)
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +238,7 @@ func (server *serviceServer) GetProperties(ctx context.Context,
 		ClassificationsSupported:   props.ClassificationSupported,
 		DetectionsSupported:        props.DetectionSupported,
 		ObjectPointCloudsSupported: props.ObjectPCDsSupported,
+		DefaultCamera:              props.DefaultCamera,
 	}
 	return out, nil
 }
