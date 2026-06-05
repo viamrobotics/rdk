@@ -36,7 +36,8 @@ func TestNloptFixedJoint(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var totalAttempts atomic.Int32
-	solutions, _, err := ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
+	solutions, _, err := ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed},
+		[][]referenceframe.Limit{limits})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
 	for _, sol := range solutions {
