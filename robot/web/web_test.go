@@ -1115,7 +1115,9 @@ func TestRawClientOperation(t *testing.T) {
 	test.That(t, conn.Close(), test.ShouldBeNil)
 
 	// test with a simple echo proto as well
-	conn, err = rgrpc.Dial(context.Background(), addr, logger)
+	// Disable WebRTC to avoid a race condition where fast-completing server streams
+	// cause Header() to return "context canceled" over WebRTC.
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{Disable: true}))
 	test.That(t, err, test.ShouldBeNil)
 	echoclient := echopb.NewTestEchoServiceClient(conn)
 
