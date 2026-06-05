@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -236,7 +237,7 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 		if closeErr != nil {
 			return closeErr
 		}
-		if err := os.Rename(fullPathTmp, fullPath); err != nil {
+		if err := renameWithRetry(fullPathTmp, fullPath); err != nil {
 			return err
 		}
 	}
@@ -257,6 +258,28 @@ func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
 // Close does nothing.
 func (copier *localFileCopier) Close(ctx context.Context) error {
 	return nil
+}
+
+// renameWithRetry retries os.Rename to work around transient sharing
+// violations on Windows: antivirus scanners (Defender), the Search indexer,
+// and similar background processes briefly open handles on a just-written
+// file and refuse to share delete access, which makes os.Rename fail with
+// ERROR_SHARING_VIOLATION. The handle is usually released within a few
+// hundred ms. On POSIX systems the first attempt always succeeds, so the
+// loop is a no-op there.
+func renameWithRetry(oldPath, newPath string) error {
+	const attempts = 5
+	const delay = 300 * time.Millisecond
+	var err error
+	for i := 0; i < attempts; i++ {
+		if err = os.Rename(oldPath, newPath); err == nil {
+			return nil
+		}
+		if i < attempts-1 {
+			time.Sleep(delay)
+		}
+	}
+	return err
 }
 
 type localFileReadCopier struct {
@@ -348,8 +371,14 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 
 	// Note: okay with recursion for now. may want to check depth later...
 
+	// Use path.Join (always forward slashes) for the wire-side relative name.
+	// filepath.Join on Windows would emit backslashes, which a POSIX receiver
+	// (Linux/macOS) treats as literal filename characters — causing files to
+	// land at e.g. /tmp/subdir\a.txt instead of /tmp/subdir/a.txt during a
+	// recursive copy from a Windows host. The receiver's filepath.Join handles
+	// forward slashes correctly on every platform.
 	makeRelName := func(relDir string, file *os.File) string {
-		return filepath.Join(relDir, filepath.Base(file.Name()))
+		return path.Join(relDir, filepath.Base(file.Name()))
 	}
 	var copyFiles func(relDir string, files []*os.File) error
 	copyFiles = func(relDir string, files []*os.File) error {
