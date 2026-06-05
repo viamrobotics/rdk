@@ -178,8 +178,11 @@ func (server *serviceServer) GetObjectPointClouds(
 		return nil, err
 	}
 	props, err := svc.GetProperties(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
 	cameraName := req.CameraName
-	if cameraName == "" && *props.DefaultCamera != "" {
+	if cameraName == "" && props.DefaultCamera != nil {
 		cameraName = *props.DefaultCamera
 	}
 	protoSegments, err := segmentsToProto(cameraName, objects)
