@@ -1104,11 +1104,12 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 					"resource", resName,
 				)
 			} else {
-				r.Logger().CErrorw(
-					ctx,
-					"failed to reconfigure resource during weak/optional dependencies update",
+				// A failed Reconfigure can leave the resource in an indeterminate state,
+				// so mark the node unhealthy. Callers will see a clear error from
+				// ResourceByName instead of dispatching into a broken instance.
+				resNode.LogAndSetLastError(
+					fmt.Errorf("failed to reconfigure resource during weak/optional dependencies update: %w", err),
 					"resource", resName,
-					"error", err,
 				)
 			}
 		}
@@ -1176,55 +1177,148 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
-	for _, component := range cfg.Components {
-		if component.Frame == nil { // no Frame means dont include in frame system.
+	// For each part we will see if there's a corollary frame configuration. For those that have
+	// one, we'll craft a `FrameSystemPart` containing that information. Furthermore, the
+	// FrameSystemPart may include geometry or model/kinematic information. Kinematics are always
+	// fetched from `InputEnabled` resources. Geometries can be specified in the robot config. If
+	// none exists, we will perform a `Geometries` query on the resource.
+	for _, resConfig := range cfg.Components {
+		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 
-		if component.Name == referenceframe.World {
-			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		logger := r.logger.Sublogger("framesystem").WithFields("ResName", resConfig.Name)
+		// Dan: Consider not doing frame validation at all in the robot impl code. Should probably
+		// live entirely in the `FrameSystemService.Reconfigure` method. The consequence of the code
+		// as it stands is that the frame system service does not know the difference of a frame
+		// that doesn't exist versus a frame that's misconfigured. Hence, when a motion request (or
+		// other thing that consumes a FrameSystem) comes in identifying a part/frame that the frame
+		// system service was not informed of, we cannot give back an error message better than
+		// "<foo> doesn't exist". A user must sift through robot configuration logs to know why a
+		// frame might be missing.
+		frameName := resConfig.Frame.ID
+		if frameName == "" {
+			frameName = resConfig.Name
 		}
-		if component.Frame.Parent == "" {
-			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
-		}
-		cfgCopy := &referenceframe.LinkConfig{
-			ID:          component.Frame.ID,
-			Translation: component.Frame.Translation,
-			Orientation: component.Frame.Orientation,
-			Geometry:    component.Frame.Geometry,
-			Parent:      component.Frame.Parent,
-		}
-		if cfgCopy.ID == "" {
-			cfgCopy.ID = component.Name
+		if frameName == referenceframe.World {
+			logger.Warnw("Refusing to create frame named `world` for resource.",
+				"FrameID", resConfig.Frame.ID)
+			continue
 		}
 
-		var model referenceframe.Model
-		var err error
-		switch component.ResourceName().API.SubtypeName {
-		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
-			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
-			if resource.IsNotAvailableError(err) || resource.IsNotFoundError(err) {
-				// When we have non-nil errors here, it is because the resource is not yet available.
-				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+		if resConfig.Frame.Parent == "" {
+			logger.Warn("Frame config for resource is missing a parent.")
+			continue
+		}
+
+		res, resErr := r.ResourceByName(resConfig.ResourceName())
+		isAvailable := resErr == nil
+		resType := resConfig.ResourceName().API.SubtypeName
+		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
+			// Components that have multiple degrees of freedom are required to be available and
+			// implement the `Kinematics` method to be used in the frame system.
+			if !isAvailable {
+				logger.Warnw("InputEnabled component is not available. Omitting from FrameSystem.", "err", resErr)
 				continue
 			}
 
-			if err != nil {
-				// If there is an error getting kinematics unrelated to resource availability, log a
-				// warning. It probably impacts correct operation of the application.
-				r.logger.Warnw(
-					"Error getting kinematics. Resource is added to the frame system, but modeling may not work correctly.",
-					"res", component, "err", err)
+			ie, ok := res.(framesystem.InputEnabled)
+			if !ok {
+				logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
+					"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
+				continue
 			}
-		default:
-		}
-		lif, err := cfgCopy.ParseConfig()
-		if err != nil {
-			return nil, err
+
+			model, err := ie.Kinematics(ctx)
+			if err != nil {
+				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
+				// errors, as this code does, would not add an item to the FrameSystem. But errors
+				// from the `Kinematics` call, or a resource that does not implement the
+				// `InputEnabled` interface would be added to the frame system without a model.
+				//
+				// I've chosen to not include the latter to the frame system. It's unclear if that
+				// distinction was meaningful.
+				logger.Warnw("Error getting kinematics for resource.", "err", err)
+				continue
+			}
+
+			if resConfig.Frame.Geometry != nil {
+				logger.Warn("An input enabled component erroneously included a geometry. Ignoring the geometry.")
+			}
+
+			linkInFrame, err := (&referenceframe.LinkConfig{
+				ID:          frameName,
+				Translation: resConfig.Frame.Translation,
+				Orientation: resConfig.Frame.Orientation,
+				Parent:      resConfig.Frame.Parent,
+			}).ParseConfig()
+			if err != nil {
+				logger.Warnw("Failed to create LinkInFrame.", "err", err)
+				continue
+			}
+
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+			continue
 		}
 
-		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+		// Dan: Consider changing `LinkConfig.ParseConfig()` to `LinkInFrameFromConfig(LinkConfig)`.
+		linkInFrame, err := (&referenceframe.LinkConfig{
+			ID:          frameName,
+			Translation: resConfig.Frame.Translation,
+			Orientation: resConfig.Frame.Orientation,
+			Geometry:    resConfig.Frame.Geometry,
+			Parent:      resConfig.Frame.Parent,
+		}).ParseConfig()
+		if err != nil {
+			logger.Warnw("Failed to create LinkInFrame.", "err", err)
+			continue
+		}
+
+		// If the frame config included a geometry, prefer that to asking the resource. If the frame
+		// config does not include a geometry and the resource happens to be unavailable we won't be
+		// able to ask for a geometry, create a frame with what we have.
+		if linkInFrame.Geometry() != nil || !isAvailable {
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
+			continue
+		}
+
+		// If the resource is available and the config didn't explicitly give a geometry, ask the
+		// resource if it has one.
+		shaper, isShaped := res.(resource.Shaped)
+		if isShaped {
+			resGeometries, err := shaper.Geometries(ctx, nil)
+			// Dan: I'm concerned that `Geometries` will return unimplemented errors? Leaving as
+			// Debug due to FUD.
+			if err != nil {
+				logger.Debugw("`Geometries` method returned error.", "err", err)
+			} else {
+				//nolint
+				switch len(resGeometries) {
+				case 0:
+				default: // > 1
+					logger.Warnw(
+						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
+							"Keeping the first one.", "Size", len(resGeometries))
+					fallthrough
+				case 1:
+					geom := resGeometries[0]
+					// Dan: I feel it's appropriate to re-label the geometry here by concatenating
+					// the resource name with the geometry label. But the FrameSystem construction
+					// is going to copy and re-label the resulting geometry anyways.
+					linkInFrame.SetGeometry(geom)
+				}
+			}
+		} else {
+			// All resources should have a `Geometries` method. Naturally, they're allowed to leave
+			// it unimplemented. This log implies programmer error within the viam-server. For
+			// example, sensors do not seem to be `Shaped`.
+			logger.Debugw("Resource missing `Geometries` method.",
+				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
+		}
+
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
 	}
+
 	return parts, nil
 }
 
@@ -1282,19 +1376,6 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
-}
-
-// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
-// JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Name) (referenceframe.Model, error) {
-	part, err := r.ResourceByName(name)
-	if err != nil {
-		return nil, err
-	}
-	if k, ok := part.(framesystem.InputEnabled); ok {
-		return k.Kinematics(ctx)
-	}
-	return nil, referenceframe.ErrNoModelInformation
 }
 
 // GetPose returns the pose of the specified component in the given destination frame.
@@ -1441,8 +1522,44 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		r.initializing.Store(newConfig.Initial)
 	}()
 
-	if !r.reconfigureAllowed(ctx, newConfig, true) {
-		return
+	// No need to check whether reconfiguring is allowed if this is initialization.
+	var reconfigureAllowedErr error
+	if !r.initializing.Load() {
+		var reconfigureAllowed bool
+		reconfigureAllowed, reconfigureAllowedErr = r.reconfigureAllowed(ctx, newConfig.MaintenanceConfig)
+		if !reconfigureAllowed {
+			// Diff the configs to guess if we are skipping a "meaningful" reconfigure (network
+			// or resources changed), otherwise silently return.
+			diff, err := config.DiffConfigs(*r.Config(), *newConfig, false)
+			if err != nil {
+				r.logger.CErrorw(ctx, "error diffing the configs", "error", err)
+				return
+			}
+			if diff != nil && !diff.NetworkEqual {
+				if reconfigureAllowedErr != nil {
+					r.logger.CInfow(
+						ctx,
+						"Reconfigure NOT allowed due to error but Cloud/Auth/Network config changes will be applied",
+						"error",
+						reconfigureAllowedErr.Error(),
+					)
+				} else {
+					r.logger.CInfow(
+						ctx,
+						"Reconfigure NOT allowed by maintenance sensor but Cloud/Auth/Network config changes will be applied",
+						"sensor",
+						newConfig.MaintenanceConfig.SensorName,
+					)
+				}
+			} else if diff != nil && !diff.ResourcesEqual {
+				if reconfigureAllowedErr != nil {
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed due to error", "error", reconfigureAllowedErr.Error())
+				} else {
+					r.logger.CInfow(ctx, "Reconfigure NOT allowed by maintenance sensor", "sensor", newConfig.MaintenanceConfig.SensorName)
+				}
+			}
+			return
+		}
 	}
 
 	// If reconfigure is allowed, assume we are reconfiguring until this function
@@ -1641,6 +1758,23 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	if !r.initializing.Load() {
 		logVerb = "Reconfigur"
 		logNoun = "reconfiguration"
+		if newConfig.MaintenanceConfig != nil {
+			if reconfigureAllowedErr != nil {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed despite error while checking",
+					"error",
+					reconfigureAllowedErr.Error(),
+				)
+			} else {
+				r.logger.CInfow(
+					ctx,
+					"Reconfigure allowed by maintenance sensor",
+					"sensor",
+					newConfig.MaintenanceConfig.SensorName,
+				)
+			}
+		}
 	}
 	r.logger.CInfof(ctx, "%ving robot", logVerb)
 
@@ -2000,85 +2134,54 @@ func (r *localRobot) Version(ctx context.Context) (robot.VersionResponse, error)
 	return robot.Version, nil
 }
 
-// reconfigureAllowed returns whether the local robot can reconfigure.
-func (r *localRobot) reconfigureAllowed(ctx context.Context, cfg *config.Config, log bool) bool {
-	// Hack: if we should not log (allowance of reconfiguration is being checked
-	// from the `/restart_status` endpoint), then use a no-op logger. Otherwise
-	// use robot's logger.
-	logger := r.logger
-	if !log {
-		logger = logging.NewBlankLogger("")
-	}
-
+// reconfigureAllowed returns whether the local robot can reconfigure and any encountered
+// error.
+func (r *localRobot) reconfigureAllowed(ctx context.Context, mCfg *config.MaintenanceConfig) (bool, error) {
 	// Reconfigure is always allowed in the absence of a MaintenanceConfig.
-	if cfg.MaintenanceConfig == nil {
-		return true
+	if mCfg == nil {
+		return true, nil
 	}
 
-	// Maintenance config can be configured to block reconfigure based off of a sensor reading
-	// These sensors can be configured on the main robot, or a remote
-	// In situations where there are conflicting sensor names the following behavior happens
-	// Main robot and remote share sensor name -> main robot sensor is chosen
-	// Only remote has the sensor name -> remote sensor is read
-	// Multiple remotes share a senor name -> conflict error is returned and reconfigure happens
-	// To specify a specific remote sensor use the name format remoteName:sensorName to specify a remote sensor
-	name, err := resource.NewFromString(cfg.MaintenanceConfig.SensorName)
+	// If the sensor name cannot be parsed or found on the machine, return true (reconfigure
+	// allowed).
+	name, err := resource.NewFromString(mCfg.SensorName)
 	if err != nil {
-		logger.Warnf("sensor_name %s in maintenance config is not in a supported format", cfg.MaintenanceConfig.SensorName)
-		return true
+		return true, fmt.Errorf("sensor_name %s in maintenance config is not in a supported format", mCfg.SensorName)
 	}
 	sensorComponent, err := robot.ResourceFromRobot[sensor.Sensor](r, name)
 	if err != nil {
-		logger.Warnf("%s, Starting reconfiguration", err.Error())
-		return true
+		return true, fmt.Errorf("could not find sensor named %s: %w", mCfg.SensorName, err)
 	}
-	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, cfg.MaintenanceConfig.MaintenanceAllowedKey, sensorComponent)
-	// The boolean return value of checkMaintenanceSensorReadings
-	// (canReconfigure) is meaningful even when an error is also returned. Check
-	// it first.
-	if !canReconfigure {
-		if err != nil {
-			logger.CErrorw(ctx, "error reading maintenance sensor", "error", err)
-		} else {
-			logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Skipping reconfiguration.")
-		}
-		diff, err := config.DiffConfigs(*r.Config(), *cfg, false)
-		if err != nil {
-			logger.CErrorw(ctx, "error diffing the configs", "error", err)
-		}
-		// NetworkEqual checks if Cloud/Auth/Network are equal between configs
-		if diff != nil && !diff.NetworkEqual {
-			logger.Info("Machine reconfiguration skipped but Cloud/Auth/Network config section contain changes and will be applied.")
-		}
-		return false
-	}
-	logger.Info("maintenance_allowed_key found from readings on maintenance sensor. Starting reconfiguration")
 
-	return true
+	// If there was any error checking sensor readings on a valid sensor, return false
+	// (reconfigure NOT allowed).
+	canReconfigure, err := r.checkMaintenanceSensorReadings(ctx, mCfg.MaintenanceAllowedKey, sensorComponent)
+	if err != nil {
+		return false, fmt.Errorf("failed to check maintenance sensor readings: %w", err)
+	}
+	return canReconfigure, nil
 }
 
 // checkMaintenanceSensorReadings ensures that errors from reading a sensor are handled properly.
 func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 	maintenanceAllowedKey string, sensor resource.Sensor,
 ) (bool, error) {
-	timeout := 5 * time.Second
-	ctx, cancel := context.WithTimeout(ctx, timeout)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	// Context timeouts on this call should be handled by grpc
 	readings, err := sensor.Readings(ctx, map[string]interface{}{})
 	if err != nil {
-		// if the sensor errors or timeouts we return false to block reconfigure
-		return false, errors.Errorf("error reading maintenance sensor readings. %s", err.Error())
+		return false, fmt.Errorf("error reading maintenance sensor readings. %s", err.Error())
 	}
 	readingVal, ok := readings[maintenanceAllowedKey]
 	if !ok {
-		return false, errors.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
+		return false, fmt.Errorf("error getting maintenance_allowed_key %s from sensor reading", maintenanceAllowedKey)
 	}
 	canReconfigure, ok := readingVal.(bool)
 	if !ok {
-		return false, errors.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
+		return false, fmt.Errorf("maintenance_allowed_key %s is not a bool value", maintenanceAllowedKey)
 	}
+
 	return canReconfigure, nil
 }
 
@@ -2086,12 +2189,17 @@ func (r *localRobot) checkMaintenanceSensorReadings(ctx context.Context,
 // can be safely restarted if the robot is not in the middle of a reconfigure,
 // and a reconfigure would be allowed.
 func (r *localRobot) RestartAllowed() bool {
-	ctx := context.Background()
-
-	if !r.reconfiguring.Load() && r.reconfigureAllowed(ctx, r.Config(), false) {
-		return true
+	if r.reconfiguring.Load() {
+		return false
 	}
-	return false
+
+	// The error return is insignificant here; any reconfigureAllowed errors will be logged
+	// in the main reconfigure method. We do not want to log them every time viam-agent hits
+	// the restart_allowed endpoint.
+	//
+	//nolint:errcheck
+	reconfigureAllowed, _ := r.reconfigureAllowed(context.Background(), r.Config().MaintenanceConfig)
+	return reconfigureAllowed
 }
 
 // ListTunnels returns information on available traffic tunnels.
@@ -2105,5 +2213,9 @@ func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpo
 
 // GetResource implements resource.Provider for a localRobot by looking up a resource by name.
 func (r *localRobot) GetResource(name resource.Name) (resource.Resource, error) {
+	if name == framesystem.PublicServiceName {
+		return r.ResourceByName(framesystem.InternalServiceName)
+	}
+
 	return r.ResourceByName(name)
 }

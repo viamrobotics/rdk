@@ -125,7 +125,7 @@ func NewGeometryConfig(g Geometry) (*GeometryConfig, error) {
 		config.Label = gType.label
 	case *Mesh:
 		config.Type = MeshType
-		config.MeshData = gType.rawBytes
+		config.MeshData = gType.ensurePLYBytes()
 		config.MeshContentType = string(gType.fileType)
 		config.MeshFilePath = gType.originalFilePath
 		config.Label = gType.label

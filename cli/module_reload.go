@@ -385,10 +385,12 @@ func configureModule(
 	return partResponse.Part, needsRestart, nil
 }
 
-// localizeModuleID converts a module ID to its 'local mode' name.
+// localizeModuleID converts a module ID of the form "<namespace>:<moduleName>"
+// (or "<orgID>:<moduleName>" if no namespace is set) into a name suitable for
+// adding to a robot config, i.e. "<namespace>_<moduleName>" or "<orgID>_<moduleName>".
 // TODO(APP-4019): remove this logic after registry modules can have local ExecPath.
 func localizeModuleID(moduleID string) string {
-	return strings.ReplaceAll(moduleID, ":", "_") + "_from_reload"
+	return strings.ReplaceAll(moduleID, ":", "_")
 }
 
 // mutateModuleConfig edits the modules list to hot-reload with the given manifest.
