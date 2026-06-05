@@ -47,7 +47,6 @@ jobs:
               }
             }
             if (isAuthorized) {
-              // order of labeling events must be preserved, so two separate calls
               await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
               return true;
             }
