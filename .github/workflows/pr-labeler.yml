@@ -31,7 +31,10 @@ jobs:
             // sender to bypass the membership check.
             const trustedBots = ["viam-ci-org-reader[bot]"];
             const pr = context.payload.pull_request;
-            const isFork = pr.head.repo.full_name !== pr.base.repo.full_name;
+            // Optional chaining keeps this fail-closed: if the head fork repo
+            // was deleted, pr.head.repo is null and isFork becomes true, which
+            // denies the bot path and falls through to the membership check.
+            const isFork = pr.head.repo?.full_name !== pr.base.repo.full_name;
             const sender = context.payload.sender.login;
             let isAuthorized = !isFork && trustedBots.includes(sender);
             if (!isAuthorized) {
@@ -44,7 +47,7 @@ jobs:
               }
             }
             if (isAuthorized) {
-              // order of labeling events must be preserved, so two seperate calls
+              // order of labeling events must be preserved, so two separate calls
               await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
               return true;
             }
