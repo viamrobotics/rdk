@@ -1127,6 +1127,15 @@ func TestRawClientOperation(t *testing.T) {
 
 	echoStreamClient, err := echoclient.EchoMultiple(ctx, &echopb.EchoMultipleRequest{})
 	test.That(t, err, test.ShouldBeNil)
+	// Drain the stream before reading headers. Over WebRTC, the server-side stream
+	// can complete and cancel the context before Header() retrieves response metadata.
+	// Receiving all messages first ensures headers have arrived and are cached.
+	for {
+		_, recvErr := echoStreamClient.Recv()
+		if recvErr != nil {
+			break
+		}
+	}
 	md, err := echoStreamClient.Header()
 	test.That(t, err, test.ShouldBeNil)
 	checkOpID(md, true) // EchoMultiple is NOT filtered, so should have an opID
