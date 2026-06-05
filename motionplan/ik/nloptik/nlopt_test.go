@@ -1,4 +1,4 @@
-package ik
+package nloptik
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -24,18 +25,18 @@ func TestNloptFixedJoint(t *testing.T) {
 
 	seed := []float64{1, 1, -1, 1, 1, 0}
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
-	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
+	solveFunc := ik.NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
 
 	dof := m.DoF()
 	limits := make([]referenceframe.Limit, len(dof))
 	copy(limits, dof)
 	limits[0] = referenceframe.Limit{Min: seed[0], Max: seed[0]}
 
-	ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+	solver, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 	test.That(t, err, test.ShouldBeNil)
 
 	var totalAttempts atomic.Int32
-	solutions, _, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
+	solutions, _, err := ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{limits})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(solutions), test.ShouldBeGreaterThan, 0)
 	for _, sol := range solutions {
@@ -53,23 +54,23 @@ func TestCreateNloptSolver(t *testing.T) {
 	// matches xarm home end effector position
 	pos := spatialmath.NewPoseFromPoint(r3.Vector{X: 207, Z: 112})
 	seed := []float64{1, 1, -1, 1, 1, 0}
-	solveFunc := NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
+	solveFunc := ik.NewMetricMinFunc(motionplan.NewScaledSquaredNormMetric(pos, 100), m, logger)
 
 	t.Run("not exact", func(t *testing.T) {
-		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+		solver, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		var totalAttempts atomic.Int32
-		_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, _, err = ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("exact", func(t *testing.T) {
-		ik, err := CreateNloptSolver(logger, -1, true, true, time.Second)
+		solver, err := CreateNloptSolver(logger, -1, true, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		var totalAttempts atomic.Int32
-		_, meta, err := DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, meta, err := ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 		for idx, m := range meta {
 			logger.Debugf("seed: %d %#v", idx, m)
@@ -83,13 +84,13 @@ func TestCreateNloptSolver(t *testing.T) {
 		)
 
 		seed = m.InputFromProtobuf(&pb.JointPositions{Values: []float64{49, 28, -101, 0, -73, 0}})
-		solveFunc = NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
+		solveFunc = ik.NewMetricMinFunc(motionplan.NewSquaredNormMetric(pos), m, logger)
 
-		ik, err := CreateNloptSolver(logger, -1, false, true, time.Second)
+		solver, err := CreateNloptSolver(logger, -1, false, true, time.Second)
 		test.That(t, err, test.ShouldBeNil)
 
 		var totalAttempts atomic.Int32
-		_, _, err = DoSolve(context.Background(), ik, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
+		_, _, err = ik.DoSolve(context.Background(), solver, &totalAttempts, solveFunc, [][]float64{seed}, [][]referenceframe.Limit{m.DoF()})
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

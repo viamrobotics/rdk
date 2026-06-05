@@ -15,12 +15,12 @@ import (
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
-	solvers []*NloptIK
+	solvers []Solver
 	logger  logging.Logger
 }
 
-// CreateCombinedIKSolver creates a combined parallel IK solver that operates on a frame with a number of nlopt solvers equal to the
-// nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
+// CreateCombinedIKSolver creates a combined parallel IK solver that operates on a frame with a number of gradient-descent solvers equal to
+// the nCPU passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
 func CreateCombinedIKSolver(
 	logger logging.Logger,
@@ -33,11 +33,11 @@ func CreateCombinedIKSolver(
 	}
 
 	for i := 1; i <= nCPU; i++ {
-		nloptSolver, err := CreateNloptSolver(logger, -1, true, true, maxTime)
+		solver, err := NewGradDescentSolver(logger, -1, true, true, maxTime)
 		if err != nil {
 			return nil, err
 		}
-		ik.solvers = append(ik.solvers, nloptSolver)
+		ik.solvers = append(ik.solvers, solver)
 	}
 	return ik, nil
 }

@@ -37,7 +37,7 @@ type cBiRRTMotionPlanner struct {
 	psc    *planSegmentContext
 	logger logging.Logger
 
-	fastGradDescent *ik.NloptIK
+	fastGradDescent ik.Solver
 }
 
 // newCBiRRTMotionPlannerWithSeed creates a cBiRRTMotionPlanner object with a user specified random seed.
@@ -53,8 +53,8 @@ func newCBiRRTMotionPlanner(ctx context.Context, pc *planContext, psc *planSegme
 
 	var err error
 
-	// nlopt should try only once
-	c.fastGradDescent, err = ik.CreateNloptSolver(logger, 1, true, true, time.Second)
+	// gradient-descent solver should try only once
+	c.fastGradDescent, err = ik.NewGradDescentSolver(logger, 1, true, true, time.Second)
 	if err != nil {
 		return nil, err
 	}

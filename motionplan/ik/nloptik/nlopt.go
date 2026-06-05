@@ -1,10 +1,14 @@
 //go:build !windows && !no_cgo
 
-package ik
+// Package nloptik provides an nlopt-backed implementation of ik.Solver.
+// Blank-import this package (`import _ "go.viam.com/rdk/motionplan/ik/nloptik"`)
+// in any binary or test that needs gradient-descent inverse kinematics.
+package nloptik
 
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/rand"
 	"sync/atomic"
 	"time"
@@ -14,8 +18,20 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/motionplan/ik"
 	"go.viam.com/rdk/referenceframe"
 )
+
+func init() {
+	ik.RegisterDefaultSolver(func(
+		logger logging.Logger,
+		iter int,
+		exact, useRelTol bool,
+		maxTime time.Duration,
+	) (ik.Solver, error) {
+		return CreateNloptSolver(logger, iter, exact, useRelTol, maxTime)
+	})
+}
 
 var errBadBounds = errors.New("cannot set upper or lower bounds for nlopt, slice is empty. Are you trying to move a static frame?")
 
@@ -26,6 +42,12 @@ const (
 	nloptStepsPerIter = 4001
 	defaultMaxIter    = 5000
 	defaultJump       = 1e-8
+
+	// matches ik.defaultGoalThreshold (kept local so nloptik stays self-contained).
+	defaultGoalThreshold = 0.001 * 0.001
+
+	// matches ik.defaultLimitSeedPoint.
+	defaultLimitSeedPoint = 999
 )
 
 // NloptIK can solve IK problems with nlopt.
@@ -54,18 +76,18 @@ func CreateNloptSolver(
 	exact, useRelTol bool,
 	maxTime time.Duration,
 ) (*NloptIK, error) {
-	ik := &NloptIK{logger: logger}
+	s := &NloptIK{logger: logger}
 
 	if iter < 1 {
 		// default value
 		iter = defaultMaxIter
 	}
-	ik.maxIterations = iter
-	ik.exact = exact
-	ik.useRelTol = useRelTol
-	ik.maxTime = maxTime
+	s.maxIterations = iter
+	s.exact = exact
+	s.useRelTol = useRelTol
+	s.maxTime = maxTime
 
-	return ik, nil
+	return s, nil
 }
 
 type nloptSeedState struct {
@@ -79,15 +101,15 @@ type nloptSeedState struct {
 	logger logging.Logger
 }
 
-func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc CostFunc,
-	s []float64, limits []referenceframe.Limit, iterations *int,
+func (s *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc ik.CostFunc,
+	seed []float64, limits []referenceframe.Limit, iterations *int,
 ) (*nloptSeedState, error) {
 	var err error
 
 	ss := &nloptSeedState{
-		seed:   s,
+		seed:   seed,
 		meta:   fmt.Sprintf("s:%d", seedNumber),
-		logger: ik.logger,
+		logger: s.logger,
 	}
 
 	ss.lowerBound, ss.upperBound = limitsToArrays(limits)
@@ -103,7 +125,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	}
 
 	// Determine optimal jump values; start with default, and if gradient is zero, increase to 1 to try to avoid underflow.
-	ss.jump = ik.calcJump(ctx, defaultJump, s, limits, minFunc)
+	ss.jump = s.calcJump(ctx, defaultJump, seed, limits, minFunc)
 	ss.opt, err = nlopt.NewNLopt(NloptAlg, uint(len(ss.lowerBound)))
 	if err != nil {
 		return nil, errors.Wrap(err, "nlopt creation error")
@@ -121,7 +143,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	if err != nil {
 		return nil, err
 	}
-	if ik.useRelTol {
+	if s.useRelTol {
 		err = multierr.Combine(
 			ss.opt.SetFtolRel(defaultGoalThreshold),
 			ss.opt.SetXtolRel(defaultGoalThreshold),
@@ -134,7 +156,7 @@ func (ik *NloptIK) newSeedState(ctx context.Context, seedNumber int, minFunc Cos
 	return ss, nil
 }
 
-func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, iteration *int) nlopt.Func {
+func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc ik.CostFunc, iteration *int) nlopt.Func {
 	// checkVals is our set of inputs that we evaluate for distance
 	// Gradient is, under the hood, a unsafe C structure that we are meant to mutate in place.
 	return func(checkVals, gradient []float64) float64 {
@@ -169,14 +191,14 @@ func (nss *nloptSeedState) getMinFunc(ctx context.Context, minFunc CostFunc, ite
 }
 
 // Solve runs the actual solver and sends any solutions found to the given channel.
-func (ik *NloptIK) Solve(ctx context.Context,
-	solutionChan chan<- *Solution,
+func (s *NloptIK) Solve(ctx context.Context,
+	solutionChan chan<- *ik.Solution,
 	totalAttempts *atomic.Int32,
 	seeds [][]float64,
 	limits [][]referenceframe.Limit,
-	minFunc CostFunc,
+	minFunc ik.CostFunc,
 	rseed int,
-) (int, []SeedSolveMetaData, error) {
+) (int, []ik.SeedSolveMetaData, error) {
 	if len(seeds) == 0 {
 		return 0, nil, fmt.Errorf("no seeds")
 	}
@@ -196,18 +218,18 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 	}()
 
-	meta := []SeedSolveMetaData{}
+	meta := []ik.SeedSolveMetaData{}
 
 	iterations := 0
 
-	for i, s := range seeds {
-		ss, err := ik.newSeedState(ctx, i, minFunc, s, limits[i], &iterations)
+	for i, seed := range seeds {
+		ss, err := s.newSeedState(ctx, i, minFunc, seed, limits[i], &iterations)
 		if err != nil {
 			return 0, nil, err
 		}
 
 		seedStates = append(seedStates, ss)
-		meta = append(meta, SeedSolveMetaData{})
+		meta = append(meta, ik.SeedSolveMetaData{})
 	}
 
 	solutionsFound := 0
@@ -217,7 +239,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	// maxIterations < 10 opts out of the time-based extension, running to exactly that many
 	// iterations regardless of machine speed. This ensures deterministic behavior on slow or
 	// busy machines.
-	for (iterations < ik.maxIterations || (ik.maxIterations >= 10 && time.Since(itStart) < ik.maxTime)) && ctx.Err() == nil {
+	for (iterations < s.maxIterations || (s.maxIterations >= 10 && time.Since(itStart) < s.maxTime)) && ctx.Err() == nil {
 		iterations++
 
 		seedNumberRanged := seedNumber % len(seedStates)
@@ -228,7 +250,7 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		}
 
 		solutionRaw, result, nloptErr := ss.opt.Optimize(ss.seed)
-		ik.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
+		s.logger.Debugf("seed (%d) %v\n\t result: %0.2f  err: %v res: %v",
 			seedNumberRanged, logging.FloatArrayFormat{"", ss.seed},
 			result, nloptErr, logging.FloatArrayFormat{"", solutionRaw})
 
@@ -244,9 +266,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 			}
 		} else if solutionRaw == nil {
 			panic("why is solutionRaw nil")
-		} else if result < defaultGoalThreshold || !ik.exact {
+		} else if result < defaultGoalThreshold || !s.exact {
 			meta[seedNumberRanged].Valid++
-			solution := &Solution{
+			solution := &ik.Solution{
 				Configuration: solutionRaw,
 				Score:         result,
 				Exact:         result < defaultGoalThreshold,
@@ -267,8 +289,8 @@ func (ik *NloptIK) Solve(ctx context.Context,
 	return solutionsFound, meta, nil
 }
 
-func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
-	seed []float64, limits []referenceframe.Limit, minFunc CostFunc,
+func (s *NloptIK) calcJump(ctx context.Context, testJump float64,
+	seed []float64, limits []referenceframe.Limit, minFunc ik.CostFunc,
 ) []float64 {
 	jump := make([]float64, 0, len(seed))
 	lowerBound, upperBound := limitsToArrays(limits)
@@ -299,4 +321,38 @@ func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
 		}
 	}
 	return jump
+}
+
+// limitsToArrays mirrors the unexported helper in package ik.
+func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
+	//nolint: revive
+	var min, max []float64
+	for _, limit := range limits {
+		//nolint: revive
+		min = append(min, limit.Min)
+		//nolint: revive
+		max = append(max, limit.Max)
+	}
+	return min, max
+}
+
+// generateRandomPositions mirrors the unexported helper in package ik.
+func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float64) []float64 {
+	pos := make([]float64, len(lowerBound))
+	for i, l := range lowerBound {
+		u := upperBound[i]
+
+		if l == math.Inf(-1) {
+			l = -defaultLimitSeedPoint
+		}
+		if u == math.Inf(1) {
+			u = defaultLimitSeedPoint
+		}
+
+		jRange := math.Abs(u - l)
+		// Note that rand is unseeded and so will produce the same sequence of floats every time
+		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
+		pos[i] = randSeed.Float64()*jRange + l
+	}
+	return pos
 }

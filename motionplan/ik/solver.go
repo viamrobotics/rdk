@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"math/rand"
 	"sync/atomic"
 
 	"go.viam.com/rdk/logging"
@@ -15,9 +14,6 @@ import (
 )
 
 const (
-	// If limits are infinite, we use this to bound creating random seeds.
-	defaultLimitSeedPoint = 999
-
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
 
@@ -52,40 +48,6 @@ type Solution struct {
 	Score         float64
 	Exact         bool
 	Meta          string
-}
-
-// generateRandomPositions generates a random set of positions within the limits of this solver.
-func generateRandomPositions(randSeed *rand.Rand, lowerBound, upperBound []float64) []float64 {
-	pos := make([]float64, len(lowerBound))
-	for i, l := range lowerBound {
-		u := upperBound[i]
-
-		if l == math.Inf(-1) {
-			l = -defaultLimitSeedPoint
-		}
-		if u == math.Inf(1) {
-			u = defaultLimitSeedPoint
-		}
-
-		jRange := math.Abs(u - l)
-		// Note that rand is unseeded and so will produce the same sequence of floats every time
-		// However, since this will presumably happen at different positions to different joints, this shouldn't matter
-		pos[i] = randSeed.Float64()*jRange + l
-	}
-	return pos
-}
-
-func limitsToArrays(limits []referenceframe.Limit) ([]float64, []float64) {
-	//nolint: revive
-	var min, max []float64
-	for _, limit := range limits {
-		//nolint: revive
-		min = append(min, limit.Min)
-		//nolint: revive
-		max = append(max, limit.Max)
-	}
-
-	return min, max
 }
 
 // DoSolve is a synchronous wrapper around Solver.Solve.
