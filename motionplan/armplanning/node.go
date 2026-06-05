@@ -521,6 +521,57 @@ func (sss *SolutionSolvingState) shouldStopEarly() bool {
 	return false
 }
 
+// probeTightSeed runs a single nlopt iteration on the tight 5%-bounds seed
+// inline (no goroutines, no time budget). It's a cheap shortcut for the case
+// where we're already close to the goal and didn't add smart seeds — situations
+// where one focused gradient descent usually lands a valid solution and the
+// multi-thread setup is pure overhead. Returns (solutions, true) when the
+// probe produced a fully-validated solution (constraints + path check); the
+// caller can return those directly. Otherwise returns (_, false) and the
+// caller falls through to the normal multi-thread search. The tight seed is
+// the last entry in LinearSeeds/SeedLimits (appended by NewSolutionSolvingState
+// when !doingSmartSeeds; matches the "start · tight (5%)" description).
+func probeTightSeed(
+	ctx context.Context,
+	psc *PlanSegmentContext,
+	sss *SolutionSolvingState,
+	minFunc ik.CostFunc,
+	logger logging.Logger,
+) ([]*node, bool) {
+	probe, err := ik.CreateNloptSolver(logger.Sublogger("ik-probe"), 1, true, true, 0)
+	if err != nil {
+		return nil, false
+	}
+	tightIdx := len(sss.LinearSeeds) - 1
+
+	// Buffered to size 1 so NloptIK.Solve's send doesn't block; with iter=1 we
+	// produce at most one solution.
+	probeChan := make(chan *ik.Solution, 1)
+	if _, _, err := probe.Solve(
+		ctx, probeChan, &sss.totalIkAttempts,
+		[][]float64{sss.LinearSeeds[tightIdx]},
+		[][]referenceframe.Limit{sss.SeedLimits[tightIdx]},
+		minFunc, psc.pc.randseed.Int(),
+	); err != nil {
+		return nil, false
+	}
+	close(probeChan)
+	for sol := range probeChan {
+		sss.process(ctx, sol)
+	}
+
+	for _, n := range sss.solutions {
+		if n.checkPath {
+			sort.Slice(sss.solutions, func(i, j int) bool {
+				return sss.solutions[i].cost < sss.solutions[j].cost
+			})
+			logger.Debugf("probeTightSeed succeeded with cost %0.4f, skipping multi-thread search", sss.solutions[0].cost)
+			return sss.solutions, true
+		}
+	}
+	return nil, false
+}
+
 // getSolutions will initiate an IK solver for the given position and seed, collect solutions, and
 // score them by constraints.
 //
@@ -539,8 +590,17 @@ func getSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.L
 		return nil, err
 	}
 
-	// Spawn the IK solver to generate solutions until done
 	minFunc := psc.pc.LinearizeFSMetric(psc.pc.planOpts.GetGoalMetric(psc.goal))
+
+	// If we're already close to the goal and didn't add smart seeds, the tight
+	// 5% seed is usually all we need. Try one nlopt iteration on it inline —
+	// no goroutines, no time budget — and if it lands a fully-validated
+	// solution skip the multi-thread search entirely. Otherwise fall through.
+	if !solvingState.doingSmartSeeds && solvingState.goodCost <= 1 {
+		if sols, ok := probeTightSeed(ctx, psc, solvingState, minFunc, logger); ok {
+			return sols, nil
+		}
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
