@@ -21,8 +21,9 @@ jobs:
       startsWith(github.event.pull_request.head.ref, 'claude/')
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read   # list reviews + get the PR
-      issues: write         # post/update the "Review Required" comment
+      # write (not read) to post the "Review Required" comment: commenting on a
+      # PR needs pull-requests: write; issues: write does not cover PRs.
+      pull-requests: write
     steps:
       # Flaky-test fixes and dependabot bumps only require a single approval;
       # everything else needs two. Title/branch are read via env (never interpolated
