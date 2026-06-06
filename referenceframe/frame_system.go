@@ -501,6 +501,46 @@ func (sfs *FrameSystem) MergeFrameSystem(systemToMerge *FrameSystem, attachTo Fr
 	})
 }
 
+// FrameSystemWithTransforms returns a copy of the frame system augmented with the given
+// LinkInFrame transforms, each added as a static frame parented to the frame named by its
+// Parent(). The receiver is left unmodified, so a cached frame system may be reused across
+// multiple planning calls.
+//
+// An error is returned when a transform cannot be converted into a frame or its parent frame
+// does not exist in the system.
+func (sfs *FrameSystem) FrameSystemWithTransforms(transforms []*LinkInFrame) (*FrameSystem, error) {
+	newFS := NewEmptyFrameSystem(sfs.name)
+	if err := newFS.MergeFrameSystem(sfs, newFS.World()); err != nil {
+		return nil, err
+	}
+	if len(transforms) == 0 {
+		return newFS, nil
+	}
+
+	parts := make([]*FrameSystemPart, 0, len(transforms))
+	for _, tf := range transforms {
+		part, err := LinkInFrameToFrameSystemPart(tf)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert transform %q into a frame: %w", tf.Name(), err)
+		}
+		parts = append(parts, part)
+	}
+
+	// Sort the transforms amongst themselves (a transform may be parented to another transform).
+	// Transforms parented to an existing frame of the base system fall out as "unlinked" here and
+	// are attached by addUnlinkedParts, which looks them up in newFS.
+	sortedParts, unlinkedParts := TopologicallySortParts(parts)
+	for _, part := range sortedParts {
+		if err := addPartToFS(newFS, part); err != nil {
+			return nil, fmt.Errorf("failed to add transform %q to the frame system: %w", part.FrameConfig.Name(), err)
+		}
+	}
+	if err := addUnlinkedParts(newFS, unlinkedParts); err != nil {
+		return nil, err
+	}
+	return newFS, nil
+}
+
 // FrameSystemSubset will take a frame system and a frame in that system, and return a new frame system rooted
 // at the given frame and containing all descendents of it. The original frame system is unchanged.
 //

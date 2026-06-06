@@ -379,6 +379,85 @@ func TestFrameSystemGeometries(t *testing.T) {
 	}
 }
 
+func TestFrameSystemWithTransforms(t *testing.T) {
+	// Build a base frame system with a moving arm model carrying geometry.
+	jsonData, err := os.ReadFile(rdkutils.ResolveFile("config/data/model_frame_geoms.json"))
+	test.That(t, err, test.ShouldBeNil)
+	model, err := UnmarshalModelJSON(jsonData, "arm")
+	test.That(t, err, test.ShouldBeNil)
+	baseFS := NewEmptyFrameSystem("base")
+	test.That(t, baseFS.AddFrame(model, baseFS.World()), test.ShouldBeNil)
+
+	heldOffset := spatial.NewPoseFromPoint(r3.Vector{X: 0, Y: 0, Z: 150})
+	heldBox, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{50, 50, 50}, "heldObject")
+	test.That(t, err, test.ShouldBeNil)
+	// A transform parented to the moving arm frame (a held object), plus one parented to World.
+	heldLIF := NewLinkInFrame(model.Name(), heldOffset, "heldObject", heldBox)
+	staticBox, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{10, 10, 10}, "staticObject")
+	test.That(t, err, test.ShouldBeNil)
+	staticLIF := NewLinkInFrame(World, spatial.NewPoseFromPoint(r3.Vector{X: 100}), "staticObject", staticBox)
+
+	t.Run("transforms are merged into a copy, leaving the receiver unmodified", func(t *testing.T) {
+		augmented, err := baseFS.FrameSystemWithTransforms([]*LinkInFrame{heldLIF, staticLIF})
+		test.That(t, err, test.ShouldBeNil)
+
+		// The new frames exist in the augmented system...
+		test.That(t, augmented.Frame("heldObject"), test.ShouldNotBeNil)
+		test.That(t, augmented.Frame("staticObject"), test.ShouldNotBeNil)
+		// ...but not in the original, which must be safe to reuse across plans.
+		test.That(t, baseFS.Frame("heldObject"), test.ShouldBeNil)
+		test.That(t, baseFS.Frame("staticObject"), test.ShouldBeNil)
+	})
+
+	t.Run("held geometry tracks its moving parent frame", func(t *testing.T) {
+		augmented, err := baseFS.FrameSystemWithTransforms([]*LinkInFrame{heldLIF})
+		test.That(t, err, test.ShouldBeNil)
+
+		// At any configuration, the held geometry's world pose must equal the parent (arm EE)
+		// world pose composed with the held offset. This is what "moves with the arm" means -
+		// and is exactly what a frozen WorldState obstacle does NOT do.
+		heldWorldPoseAt := func(inputs []Input) spatial.Pose {
+			t.Helper()
+			eePose, err := model.Transform(inputs)
+			test.That(t, err, test.ShouldBeNil)
+			fsInputs := FrameSystemInputs{model.Name(): inputs}
+			tf, err := augmented.Transform(fsInputs.ToLinearInputs(), NewPoseInFrame("heldObject", spatial.NewZeroPose()), World)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, spatial.PoseAlmostCoincident(
+				tf.(*PoseInFrame).Pose(), spatial.Compose(eePose, heldOffset)), test.ShouldBeTrue)
+			return tf.(*PoseInFrame).Pose()
+		}
+
+		zeroCfg := make([]Input, len(model.DoF()))
+		bentCfg := make([]Input, len(model.DoF()))
+		for i := range bentCfg {
+			bentCfg[i] = 0.5
+		}
+		poseAtZero := heldWorldPoseAt(zeroCfg)
+		poseAtBent := heldWorldPoseAt(bentCfg)
+		// Sanity: a different configuration actually relocates the held geometry.
+		test.That(t, spatial.PoseAlmostCoincident(poseAtZero, poseAtBent), test.ShouldBeFalse)
+	})
+
+	t.Run("a transform with a missing parent fails loudly", func(t *testing.T) {
+		orphan := NewLinkInFrame("doesNotExist", spatial.NewZeroPose(), "orphan", heldBox)
+		_, err := baseFS.FrameSystemWithTransforms([]*LinkInFrame{orphan})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("no transforms returns an independent copy", func(t *testing.T) {
+		augmented, err := baseFS.FrameSystemWithTransforms(nil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, augmented, test.ShouldNotEqual, baseFS)
+		test.That(t, len(augmented.FrameNames()), test.ShouldEqual, len(baseFS.FrameNames()))
+		// Mutating the copy must not affect the original.
+		extra, err := NewStaticFrame("extra", spatial.NewZeroPose())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, augmented.AddFrame(extra, augmented.World()), test.ShouldBeNil)
+		test.That(t, baseFS.Frame("extra"), test.ShouldBeNil)
+	})
+}
+
 func TestReplaceFrame(t *testing.T) {
 	fs := NewEmptyFrameSystem("test")
 	// fill framesystem

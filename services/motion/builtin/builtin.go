@@ -435,6 +435,15 @@ func (ms *builtIn) getFrameSystem(ctx context.Context, transforms []*referencefr
 	return frameSys, nil
 }
 
+// worldStateWithoutTransforms returns the world state with its transforms removed.
+// Obstacles are preserved unchanged.
+func worldStateWithoutTransforms(ws *referenceframe.WorldState) (*referenceframe.WorldState, error) {
+	if ws == nil || len(ws.Transforms()) == 0 {
+		return ws, nil
+	}
+	return referenceframe.NewWorldState(ws.Obstacles(), nil)
+}
+
 func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.Logger) (motionplan.Plan, error) {
 	frameSys, err := ms.getFrameSystem(ctx, req.WorldState.Transforms())
 	if err != nil {
@@ -499,11 +508,16 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 
+	planWorldState, err := worldStateWithoutTransforms(req.WorldState)
+	if err != nil {
+		return nil, err
+	}
+
 	planRequest := &armplanning.PlanRequest{
 		FrameSystem:    frameSys,
 		Goals:          worldWaypoints,
 		StartState:     startState,
-		WorldState:     req.WorldState,
+		WorldState:     planWorldState,
 		Constraints:    req.Constraints,
 		PlannerOptions: planOpts,
 	}
@@ -587,11 +601,20 @@ func (ms *builtIn) planTeleop(
 		return nil, err
 	}
 
+	// WorldState transforms were merged into the planning frame system itself (via getFrameSystem),
+	// so they must not also be handed to armplanning.PlanMotion as the planner merges
+	// WorldState.Transforms() into the frame system as well, and merging the same frames twice would
+	// fail with a duplicate-frame error.
+	planWorldState, err := worldStateWithoutTransforms(req.WorldState)
+	if err != nil {
+		return nil, err
+	}
+
 	planRequest := &armplanning.PlanRequest{
 		FrameSystem:    frameSys,
 		Goals:          worldWaypoints,
 		StartState:     startState,
-		WorldState:     req.WorldState,
+		WorldState:     planWorldState,
 		Constraints:    req.Constraints,
 		PlannerOptions: planOpts,
 	}

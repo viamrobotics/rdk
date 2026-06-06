@@ -4,6 +4,7 @@ package armplanning
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,7 +43,19 @@ type PlanRequest struct {
 	// The use case here is that if a particularly difficult path must be planned between two poses, that can be done first to ensure
 	// feasibility, and then other plans can be requested to connect to that returned plan's configurations.
 	StartState *PlanState `json:"start_state"`
-	// The data representation of the robot's environment.
+	// WorldState is the data representation of the robot's environment.
+	//
+	// Its two parts are honored differently by the planner:
+	//   - Obstacles() are resolved to the world frame exactly once, at the start configuration, and
+	//     held static for the entire plan. Use them for fixed environment geometry. An obstacle
+	//     nominally expressed in a moving frame will be frozen at wherever that frame is at the start
+	//     of the move - it will NOT sweep with the arm.
+	//   - Transforms() (LinkInFrames) are merged into FrameSystem before planning (see
+	//     validatePlanRequest), each becoming a real frame parented to the frame it names. Geometry
+	//     carried by a transform parented to a moving frame therefore moves with that frame and is
+	//     collision-checked along the whole trajectory. This is the right way to model a held/attached
+	//     object (e.g. an item in a gripper). FrameSystem is not mutated - the transforms are applied
+	//     to a copy - so a frame system may be reused across plans.
 	WorldState *referenceframe.WorldState `json:"world_state"`
 	// Additional parameters constraining the motion of the robot.
 	Constraints *motionplan.Constraints `json:"constraints"`
@@ -119,6 +132,15 @@ func (req *PlanRequest) validatePlanRequest() error {
 			return err
 		}
 		req.WorldState = newWS
+	}
+
+	// Merge any WorldState transforms (LinkInFrames) into the planning frame system.
+	if transforms := req.WorldState.Transforms(); len(transforms) > 0 {
+		augmentedFS, err := req.FrameSystem.FrameSystemWithTransforms(transforms)
+		if err != nil {
+			return fmt.Errorf("failed to apply WorldState transforms to the planning frame system: %w", err)
+		}
+		req.FrameSystem = augmentedFS
 	}
 
 	// Validate the goals. Each goal with a pose must not also have a configuration specified. The parent frame of the pose must exist.
