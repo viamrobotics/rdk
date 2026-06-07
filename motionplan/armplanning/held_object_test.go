@@ -165,7 +165,7 @@ func TestPlanMotionHeldObjectCollisionCheckedAlongTrajectory(t *testing.T) {
 	})
 }
 
-// TestPlanMotionHeldObjectCollidesBetweenEndpoints demonstates that
+// TestPlanMotionHeldObjectCollidesBetweenEndpoints demonstrates that
 // a held object that is collision-free at BOTH the start and the goal configurations, yet collides
 // with the environment partway along the move. This is the case the previous (frozen-at-seed)
 // modeling could never catch and a goal-only check would miss: only a planner that carries the held
