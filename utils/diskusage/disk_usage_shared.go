@@ -6,55 +6,70 @@ import (
 	"path/filepath"
 )
 
-// MinFreeBytes is the minimum amount of free space, in bytes, that viam-server
-// expects to have available before it will download anything to disk. Below this
-// threshold downloads are skipped and a warning is logged.
-const MinFreeBytes uint64 = 10 * mib
+// MinFreeBytes is the floor of free space viam-server tries to keep on volumes it writes to
+// (downloads, local copies, unpacking). Falling below it always logs a warning, and refuses the
+// install only when VIAM_ENABLE_DISK_SPACE_BLOCK is set (otherwise log-only). Also a trigger for
+// the background monitor; see IsLow.
+const MinFreeBytes uint64 = 10 * mb
 
-// MaxUsedFraction is the volume-utilization fraction (0.0-1.0) at or above which
-// the disk-space monitor considers a volume low on space, independent of how many
-// absolute bytes remain free. At/above this utilization a warning is logged.
+// MaxUsedFraction is the utilization (0.0-1.0) at or above which the monitor flags a volume as
+// low, regardless of absolute bytes free.
 const MaxUsedFraction = 0.90
 
-// IsLowOnSpace reports whether the volume holding path is low on disk space and
-// returns the underlying usage so callers can log it. "Low" means the volume is at
-// or above MaxUsedFraction utilization, or has fewer than MinFreeBytes available.
-// path need not exist yet; see EnoughFreeSpace for how a not-yet-created path is
-// resolved to the volume it would live on.
+// This package has two non-interchangeable notions of "low on space", both via Usage (which
+// resolves a not-yet-created path to its nearest existing ancestor first):
+//
+//   - IsLow / IsLowOnSpace — health check: at/above MaxUsedFraction utilization OR under
+//     MinFreeBytes free.
+//   - EnoughFreeSpace — install guard: whether a specific byte count is available (no
+//     utilization rule), since callers pass a concrete requirement.
+//
+// "Available" is statfs f_bavail (unprivileged-usable), so running as root makes these a
+// conservative lower bound — the safe direction for a guard.
+
+// Usage resolves path to its nearest existing ancestor (path need not exist yet) and
+// returns the usage of the volume it lives on. Statfs reports usage for the whole volume
+// containing path, not just the directory at path.
+func Usage(path string) (DiskUsage, error) {
+	return Statfs(nearestExistingDir(path))
+}
+
+// IsLowOnSpace reports whether the volume holding path is low on disk space (see IsLow)
+// and returns the underlying usage so callers can log it.
 func IsLowOnSpace(path string) (usage DiskUsage, low bool, err error) {
-	usage, err = Statfs(nearestExistingDir(path))
+	usage, err = Usage(path)
 	if err != nil {
 		return DiskUsage{}, false, err
 	}
-	// usedFraction treats reserved blocks as used (we only have available-to-unprivileged
-	// and total), so this slightly overestimates utilization and errs toward warning early.
-	// If SizeBytes is 0 the fraction is NaN and the comparison is false, leaving the
-	// absolute-bytes check as the sole trigger.
-	usedFraction := 1 - usage.AvailablePercent()
-	low = usage.AvailableBytes < MinFreeBytes || usedFraction >= MaxUsedFraction
-	return usage, low, nil
+	return usage, usage.IsLow(), nil
 }
 
-// EnoughFreeSpace reports whether the filesystem/volume that path lives on has at
-// least minBytes available to an unprivileged user. The returned available value
-// is the number of bytes currently available on that volume, which callers can use
-// for logging. Note that Statfs reports usage for the whole volume containing path,
-// not just the directory at path.
-//
-// path need not exist yet: Statfs requires an existing path, so we walk up to the
-// nearest existing ancestor before measuring. A directory that has not been created
-// yet lives on the same volume as its nearest existing parent, so this reports the
-// volume it would be created on rather than failing with a not-found error.
-//
-// The available figure is the space reported as usable by an unprivileged user
-// (statfs f_bavail). A process running as root can typically write into the
-// filesystem's reserved blocks too, so when viam-server runs as root this is a
-// conservative lower bound: the check may report "not enough" while root could in
-// fact still write. That is the safe direction to err for a download guard.
+// IsLow reports whether this usage is low: at/above MaxUsedFraction utilization or under
+// MinFreeBytes free. Split out from IsLowOnSpace so it can be tested on synthetic values.
+// Reserved blocks count as used, so utilization is slightly overestimated (warns early). A
+// zero SizeBytes is treated as not-low (see below) rather than assessed.
+func (du DiskUsage) IsLow() bool {
+	// A zero total size is a pseudo-fs (procfs/sysfs) or garbage statfs result, not a real volume
+	// we can assess — treat it as not-low rather than warning every interval. (Mirrors
+	// checkDiskSpace, which proceeds on an outright statfs error.)
+	if du.SizeBytes == 0 {
+		return false
+	}
+	usedFraction := 1 - du.AvailablePercent()
+	return du.AvailableBytes < MinFreeBytes || usedFraction >= MaxUsedFraction
+}
+
+// EnoughFreeSpace reports whether the volume that path lives on has at least minBytes
+// available to an unprivileged user, returning that available figure for logging.
 func EnoughFreeSpace(path string, minBytes uint64) (enough bool, available uint64, err error) {
-	usage, err := Statfs(nearestExistingDir(path))
+	usage, err := Usage(path)
 	if err != nil {
 		return false, 0, err
+	}
+	// Don't refuse an install on a pseudo-fs/garbage (zero total size) result; let ENOSPC be the
+	// backstop, consistent with how checkDiskSpace handles a statfs error.
+	if usage.SizeBytes == 0 {
+		return true, usage.AvailableBytes, nil
 	}
 	return usage.AvailableBytes >= minBytes, usage.AvailableBytes, nil
 }
@@ -76,13 +91,13 @@ func nearestExistingDir(path string) string {
 	return path
 }
 
-// FormatBytes renders a byte count in human-friendly units (KiB/MiB/GiB/TiB).
+// FormatBytes renders a byte count in human-friendly units (KB/MB/GB/TB).
 func FormatBytes(b uint64) string {
 	return formatBytesU64(b)
 }
 
 // FormatBytesI64 renders a signed byte count in human-friendly units
-// (KiB/MiB/GiB/TiB), preserving the sign for negative values.
+// (KB/MB/GB/TB), preserving the sign for negative values.
 func FormatBytesI64(b int64) string {
 	if b < 0 {
 		return "-" + formatBytesU64(uint64(-b))
@@ -110,27 +125,27 @@ func (du DiskUsage) AvailablePercent() float64 {
 	return float64(du.AvailableBytes) / float64(du.SizeBytes)
 }
 
+// Decimal (1000-based) units, so the KB/MB/GB/TB labels below are accurate
+// (1 KB == 1000 bytes, not 1024).
 const (
-	_ = 1 << (10 * iota)
-	kib
-	mib
-	gib
-	tib
+	kb = 1000
+	mb = 1000 * kb
+	gb = 1000 * mb
+	tb = 1000 * gb
 )
 
 func formatBytesU64(b uint64) string {
-	// Units are binary (1024-based), so the labels are KiB/MiB/etc. rather than
-	// KB/MB. The comparisons use >= so that an exact power (e.g. 1 MiB) is rendered
-	// in its own unit instead of falling through to "1024.000 KiB".
+	// The comparisons use >= so an exact power (e.g. 1 MB) renders in its own unit
+	// instead of falling through to "1000.00 KB".
 	switch {
-	case b >= tib:
-		return fmt.Sprintf("%.2f TiB", float64(b)/tib)
-	case b >= gib:
-		return fmt.Sprintf("%.2f GiB", float64(b)/gib)
-	case b >= mib:
-		return fmt.Sprintf("%.2f MiB", float64(b)/mib)
-	case b >= kib:
-		return fmt.Sprintf("%.2f KiB", float64(b)/kib)
+	case b >= tb:
+		return fmt.Sprintf("%.2f TB", float64(b)/tb)
+	case b >= gb:
+		return fmt.Sprintf("%.2f GB", float64(b)/gb)
+	case b >= mb:
+		return fmt.Sprintf("%.2f MB", float64(b)/mb)
+	case b >= kb:
+		return fmt.Sprintf("%.2f KB", float64(b)/kb)
 	default:
 		return fmt.Sprintf("%d Bytes", b)
 	}

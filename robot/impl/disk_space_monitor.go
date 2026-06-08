@@ -14,55 +14,50 @@ import (
 // diskSpaceCheckInterval is how often viam-server checks free disk space.
 const diskSpaceCheckInterval = 5 * time.Minute
 
-// diskSpaceMonitor periodically checks the free space on the volume holding the
-// packages directory and logs a warning when the volume is at or above
-// diskusage.MaxUsedFraction utilization or has less than diskusage.MinFreeBytes free.
+// diskSpaceMonitor periodically logs a warning when the volume holding the packages directory
+// is low on space (see diskusage.IsLow). It watches only PackagePath's volume — not the
+// data-capture dir, which is the likelier disk-filler and may live on a different volume; the
+// data manager tracks that separately.
 type diskSpaceMonitor struct {
-	// path is any path on the volume we want to monitor. Statfs reports usage for
-	// the whole volume containing this path, not just the directory itself.
+	// path is any path on the monitored volume; Statfs reports usage for the whole volume.
 	path   string
 	logger logging.Logger
 	worker *goutils.StoppableWorkers
 }
 
-// newDiskSpaceMonitor starts a background worker that checks free disk space
-// immediately and then every diskSpaceCheckInterval. Call stop to shut it down.
-//
-// If path is empty there is no volume to monitor (this happens when a localRobot is
-// built without the entrypoint defaulting that fills in PackagePath), so we return
-// nil rather than spawning a worker that would log a "could not check" error every
-// interval. stop() is nil-safe so callers don't need to special-case this.
+// newDiskSpaceMonitor starts a background worker that checks free disk space immediately and
+// then every diskSpaceCheckInterval; call stop to shut it down. Returns nil when path is empty
+// (no volume to monitor); stop() is nil-safe so callers needn't special-case that.
 func newDiskSpaceMonitor(path string, logger logging.Logger) *diskSpaceMonitor {
 	if path == "" {
 		logger.Debug("no package path configured; disk space monitor disabled")
 		return nil
 	}
 	m := &diskSpaceMonitor{path: path, logger: logger}
-	m.worker = goutils.NewBackgroundStoppableWorkers(m.run)
+	// Run on a cancellable background worker so a hung network mount can't wedge startup, and run
+	// the first check immediately rather than after a full interval.
+	m.worker = goutils.NewBackgroundStoppableWorkers(func(ctx context.Context) {
+		m.check(ctx)
+		ticker := time.NewTicker(diskSpaceCheckInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				m.check(ctx)
+			}
+		}
+	})
 	return m
 }
 
-// run checks once up front so a low-space machine warns at startup rather than
-// after a full interval, then checks every diskSpaceCheckInterval until ctx is done.
-func (m *diskSpaceMonitor) run(ctx context.Context) {
-	m.check(ctx)
-	ticker := time.NewTicker(diskSpaceCheckInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			m.check(ctx)
-		}
-	}
-}
-
 func (m *diskSpaceMonitor) check(ctx context.Context) {
-	// Statfs is a blocking syscall with no context support and can hang on an
-	// unresponsive network mount. Run it off the worker goroutine so a hung call
-	// doesn't wedge shutdown: if ctx is canceled first we return; the (buffered)
-	// goroutine still completes its send and exits rather than blocking Stop.
+	// Statfs is an uncancellable syscall that can hang on a dead mount, so run it on a throwaway
+	// goroutine and select against ctx: if ctx is canceled first we return without waiting and Stop
+	// never blocks. resCh is buffered so that goroutine can finish its send and exit even after we
+	// return on cancel; only a permanently-hung statfs leaks a goroutine, and the worker stops
+	// ticking once canceled so at most one ever leaks.
 	type result struct {
 		usage diskusage.DiskUsage
 		low   bool
@@ -85,22 +80,35 @@ func (m *diskSpaceMonitor) check(ctx context.Context) {
 		m.logger.Debugw("could not check free disk space", "path", m.path, "error", res.err)
 		return
 	}
-	usedPercent := (1 - res.usage.AvailablePercent()) * 100
+	// Pseudo-filesystems can report SizeBytes == 0, making AvailablePercent NaN; show "unknown"
+	// rather than "NaN%".
+	usedPercent := "unknown"
+	if res.usage.SizeBytes > 0 {
+		usedPercent = fmt.Sprintf("%.1f%%", (1-res.usage.AvailablePercent())*100)
+	}
 	if res.low {
 		m.logger.Warnw("low free disk space",
 			"path", m.path,
 			"available", diskusage.FormatBytes(res.usage.AvailableBytes),
-			"used_percent", fmt.Sprintf("%.1f%%", usedPercent),
+			"used_percent", usedPercent,
 			"threshold", fmt.Sprintf("%.0f%% used or <%s free",
 				diskusage.MaxUsedFraction*100, diskusage.FormatBytes(diskusage.MinFreeBytes)))
 	} else {
-		// Logged at debug so a healthy machine doesn't emit a line every interval forever;
-		// the low-space case above is what we actually want operators to see.
+		// Debug so a healthy machine doesn't log every interval; the low-space case above is the signal.
 		m.logger.Debugw("free disk space",
 			"path", m.path,
 			"available", diskusage.FormatBytes(res.usage.AvailableBytes),
-			"used_percent", fmt.Sprintf("%.1f%%", usedPercent))
+			"used_percent", usedPercent)
 	}
+}
+
+// watchedPath returns the volume path this monitor watches, or "" if there is no monitor (nil).
+// Used to decide whether a reconfigure changed PackagePath enough to warrant a rebind.
+func (m *diskSpaceMonitor) watchedPath() string {
+	if m == nil {
+		return ""
+	}
+	return m.path
 }
 
 func (m *diskSpaceMonitor) stop() {

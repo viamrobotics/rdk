@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/logging"
 	putils "go.viam.com/rdk/robot/packages/testutils"
 	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils/diskusage"
 )
 
 func newPackageManager(t *testing.T,
@@ -394,6 +395,62 @@ func TestCloud(t *testing.T) {
 
 		validatePackageDir(t, packageDir, []config.PackageConfig{input})
 	})
+
+	t.Run("low disk space is retried, not terminal", func(t *testing.T) {
+		// Unlike a corrupt tar (terminal), a low-space refusal is transient: it must NOT be marked
+		// syncStatusFailed, so the next sync re-downloads once space frees up. Fail the unpack guard
+		// while letting the download pre-filter pass, then restore space and confirm the same version
+		// re-downloads.
+		packageDir, pm := newPackageManager(t, client, fakeServer, logger, "")
+		defer utils.UncheckedErrorFunc(func() error { return pm.Close(context.Background()) })
+
+		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
+		orig := enoughFreeSpace
+		// Report low only for the unpack step, identified by its target dir: the download pre-filter
+		// checks the ".download" archive path, while unpackFile extracts into a "*.tmp" dir. Keying
+		// on the call site (rather than the byte count each guard happens to pass) keeps this from
+		// breaking if the guards' required-bytes math changes.
+		enoughFreeSpace = func(path string, _ uint64) (bool, uint64, error) {
+			if strings.Contains(path, ".tmp") {
+				return false, 5, nil // unpack guard: report low
+			}
+			return true, 1 << 40, nil // download pre-filter: plenty
+		}
+		t.Cleanup(func() { enoughFreeSpace = orig })
+
+		input := config.PackageConfig{Name: "some-name-1", Package: "org1/test-model", Version: "v1", Type: "ml_model"}
+		fakeServer.StorePackage(input)
+
+		// First sync fails on the disk guard, surfaced as a disk-space error (not the misleading
+		// "try a different version" unzip message).
+		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "try a different version")
+
+		// The package must NOT be recorded as terminally failed, or it would never be retried.
+		statusFile, err := readStatusFile(input, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusFile.Status, test.ShouldNotEqual, syncStatusFailed)
+
+		// Restore free space and sync the same version again: it should re-download and succeed.
+		enoughFreeSpace = orig
+		err = pm.Sync(ctx, []config.PackageConfig{input}, []config.Module{})
+		test.That(t, err, test.ShouldBeNil)
+
+		statusFile, err = readStatusFile(input, pm.(*cloudManager).packagesDir)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, statusFile.Status, test.ShouldEqual, syncStatusDone)
+
+		// Two downloads total proves the second sync re-downloaded rather than treating the
+		// low-space failure as terminal.
+		_, downloadCount := fakeServer.RequestCounts()
+		test.That(t, downloadCount, test.ShouldEqual, 2)
+
+		err = pm.Cleanup(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		validatePackageDir(t, packageDir, []config.PackageConfig{input})
+	})
 }
 
 func validatePackageDir(t *testing.T, dir string, input []config.PackageConfig) {
@@ -574,7 +631,7 @@ func TestMissingDirEntry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// The inner MkdirAll in unpackFile will fail with 'permission denied' if we
 	// create the subdirectory with the wrong permissions.
-	err = unpackFile(context.Background(), file.Name(), dest)
+	err = unpackFile(context.Background(), logging.NewTestLogger(t), file.Name(), dest)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -662,8 +719,8 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 	})
 
 	t.Run("refuses when low on space and blocking is enabled", func(t *testing.T) {
-		// Inject a low-space result and confirm the download is refused before any file
-		// is written, and that we ask for 3x the Content-Length reported by the HEAD.
+		// Refused before any file is written, and the pre-filter sizes the requirement as
+		// Content-Length plus the MinFreeBytes floor.
 		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
 		orig := enoughFreeSpace
 		var gotRequired uint64
@@ -677,15 +734,45 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace", dest)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
-		test.That(t, gotRequired, test.ShouldEqual, uint64(len(handler.content))*3)
+		test.That(t, gotRequired, test.ShouldEqual,
+			uint64(len(handler.content))+diskusage.MinFreeBytes)
 
 		_, statErr := os.Stat(dest)
 		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
 	})
 
+	t.Run("pre-filter subtracts the partial already on disk", func(t *testing.T) {
+		// A resumable download only fetches the bytes it's missing, so the requirement is sized off
+		// the remaining bytes (Content-Length minus the partial), not the full artifact. Refuse so we
+		// assert the requirement without exercising resume, and confirm the partial is left intact for
+		// a later retry.
+		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
+		orig := enoughFreeSpace
+		var gotRequired uint64
+		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+			gotRequired = minBytes
+			return false, 5, nil
+		}
+		t.Cleanup(func() { enoughFreeSpace = orig })
+
+		dest := filepath.Join(packagesDir, "download-partial")
+		const partial = 7
+		test.That(t, os.WriteFile(dest, make([]byte, partial), 0o600), test.ShouldBeNil)
+
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-partial", dest)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
+		test.That(t, gotRequired, test.ShouldEqual,
+			uint64(len(handler.content)-partial)+diskusage.MinFreeBytes)
+
+		// The refusal must leave the partial in place so the next sync can resume from it.
+		stat, statErr := os.Stat(dest)
+		test.That(t, statErr, test.ShouldBeNil)
+		test.That(t, stat.Size(), test.ShouldEqual, int64(partial))
+	})
+
 	t.Run("proceeds when low on space but blocking is disabled (log-only default)", func(t *testing.T) {
-		// With blocking disabled (the default), a low-space result is logged but the
-		// download still proceeds to completion.
+		// With blocking disabled (the default), low space is logged but the download proceeds.
 		orig := enoughFreeSpace
 		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
 			return false, 5, nil
