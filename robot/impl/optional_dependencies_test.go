@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -2346,6 +2347,17 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 }
 
+// currentTargetID reports target's live instance id via a "probe":"id" DoCommand.
+// Comparing the id across a reconfigure tells whether target was rebuilt (changed id)
+// or not.
+func currentTargetID(ctx context.Context, t *testing.T, lr robot.Robot, targetName resource.Name) any {
+	targetRes, err := lr.ResourceByName(targetName)
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
+	test.That(t, err, test.ShouldBeNil)
+	return resp["instance_id"]
+}
+
 func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	// Setup:
 	//   - pointer-target (modular) declares an optional dep. When that dep's availability
@@ -2431,22 +2443,13 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 		test.That(t, holderResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
 
-	// currentTargetID returns target's live instance id. A change to that id between two
-	// calls means target was rebuilt; an unchanged id means it was not.
-	currentTargetID := func() any {
-		targetRes, err := lr.ResourceByName(targetName)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
-		test.That(t, err, test.ShouldBeNil)
-		return resp["instance_id"]
-	}
 
 	// Initial Reconfigure — builds target_v1 and holder_v1, then
 	// updateWeakAndOptionalDependents rebuilds target (to target_v2) and the module's
 	// cascade rebuilds holder (to holder_v2) so it points at target_v2.
 	lr.Reconfigure(ctx, &cfg)
 	assertHolderPointsToCurrentTarget("initial")
-	targetIDInitial := currentTargetID()
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
 	// Add an unrelated motor to advance the clock and re-trigger
 	// updateWeakAndOptionalDependents.
@@ -2461,7 +2464,7 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg2)
 	// An unrelated change leaves target's optional-dep snapshot untouched, so
 	// target must NOT be rebuilt — its instance is identical.
-	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertHolderPointsToCurrentTarget("after-unrelated-change")
 
 	// Reconfigure target's opt-dep (Components[0]) in place. opt-dep stays present,
@@ -2469,7 +2472,7 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	// target's recorded  optional-dep snapshot, so updateWeakAndOptionalDependents
 	// rebuilds target to a fresh instance, and the module cascade must rebuild holder
 	// to point at it.
-	targetIDBefore := currentTargetID()
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
 
 	cfg3 := cfg2
 	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
@@ -2478,7 +2481,7 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg3)
 
 	// target rebuilt to a new instance because its optional dependency's clock advanced.
-	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
 
 	// holder was cascaded along with that rebuild, so it points at the new target instance
 	// rather than the closed prior one.
@@ -2565,20 +2568,10 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 		}
 	}
 
-	// currentTargetID returns target's live instance id; comparing it across a reconfigure
-	// tells us whether target was rebuilt. Phrased to survive the upcoming
-	// Reconfigure->rebuild change (identity, not reconfigure counts).
-	currentTargetID := func() any {
-		targetRes, err := lr.ResourceByName(targetName)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
-		test.That(t, err, test.ShouldBeNil)
-		return resp["instance_id"]
-	}
 
 	lr.Reconfigure(ctx, &cfg)
 	assertAllHoldersPointToCurrentTarget("initial")
-	targetIDInitial := currentTargetID()
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
 	// Push an unrelated config change to advance the clock and re-trigger
 	// updateWeakAndOptionalDependents.
@@ -2594,13 +2587,13 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 	// Skip held: the unrelated change leaves target's optional-dep snapshot untouched, so
 	// target is not rebuilt and its instance is identical. (Without this, the holder==target
 	// checks below pass even if the skip regressed.)
-	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertAllHoldersPointToCurrentTarget("after-unrelated-change")
 
 	// Force an actual rebuild: change target's optional dependency (opt-dep, Components[0])
 	// in place so its clock bumps, staling target's snapshot and rebuilding target to a new
 	// instance. Capturing the id beforehand lets us assert the rebuild really fired.
-	targetIDBefore := currentTargetID()
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
 
 	cfg3 := cfg2
 	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
@@ -2609,7 +2602,7 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg3)
 
 	// target rebuilt to a new instance because its optional dependency's clock advanced.
-	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
 
 	// The fan-out is now meaningfully exercised: all three holders must have cascaded to
 	// the new target instance.
@@ -2702,20 +2695,10 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 		test.That(t, topResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
 
-	// currentTargetID returns target's live instance id; comparing it across a reconfigure
-	// tells us whether target was rebuilt. Phrased to survive the upcoming
-	// Reconfigure->rebuild change (identity, not reconfigure counts).
-	currentTargetID := func() any {
-		targetRes, err := lr.ResourceByName(targetName)
-		test.That(t, err, test.ShouldBeNil)
-		resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
-		test.That(t, err, test.ShouldBeNil)
-		return resp["instance_id"]
-	}
 
 	lr.Reconfigure(ctx, &cfg)
 	assertTopHolderReachesCurrentTarget("initial")
-	targetIDInitial := currentTargetID()
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
 	// Push an unrelated config change to advance the clock and re-trigger the cascade path.
 	cfg2 := cfg
@@ -2729,13 +2712,13 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg2)
 	// The unrelated change leaves target's optional-dep snapshot untouched, so
 	// target is not rebuilt and its instance is identical.
-	test.That(t, currentTargetID(), test.ShouldEqual, targetIDInitial)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertTopHolderReachesCurrentTarget("after-unrelated-change")
 
 	// Force an actual rebuild: change target's opt-dep (Components[0]) in place so
 	// its clock bumps, staling target's snapshot and rebuilding target to a new
 	// instance.
-	targetIDBefore := currentTargetID()
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
 
 	cfg3 := cfg2
 	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
@@ -2744,7 +2727,7 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg3)
 
 	// target rebuilt to a new instance because its optional dependency's clock advanced.
-	test.That(t, currentTargetID(), test.ShouldNotEqual, targetIDBefore)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
 
 	// The transitive cascade is now meaningfully exercised: top-holder must reach the new
 	// target instance through the freshly rebuilt mid-holder.

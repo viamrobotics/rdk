@@ -327,6 +327,16 @@ func (manager *resourceManager) updateRemoteResourceNames(
 			}
 		}
 
+		// Call SwapResource to always advance the graph's logical clock.
+		//   - New resource: AddNode above created the node and wired it to the shared logical
+		//     clock, but did not advance the clock. The SwapResource inside
+		//     NewConfiguredGraphNodeWithPrefix ran while the node's clock pointer was still nil,
+		//     so its bump was a no-op.
+		//   - Existing resource: we skipped the block above, so this just swaps in the refreshed
+		//     client and advances the clock.
+		//
+		// The clock advance is what lets a local resource with a weak/optional dependency on this
+		// remote resource be detected as stale by updateWeakAndOptionalDependents.
 		gNode.SwapResource(res, unknownModel, manager.opts.ftdc)
 
 		err = manager.resources.AddChild(resName, remoteName)

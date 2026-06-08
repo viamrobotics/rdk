@@ -948,10 +948,6 @@ func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
 		test.That(tb, err, test.ShouldBeNil)
 	})
 
-	// Sanity check: the remote resource is genuinely available on the main robot.
-	_, err = mainRobot.ResourceByName(prefixedName)
-	test.That(t, err, test.ShouldBeNil)
-
 	// The new remote resource matches weak1's component matcher, so a weak/optional
 	// update should reconfigure weak1 to include it. If adding the remote node didn't
 	// bump the clock and the round-counter short-circuited the update, weak1 will not
