@@ -95,15 +95,15 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := contextutils.FromIncomingContext(ctx); ok {
+	if incoming, ok := contextutils.Metadata(ctx); ok {
 		for k, vals := range incoming {
 			if k == "arbitrary-md-from-client" && len(vals) == 2 {
 				// test merge
-				ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val2")
-				ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val3-from-middle")
+				ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val2")
+				ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val3-from-middle")
 			}
 		}
-		ctx = contextutils.AppendToOutgoingContext(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
+		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
 	}
 
 	arbitraryMDToClient := metadata.MD{}

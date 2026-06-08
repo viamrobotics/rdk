@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -60,11 +61,28 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	callCtx, md := contextutils.ContextWithMetadata(ctx)
-	callCtx = contextutils.AppendToOutgoingContext(callCtx,
+	callCtx = contextutils.AppendMetadata(callCtx,
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val1",
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val2",
 		"opid", "custom",
 	)
+
+	localFunc := func(ctx context.Context) context.Context {
+		ctx = context.WithValue(ctx, "arbitrary-md-from-client", "fake")      //nolint
+		ctx = context.WithValue(ctx, "arbitrary-md-from-client-fake", "fake") //nolint
+		ctx = metadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client", "fake")
+		ctx = metadata.AppendToOutgoingContext(ctx, "arbitrary-md-from-client-fake", "fake")
+		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-local-func-modify", "real")
+		md, ok := contextutils.Metadata(ctx)
+		test.That(t, ok, test.ShouldEqual, true)
+		test.That(t, md.Len(), test.ShouldEqual, 3)
+		test.That(t, md.Get("arbitrary-md-from-client"), test.ShouldResemble,
+			[]string{"arbitrary-md-from-client-val1", "arbitrary-md-from-client-val2"})
+		test.That(t, md.Get("opid"), test.ShouldResemble, []string{"custom"})
+		test.That(t, len(md.Get("arbitrary-md-local-func-modify")), test.ShouldBeBetweenOrEqual, 1, 2)
+		return ctx
+	}
+	callCtx = localFunc(localFunc(callCtx))
 
 	_, err = giz.DoOne(callCtx, "1.0")
 	test.That(t, err, test.ShouldBeNil)
@@ -72,6 +90,9 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	// Client to Server sending:
 	// client to end md made it to the end
 	test.That(t, md["from_client_md_good"], test.ShouldResemble, []string{"true"})
+
+	// client to end md made that was modified twice by localFunc it to the end
+	test.That(t, md["from_client_md_modified_good"], test.ShouldResemble, []string{"true"})
 
 	// middle to end md made it to the end
 	test.That(t, md["from_middle_md_good"], test.ShouldResemble, []string{"true"})

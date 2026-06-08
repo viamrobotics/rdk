@@ -63,8 +63,8 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 
 	arbitraryMDFromServer := metadata.MD{}
 	foundKeys := 0
-	expectedKeys := 2
-	if incoming, ok := contextutils.FromIncomingContext(ctx); ok {
+	expectedKeys := 4
+	if incoming, ok := contextutils.Metadata(ctx); ok {
 		for k, vals := range incoming {
 			switch {
 			case k == "arbitrary-md-from-client" &&
@@ -73,18 +73,21 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 				slices.Contains(vals, "arbitrary-md-from-client-val2") &&
 				slices.Contains(vals, "arbitrary-md-from-client-val3-from-middle"):
 				arbitraryMDFromServer["from_client_md_good"] = []string{"true"}
-				foundKeys++
 			case k == "arbitrary-md-from-middle" &&
 				len(vals) == 1 &&
 				slices.Contains(vals, "arbitrary-md-from-middle-val1"):
 				arbitraryMDFromServer["from_middle_md_good"] = []string{"true"}
-				foundKeys++
 			case k == "opid":
 				// real opid is still present in metadata.FromIncomingContext
 				if len(vals) == 1 && slices.Contains(vals, "custom") {
 					arbitraryMDFromServer["custom_opid_good"] = []string{"true"}
 				}
+			case k == "arbitrary-md-local-func-modify":
+				if len(vals) == 2 && vals[0] == "real" && vals[1] == "real" {
+					arbitraryMDFromServer["from_client_md_modified_good"] = []string{"true"}
+				}
 			}
+			foundKeys++
 		}
 	}
 	if foundKeys != expectedKeys {

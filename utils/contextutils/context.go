@@ -154,9 +154,9 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 	return context.WithCancel(ctx)
 }
 
-// AppendToOutgoingContext functions like metadata.AppendToOutgoingContext, but also tracks the unique list of arbitrary keys
+// appendToOutgoingContext functions like metadata.AppendToOutgoingContext, but also tracks the unique list of arbitrary keys
 // under the arbitraryMetadataKey key.
-func AppendToOutgoingContext(ctx context.Context, kv ...string) context.Context {
+func appendToOutgoingContext(ctx context.Context, kv ...string) context.Context {
 	seenKeys := make(map[string]struct{})
 	arbitraryKeys := make([]string, 0, len(kv))
 	prefixedPairs := make([]string, len(kv))
@@ -174,8 +174,26 @@ func AppendToOutgoingContext(ctx context.Context, kv ...string) context.Context 
 	return metadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
 }
 
-// FromIncomingContext functions like metadata.FromIncomingContext but strips the prefix added by AppendToOutgoingContext.
-func FromIncomingContext(ctx context.Context) (metadata.MD, bool) {
+// AppendMetadata appends Viam arbitrary metadata to the context.
+func AppendMetadata(ctx context.Context, kv ...string) context.Context {
+	return appendToOutgoingContext(ctx, kv...)
+}
+
+// Metadata retrieves the Viam arbitrary metadata from the context.
+func Metadata(ctx context.Context) (metadata.MD, bool) {
+	// RPC
+	if md, ok := fromIncomingContext(ctx); ok {
+		return md, true
+	}
+	// local
+	if md, ok := fromOutgoingContext(ctx); ok {
+		return md, true
+	}
+	return metadata.MD{}, false
+}
+
+// fromIncomingContext functions like metadata.FromIncomingContext but strips the prefix added by appendToOutgoingContext.
+func fromIncomingContext(ctx context.Context) (metadata.MD, bool) {
 	incomingMD, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, false
@@ -189,8 +207,8 @@ func FromIncomingContext(ctx context.Context) (metadata.MD, bool) {
 	return md, true
 }
 
-// FromOutgoingContext functions like metadata.FromOutgoingContext but strips the prefix added by AppendToOutgoingContext.
-func FromOutgoingContext(ctx context.Context) (metadata.MD, bool) {
+// fromOutgoingContext functions like metadata.FromOutgoingContext but strips the prefix added by appendToOutgoingContext.
+func fromOutgoingContext(ctx context.Context) (metadata.MD, bool) {
 	outgoingMD, ok := metadata.FromOutgoingContext(ctx)
 	if !ok {
 		return nil, false
