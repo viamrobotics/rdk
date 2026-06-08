@@ -2443,7 +2443,6 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 		test.That(t, holderResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
 
-
 	// Initial Reconfigure — builds target_v1 and holder_v1, then
 	// updateWeakAndOptionalDependents rebuilds target (to target_v2) and the module's
 	// cascade rebuilds holder (to holder_v2) so it points at target_v2.
@@ -2567,8 +2566,6 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 			test.That(t, holderResp["instance_id"], test.ShouldEqual, wantID)
 		}
 	}
-
-
 	lr.Reconfigure(ctx, &cfg)
 	assertAllHoldersPointToCurrentTarget("initial")
 	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
@@ -2694,7 +2691,6 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 
 		test.That(t, topResp["instance_id"], test.ShouldEqual, targetResp["instance_id"])
 	}
-
 
 	lr.Reconfigure(ctx, &cfg)
 	assertTopHolderReachesCurrentTarget("initial")
