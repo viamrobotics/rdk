@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -349,7 +350,11 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 	// Note: okay with recursion for now. may want to check depth later...
 
 	makeRelName := func(relDir string, file *os.File) string {
-		return filepath.Join(relDir, filepath.Base(file.Name()))
+		// Intentional use of path instead of filepath so the wire format
+		// uses forward slashes regardless of sender OS — otherwise a Windows
+		// sender emits backslashes that *NIX receivers treat as literal
+		// filename characters rather than path separators.
+		return path.Join(relDir, filepath.Base(file.Name()))
 	}
 	var copyFiles func(relDir string, files []*os.File) error
 	copyFiles = func(relDir string, files []*os.File) error {
