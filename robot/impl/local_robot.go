@@ -101,7 +101,10 @@ type localRobot struct {
 	cloudConnSvc            icloud.ConnectionService
 	logger                  logging.Logger
 	activeBackgroundWorkers sync.WaitGroup
-	diskMonitor             *diskSpaceMonitor
+	// diskMonitor watches the package volume; reconfigure may swap it if PackagePath changes, and
+	// Close stops it, so diskMonitorMu guards the field (reconfigure runs on workers Close doesn't wait on).
+	diskMonitor   *diskSpaceMonitor
+	diskMonitorMu sync.Mutex
 
 	// reconfigurationLock manages access to the resource graph and nodes. If either may change, this lock should be taken.
 	reconfigurationLock sync.Mutex
@@ -271,7 +274,9 @@ func (r *localRobot) Close(ctx context.Context) error {
 		}
 	}
 	r.activeBackgroundWorkers.Wait()
+	r.diskMonitorMu.Lock()
 	r.diskMonitor.stop() // nil-safe; diskMonitor is nil when no package path is configured
+	r.diskMonitorMu.Unlock()
 	r.sessionManager.Close()
 
 	var err error
@@ -1766,6 +1771,14 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 	for _, mod := range initialDiff.Added.Modules {
 		r.manager.moduleManager.SetModuleStatusPending(mod.Name)
 	}
+	// PackagePath rarely changes at runtime, but the config allows it, so rebind the disk-space
+	// monitor to the new volume before syncing packages into it.
+	r.diskMonitorMu.Lock()
+	if newConfig.PackagePath != r.diskMonitor.watchedPath() {
+		r.diskMonitor.stop() // nil-safe
+		r.diskMonitor = newDiskSpaceMonitor(newConfig.PackagePath, r.logger)
+	}
+	r.diskMonitorMu.Unlock()
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
 	// in the config.

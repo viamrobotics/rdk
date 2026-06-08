@@ -533,25 +533,29 @@ func (m *cloudManager) downloadFileWithChecksum(
 		return "", "", fmt.Errorf("invalid status code %d", resp.StatusCode)
 	}
 
-	// Refuse to download if this specific package won't fit. We require 3x Content-Length
-	// to leave room for unpacking: peak disk usage is the compressed tarball plus its
-	// unpacked contents. Content-Length is -1 for chunked responses; in that case we can't
-	// size the download here and fall back to the MinFreeBytes floor enforced in installPackage.
+	// Cheap pre-filter: refuse before downloading something that obviously won't fit (artifact +
+	// reserved floor). Guard on > 0 both because a missing size can't be checked against and
+	// because uint64(-1) would wrap; our GCS-backed downloads always report a size, so this
+	// effectively always runs. If a size is ever absent, the unpackFile guard and ENOSPC backstop.
 	if resp.ContentLength > 0 {
-		required := uint64(resp.ContentLength) * 3
-		if enough, available, err := enoughFreeSpace(downloadPath, required); err != nil {
-			m.logger.Warnw("could not check free disk space before downloading package; proceeding",
-				"path", downloadPath, "error", err)
-		} else if !enough {
-			blocking := diskSpaceBlockingEnabled()
-			m.logger.Warnw("not enough free disk space to download package",
-				"path", downloadPath, "available", diskusage.FormatBytes(available),
-				"content_size", diskusage.FormatBytes(uint64(resp.ContentLength)),
-				"required", diskusage.FormatBytes(required), "blocking", blocking)
-			if blocking {
-				return "", "", fmt.Errorf("not enough free disk space to download package: %s available, %s required (3x download size)",
-					diskusage.FormatBytes(available), diskusage.FormatBytes(required))
+		// A resumable download appends a ranged GET to any partial already on disk, so only the
+		// remaining bytes get written. Requiring the full Content-Length would falsely refuse a
+		// download that's mostly complete (and double-count the partial, which already occupies space).
+		// Safe whether or not the server honors ranges: go-getter writes in place (no O_TRUNC), so the
+		// file only grows from the existing partial to Content-Length either way. The resume contract
+		// is exercised by the "resumable" test in cloud_package_manager_test.go.
+		remaining := uint64(resp.ContentLength)
+		if stat, statErr := os.Stat(downloadPath); statErr == nil {
+			if existing := uint64(stat.Size()); existing < remaining {
+				remaining -= existing
+			} else {
+				remaining = 0 // already have the whole file (or a stale larger one); only the floor matters
 			}
+		}
+		required := remaining + diskusage.MinFreeBytes
+		if _, err := checkDiskSpace(m.logger, downloadPath, "package download", required,
+			"content_size", diskusage.FormatBytes(uint64(resp.ContentLength))); err != nil {
+			return "", "", err
 		}
 	}
 

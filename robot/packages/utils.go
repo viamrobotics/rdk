@@ -35,11 +35,46 @@ const maxPartialAge = 72 * time.Hour
 // having to actually fill a disk.
 var enoughFreeSpace = diskusage.EnoughFreeSpace
 
-// diskSpaceBlockingEnabled reports whether low-space conditions should refuse a download.
-// Default (unset) is false: low-space is logged but the download proceeds (log-only).
-// See rutils.ViamEnableDiskSpaceBlockEnvVar.
+// errInsufficientDiskSpace is returned by checkDiskSpace when blocking is on and the volume is
+// low. Callers use errors.Is to tell a disk-space refusal from other failures (e.g. a corrupt
+// archive) and surface an accurate message.
+var errInsufficientDiskSpace = errors.New("not enough free disk space")
+
+// diskSpaceBlockingEnabled reports whether low-space conditions should refuse the operation
+// (download, local copy, or unpack). Default (unset) is false: low-space is logged but the
+// operation proceeds (log-only). See rutils.ViamEnableDiskSpaceBlockEnvVar.
 func diskSpaceBlockingEnabled() bool {
 	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
+}
+
+// checkDiskSpace checks whether the volume holding path has required bytes free. It returns
+// low=true whenever space is low (so callers can warn at most once) and always logs a warning
+// then. It returns an error (refusing the op) only when blocking is enabled via
+// ViamEnableDiskSpaceBlockEnvVar. A failed check is logged and treated as "proceed" so a broken
+// statfs never blocks installs. desc names the op in logs/errors; extraFields extend the warning.
+func checkDiskSpace(logger logging.Logger, path, desc string, required uint64, extraFields ...any) (low bool, err error) {
+	enough, available, err := enoughFreeSpace(path, required)
+	if err != nil {
+		logger.Warnw("could not check free disk space; proceeding",
+			append([]any{"desc", desc, "path", path, "error", err}, extraFields...)...)
+		return false, nil
+	}
+	if enough {
+		return false, nil
+	}
+	blocking := diskSpaceBlockingEnabled()
+	logger.Warnw("not enough free disk space",
+		append([]any{
+			"desc", desc, "path", path,
+			"available", diskusage.FormatBytes(available),
+			"required", diskusage.FormatBytes(required),
+			"blocking", blocking,
+		}, extraFields...)...)
+	if !blocking {
+		return true, nil
+	}
+	return true, fmt.Errorf("%w for %s: %s available, %s required",
+		errInsufficientDiskSpace, desc, diskusage.FormatBytes(available), diskusage.FormatBytes(required))
 }
 
 // create a partials folder for this URL and return a destination path for the file.
@@ -72,26 +107,9 @@ func installPackage(
 	supportsPartial bool,
 	installFn installCallback,
 ) error {
-	// Refuse to install if the volume holding the packages directory is critically low on
-	// free space. This is a coarse, size-unaware floor that guards every install path that
-	// funnels through here: cloud packages, ML models, and registry modules (all fetched over
-	// HTTP) as well as local tarball modules (copied from a local file). HTTP downloads are
-	// additionally guarded by a size-aware check against Content-Length in
-	// (*cloudManager).downloadFileWithChecksum; this floor is the fallback for paths with no
-	// known size (local copies, or downloads with no Content-Length).
-	if enough, available, err := enoughFreeSpace(packagesDir, diskusage.MinFreeBytes); err != nil {
-		logger.Warnw("could not check free disk space before downloading package; proceeding",
-			"package", p.Name, "packagesDir", packagesDir, "error", err)
-	} else if !enough {
-		blocking := diskSpaceBlockingEnabled()
-		logger.Warnw("not enough free disk space to download package",
-			"package", p.Name, "available", diskusage.FormatBytes(available),
-			"required", diskusage.FormatBytes(diskusage.MinFreeBytes), "blocking", blocking)
-		if blocking {
-			return fmt.Errorf("not enough free disk space to download package %q: %s available, %s required",
-				p.Name, diskusage.FormatBytes(available), diskusage.FormatBytes(diskusage.MinFreeBytes))
-		}
-	}
+	// Disk guarding happens where bytes are written: installFn pre-filters when it knows the
+	// artifact size (skip an obviously-too-big download or local copy), and unpackFile checks the
+	// floor incrementally as it extracts (the unpacked size isn't known up front).
 
 	// Create the parent directory for the package type if it doesn't exist
 	if err := os.MkdirAll(p.LocalDataParentDirectory(packagesDir), 0o700); err != nil {
@@ -155,8 +173,16 @@ func installPackage(
 	}()
 
 	// unzip archive.
-	err = unpackFile(ctx, dstPath, tmpDataPath)
+	err = unpackFile(ctx, logger, dstPath, tmpDataPath)
 	if err != nil {
+		// A low-space refusal is transient, not a bad archive: don't write syncStatusFailed
+		// (packageIsSynced treats "failed" as synced to avoid retrying forever, which would block
+		// re-download until the version changes). Without it the next sync retries once there's
+		// space. Surface as-is, not as "try a different version".
+		if errors.Is(err, errInsufficientDiskSpace) {
+			utils.UncheckedError(cleanup(packagesDir, p))
+			return err
+		}
 		statusFile := packageSyncFile{
 			PackageID:       p.Package,
 			Version:         p.Version,
@@ -209,7 +235,12 @@ func cleanup(packagesDir string, p config.PackageConfig) error {
 }
 
 // unpackFile extracts a tgz to a directory.
-func unpackFile(ctx context.Context, fromFile, toDir string) error {
+// unpackDiskCheckInterval batches the free-space re-check during unpack so we don't statfs per
+// file: a run of small files is checked once per interval of accumulated data, while any file
+// larger than the interval is checked on its own (its size is folded into the required floor).
+const unpackDiskCheckInterval = 8 * 1024 * 1024
+
+func unpackFile(ctx context.Context, logger logging.Logger, fromFile, toDir string) error {
 	if err := os.MkdirAll(toDir, 0o700); err != nil {
 		return err
 	}
@@ -233,6 +264,15 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 	}
 	links := []link{}
 	symlinks := []link{}
+
+	// Seeded at the interval so the first regular file is checked before we write it. The unpacked
+	// size is unknown up front (gzip compression hides it), so this incremental floor check — not
+	// an up-front reservation — is what keeps unpack from filling the disk.
+	bytesSinceDiskCheck := uint64(unpackDiskCheckInterval)
+	// In log-only mode we'd re-warn every interval; free space only drops during unpack and we
+	// proceed regardless, so latch after the first warning and stop checking. Blocking mode returns
+	// on the first low result below, so the latch is moot there.
+	loggedLowSpace := false
 
 	tarReader := tar.NewReader(archive)
 	for {
@@ -269,6 +309,23 @@ func unpackFile(ctx context.Context, fromFile, toDir string) error {
 			}
 
 		case tar.TypeReg:
+			// Re-check headroom before writing this file. Require room for the file itself plus the
+			// reserved floor, so even a single large member can't push the volume below MinFreeBytes.
+			// Runs of small files are batched (one statfs per ~interval of data) to avoid a syscall
+			// per tiny file; a file larger than the interval trips the check on its own. The caller's
+			// defer cleans up a partial unpack, so aborting leaves no debris.
+			bytesSinceDiskCheck += uint64(header.Size)
+			if !loggedLowSpace && bytesSinceDiskCheck >= unpackDiskCheckInterval {
+				bytesSinceDiskCheck = 0
+				required := diskusage.MinFreeBytes + uint64(header.Size)
+				low, err := checkDiskSpace(logger, toDir, "unpacking package", required)
+				if err != nil {
+					return err
+				}
+				// log-only mode: warned once; don't re-check for the rest of this unpack.
+				loggedLowSpace = low
+			}
+
 			// This is required because it is possible create tarballs without a directory entry
 			// but whose files names start with a new directory prefix
 			// Ex: tar -czf package.tar.gz ./bin/module.exe
