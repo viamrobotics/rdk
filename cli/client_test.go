@@ -984,6 +984,20 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 	})
 }
 
+// shellCopyTempDir wraps t.TempDir with a Windows-only post-test sleep
+// (registered as a Cleanup that fires before t.TempDir's own RemoveAll, since
+// Cleanups run in LIFO order). Diagnostic for RSDK-11617 — confirms whether
+// the "file in use" cleanup failures on Windows are timing-related (a kernel
+// or external-process handle that's still being released) versus a hard lock
+// from a leaked handle in our code.
+func shellCopyTempDir(t *testing.T) string {
+	dir := t.TempDir()
+	if runtime.GOOS == "windows" {
+		t.Cleanup(func() { time.Sleep(500 * time.Millisecond) })
+	}
+	return dir
+}
+
 func TestShellFileCopy(t *testing.T) {
 	logger := logging.NewTestLogger(t)
 
@@ -1095,7 +1109,7 @@ func TestShellFileCopy(t *testing.T) {
 		})
 
 		t.Run("single directory", func(t *testing.T) {
-			tempDir := t.TempDir()
+			tempDir := shellCopyTempDir(t)
 
 			args := []string{fmt.Sprintf("machine:%s", tfs.Root), tempDir}
 
@@ -1120,7 +1134,7 @@ func TestShellFileCopy(t *testing.T) {
 		})
 
 		t.Run("multiple files", func(t *testing.T) {
-			tempDir := t.TempDir()
+			tempDir := shellCopyTempDir(t)
 
 			args := []string{
 				fmt.Sprintf("machine:%s", tfs.SingleFileNested),
@@ -1158,7 +1172,7 @@ func TestShellFileCopy(t *testing.T) {
 
 			for _, preserve := range []bool{false, true} {
 				t.Run(fmt.Sprintf("preserve=%t", preserve), func(t *testing.T) {
-					tempDir := t.TempDir()
+					tempDir := shellCopyTempDir(t)
 
 					args := []string{fmt.Sprintf("machine:%s", tfs.Root), tempDir}
 
@@ -1224,7 +1238,7 @@ func TestShellFileCopy(t *testing.T) {
 		})
 
 		t.Run("single directory", func(t *testing.T) {
-			tempDir := t.TempDir()
+			tempDir := shellCopyTempDir(t)
 
 			args := []string{tfs.Root, fmt.Sprintf("machine:%s", tempDir)}
 
@@ -1249,7 +1263,7 @@ func TestShellFileCopy(t *testing.T) {
 		})
 
 		t.Run("multiple files", func(t *testing.T) {
-			tempDir := t.TempDir()
+			tempDir := shellCopyTempDir(t)
 
 			args := []string{
 				tfs.SingleFileNested,
@@ -1287,7 +1301,7 @@ func TestShellFileCopy(t *testing.T) {
 
 			for _, preserve := range []bool{false, true} {
 				t.Run(fmt.Sprintf("preserve=%t", preserve), func(t *testing.T) {
-					tempDir := t.TempDir()
+					tempDir := shellCopyTempDir(t)
 
 					args := []string{tfs.Root, fmt.Sprintf("machine:%s", tempDir)}
 
