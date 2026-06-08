@@ -384,6 +384,7 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 				}
 
 				err = copyFiles(makeRelName(relDir, f), filesInDir)
+				for _, f := range filesInDir {
 					utils.UncheckedError(f.Close())
 				}
 				if err != nil {
