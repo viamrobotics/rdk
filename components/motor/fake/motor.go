@@ -207,10 +207,15 @@ func (m *Motor) Properties(ctx context.Context, extra map[string]interface{}) (m
 
 // SetPower sets the given power percentage.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
+	ctx, finish := m.OpMgr.New(ctx)
+	defer finish()
+	return m.setPower(ctx, powerPct)
+}
+
+func (m *Motor) setPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.OpMgr.CancelRunning(ctx)
 	m.Logger.CDebugf(ctx, "Motor SetPower %f", powerPct)
 	m.setPowerPct(powerPct)
 
@@ -313,7 +318,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[s
 		finalPos = curPos + dir*math.Abs(revolutions)
 	}
 
-	err = m.SetPower(ctx, powerPct, nil)
+	err = m.setPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -361,7 +366,7 @@ func (m *Motor) GoTo(ctx context.Context, rpm, pos float64, extra map[string]int
 
 	powerPct, waitDur, _ := goForMath(m.MaxRPM, math.Abs(rpm), revolutions)
 
-	err = m.SetPower(ctx, powerPct, nil)
+	err = m.setPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -394,14 +399,16 @@ func (m *Motor) SetRPM(ctx context.Context, rpm float64, extra map[string]interf
 
 // Stop has the motor pretend to be off.
 func (m *Motor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, finish := m.OpMgr.New(ctx)
+	defer finish()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.OpMgr.CancelRunning(ctx)
 
 	m.Logger.CDebug(ctx, "Motor Stopped")
 	m.setPowerPct(0.0)
 	if m.Encoder != nil {
-		err := m.Encoder.SetSpeed(ctx, 0.0)
+		err := m.Encoder.SetSpeed(context.Background(), 0.0)
 		if err != nil {
 			return errors.Wrapf(err, "error in Stop from motor (%s)", m.Name())
 		}
