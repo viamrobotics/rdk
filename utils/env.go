@@ -108,6 +108,11 @@ const (
 
 	// ViamLogFileEnvVar if set will write logs to the specified file in addition to stdout (use -log-file cli arg to disable stdout).
 	ViamLogFileEnvVar = "VIAM_LOGFILE"
+
+	// ViamEnableDiskSpaceBlockEnvVar, if set to a true-like value, makes viam-server refuse
+	// to download packages/modules when the target volume is low on free space. When unset
+	// (the default), low-space conditions are logged but the download proceeds (log-only).
+	ViamEnableDiskSpaceBlockEnvVar = "VIAM_ENABLE_DISK_SPACE_BLOCK"
 )
 
 // EnvTrueValues contains strings that we interpret as boolean true in env vars.
