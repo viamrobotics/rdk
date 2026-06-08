@@ -60,8 +60,7 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	giz, err := gizmoapi.FromProvider(r, "gizmo1")
 	test.That(t, err, test.ShouldBeNil)
 
-	callCtx, md := contextutils.ContextWithMetadata(ctx)
-	callCtx = contextutils.AppendMetadata(callCtx,
+	callCtx := contextutils.AppendMetadata(ctx,
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val1",
 		"arbitrary-md-from-client", "arbitrary-md-from-client-val2",
 		"opid", "custom",
@@ -75,15 +74,17 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-local-func-modify", "real")
 		md, ok := contextutils.Metadata(ctx)
 		test.That(t, ok, test.ShouldEqual, true)
-		test.That(t, md.Len(), test.ShouldEqual, 3)
-		test.That(t, md.Get("arbitrary-md-from-client"), test.ShouldResemble,
+		test.That(t, len(md), test.ShouldEqual, 3)
+		test.That(t, md["arbitrary-md-from-client"], test.ShouldResemble,
 			[]string{"arbitrary-md-from-client-val1", "arbitrary-md-from-client-val2"})
-		test.That(t, md.Get("opid"), test.ShouldResemble, []string{"custom"})
-		test.That(t, len(md.Get("arbitrary-md-local-func-modify")), test.ShouldBeBetweenOrEqual, 1, 2)
+		test.That(t, md["opid"], test.ShouldResemble, []string{"custom"})
+		test.That(t, len(md["arbitrary-md-local-func-modify"]), test.ShouldBeBetweenOrEqual, 1, 2)
 		return ctx
 	}
 	callCtx = localFunc(localFunc(callCtx))
 
+	md := make(contextutils.ViamMD)
+	callCtx = context.WithValue(callCtx, contextutils.MetadataContextKey, md)
 	_, err = giz.DoOne(callCtx, "1.0")
 	test.That(t, err, test.ShouldBeNil)
 

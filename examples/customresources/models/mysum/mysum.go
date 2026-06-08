@@ -7,8 +7,6 @@ import (
 	"slices"
 	"sync"
 
-	"google.golang.org/grpc/metadata"
-
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
@@ -61,7 +59,7 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 		return 0, errors.New("must provide at least one number to sum")
 	}
 
-	arbitraryMDFromServer := metadata.MD{}
+	arbitraryMDFromServer := make(contextutils.ViamMD)
 	foundKeys := 0
 	expectedKeys := 4
 	if incoming, ok := contextutils.Metadata(ctx); ok {

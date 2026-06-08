@@ -308,7 +308,6 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 	// interceptors are applied in order from first to last
 	rc.dialOptions = append(
 		rc.dialOptions,
-		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor),
 		// error handling
 		rpc.WithUnaryClientInterceptor(rc.handleUnaryDisconnect),
 		rpc.WithStreamClientInterceptor(rc.handleStreamDisconnect),
@@ -326,6 +325,10 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
 		rpc.WithDialStatsHandler(otelStatsHandler),
+		// arbitrary metadata
+		//nolint:staticcheck
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptorDeprecated),
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module

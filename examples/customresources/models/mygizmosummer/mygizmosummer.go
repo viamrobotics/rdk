@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"sync"
 
-	"google.golang.org/grpc/metadata"
-
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
 	"go.viam.com/rdk/logging"
@@ -106,7 +104,7 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
 	}
 
-	arbitraryMDToClient := metadata.MD{}
+	arbitraryMDToClient := make(contextutils.ViamMD)
 	arbitraryMDToClient["arbitrary-md-to-client-from-middle"] = []string{"arbitrary-md-to-client-from-middle"}
 	// test merge
 	arbitraryMDToClient["arbitrary-md-to-client-from-end2"] = []string{"arbitrary-md-to-client-from-end2-val-from-middle"}

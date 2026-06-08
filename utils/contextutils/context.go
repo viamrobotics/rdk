@@ -13,7 +13,7 @@ import (
 
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
+	grpcmetadata "google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/utils"
@@ -43,7 +43,23 @@ const (
 	readCachedConfigTimeout               = 1 * time.Second
 )
 
-// ContextWithMetadata attaches a metadata map to the context.
+// ViamMD is a mapping from metadata keys to values.
+type ViamMD map[string][]string
+
+// Pairs is a helper function like metadata.Pairs.
+func Pairs(kv ...string) ViamMD {
+	return ViamMD(grpcmetadata.Pairs(kv...))
+}
+
+// Deprecated: ContextWithMetadata attaches a metadata map to the context.
+// Instead, to read arbitrary viam-metadata from server, use
+//
+//	md := make(contextutils.MD)
+//	ctx = context.WithValue(ctx, MetadataContextKey, md)
+//	resp, err := someRPCCall(ctx, ...)
+//	for k, v := range md {...}
+//
+//nolint:revive // ignore exported comment check
 func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
 	// If the context already has metadata, return that and leave the context untouched.
 	existingMD := ctx.Value(MetadataContextKey)
@@ -57,6 +73,39 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 	return ctx, md
 }
 
+// Deprecated: ContextWithMetadataUnaryClientInterceptorDeprecated attempts to read metadata from the gRPC header and
+// injects the metadata into the context if the caller has passed in a context with metadata.
+// It is only to be used with the also deprecated ContextWithMetadata. It does not work across modules.
+// Instead use ContextWithMetadataServerToClientUnaryClientInterceptor.
+//
+//nolint:revive // ignore exported comment check
+func ContextWithMetadataUnaryClientInterceptorDeprecated(
+	ctx context.Context,
+	method string,
+	req, reply interface{},
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	var header grpcmetadata.MD
+	if ctx.Value(MetadataContextKey) != nil {
+		opts = append(opts, grpc.Header(&header))
+	}
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	if err != nil {
+		return err
+	}
+
+	md := ctx.Value(MetadataContextKey)
+	if mdMap, ok := md.(map[string][]string); ok {
+		for key, value := range header {
+			mdMap[key] = value
+		}
+	}
+
+	return nil
+}
+
 // ContextWithMetadataServerToClientUnaryClientInterceptor attempts to read metadata from the gRPC header and
 // injects the metadata into the context if the caller has passed in a context with metadata.
 func ContextWithMetadataServerToClientUnaryClientInterceptor(
@@ -67,18 +116,22 @@ func ContextWithMetadataServerToClientUnaryClientInterceptor(
 	invoker grpc.UnaryInvoker,
 	opts ...grpc.CallOption,
 ) error {
-	var header metadata.MD
-	opts = append(opts, grpc.Header(&header))
+	var header grpcmetadata.MD
+	md := ctx.Value(MetadataContextKey)
+	if _, ok := md.(ViamMD); ok {
+		opts = append(opts, grpc.Header(&header))
+	}
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil {
 		return err
 	}
 
-	md := ctx.Value(MetadataContextKey)
-	if mdMap, ok := md.(map[string][]string); ok {
-		for _, prefixedKeys := range header.Get(arbitraryMetadataKey) {
-			if v := header.Get(prefixedKeys); len(v) > 0 {
-				mdMap[strings.TrimPrefix(prefixedKeys, arbitraryMetadataKey+"-")] = v
+	if len(header) > 0 {
+		if mdMap, ok := md.(ViamMD); ok {
+			for _, prefixedKeys := range header.Get(arbitraryMetadataKey) {
+				if v := header.Get(prefixedKeys); len(v) > 0 {
+					mdMap[strings.TrimPrefix(prefixedKeys, arbitraryMetadataKey+"-")] = v
+				}
 			}
 		}
 	}
@@ -94,7 +147,8 @@ func ContextWithMetadataServerToClientUnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (any, error) {
-	ctx, md := ContextWithMetadata(ctx)
+	md := ViamMD{}
+	ctx = context.WithValue(ctx, MetadataContextKey, md)
 	resp, err := handler(ctx, req)
 	if len(md) > 0 {
 		wire := toWireMD(md)
@@ -103,10 +157,10 @@ func ContextWithMetadataServerToClientUnaryServerInterceptor(
 	return resp, err
 }
 
-// toWireMD transforms the incoming MD to a new one where all keys are previxed with arbitraryMetadataKey-
+// toWireMD transforms the incoming ViamMD to a new one where all keys are previxed with arbitraryMetadataKey-
 // and adds a new mapping of arbitraryMetadataKey: [prefixedKeys]
-func toWireMD(md map[string][]string) metadata.MD {
-	wireMD := metadata.MD{}
+func toWireMD(md map[string][]string) grpcmetadata.MD {
+	wireMD := grpcmetadata.MD{}
 	prefixedKeys := make([]string, 0, len(md))
 	for k, v := range md {
 		wireKey := arbitraryMetadataKey + "-" + k
@@ -126,7 +180,7 @@ func ContextWithMetadataClientToServerUnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (any, error) {
-	md, ok := metadata.FromIncomingContext(ctx)
+	md, ok := grpcmetadata.FromIncomingContext(ctx)
 	if !ok {
 		return handler(ctx, req)
 	}
@@ -137,9 +191,9 @@ func ContextWithMetadataClientToServerUnaryServerInterceptor(
 	keys = slices.Compact(keys)
 
 	for _, prefixedKeys := range keys {
-		ctx = metadata.AppendToOutgoingContext(ctx, arbitraryMetadataKey, prefixedKeys)
+		ctx = grpcmetadata.AppendToOutgoingContext(ctx, arbitraryMetadataKey, prefixedKeys)
 		for _, val := range md.Get(prefixedKeys) {
-			ctx = metadata.AppendToOutgoingContext(ctx, prefixedKeys, val)
+			ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedKeys, val)
 		}
 	}
 	return handler(ctx, req)
@@ -170,8 +224,8 @@ func appendToOutgoingContext(ctx context.Context, kv ...string) context.Context 
 		seenKeys[kv[i]] = struct{}{}
 		arbitraryKeys = append(arbitraryKeys, arbitraryMetadataKey, wireKey)
 	}
-	ctx = metadata.AppendToOutgoingContext(ctx, prefixedPairs...)
-	return metadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
+	return grpcmetadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
 }
 
 // AppendMetadata appends Viam arbitrary metadata to the context.
@@ -180,7 +234,7 @@ func AppendMetadata(ctx context.Context, kv ...string) context.Context {
 }
 
 // Metadata retrieves the Viam arbitrary metadata from the context.
-func Metadata(ctx context.Context) (metadata.MD, bool) {
+func Metadata(ctx context.Context) (ViamMD, bool) {
 	// RPC
 	if md, ok := fromIncomingContext(ctx); ok {
 		return md, true
@@ -189,16 +243,16 @@ func Metadata(ctx context.Context) (metadata.MD, bool) {
 	if md, ok := fromOutgoingContext(ctx); ok {
 		return md, true
 	}
-	return metadata.MD{}, false
+	return ViamMD{}, false
 }
 
 // fromIncomingContext functions like metadata.FromIncomingContext but strips the prefix added by appendToOutgoingContext.
-func fromIncomingContext(ctx context.Context) (metadata.MD, bool) {
-	incomingMD, ok := metadata.FromIncomingContext(ctx)
+func fromIncomingContext(ctx context.Context) (ViamMD, bool) {
+	incomingMD, ok := grpcmetadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, false
 	}
-	md := metadata.MD{}
+	md := ViamMD{}
 	for k, v := range incomingMD {
 		if strings.HasPrefix(k, arbitraryMetadataKey+"-") {
 			md[strings.TrimPrefix(k, arbitraryMetadataKey+"-")] = v
@@ -208,12 +262,12 @@ func fromIncomingContext(ctx context.Context) (metadata.MD, bool) {
 }
 
 // fromOutgoingContext functions like metadata.FromOutgoingContext but strips the prefix added by appendToOutgoingContext.
-func fromOutgoingContext(ctx context.Context) (metadata.MD, bool) {
-	outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+func fromOutgoingContext(ctx context.Context) (ViamMD, bool) {
+	outgoingMD, ok := grpcmetadata.FromOutgoingContext(ctx)
 	if !ok {
 		return nil, false
 	}
-	md := metadata.MD{}
+	md := ViamMD{}
 	for k, v := range outgoingMD {
 		if strings.HasPrefix(k, arbitraryMetadataKey+"-") {
 			md[strings.TrimPrefix(k, arbitraryMetadataKey+"-")] = v
@@ -224,8 +278,8 @@ func fromOutgoingContext(ctx context.Context) (metadata.MD, bool) {
 
 // SetHeader functions like grpc.SetHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key
 // and prepends keys with the prefix arbitraryMetadataKey- to allow shadowing internal keys.
-func SetHeader(ctx context.Context, md metadata.MD) error {
-	wireMD := metadata.MD{}
+func SetHeader(ctx context.Context, md ViamMD) error {
+	wireMD := grpcmetadata.MD{}
 	for k, v := range md {
 		wireKey := arbitraryMetadataKey + "-" + k
 		wireMD[wireKey] = v
@@ -236,8 +290,8 @@ func SetHeader(ctx context.Context, md metadata.MD) error {
 
 // SendHeader functions like grpc.SendHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key
 // and prepends keys with the prefix arbitraryMetadataKey- to allow shadowing internal keys.
-func SendHeader(ctx context.Context, md metadata.MD) error {
-	wireMD := metadata.MD{}
+func SendHeader(ctx context.Context, md grpcmetadata.MD) error {
+	wireMD := grpcmetadata.MD{}
 	for k, v := range md {
 		wireKey := arbitraryMetadataKey + "-" + k
 		wireMD[wireKey] = v

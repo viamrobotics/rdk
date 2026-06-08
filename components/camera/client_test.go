@@ -670,7 +670,8 @@ func TestClientWithInterceptor(t *testing.T) {
 	// Construct a ContextWithMetadata to pass into NextPointCloud and check that the
 	// interceptor correctly injected the metadata from the gRPC response header into the
 	// context.
-	ctx, md := contextutils.ContextWithMetadata(context.Background())
+	md := make(contextutils.ViamMD)
+	ctx := context.WithValue(context.Background(), contextutils.MetadataContextKey, md)
 	pcB, err := camera1Client.NextPointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pcB.At(5, 5, 5)
