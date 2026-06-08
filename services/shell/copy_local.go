@@ -142,7 +142,6 @@ type localFileCopier struct {
 }
 
 func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
-
 	fileName := file.RelativeName
 	if copier.overrideName != "" {
 		// only change the first part of the file name for directory
