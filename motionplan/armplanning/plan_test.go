@@ -171,7 +171,7 @@ func BenchmarkGoalMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	metricFn := options.getGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
+	metricFn := options.GetGoalMetric(referenceframe.FrameSystemPoses{"xarm6": goalInFrame})
 	test.That(b, err, test.ShouldBeNil)
 
 	inps := referenceframe.NewLinearInputs()
@@ -306,7 +306,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 	err = fs.AddFrame(armModel, fs.World())
 	test.That(b, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger,
+	pc, err := NewPlanContext(ctx, logger,
 		&PlanRequest{
 			FrameSystem:    fs,
 			PlannerOptions: &PlannerOptions{},
@@ -331,7 +331,7 @@ func BenchmarkLinearizeFSMetric(b *testing.B) {
 		},
 	))
 
-	minFunc := pc.linearizeFSmetric(func(_ *motionplan.StateFS) float64 {
+	minFunc := pc.LinearizeFSMetric(func(_ *motionplan.StateFS) float64 {
 		return 0.0
 	})
 

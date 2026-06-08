@@ -1243,13 +1243,18 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 			}
 
 			if resConfig.Frame.Geometry != nil {
-				logger.Warn("An input enabled component erroneously included a geometry. Ignoring the geometry.")
+				// Dan: It seems common to use vmodutils Obstacles which are grippers, but rather
+				// than configuring the gripper to return geometries, the frame itself is configured
+				// with a geometry. Which was unexpected to me. If one simply wanted frame
+				// geometries, any kind of component would do.
+				logger.Debug("An input enabled component with kinematics ambiguously included a frame geometry.")
 			}
 
 			linkInFrame, err := (&referenceframe.LinkConfig{
 				ID:          frameName,
 				Translation: resConfig.Frame.Translation,
 				Orientation: resConfig.Frame.Orientation,
+				Geometry:    resConfig.Frame.Geometry,
 				Parent:      resConfig.Frame.Parent,
 			}).ParseConfig()
 			if err != nil {

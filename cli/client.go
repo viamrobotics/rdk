@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -3337,7 +3338,15 @@ func RobotsPartRemoveFragmentAction(ctx context.Context, cmd *cli.Command, args 
 			}
 		}
 	} else {
-		// No fragment provided, prompt user to select
+		if !isInteractive() {
+			names := make([]string, 0, len(fragmentNamesToIDs))
+			for name, id := range fragmentNamesToIDs {
+				names = append(names, fmt.Sprintf("  %s (%s)", name, id))
+			}
+			slices.Sort(names)
+			return fmt.Errorf("--fragment flag required in non-interactive mode; available fragments:\n%s",
+				strings.Join(names, "\n"))
+		}
 		whichFragment, whichID, err = client.selectFragment(fragmentNamesToIDs)
 		if err != nil {
 			return err
