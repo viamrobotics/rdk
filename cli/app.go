@@ -3448,7 +3448,7 @@ Run this command from within the module directory.`,
 						&cli.StringFlag{
 							Name: generalFlagResourceSubtype,
 							Usage: "resource subtype for the new model, for example arm, camera, or motion. see " +
-								"https://docs.viam.com/dev/reference/glossary/#term-subtype for more details",
+								"https://docs.viam.com/reference/glossary/#term-subtype for more details",
 						},
 						&cli.StringFlag{
 							Name:  generalFlagModelName,
