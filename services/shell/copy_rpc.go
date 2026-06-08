@@ -416,9 +416,6 @@ func (writer *shellFileCopyWriter) Copy(ctx context.Context, file File) error {
 	writer.singleWriterMu.Lock()
 	defer writer.singleWriterMu.Unlock()
 
-	defer func() {
-		utils.UncheckedError(file.Data.Close())
-	}()
 	fileInfo, err := file.Data.Stat()
 	if err != nil {
 		return err

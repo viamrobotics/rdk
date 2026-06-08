@@ -142,9 +142,6 @@ type localFileCopier struct {
 }
 
 func (copier *localFileCopier) Copy(ctx context.Context, file File) error {
-	defer func() {
-		utils.UncheckedError(file.Data.Close())
-	}()
 
 	fileName := file.RelativeName
 	if copier.overrideName != "" {
@@ -386,7 +383,10 @@ func (reader *localFileReadCopier) ReadAll(ctx context.Context) error {
 					filesInDir = append(filesInDir, entryFile)
 				}
 
-				if err := copyFiles(makeRelName(relDir, f), filesInDir); err != nil {
+				err = copyFiles(makeRelName(relDir, f), filesInDir)
+					utils.UncheckedError(f.Close())
+				}
+				if err != nil {
 					return err
 				}
 			}
