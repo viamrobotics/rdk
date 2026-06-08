@@ -77,12 +77,23 @@ func newAnalogCollector(resource interface{}, params data.CollectorParams) (data
 		}
 
 		ts := data.Timestamps{TimeRequested: timeRequested, TimeReceived: time.Now()}
-		return data.NewTabularCaptureResult(ts, pb.ReadAnalogReaderResponse{
-			Value:    int32(analogValue.Value),
-			MinRange: analogValue.Min,
-			MaxRange: analogValue.Max,
-			StepSize: analogValue.StepSize,
-		})
+		// The app data-ingestion pipeline expects board Analogs tabular data to contain
+		// exactly the "value" field. Its expected schema (newSensorDataFormatFieldsMap in
+		// the app repo) is built from toProto(&board.ReadAnalogReaderResponse{Value: 1}),
+		// which serializes via omitempty to {"value": ...}. Emitting min_range/max_range/
+		// step_size makes the struct fail the app's exact-field-set check
+		// (isNewSensorDataFormat) and get rejected with:
+		//   "no Analogs data found; make sure to correctly set resource configuration".
+		// So we emit only "value" here (always present, even when zero).
+		return data.CaptureResult{
+			Timestamps: ts,
+			Type:       data.CaptureTypeTabular,
+			TabularData: data.TabularData{Payload: &structpb.Struct{
+				Fields: map[string]*structpb.Value{
+					"value": structpb.NewNumberValue(float64(analogValue.Value)),
+				},
+			}},
+		}, nil
 	})
 	return data.NewCollector(cFunc, params)
 }

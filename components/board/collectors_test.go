@@ -49,11 +49,10 @@ func TestCollectors(t *testing.T) {
 			collector: board.NewAnalogCollector,
 			expected: []*datasyncpb.SensorData{{
 				Metadata: &datasyncpb.SensorMetadata{},
+				// The app data-ingestion pipeline expects board Analogs data to contain
+				// exactly the "value" field; see newAnalogCollector in collectors.go.
 				Data: &datasyncpb.SensorData_Struct{Struct: tu.ToStructPBStruct(t, map[string]any{
-					"value":     1,
-					"min_range": 0,
-					"max_range": 10,
-					"step_size": float64(float32(0.1)),
+					"value": 1,
 				})},
 			}},
 		},
