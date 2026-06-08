@@ -444,11 +444,15 @@ func (m *cloudManager) downloadFileWithChecksum(
 			m.logger.Warnw("could not check free disk space before downloading package; proceeding",
 				"path", downloadPath, "error", err)
 		} else if !enough {
-			m.logger.Warnw("not enough free disk space to download package; skipping download",
+			blocking := diskSpaceBlockingEnabled()
+			m.logger.Warnw("not enough free disk space to download package",
 				"path", downloadPath, "available", diskusage.FormatBytes(available),
-				"required", diskusage.FormatBytes(required))
-			return "", "", fmt.Errorf("not enough free disk space to download package: %s available, %s required (3x download size)",
-				diskusage.FormatBytes(available), diskusage.FormatBytes(required))
+				"content_size", diskusage.FormatBytes(uint64(resp.ContentLength)),
+				"required", diskusage.FormatBytes(required), "blocking", blocking)
+			if blocking {
+				return "", "", fmt.Errorf("not enough free disk space to download package: %s available, %s required (3x download size)",
+					diskusage.FormatBytes(available), diskusage.FormatBytes(required))
+			}
 		}
 	}
 

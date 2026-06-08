@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	putils "go.viam.com/rdk/robot/packages/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func newPackageManager(t *testing.T,
@@ -660,9 +661,10 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("refuses when low on space", func(t *testing.T) {
+	t.Run("refuses when low on space and blocking is enabled", func(t *testing.T) {
 		// Inject a low-space result and confirm the download is refused before any file
 		// is written, and that we ask for 3x the Content-Length reported by the HEAD.
+		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
 		orig := enoughFreeSpace
 		var gotRequired uint64
 		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
@@ -679,6 +681,23 @@ func TestDownloadFileWithChecksum(t *testing.T) {
 
 		_, statErr := os.Stat(dest)
 		test.That(t, os.IsNotExist(statErr), test.ShouldBeTrue)
+	})
+
+	t.Run("proceeds when low on space but blocking is disabled (log-only default)", func(t *testing.T) {
+		// With blocking disabled (the default), a low-space result is logged but the
+		// download still proceeds to completion.
+		orig := enoughFreeSpace
+		enoughFreeSpace = func(_ string, minBytes uint64) (bool, uint64, error) {
+			return false, 5, nil
+		}
+		t.Cleanup(func() { enoughFreeSpace = orig })
+
+		dest := filepath.Join(packagesDir, "download-lowspace-logonly")
+		_, _, err := pm.downloadFileWithChecksum(t.Context(), server.URL+"/download-lowspace-logonly", dest)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, statErr := os.Stat(dest)
+		test.That(t, statErr, test.ShouldBeNil)
 	})
 
 	t.Run("resumable", func(t *testing.T) {

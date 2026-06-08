@@ -35,6 +35,13 @@ const maxPartialAge = 72 * time.Hour
 // having to actually fill a disk.
 var enoughFreeSpace = diskusage.EnoughFreeSpace
 
+// diskSpaceBlockingEnabled reports whether low-space conditions should refuse a download.
+// Default (unset) is false: low-space is logged but the download proceeds (log-only).
+// See rutils.ViamEnableDiskSpaceBlockEnvVar.
+func diskSpaceBlockingEnabled() bool {
+	return rutils.GetenvBool(rutils.ViamEnableDiskSpaceBlockEnvVar, false)
+}
+
 // create a partials folder for this URL and return a destination path for the file.
 func partialDownloadPath(parentDir, rawURL string) (string, error) {
 	var filename string
@@ -76,11 +83,14 @@ func installPackage(
 		logger.Warnw("could not check free disk space before downloading package; proceeding",
 			"package", p.Name, "packagesDir", packagesDir, "error", err)
 	} else if !enough {
-		logger.Warnw("not enough free disk space to download package; skipping download",
+		blocking := diskSpaceBlockingEnabled()
+		logger.Warnw("not enough free disk space to download package",
 			"package", p.Name, "available", diskusage.FormatBytes(available),
-			"required", diskusage.FormatBytes(diskusage.MinFreeBytes))
-		return fmt.Errorf("not enough free disk space to download package %q: %s available, %s required",
-			p.Name, diskusage.FormatBytes(available), diskusage.FormatBytes(diskusage.MinFreeBytes))
+			"required", diskusage.FormatBytes(diskusage.MinFreeBytes), "blocking", blocking)
+		if blocking {
+			return fmt.Errorf("not enough free disk space to download package %q: %s available, %s required",
+				p.Name, diskusage.FormatBytes(available), diskusage.FormatBytes(diskusage.MinFreeBytes))
+		}
 	}
 
 	// Create the parent directory for the package type if it doesn't exist

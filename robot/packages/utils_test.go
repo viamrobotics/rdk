@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestInstallPackageDiskGuard(t *testing.T) {
@@ -43,7 +44,8 @@ func TestInstallPackageDiskGuard(t *testing.T) {
 		test.That(t, errors.Is(err, sentinel), test.ShouldBeTrue)
 	})
 
-	t.Run("refuses download when space is low", func(t *testing.T) {
+	t.Run("refuses download when space is low and blocking is enabled", func(t *testing.T) {
+		t.Setenv(rutils.ViamEnableDiskSpaceBlockEnvVar, "true")
 		withFreeSpaceCheck(t, func(string, uint64) (bool, uint64, error) {
 			return false, 5, nil
 		})
@@ -57,6 +59,21 @@ func TestInstallPackageDiskGuard(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not enough free disk space")
 		test.That(t, err.Error(), test.ShouldContainSubstring, pkg.Name)
+	})
+
+	t.Run("proceeds when space is low but blocking is disabled (log-only default)", func(t *testing.T) {
+		withFreeSpaceCheck(t, func(string, uint64) (bool, uint64, error) {
+			return false, 5, nil
+		})
+		called := false
+		sentinel := errors.New("install called")
+		err := installPackage(context.Background(), logger, t.TempDir(), "http://example.com/pkg.tar.gz", pkg, false,
+			func(ctx context.Context, url, dstPath string) (string, string, error) {
+				called = true
+				return "", "", sentinel
+			})
+		test.That(t, called, test.ShouldBeTrue)
+		test.That(t, errors.Is(err, sentinel), test.ShouldBeTrue)
 	})
 
 	t.Run("proceeds when the check itself errors", func(t *testing.T) {
