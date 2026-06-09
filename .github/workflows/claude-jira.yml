@@ -88,7 +88,7 @@ jobs:
       SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL: ${{ secrets.SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL }}
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
 
-  # Comment this run's URL (the Claude output log) on the PR just opened.
+  # Comment this run's URL (the Claude output log) on the flaky-test PR just opened.
   link-workflow-run:
     needs: call-jira
     if: always() && github.repository_owner == 'viamrobotics'
@@ -106,10 +106,16 @@ jobs:
         run: |
           set -euo pipefail
           # The reusable workflow enforces a "[<ticket_id>] ..." PR title.
-          pr_number="$(gh pr list --repo "$REPO" --state open --json number,title \
-            | jq -r --arg t "[${TICKET_ID}]" 'map(select(.title | startswith($t)))[0].number // empty')"
-          if [[ -z "$pr_number" ]]; then
+          pr="$(gh pr list --repo "$REPO" --state open --json number,title \
+            | jq -c --arg t "[${TICKET_ID}]" 'map(select(.title | startswith($t)))[0] // empty')"
+          if [[ -z "$pr" ]]; then
             echo "No open PR found for $TICKET_ID; nothing to link."
+            exit 0
+          fi
+          pr_number="$(jq -r '.number' <<<"$pr")"
+          # Only flaky-test PRs, matching flaky-pr-reviewer.yml / check-approvals.yml.
+          if [[ "$(jq -r '.title' <<<"$pr" | tr '[:upper:]' '[:lower:]')" != *flaky* ]]; then
+            echo "PR #$pr_number is not a flaky-test PR; nothing to link."
             exit 0
           fi
           marker="<!-- claude-workflow-run-link -->"
