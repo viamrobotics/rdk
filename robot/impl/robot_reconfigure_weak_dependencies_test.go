@@ -2,14 +2,12 @@ package robotimpl
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/testutils"
 
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/arm"
@@ -19,46 +17,16 @@ import (
 	"go.viam.com/rdk/components/base"
 	// TODO(RSDK-7884): change everything that depends on this import to a mock.
 	"go.viam.com/rdk/components/generic"
-	"go.viam.com/rdk/components/sensor"
-	// register fake sensor (model rdk:builtin:fake)
-	_ "go.viam.com/rdk/components/sensor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
-	rtestutils "go.viam.com/rdk/testutils"
-	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
 type someTypeWithWeakAndStrongDeps struct {
 	resource.Named
 	resource.TriviallyCloseable
-	resources     resource.Dependencies
-	reconfigCount int
-}
-
-func (s *someTypeWithWeakAndStrongDeps) Reconfigure(
-	ctx context.Context,
-	deps resource.Dependencies,
-	conf resource.Config,
-) error {
-	s.resources = deps
-	s.reconfigCount++
-	ourConf, err := resource.NativeConfig[*someTypeWithWeakAndStrongDepsConfig](conf)
-	if err != nil {
-		return err
-	}
-	for _, dep := range ourConf.deps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	for _, dep := range ourConf.weakDeps {
-		if _, err := deps.Lookup(dep); err != nil {
-			return err
-		}
-	}
-	return nil
+	resources resource.Dependencies
 }
 
 type someTypeWithWeakAndStrongDepsConfig struct {
@@ -75,7 +43,7 @@ func (s *someTypeWithWeakAndStrongDepsConfig) Validate(path string) ([]string, [
 }
 
 func TestUpdateWeakDependents(t *testing.T) {
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	var emptyCfg config.Config
 	test.That(t, emptyCfg.Ensure(false, logger), test.ShouldBeNil)
@@ -135,10 +103,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	weakCfg2 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:                weak1Name.Name,
-				API:                 weakAPI,
-				Model:               weakModel,
-				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -158,20 +125,18 @@ func TestUpdateWeakDependents(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	// reconfigCount is 0 if construction already saw base1 (snapshot stable,
-	// updateWeakAndOptionalDependents skips), or 1 if construction did not see base1
-	// and the follow-up reconfigure picked it up.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{0, 1})
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	// Reconfigure again with a new third `arm` component.
 	arm1Name := arm.Named("arm1")
 	weakCfg3 := config.Config{
 		Components: []resource.Config{
 			{
-				Name:                weak1Name.Name,
-				API:                 weakAPI,
-				Model:               weakModel,
-				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
+				Name:  weak1Name.Name,
+				API:   weakAPI,
+				Model: weakModel,
 			},
 			{
 				Name:  base1Name.Name,
@@ -187,7 +152,6 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg3.Ensure(false, logger), test.ShouldBeNil)
-	prevReconfigCount := weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg3)
 
 	weakRes, err = robot.ResourceByName(weak1Name)
@@ -198,41 +162,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, arm1Name)
-	// Adding arm1 changes weak1's resolved weak-dep set, so updateWeakAndOptionalDependents
-	// reconfigures it exactly once.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
-
-	// Reconfigure removing arm1 while weak1 and base1 stay. weak1 survives but its
-	// resolved weak set shrinks back to just base1 so updateWeakAndOptionalDependents
-	// reconfigures weak1 exactly once. This is the subtractive mirror of adding arm1 above.
-	weakCfg4 := config.Config{
-		Components: []resource.Config{
-			{
-				Name:                weak1Name.Name,
-				API:                 weakAPI,
-				Model:               weakModel,
-				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
-			},
-			{
-				Name:  base1Name.Name,
-				API:   base.API,
-				Model: fake.Model,
-			},
-		},
-	}
-	test.That(t, weakCfg4.Ensure(false, logger), test.ShouldBeNil)
-	prevReconfigCount = weak1.reconfigCount
-	robot.Reconfigure(context.Background(), &weakCfg4)
-
-	weakRes, err = robot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
-	test.That(t, err, test.ShouldBeNil)
-	// arm1 dropped out of the resolved weak set; base1 remains.
-	test.That(t, weak1.resources, test.ShouldHaveLength, 1)
-	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	test.That(t, weak1.resources, test.ShouldNotContainKey, arm1Name)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	base2Name := base.Named("base2")
 	weakCfg5 := config.Config{
@@ -262,14 +194,15 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg5.Ensure(false, logger), test.ShouldBeNil)
-	prevReconfigCount = weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg5)
 
 	_, err = robot.ResourceByName(weak1Name)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not initialized")
-	// reconfigCount does not change: the error happens before Reconfigure is called on the resource.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount)
+	// reconfigCount will not increment as the error happens before Reconfigure is called on the resource.
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 2)
 
 	weakCfg6 := config.Config{
 		Components: []resource.Config{
@@ -303,10 +236,10 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
-	// reconfigCount will reset as the resource was destroyed after the previous
-	// configuration failure. The new instance reconfigures 0 times if construction
-	// already saw both bases, or 1 time if it did not.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{0, 1})
+	// reconfigCount will reset as the resource was destroyed after the previous configuration failure.
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 3)
 
 	weakCfg7 := config.Config{
 		Components: []resource.Config{
@@ -333,7 +266,6 @@ func TestUpdateWeakDependents(t *testing.T) {
 		},
 	}
 	test.That(t, weakCfg7.Ensure(false, logger), test.ShouldBeNil)
-	prevReconfigCount = weak1.reconfigCount
 	robot.Reconfigure(context.Background(), &weakCfg7)
 
 	weakRes, err = robot.ResourceByName(weak1Name)
@@ -343,9 +275,9 @@ func TestUpdateWeakDependents(t *testing.T) {
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
 	test.That(t, weak1.resources, test.ShouldContainKey, base2Name)
-	// In-place Reconfigure for the config change adds exactly one; the subsequent
-	// updateWeakAndOptionalDependents pass sees an unchanged dep set and skips.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 3)
 }
 
 func TestWeakDependentsExplicitDependency(t *testing.T) {
@@ -353,7 +285,7 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// The robot has 3 components:
 	//   * base1 and base2: two fake base components.
 	//   * weak1: a weak component that depends on all components and also has an explicit dependency on base1.
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Register a `Resource` that generates weak dependencies. Specifically instance of
 	// this resource will depend on every `component` resource.
@@ -437,10 +369,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	// 0 if construction already saw base1, base2, and motion (snapshot stable so the
-	// post-levels updateWeakAndOptionalDependents skips); 1 if construction did not see
-	// all of them and the follow-up pass picked up the rest.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{0, 1})
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	lRobot := robot.(*localRobot)
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
@@ -475,7 +406,6 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 2) and `lastWeakDependentsRound`
 	//    will be updated to 5.
 	t.Log("Reconfigure base1")
-	prevReconfigCount := weak1.reconfigCount
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -483,9 +413,9 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	// base1 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
-	// sees a stale snapshot for base1 and reconfigures weak1 exactly once.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
@@ -512,7 +442,6 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 3) and `lastWeakDependentsRound`
 	//    will be updated to 6.
 	t.Log("Reconfigure base2")
-	prevReconfigCount = weak1.reconfigCount
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -520,24 +449,27 @@ func TestWeakDependentsExplicitDependency(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	// base2 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
-	// reconfigures weak1 exactly once more.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount
-	postReconfigCount := weak1.reconfigCount
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(weak1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 }
 
 func TestWeakDependentsDependedOn(t *testing.T) {
@@ -546,7 +478,7 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//   * base1: a fake base component that has an explicit dependency on weak1.
 	//   * base2: a fake base component.
 	//   * weak1: a weak component that depends on all components.
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	// Register a `Resource` that generates weak dependencies. Specifically, instances of
 	// this resource will depend on every `component` resource.
@@ -632,11 +564,9 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	// Assert that the weak dependency was tracked.
 	test.That(t, weak1.resources, test.ShouldHaveLength, 2)
 	test.That(t, weak1.resources, test.ShouldContainKey, base1Name)
-	// updateWeakAndOptionalDependents fires once at the level where base1 (which
-	// explicitly depends on weak1) is built. After that the resolved weak-dep set
-	// includes base1, base2, motion; the post-levels pass sees the same set and skips.
-	// Construction may or may not have seen base2 before that, giving 1 or 2 reconfigures.
-	test.That(t, weak1.reconfigCount, test.ShouldBeIn, []int{1, 2})
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	lRobot := robot.(*localRobot)
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 3)
@@ -666,7 +596,6 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    will be updated to 5.
 
 	t.Log("Reconfigure base1")
-	prevReconfigCount := weak1.reconfigCount
 	weakCfg.Components[1].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -674,9 +603,9 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	// base1 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
-	// sees that weak1's snapshot of base1's clock is stale and reconfigures weak1.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 4)
 
@@ -703,7 +632,6 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	//    weak1 will be reconfigured (to increase weak1.reconfigCount to 4) and `lastWeakDependentsRound`
 	//    will be updated to 6.
 	t.Log("Reconfigure base2")
-	prevReconfigCount = weak1.reconfigCount
 	weakCfg.Components[2].Attributes = rutils.AttributeMap{"version": 1}
 	robot.Reconfigure(context.Background(), &weakCfg)
 
@@ -711,250 +639,25 @@ func TestWeakDependentsDependedOn(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](weakRes)
 	test.That(t, err, test.ShouldBeNil)
-	// base2 rebuilds, advancing its graph clock; updateWeakAndOptionalDependents
-	// reconfigures weak1 again.
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, prevReconfigCount+1)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	test.That(t, lRobot.lastWeakAndOptionalDependentsRound.Load(), test.ShouldEqual, 5)
 
 	// check that calling getDependencies for either weak1 or base1 does not have side effects
 	// such as calling `updateWeakDependents` and changing weak1.reconfigCount
-	postReconfigCount := weak1.reconfigCount
 	node, ok := lRobot.manager.resources.Node(weak1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(weak1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 
 	node, ok = lRobot.manager.resources.Node(base1Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	lRobot.getDependencies(base1Name, node)
-	test.That(t, weak1.reconfigCount, test.ShouldEqual, postReconfigCount)
-}
-
-// TestWeakReconfigureFailureMarksUnhealthy verifies the framework marks a
-// resource Unhealthy when its weak/optional Reconfigure returns an error.
-func TestWeakReconfigureFailureMarksUnhealthy(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-
-	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
-	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
-	weak1Name := resource.NewName(weakAPI, "weak1")
-	resource.Register(weakAPI, weakModel,
-		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
-			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
-			) (*someTypeWithWeakAndStrongDeps, error) {
-				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
-			},
-			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
-		})
-	defer resource.Deregister(weakAPI, weakModel)
-
-	// weak1 has no ConvertedAttributes, so its Reconfigure returns a
-	// NativeConfig error when the weak/optional update fires.
-	//
-	// weak1 starts alone so its construction resolves an empty weak set (weak
-	// dependencies impose no construction ordering, so a config with base1
-	// present from the start would race: if base1 built first, weak1's weak set
-	// would already be stable at construction and the no-delta update would be
-	// skipped). Bringing up base1 in a later reconfigure deterministically adds
-	// a key to weak1's resolved weak set; that delta drives the weak/optional
-	// update, which calls weak1.Reconfigure, fails, and marks weak1 Unhealthy.
-	weak1Cfg := resource.Config{Name: weak1Name.Name, API: weakAPI, Model: weakModel}
-	cfg := config.Config{
-		Components: []resource.Config{weak1Cfg},
-	}
-	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-
-	robot := setupLocalRobot(t, context.Background(), &cfg, logger)
-
-	// With no other component present, weak1's weak set is empty and its
-	// construction succeeds.
-	_, err := robot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-
-	cfgWithBase := config.Config{
-		Components: []resource.Config{
-			weak1Cfg,
-			{Name: "base1", API: base.API, Model: fake.Model},
-		},
-	}
-	test.That(t, cfgWithBase.Ensure(false, logger), test.ShouldBeNil)
-	robot.Reconfigure(context.Background(), &cfgWithBase)
-
-	_, err = robot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring,
-		"failed to reconfigure resource during weak/optional dependencies update")
-}
-
-// TestOptionalReconfigureFailureAndRecovery exercises the modular path
-// end-to-end with the singleton-sensor module: bringing up an optional
-// dependency fires a weak/optional rebuild that fails on a lock conflict,
-// the framework marks the node Unhealthy, and a subsequent worker tick
-// reconstructs it successfully.
-//
-// The robot starts with mysensor alone so its first construction resolves
-// no optional dependency. Adding "opt" in a later reconfigure introduces a
-// genuine delta in mysensor's resolved optional set, which is what drives
-// the weak/optional reconfigure path.
-func TestOptionalReconfigureFailureAndRecovery(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
-	modulePath := rtestutils.BuildTempModule(t, "examples/customresources/demos/singletonsensor")
-	lockPath := filepath.Join(t.TempDir(), "singleton.lock")
-
-	singletonModel := resource.NewModel("viam-test", "demo", "singleton-sensor")
-	mySensor := sensor.Named("mysensor")
-
-	mySensorCfg := resource.Config{
-		Name:       mySensor.Name,
-		API:        sensor.API,
-		Model:      singletonModel,
-		Attributes: rutils.AttributeMap{"lock_path": lockPath},
-	}
-
-	cfg := &config.Config{
-		Modules: []config.Module{
-			{Name: "singletonsensor", ExePath: modulePath},
-		},
-		Components: []resource.Config{mySensorCfg},
-	}
-	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
-
-	robot := setupLocalRobot(t, ctx, cfg, logger)
-
-	// With no optional dependency present, the first construction succeeds and
-	// writes the lock file. mysensor's resolved optional set is empty, so the
-	// weak/optional update has nothing to act on yet.
-	_, err := robot.ResourceByName(mySensor)
-	test.That(t, err, test.ShouldBeNil)
-
-	// Bringing up "opt" adds a key to mysensor's resolved optional set. That
-	// delta drives the weak/optional update, which rebuilds mysensor; the
-	// rebuild hits the still-present lock and fails. The "lock present at"
-	// string is singleton-sensor-only, so matching it confirms the failure
-	// came from the rebuild path.
-	cfgWithOpt := &config.Config{
-		Modules: []config.Module{
-			{Name: "singletonsensor", ExePath: modulePath},
-		},
-		Components: []resource.Config{
-			mySensorCfg,
-			{
-				Name:  "opt",
-				API:   sensor.API,
-				Model: resource.DefaultModelFamily.WithModel("fake"),
-			},
-		},
-	}
-	test.That(t, cfgWithOpt.Ensure(false, logger), test.ShouldBeNil)
-	robot.Reconfigure(ctx, cfgWithOpt)
-
-	_, err = robot.ResourceByName(mySensor)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "lock present at")
-
-	// Recovery: run the worker's retry path synchronously (equivalent to a
-	// tick firing) so we don't need to poll for the resource to come back.
-	anyChanges := robot.(*localRobot).updateRemotesAndRetryResourceConfigure()
-	test.That(t, anyChanges, test.ShouldBeTrue)
-
-	res, err := robot.ResourceByName(mySensor)
-	test.That(t, err, test.ShouldBeNil)
-	s, ok := res.(sensor.Sensor)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	testutils.WaitForAssertionWithSleep(t, 200*time.Millisecond, 25, func(tb testing.TB) {
-		tb.Helper()
-		callCtx, cancel := context.WithTimeout(ctx, time.Second)
-		defer cancel()
-		_, err := s.Readings(callCtx, nil)
-		test.That(tb, err, test.ShouldBeNil)
-	})
-}
-
-// TestWeakDependencyOnNewRemoteResource verifies that a local resource with a weak
-// dependency is reconfigured to pick up a resource that appears on a remote after
-// initial construction.
-func TestWeakDependencyOnNewRemoteResource(t *testing.T) {
-	logger := logging.NewTestLogger(t)
-	ctx := context.Background()
-
-	// Remote robot starts with no components.
-	remoteCfg := &config.Config{}
-	test.That(t, remoteCfg.Ensure(false, logger), test.ShouldBeNil)
-	remoteRobot := setupLocalRobot(t, ctx, remoteCfg, logger.Sublogger("remote"))
-
-	options, _, addr := robottestutils.CreateBaseOptionsAndListener(t)
-	test.That(t, remoteRobot.StartWeb(ctx, options), test.ShouldBeNil)
-
-	// Register a weak-dependency resource that weakly depends on every component.
-	weakAPI := resource.NewAPI(uuid.NewString(), "component", "weak")
-	weakModel := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(5))
-	weak1Name := resource.NewName(weakAPI, "weak1")
-	resource.Register(weakAPI, weakModel,
-		resource.Registration[*someTypeWithWeakAndStrongDeps, *someTypeWithWeakAndStrongDepsConfig]{
-			Constructor: func(_ context.Context, deps resource.Dependencies, conf resource.Config, _ logging.Logger,
-			) (*someTypeWithWeakAndStrongDeps, error) {
-				return &someTypeWithWeakAndStrongDeps{Named: conf.ResourceName().AsNamed(), resources: deps}, nil
-			},
-			WeakDependencies: []resource.Matcher{resource.TypeMatcher{Type: resource.APITypeComponentName}},
-		})
-	defer resource.Deregister(weakAPI, weakModel)
-
-	// Main robot: weak1 plus a connection to the (currently empty) remote.
-	mainCfg := &config.Config{
-		Components: []resource.Config{
-			{
-				Name:                weak1Name.Name,
-				API:                 weakAPI,
-				Model:               weakModel,
-				ConvertedAttributes: &someTypeWithWeakAndStrongDepsConfig{},
-			},
-		},
-		Remotes: []config.Remote{{Name: "foo", Address: addr}},
-	}
-	test.That(t, mainCfg.Ensure(false, logger), test.ShouldBeNil)
-	mainRobot := setupLocalRobot(t, ctx, mainCfg, logger.Sublogger("main"))
-
-	remoteBaseName := base.Named("remotebase")
-
-	// weak1 came up with an empty weak set: the remote has no components yet.
-	res, err := mainRobot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-	weak1, err := resource.AsType[*someTypeWithWeakAndStrongDeps](res)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.resources, test.ShouldNotContainKey, remoteBaseName)
-
-	// Add a base to the remote after the fact.
-	newRemoteCfg := &config.Config{
-		Components: []resource.Config{
-			{Name: remoteBaseName.Name, API: base.API, Model: fake.Model},
-		},
-	}
-	test.That(t, newRemoteCfg.Ensure(false, logger), test.ShouldBeNil)
-	remoteRobot.Reconfigure(ctx, newRemoteCfg)
-
-	lr := mainRobot.(*localRobot)
-
-	// Wait until the main robot's remote client has discovered the new resource and
-	// added it to the graph, driving the remote-update path each iteration.
-	prefixedName := base.Named("foo:remotebase")
-	testutils.WaitForAssertionWithSleep(t, time.Second, 30, func(tb testing.TB) {
-		tb.Helper()
-		lr.updateRemotesAndRetryResourceConfigure()
-		_, err := mainRobot.ResourceByName(prefixedName)
-		test.That(tb, err, test.ShouldBeNil)
-	})
-
-	// The new remote resource matches weak1's component matcher, so a weak/optional
-	// update should reconfigure weak1 to include it. If adding the remote node didn't
-	// bump the clock and the round-counter short-circuited the update, weak1 will not
-	// have picked it up and this assertion fails.
-	res, err = mainRobot.ResourceByName(weak1Name)
-	test.That(t, err, test.ShouldBeNil)
-	weak1, err = resource.AsType[*someTypeWithWeakAndStrongDeps](res)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, weak1.resources, test.ShouldContainKey, remoteBaseName)
+	test.That(t, logs.FilterMessageSnippet("Now constructing resource").
+		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringerType, Interface: weak1.Name()}).Len(),
+		test.ShouldEqual, 1)
 }

@@ -105,7 +105,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 			"resource", conf.Name, "level", logLevelStr)
 	}
 
-	if _, err = m.reconfigureResource(ctx, deps, conf, logLevel); err != nil {
+	if _, err = m.rebuildResource(ctx, deps, conf, logLevel); err != nil {
 		return nil, err
 	}
 
@@ -509,9 +509,9 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 	return coll.Remove(resName)
 }
 
-// reconfigureResource will reconfigure a resource and, if successful, return the new resource
+// rebuildResource will rebuild resource and, if successful, return the new resource
 // pointer/interface object.
-func (m *Module) reconfigureResource(
+func (m *Module) rebuildResource(
 	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
 ) (resource.Resource, error) {
 	return m.rebuildResourceWithVisited(ctx, deps, conf, logLevel, map[resource.Name]struct{}{})
@@ -546,15 +546,6 @@ func (m *Module) rebuildResourceWithVisited(
 	m.registerMu.Unlock()
 	if hasLogger && logLevel != nil {
 		resLogger.SetLevel(*logLevel)
-	}
-
-	err = res.Reconfigure(ctx, deps, *conf)
-	if err == nil {
-		return res, nil
-	}
-
-	if !resource.IsMustRebuildError(err) {
-		return nil, err
 	}
 
 	if err := res.Close(ctx); err != nil {
@@ -618,7 +609,7 @@ func (m *Module) rebuildResourceWithVisited(
 		}
 
 		// We release the `registerMu` to let other resource query/acquisition methods make
-		// progress. We do not assume `reconfigureResource` is fast.
+		// progress. We do not assume `rebuildResource` is fast.
 		//
 		// We also release the mutex as the recursive call to `rebuildResourceWithVisited`
 		// will reacquire it. And the mutex is not reentrant.
