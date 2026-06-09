@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap/zapcore"
 	pb "go.viam.com/api/app/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
@@ -182,7 +183,7 @@ func TestNewWatcherFile(t *testing.T) {
 
 func TestNewWatcherCloud(t *testing.T) {
 	t.Parallel()
-	logger := logging.NewTestLogger(t)
+	logger, logs := logging.NewObservedTestLogger(t)
 
 	certsToReturn := config.Cloud{
 		TLSCertificate: "hello",
@@ -343,6 +344,14 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
+
+	// The fake server returns codes.Internal while failing, which is a config rejection (not a
+	// connectivity error). The watcher should surface that loudly at ERROR on every failing refresh.
+	rejectedLogs := logs.FilterMessageSnippet("the new config was NOT applied")
+	test.That(t, rejectedLogs.Len(), test.ShouldBeGreaterThan, 1)
+	for _, entry := range rejectedLogs.All() {
+		test.That(t, entry.Level, test.ShouldEqual, zapcore.ErrorLevel)
+	}
 
 	confToReturn = config.Config{
 		Cloud: newCloudConf(),

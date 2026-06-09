@@ -201,10 +201,9 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 	setupCache := func(t *testing.T) {
 		t.Helper()
 		clearCache(robotPartID)
-		cachedConf := &Config{Cloud: &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn"}}
-		cfgToCache := &Config{Cloud: &Cloud{ID: robotPartID}}
-		cfgToCache.SetToCache(cachedConf)
-		test.That(t, cfgToCache.StoreToCache(), test.ShouldBeNil)
+		cached := &Config{Cloud: &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn"}}
+		test.That(t, cached.SetToCache(cached), test.ShouldBeNil)
+		test.That(t, cached.StoreToCache(), test.ShouldBeNil)
 	}
 
 	newAppConn := func(t *testing.T, failWith error) (*Cloud, rpc.ClientConn, func()) {
@@ -245,8 +244,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		setupCache(t)
 		defer clearCache(robotPartID)
 
-		// codes.Unknown is what the real config conversion failure surfaces (a plain error returned by the
-		// cloud config endpoint).
+		// codes.Unknown is what the real config conversion failure surfaces
 		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unknown, "OrientationVectorDegrees has a normal of 0"))
 		defer cleanup()
 
@@ -271,8 +269,23 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		logger := logging.NewTestLogger(t)
 		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cloud rejected this robot's config and no cached config exists")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
+	})
+
+	t.Run("connectivity error with no cache returns the original error and is not a rejection", func(t *testing.T) {
+		clearCache(robotPartID)
+
+		cloudCfg, appConn, cleanup := newAppConn(t, status.Error(codes.Unavailable, "cloud is down"))
+		defer cleanup()
+
+		logger := logging.NewTestLogger(t)
+		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, IsRejectedConfigError(err), test.ShouldBeFalse)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "cloud rejected this robot's config")
 	})
 }
 

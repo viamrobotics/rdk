@@ -77,7 +77,17 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 			}
 			newConfig, err := readFromCloud(cancelCtx, config, prevCfg, false, checkForNewCert, logger, conn)
 			if err != nil {
-				logger.Debugw("error reading cloud config; will try again", "error", err)
+				// A rejected config is a legitimate error (e.g. a malformed config edit): the robot keeps
+				// running its current config, but we surface the rejection loudly on every refresh so it is
+				// not silently hidden (the logger deduplicates the repeated message if it becomes noisy). A
+				// transient failure to reach the cloud stays at debug since the watcher simply retries.
+				if IsRejectedConfigError(err) {
+					logger.Errorw(
+						"cloud rejected this robot's config; the new config was NOT applied. keeping the current config",
+						"error", err)
+				} else {
+					logger.Debugw("error reading cloud config; will try again", "error", err)
+				}
 				continue
 			}
 			if cp, err := newConfig.CopyOnlyPublicFields(); err == nil {
