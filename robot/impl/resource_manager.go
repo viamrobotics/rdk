@@ -66,6 +66,9 @@ type moduleManager interface {
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
 	AddToFailedModules(moduleName string, err error)
+	AddToModuleStatusMap(moduleName string, state modulestatus.State)
+	UpdateModuleState(moduleName string, state modulestatus.State)
+	RemoveModuleState(moduleName string)
 	Status() []modulestatus.Status
 }
 
