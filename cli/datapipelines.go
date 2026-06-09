@@ -288,7 +288,7 @@ func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datap
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" && mql != "" {
-		return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
+		return nil, errors.New("MQL and MQL file cannot both be provided")
 	}
 
 	if mqlFile != "" {
@@ -301,7 +301,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	}
 
 	if mql == "" {
-		return nil, errors.New("missing data pipeline MQL")
+		return nil, errors.New("missing MQL query")
 	}
 
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).

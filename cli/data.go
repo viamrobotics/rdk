@@ -130,7 +130,7 @@ func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExp
 
 type dataQuerySQLArgs struct {
 	OrgID       string
-	SqlQuery    string
+	SqlQuery    string //nolint:revive,stylecheck
 	Destination string
 }
 
@@ -450,11 +450,17 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
 	}
-	if args.MQL == "" && args.MqlPath == "" {
-		return errors.New("missing MQL query")
+	if args.PipelineID != "" && args.DataSourceType == "" {
+		return errors.Errorf("--%s is required when --%s is provided",
+			dataFlagDataSourceType, dataFlagPipelineID)
 	}
-	if args.MQL != "" && args.MqlPath != "" {
-		return errors.New("MQL and MQL file cannot both be provided")
+	if args.DataSourceType == PipelineSinkDataSourceType && args.PipelineID == "" {
+		return errors.Errorf("--%s is required when --%s=%s",
+			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
+	}
+	if args.DataSourceType != "" && args.DataSourceType != PipelineSinkDataSourceType && args.PipelineID != "" {
+		return errors.Errorf("--%s is only valid when --%s=%s",
+			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
@@ -467,7 +473,7 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 		MqlBinary:      mqlBinary,
 	}
 
-	if args.DataSourceType != "" || args.PipelineID != "" {
+	if args.DataSourceType != "" {
 		dataSource, err := buildTabularDataSource(args.DataSourceType, args.PipelineID)
 		if err != nil {
 			return err
@@ -484,26 +490,13 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 }
 
 func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
-	if dataSourceType == "" {
-		return nil, errors.Errorf("--%s is required when --%s is provided",
-			dataFlagDataSourceType, dataFlagPipelineID)
-	}
-
 	sourceType, err := dataSourceTypeToProto(dataSourceType, tabularDataByMQLDataSourceTypes)
 	if err != nil {
 		return nil, err
 	}
-
 	source := &datapb.TabularDataSource{Type: sourceType}
 	if sourceType == datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK {
-		if pipelineID == "" {
-			return nil, errors.Errorf("--%s is required when --%s=%s",
-				dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
-		}
 		source.PipelineId = &pipelineID
-	} else if pipelineID != "" {
-		return nil, errors.Errorf("--%s is only valid when --%s=%s",
-			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
 	}
 	return source, nil
 }
@@ -511,10 +504,8 @@ func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularD
 // writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them
 // to dest, or to w if dest is empty.
 func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
-	var (
-		bw       *bufio.Writer
-		filePath string
-	)
+	out := w
+	var filePath string
 	if dest != "" {
 		if err := makeDestinationDirs(dest); err != nil {
 			return errors.Wrap(err, "could not create destination directory")
@@ -525,9 +516,10 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 			return errors.Wrap(err, "could not create data file")
 		}
 		defer f.Close() //nolint:errcheck
-		bw = bufio.NewWriter(f)
+		out = f
 	}
 
+	bw := bufio.NewWriter(out)
 	for _, row := range rows {
 		var doc bson.D
 		if err := bson.Unmarshal(row, &doc); err != nil {
@@ -537,19 +529,15 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 		if err != nil {
 			return errors.Wrap(err, "error formatting query result")
 		}
-		if bw != nil {
-			if err := writeData(bw, jsonRow); err != nil {
-				return errors.Wrap(err, "error writing data")
-			}
-		} else {
-			printf(w, "%s", jsonRow)
+		if err := writeData(bw, jsonRow); err != nil {
+			return errors.Wrap(err, "error writing data")
 		}
 	}
+	if err := bw.Flush(); err != nil {
+		return errors.Wrap(err, "error writing query results")
+	}
 
-	if bw != nil {
-		if err := bw.Flush(); err != nil {
-			return errors.Wrap(err, "error writing data to file")
-		}
+	if filePath != "" {
 		printf(w, "Wrote %d rows to %s", len(rows), filePath)
 	}
 	return nil
