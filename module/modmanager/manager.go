@@ -258,8 +258,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 
 		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
-			fullErr := fmt.Errorf("Module config validation error; skipping; module: %s, error: %w", conf.Name, err)
-			mgr.logger.CErrorw(ctx, "error", fullErr)
+			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %w", conf.Name, err)
+			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			mgr.AddToFailedModules(conf.Name, fullErr)
 
 			errs[i] = err
@@ -275,8 +275,8 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
-				fullErr := fmt.Errorf("Error adding module; module: %s, error: %w", conf.Name, err)
-				moduleLogger.CErrorw(ctx, "error", fullErr)
+				fullErr := fmt.Errorf("error adding module; module: %s, error: %w", conf.Name, err)
+				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
 				mgr.AddToFailedModules(conf.Name, fullErr)
 				errs[i] = err
 				return
@@ -510,6 +510,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateRemoving)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
@@ -552,6 +553,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 		}
 	}
 	mgr.modules.Delete(mod.cfg.Name)
+	mgr.RemoveModuleState(mod.cfg.Name)
 
 	mod.logger.Infow("Module successfully closed", "module", mod.cfg.Name)
 	return nil
@@ -914,8 +916,10 @@ var oueRestartInterval = 5 * time.Second
 func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module) pexec.UnexpectedExitHandler {
 	return func(oueCtx context.Context, exitCode int) (continueAttemptingRestart bool) {
 		// Log error immediately, as this is unexpected behavior.
-		fullErr := fmt.Errorf("Module has unexpectedly exited. module: %s exitcode: %d", mod.cfg.Name, exitCode)
-		mod.logger.Errorw("error", fullErr)
+		mod.logger.Errorw(
+			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
+		)
+		fullErr := fmt.Errorf("module has unexpectedly exited; module: %s, exit_code: %d", mod.cfg.Name, exitCode)
 
 		// Add to moduleStatusMap when crash is detected
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
@@ -1093,7 +1097,6 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 // FirstRun is runs a module-specific setup script.
 func (mgr *Manager) FirstRun(ctx context.Context, conf config.Module) error {
 	pkgsDir := packages.LocalPackagesDir(mgr.packagesDir)
-	mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateFirstRun)
 
 	// This value is normally set on a field on the [module] struct but it seems like we can safely get it on demand.
 	var dataDir string
@@ -1213,15 +1216,26 @@ func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 
 func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.State) {
 	mgr.moduleStatusMu.Lock()
-	if status, ok := mgr.moduleStatusMap[moduleName]; ok {
+	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
+		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
+			Name:                moduleName,
+			State:               state,
+			LastUpdated:         time.Now(),
+			Error:               nil,
+			ConsecutiveFailures: 0,
+		}
+	} else {
 		status.State = state
 		status.LastUpdated = time.Now()
-
 		mgr.moduleStatusMap[moduleName] = status
-	} else {
-		// TODO: DO NOT MERGE
-		panic("for now this is a panic because I want to know if the module isn't there")
 	}
+
+	mgr.moduleStatusMu.Unlock()
+}
+
+func (mgr *Manager) RemoveModuleState(moduleName string) {
+	mgr.moduleStatusMu.Lock()
+	delete(mgr.moduleStatusMap, moduleName)
 	mgr.moduleStatusMu.Unlock()
 }
 
@@ -1230,8 +1244,10 @@ func (mgr *Manager) FailedModules() []string {
 	mgr.moduleStatusMu.RLock()
 	defer mgr.moduleStatusMu.RUnlock()
 	var failedModuleNames []string
-	for moduleName := range mgr.moduleStatusMap {
-		failedModuleNames = append(failedModuleNames, moduleName)
+	for moduleName, module := range mgr.moduleStatusMap {
+		if module.State == modulestatus.ModuleStateUnhealthy {
+			failedModuleNames = append(failedModuleNames, moduleName)
+		}
 	}
 	return failedModuleNames
 }
