@@ -19,6 +19,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli/v3"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.uber.org/multierr"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/utils"
@@ -125,6 +126,41 @@ func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExp
 	}
 
 	return client.dataExportTabularAction(ctx, cmd, args)
+}
+
+type dataQuerySQLArgs struct {
+	OrgID       string
+	SQLQuery    string
+	Destination string
+}
+
+// DataQuerySQLAction is the corresponding action for 'data query sql'.
+func DataQuerySQLAction(ctx context.Context, cmd *cli.Command, args dataQuerySQLArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQuerySQLAction(ctx, args)
+}
+
+type dataQueryMQLArgs struct {
+	OrgID          string
+	MQL            string
+	MqlPath        string
+	DataSourceType string
+	PipelineID     string
+	Destination    string
+}
+
+// DataQueryMQLAction is the corresponding action for 'data query mql'.
+func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQLArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQueryMQLAction(ctx, args)
 }
 
 type dataTagByFilterArgs struct {
@@ -388,6 +424,127 @@ func (c *viamClient) dataExportTabularAction(ctx context.Context, cmd *cli.Comma
 		return err
 	}
 
+	return nil
+}
+
+func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID")
+	}
+	if args.SQLQuery == "" {
+		return errors.New("must provide a SQL query")
+	}
+
+	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
+		OrganizationId: args.OrgID,
+		SqlQuery:       args.SQLQuery,
+	})
+	if err != nil {
+		return errors.Wrap(err, serverErrorMessage)
+	}
+
+	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+}
+
+func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLArgs) error {
+	if args.OrgID == "" {
+		return errors.New("must provide an organization ID")
+	}
+
+	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
+	if err != nil {
+		return err
+	}
+
+	request := &datapb.TabularDataByMQLRequest{
+		OrganizationId: args.OrgID,
+		MqlBinary:      mqlBinary,
+	}
+
+	if args.DataSourceType != "" || args.PipelineID != "" {
+		dataSource, err := buildTabularDataSource(args.DataSourceType, args.PipelineID)
+		if err != nil {
+			return err
+		}
+		request.DataSource = dataSource
+	}
+
+	resp, err := c.dataClient.TabularDataByMQL(ctx, request)
+	if err != nil {
+		return errors.Wrap(err, serverErrorMessage)
+	}
+
+	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+}
+
+func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
+	if dataSourceType == "" {
+		return nil, errors.Errorf("--%s is required when --%s is provided",
+			dataFlagDataSourceType, dataFlagPipelineID)
+	}
+
+	sourceType, err := tabularDataSourceTypeToProto(dataSourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	source := &datapb.TabularDataSource{Type: sourceType}
+	if sourceType == datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK {
+		if pipelineID == "" {
+			return nil, errors.Errorf("--%s is required when --%s=%s",
+				dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
+		}
+		source.PipelineId = &pipelineID
+	} else if pipelineID != "" {
+		return nil, errors.Errorf("--%s is only valid when --%s=%s",
+			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
+	}
+	return source, nil
+}
+
+// writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them
+// to dest, or to w if dest is empty.
+func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
+	jsonRows := make([][]byte, 0, len(rows))
+	for _, row := range rows {
+		var doc bson.D
+		if err := bson.Unmarshal(row, &doc); err != nil {
+			return errors.Wrap(err, "error decoding query result")
+		}
+		jsonRow, err := bson.MarshalExtJSON(doc, false, false)
+		if err != nil {
+			return errors.Wrap(err, "error formatting query result")
+		}
+		jsonRows = append(jsonRows, jsonRow)
+	}
+
+	if dest == "" {
+		for _, row := range jsonRows {
+			printf(w, "%s", row)
+		}
+		return nil
+	}
+
+	if err := makeDestinationDirs(dest); err != nil {
+		return errors.Wrap(err, "could not create destination directory")
+	}
+	filePath := filepath.Join(dest, dataFileName)
+	f, err := os.Create(filePath) //nolint:gosec
+	if err != nil {
+		return errors.Wrap(err, "could not create data file")
+	}
+	defer f.Close() //nolint:errcheck
+
+	writer := bufio.NewWriter(f)
+	for _, row := range jsonRows {
+		if err := writeData(writer, row); err != nil {
+			return errors.Wrap(err, "error writing data")
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return errors.Wrap(err, "error writing data to file")
+	}
+	printf(w, "Wrote %d rows to %s", len(jsonRows), filePath)
 	return nil
 }
 

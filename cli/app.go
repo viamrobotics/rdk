@@ -141,13 +141,15 @@ const (
 	dataFlagTimeout                        = "timeout"
 	dataFlagCollectionType                 = "collection-type"
 	dataFlagPipelineName                   = "pipeline-name"
+	dataFlagPipelineID                     = "pipeline-id"
+	dataFlagSQLQuery                       = "sql-query"
+	dataFlagMQL                            = "mql"
+	dataFlagMQLFile                        = "mql-path"
+	dataFlagDataSourceType                 = "data-source-type"
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
 
 	datapipelineFlagSchedule       = "schedule"
-	datapipelineFlagMQL            = "mql"
-	datapipelineFlagMQLFile        = "mql-path"
-	datapipelineFlagDataSourceType = "data-source-type"
 	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
@@ -1408,6 +1410,81 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:            "query",
+					Usage:           "query tabular data from Viam cloud",
+					UsageText:       createUsageText("data query", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:      "sql",
+							Usage:     "query tabular data using a SQL statement",
+							UsageText: createUsageText("data query sql", []string{generalFlagOrgID, dataFlagSQLQuery}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagSQLQuery,
+									Required: true,
+									Usage:    "SQL SELECT statement to run against the organization's tabular data",
+								},
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Usage:     "output directory for query results; prints to stdout if omitted",
+									TakesFile: true,
+								},
+							},
+							Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
+						},
+						{
+							Name:  "mql",
+							Usage: "query tabular data using an MQL aggregation pipeline",
+							UsageText: createUsageText("data query mql",
+								[]string{generalFlagOrgID}, true, false,
+								fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+									dataFlagMQL, dataFlagMQL,
+									dataFlagMQLFile, dataFlagMQLFile),
+							),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:     generalFlagOrgID,
+									Required: true,
+									Usage:    "organization ID",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMQL,
+									Usage: "MQL aggregation pipeline as a JSON array of stages",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMQLFile,
+									Usage: "path to a JSON file containing the MQL aggregation pipeline",
+								},
+								&cli.StringFlag{
+									Name: dataFlagDataSourceType,
+									Usage: formatAcceptedValues(
+										"data source to query against",
+										StandardDataSourceType,
+										HotStorageDataSourceType,
+										PipelineSinkDataSourceType,
+									),
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPipelineID,
+									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, PipelineSinkDataSourceType),
+								},
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Usage:     "output directory for query results; prints to stdout if omitted",
+									TakesFile: true,
+								},
+							},
+							Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
+						},
+					},
+				},
+				{
 					Name:            "delete",
 					Usage:           "delete data from Viam cloud",
 					UsageText:       createUsageText("data delete", nil, false, true),
@@ -1963,8 +2040,8 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("datapipelines create",
 						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule, datapipelineFlagEnableBackfill}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-							datapipelineFlagMQL, datapipelineFlagMQL,
-							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+							dataFlagMQL, dataFlagMQL,
+							dataFlagMQLFile, dataFlagMQLFile),
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1982,11 +2059,11 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagMQL,
+							Name:  dataFlagMQL,
 							Usage: "MQL query for the new data pipeline",
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagMQLFile,
+							Name:  dataFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
 						},
 						&cli.BoolFlag{
@@ -1995,7 +2072,7 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: datapipelineFlagDataSourceType,
+							Name: dataFlagDataSourceType,
 							Usage: formatAcceptedValues(
 								"data source type for the new data pipeline",
 								StandardDataSourceType,

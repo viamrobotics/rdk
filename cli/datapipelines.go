@@ -34,8 +34,9 @@ var dataSourceTypeMap = map[pb.TabularDataSourceType]string{
 
 // dataSourceType constants for data source types.
 var (
-	StandardDataSourceType   = "standard"
-	HotStorageDataSourceType = "hotstorage"
+	StandardDataSourceType     = "standard"
+	HotStorageDataSourceType   = "hotstorage"
+	PipelineSinkDataSourceType = "pipelinesink"
 )
 
 type datapipelineListArgs struct {
@@ -273,7 +274,7 @@ func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datap
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" && mql != "" {
-		return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
+		return nil, errors.New("MQL and MQL file cannot both be provided")
 	}
 
 	if mqlFile != "" {
@@ -286,7 +287,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	}
 
 	if mql == "" {
-		return nil, errors.New("missing data pipeline MQL")
+		return nil, errors.New("missing MQL query")
 	}
 
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
@@ -339,4 +340,23 @@ func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, err
 				HotStorageDataSourceType,
 			)
 	}
+}
+
+// tabularDataSourceTypeToProto is like dataSourceTypeToProto but also accepts the
+// pipeline-sink source type, which is valid for MQL queries but not for pipeline creation.
+func tabularDataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
+	if dataSourceType == PipelineSinkDataSourceType {
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK, nil
+	}
+	sourceType, err := dataSourceTypeToProto(dataSourceType)
+	if err != nil {
+		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
+			fmt.Errorf("invalid data source type: %s. Supported values: [%s, %s, %s]",
+				dataSourceType,
+				StandardDataSourceType,
+				HotStorageDataSourceType,
+				PipelineSinkDataSourceType,
+			)
+	}
+	return sourceType, nil
 }
