@@ -3444,7 +3444,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				},
 				{
 					Name:      "add-app",
-					Usage:     "add a web app to an existing Go module",
+					Usage:     "generate a new web app and add it to an existing Go module",
 					UsageText: createUsageText("module add-app", nil, false, false),
 					Description: `Adds a web application to a Go module created with 'viam module generate'.
 Run this command from within the module directory.`,
