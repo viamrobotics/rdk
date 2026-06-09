@@ -1900,6 +1900,13 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 		}
 	}
 
+	populateAdditionalInfo(newModel)
+
+	if args.DryRun {
+		printf(cmd.Root().Writer, "Dry run: would add model %s to module %s", newModel.ModelTriple, newModel.ModuleName)
+		return nil
+	}
+
 	gArgs, err := getGlobalArgs(cmd)
 	if err != nil {
 		return err
@@ -1914,13 +1921,6 @@ func AddModelAction(ctx context.Context, cmd *cli.Command, args addModelArgs) er
 	// C++ SDK tags are of the form "release/vx.y.z"; strip the prefix so SDKVersion is always "x.y.z".
 	if idx := strings.LastIndex(newModel.SDKVersion, "/"); idx != -1 {
 		newModel.SDKVersion = strings.TrimPrefix(newModel.SDKVersion[idx+1:], "v")
-	}
-
-	populateAdditionalInfo(newModel)
-
-	if args.DryRun {
-		printf(cmd.Root().Writer, "Dry run: would add model %s to module %s", newModel.ModelTriple, newModel.ModuleName)
-		return nil
 	}
 
 	// Guard against adding a model that already exists in meta.json.
