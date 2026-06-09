@@ -15,13 +15,13 @@ import (
 
 // planManager is intended to be the single entry point to motion planners.
 type planManager struct {
-	pc      *planContext
+	pc      *PlanContext
 	request *PlanRequest
 	logger  logging.Logger
 }
 
 func newPlanManager(ctx context.Context, logger logging.Logger, request *PlanRequest, meta *PlanMeta) (*planManager, error) {
-	pc, err := newPlanContext(ctx, logger, request, meta)
+	pc, err := NewPlanContext(ctx, logger, request, meta)
 	if err != nil {
 		return nil, err
 	}
@@ -54,6 +54,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 		return nil, 0, err
 	}
 
+	pm.pc.planMeta.SubgoalsPerGoal = make([]int, len(pm.request.Goals))
 	for i, g := range pm.request.Goals {
 		if ctx.Err() != nil {
 			return linearTraj, i, err // note: here and below, we return traj because of ReturnPartialPlan
@@ -84,6 +85,7 @@ func (pm *planManager) planMultiWaypoint(ctx context.Context) ([]*referenceframe
 			if err != nil {
 				return linearTraj, i, err
 			}
+			pm.pc.planMeta.SubgoalsPerGoal[i] = len(subGoals)
 
 			if len(subGoals) > 1 {
 				pm.logger.Debugf("\t generateWaypoint turned into %d subGoals cbirrtAllowed: %v", len(subGoals), cbirrtAllowed)
@@ -134,18 +136,18 @@ func (pm *planManager) planToDirectJoints(
 		return nil, err
 	}
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goalPoses)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goalPoses)
 	if err != nil {
 		return nil, err
 	}
 
-	err = psc.checkPath(ctx, start, fullConfig, false)
+	err = psc.CheckPath(ctx, start, fullConfig, false, nil)
 	if err == nil {
 		return []*referenceframe.LinearInputs{fullConfig}, nil
 	}
 
 	pm.logger.Debugf("want to go to specific joint positions, but path is blocked: %v", err)
-	_, err = psc.checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
+	_, err = psc.Checker.CheckStateFSConstraints(ctx, &motionplan.StateFS{
 		Configuration: fullConfig,
 		FS:            psc.pc.fs,
 	})
@@ -186,7 +188,7 @@ func (pm *planManager) planSingleGoal(
 	pm.logger.Debug("start configuration", logging.FloatArrayFormat{"", start.GetLinearizedInputs()})
 	pm.logger.Debug("going to", goal)
 
-	psc, err := newPlanSegmentContext(ctx, pm.pc, start, goal)
+	psc, err := NewPlanSegmentContext(ctx, pm.pc, start, goal)
 	if err != nil {
 		return nil, err
 	}
@@ -276,12 +278,11 @@ func (pm *planManager) generateWaypoints(ctx context.Context, start, goal refere
 			}
 			toPose := spatialmath.Interpolate(start[frameName].Pose(), pif.Pose(), by)
 
-			if i < numSteps {
-				to[frameName] = referenceframe.NewPoseInFrame(pif.Parent(), toPose)
-			} else {
-				// If this is the last step, copy over any goal cloud the plan request declared.
-				to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
-			}
+			// Dan: We copy the PoseCloud over to each intermediate (and final goal) waypoint. We do
+			// this thinking that if the PoseCloud describes a set of desirable orientations to make
+			// IK easier, we would like all of the intermediate waypoints to also be more easily
+			// solved for.
+			to[frameName] = referenceframe.NewPoseInFrameWithGoalCloud(pif.Parent(), toPose, pif.GoalCloud)
 		}
 
 		waypoints = append(waypoints, to)
@@ -306,7 +307,7 @@ type rrtMaps struct {
 // initRRTsolutions will create the maps to be used by a RRT-based algorithm. It will generate IK
 // solutions to pre-populate the goal map, and will check if any of those goals are able to be
 // directly interpolated to.
-func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger logging.Logger) (*rrtSolution, error) {
+func initRRTSolutions(ctx context.Context, psc *PlanSegmentContext, logger logging.Logger) (*rrtSolution, error) {
 	ctx, span := trace.StartSpan(ctx, "initRRTSolutions")
 	defer span.End()
 	rrt := &rrtSolution{
@@ -314,6 +315,10 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 			startMap: rrtMap{},
 			goalMap:  rrtMap{},
 		},
+	}
+
+	if psc.pc.planMeta.CollectSolutionDiagnostics {
+		psc.pc.planMeta.PerGoal = append(psc.pc.planMeta.PerGoal, PerGoalMeta{})
 	}
 
 	seed := newConfigurationNode(psc.start)
@@ -325,9 +330,25 @@ func initRRTSolutions(ctx context.Context, psc *planSegmentContext, logger loggi
 
 	rrt.maps.optNode = goalNodes[0]
 	logger.Debugf("optNode cost: %v", rrt.maps.optNode.cost)
-
 	// `defaultOptimalityMultiple` is > 1.0
 	reasonableCost := max(.01, goalNodes[0].cost) * defaultOptimalityMultiple
+
+	if psc.pc.planMeta.CollectSolutionDiagnostics {
+		perGoal := &psc.pc.planMeta.PerGoal[len(psc.pc.planMeta.PerGoal)-1]
+		perGoal.StartConfiguration = psc.start
+		perGoal.GoalPoses = psc.goal
+		perGoal.ReasonableCost = reasonableCost
+
+		for _, goalNode := range goalNodes {
+			perGoal.SolutionNodes = append(perGoal.SolutionNodes, SolutionNodeInfo{
+				Score:          goalNode.cost,
+				CheckPathError: goalNode.checkPathError,
+				Inputs:         goalNode.inputs,
+				LastGoodInputs: goalNode.checkPathFeedback.LastGoodInputs,
+			})
+		}
+	}
+
 	for _, solution := range goalNodes {
 		if solution.cost > reasonableCost {
 			// if it's this bad, we don't want for cbirrt or going straight

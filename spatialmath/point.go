@@ -147,7 +147,8 @@ func (pt *point) EncompassedBy(g Geometry) (bool, error) {
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
 // true == collision / false == no collision.
 func pointVsBoxCollision(pt r3.Vector, b *box, collisionBufferMM float64) (bool, float64) {
-	d := b.closestPoint(pt).Sub(pt).Norm()
+	dSq := b.pointDistanceSq(pt)
+	d := math.Sqrt(dSq)
 	return d <= collisionBufferMM, d
 }
 

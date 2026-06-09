@@ -261,10 +261,10 @@ func TestSandingLargeMove1(t *testing.T) {
 		}
 	}
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].poses)
 	test.That(t, err, test.ShouldBeNil)
 
 	solution, err := initRRTSolutions(context.Background(), psc, logger.Sublogger("solve"))
@@ -303,7 +303,7 @@ func TestBadSpray1(t *testing.T) {
 	logger.Infof("time to ReadRequestFromFile %v", time.Since(start))
 
 	t.Run("basic", func(t *testing.T) {
-		_, _, err = PlanMotion(context.Background(), logger, req)
+		_, _, err := PlanMotion(context.Background(), logger, req)
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -465,10 +465,10 @@ func TestSandingWallCollision(t *testing.T) {
 
 	t.Run("check collision checks pass with smaller resolution", func(t *testing.T) {
 		// Create plan context to validate the path
-		pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+		pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 		test.That(t, err, test.ShouldBeNil)
 
-		psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+		psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 		test.That(t, err, test.ShouldBeNil)
 
 		trajectory := plan.Trajectory()
@@ -479,11 +479,11 @@ func TestSandingWallCollision(t *testing.T) {
 			end := trajectory[j+1].ToLinearInputs()
 
 			// Default resolution passes
-			err := psc.checkPath(ctx, start, end, false)
+			err := psc.CheckPath(ctx, start, end, false, nil)
 			test.That(t, err, test.ShouldBeNil)
 
 			// Small resolution noticed the collision when we had large jumps
-			_, err = psc.checker.CheckStateConstraintsAcrossSegmentFS(
+			_, err = psc.Checker.CheckStateConstraintsAcrossSegmentFS(
 				ctx,
 				&motionplan.SegmentFS{
 					StartConfiguration: start,
@@ -534,13 +534,13 @@ func TestWineBadBottleMoveGoodCost(t *testing.T) {
 	req, err := ReadRequestFromFile("data/wine-bad-bottle-move.json")
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := newPlanContext(ctx, logger, req, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, req, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
+	psc, err := NewPlanSegmentContext(ctx, pc, req.StartState.LinearConfiguration(), req.Goals[0].Poses())
 	test.That(t, err, test.ShouldBeNil)
 
-	sss, err := newSolutionSolvingState(ctx, psc, logger)
+	sss, err := NewSolutionSolvingState(ctx, psc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	logger.Infof("goodCost: %0.4f", sss.goodCost)
@@ -554,6 +554,32 @@ func TestWineBadBottleMoveGoodCost(t *testing.T) {
 	dist := referenceframe.InputsL2Distance(a, b)
 	logger.Infof("L2 distance: %0.4f", dist)
 	test.That(t, dist, test.ShouldBeLessThan, 2)
+}
+
+func TestPallette1TotalL2(t *testing.T) {
+	t.Parallel()
+	if IsTooSmallForCache() {
+		t.Skip()
+		return
+	}
+
+	logger := logging.NewTestLogger(t)
+
+	req, err := ReadRequestFromFile("data/pallette1.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	plan, _, err := PlanMotion(context.Background(), logger, req)
+	test.That(t, err, test.ShouldBeNil)
+
+	totalL2 := 0.0
+	traj := plan.Trajectory()
+	for idx := 1; idx < len(traj); idx++ {
+		for k := range traj[idx] {
+			totalL2 += referenceframe.InputsL2Distance(traj[idx-1][k], traj[idx][k])
+		}
+	}
+	logger.Infof("totalL2: %0.4f", totalL2)
+	test.That(t, totalL2, test.ShouldBeLessThan, 6)
 }
 
 func BenchmarkBigPlanRequest(b *testing.B) {

@@ -249,8 +249,8 @@ func (t *Triangle) collidesWithTriangle(other *Triangle, collisionBufferMM float
 		n2          float64
 	}
 	tEdges := [3]edgeCache{
-		{t.p0, t.p1, tCache.e0, tCache.a}, // edge p0->p1, dir = e0
-		{t.p1, t.p2, t.p2.Sub(t.p1), 0},   // n2 filled below
+		{t.p0, t.p1, tCache.e0, tCache.a},
+		{t.p1, t.p2, t.p2.Sub(t.p1), 0},
 		{t.p2, t.p0, r3.Vector{X: -tCache.e1.X, Y: -tCache.e1.Y, Z: -tCache.e1.Z}, tCache.c},
 	}
 	tEdges[1].n2 = tEdges[1].dir.Norm2()

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -265,23 +266,25 @@ func TestLocalBuild(t *testing.T) {
 	testDir := t.TempDir()
 	testChdir(t, testDir)
 
-	// write manifest and setup.sh
-	// the manifest contains a:
-	// "setup": "./setup.sh"
-	// and a "build": "make build"
-	manifestPath := createTestManifest(t, "", nil)
-	err := os.WriteFile(
-		filepath.Join(testDir, "setup.sh"),
-		[]byte("echo setup step msg"),
-		0o700,
-	)
+	setupScriptCmd, setupFile, setupContent := "./setup.sh", "setup.sh", "echo setup step msg"
+	buildCmd, buildFile, buildContent := "make build", "Makefile", "make build:\n\techo build step msg"
+	if runtime.GOOS == "windows" {
+		setupScriptCmd, setupFile = "setup.bat", "setup.bat"
+		buildCmd, buildFile, buildContent = "build.bat", "build.bat", "echo build step msg"
+	}
+
+	manifestPath := createTestManifest(t, "", map[string]any{
+		"build": map[string]any{
+			"setup": setupScriptCmd,
+			"build": buildCmd,
+			"path":  "module",
+			"arch":  []any{"linux/amd64"},
+		},
+	})
+	err := os.WriteFile(filepath.Join(testDir, setupFile), []byte(setupContent), 0o700)
 	test.That(t, err, test.ShouldBeNil)
 
-	err = os.WriteFile(
-		filepath.Join(testDir, "Makefile"),
-		[]byte("make build:\n\techo build step msg"),
-		0o700,
-	)
+	err = os.WriteFile(filepath.Join(testDir, buildFile), []byte(buildContent), 0o700)
 	test.That(t, err, test.ShouldBeNil)
 
 	// run the build local action

@@ -21,7 +21,6 @@ import (
 type client struct {
 	resource.Named
 	resource.Shaped
-	resource.TriviallyReconfigurable
 	resource.TriviallyCloseable
 	name   string
 	client pb.GantryServiceClient
@@ -46,6 +45,16 @@ func NewClientFromConn(
 		client: c,
 		logger: logger,
 	}, nil
+}
+
+// Reconfigure invalidates the cached `model` value. It's expected to be invoked when this `client`
+// represents an rdk <-> modular gantry connection and the gantry rebuilds.
+func (c *client) Reconfigure(ctx context.Context, deps resource.Dependencies, conf resource.Config) error {
+	c.mu.Lock()
+	c.model = nil
+	c.mu.Unlock()
+
+	return nil
 }
 
 func (c *client) Position(ctx context.Context, extra map[string]interface{}) ([]float64, error) {

@@ -1122,6 +1122,8 @@ func (manager *resourceManager) processResource(
 			if err := manager.moduleManager.ReconfigureResource(ctx, conf, modmanager.DepsToNames(deps)); err != nil {
 				return nil, false, err
 			}
+			// For modular resources, `currentRes` is a client object. Call reconfigure to clear caches.
+			goutils.UncheckedError(currentRes.Reconfigure(ctx, deps, conf))
 			return currentRes, false, nil
 		}
 

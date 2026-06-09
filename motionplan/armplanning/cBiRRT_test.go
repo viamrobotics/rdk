@@ -40,10 +40,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Constraints:    &motionplan.Constraints{},
 	}
 
-	pc, err := newPlanContext(ctx, logger, request, &PlanMeta{})
+	pc, err := NewPlanContext(ctx, logger, request, &PlanMeta{})
 	test.That(t, err, test.ShouldBeNil)
 
-	psc, err := newPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs(), goal)
+	psc, err := NewPlanSegmentContext(ctx, pc, referenceframe.FrameSystemInputs{m.Name(): home7}.ToLinearInputs(), goal)
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := newCBiRRTMotionPlanner(ctx, pc, psc, logger.Sublogger("cbirrt"))
@@ -83,13 +83,10 @@ func TestSimpleLinearMotion(t *testing.T) {
 	// extend goalMap towards the point in seedMap
 	goalReached := mp.constrainedExtend(ctx, 1, goalMap, near2, seedReached)
 
-	dist := pc.configurationDistanceFunc(
+	dist := pc.ConfigurationDistanceFunc(
 		&motionplan.SegmentFS{StartConfiguration: seedReached.inputs, EndConfiguration: goalReached.inputs},
 	)
 	test.That(t, dist, test.ShouldBeLessThan, pc.planOpts.InputIdentDist)
-
-	seedReached.corner = true
-	goalReached.corner = true
 
 	// extract the path to the seed
 	for seedReached != nil {
