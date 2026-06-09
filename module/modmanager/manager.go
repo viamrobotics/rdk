@@ -1252,14 +1252,6 @@ func (mgr *Manager) FailedModules() []string {
 	return failedModuleNames
 }
 
-// ClearFailedModules clears the moduleStatusMap map at the start of reconfigure.
-// Modules will be added to moduleStatusMap as they fail during the reconfigure process.
-func (mgr *Manager) ClearFailedModules() {
-	mgr.moduleStatusMu.Lock()
-	mgr.moduleStatusMap = make(map[string]modulestatus.Status)
-	mgr.moduleStatusMu.Unlock()
-}
-
 func (mgr *Manager) Status() []modulestatus.Status {
 	mgr.moduleStatusMu.RLock()
 	defer mgr.moduleStatusMu.RUnlock()
