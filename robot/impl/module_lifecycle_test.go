@@ -11,10 +11,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -108,6 +110,12 @@ func setupModuleTest(t *testing.T, ctx context.Context, failOnFirst bool, logger
 		_, err = r.ResourceByName(generic.Named("h3"))
 		test.That(t, err, test.ShouldNotBeNil)
 
+		s := allModuleState(t, r)
+		for _, m := range s {
+			t.Log("STATE IN FIRSTFAIL should be pending")
+			t.Logf("module %q state=%s err=%v\n", m.Name, pb.ModuleStatus_State(m.State), m.Error)
+		}
+
 		// Assert that retrying resource construction creates all of the resources.
 		anyChanges := r.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		test.That(t, anyChanges, test.ShouldBeTrue)
@@ -134,6 +142,27 @@ func failedModules(r robot.LocalRobot) []string {
 	// guarantee order for test assertions
 	slices.Sort(modFailures)
 	return modFailures
+}
+
+// moduleState returns the state of the named module as reported by MachineStatus,
+// or ModuleStateUnknown if the module is absent from the status.
+func moduleState(tb testing.TB, r robot.LocalRobot, name string) modulestatus.State {
+	tb.Helper()
+	ms, err := r.MachineStatus(context.Background())
+	test.That(tb, err, test.ShouldBeNil)
+	for _, m := range ms.Modules {
+		if m.Name == name {
+			return m.State
+		}
+	}
+	return modulestatus.ModuleStateUnknown
+}
+
+func allModuleState(tb testing.TB, r robot.LocalRobot) []modulestatus.Status {
+	tb.Helper()
+	ms, err := r.MachineStatus(context.Background())
+	test.That(tb, err, test.ShouldBeNil)
+	return ms.Modules
 }
 
 func TestRenamedModuleDependentRecovery(t *testing.T) {
@@ -413,6 +442,10 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 		test.That(tb, logs.FilterMessage("Module has unexpectedly exited.").Len(),
 			test.ShouldBeGreaterThanOrEqualTo, 1)
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
+		// MachineStatus should report the crashed module as unhealthy while its
+		// sibling module remains ready.
+		test.That(tb, moduleState(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, moduleState(tb, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
 
 	// Wait for restart attempt in logs.
@@ -426,6 +459,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// Verify module is still in failedModules after reconfigure
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
+		test.That(tb, moduleState(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
 	})
 
@@ -464,6 +498,9 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 
 	// Test that restored module is removed from failedModules
 	test.That(t, failedModules(r), test.ShouldBeEmpty)
+	// MachineStatus should report the recovered module as ready again.
+	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, moduleState(t, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
 
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
@@ -959,4 +996,36 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 	_, err = r.ResourceByName(generic.Named("h"))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, obs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 0)
+}
+
+func TestModuleStatus(t *testing.T) {
+	ctx := context.Background()
+
+	logger, obs := logging.NewObservedTestLogger(t)
+
+	// Precompile module to avoid timeout issues when building takes too long.
+	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
+
+	cfg := &config.Config{
+		Modules: []config.Module{
+			{
+				Name:    "mod",
+				ExePath: testPath,
+			},
+		},
+	}
+
+	// a module that fails the first run script should stay in pending
+	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
+	r := setupLocalRobot(t, ctx, cfg, logger)
+
+	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStatePending)
+
+	// allowing the first run script to succeed should let the module reach the ready state
+	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
+	r.Reconfigure(ctx, cfg)
+
+	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
+
+	obs.TakeAll()
 }
