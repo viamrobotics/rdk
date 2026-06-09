@@ -457,9 +457,6 @@ func (m *dummyModMan) FailedModules() []string {
 	return nil
 }
 
-func (m *dummyModMan) ClearFailedModules() {
-}
-
 func TestTwoModulesSameName(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

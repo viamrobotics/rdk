@@ -2212,6 +2212,8 @@ func (r *localRobot) MachineStatus(ctx context.Context) (robot.MachineStatus, er
 		result.State = robot.StateInitializing
 	}
 
+	result.Modules = r.manager.moduleManager.Status()
+
 	if r.jobManager != nil {
 		if n := r.jobManager.NumJobHistories.Load(); n > 0 {
 			if result.JobStatuses == nil {

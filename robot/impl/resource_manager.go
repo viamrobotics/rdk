@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
 	modmanageroptions "go.viam.com/rdk/module/modmanager/options"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robot/client"
@@ -64,8 +65,8 @@ type moduleManager interface {
 	ResolveImplicitDependencies(ctx context.Context, conf *config.Diff)
 	ValidateConfig(ctx context.Context, conf resource.Config) ([]string, []string, error)
 	FailedModules() []string
-	ClearFailedModules()
 	AddToFailedModules(moduleName string, err error)
+	Status() []modulestatus.Status
 }
 
 // resourceManager manages the actual parts that make up a robot.
