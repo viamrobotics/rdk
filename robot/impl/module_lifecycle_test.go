@@ -1001,7 +1001,7 @@ func TestModuleAndResourceRemoval(t *testing.T) {
 func TestModuleStatus(t *testing.T) {
 	ctx := context.Background()
 
-	logger, obs := logging.NewObservedTestLogger(t)
+	logger, _ := logging.NewObservedTestLogger(t)
 
 	// Precompile module to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
@@ -1015,17 +1015,29 @@ func TestModuleStatus(t *testing.T) {
 		},
 	}
 
-	// a module that fails the first run script should stay in pending
+	// A module that fails the first run script should stay in the pending state.
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
 	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStatePending)
 
-	// allowing the first run script to succeed should let the module reach the ready state
+	// Allowing the first run script to succeed should let the module reach the ready state.
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
 	r.Reconfigure(ctx, cfg)
 
 	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
 
-	obs.TakeAll()
+	// Adding a module that will hang without serving a socket, the module should stay in the starting state.
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT_MS", "250")
+	cfg.Modules = append(cfg.Modules, config.Module{
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	})
+
+	// Reconfigure in a goroutine this time because fakemodule will block.
+	go r.Reconfigure(ctx, cfg)
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, moduleState(tb, r, "fake"), test.ShouldEqual, modulestatus.ModuleStateStarting)
+	})
+
 }
