@@ -87,3 +87,38 @@ jobs:
       CI_GITHUB_APP_PRIVATE_KEY: ${{ secrets.CI_GITHUB_APP_PRIVATE_KEY }}
       SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL: ${{ secrets.SLACK_AI_WORKFLOW_ALERT_WEBHOOK_URL }}
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+
+  # Comment this run's URL (the Claude output log) on the PR just opened.
+  link-workflow-run:
+    needs: call-jira
+    if: always() && github.repository_owner == 'viamrobotics'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Comment workflow run link on the PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TICKET_ID: ${{ github.event.client_payload.ticket_id || inputs.ticket_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # The reusable workflow enforces a "[<ticket_id>] ..." PR title.
+          pr_number="$(gh pr list --repo "$REPO" --state open --json number,title \
+            | jq -r --arg t "[${TICKET_ID}]" 'map(select(.title | startswith($t)))[0].number // empty')"
+          if [[ -z "$pr_number" ]]; then
+            echo "No open PR found for $TICKET_ID; nothing to link."
+            exit 0
+          fi
+          marker="<!-- claude-workflow-run-link -->"
+          # Don't double-post on re-runs.
+          if gh pr view "$pr_number" --repo "$REPO" --json comments \
+              --jq '.comments[].body' | grep -qF "$marker"; then
+            echo "Run link already present on PR #$pr_number; skipping."
+            exit 0
+          fi
+          gh pr comment "$pr_number" --repo "$REPO" --body \
+            "${marker}"$'\n'"🤖 Opened by the Claude Jira workflow — [workflow run output / Claude log](${RUN_URL})."
+          echo "Linked ${RUN_URL} on PR #${pr_number}."
