@@ -105,7 +105,7 @@ func (m *Module) ReconfigureResource(ctx context.Context, req *pb.ReconfigureRes
 			"resource", conf.Name, "level", logLevelStr)
 	}
 
-	if _, err = m.rebuildResource(ctx, deps, conf, logLevel); err != nil {
+	if _, err = m.rebuildResource(ctx, deps, conf, logLevel, nil); err != nil {
 		return nil, err
 	}
 
@@ -391,7 +391,7 @@ func (m *Module) addResource(
 	// that bypasses viam-server's dependency propagation. Checking (a) first short-circuits the
 	// Validate call in the no-dependents case.
 	if _, hasDependents := m.internalDeps[conf.ResourceName()]; hasDependents && hasOptionalDependencies(conf) {
-		m.cascadeRebuildDependentsOf(ctx, conf.ResourceName())
+		m.cascadeRebuildDependentsOf(ctx, conf.ResourceName(), nil)
 	}
 
 	return nil
@@ -421,39 +421,55 @@ func hasOptionalDependencies(conf *resource.Config) bool {
 // pointer to `newResName`. The RDK's updateWeakAndOptionalDependents flow rebuilds a
 // modular resource via RemoveResource+AddResource without notifying dependents; any
 // dependent that captured a direct pointer to the rebuilt resource is left stale. This
-// closes that gap on the module side.
+// closes that gap on the module side. Used from both `addResource` (after a re-add) and
+// from `rebuildResource` (after a rebuild path completes).
 //
 // Must be called with `registerMu` held; the mutex is released and reacquired around each
 // recursive rebuild call.
 //
-// Cycle handling: we seed `visited` with newResName and thread it through the recursive
-// rebuild. If a cascade would re-enter a resource already on the stack, we skip it and log
-// — one side of a mutual-optional cycle keeps a stale pointer until its next reconfigure.
-func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName resource.Name) {
+// Cycle handling: if `visited` is nil, a fresh set is seeded with `newResName`. Recursive
+// callers pass their existing `visited` so cycle detection threads through the stack. If a
+// cascade would re-enter a resource already on the stack, we skip it and log — one side of
+// a mutual-optional cycle keeps a stale pointer until its next rebuild.
+func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName resource.Name, visited map[resource.Name]struct{}) {
+	if visited == nil {
+		visited = map[resource.Name]struct{}{newResName: {}}
+	}
 	dependents, ok := m.internalDeps[newResName]
 	if !ok {
 		return
 	}
-	visited := map[resource.Name]struct{}{newResName: {}}
 
+	// Rebuild dependents while reconstructing the slice. Entries are preserved through
+	// transient failures (cycle skip, missing collection, dep-resolution failure) so the
+	// next rebuild can retry.
+	newDependents := make([]resConfigureArgs, 0, len(dependents))
 	for _, args := range dependents {
-		if _, ok := m.collections[args.conf.API]; !ok {
+		if _, cycled := visited[args.conf.ResourceName()]; cycled {
+			m.logger.Warnw(
+				"detected mutual-optional dependency cycle: one of these resources will always hold a closed handle to the other "+
+					"after reconstruction. Remove the optional dependency from one side to break the cycle.",
+				"resource", newResName, "dependent", args.conf.Name)
+			newDependents = append(newDependents, args)
 			continue
 		}
 		freshDeps, err := m.getDependenciesForConstruction(ctx, args.depStrings)
 		if err != nil {
 			m.logger.Warnw("failed to get deps for cascade rebuild after resource re-add",
 				"changedResource", newResName, "dependent", args.conf.Name, "err", err)
+			newDependents = append(newDependents, args)
 			continue
 		}
 		m.registerMu.Unlock()
-		_, err = m.rebuildResourceWithVisited(ctx, freshDeps, args.conf, nil, visited)
+		_, err = m.rebuildResource(ctx, freshDeps, args.conf, nil, visited)
 		m.registerMu.Lock()
 		if err != nil {
 			m.logger.Warnw("failed to cascade rebuild dependent after resource re-add",
 				"changedResource", newResName, "dependent", args.conf.Name, "err", err)
 		}
+		newDependents = append(newDependents, args)
 	}
+	m.internalDeps[newResName] = newDependents
 }
 
 func (m *Module) removeResource(ctx context.Context, resName resource.Name) error {
@@ -510,22 +526,18 @@ func (m *Module) removeResource(ctx context.Context, resName resource.Name) erro
 }
 
 // rebuildResource will rebuild resource and, if successful, return the new resource
-// pointer/interface object.
+// pointer/interface object. `visited` tracks which resources are currently on the cascade
+// stack to prevent infinite recursion through mutual-dependency cycles; the outer
+// (non-recursive) caller passes nil and a fresh set is seeded internally. The current
+// resource is added to `visited` on entry and removed on exit (stack discipline) so that
+// sibling branches of an outer cascade can be rebuilt independently.
 func (m *Module) rebuildResource(
-	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
-) (resource.Resource, error) {
-	return m.rebuildResourceWithVisited(ctx, deps, conf, logLevel, map[resource.Name]struct{}{})
-}
-
-// rebuildResourceWithVisited is the recursive body of rebuildResource. It tracks which
-// resources are currently on the cascade stack (in `visited`) to prevent infinite recursion
-// through mutual-dependency cycles. The current resource is added to `visited` on entry and
-// removed on exit (stack discipline) so that sibling branches of an outer cascade can be
-// rebuilt independently.
-func (m *Module) rebuildResourceWithVisited(
 	ctx context.Context, deps resource.Dependencies, conf *resource.Config, logLevel *logging.Level,
 	visited map[resource.Name]struct{},
 ) (resource.Resource, error) {
+	if visited == nil {
+		visited = map[resource.Name]struct{}{}
+	}
 	visited[conf.ResourceName()] = struct{}{}
 	defer delete(visited, conf.ResourceName())
 
@@ -583,54 +595,7 @@ func (m *Module) rebuildResourceWithVisited(
 		m.streamSourceByName[res.Name()] = p
 	}
 
-	resName := res.Name()
-	depsToRebuild := m.internalDeps[resName]
-	// Build up a new slice to map `m.internalDeps[resName]` to.
-	newDepsToRebuild := make([]resConfigureArgs, 0, len(depsToRebuild))
-	for _, depToReconfig := range depsToRebuild {
-		if _, cycled := visited[depToReconfig.conf.ResourceName()]; cycled {
-			// This dependent is already on the cascade stack. Rebuilding would close
-			// a resource that an outer caller still holds. Keep the entry unchanged.
-			m.logger.Warnw(
-				"detected mutual-optional dependency cycle: one of these resources will always hold a closed handle to the other "+
-					"after reconstruction. Remove the optional dependency from one side to break the cycle.",
-				"resource", resName, "dependent", depToReconfig.conf.Name)
-			newDepsToRebuild = append(newDepsToRebuild, depToReconfig)
-			continue
-		}
-		deps, err := m.getDependenciesForConstruction(ctx, depToReconfig.depStrings)
-		if err != nil {
-			m.logger.Warn("Failed to get dependencies for cascading dependent reconfigure",
-				"changedResource", conf.Name,
-				"dependent", depToReconfig.conf.Name,
-				"dependentDeps", depToReconfig.depStrings,
-				"err", err)
-			continue
-		}
-
-		// We release the `registerMu` to let other resource query/acquisition methods make
-		// progress. We do not assume `rebuildResource` is fast.
-		//
-		// We also release the mutex as the recursive call to `rebuildResourceWithVisited`
-		// will reacquire it. And the mutex is not reentrant.
-		m.registerMu.Unlock()
-
-		var nilLogLevel *logging.Level // pass in nil to avoid changing the log level
-		if _, err := m.rebuildResourceWithVisited(ctx, deps, depToReconfig.conf, nilLogLevel, visited); err != nil {
-			m.logger.Warn("Failed to cascade dependent reconfigure",
-				"changedResource", conf.Name,
-				"dependent", depToReconfig.conf.Name,
-				"err", err)
-		}
-		m.registerMu.Lock()
-
-		newDepsToRebuild = append(newDepsToRebuild, resConfigureArgs{
-			conf:       depToReconfig.conf,
-			depStrings: depToReconfig.depStrings,
-		})
-	}
-
-	m.internalDeps[resName] = newDepsToRebuild
+	m.cascadeRebuildDependentsOf(ctx, res.Name(), visited)
 	m.registerMu.Unlock()
 
 	return newRes, nil
