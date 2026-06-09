@@ -150,33 +150,45 @@ func TestMQLJSON(t *testing.T) {
 func TestDataSourceTypeToProto(t *testing.T) {
 	testCases := map[string]struct {
 		dataSourceType string
+		allowed        []string
 		expectedType   pb.TabularDataSourceType
 		expectedError  bool
 	}{
-		"standard": {
+		"standard for pipeline": {
 			dataSourceType: "standard",
+			allowed:        pipelineDataSourceTypes,
 			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
-			expectedError:  false,
 		},
-		"hotstorage": {
+		"hotstorage for pipeline": {
 			dataSourceType: "hotstorage",
+			allowed:        pipelineDataSourceTypes,
 			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
-			expectedError:  false,
+		},
+		"pipelinesink rejected for pipeline": {
+			dataSourceType: "pipelinesink",
+			allowed:        pipelineDataSourceTypes,
+			expectedError:  true,
+		},
+		"pipelinesink accepted for query": {
+			dataSourceType: "pipelinesink",
+			allowed:        queryDataSourceTypes,
+			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
 		},
 		"unknown": {
 			dataSourceType: "unknown",
+			allowed:        queryDataSourceTypes,
 			expectedError:  true,
 		},
 		"empty": {
 			dataSourceType: "",
-			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+			allowed:        queryDataSourceTypes,
 			expectedError:  true,
 		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			dataSourceType, err := dataSourceTypeToProto(tc.dataSourceType)
+			dataSourceType, err := dataSourceTypeToProto(tc.dataSourceType, tc.allowed)
 			if tc.expectedError {
 				test.That(t, err, test.ShouldNotBeNil)
 				return

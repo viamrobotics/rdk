@@ -1417,18 +1417,18 @@ Note: There is no progress meter while copying is in progress.
 					Commands: []*cli.Command{
 						{
 							Name:      "sql",
-							Usage:     "query tabular data using a SQL statement",
-							UsageText: createUsageText("data query sql", []string{generalFlagOrgID, dataFlagSQLQuery}, true, false),
+							Usage:     "query tabular data using SQL",
+							UsageText: createUsageText("data query sql", []string{dataFlagSQLQuery}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "organization ID",
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID",
+									DefaultText: "default-org value if set",
 								},
 								&cli.StringFlag{
 									Name:     dataFlagSQLQuery,
 									Required: true,
-									Usage:    "SQL SELECT statement to run against the organization's tabular data",
+									Usage:    "SQL statement to query the organization's tabular data",
 								},
 								&cli.StringFlag{
 									Name:      generalFlagDestination,
@@ -1440,35 +1440,30 @@ Note: There is no progress meter while copying is in progress.
 						},
 						{
 							Name:  "mql",
-							Usage: "query tabular data using an MQL aggregation pipeline",
+							Usage: "query tabular data using MQL",
 							UsageText: createUsageText("data query mql",
-								[]string{generalFlagOrgID}, true, false,
+								nil, true, false,
 								fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
 									dataFlagMQL, dataFlagMQL,
 									dataFlagMQLFile, dataFlagMQLFile),
 							),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
-									Name:     generalFlagOrgID,
-									Required: true,
-									Usage:    "organization ID",
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID",
+									DefaultText: "default-org value if set",
 								},
 								&cli.StringFlag{
 									Name:  dataFlagMQL,
-									Usage: "MQL aggregation pipeline as a JSON array of stages",
+									Usage: "MQL query to query the organization's tabular data ",
 								},
 								&cli.StringFlag{
 									Name:  dataFlagMQLFile,
-									Usage: "path to a JSON file containing the MQL aggregation pipeline",
+									Usage: "path to a JSON file containing the MQL query",
 								},
 								&cli.StringFlag{
-									Name: dataFlagDataSourceType,
-									Usage: formatAcceptedValues(
-										"data source to query against",
-										StandardDataSourceType,
-										HotStorageDataSourceType,
-										PipelineSinkDataSourceType,
-									),
+									Name:  dataFlagDataSourceType,
+									Usage: formatAcceptedValues("data source to query against", queryDataSourceTypes...),
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPipelineID,
@@ -2072,12 +2067,8 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: dataFlagDataSourceType,
-							Usage: formatAcceptedValues(
-								"data source type for the new data pipeline",
-								StandardDataSourceType,
-								HotStorageDataSourceType,
-							),
+							Name:  dataFlagDataSourceType,
+							Usage: formatAcceptedValues("data source type for the new data pipeline", pipelineDataSourceTypes...),
 						},
 					},
 					Action: createActionCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),

@@ -130,7 +130,7 @@ func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExp
 
 type dataQuerySQLArgs struct {
 	OrgID       string
-	SQLQuery    string
+	SqlQuery    string
 	Destination string
 }
 
@@ -431,13 +431,10 @@ func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLAr
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
 	}
-	if args.SQLQuery == "" {
-		return errors.New("must provide a SQL query")
-	}
 
 	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
 		OrganizationId: args.OrgID,
-		SqlQuery:       args.SQLQuery,
+		SqlQuery:       args.SqlQuery,
 	})
 	if err != nil {
 		return errors.Wrap(err, serverErrorMessage)
@@ -483,7 +480,7 @@ func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularD
 			dataFlagDataSourceType, dataFlagPipelineID)
 	}
 
-	sourceType, err := tabularDataSourceTypeToProto(dataSourceType)
+	sourceType, err := dataSourceTypeToProto(dataSourceType, queryDataSourceTypes)
 	if err != nil {
 		return nil, err
 	}

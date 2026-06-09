@@ -1,10 +1,18 @@
 package cli
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
 	"testing"
 
+	"go.mongodb.org/mongo-driver/bson"
 	datapb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
+	"google.golang.org/grpc"
+
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestFilenameForDownload(t *testing.T) {
@@ -32,4 +40,144 @@ func TestFilenameForDownload(t *testing.T) {
 
 	gzInFolder := filenameForDownload(&datapb.BinaryMetadata{FileName: "dir/whatever.gz"})
 	test.That(t, gzInFolder, test.ShouldEqual, "dir/whatever")
+}
+
+func TestDataQuerySQLAction(t *testing.T) {
+	row1, err := bson.Marshal(bson.M{"part_id": "p1", "value": float64(42)})
+	test.That(t, err, test.ShouldBeNil)
+	row2, err := bson.Marshal(bson.M{"part_id": "p2", "value": float64(7)})
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("prints rows to stdout when no destination is set", func(t *testing.T) {
+		var capturedReq *datapb.TabularDataBySQLRequest
+		dsc := &inject.DataServiceClient{
+			TabularDataBySQLFunc: func(ctx context.Context, in *datapb.TabularDataBySQLRequest, opts ...grpc.CallOption,
+			) (*datapb.TabularDataBySQLResponse, error) {
+				capturedReq = in
+				return &datapb.TabularDataBySQLResponse{RawData: [][]byte{row1, row2}}, nil
+			},
+		}
+
+		_, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{
+			OrgID:    "org-1",
+			SqlQuery: "SELECT * FROM readings",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, capturedReq.GetOrganizationId(), test.ShouldEqual, "org-1")
+		test.That(t, capturedReq.GetSqlQuery(), test.ShouldEqual, "SELECT * FROM readings")
+
+		// Parse NDJSON written to stdout back into maps before comparing to expected.
+		var actual []map[string]interface{}
+		decoder := json.NewDecoder(strings.NewReader(strings.Join(out.messages, "")))
+		for decoder.More() {
+			var row map[string]interface{}
+			test.That(t, decoder.Decode(&row), test.ShouldBeNil)
+			actual = append(actual, row)
+		}
+		test.That(t, actual, test.ShouldResemble, []map[string]interface{}{
+			{"part_id": "p1", "value": float64(42)},
+			{"part_id": "p2", "value": float64(7)},
+		})
+	})
+
+	t.Run("requires an org id", func(t *testing.T) {
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, &inject.DataServiceClient{}, nil, nil, "token")
+		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{SqlQuery: "SELECT 1"})
+		test.That(t, err, test.ShouldBeError, errors.New("must provide an organization ID"))
+	})
+}
+
+func TestDataQueryMQLAction(t *testing.T) {
+	row, err := bson.Marshal(bson.M{"part_id": "p1", "n": float64(1)})
+	test.That(t, err, test.ShouldBeNil)
+
+	mql := `[{"$match": {"part_id": "p1"}}]`
+
+	t.Run("forwards data source and pipeline id", func(t *testing.T) {
+		var capturedReq *datapb.TabularDataByMQLRequest
+		dsc := &inject.DataServiceClient{
+			TabularDataByMQLFunc: func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption,
+			) (*datapb.TabularDataByMQLResponse, error) {
+				capturedReq = in
+				return &datapb.TabularDataByMQLResponse{RawData: [][]byte{row}}, nil
+			},
+		}
+
+		_, ac, _, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		err := ac.dataQueryMQLAction(context.Background(), dataQueryMQLArgs{
+			OrgID:          "org-1",
+			MQL:            mql,
+			DataSourceType: PipelineSinkDataSourceType,
+			PipelineID:     "pipe-1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, capturedReq.GetOrganizationId(), test.ShouldEqual, "org-1")
+		test.That(t, capturedReq.GetDataSource().GetType(),
+			test.ShouldEqual, datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK)
+		test.That(t, capturedReq.GetDataSource().GetPipelineId(), test.ShouldEqual, "pipe-1")
+		test.That(t, len(capturedReq.GetMqlBinary()), test.ShouldEqual, 1)
+	})
+
+	t.Run("omits data source when not provided", func(t *testing.T) {
+		var capturedReq *datapb.TabularDataByMQLRequest
+		dsc := &inject.DataServiceClient{
+			TabularDataByMQLFunc: func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption,
+			) (*datapb.TabularDataByMQLResponse, error) {
+				capturedReq = in
+				return &datapb.TabularDataByMQLResponse{RawData: [][]byte{row}}, nil
+			},
+		}
+
+		_, ac, _, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		err := ac.dataQueryMQLAction(context.Background(), dataQueryMQLArgs{OrgID: "org-1", MQL: mql})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
+		test.That(t, capturedReq.GetDataSource(), test.ShouldBeNil)
+	})
+
+	testCases := map[string]struct {
+		args        dataQueryMQLArgs
+		expectedErr error
+	}{
+		"hot-storage data source rejects a pipeline id": {
+			args: dataQueryMQLArgs{
+				OrgID:          "org-1",
+				MQL:            mql,
+				DataSourceType: HotStorageDataSourceType,
+				PipelineID:     "pipe-1",
+			},
+			expectedErr: errors.New("--pipeline-id is only valid when --data-source-type=pipelinesink"),
+		},
+		"pipeline-sink requires a pipeline id": {
+			args: dataQueryMQLArgs{
+				OrgID:          "org-1",
+				MQL:            mql,
+				DataSourceType: PipelineSinkDataSourceType,
+			},
+			expectedErr: errors.New("--pipeline-id is required when --data-source-type=pipelinesink"),
+		},
+		"pipeline-id without a source type": {
+			args: dataQueryMQLArgs{
+				OrgID:      "org-1",
+				MQL:        mql,
+				PipelineID: "pipe-1",
+			},
+			expectedErr: errors.New("--data-source-type is required when --pipeline-id is provided"),
+		},
+		"missing mql query": {
+			args:        dataQueryMQLArgs{OrgID: "org-1"},
+			expectedErr: errors.New("missing MQL query"),
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			_, ac, _, _ := setup(&inject.AppServiceClient{}, &inject.DataServiceClient{}, nil, nil, "token")
+			err := ac.dataQueryMQLAction(context.Background(), tc.args)
+			test.That(t, err, test.ShouldBeError, tc.expectedErr)
+		})
+	}
 }

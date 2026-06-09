@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -37,6 +38,21 @@ var (
 	StandardDataSourceType     = "standard"
 	HotStorageDataSourceType   = "hotstorage"
 	PipelineSinkDataSourceType = "pipelinesink"
+)
+
+// dataSourceTypeProtos maps user-facing data source names to their proto enum value.
+// New source types must be added here.
+var dataSourceTypeProtos = map[string]pb.TabularDataSourceType{
+	StandardDataSourceType:     pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+	HotStorageDataSourceType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
+	PipelineSinkDataSourceType: pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
+}
+
+// Per-surface allowed sets. Pipeline sinks can't be configured as pipeline destinations
+// (would be self-referential) but are valid query targets.
+var (
+	pipelineDataSourceTypes = []string{StandardDataSourceType, HotStorageDataSourceType}
+	queryDataSourceTypes    = []string{StandardDataSourceType, HotStorageDataSourceType, PipelineSinkDataSourceType}
 )
 
 type datapipelineListArgs struct {
@@ -97,7 +113,7 @@ func DatapipelineCreateAction(ctx context.Context, cmd *cli.Command, args datapi
 		return err
 	}
 
-	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType)
+	dataSourceType, err := dataSourceTypeToProto(args.DataSourceType, pipelineDataSourceTypes)
 	if err != nil {
 		return err
 	}
@@ -326,37 +342,12 @@ func mqlJSON(mql [][]byte) (string, error) {
 	return string(jsonBytes), nil
 }
 
-func dataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
-	switch dataSourceType {
-	case StandardDataSourceType:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD, nil
-	case HotStorageDataSourceType:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE, nil
-	default:
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-			fmt.Errorf("invalid data source type: %s. Supported values: [%s, %s]",
-				dataSourceType,
-				StandardDataSourceType,
-				HotStorageDataSourceType,
-			)
+// dataSourceTypeToProto resolves the user-facing data source name to its proto enum value,
+// rejecting names that aren't in the allowed set for the calling surface.
+func dataSourceTypeToProto(name string, allowed []string) (pb.TabularDataSourceType, error) {
+	if slices.Contains(allowed, name) {
+		return dataSourceTypeProtos[name], nil
 	}
-}
-
-// tabularDataSourceTypeToProto is like dataSourceTypeToProto but also accepts the
-// pipeline-sink source type, which is valid for MQL queries but not for pipeline creation.
-func tabularDataSourceTypeToProto(dataSourceType string) (pb.TabularDataSourceType, error) {
-	if dataSourceType == PipelineSinkDataSourceType {
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK, nil
-	}
-	sourceType, err := dataSourceTypeToProto(dataSourceType)
-	if err != nil {
-		return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-			fmt.Errorf("invalid data source type: %s. Supported values: [%s, %s, %s]",
-				dataSourceType,
-				StandardDataSourceType,
-				HotStorageDataSourceType,
-				PipelineSinkDataSourceType,
-			)
-	}
-	return sourceType, nil
+	return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
+		fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed)
 }
