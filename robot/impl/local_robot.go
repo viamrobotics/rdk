@@ -1849,10 +1849,6 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 		}
 	}()
 
-	if r.manager.moduleManager != nil {
-		r.manager.moduleManager.ClearFailedModules()
-	}
-
 	if diff.ResourcesEqual {
 		return
 	}
