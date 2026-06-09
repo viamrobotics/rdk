@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/ml"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/mlmodel"
 )
 
@@ -39,15 +38,15 @@ func (cfg *TrajGenConfig) Validate(path string) ([]string, error) {
 		return nil, fmt.Errorf("need positive acceleration_limits_rads_per_sec2 if using trajectory_generator, got %v",
 			cfg.AccelerationLimitsRadsPerSec2)
 	}
-	if cfg.Service == "" {
-		return nil, resource.NewConfigValidationFieldRequiredError(path, "service")
-	}
-	return []string{cfg.Service}, nil
+	// The trajectory generator is now an in-process cgo backend (trajex), so there is no
+	// remote mlmodel dependency to declare. The Service field is retained for config
+	// compatibility but is currently unused.
+	return nil, nil
 }
 
 // ToTrajGen resolves the named mlmodel service from deps and returns a TrajGen ready for use.
-func (cfg *TrajGenConfig) ToTrajGen(deps resource.Dependencies) (*TrajGen, error) {
-	svc, err := mlmodel.FromProvider(deps, cfg.Service)
+func (cfg *TrajGenConfig) ToTrajGen() (*TrajGen, error) {
+	svc, err := newTrajGenBackend()
 	if err != nil {
 		return nil, err
 	}
@@ -262,9 +261,9 @@ func inferTrajGen(
 			tensor.WithBacking([]float64{tg.WaypointDeduplicationToleranceRads}),
 		),
 		"trajectory_sampling_freq_hz": tensor.New(
-			tensor.Of(tensor.Int64),
+			tensor.Of(tensor.Float64),
 			tensor.WithShape(1),
-			tensor.WithBacking([]int64{int64(tg.SamplingFreqHz)}),
+			tensor.WithBacking([]float64{tg.SamplingFreqHz}),
 		),
 	})
 	if err != nil {

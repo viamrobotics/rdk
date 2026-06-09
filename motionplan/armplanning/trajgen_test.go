@@ -43,17 +43,20 @@ func TestTrajGenConfigValidate(t *testing.T) {
 		AccelerationLimitsRadsPerSec2: 2.0,
 	}
 
-	t.Run("valid config returns service as dependency", func(t *testing.T) {
+	t.Run("valid config returns no remote dependency", func(t *testing.T) {
+		// The trajectory generator is now an in-process trajex cgo backend, so Validate
+		// declares no remote mlmodel dependency.
 		deps, err := valid.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, deps, test.ShouldContain, "my_svc")
+		test.That(t, deps, test.ShouldBeEmpty)
 	})
 
-	t.Run("missing service", func(t *testing.T) {
+	t.Run("missing service is allowed", func(t *testing.T) {
+		// Service is vestigial with the in-process backend; its absence is no longer an error.
 		cfg := valid
 		cfg.Service = ""
 		_, err := cfg.Validate("path")
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
 	})
 
 	t.Run("zero velocity limit", func(t *testing.T) {

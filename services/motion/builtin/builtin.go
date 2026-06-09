@@ -230,7 +230,7 @@ func (ms *builtIn) Reconfigure(
 
 	ms.trajGen = nil
 	if config.TrajGen != nil {
-		ms.trajGen, err = config.TrajGen.ToTrajGen(deps)
+		ms.trajGen, err = config.TrajGen.ToTrajGen()
 		if err != nil {
 			return err
 		}
