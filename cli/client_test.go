@@ -635,7 +635,8 @@ func TestDataExportTabularAction(t *testing.T) {
 		// Test that the data.ndjson file was removed.
 		filePath := utils.ResolveFile(dataFileName)
 		_, err = os.ReadFile(filePath)
-		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, errors.Is(err, os.ErrNotExist), test.ShouldBeTrue)
 	})
 }
 
