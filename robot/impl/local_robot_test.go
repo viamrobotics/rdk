@@ -5453,10 +5453,10 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 	// This test tests that weak dependencies are properly populated in the dependencies map with the remote prefix
 	// attached to any remote resources.
 	//
-	// In this case, the shell resource will be constructed with the remote resource as a
-	// weak dependency since it will be available at the time of construction. The shell
-	// resource will then also be _reconfigured_ with the weak dependency (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
+	// In this case, the shell resource is constructed with the remote resource as a weak
+	// dependency since it is available at the time of construction. Because the resolved
+	// weak dep set is unchanged afterwards, updateWeakAndOptionalDependents does not
+	// trigger a follow-up reconfigure.
 	t.Parallel()
 	logger, logs := logging.NewObservedTestLogger(t)
 	model := resource.DefaultModelFamily.WithModel(utils.RandomAlphaString(8))
@@ -5551,7 +5551,7 @@ func TestWeakDependenciesWithPrefix(t *testing.T) {
 	testutils.WaitForAssertionWithSleep(t, time.Second, 5, func(tb testing.TB) {
 		tb.Helper()
 		test.That(tb, logs.FilterMessage(successLog).Len(),
-			test.ShouldEqual, 2)
+			test.ShouldEqual, 1)
 	})
 }
 
