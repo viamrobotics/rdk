@@ -281,9 +281,6 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 				errs[i] = err
 				return
 			}
-			// module started successfully, remove it from moduleStatusMap
-			// mgr.deleteFromFailedModules(conf.Name)
-			mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateReady)
 		}(i, conf)
 	}
 	wg.Wait()
