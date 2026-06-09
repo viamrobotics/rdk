@@ -20,8 +20,8 @@ require (
 	github.com/bufbuild/buf v1.30.0
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/huh/spinner v0.0.0-20240917123815-c9b2c9cdb7b6
+	github.com/charmbracelet/x/xpty v0.1.2
 	github.com/chenzhekl/goply v0.0.0-20190930133256-258c2381defd
-	github.com/creack/pty v1.1.24
 	github.com/disintegration/imaging v1.6.2
 	github.com/docker/go-units v0.5.0
 	github.com/edaniels/gobag v1.0.7-0.20220607183102-4242cd9e2848
@@ -181,8 +181,11 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0 // indirect
 	github.com/charmbracelet/x/ansi v0.9.3 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.13 // indirect
+	github.com/charmbracelet/x/conpty v0.1.0 // indirect
+	github.com/charmbracelet/x/errors v0.0.0-20240508181413-e8d8b6e2de86 // indirect
 	github.com/charmbracelet/x/exp/strings v0.0.0-20240722160745-212f7b056ed0 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
+	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/chewxy/hm v1.0.0 // indirect
 	github.com/chewxy/math32 v1.0.8 // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
@@ -191,6 +194,7 @@ require (
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect

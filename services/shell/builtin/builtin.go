@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/creack/pty"
+	"github.com/charmbracelet/x/xpty"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/logging"
@@ -48,22 +48,38 @@ type builtIn struct {
 func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
-	if runtime.GOOS == "windows" {
-		return nil, nil, nil, errors.New("shell not supported on windows yet; sorry")
-	}
-
-	defaultShellPath, ok := os.LookupEnv("SHELL")
-	if !ok {
-		defaultShellPath = "/bin/sh"
-	}
-
 	ctxCancel, cancel := context.WithCancel(ctx)
-	//nolint:gosec
-	cmd := exec.CommandContext(ctxCancel, defaultShellPath, "-i")
-	cmd.Env = []string{"TERM=xterm-256color"}
-	f, err := pty.Start(cmd)
+
+	// Pick the platform default interactive shell.
+	shellPath := "/bin/sh"
+	shellArgs := []string{"-i"}
+	shellEnv := []string{"TERM=xterm-256color"}
+	if runtime.GOOS == "windows" {
+		// powershell is preferred when present; fall back to cmd.exe. Inherit the parent
+		// environment (nil) so the shell has PATH, SystemRoot, etc.
+		shellPath = "cmd.exe"
+		if ps, lookErr := exec.LookPath("powershell.exe"); lookErr == nil {
+			shellPath = ps
+		}
+		shellArgs = nil
+		shellEnv = nil
+	} else if sh, ok := os.LookupEnv("SHELL"); ok {
+		shellPath = sh
+	}
+
+	// xpty allocates a unix pty or a Windows ConPTY behind one interface. Start with a
+	// default size; the real window size arrives via the first window-change OOB message.
+	pty, err := xpty.NewPty(80, 24)
 	if err != nil {
 		cancel()
+		return nil, nil, nil, err
+	}
+	//nolint:gosec
+	cmd := exec.Command(shellPath, shellArgs...)
+	cmd.Env = shellEnv
+	if err := pty.Start(cmd); err != nil {
+		cancel()
+		utils.UncheckedError(pty.Close())
 		return nil, nil, nil, err
 	}
 
@@ -92,10 +108,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				return
 			}
 			lastSet = time.Now()
-			if err := pty.Setsize(f, &pty.Winsize{
-				Rows: uint16(rows),
-				Cols: uint16(cols),
-			}); err != nil {
+			if err := pty.Resize(int(cols), int(rows)); err != nil {
 				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
 			}
 		default:
@@ -121,10 +134,12 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		defer cancel()
-		if err := cmd.Wait(); err != nil {
-			svc.logger.CDebugw(ctx, "error waiting for cmd", "error", err)
+		// WaitProcess blocks until the shell exits, and kills it if ctxCancel is cancelled
+		// first (it also works around the Go runtime not reaping ConPTY processes on Windows).
+		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
+			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
 		}
-		if err := f.Close(); err != nil {
+		if err := pty.Close(); err != nil {
 			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
 		}
 	})
@@ -142,7 +157,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				return
 			default:
 			}
-			n, err := f.Read(data[:])
+			n, err := pty.Read(data[:])
 			if err != nil {
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
 					svc.logger.CErrorw(ctx, "error reading output", "error", err)
@@ -170,19 +185,19 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			select {
 			case inputData, ok := <-input:
 				if ok {
-					if _, err := f.WriteString(inputData); err != nil {
+					if _, err := pty.Write([]byte(inputData)); err != nil {
 						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}
 				} else {
-					if _, err := f.Write([]byte{4}); err != nil {
+					if _, err := pty.Write([]byte{4}); err != nil {
 						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 						return
 					}
 					return
 				}
 			case <-ctx.Done():
-				if _, err := f.Write([]byte{4}); err != nil {
+				if _, err := pty.Write([]byte{4}); err != nil {
 					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 					return
 				}
