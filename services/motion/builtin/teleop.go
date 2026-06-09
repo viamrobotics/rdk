@@ -256,7 +256,7 @@ func (tp *teleopPipeline) runExecutor(ctx context.Context, ms *builtIn) {
 			// Skip start-position check (math.MaxFloat64) because the arm
 			// is in continuous motion and won't be exactly at the trajectory start.
 			ms.mu.RLock()
-			err := ms.execute(ctx, traj, math.MaxFloat64)
+			err := ms.execute(ctx, motionplan.NewSimplePlan(nil, traj), math.MaxFloat64)
 			ms.mu.RUnlock()
 			execDur := time.Since(execStart)
 			tp.lastExecNanos.Store(execDur.Nanoseconds())

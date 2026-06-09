@@ -753,6 +753,126 @@ func TestWritePlanRequest(t *testing.T) {
 	test.That(t, planFile.Name(), test.ShouldContainSubstring, "custom-test-tag")
 }
 
+// fakeDoCommandArm is a minimal resource.Resource whose DoCommand records calls and returns
+// pre-configured responses. It does not implement InputEnabled and is only suitable for tests
+// that exercise the TrajGenPlan fast path (which returns before GoToInputs).
+type fakeDoCommandArm struct {
+	calls     []map[string]interface{}
+	responses []map[string]interface{}
+}
+
+func (f *fakeDoCommandArm) Name() resource.Name { return resource.Name{} }
+func (f *fakeDoCommandArm) Reconfigure(_ context.Context, _ resource.Dependencies, _ resource.Config) error {
+	return nil
+}
+func (f *fakeDoCommandArm) Close(_ context.Context) error { return nil }
+func (f *fakeDoCommandArm) Status(_ context.Context) (map[string]interface{}, error) {
+	return nil, nil
+}
+func (f *fakeDoCommandArm) DoCommand(_ context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	f.calls = append(f.calls, cmd)
+	if len(f.responses) > 0 {
+		resp := f.responses[0]
+		f.responses = f.responses[1:]
+		return resp, nil
+	}
+	return nil, nil
+}
+
+// TestExecuteTrajGenFastPath verifies that execute() sends execute_traj_gen_plan via DoCommand
+// when the plan is a *TrajGenPlan and the arm reports capability support.
+func TestExecuteTrajGenFastPath(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	configs := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
+	vels := []float64{0.01, 0.02, 0.03, 0.04, 0.05, 0.06}
+	times := []float64{0.1}
+
+	toLinearInputs := func(vals []float64) []*referenceframe.LinearInputs {
+		return []*referenceframe.LinearInputs{
+			referenceframe.FrameSystemInputs{"arm": vals}.ToLinearInputs(),
+		}
+	}
+
+	tgp := &armplanning.TrajGenPlan{
+		SimplePlan:     motionplan.NewSimplePlan(nil, motionplan.Trajectory{{"arm": configs}}),
+		Configurations: toLinearInputs(configs),
+		Velocities:     toLinearInputs(vels),
+		SampleTimes:    times,
+	}
+
+	arm := &fakeDoCommandArm{
+		responses: []map[string]interface{}{
+			// First call: capability probe → supported.
+			{armplanning.DoCommandKeySupportsExecuteTrajGenPlan: true},
+			// Second call: execute → success.
+			{armplanning.DoCommandKeyExecuteTrajGenPlan: true},
+		},
+	}
+
+	ms := &builtIn{
+		components: map[string]resource.Resource{"arm": arm},
+		logger:     logger,
+	}
+
+	err := ms.execute(ctx, tgp, math.MaxFloat64)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Two DoCommand calls should have been made.
+	test.That(t, arm.calls, test.ShouldHaveLength, 2)
+
+	// First call is the capability probe.
+	_, hasCapKey := arm.calls[0][armplanning.DoCommandKeySupportsExecuteTrajGenPlan]
+	test.That(t, hasCapKey, test.ShouldBeTrue)
+
+	// Second call carries the trajectory payload.
+	payload, hasExecKey := arm.calls[1][armplanning.DoCommandKeyExecuteTrajGenPlan]
+	test.That(t, hasExecKey, test.ShouldBeTrue)
+	payloadMap, ok := payload.(map[string]any)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, payloadMap["configurations_rads"], test.ShouldResemble, [][]float64{configs})
+	test.That(t, payloadMap["velocities_rads_per_sec"], test.ShouldResemble, [][]float64{vels})
+	test.That(t, payloadMap["sample_times_sec"], test.ShouldResemble, times)
+}
+
+// TestExecuteTrajGenCapabilityNotSupported verifies that execute() does not send
+// execute_traj_gen_plan when the capability probe returns false, and instead falls
+// through to the normal GoToInputs path.
+func TestExecuteTrajGenCapabilityNotSupported(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	configs := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
+
+	tgp := &armplanning.TrajGenPlan{
+		SimplePlan: motionplan.NewSimplePlan(nil, motionplan.Trajectory{{"arm": configs}}),
+		Configurations: []*referenceframe.LinearInputs{
+			referenceframe.FrameSystemInputs{"arm": configs}.ToLinearInputs(),
+		},
+		Velocities:  []*referenceframe.LinearInputs{},
+		SampleTimes: []float64{},
+	}
+
+	arm := &fakeDoCommandArm{
+		responses: []map[string]interface{}{
+			// Capability probe returns false.
+			{armplanning.DoCommandKeySupportsExecuteTrajGenPlan: false},
+		},
+	}
+
+	ms := &builtIn{
+		components: map[string]resource.Resource{"arm": arm},
+		logger:     logger,
+	}
+
+	// execute falls back to GoToInputs, which will fail because fakeDoCommandArm doesn't
+	// implement InputEnabled — but only one DoCommand call (the probe) should have been made.
+	_ = ms.execute(ctx, tgp, math.MaxFloat64)
+	test.That(t, arm.calls, test.ShouldHaveLength, 1)
+	_, hasCapKey := arm.calls[0][armplanning.DoCommandKeySupportsExecuteTrajGenPlan]
+	test.That(t, hasCapKey, test.ShouldBeTrue)
+}
 func TestErrorMessageContext(t *testing.T) {
 	// When there's two with the same kinematics, it can be ambiguous which arm an error message is
 	// referring to. This test asserts the custom motion service joint limits provide this necessary

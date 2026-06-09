@@ -3,6 +3,7 @@ package builtin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
@@ -97,6 +98,8 @@ type Config struct {
 
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
+
+	TrajGen *armplanning.TrajGenConfig `json:"trajectory_generator,omitempty"`
 }
 
 func (c *Config) shouldWritePlan(start time.Time, err error) bool {
@@ -114,6 +117,7 @@ func (c *Config) shouldWritePlan(start time.Time, err error) bool {
 
 // Validate here adds a dependency on the internal framesystem service.
 func (c *Config) Validate(path string) ([]string, []string, error) {
+	deps := []string{framesystem.InternalServiceName.String()}
 	if c.NumThreads < 0 {
 		return nil, nil, fmt.Errorf("cannot configure with %d number of threads, number must be positive", c.NumThreads)
 	}
@@ -125,8 +129,15 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
 	}
+	if c.TrajGen != nil {
+		trajGenDeps, err := c.TrajGen.Validate(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		deps = append(deps, trajGenDeps...)
+	}
 
-	return []string{framesystem.InternalServiceName.String()}, nil, nil
+	return deps, nil, nil
 }
 
 type builtIn struct {
@@ -140,6 +151,7 @@ type builtIn struct {
 	components              map[string]resource.Resource
 	logger                  logging.Logger
 	configuredDefaultExtras map[string]any
+	trajGen                 *armplanning.TrajGen
 
 	// Teleop pipeline. Protected by teleopMu (separate from mu to simplify lock ordering).
 	teleopMu       sync.RWMutex
@@ -191,6 +203,7 @@ func (ms *builtIn) Reconfigure(
 	if config.NumThreads > 0 {
 		ms.configuredDefaultExtras["num_threads"] = config.NumThreads
 	}
+	ms.configuredDefaultExtras["skipTrajGen"] = false
 
 	movementSensors := make(map[string]movementsensor.MovementSensor)
 	slamServices := make(map[string]slam.Service)
@@ -214,6 +227,14 @@ func (ms *builtIn) Reconfigure(
 	ms.slamServices = slamServices
 	ms.visionServices = visionServices
 	ms.components = componentMap
+
+	ms.trajGen = nil
+	if config.TrajGen != nil {
+		ms.trajGen, err = config.TrajGen.ToTrajGen(deps)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -239,7 +260,7 @@ func (ms *builtIn) Move(ctx context.Context, req motion.MoveReq) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	err = ms.execute(ctx, plan.Trajectory(), math.MaxFloat64)
+	err = ms.execute(ctx, plan, math.MaxFloat64)
 	return err == nil, err
 }
 
@@ -377,7 +398,7 @@ func (ms *builtIn) DoCommand(ctx context.Context, cmd map[string]interface{}) (m
 
 			resp[DoExecuteCheckStart] = "resource at starting location"
 		}
-		if err := ms.execute(ctx, trajectory, epsilon); err != nil {
+		if err := ms.execute(ctx, motionplan.NewSimplePlan(nil, trajectory), epsilon); err != nil {
 			return nil, err
 		}
 		resp[DoExecute] = true
@@ -508,8 +529,26 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		PlannerOptions: planOpts,
 	}
 
+	skipTrajGen := req.Extra["skipTrajGen"].(bool)
+	trajGen := ms.trajGen
+	if overrideIface, ok := req.Extra["trajectory_generator"]; ok && trajGen != nil {
+		overrideMap, ok := overrideIface.(map[string]any)
+		if !ok {
+			return nil, errors.New("extras trajectory_generator must be a map")
+		}
+		var override armplanning.TrajGenOverride
+		if err := decodeJSONTagged(overrideMap, &override); err != nil {
+			return nil, fmt.Errorf("trajectory_generator override: %w", err)
+		}
+		trajGen = trajGen.WithOverrides(&override)
+	}
 	start := time.Now()
-	plan, _, err := armplanning.PlanMotion(ctx, logger, planRequest)
+	var plan motionplan.Plan
+	if !skipTrajGen && trajGen != nil {
+		plan, _, err = armplanning.PlanMotionTrajGen(ctx, logger, planRequest, trajGen)
+	} else {
+		plan, _, err = armplanning.PlanMotion(ctx, logger, planRequest)
+	}
 	if ms.conf.shouldWritePlan(start, err) {
 		var traceID string
 		if span := trace.FromContext(ctx); span != nil {
@@ -600,7 +639,34 @@ func (ms *builtIn) planTeleop(
 	return plan, err
 }
 
-func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory, epsilon float64) error {
+func (ms *builtIn) execute(ctx context.Context, plan motionplan.Plan, epsilon float64) error {
+	// When the plan carries kinodynamic data and the target arm supports the precomputed
+	// trajectory path, send everything in one DoCommand instead of batching GoToInputs.
+	if tgp, ok := plan.(*armplanning.TrajGenPlan); ok && len(tgp.Configurations) > 0 {
+		var armName string
+		for name := range tgp.Trajectory()[0] {
+			armName = name
+			break
+		}
+		if armName != "" {
+			if r, ok := ms.components[armName]; ok {
+				capResp, err := r.DoCommand(ctx, map[string]any{armplanning.DoCommandKeySupportsExecuteTrajGenPlan: true})
+				if err == nil {
+					if v, _ := capResp[armplanning.DoCommandKeySupportsExecuteTrajGenPlan].(bool); v {
+						ms.logger.CInfof(ctx, "executing traj-gen plan on %q (%d samples)", armName, len(tgp.Configurations))
+						_, err = r.DoCommand(ctx, map[string]any{
+							armplanning.DoCommandKeyExecuteTrajGenPlan: tgp.DoCommandPayload(),
+						})
+						return err
+					}
+				}
+				ms.logger.CInfof(ctx, "arm %q does not support %s, falling back to GoToInputs",
+					armName, armplanning.DoCommandKeyExecuteTrajGenPlan)
+			}
+		}
+	}
+
+	trajectory := plan.Trajectory()
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
 	currStep := map[string][][]referenceframe.Input{}
@@ -774,6 +840,16 @@ func waypointsFromRequest(
 	return startState, waypoints, nil
 }
 
+// decodeJSONTagged decodes a map[string]any into a struct by round-tripping
+// through JSON, so that json struct tags are honoured.
+func decodeJSONTagged(m map[string]any, dst any) error {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, dst)
+}
+
 func (ms *builtIn) writePlanRequest(
 	req *armplanning.PlanRequest, plan motionplan.Plan, start time.Time, traceID, planTag string, planError error,
 ) error {
@@ -816,5 +892,23 @@ func (ms *builtIn) writePlanRequest(
 	}
 
 	ms.logger.Infof("writing plan to %s", fn)
-	return req.WriteRequestAndResponseToFile(fn, plan)
+	if err := req.WriteRequestAndResponseToFile(fn, plan); err != nil {
+		return err
+	}
+
+	if tgp, ok := plan.(*armplanning.TrajGenPlan); ok && ms.trajGen != nil {
+		trajGenFn := strings.TrimSuffix(fn, filepath.Ext(fn)) + "-trajgen.json"
+		ms.logger.Infof("writing traj-gen plan to %s", trajGenFn)
+		data, err := json.Marshal(map[string]any{
+			"settings": ms.trajGen,
+			"plan":     tgp.DoCommandPayload(),
+		})
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Clean(trajGenFn), data, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
 }
