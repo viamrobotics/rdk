@@ -3440,7 +3440,7 @@ After creation, use 'viam module update' to push your new module to app.viam.com
 				},
 				{
 					Name:      "add-model",
-					Usage:     "add a new model to an existing module",
+					Usage:     "generate a new model and add it to an existing module",
 					UsageText: createUsageText("module add-model", nil, false, false),
 					Description: `Adds a new resource model to a module created with 'viam module generate'.
 Run this command from within the module directory.`,
