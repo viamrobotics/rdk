@@ -1028,16 +1028,25 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
 
 	// Adding a module that will hang without serving a socket, the module should stay in the starting state.
-	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT_MS", "250")
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "1s")
 	cfg.Modules = append(cfg.Modules, config.Module{
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	})
 
 	// Reconfigure in a goroutine this time because fakemodule will block.
-	go r.Reconfigure(ctx, cfg)
+	// Make a channel so we can know when reconfigure has completed
+	reconfigureDone := make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, cfg)
+	}()
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
 		test.That(tb, moduleState(tb, r, "fake"), test.ShouldEqual, modulestatus.ModuleStateStarting)
 	})
 
+	// Once reconfigure has completed, fake should have fallen into the unhealthy state.
+	<-reconfigureDone
+	test.That(t, moduleState(t, r, "fake"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+	test.That(t, moduleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
 }
