@@ -48,38 +48,35 @@ type builtIn struct {
 func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	chan<- string, chan<- map[string]interface{}, <-chan shell.Output, error,
 ) {
-	ctxCancel, cancel := context.WithCancel(ctx)
-
-	// Pick the platform default interactive shell.
-	shellPath := "/bin/sh"
+	defaultShellPath, ok := os.LookupEnv("SHELL")
+	if !ok {
+		defaultShellPath = "/bin/sh"
+	}
 	shellArgs := []string{"-i"}
 	shellEnv := []string{"TERM=xterm-256color"}
 	if runtime.GOOS == "windows" {
-		// powershell is preferred when present; fall back to cmd.exe. Inherit the parent
-		// environment (nil) so the shell has PATH, SystemRoot, etc.
-		shellPath = "cmd.exe"
+		// powershell when available, else cmd.exe; inherit the parent environment (nil).
+		defaultShellPath = "cmd.exe"
 		if ps, lookErr := exec.LookPath("powershell.exe"); lookErr == nil {
-			shellPath = ps
+			defaultShellPath = ps
 		}
 		shellArgs = nil
 		shellEnv = nil
-	} else if sh, ok := os.LookupEnv("SHELL"); ok {
-		shellPath = sh
 	}
 
-	// xpty allocates a unix pty or a Windows ConPTY behind one interface. Start with a
-	// default size; the real window size arrives via the first window-change OOB message.
-	pty, err := xpty.NewPty(80, 24)
+	ctxCancel, cancel := context.WithCancel(ctx)
+	//nolint:gosec
+	cmd := exec.Command(defaultShellPath, shellArgs...)
+	cmd.Env = shellEnv
+	// xpty gives a unix pty or a Windows ConPTY behind one interface.
+	f, err := xpty.NewPty(80, 24)
 	if err != nil {
 		cancel()
 		return nil, nil, nil, err
 	}
-	//nolint:gosec
-	cmd := exec.Command(shellPath, shellArgs...)
-	cmd.Env = shellEnv
-	if err := pty.Start(cmd); err != nil {
+	if err := f.Start(cmd); err != nil {
 		cancel()
-		utils.UncheckedError(pty.Close())
+		utils.UncheckedError(f.Close())
 		return nil, nil, nil, err
 	}
 
@@ -108,7 +105,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				return
 			}
 			lastSet = time.Now()
-			if err := pty.Resize(int(cols), int(rows)); err != nil {
+			if err := f.Resize(int(cols), int(rows)); err != nil {
 				svc.logger.CErrorw(ctx, "error setting pty window size", "error", err)
 			}
 		default:
@@ -139,7 +136,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
 			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
 		}
-		if err := pty.Close(); err != nil {
+		if err := f.Close(); err != nil {
 			svc.logger.CDebugw(ctx, "error closing pty", "error", err)
 		}
 	})
@@ -157,7 +154,7 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 				return
 			default:
 			}
-			n, err := pty.Read(data[:])
+			n, err := f.Read(data[:])
 			if err != nil {
 				if !errors.Is(err, io.EOF) && !errors.Is(err, os.ErrClosed) {
 					svc.logger.CErrorw(ctx, "error reading output", "error", err)
@@ -185,19 +182,19 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 			select {
 			case inputData, ok := <-input:
 				if ok {
-					if _, err := pty.Write([]byte(inputData)); err != nil {
+					if _, err := f.Write([]byte(inputData)); err != nil {
 						svc.logger.CErrorw(ctx, "error writing data", "error", err)
 						return
 					}
 				} else {
-					if _, err := pty.Write([]byte{4}); err != nil {
+					if _, err := f.Write([]byte{4}); err != nil {
 						svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 						return
 					}
 					return
 				}
 			case <-ctx.Done():
-				if _, err := pty.Write([]byte{4}); err != nil {
+				if _, err := f.Write([]byte{4}); err != nil {
 					svc.logger.CErrorw(ctx, "error writing EOT", "error", err)
 					return
 				}
