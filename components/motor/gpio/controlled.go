@@ -168,7 +168,8 @@ type controlledMotor struct {
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational.
 func (cm *controlledMotor) SetPower(ctx context.Context, powerPct float64, extra map[string]interface{}) error {
-	cm.opMgr.CancelRunning(ctx)
+	ctx, finish := cm.opMgr.New(ctx)
+	defer finish()
 	if cm.loop != nil {
 		cm.loop.Pause()
 	}
@@ -188,21 +189,23 @@ func (cm *controlledMotor) IsMoving(ctx context.Context) (bool, error) {
 
 // Stop stops rpmMonitor and stops the real motor.
 func (cm *controlledMotor) Stop(ctx context.Context, extra map[string]interface{}) error {
+	_, finish := cm.opMgr.New(ctx)
+	defer finish()
 	// after the motor is created, Stop is called, but if the PID controller
 	// is auto-tuning, the loop needs to keep running
-	if cm.loop != nil && !cm.loop.GetTuning(ctx) {
+	if cm.loop != nil && !cm.loop.GetTuning(context.Background()) {
 		cm.loop.Pause()
 
 		// update pid controller to use the current state as the desired state
-		currentTicks, _, err := cm.enc.Position(ctx, encoder.PositionTypeTicks, extra)
+		currentTicks, _, err := cm.enc.Position(context.Background(), encoder.PositionTypeTicks, extra)
 		if err != nil {
 			return err
 		}
-		if err := cm.updateControlBlock(ctx, currentTicks+cm.offsetInTicks, cm.maxRPM*cm.ticksPerRotation/60); err != nil {
+		if err := cm.updateControlBlock(context.Background(), currentTicks+cm.offsetInTicks, cm.maxRPM*cm.ticksPerRotation/60); err != nil {
 			return err
 		}
 	}
-	return cm.real.Stop(ctx, nil)
+	return cm.real.Stop(context.Background(), nil)
 }
 
 // Close cleanly shuts down the motor.
@@ -282,7 +285,6 @@ func (cm *controlledMotor) GoTo(ctx context.Context, rpm, targetPosition float64
 
 // SetRPM instructs the motor to move at the specified RPM indefinitely.
 func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[string]interface{}) error {
-	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 
@@ -323,7 +325,6 @@ func (cm *controlledMotor) SetRPM(ctx context.Context, rpm float64, extra map[st
 // negative the motor will spin in the forward direction.
 // If revolutions != 0, this will block until the number of revolutions has been completed or another operation comes in.
 func (cm *controlledMotor) GoFor(ctx context.Context, rpm, revolutions float64, extra map[string]interface{}) error {
-	cm.opMgr.CancelRunning(ctx)
 	ctx, done := cm.opMgr.New(ctx)
 	defer done()
 

@@ -11,13 +11,13 @@ import (
 	"go.viam.com/rdk/referenceframe"
 )
 
-func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs, step int,
+func simpleSmoothStep(ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs, step int,
 ) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "simpleSmoothStep")
 	defer span.End()
 	// look at each triplet, see if we can remove the middle one
 	for i := step + 1; i < len(steps); i += step {
-		err := psc.checkPath(ctx, steps[i-step-1], steps[i], false, nil)
+		err := psc.CheckPath(ctx, steps[i-step-1], steps[i], false, nil)
 		if err != nil {
 			continue
 		}
@@ -30,7 +30,7 @@ func simpleSmoothStep(ctx context.Context, psc *planSegmentContext, steps []*ref
 
 // smoothPath will pick two points at random along the path and attempt to do a fast gradient descent directly between
 // them, which will cut off randomly-chosen points with odd joint angles into something that is a more intuitive motion.
-func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
+func smoothPathSimple(ctx context.Context, psc *PlanSegmentContext,
 	steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
 	ctx, span := trace.StartSpan(ctx, "smoothPathSimple")
@@ -51,7 +51,7 @@ func smoothPathSimple(ctx context.Context, psc *planSegmentContext,
 }
 
 func smoothPath(
-	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
+	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "smoothPlan")
 	defer span.End()
@@ -70,7 +70,7 @@ func smoothPath(
 // where the path comes within twice the minimum distance of an obstacle.
 // This prevents the smoothed path from getting too close to obstacles during interpolation.
 func addCloseObstacleWaypoints(
-	ctx context.Context, psc *planSegmentContext, steps []*referenceframe.LinearInputs,
+	ctx context.Context, psc *PlanSegmentContext, steps []*referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	ctx, span := trace.StartSpan(ctx, "addCloseObstacleWaypoints")
 	defer span.End()
@@ -108,7 +108,7 @@ func addCloseObstacleWaypoints(
 // in each zone.
 func findCloseObstacleWaypoints(
 	ctx context.Context,
-	psc *planSegmentContext,
+	psc *PlanSegmentContext,
 	start, end *referenceframe.LinearInputs,
 ) ([]*referenceframe.LinearInputs, error) {
 	segment := &motionplan.SegmentFS{
@@ -134,7 +134,7 @@ func findCloseObstacleWaypoints(
 			Configuration: interpolated[i],
 		}
 
-		closestObstacle, err := psc.checker.CheckStateFSConstraints(ctx, state)
+		closestObstacle, err := psc.Checker.CheckStateFSConstraints(ctx, state)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func findCloseObstacleWaypoints(
 	return closeWaypoints, nil
 }
 
-func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegmentContext,
+func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *PlanSegmentContext,
 	steps []*referenceframe.LinearInputs,
 ) []*referenceframe.LinearInputs {
 	moving, _ := psc.motionChains.framesFilteredByMovingAndNonmoving()
@@ -172,7 +172,7 @@ func tryOnlyMovingComponentsThatNeedToMove(ctx context.Context, psc *planSegment
 			updated.Put(component, prevInputs)
 		}
 
-		err := psc.checkPath(ctx, prev, updated, false, nil)
+		err := psc.CheckPath(ctx, prev, updated, false, nil)
 		if err == nil {
 			steps[idx] = updated
 		}

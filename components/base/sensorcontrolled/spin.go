@@ -20,7 +20,6 @@ const (
 // any error between the desired degsPerSec and the actual degsPerSec using a PID control loop.
 // Spin also monitors the angleDeg and stops the base when the goal angle is reached.
 func (sb *sensorBase) Spin(ctx context.Context, angleDeg, degsPerSec float64, extra map[string]interface{}) error {
-	sb.opMgr.CancelRunning(ctx)
 	ctx, done := sb.opMgr.New(ctx)
 	defer done()
 

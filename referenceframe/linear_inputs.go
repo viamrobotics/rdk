@@ -60,6 +60,21 @@ func (li *LinearInputs) GetSchema(fs *FrameSystem) (*LinearInputsSchema, error) 
 	return li.schema, nil
 }
 
+// GetLinearInputs converts a FrameSystemInputs to LinearInputs using this schema.
+func (lis *LinearInputsSchema) GetLinearInputs(fsi FrameSystemInputs) (*LinearInputs, error) {
+	inputs := make([]Input, 0)
+	for _, meta := range lis.metas {
+		frameInputs := fsi[meta.frameName]
+		if len(frameInputs) != meta.dof {
+			return nil, fmt.Errorf("Frame DoF does not match Schema. Frame: %v DoF: %v Schema: %v",
+				meta.frameName, len(frameInputs), meta.dof)
+		}
+		inputs = append(inputs, frameInputs...)
+	}
+
+	return &LinearInputs{schema: lis, inputs: inputs}, nil
+}
+
 // FloatsToInputs applies the given schema to a new set of linearized floats. This returns an error
 // if the wrong number of floats are provided. The returned LinearInputs shares the schema pointer
 // with the original. Callers that need to mutate the schema (e.g. via Put for new frames) must call
@@ -134,7 +149,6 @@ type linearInputMeta struct {
 // LinearInputs is a memory optimized representation of FrameSystemInputs. The type is expected to
 // only be used by direct consumers of the frame system library.
 type LinearInputs struct {
-	// Cache map[string][]Input ?
 	schema *LinearInputsSchema
 	inputs []Input
 }
