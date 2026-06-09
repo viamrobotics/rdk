@@ -171,17 +171,17 @@ func TestDataSourceTypeToProto(t *testing.T) {
 		},
 		"pipelinesink accepted for query": {
 			dataSourceType: "pipelinesink",
-			allowed:        queryDataSourceTypes,
+			allowed:        tabularDataByMQLDataSourceTypes,
 			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
 		},
 		"unknown": {
 			dataSourceType: "unknown",
-			allowed:        queryDataSourceTypes,
+			allowed:        tabularDataByMQLDataSourceTypes,
 			expectedError:  true,
 		},
 		"empty": {
 			dataSourceType: "",
-			allowed:        queryDataSourceTypes,
+			allowed:        tabularDataByMQLDataSourceTypes,
 			expectedError:  true,
 		},
 	}

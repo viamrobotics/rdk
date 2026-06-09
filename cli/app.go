@@ -1455,7 +1455,7 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:  dataFlagMQL,
-									Usage: "MQL query to query the organization's tabular data ",
+									Usage: "MQL query to query the organization's tabular data",
 								},
 								&cli.StringFlag{
 									Name:  dataFlagMQLFile,
@@ -1463,7 +1463,7 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:  dataFlagDataSourceType,
-									Usage: formatAcceptedValues("data source to query against", queryDataSourceTypes...),
+									Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPipelineID,

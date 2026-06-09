@@ -87,6 +87,12 @@ func TestDataQuerySQLAction(t *testing.T) {
 		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{SqlQuery: "SELECT 1"})
 		test.That(t, err, test.ShouldBeError, errors.New("must provide an organization ID"))
 	})
+
+	t.Run("requires a sql query", func(t *testing.T) {
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, &inject.DataServiceClient{}, nil, nil, "token")
+		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{OrgID: "org-1"})
+		test.That(t, err, test.ShouldBeError, errors.New("must provide a SQL query"))
+	})
 }
 
 func TestDataQueryMQLAction(t *testing.T) {

@@ -431,6 +431,9 @@ func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLAr
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
 	}
+	if args.SqlQuery == "" {
+		return errors.New("must provide a SQL query")
+	}
 
 	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
 		OrganizationId: args.OrgID,
@@ -446,6 +449,12 @@ func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLAr
 func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLArgs) error {
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
+	}
+	if args.MQL == "" && args.MqlPath == "" {
+		return errors.New("missing MQL query")
+	}
+	if args.MQL != "" && args.MqlPath != "" {
+		return errors.New("MQL and MQL file cannot both be provided")
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
@@ -480,7 +489,7 @@ func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularD
 			dataFlagDataSourceType, dataFlagPipelineID)
 	}
 
-	sourceType, err := dataSourceTypeToProto(dataSourceType, queryDataSourceTypes)
+	sourceType, err := dataSourceTypeToProto(dataSourceType, tabularDataByMQLDataSourceTypes)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +511,23 @@ func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularD
 // writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them
 // to dest, or to w if dest is empty.
 func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
-	jsonRows := make([][]byte, 0, len(rows))
+	var (
+		bw       *bufio.Writer
+		filePath string
+	)
+	if dest != "" {
+		if err := makeDestinationDirs(dest); err != nil {
+			return errors.Wrap(err, "could not create destination directory")
+		}
+		filePath = filepath.Join(dest, dataFileName)
+		f, err := os.Create(filePath) //nolint:gosec
+		if err != nil {
+			return errors.Wrap(err, "could not create data file")
+		}
+		defer f.Close() //nolint:errcheck
+		bw = bufio.NewWriter(f)
+	}
+
 	for _, row := range rows {
 		var doc bson.D
 		if err := bson.Unmarshal(row, &doc); err != nil {
@@ -512,36 +537,21 @@ func writeQueryResults(w io.Writer, dest string, rows [][]byte) error {
 		if err != nil {
 			return errors.Wrap(err, "error formatting query result")
 		}
-		jsonRows = append(jsonRows, jsonRow)
-	}
-
-	if dest == "" {
-		for _, row := range jsonRows {
-			printf(w, "%s", row)
-		}
-		return nil
-	}
-
-	if err := makeDestinationDirs(dest); err != nil {
-		return errors.Wrap(err, "could not create destination directory")
-	}
-	filePath := filepath.Join(dest, dataFileName)
-	f, err := os.Create(filePath) //nolint:gosec
-	if err != nil {
-		return errors.Wrap(err, "could not create data file")
-	}
-	defer f.Close() //nolint:errcheck
-
-	writer := bufio.NewWriter(f)
-	for _, row := range jsonRows {
-		if err := writeData(writer, row); err != nil {
-			return errors.Wrap(err, "error writing data")
+		if bw != nil {
+			if err := writeData(bw, jsonRow); err != nil {
+				return errors.Wrap(err, "error writing data")
+			}
+		} else {
+			printf(w, "%s", jsonRow)
 		}
 	}
-	if err := writer.Flush(); err != nil {
-		return errors.Wrap(err, "error writing data to file")
+
+	if bw != nil {
+		if err := bw.Flush(); err != nil {
+			return errors.Wrap(err, "error writing data to file")
+		}
+		printf(w, "Wrote %d rows to %s", len(rows), filePath)
 	}
-	printf(w, "Wrote %d rows to %s", len(jsonRows), filePath)
 	return nil
 }
 

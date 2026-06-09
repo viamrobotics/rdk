@@ -41,18 +41,16 @@ var (
 )
 
 // dataSourceTypeProtos maps user-facing data source names to their proto enum value.
-// New source types must be added here.
 var dataSourceTypeProtos = map[string]pb.TabularDataSourceType{
 	StandardDataSourceType:     pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
 	HotStorageDataSourceType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
 	PipelineSinkDataSourceType: pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
 }
 
-// Per-surface allowed sets. Pipeline sinks can't be configured as pipeline destinations
-// (would be self-referential) but are valid query targets.
 var (
-	pipelineDataSourceTypes = []string{StandardDataSourceType, HotStorageDataSourceType}
-	queryDataSourceTypes    = []string{StandardDataSourceType, HotStorageDataSourceType, PipelineSinkDataSourceType}
+	// pipeline data sources do not allow pipeline sinks.
+	pipelineDataSourceTypes         = []string{StandardDataSourceType, HotStorageDataSourceType}
+	tabularDataByMQLDataSourceTypes = []string{StandardDataSourceType, HotStorageDataSourceType, PipelineSinkDataSourceType}
 )
 
 type datapipelineListArgs struct {
@@ -290,7 +288,7 @@ func DatapipelineDisableAction(ctx context.Context, cmd *cli.Command, args datap
 
 func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	if mqlFile != "" && mql != "" {
-		return nil, errors.New("MQL and MQL file cannot both be provided")
+		return nil, errors.New("data pipeline MQL and MQL file cannot both be provided")
 	}
 
 	if mqlFile != "" {
@@ -303,7 +301,7 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	}
 
 	if mql == "" {
-		return nil, errors.New("missing MQL query")
+		return nil, errors.New("missing data pipeline MQL")
 	}
 
 	// Parse the MQL stages JSON (using JSON5 for unquoted keys + comments).
