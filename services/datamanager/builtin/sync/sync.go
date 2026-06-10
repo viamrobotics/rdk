@@ -534,15 +534,17 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 func (s *Sync) syncArbitraryFile(
 	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
 	logger logging.Logger, bytesUploadingCounter *atomic.Uint64,
-) error {
+) (string, error) {
+	var uploadedID string
 	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
-		bytesUploaded, err := uploadArbitraryFile(
+		bytesUploaded, id, err := uploadArbitraryFile(
 			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, bytesUploadingCounter,
 		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
 		}
+		uploadedID = id
 		logger.Debugf("uploadArbitraryFile uploaded: %d bytes", bytesUploaded)
 		return bytesUploaded, nil
 	})
@@ -556,7 +558,7 @@ func (s *Sync) syncArbitraryFile(
 		// if we stopped due to a cancelled context,
 		// return without deleting the file or moving it to the failed directory
 		if errors.Is(err, context.Canceled) {
-			return err
+			return "", err
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
@@ -564,7 +566,7 @@ func (s *Sync) syncArbitraryFile(
 			logger.Error(err.Error())
 		}
 		s.uploadStats.arbitrary.uploadFailedFileCount.Add(1)
-		return err
+		return "", err
 	}
 
 	if err := f.Close(); err != nil {
@@ -576,7 +578,7 @@ func (s *Sync) syncArbitraryFile(
 	}
 	s.uploadStats.arbitrary.uploadedFileCount.Add(1)
 	s.uploadStats.arbitrary.completedUploadBytes.Add(bytesUploaded)
-	return nil
+	return uploadedID, nil
 }
 
 // UploadBinaryDataToDatasets simultaneously uploads binary data and adds it to a dataset.
@@ -663,11 +665,14 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 				bytesUploaded += uint64(fi.Size())
 			}
 		} else {
-			if syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, nil); syncErr != nil {
+			if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, nil); syncErr != nil {
 				filesFailed++
 			} else {
 				filesUploaded++
 				bytesUploaded += uint64(fi.Size())
+				if id != "" {
+					ids = append(ids, id)
+				}
 			}
 		}
 	}

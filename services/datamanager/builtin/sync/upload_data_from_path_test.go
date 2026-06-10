@@ -41,6 +41,20 @@ func writeTestFile(t *testing.T, dir, name string, contents []byte) string {
 	return p
 }
 
+func fileUploadClientReturningID(t *testing.T, id string) MockDataSyncServiceClient {
+	t.Helper()
+	return MockDataSyncServiceClient{
+		T: t,
+		FileUploadFunc: func(ctx context.Context, opts ...grpc.CallOption) (v1.DataSyncService_FileUploadClient, error) {
+			return &ClientStreamingMock[*v1.FileUploadRequest, *v1.FileUploadResponse]{
+				T:                t,
+				SendFunc:         func(*v1.FileUploadRequest) error { return nil },
+				CloseAndRecvFunc: func() (*v1.FileUploadResponse, error) { return &v1.FileUploadResponse{BinaryDataId: id}, nil },
+			}, nil
+		},
+	}
+}
+
 func TestUploadDataFromPath(t *testing.T) {
 	ctx := context.Background()
 
@@ -54,7 +68,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("single file", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, true)
+		s := newTestSync(t, fileUploadClientReturningID(t, "bin-1"), dir, true)
 		contents := []byte("hello world")
 		fp := writeTestFile(t, dir, "f.txt", contents)
 
@@ -64,7 +78,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		test.That(t, ff, test.ShouldEqual, uint64(0))
 		test.That(t, bu, test.ShouldEqual, uint64(len(contents)))
 		test.That(t, bt, test.ShouldEqual, uint64(len(contents)))
-		test.That(t, ids, test.ShouldBeEmpty)
+		test.That(t, ids, test.ShouldResemble, []string{"bin-1"})
 
 		// arbitrary files are deleted after a successful upload
 		_, statErr := os.Stat(fp)
@@ -73,7 +87,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("directory of files", func(t *testing.T) {
 		dir := t.TempDir()
-		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, true)
+		s := newTestSync(t, fileUploadClientReturningID(t, "bin-1"), dir, true)
 		uploadDir := filepath.Join(dir, "uploads")
 		test.That(t, os.MkdirAll(uploadDir, 0o700), test.ShouldBeNil)
 		a, b, c := []byte("aaa"), []byte("bbbb"), []byte("ccccc")
@@ -81,13 +95,14 @@ func TestUploadDataFromPath(t *testing.T) {
 		writeTestFile(t, uploadDir, "b.txt", b)
 		writeTestFile(t, uploadDir, "c.txt", c)
 
-		fu, ff, bu, bt, _, err := s.UploadDataFromPath(ctx, uploadDir, nil)
+		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, uploadDir, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fu, test.ShouldEqual, uint64(3))
 		test.That(t, ff, test.ShouldEqual, uint64(0))
 		total := uint64(len(a) + len(b) + len(c))
 		test.That(t, bu, test.ShouldEqual, total)
 		test.That(t, bt, test.ShouldEqual, total)
+		test.That(t, len(ids), test.ShouldEqual, 3)
 	})
 
 	t.Run("directory with a partial failure", func(t *testing.T) {
