@@ -529,7 +529,8 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 		PlannerOptions: planOpts,
 	}
 
-	skipTrajGen := req.Extra["skipTrajGen"].(bool)
+	// Defaults to false when the key is absent or not a bool (most Move requests don't set it).
+	skipTrajGen, _ := req.Extra["skipTrajGen"].(bool)
 	trajGen := ms.trajGen
 	if overrideIface, ok := req.Extra["trajectory_generator"]; ok && trajGen != nil {
 		overrideMap, ok := overrideIface.(map[string]any)
