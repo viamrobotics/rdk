@@ -11,14 +11,14 @@ import (
 
 // TestNewTrajGenDefaults verifies that nil optional fields are replaced by their defaults.
 func TestNewTrajGenDefaults(t *testing.T) {
-	tg := NewTrajGen(nil, nil, nil, nil, 1.0, 2.0, nil)
+	tg := NewTrajGen(nil, nil, nil, nil, []float64{1.0}, []float64{2.0}, nil)
 	test.That(t, tg.PathToleranceDeltaRads, test.ShouldEqual, defaultTrajGenPathToleranceDeltaRads)
 	test.That(t, tg.PathColinearizationRatio, test.ShouldEqual, defaultTrajGenPathColinearizationRatio)
 	test.That(t, tg.WaypointDeduplicationToleranceRads, test.ShouldEqual, defaultTrajGenWaypointDeduplicationToleranceRads)
 	test.That(t, tg.SamplingFreqHz, test.ShouldEqual, defaultTrajGenSamplingFreqHz)
 	// Non-optional fields pass through unchanged.
-	test.That(t, tg.VelocityLimitsRadsPerSec, test.ShouldEqual, 1.0)
-	test.That(t, tg.AccelerationLimitsRadsPerSec2, test.ShouldEqual, 2.0)
+	test.That(t, tg.VelocityLimitsRadsPerSec, test.ShouldResemble, []float64{1.0})
+	test.That(t, tg.AccelerationLimitsRadsPerSec2, test.ShouldResemble, []float64{2.0})
 }
 
 // TestNewTrajGenExplicitValues verifies that non-nil optional fields override the defaults.
@@ -27,7 +27,7 @@ func TestNewTrajGenExplicitValues(t *testing.T) {
 	cr := 0.3
 	dd := 0.002
 	sf := 20.0
-	tg := NewTrajGen(nil, &pt, &cr, &dd, 3.0, 4.0, &sf)
+	tg := NewTrajGen(nil, &pt, &cr, &dd, []float64{3.0}, []float64{4.0}, &sf)
 	test.That(t, tg.PathToleranceDeltaRads, test.ShouldEqual, 0.05)
 	test.That(t, tg.PathColinearizationRatio, test.ShouldEqual, 0.3)
 	test.That(t, tg.WaypointDeduplicationToleranceRads, test.ShouldEqual, 0.002)
@@ -38,8 +38,8 @@ func TestNewTrajGenExplicitValues(t *testing.T) {
 func TestTrajGenConfigValidate(t *testing.T) {
 	valid := TrajGenConfig{
 		Service:                       "my_svc",
-		VelocityLimitsRadsPerSec:      1.0,
-		AccelerationLimitsRadsPerSec2: 2.0,
+		VelocityLimitsRadsPerSec:      []float64{1.0, 1.0},
+		AccelerationLimitsRadsPerSec2: []float64{2.0, 2.0},
 	}
 
 	t.Run("valid config returns no remote dependency", func(t *testing.T) {
@@ -58,23 +58,37 @@ func TestTrajGenConfigValidate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("zero velocity limit", func(t *testing.T) {
+	t.Run("empty velocity limits", func(t *testing.T) {
 		cfg := valid
-		cfg.VelocityLimitsRadsPerSec = 0
+		cfg.VelocityLimitsRadsPerSec = nil
 		_, err := cfg.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("negative velocity limit", func(t *testing.T) {
+	t.Run("non-positive velocity limit entry", func(t *testing.T) {
 		cfg := valid
-		cfg.VelocityLimitsRadsPerSec = -1
+		cfg.VelocityLimitsRadsPerSec = []float64{1.0, 0}
 		_, err := cfg.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("zero acceleration limit", func(t *testing.T) {
+	t.Run("negative velocity limit entry", func(t *testing.T) {
 		cfg := valid
-		cfg.AccelerationLimitsRadsPerSec2 = 0
+		cfg.VelocityLimitsRadsPerSec = []float64{1.0, -1}
+		_, err := cfg.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("mismatched limit lengths", func(t *testing.T) {
+		cfg := valid
+		cfg.AccelerationLimitsRadsPerSec2 = []float64{2.0}
+		_, err := cfg.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("non-positive acceleration limit entry", func(t *testing.T) {
+		cfg := valid
+		cfg.AccelerationLimitsRadsPerSec2 = []float64{2.0, 0}
 		_, err := cfg.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
 	})

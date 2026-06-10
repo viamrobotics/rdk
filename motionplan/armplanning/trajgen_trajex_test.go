@@ -42,8 +42,8 @@ func TestPlanMotionTrajGenUsesTrajex(t *testing.T) {
 
 	// In-process trajex backend (cgo); 1 rad/s velocity, 2 rad/s^2 acceleration limits.
 	trajGen, err := (&armplanning.TrajGenConfig{
-		VelocityLimitsRadsPerSec:      1.0,
-		AccelerationLimitsRadsPerSec2: 2.0,
+		VelocityLimitsRadsPerSec:      []float64{1, 1, 1, 1, 1, 1},
+		AccelerationLimitsRadsPerSec2: []float64{2, 2, 2, 2, 2, 2},
 	}).ToTrajGen()
 	test.That(t, err, test.ShouldBeNil)
 
