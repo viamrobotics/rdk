@@ -3262,7 +3262,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no data manager")
 	})
 
-	t.Run("data manager does not support upload", func(t *testing.T) {
+	t.Run("data manager configured but not connected to cloud", func(t *testing.T) {
 		cfg := &config.Config{
 			Services: []resource.Config{
 				{
@@ -3277,7 +3277,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		r := setupLocalRobot(t, ctx, cfg, logger)
 		_, _, _, _, _, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "does not support")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to the cloud")
 	})
 }
 
