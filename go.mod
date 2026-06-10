@@ -101,7 +101,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	go.viam.com/api v0.1.555
+	go.viam.com/api v0.1.559-0.20260609195308-d8b5e1f67e37
 	go.viam.com/test v1.2.4
 	go.viam.com/utils v0.6.1
 	goji.io v2.0.2+incompatible
@@ -351,5 +351,3 @@ require (
 	github.com/ziutek/mymysql v1.5.4 // indirect
 	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
 )
-
-replace go.viam.com/api => ../api
