@@ -15,6 +15,7 @@ import (
 	"github.com/pion/rtp"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
 	"go.viam.com/rdk/components/camera"
@@ -637,7 +638,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context, extra map[string]interface{}) (pointcloud.PointCloud, error) {
 		var grpcMetadata metadata.MD = make(map[string][]string)
 		grpcMetadata.Set(k, v)
-		contextutils.SendHeader(ctx, grpcMetadata)
+		grpc.SendHeader(ctx, grpcMetadata)
 		return pcA, nil
 	}
 

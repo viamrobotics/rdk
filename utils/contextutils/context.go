@@ -54,15 +54,12 @@ func Pairs(kv ...string) ViamMD {
 	return ViamMD(grpcmetadata.Pairs(kv...))
 }
 
-// Deprecated: ContextWithMetadata attaches a metadata map to the context.
-// Instead, to read arbitrary viam-metadata from server, use
+// ContextWithMetadata creates a new derived context with a metadata map attached, or if the existing context already contains an MD map,
+// returns it along with its attached map.
 //
-//	md := make(contextutils.MD)
-//	ctx = context.WithValue(ctx, MetadataContextKey, md)
-//	resp, err := someRPCCall(ctx, ...)
-//	for k, v := range md {...}
-//
-//nolint:revive // ignore exported comment check
+//	Notes:
+//	a) do not make concurrent RPC calls using the context without synchronization, or you may get a fatal concurrent map write error.
+//	b) this will not work across modules
 func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]string) {
 	// If the context already has metadata, return that and leave the context untouched.
 	existingMD := ctx.Value(MetadataContextKey)
@@ -76,13 +73,9 @@ func ContextWithMetadata(ctx context.Context) (context.Context, map[string][]str
 	return ctx, md
 }
 
-// Deprecated: ContextWithMetadataUnaryClientInterceptorDeprecated attempts to read metadata from the gRPC header and
-// injects the metadata into the context if the caller has passed in a context with metadata.
-// It is only to be used with the also deprecated ContextWithMetadata. It does not work across modules.
-// Instead use ContextWithMetadataServerToClientUnaryClientInterceptor.
-//
-//nolint:revive // ignore exported comment check
-func ContextWithMetadataUnaryClientInterceptorDeprecated(
+// ContextWithMetadataUnaryClientInterceptor unconditionally adds a header read request to the RPC invoke options
+// and, if the caller has passed in a context with an attached metadata map, adds all returned headers into it.
+func ContextWithMetadataUnaryClientInterceptor(
 	ctx context.Context,
 	method string,
 	req, reply interface{},
@@ -91,9 +84,7 @@ func ContextWithMetadataUnaryClientInterceptorDeprecated(
 	opts ...grpc.CallOption,
 ) error {
 	var header grpcmetadata.MD
-	if ctx.Value(MetadataContextKey) != nil {
-		opts = append(opts, grpc.Header(&header))
-	}
+	opts = append(opts, grpc.Header(&header))
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil {
 		return err
