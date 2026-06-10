@@ -670,6 +670,7 @@ func TestWritePlanRequest(t *testing.T) {
 	err = msBuiltin.writePlanRequest(
 		&armplanning.PlanRequest{},
 		&motionplan.SimplePlan{},
+		&armplanning.PlanMeta{},
 		// start time of plan request -- encoded as a "time spent" string in the filename.
 		time.Now(),
 		// No traceID here.
@@ -700,6 +701,7 @@ func TestWritePlanRequest(t *testing.T) {
 		// plan request and plan are non-nil, we ought to get a file placed in the right location.
 		&armplanning.PlanRequest{},
 		&motionplan.SimplePlan{},
+		&armplanning.PlanMeta{},
 		// start time of plan request -- encoded as a "time spent" string in the filename.
 		time.Now(),
 		// An explicit trace ID.
@@ -728,6 +730,7 @@ func TestWritePlanRequest(t *testing.T) {
 	planFile := planDirEntries[0]
 	test.That(t, planFile.IsDir(), test.ShouldBeFalse)
 	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
+	test.That(t, planFile.Name(), test.ShouldNotContainSubstring, "cbirrt")
 
 	// Clean up for third test
 	test.That(t, os.RemoveAll(traceIDDir), test.ShouldBeNil)
@@ -736,6 +739,7 @@ func TestWritePlanRequest(t *testing.T) {
 	err = msBuiltin.writePlanRequest(
 		&armplanning.PlanRequest{},
 		&motionplan.SimplePlan{},
+		&armplanning.PlanMeta{GoalsCBIRRTSolved: 4},
 		time.Now(),
 		"",
 		"custom-test-tag", // Custom plan tag
@@ -751,6 +755,7 @@ func TestWritePlanRequest(t *testing.T) {
 	test.That(t, filepath.Ext(planFile.Name()), test.ShouldEqual, ".json")
 	// Verify the filename contains the custom tag
 	test.That(t, planFile.Name(), test.ShouldContainSubstring, "custom-test-tag")
+	test.That(t, planFile.Name(), test.ShouldContainSubstring, "cbirrt")
 }
 
 func TestErrorMessageContext(t *testing.T) {
