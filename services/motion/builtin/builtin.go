@@ -230,11 +230,8 @@ func (ms *builtIn) Reconfigure(
 
 	ms.trajGen = nil
 	if config.TrajGen != nil {
-		// Per-joint velocity/acceleration limits come from the user's config today. Eventually the
-		// motion service should derive them from the arms themselves -- joint count/order from
-		// arm.Kinematics and the velocity/acceleration values from a (not-yet-existing) arm.Properties
-		// endpoint -- so users don't hand-write per-joint arrays (and don't have to match DOF order).
-		// deps here gives access to the component resources to query. Config would become an override.
+		// Builds the config-default generator. Per-move limit derivation belongs at the plan path
+		// (see Move), not here: Reconfigure only runs on config change, but limits can vary per move.
 		ms.trajGen, err = config.TrajGen.ToTrajGen()
 		if err != nil {
 			return err
@@ -537,6 +534,10 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	// Defaults to false when the key is absent or not a bool (most Move requests don't set it).
 	skipTrajGen, _ := req.Extra["skipTrajGen"].(bool)
 	trajGen := ms.trajGen
+	// TODO: derive per-joint limits here, per move, since the values can change between move calls:
+	// joint count/order from each moving arm's Kinematics and the velocity/acceleration values from a
+	// future arm.Properties endpoint, applied like the override below. ms.components has the resources
+	// to query. This is the right place (not Reconfigure) precisely because it runs on every move.
 	if overrideIface, ok := req.Extra["trajectory_generator"]; ok && trajGen != nil {
 		overrideMap, ok := overrideIface.(map[string]any)
 		if !ok {
