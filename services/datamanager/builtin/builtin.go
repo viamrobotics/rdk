@@ -483,6 +483,17 @@ func (b *builtIn) UploadImageToDatasets(ctx context.Context,
 	return b.sync.UploadBinaryDataToDatasets(ctx, imgBytes, datasetIDs, tags, mimeType)
 }
 
+// UploadDataFromPath uploads a file or directory from the robot to the cloud.
+func (b *builtIn) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata) (
+	uint64, uint64, uint64, uint64, []string, error,
+) {
+	b.logger.Debug("UploadDataFromPath START")
+	defer b.logger.Debug("UploadDataFromPath END")
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.sync.UploadDataFromPath(ctx, path, uploadMetadata)
+}
+
 type dataManagerStats struct {
 	SyncPaths               syncPathsSummary
 	DiskUsage               diskUsageSummary
