@@ -230,6 +230,11 @@ func (ms *builtIn) Reconfigure(
 
 	ms.trajGen = nil
 	if config.TrajGen != nil {
+		// Per-joint velocity/acceleration limits come from the user's config today. Eventually the
+		// motion service should derive them from the arms themselves -- joint count/order from
+		// arm.Kinematics and the velocity/acceleration values from a (not-yet-existing) arm.Properties
+		// endpoint -- so users don't hand-write per-joint arrays (and don't have to match DOF order).
+		// deps here gives access to the component resources to query. Config would become an override.
 		ms.trajGen, err = config.TrajGen.ToTrajGen()
 		if err != nil {
 			return err
