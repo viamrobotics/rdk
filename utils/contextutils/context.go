@@ -29,6 +29,9 @@ const (
 	// It is automatically prefixed to all arbitrary keys behind the scenes to avoid conflicts with internal metadata.
 	arbitraryMetadataKey = string(MetadataContextKey)
 
+	// fwdArbitraryMetadataKey is used by the Server-to-Client arbitrary MD's interceptors to enable forwarding between modules.
+	fwdArbitraryMetadataKey = "fwd-" + arbitraryMetadataKey
+
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
 	TimeRequestedMetadataKey = "viam-time-requested"
@@ -120,6 +123,7 @@ func ContextWithMetadataServerToClientUnaryClientInterceptor(
 	md := ctx.Value(MetadataContextKey)
 	if _, ok := md.(ViamMD); ok {
 		opts = append(opts, grpc.Header(&header))
+		ctx = grpcmetadata.AppendToOutgoingContext(ctx, fwdArbitraryMetadataKey, "1")
 	}
 	err := invoker(ctx, method, req, reply, cc, opts...)
 	if err != nil {
@@ -147,6 +151,13 @@ func ContextWithMetadataServerToClientUnaryServerInterceptor(
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (any, error) {
+	incomingMD, ok := grpcmetadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(ctx, req)
+	}
+	if _, ok := incomingMD[fwdArbitraryMetadataKey]; !ok {
+		return handler(ctx, req)
+	}
 	md := ViamMD{}
 	ctx = context.WithValue(ctx, MetadataContextKey, md)
 	resp, err := handler(ctx, req)
