@@ -3251,6 +3251,36 @@ func TestCloudMetadata(t *testing.T) {
 	})
 }
 
+func TestUploadDataFromPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	ctx := context.Background()
+
+	t.Run("no data manager configured", func(t *testing.T) {
+		r := setupLocalRobot(t, ctx, &config.Config{}, logger)
+		_, _, _, _, _, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no data manager")
+	})
+
+	t.Run("data manager does not support upload", func(t *testing.T) {
+		cfg := &config.Config{
+			Services: []resource.Config{
+				{
+					Name:                "dm",
+					API:                 datamanager.API,
+					Model:               resource.DefaultServiceModel,
+					ConvertedAttributes: &builtin.Config{},
+					DependsOn:           []string{internalcloud.InternalServiceName.String()},
+				},
+			},
+		}
+		r := setupLocalRobot(t, ctx, cfg, logger)
+		_, _, _, _, _, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "does not support")
+	})
+}
+
 func TestReconfigureOnModuleRename(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)

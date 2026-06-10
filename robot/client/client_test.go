@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"go.uber.org/zap/zapcore"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	commonpb "go.viam.com/api/common/v1"
 	armpb "go.viam.com/api/component/arm/v1"
 	basepb "go.viam.com/api/component/base/v1"
@@ -2362,4 +2363,52 @@ func TestListTunnels(t *testing.T) {
 	ttes, err := client.ListTunnels(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ttes, test.ShouldResemble, expectedTTEs)
+}
+
+func TestUploadDataFromPath(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+
+	var capturedPath string
+	var capturedMD *datasyncpb.UploadMetadata
+	injectRobot := &inject.Robot{
+		ResourceNamesFunc:   func() []resource.Name { return nil },
+		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
+		MachineStatusFunc: func(ctx context.Context) (robot.MachineStatus, error) {
+			return robot.MachineStatus{State: robot.StateRunning}, nil
+		},
+		UploadDataFromPathFunc: func(
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata,
+		) (uint64, uint64, uint64, uint64, []string, error) {
+			capturedPath = path
+			capturedMD = md
+			return 2, 0, 512, 512, []string{"a", "b"}, nil
+		},
+	}
+
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	md := &datasyncpb.UploadMetadata{Tags: []string{"tag1"}}
+	fu, ff, bu, bt, ids, err := client.UploadDataFromPath(context.Background(), "/data/foo", md)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fu, test.ShouldEqual, uint64(2))
+	test.That(t, ff, test.ShouldEqual, uint64(0))
+	test.That(t, bu, test.ShouldEqual, uint64(512))
+	test.That(t, bt, test.ShouldEqual, uint64(512))
+	test.That(t, ids, test.ShouldResemble, []string{"a", "b"})
+
+	// request fields actually crossed the wire
+	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
+	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
 }

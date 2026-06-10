@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	datasyncpb "go.viam.com/api/app/datasync/v1"
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/cloud"
@@ -59,6 +60,11 @@ type Robot struct {
 	MachineStatusFunc       func(ctx context.Context) (robot.MachineStatus, error)
 	ShutdownFunc            func(ctx context.Context) error
 	ListTunnelsFunc         func(ctx context.Context) ([]config.TrafficTunnelEndpoint, error)
+	UploadDataFromPathFunc  func(
+		ctx context.Context,
+		path string,
+		uploadMetadata *datasyncpb.UploadMetadata,
+	) (uint64, uint64, uint64, uint64, []string, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -371,6 +377,18 @@ func (r *Robot) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint
 		return r.LocalRobot.ListTunnels(ctx)
 	}
 	return r.ListTunnelsFunc(ctx)
+}
+
+// UploadDataFromPath calls the injected UploadDataFromPath or the real one.
+func (r *Robot) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata) (
+	uint64, uint64, uint64, uint64, []string, error,
+) {
+	r.Mu.RLock()
+	defer r.Mu.RUnlock()
+	if r.UploadDataFromPathFunc == nil {
+		return r.LocalRobot.UploadDataFromPath(ctx, path, uploadMetadata)
+	}
+	return r.UploadDataFromPathFunc(ctx, path, uploadMetadata)
 }
 
 type noopSessionManager struct{}
