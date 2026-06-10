@@ -421,8 +421,7 @@ func hasOptionalDependencies(conf *resource.Config) bool {
 // pointer to `newResName`. The RDK's updateWeakAndOptionalDependents flow rebuilds a
 // modular resource via RemoveResource+AddResource without notifying dependents; any
 // dependent that captured a direct pointer to the rebuilt resource is left stale. This
-// closes that gap on the module side. Used from both `addResource` (after a re-add) and
-// from `rebuildResource` (after a rebuild path completes).
+// closes that gap on the module side.
 //
 // Must be called with `registerMu` held; the mutex is released and reacquired around each
 // recursive rebuild call.
@@ -440,9 +439,6 @@ func (m *Module) cascadeRebuildDependentsOf(ctx context.Context, newResName reso
 		return
 	}
 
-	// Rebuild dependents while reconstructing the slice. Entries are preserved through
-	// transient failures (cycle skip, missing collection, dep-resolution failure) so the
-	// next rebuild can retry.
 	newDependents := make([]resConfigureArgs, 0, len(dependents))
 	for _, args := range dependents {
 		if _, cycled := visited[args.conf.ResourceName()]; cycled {

@@ -1116,7 +1116,7 @@ func (manager *resourceManager) processResource(
 	}
 
 	resName := conf.ResourceName()
-	_, weakOptionalSnapshot, err := lr.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
+	_, err := lr.getDependencies(resName, gNode)
 	if err != nil {
 		manager.logger.CDebugw(ctx,
 			"failed to get dependencies for existing resource during reconfiguration, closing and removing resource from graph node",
@@ -1152,7 +1152,6 @@ func (manager *resourceManager) processResource(
 		)
 		return nil, err
 	}
-	gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 	return newRes, nil
 }
 

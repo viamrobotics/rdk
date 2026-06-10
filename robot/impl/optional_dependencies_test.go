@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/robottestutils"
 	rutils "go.viam.com/rdk/utils"
@@ -88,6 +89,83 @@ func newOptionalChild(ctx context.Context,
 	}
 
 	return oc, nil
+}
+
+func TestWeakOptionalDepClocksEqual(t *testing.T) {
+	// Unit tests for the snapshot comparison that gates the weak/optional rebuild skip.
+	// A nil snapshot means "not yet recorded" and must never compare equal (so a freshly
+	// built resource is always considered for a follow-up update); two non-nil snapshots
+	// are equal iff they have identical key sets and identical clock values.
+	m := motor.Named("m")
+	m1 := motor.Named("m1")
+
+	for _, tc := range []struct {
+		name string
+		a, b map[resource.Name]int64
+		want bool
+	}{
+		{
+			name: "both nil are not equal",
+			a:    nil,
+			b:    nil,
+			want: false,
+		},
+		{
+			name: "nil vs empty is not equal",
+			a:    nil,
+			b:    map[resource.Name]int64{},
+			want: false,
+		},
+		{
+			name: "two empty non-nil snapshots are equal",
+			a:    map[resource.Name]int64{},
+			b:    map[resource.Name]int64{},
+			want: true,
+		},
+		{
+			name: "same single key and value is equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 1},
+			want: true,
+		},
+		{
+			name: "same key, different clock value is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 2},
+			want: false,
+		},
+		{
+			name: "same length, different key is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m1: 1},
+			want: false,
+		},
+		{
+			name: "differing length (extra key) is not equal",
+			a:    map[resource.Name]int64{m: 1},
+			b:    map[resource.Name]int64{m: 1, m1: 2},
+			want: false,
+		},
+		{
+			name: "multiple identical keys and values is equal",
+			a:    map[resource.Name]int64{m: 1, m1: 2},
+			b:    map[resource.Name]int64{m: 1, m1: 2},
+			want: true,
+		},
+		{
+			name: "multiple keys, one clock value differs is not equal",
+			a:    map[resource.Name]int64{m: 1, m1: 2},
+			b:    map[resource.Name]int64{m: 1, m1: 3},
+			want: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, weakOptionalDepClocksEqual(tc.a, tc.b), test.ShouldEqual, tc.want)
+			// The comparison must be symmetric: swapping the arguments must not change the
+			// result.
+			test.That(t, weakOptionalDepClocksEqual(tc.b, tc.a), test.ShouldEqual, tc.want)
+		})
+	}
 }
 
 func TestOptionalDependencies(t *testing.T) {
@@ -185,7 +263,7 @@ func TestOptionalDependencies(t *testing.T) {
 
 	{ // Assertions
 		// Assert that the optional child component is still accessible (did not fail to
-		// reconfigure).
+		// rebuild).
 		ocRes, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -228,7 +306,7 @@ func TestOptionalDependencies(t *testing.T) {
 
 	{ // Assertions
 		// Assert that the optional child component is still accessible (did not fail to
-		// reconfigure).
+		// rebuild).
 		ocRes, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -265,7 +343,7 @@ func TestOptionalDependencies(t *testing.T) {
 
 	{ // Assertions
 		// Assert that the optional child component is no longer accessible (failed to
-		// reconfigure and can no longer be found).
+		// rebuild and can no longer be found).
 		_, err := lr.ResourceByName(ocName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
@@ -313,9 +391,10 @@ func TestOptionalDependencies(t *testing.T) {
 		//
 		// The optional child _might_ get 'm1' as a dependency as part of its initial
 		// construction, in which case no log will be emitted, or it _might_ get 'm1' as a
-		// dependency as part of the reconfigure triggered by the unconditional call to
-		// `updateWeakAndOptionalDependents`, in which case one log will emitted due to the
-		// initial destruction lacking the 'm1' dependency.
+		// dependency as part of the rebuild triggered when updateWeakAndOptionalDependents
+		// sees oc's snapshot (captured at construction without m1) differ from the current
+		// resolved set (now including m1), in which case one log will be emitted due to
+		// the initial construction lacking the 'm1' dependency.
 		//
 		// Optional dependencies are _not_ represented as edges in the resource graph and have
 		// no influence on build order. 3 logs would mean the order was m -> m1 -> oc or m1 ->
@@ -436,7 +515,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg)
 
 	{ // Assertions
-		// Assert that the foo component is still accessible (did not fail to reconfigure).
+		// Assert that the foo component is still accessible (did not fail to rebuild).
 		fooRes, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -486,12 +565,13 @@ func TestModularOptionalDependencies(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg)
 
 	{ // Assertions
-		// Assert that the foo component is still accessible (did not fail to reconfigure).
+		// Assert that the foo component is still accessible (did not fail to rebuild).
 		fooRes, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Removing 'm1' makes the optional dep unresolvable again, so the rebuild logs
-		// "could not get optional motor" once more — count is now 2.
+		// Assert that there was another log (now 2) about a failure to "get optional
+		// motor." Removing 'm1' changes the resolved optional dep set, so foo is
+		// rebuilt and re-emits the missing-optional-motor log.
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -530,7 +610,7 @@ func TestModularOptionalDependencies(t *testing.T) {
 	lr.Reconfigure(ctx, &cfg)
 
 	{ // Assertions
-		// Assert that the foo component is no longer accessible (did not fail to reconfigure).
+		// Assert that the foo component is no longer accessible (failed to rebuild).
 		_, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resource.IsNotFoundError(err), test.ShouldBeTrue)
@@ -576,12 +656,15 @@ func TestModularOptionalDependencies(t *testing.T) {
 		fooRes, err := lr.ResourceByName(fooName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that there are either 2 or 3 logs about an inability to "get optional
-		// motor". The foo component _might_ get 'm1' as a dependency at initial
-		// construction (no log) or only on a follow-up rebuild from
-		// `updateWeakAndOptionalDependents` (one extra log emitted during the rebuild's
-		// transient missing-m1 state). With #6041's skip optimization, the rebuild only
-		// fires when the resolved set actually changed.
+		// Assert that there are either 2 (no new) _or_ 3 logs about an inability to "get
+		// optional motor." Two carry over from the prior steps. A third appears only when
+		// construction order was m -> f -> m1 (f constructed without m1, then
+		// updateWeakAndOptionalDependents rebuilds f with m1 — but the missing-m1 log was
+		// emitted by the initial construction).
+
+		// Optional dependencies are _not_ represented as edges in the resource graph and have
+		// no influence on build order. 2 logs would mean the order was m -> m1 -> f or m1 ->
+		// m -> f. 3 logs would mean the order was m -> f -> m1.
 		msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 		test.That(t, msgNum, test.ShouldBeIn, []int{2, 3})
 
@@ -660,9 +743,9 @@ func TestOptionalDependencyOnBuiltin(t *testing.T) {
 	//
 	// The optional child _might_ get 'builtin' as a dependency as part of its initial
 	// construction (if builtin initializes first), in which case no log will be emitted, or
-	// it _might_ get 'builtin' as a dependency only during the reconfigure triggered by the
-	// unconditional call to `updateWeakAndOptionalDependents`, in which case one log will be
-	// emitted due to the initial construction lacking the 'builtin' dependency.
+	// it _might_ get 'builtin' as a dependency only during the rebuild triggered by
+	// `updateWeakAndOptionalDependents` detecting that the snapshot changed, in which case
+	// one log will be emitted due to the initial construction lacking the 'builtin' dependency.
 	//
 	// Optional dependencies are _not_ represented as edges in the resource graph and have no
 	// influence on build order. 0 logs would mean the order was m -> builtin -> oc. 1 log
@@ -734,7 +817,7 @@ func TestModularOptionalDependencyOnBuiltin(t *testing.T) {
 	// With serial configuration (WithDisableCompleteConfigWorker), the build order is more
 	// predictable but still depends on module startup timing. 0 logs means 'builtin' was
 	// fully available during construction. 1 log means 'builtin' was available during the
-	// updateWeakAndOptionalDependents reconfigure.
+	// updateWeakAndOptionalDependents rebuild.
 	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 	test.That(t, msgNum, test.ShouldBeIn, []int{0, 1})
 
@@ -753,17 +836,17 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	// Ensures that a modular resource can optionally depend upon a remote resource.
 	//
 	// In this case, the modular resource will be constructed with the remote resource as a
-	// dependency since it will be available at the time of construction. The modular
-	// resource will then also be _reconfigured_ to have the optional resource (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
+	// dependency since it will be available at the time of construction. Because the
+	// resolved set of optional dependencies is unchanged after construction,
+	// updateWeakAndOptionalDependents does not trigger a follow-up rebuild.
 	//
-	// Later, if the remote goes offline, the modular resource will NOT be reconfigured and
+	// Later, if the remote goes offline, the modular resource will NOT be rebuilt and
 	// instead will just have an unusable gRPC client for the remote resource until the
 	// remote comes back online. This behavior is distinct from optionally depending upon a
-	// local resource, where the dependent resource _will_ be reconfigured in the event that
-	// the local resource is removed (see above test). The justification for this difference
-	// in behavior is that we don't want network blips to cause constant reconfigures of
-	// resources optionally depending on remote resources.
+	// local resource, where the dependent resource _will_ be rebuilt in the event that the
+	// local resource is removed (see above test). The justification for this difference in
+	// behavior is that we don't want network blips to cause constant rebuilds of resources
+	// optionally depending on remote resources.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -824,8 +907,9 @@ func TestModularOptionalDependencyOnRemote(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"), WithDisableCompleteConfigWorker())
 
-	// Assert that the foo component built successfully and was also reconfigured. Then
-	// assert that its optional dependency on the remote motor is reachable.
+	// Assert that the foo component built successfully and was not subsequently rebuilt
+	// (its optional dep set was unchanged after construction). Then assert that its
+	// optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
 	// constructed m, m1, f
@@ -881,9 +965,9 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	// Ensures that a modular resource can optionally depend upon a remote resource on a remote with prefix.
 	//
 	// In this case, the modular resource will be constructed with the remote resource as a
-	// dependency since it will be available at the time of construction. The modular
-	// resource will then also be _reconfigured_ to have the optional resource (a noop).
-	// This redundant reconfigure is not great, but is part of the design of our system.
+	// dependency since it will be available at the time of construction. Because the
+	// resolved set of optional dependencies is unchanged after construction,
+	// updateWeakAndOptionalDependents does not trigger a follow-up rebuild.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -945,8 +1029,9 @@ func TestModularOptionalDependencyOnRemoteWithPrefix(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("local"), WithDisableCompleteConfigWorker())
 
-	// Assert that the foo component built successfully and was also reconfigured. Then
-	// assert that its optional dependency on the remote motor is reachable.
+	// Assert that the foo component built successfully and was not subsequently rebuilt
+	// (its optional dep set was unchanged after construction). Then assert that its
+	// optional dependency on the remote motor is reachable.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
 	// constructs m1, m, f
@@ -1008,12 +1093,12 @@ func TestModularOptionalDependencyOnFullyQualifiedName(t *testing.T) {
 	test.That(t, cfg.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg)
 
-	// Assert that the foo component built successfully and that the FQN was resolved:
-	// updateWeakAndOptionalDependents reconfigures foo once after construction because
-	// it correctly identifies m_optional via the fully qualified name.
+	// Assert that the foo component built successfully and that the FQN was resolved.
+	// 3 construction logs (m_required, m_optional, f) and no follow-up rebuild:
+	// construction order ensures foo sees m_optional via its fully qualified name, so
+	// updateWeakAndOptionalDependents finds the snapshot unchanged and skips a rebuild.
 	fooRes, err := lr.ResourceByName(fooName)
 	test.That(t, err, test.ShouldBeNil)
-	// constructs m_required, m_optional, f
 	test.That(t, logs.FilterMessageSnippet("Now constructing resource").Len(), test.ShouldEqual, 3)
 
 	// Verify foo works and that the optional dependency is reachable.
@@ -1046,8 +1131,7 @@ type mutualOptionalChild struct {
 
 	logger logging.Logger
 
-	otherMOC      resource.Resource
-	reconfigCount int
+	otherMOC resource.Resource
 }
 
 func newMutualOptionalChild(ctx context.Context,
@@ -1070,8 +1154,6 @@ func newMutualOptionalChild(ctx context.Context,
 func (moc *mutualOptionalChild) reconfigure(ctx context.Context, deps resource.Dependencies,
 	conf resource.Config,
 ) error {
-	moc.reconfigCount++
-
 	mutualOptionalChildConfig, err := resource.NativeConfig[*mutualOptionalChildConfig](conf)
 	if err != nil {
 		return err
@@ -1088,15 +1170,13 @@ func (moc *mutualOptionalChild) reconfigure(ctx context.Context, deps resource.D
 
 func TestOptionalDependenciesCycles(t *testing.T) {
 	// This test ensures that there can be a "cycle" of non-modular optional dependencies.
-	// Note that the usage of non-modular optional dependencies requires that the resource
-	// have a `Reconfigure` method (defined above).
 	//
 	// A resource 'moc' will optionally depend upon 'moc2', and 'moc2' will optionally
 	// depend upon 'moc'. We will start with only 'moc' in the config, and assert that 'moc'
 	// builds successfully without 'moc2'. We will then add 'moc2' to the config, assert
-	// that 'moc' reconfigures successfully, 'moc2' builds successfully, and both resources
+	// that 'moc' rebuilds successfully, 'moc2' builds successfully, and both resources
 	// have handles to each other. We will then remove 'moc' from the config, assert that
-	// 'moc2' reconfigures successfully, and that 'moc2' no longer has a handle to 'moc'.
+	// 'moc2' rebuilds successfully, and that 'moc2' no longer has a handle to 'moc'.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -1146,7 +1226,6 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		// (moc2 still missing).
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 1)
 
@@ -1180,17 +1259,15 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 
 	{ // Assertions
 		// Assert that the first 'moc' component is still accessible (did not fail to
-		// reconfigure).
+		// rebuild).
 		mocRes, err := lr.ResourceByName(mocName)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the 'moc' mutual optional child has reconfigured _three_ times. Two
-		// from the previous construction. The rebuild triggered by moc2 becoming resolvable
-		// succeeds without a missing-dep log, so the "could not get other MOC" count is
-		// unchanged from the prior step (still 1).
+		// Assert that no new "could not get other MOC" log was emitted: the rebuild
+		// triggered by moc2 becoming resolvable succeeded with moc2 in scope, so the
+		// count is unchanged from the prior step (still 1).
 		moc, err := resource.AsType[*mutualOptionalChild](mocRes)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 1)
 
@@ -1235,14 +1312,11 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 		mocRes2, err := lr.ResourceByName(mocName2)
 		test.That(t, err, test.ShouldBeNil)
 
-		// Assert that the second optional child 'moc2' has reconfigured three times. Two from
-		// the previous construction and reconfigure, and one from the most recent reconfigure
-		// to remove 'moc1' as a dependency. Removing the dep makes moc2's optional dep
-		// unresolvable again, so the rebuild logs "could not get other MOC" once more —
-		// count is now 2.
+		// Removing moc made moc2's optional dep unresolvable again, so the rebuild
+		// triggered by that removal logs "could not get other MOC" once more — count
+		// is now 2.
 		moc2, err := resource.AsType[*mutualOptionalChild](mocRes2)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, moc2.reconfigCount, test.ShouldEqual, 1)
 		msgNum := logs.FilterMessageSnippet("could not get other MOC").Len()
 		test.That(t, msgNum, test.ShouldEqual, 2)
 
@@ -1252,9 +1326,9 @@ func TestOptionalDependenciesCycles(t *testing.T) {
 }
 
 func TestModularOptionalDependenciesCycles(t *testing.T) {
-	// This test is a copy of TestOptionalDependenciesCycles, but it also ensures that
-	// modular resources can optionally depend upon each other _and_ lack a `Reconfigure`
-	// method (leverage `resource.AlwaysRebuild`).
+	// This test is a copy of TestOptionalDependenciesCycles using modular resources whose
+	// underlying type embeds `resource.AlwaysRebuild`, so every config change is a fresh
+	// Remove+Add (rebuild) cycle.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -1448,8 +1522,8 @@ func TestModularOptionalDependenciesCycles(t *testing.T) {
 
 func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// This test verifies that when an unrelated resource has repeated errors, resources with
-	// optional dependencies do not reconfigure multiple times. This exercises the logical
-	// clock increment logic: the clock only increments on state transitions (usable→unusable),
+	// optional dependencies are not rebuilt multiple times. This exercises the logical clock
+	// increment logic: the clock only increments on state transitions (usable→unusable),
 	// not on repeated errors while already unusable.
 
 	logger, logs := logging.NewObservedTestLogger(t)
@@ -1517,8 +1591,9 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	logs.TakeAll()
 
 	// Reconfigure with an invalid model for m_unrelated to induce a build error.
-	// This transitions m_unrelated from usable→unusable, increments the clock, and triggers
-	// updateWeakAndOptionalDependents which will reconfigure the optional child once.
+	// This transitions m_unrelated from usable→unusable and increments the clock. The
+	// optional child's resolved optional dep set is unchanged (m_unrelated is unrelated
+	// and m_optional is still present), so updateWeakAndOptionalDependents skips it.
 	nonExistentModel := resource.NewModel("rdk", "builtin", "nonexistent")
 	cfg.Components[3] = resource.Config{
 		Name:  "m_unrelated",
@@ -1543,9 +1618,10 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
 	// invalid model. These repeated errors should NOT increment the clock (self-transitions
 	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
-	// should return early without additional reconfigurations of the optional child.
+	// should return early without additional rebuilds of the optional child.
 	for i := 0; i < 5; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
+		// The clock should NOT increment - m_unrelated is still unusable.
 		test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 			test.ShouldEqual, clockAfterFirstError)
 	}
@@ -1555,13 +1631,13 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 	test.That(t, buildErrorLogs, test.ShouldEqual, 5)
 
 	// Verify that no "could not get optional motor" logs were emitted, confirming the
-	// optional child wasn't repeatedly reconfigured due to the unrelated resource's repeated errors.
+	// optional child wasn't repeatedly rebuilt due to the unrelated resource's repeated errors.
 	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 	test.That(t, msgNum, test.ShouldEqual, 0)
 
 	// Verify the key property: Clock incremented only once (for the first error),
 	// not for each of the 5 retry attempts. Multiple calls to updateRemotesAndRetryResourceConfigure
-	// with unchanged clock resulted in no additional reconfigurations.
+	// with unchanged clock resulted in no additional rebuilds.
 	test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 		test.ShouldEqual, clockAfterFirstError)
 }
@@ -1569,7 +1645,7 @@ func TestOptionalDependencyRepeatedErrors(t *testing.T) {
 func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// This test is the modular version of TestOptionalDependencyRepeatedErrors. It verifies
 	// that when an unrelated resource has repeated errors, modular resources with optional
-	// dependencies do not reconfigure multiple times.
+	// dependencies are not rebuilt multiple times.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -1635,8 +1711,9 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	logs.TakeAll()
 
 	// Reconfigure with an invalid model for m_unrelated to induce a build error.
-	// This transitions m_unrelated from usable→unusable, increments the clock, and triggers
-	// updateWeakAndOptionalDependents which may reconfigure the foo component once.
+	// This transitions m_unrelated from usable→unusable and increments the clock. The
+	// foo component's resolved optional dep set is unchanged (m_unrelated is unrelated
+	// and m_optional is still present), so updateWeakAndOptionalDependents skips it.
 	nonExistentModel := resource.NewModel("rdk", "builtin", "nonexistent")
 	cfg.Components[3] = resource.Config{
 		Name:  "m_unrelated",
@@ -1667,7 +1744,7 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	// Each call will attempt to retry configuring m_unrelated, which will fail again with the
 	// invalid model. These repeated errors should NOT increment the clock (self-transitions
 	// in Unhealthy state). Because the clock doesn't change, updateWeakAndOptionalDependents
-	// should return early without additional reconfigurations of the foo component.
+	// should return early without additional rebuilds of the foo component.
 	for i := 0; i < 5; i++ {
 		lr.(*localRobot).updateRemotesAndRetryResourceConfigure()
 		// The clock should NOT increment - m_unrelated is still unusable.
@@ -1675,8 +1752,8 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 			test.ShouldEqual, clockAfterFirstError)
 	}
 
-	// Verify the foo component did not reconfigure during the retry attempts. The repeated
-	// retry calls should NOT have caused additional reconfigurations.
+	// Verify the foo component did not rebuild during the retry attempts. The repeated
+	// retry calls should NOT have caused additional rebuilds.
 	test.That(t, logs.FilterMessageSnippet("Adding resource to module").
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
 		test.ShouldEqual, 0)
@@ -1686,14 +1763,14 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 	test.That(t, buildErrorLogs, test.ShouldEqual, 5)
 
 	// Verify that no "could not get optional motor" logs were emitted during the retry
-	// attempts, confirming the foo component wasn't repeatedly reconfigured due to the
+	// attempts, confirming the foo component wasn't repeatedly rebuilt due to the
 	// unrelated resource's repeated errors.
 	msgNum := logs.FilterMessageSnippet("could not get optional motor").Len()
 	test.That(t, msgNum, test.ShouldEqual, 0)
 
 	// Verify the key property: Clock incremented only once (for the first error),
 	// not for each of the 5 retry attempts. Multiple calls to updateRemotesAndRetryResourceConfigure
-	// with unchanged clock resulted in no additional reconfigurations.
+	// with unchanged clock resulted in no additional rebuilds.
 	test.That(t, lr.(*localRobot).manager.resources.CurrLogicalClockValue(),
 		test.ShouldEqual, clockAfterFirstError)
 
@@ -1705,8 +1782,10 @@ func TestModularOptionalDependencyRepeatedErrors(t *testing.T) {
 
 func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 	// This test verifies behavior when an unrelated resource is removed from the config.
-	// Currently, removing any resource increments the clock, which triggers
-	// updateWeakAndOptionalDependents for all resources with optional dependencies.
+	// Removing any resource increments the clock, which causes
+	// updateWeakAndOptionalDependents to run. Because the unrelated resource is not
+	// part of any other resource's optional dep set, the per-resource snapshot is
+	// unchanged and no rebuild is triggered.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -1809,16 +1888,17 @@ func TestOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 	clockAfterRemoval := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, clockAfterRemoval, test.ShouldBeGreaterThan, initialClockValue)
 
-	// Verify both motors are still accessible (the reconfiguration was successful).
+	// Verify both motors are still accessible
 	test.That(t, oc.requiredMotor, test.ShouldNotBeNil)
 	test.That(t, oc.optionalMotor, test.ShouldNotBeNil)
 }
 
 func TestModularOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 	// This test is the modular version of TestOptionalDependencyUnrelatedResourceRemoval.
-	// It verifies behavior when an unrelated resource is removed from the config.
-	// Currently, removing any resource increments the clock, which triggers
-	// updateWeakAndOptionalDependents for all resources with optional dependencies.
+	// Removing any resource increments the clock, which causes
+	// updateWeakAndOptionalDependents to run. Because the unrelated resource is not
+	// part of any other resource's optional dep set, the per-resource snapshot is
+	// unchanged and no rebuild is triggered.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -1938,7 +2018,7 @@ func TestModularOptionalDependencyUnrelatedResourceRemoval(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
 		test.ShouldEqual, 0)
 
-	// Verify both motors are still accessible through the foo component after reconfiguration.
+	// Verify both motors are still accessible through the foo component after the config change.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
@@ -1953,8 +2033,9 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 	// When a module is renamed:
 	//   1. The old module is shut down, marking its resources for removal (clock +1)
 	//   2. The new module starts up and its resources are added (clock +1)
-	// Each clock increment triggers updateWeakAndOptionalDependents, causing resources with
-	// optional dependencies to reconfigure twice total.
+	// Each clock increment causes updateWeakAndOptionalDependents to run, but
+	// foo's resolved optional dep set is unchanged across both increments so it
+	// is never rebuilt.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -2036,10 +2117,12 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 	logs.TakeAll()
 
 	// Reconfigure with the module name changed from "test" to "test-renamed".
-	// During this reconfiguration:
+	// During this config change:
 	//   1. The "test" module is shut down and h_unrelated is marked for removal
 	//   2. The "test-renamed" module starts up and h_unrelated is rebuilt
-	// Each step increments the clock, triggering foo to reconfigure twice.
+	// Each step increments the clock and triggers updateWeakAndOptionalDependents, but
+	// foo's resolved optional dep set is unchanged across both increments so it is
+	// skipped each time.
 	cfg = config.Config{
 		Modules: []config.Module{
 			{
@@ -2097,7 +2180,7 @@ func TestModularOptionalDependencyModuleNameChange(t *testing.T) {
 		FilterField(zapcore.Field{Key: "resource", Type: zapcore.StringType, String: fooRes.Name().Name}).Len(),
 		test.ShouldEqual, 0)
 
-	// Verify both motors are still accessible through the foo component after reconfiguration.
+	// Verify both motors are still accessible through the foo component after the config change.
 	doCommandResp, err = fooRes.DoCommand(ctx, map[string]any{"command": "required_motor_state"})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"required_motor_state": "moving: false"})
@@ -2113,9 +2196,10 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	// DoCommand("kill_module") to trigger os.Exit(1) in the module process.
 	//
 	// During crash-and-retry: resources remain in retry state, so the logical clock does NOT
-	// increment and foo does NOT reconfigure.
+	// increment and foo is NOT rebuilt.
 	// After recovery (binary restored): the clock increments when the module restarts and
-	// h_unrelated is re-added, triggering exactly one reconfiguration of foo.
+	// h_unrelated is re-added. updateWeakAndOptionalDependents runs but foo's resolved
+	// optional dep set is unchanged so it is not rebuilt.
 
 	logger, logs := logging.NewObservedTestLogger(t)
 	ctx := context.Background()
@@ -2233,7 +2317,7 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 
-	// Resources in retry state do not increment the clock, so foo does not reconfigure.
+	// Resources in retry state do not increment the clock, so foo is not rebuilt.
 	finalClockValue := lr.(*localRobot).manager.resources.CurrLogicalClockValue()
 	test.That(t, finalClockValue, test.ShouldEqual, initialClockValue)
 
@@ -2280,6 +2364,17 @@ func TestModularOptionalDependencyModuleCrash(t *testing.T) {
 	test.That(t, doCommandResp, test.ShouldResemble, map[string]any{"optional_motor_state": "moving: false"})
 }
 
+// currentTargetID reports target's live instance id via a "probe":"id" DoCommand.
+// Comparing the id across a rebuild tells whether target was rebuilt (changed id)
+// or not.
+func currentTargetID(ctx context.Context, t *testing.T, lr robot.Robot, targetName resource.Name) any {
+	targetRes, err := lr.ResourceByName(targetName)
+	test.That(t, err, test.ShouldBeNil)
+	resp, err := targetRes.DoCommand(ctx, map[string]any{"probe": "id"})
+	test.That(t, err, test.ShouldBeNil)
+	return resp["instance_id"]
+}
+
 func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	// Setup:
 	//   - pointer-target (modular) declares an optional dep. When that dep's availability
@@ -2315,8 +2410,8 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 		},
 		Components: []resource.Config{
 			{
-				// The optional-dep target — its presence causes pointer-target to be
-				// rebuilt by updateWeakAndOptionalDependents on every reconfigure cycle.
+				// The optional-dep target — when its clock advances, updateWeakAndOptionalDependents
+				// sees a stale snapshot on pointer-target and rebuilds it.
 				Name:                "opt-dep",
 				API:                 motor.API,
 				Model:               fake.Model,
@@ -2370,9 +2465,10 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	// cascade rebuilds holder (to holder_v2) so it points at target_v2.
 	lr.Reconfigure(ctx, &cfg)
 	assertHolderPointsToCurrentTarget("initial")
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
 	// Add an unrelated motor to advance the clock and re-trigger
-	// updateWeakAndOptionalDependents — the second cascade must keep holder fresh.
+	// updateWeakAndOptionalDependents.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2382,18 +2478,41 @@ func TestModularStalePointerAfterWeakOptionalRebuild(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// An unrelated change leaves target's optional-dep snapshot untouched, so
+	// target must NOT be rebuilt — its instance is identical.
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertHolderPointsToCurrentTarget("after-unrelated-change")
+
+	// Reconfigure target's opt-dep (Components[0]). opt-dep stays present, but its
+	// config diff causes it to be re-processed and bumps its graph clock. That stales
+	// target's recorded optional-dep snapshot, so updateWeakAndOptionalDependents
+	// rebuilds target to a fresh instance, and the module cascade must rebuild holder
+	// to point at it.
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
+
+	// holder was cascaded along with that rebuild, so it points at the new target instance
+	// rather than the closed prior one.
+	assertHolderPointsToCurrentTarget("after-optdep-change")
 }
 
 func TestModularStalePointerCascadeFanOut(t *testing.T) {
 	// Verifies that a single rebuild of a resource with multiple explicit dependents
 	// cascades to rebuild every one of them.
 	// Setup:
-	//   - One pointer-target with an optional dependency (triggers updateWeakAndOptionalDependents
-	//     on every reconfigure).
+	//   - One pointer-target with an optional dependency (whose clock changes cause
+	//     updateWeakAndOptionalDependents to rebuild pointer-target).
 	//   - Three pointer-holders, each depending on that target.
 	//
-	// After reconfigure, every holder should route DoCommand through the current target
+	// After a rebuild, every holder should route DoCommand through the current target
 	// instance. If the cascade only rebuilds one holder (or rebuilds them against different
 	// target instances), some holder's instance_id would diverge from the others or from the
 	// target itself.
@@ -2467,8 +2586,10 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 
 	lr.Reconfigure(ctx, &cfg)
 	assertAllHoldersPointToCurrentTarget("initial")
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
-	// Push a config change to advance the clock and re-trigger updateWeakAndOptionalDependents.
+	// Push an unrelated config change to advance the clock and re-trigger
+	// updateWeakAndOptionalDependents.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2478,7 +2599,29 @@ func TestModularStalePointerCascadeFanOut(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// Skip held: the unrelated change leaves target's optional-dep snapshot untouched, so
+	// target is not rebuilt and its instance is identical. (Without this, the holder==target
+	// checks below pass even if the skip regressed.)
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertAllHoldersPointToCurrentTarget("after-unrelated-change")
+
+	// Force an actual rebuild: change target's optional dependency (opt-dep, Components[0])
+	// in place so its clock bumps, staling target's snapshot and rebuilding target to a new
+	// instance. Capturing the id beforehand lets us assert the rebuild really fired.
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
+
+	// The fan-out is now meaningfully exercised: all three holders must have cascaded to
+	// the new target instance.
+	assertAllHoldersPointToCurrentTarget("after-optdep-change")
 }
 
 func TestModularStalePointerCascadeChain(t *testing.T) {
@@ -2569,8 +2712,9 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 
 	lr.Reconfigure(ctx, &cfg)
 	assertTopHolderReachesCurrentTarget("initial")
+	targetIDInitial := currentTargetID(ctx, t, lr, targetName)
 
-	// Push a config change to advance the clock and re-trigger the cascade.
+	// Push an unrelated config change to advance the clock and re-trigger the cascade path.
 	cfg2 := cfg
 	cfg2.Components = append(append([]resource.Config{}, cfg.Components...), resource.Config{
 		Name:                "unrelated-motor",
@@ -2580,5 +2724,26 @@ func TestModularStalePointerCascadeChain(t *testing.T) {
 	})
 	test.That(t, cfg2.Ensure(false, logger), test.ShouldBeNil)
 	lr.Reconfigure(ctx, &cfg2)
+	// The unrelated change leaves target's optional-dep snapshot untouched, so
+	// target is not rebuilt and its instance is identical.
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldEqual, targetIDInitial)
 	assertTopHolderReachesCurrentTarget("after-unrelated-change")
+
+	// Force an actual rebuild: change target's opt-dep (Components[0]) in place so
+	// its clock bumps, staling target's snapshot and rebuilding target to a new
+	// instance.
+	targetIDBefore := currentTargetID(ctx, t, lr, targetName)
+
+	cfg3 := cfg2
+	cfg3.Components = append([]resource.Config{}, cfg2.Components...)
+	cfg3.Components[0].Attributes = rutils.AttributeMap{"version": 1}
+	test.That(t, cfg3.Ensure(false, logger), test.ShouldBeNil)
+	lr.Reconfigure(ctx, &cfg3)
+
+	// target rebuilt to a new instance because its optional dependency's clock advanced.
+	test.That(t, currentTargetID(ctx, t, lr, targetName), test.ShouldNotEqual, targetIDBefore)
+
+	// The transitive cascade is now meaningfully exercised: top-holder must reach the new
+	// target instance through the freshly rebuilt mid-holder.
+	assertTopHolderReachesCurrentTarget("after-optdep-change")
 }
