@@ -7,7 +7,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/motionplan"
-	frame "go.viam.com/rdk/referenceframe"
 )
 
 // TestNewTrajGenDefaults verifies that nil optional fields are replaced by their defaults.
@@ -78,60 +77,6 @@ func TestTrajGenConfigValidate(t *testing.T) {
 		cfg.AccelerationLimitsRadsPerSec2 = 0
 		_, err := cfg.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
-	})
-}
-
-// TestTrajGenPlanDoCommandPayload verifies the serialization format used in execute_traj_gen_plan.
-func TestTrajGenPlanDoCommandPayload(t *testing.T) {
-	configs := [][]float64{
-		{0.1, 0.2, 0.3, 0.4, 0.5, 0.6},
-		{0.7, 0.8, 0.9, 1.0, 1.1, 1.2},
-	}
-	vels := [][]float64{
-		{0.01, 0.02, 0.03, 0.04, 0.05, 0.06},
-		{0.07, 0.08, 0.09, 0.10, 0.11, 0.12},
-	}
-	times := []float64{0.1, 0.2}
-
-	toLinearInputs := func(rows [][]float64) []*frame.LinearInputs {
-		lis := make([]*frame.LinearInputs, len(rows))
-		for i, row := range rows {
-			lis[i] = frame.FrameSystemInputs{"arm": row}.ToLinearInputs()
-		}
-		return lis
-	}
-
-	t.Run("without accelerations", func(t *testing.T) {
-		tgp := &TrajGenPlan{
-			SimplePlan:     motionplan.NewSimplePlan(nil, nil),
-			Configurations: toLinearInputs(configs),
-			Velocities:     toLinearInputs(vels),
-			SampleTimes:    times,
-		}
-
-		payload := tgp.DoCommandPayload()
-		test.That(t, payload["configurations_rads"], test.ShouldResemble, configs)
-		test.That(t, payload["velocities_rads_per_sec"], test.ShouldResemble, vels)
-		test.That(t, payload["sample_times_sec"], test.ShouldResemble, times)
-		_, hasAccels := payload["accelerations_rads_per_sec2"]
-		test.That(t, hasAccels, test.ShouldBeFalse)
-	})
-
-	t.Run("with accelerations", func(t *testing.T) {
-		accels := [][]float64{
-			{0.001, 0.002, 0.003, 0.004, 0.005, 0.006},
-			{0.007, 0.008, 0.009, 0.010, 0.011, 0.012},
-		}
-		tgp := &TrajGenPlan{
-			SimplePlan:     motionplan.NewSimplePlan(nil, nil),
-			Configurations: toLinearInputs(configs),
-			Velocities:     toLinearInputs(vels),
-			Accelerations:  toLinearInputs(accels),
-			SampleTimes:    times,
-		}
-
-		payload := tgp.DoCommandPayload()
-		test.That(t, payload["accelerations_rads_per_sec2"], test.ShouldResemble, accels)
 	})
 }
 

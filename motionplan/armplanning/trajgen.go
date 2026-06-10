@@ -68,14 +68,6 @@ const (
 	defaultTrajGenPathColinearizationRatio           = 0.0
 )
 
-// DoCommandKeyExecuteTrajGenPlan is the do_command key for sending a precomputed kinodynamic
-// trajectory to an arm component that supports it.
-const DoCommandKeyExecuteTrajGenPlan = "execute_traj_gen_plan"
-
-// DoCommandKeySupportsExecuteTrajGenPlan is the capability probe key. Arms that support
-// execute_traj_gen_plan respond to this with true.
-const DoCommandKeySupportsExecuteTrajGenPlan = "supports_execute_traj_gen_plan"
-
 // TrajGen holds a resolved trajectory generator ML model service along with its configuration.
 type TrajGen struct {
 	trajGen                            mlmodel.Service
@@ -168,8 +160,19 @@ type TrajGenPlan struct {
 	SampleTimes []float64
 }
 
-// DoCommandPayload returns the map[string]any value for the "execute_traj_gen_plan" do_command key.
-func (t *TrajGenPlan) DoCommandPayload() map[string]any {
+// TrajGenLog is a flattened, JSON-serializable snapshot of a TrajGenPlan's generated
+// time-optimal trajectory, intended for debug log files. Each [][]float64 is row-major
+// [n_samples][n_dof], parallel to SampleTimesSec.
+type TrajGenLog struct {
+	ConfigurationsRads       [][]float64 `json:"configurations_rads"`
+	VelocitiesRadsPerSec     [][]float64 `json:"velocities_rads_per_sec"`
+	AccelerationsRadsPerSec2 [][]float64 `json:"accelerations_rads_per_sec2,omitempty"`
+	SampleTimesSec           []float64   `json:"sample_times_sec"`
+}
+
+// LogData returns a flattened, serializable view of the generated trajectory for logging and
+// offline inspection. Accelerations are omitted when the generator did not produce them.
+func (t *TrajGenPlan) LogData() TrajGenLog {
 	flatten := func(lis []*referenceframe.LinearInputs) [][]float64 {
 		out := make([][]float64, len(lis))
 		for i, li := range lis {
@@ -177,15 +180,15 @@ func (t *TrajGenPlan) DoCommandPayload() map[string]any {
 		}
 		return out
 	}
-	payload := map[string]any{
-		"configurations_rads":     flatten(t.Configurations),
-		"velocities_rads_per_sec": flatten(t.Velocities),
-		"sample_times_sec":        t.SampleTimes,
+	log := TrajGenLog{
+		ConfigurationsRads:   flatten(t.Configurations),
+		VelocitiesRadsPerSec: flatten(t.Velocities),
+		SampleTimesSec:       t.SampleTimes,
 	}
 	if len(t.Accelerations) > 0 {
-		payload["accelerations_rads_per_sec2"] = flatten(t.Accelerations)
+		log.AccelerationsRadsPerSec2 = flatten(t.Accelerations)
 	}
-	return payload
+	return log
 }
 
 // trajGenResult is the raw output of inferTrajGen.

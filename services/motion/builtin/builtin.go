@@ -640,32 +640,6 @@ func (ms *builtIn) planTeleop(
 }
 
 func (ms *builtIn) execute(ctx context.Context, plan motionplan.Plan, epsilon float64) error {
-	// When the plan carries kinodynamic data and the target arm supports the precomputed
-	// trajectory path, send everything in one DoCommand instead of batching GoToInputs.
-	if tgp, ok := plan.(*armplanning.TrajGenPlan); ok && len(tgp.Configurations) > 0 {
-		var armName string
-		for name := range tgp.Trajectory()[0] {
-			armName = name
-			break
-		}
-		if armName != "" {
-			if r, ok := ms.components[armName]; ok {
-				capResp, err := r.DoCommand(ctx, map[string]any{armplanning.DoCommandKeySupportsExecuteTrajGenPlan: true})
-				if err == nil {
-					if v, _ := capResp[armplanning.DoCommandKeySupportsExecuteTrajGenPlan].(bool); v {
-						ms.logger.CInfof(ctx, "executing traj-gen plan on %q (%d samples)", armName, len(tgp.Configurations))
-						_, err = r.DoCommand(ctx, map[string]any{
-							armplanning.DoCommandKeyExecuteTrajGenPlan: tgp.DoCommandPayload(),
-						})
-						return err
-					}
-				}
-				ms.logger.CInfof(ctx, "arm %q does not support %s, falling back to GoToInputs",
-					armName, armplanning.DoCommandKeyExecuteTrajGenPlan)
-			}
-		}
-	}
-
 	trajectory := plan.Trajectory()
 	// Batch GoToInputs calls if possible; components may want to blend between inputs
 	combinedSteps := []map[string][][]referenceframe.Input{}
@@ -896,12 +870,14 @@ func (ms *builtIn) writePlanRequest(
 		return err
 	}
 
+	// When a trajectory generator produced this plan, also dump its kinodynamic output
+	// (configurations/velocities/accelerations/sample-times) to a sibling file for inspection.
 	if tgp, ok := plan.(*armplanning.TrajGenPlan); ok && ms.trajGen != nil {
 		trajGenFn := strings.TrimSuffix(fn, filepath.Ext(fn)) + "-trajgen.json"
 		ms.logger.Infof("writing traj-gen plan to %s", trajGenFn)
 		data, err := json.Marshal(map[string]any{
 			"settings": ms.trajGen,
-			"plan":     tgp.DoCommandPayload(),
+			"plan":     tgp.LogData(),
 		})
 		if err != nil {
 			return err
@@ -910,5 +886,6 @@ func (ms *builtIn) writePlanRequest(
 			return err
 		}
 	}
+
 	return nil
 }

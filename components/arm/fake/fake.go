@@ -13,7 +13,6 @@ import (
 	models3d "go.viam.com/rdk/components/arm/fake/3d_models"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/motionplan"
-	"go.viam.com/rdk/motionplan/armplanning"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -262,39 +261,6 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 // GoToInputs moves the fake arm to the given inputs.
 func (a *Arm) GoToInputs(ctx context.Context, inputSteps ...[]referenceframe.Input) error {
 	return a.MoveThroughJointPositions(ctx, inputSteps, nil, nil)
-}
-
-// DoCommand handles traj-gen do_command keys. It reports capability support and executes
-// a precomputed trajectory by moving through each configuration in order.
-func (a *Arm) DoCommand(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
-	resp := map[string]interface{}{}
-
-	if _, ok := cmd[armplanning.DoCommandKeySupportsExecuteTrajGenPlan]; ok {
-		resp[armplanning.DoCommandKeySupportsExecuteTrajGenPlan] = true
-	}
-
-	if payload, ok := cmd[armplanning.DoCommandKeyExecuteTrajGenPlan]; ok {
-		payloadMap, ok := payload.(map[string]any)
-		if !ok {
-			return nil, errors.Errorf("execute_traj_gen_plan payload must be a map, got %T", payload)
-		}
-		configsRaw, ok := payloadMap["configurations_rads"]
-		if !ok {
-			return nil, errors.New("execute_traj_gen_plan payload missing configurations_rads")
-		}
-		configs, ok := configsRaw.([][]float64)
-		if !ok {
-			return nil, errors.Errorf("configurations_rads has unexpected type %T", configsRaw)
-		}
-		positions := make([][]referenceframe.Input, len(configs))
-		copy(positions, configs)
-		if err := a.MoveThroughJointPositions(ctx, positions, nil, nil); err != nil {
-			return nil, err
-		}
-		resp[armplanning.DoCommandKeyExecuteTrajGenPlan] = true
-	}
-
-	return resp, nil
 }
 
 // Close does nothing.
