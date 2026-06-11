@@ -207,8 +207,10 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 		manifestDir := filepath.Dir(args.Module)
 		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
 		if _, err := os.Stat(mainPyPath); err == nil {
-			return "", errors.New("cloud build is not currently supported for Windows Python modules.\n" +
-				"Build locally with 'viam module build local' and upload with 'viam module upload'")
+			if len(manifest.Models) == 0 {
+				return "", errors.New("your models must be populated before running cloud build,\n" +
+					"run 'viam module update-models' and try again")
+			}
 		}
 	}
 
