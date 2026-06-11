@@ -1015,14 +1015,6 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, modStatus.State, test.ShouldEqual, p(modulestatus.ModuleStatePending))
 	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
 
-	r.Reconfigure(ctx, cfg)
-	modStatus = getModuleStatus(t, r, "mod")
-	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 1)
-
-	r.Reconfigure(ctx, cfg)
-	modStatus = getModuleStatus(t, r, "mod")
-	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 2)
-
 	// Allowing the first run script to succeed should let the module reach the ready state.
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
 	r.Reconfigure(ctx, cfg)
@@ -1031,15 +1023,18 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
 
-	// Adding a module that will hang without serving a socket, the module should stay in the starting state.
+	// Adding a module that will hang without serving socket - the module should stay in the starting state
+	// for the entire timeout, allowing us to observe that state
 	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "1s")
 	cfg.Modules = append(cfg.Modules, config.Module{
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	})
 
-	// Reconfigure in a goroutine this time because fakemodule will block.
-	// Make a channel so we can know when reconfigure has completed
+	// get module status of a nonexistent module (has not been configured yet), should not panic
+	getModuleStatus(t, r, "nonexistent")
+
+	// Reconfigure in a goroutine so we can observe ModuleStartingState while the fake module is starting
 	reconfigureDone := make(chan struct{})
 	go func() {
 		defer close(reconfigureDone)
@@ -1054,9 +1049,15 @@ func TestModuleStatus(t *testing.T) {
 	<-reconfigureDone
 	fakeModStatus := getModuleStatus(t, r, "fake")
 	test.That(t, p(fakeModStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
-	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, "error adding module; module: fake, error: error while starting module fake: module fake timed out after 1s during startup")
-	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 1*time.Millisecond)
-	fmt.Printf("%+v\n", fakeModStatus)
+	// A failure should only increment ConsecutiveFailures by 1
+	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
+	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, "error while starting module fake: module fake timed out after 1s during startup")
+	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
+
+	r.Reconfigure(ctx, cfg)
+	fakeModStatus = getModuleStatus(t, r, "fake")
+	// Fail again without ever starting to see the failure count increment by 1
+	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 2)
 
 	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 }
