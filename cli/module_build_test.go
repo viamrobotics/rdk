@@ -124,14 +124,14 @@ func TestValidateModelsPopulated(t *testing.T) {
 	viamClient := &viamClient{}
 	cmd := newTestContext(t, map[string]any{})
 
-	// go.mod existence stubs (Go-module detection)
-	goMod := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	// language-detection stubs: githubPathExists checks for src/main.py (Python marker)
+	isPython := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 		return true, nil
 	}
-	notGoMod := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	notPython := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 		return false, nil
 	}
-	goModErr := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	pythonCheckErr := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
 		return false, errors.New("network down")
 	}
 	existsUncalled := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
@@ -164,11 +164,11 @@ func TestValidateModelsPopulated(t *testing.T) {
 		platforms     []string
 		wantErrSubstr string
 	}{
-		{"windows go module with models", goMod, withModels, repo, win, ""},
-		{"windows go module, empty models", goMod, noModels, repo, win, "models must be populated"},
-		{"windows go module, manifest fetch fails -> proceed", goMod, fetchFailed, repo, win, ""},
-		{"windows non-go module skips check", notGoMod, fetchUncalled, repo, win, ""},
-		{"windows, go.mod check fails -> proceed", goModErr, fetchUncalled, repo, win, ""},
+		{"windows go module with models", notPython, withModels, repo, win, ""},
+		{"windows go module, empty models", notPython, noModels, repo, win, "models must be populated"},
+		{"windows go module, manifest fetch fails -> proceed", notPython, fetchFailed, repo, win, ""},
+		{"windows python module skips check", isPython, fetchUncalled, repo, win, ""},
+		{"windows, language check fails -> proceed", pythonCheckErr, fetchUncalled, repo, win, ""},
 		{"non-windows build skips check", existsUncalled, fetchUncalled, repo, []string{"linux/amd64"}, ""},
 		{"non-github host skips check", existsUncalled, fetchUncalled, "https://gitlab.com/test-org/test-repo", win, ""},
 	}

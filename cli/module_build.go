@@ -163,14 +163,18 @@ func joinRepoPath(workdir, name string) string {
 	return strings.TrimPrefix(path.Join(workdir, name), "/")
 }
 
+// pythonMainPath is the entrypoint a generated Python module has (src/main.py); its
+// presence in the repo marks the module as Python.
+const pythonMainPath = "src/main.py"
+
 // validateModelsPopulated stops an early cloud build that targets Windows for a Go
 // module whose manifest in the remote repo has no models populated (which a Windows Go
 // cloud build requires). The cloud builder clones and builds the repo at ref, so this
 // checks the files the build will actually use -- those in the repo at ref -- rather than
-// local copies. The check is scoped to Go modules (detected by a go.mod at the build
-// workdir) because Windows Python builds don't work regardless of models. Like
-// validateRefExists, it only hard-fails when it can prove models is empty, and otherwise
-// (non-github host, unreachable files) proceeds with the build.
+// local copies. Windows Python builds don't work regardless of models, so the check first
+// rules out Python (a src/main.py at the build workdir) and only then treats the module as
+// Go. Like validateRefExists, it only hard-fails when it can prove models is empty, and
+// otherwise (non-github host, unreachable files) proceeds with the build.
 func (c *viamClient) validateModelsPopulated(
 	ctx context.Context, cmd *cli.Command, repoURL, ref, workdir, token string, platforms []string,
 ) error {
@@ -186,15 +190,16 @@ func (c *viamClient) validateModelsPopulated(
 		return nil
 	}
 	gArgs := parseStructFromCtx[globalArgs](cmd)
-	// a go.mod at the build workdir marks this as a Go module; the empty-models failure is
-	// specific to Windows Go builds, so skip anything else (e.g. Python).
-	isGo, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, "go.mod"), token)
+	// rule out Python first: a src/main.py at the build workdir marks the module as Python,
+	// whose Windows builds don't work regardless of models -- so skip it. Anything else is
+	// treated as Go.
+	isPython, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, pythonMainPath), token)
 	if err != nil {
 		debugf(cmd.Root().ErrWriter, gArgs.Debug,
 			"could not determine module language on %s@%s: %v — proceeding anyway", repoURL, ref, err)
 		return nil
 	}
-	if !isGo {
+	if isPython {
 		return nil
 	}
 	remote, err := githubFetchManifest(ctx, owner, repo, ref, joinRepoPath(workdir, defaultManifestFilename), token)
