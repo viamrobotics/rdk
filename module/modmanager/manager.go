@@ -275,9 +275,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 			moduleLogger.CInfow(ctx, "Now adding module", "module", conf.Name)
 			err := mgr.add(ctx, conf, moduleLogger)
 			if err != nil {
-				fullErr := fmt.Errorf("error adding module; module: %s, error: %w", conf.Name, err)
 				moduleLogger.CErrorw(ctx, "Error adding module", "module", conf.Name, "error", err)
-				mgr.AddToFailedModules(conf.Name, fullErr)
 				errs[i] = err
 				return
 			}
@@ -334,7 +332,6 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 	}
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		mgr.AddToFailedModules(mod.cfg.Name, err)
 		return err
 	}
 	return nil
@@ -1179,15 +1176,24 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-// AddToFailedModules adds a failing module to the moduleStatusMap map.
+// AddToModuleStatusMap starts tracking the status of a module when the manager becomes aware of it
 func (mgr *Manager) AddToModuleStatusMap(moduleName string, state modulestatus.State) {
 	mgr.moduleStatusMu.Lock()
-	mgr.moduleStatusMap[moduleName] = modulestatus.Status{
-		Name:                moduleName,
-		State:               state,
-		LastUpdated:         time.Now(),
-		Error:               nil,
-		ConsecutiveFailures: 0,
+	// guard since it's okay if the module already exists, we just want to make sure the status is
+	// up to date
+	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
+		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
+			Name:                moduleName,
+			State:               state,
+			LastUpdated:         time.Now(),
+			Error:               nil,
+			ConsecutiveFailures: 0,
+		}
+	} else {
+		status.State = state
+		status.LastUpdated = time.Now()
+
+		mgr.moduleStatusMap[moduleName] = status
 	}
 	mgr.moduleStatusMu.Unlock()
 }
@@ -1195,21 +1201,26 @@ func (mgr *Manager) AddToModuleStatusMap(moduleName string, state modulestatus.S
 // AddToFailedModules adds a failing module to the moduleStatusMap map.
 func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 	mgr.moduleStatusMu.Lock()
-	mgr.moduleStatusMap[moduleName] = modulestatus.Status{
-		Name:                moduleName,
-		State:               modulestatus.ModuleStateUnhealthy,
-		LastUpdated:         time.Now(),
-		Error:               err,
-		ConsecutiveFailures: 1,
+	// Guard here since this signature is legacy from when we only tracked failed modules,
+	// and a module could be already tracked when this is called
+	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
+		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
+			Name:                moduleName,
+			State:               modulestatus.ModuleStateUnhealthy,
+			LastUpdated:         time.Now(),
+			Error:               err,
+			ConsecutiveFailures: 1,
+		}
+	} else {
+		status.State = modulestatus.ModuleStateUnhealthy
+		status.LastUpdated = time.Now()
+		status.Error = err
+		status.ConsecutiveFailures += 1
+
+		mgr.moduleStatusMap[moduleName] = status
 	}
 	mgr.moduleStatusMu.Unlock()
 }
-
-// func (mgr *Manager) deleteFromFailedModules(moduleName string) {
-// 	mgr.moduleStatusMu.Lock()
-// 	delete(mgr.moduleStatusMap, moduleName)
-// 	mgr.moduleStatusMu.Unlock()
-// }
 
 func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.State) {
 	mgr.moduleStatusMu.Lock()
@@ -1224,6 +1235,11 @@ func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.Stat
 	} else {
 		status.State = state
 		status.LastUpdated = time.Now()
+
+		if state == modulestatus.ModuleStateReady {
+			status.ConsecutiveFailures = 0
+		}
+
 		mgr.moduleStatusMap[moduleName] = status
 	}
 
