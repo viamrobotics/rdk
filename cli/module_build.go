@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -98,6 +99,117 @@ func parseGitHubRepo(repoURL string) (owner, repo string, ok bool, err error) {
 	return parts[0], strings.TrimSuffix(parts[1], ".git"), true, nil
 }
 
+// githubFetchManifest fetches and parses a module manifest from a repo at a given
+// ref using GitHub's contents API. manifestPath is the manifest's path within the
+// repo (e.g. "meta.json" or "subdir/meta.json"). It is a package var so tests can
+// stub it.
+var githubFetchManifest = func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
+		owner, repo, manifestPath, url.QueryEscape(ref))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	// the raw media type returns the file body directly rather than base64-wrapped JSON
+	req.Header.Set("Accept", "application/vnd.github.raw+json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusOK {
+		return ModuleManifest{}, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ModuleManifest{}, err
+	}
+	return parseManifest(body)
+}
+
+// githubPathExists reports whether a file exists in a repo at a given ref using
+// GitHub's contents API. It is a package var so tests can stub it.
+var githubPathExists = func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s",
+		owner, repo, filePath, url.QueryEscape(ref))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return false, err
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected status %d from github api", resp.StatusCode)
+	}
+}
+
+// joinRepoPath builds a repo-relative path (forward slashes, no leading slash) for
+// GitHub's contents API from a build workdir and filename.
+func joinRepoPath(workdir, name string) string {
+	return strings.TrimPrefix(path.Join(workdir, name), "/")
+}
+
+// validateModelsPopulated stops an early cloud build that targets Windows for a Go
+// module whose manifest in the remote repo has no models populated (which a Windows Go
+// cloud build requires). The cloud builder clones and builds the repo at ref, so this
+// checks the files the build will actually use -- those in the repo at ref -- rather than
+// local copies. The check is scoped to Go modules (detected by a go.mod at the build
+// workdir) because Windows Python builds don't work regardless of models. Like
+// validateRefExists, it only hard-fails when it can prove models is empty, and otherwise
+// (non-github host, unreachable files) proceeds with the build.
+func (c *viamClient) validateModelsPopulated(
+	ctx context.Context, cmd *cli.Command, repoURL, ref, workdir, token string, platforms []string,
+) error {
+	// only Windows cloud builds are affected
+	if !slices.ContainsFunc(platforms, func(p string) bool { return strings.HasPrefix(p, osWindows+"/") }) {
+		return nil
+	}
+	owner, repo, ok, err := parseGitHubRepo(repoURL)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	gArgs := parseStructFromCtx[globalArgs](cmd)
+	// a go.mod at the build workdir marks this as a Go module; the empty-models failure is
+	// specific to Windows Go builds, so skip anything else (e.g. Python).
+	isGo, err := githubPathExists(ctx, owner, repo, ref, joinRepoPath(workdir, "go.mod"), token)
+	if err != nil {
+		debugf(cmd.Root().ErrWriter, gArgs.Debug,
+			"could not determine module language on %s@%s: %v — proceeding anyway", repoURL, ref, err)
+		return nil
+	}
+	if !isGo {
+		return nil
+	}
+	remote, err := githubFetchManifest(ctx, owner, repo, ref, joinRepoPath(workdir, defaultManifestFilename), token)
+	if err != nil {
+		debugf(cmd.Root().ErrWriter, gArgs.Debug,
+			"could not fetch %s from %s@%s to validate models: %v — proceeding anyway", defaultManifestFilename, repoURL, ref, err)
+		return nil
+	}
+	if len(remote.Models) == 0 {
+		return errors.New("your models must be populated before running a Windows Go cloud build,\n" +
+			"run 'viam module update-models' and try again")
+	}
+	return nil
+}
+
 // validateRefExists checks that ref exists on the remote at repoURL before a
 // cloud build is started, and only stops the build if the ref can be proven to not exist, or
 // else it will go through to with the build attempt (like with non-github links)
@@ -168,6 +280,9 @@ func (c *viamClient) moduleBuildStartForRepo(
 	gitRef := args.Ref
 	token := args.Token
 	workdir := args.Workdir
+	if err := c.validateModelsPopulated(ctx, cmd, repo, gitRef, workdir, token, platforms); err != nil {
+		return "", err
+	}
 	req := buildpb.StartBuildRequest{
 		Repo:          repo,
 		Ref:           &gitRef,
@@ -200,18 +315,6 @@ func (c *viamClient) moduleBuildStartAction(ctx context.Context, cmd *cli.Comman
 	manifest, err := loadManifest(args.Module)
 	if err != nil {
 		return "", err
-	}
-
-	// Check if this is a Windows Python module by looking for src/main.py
-	if runtime.GOOS == osWindows && manifest.Build != nil {
-		manifestDir := filepath.Dir(args.Module)
-		mainPyPath := filepath.Join(manifestDir, "src", "main.py")
-		if _, err := os.Stat(mainPyPath); err == nil {
-			if len(manifest.Models) == 0 {
-				return "", errors.New("your models must be populated before running cloud build,\n" +
-					"run 'viam module update-models' and try again")
-			}
-		}
 	}
 
 	if manifest.URL == "" {

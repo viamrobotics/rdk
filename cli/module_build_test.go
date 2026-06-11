@@ -117,6 +117,76 @@ func TestValidateRefExists(t *testing.T) {
 	}
 }
 
+func TestValidateModelsPopulated(t *testing.T) {
+	origExists, origFetch := githubPathExists, githubFetchManifest
+	t.Cleanup(func() { githubPathExists, githubFetchManifest = origExists, origFetch })
+
+	viamClient := &viamClient{}
+	cmd := newTestContext(t, map[string]any{})
+
+	// go.mod existence stubs (Go-module detection)
+	goMod := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+		return true, nil
+	}
+	notGoMod := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+		return false, nil
+	}
+	goModErr := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+		return false, errors.New("network down")
+	}
+	existsUncalled := func(ctx context.Context, owner, repo, ref, filePath, token string) (bool, error) {
+		t.Fatal("githubPathExists should not have been called")
+		return false, nil
+	}
+
+	// remote manifest stubs
+	withModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{Models: make([]ModuleComponent, 1)}, nil
+	}
+	noModels := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{Models: nil}, nil
+	}
+	fetchFailed := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		return ModuleManifest{}, errors.New("network down")
+	}
+	fetchUncalled := func(ctx context.Context, owner, repo, ref, manifestPath, token string) (ModuleManifest, error) {
+		t.Fatal("githubFetchManifest should not have been called")
+		return ModuleManifest{}, nil
+	}
+
+	win := []string{"windows/amd64"}
+	repo := "https://github.com/test-org/test-repo"
+	cases := []struct {
+		name          string
+		exists        func(context.Context, string, string, string, string, string) (bool, error)
+		fetch         func(context.Context, string, string, string, string, string) (ModuleManifest, error)
+		url           string
+		platforms     []string
+		wantErrSubstr string
+	}{
+		{"windows go module with models", goMod, withModels, repo, win, ""},
+		{"windows go module, empty models", goMod, noModels, repo, win, "models must be populated"},
+		{"windows go module, manifest fetch fails -> proceed", goMod, fetchFailed, repo, win, ""},
+		{"windows non-go module skips check", notGoMod, fetchUncalled, repo, win, ""},
+		{"windows, go.mod check fails -> proceed", goModErr, fetchUncalled, repo, win, ""},
+		{"non-windows build skips check", existsUncalled, fetchUncalled, repo, []string{"linux/amd64"}, ""},
+		{"non-github host skips check", existsUncalled, fetchUncalled, "https://gitlab.com/test-org/test-repo", win, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			githubPathExists = tc.exists
+			githubFetchManifest = tc.fetch
+			err := viamClient.validateModelsPopulated(context.Background(), cmd, tc.url, "main", "", "", tc.platforms)
+			if tc.wantErrSubstr == "" {
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, tc.wantErrSubstr)
+			}
+		})
+	}
+}
+
 func TestStartBuild(t *testing.T) {
 	// stub the ref validator so the test doesn't hit the network against
 	// the placeholder url in the test manifest

@@ -855,6 +855,13 @@ func loadManifest(manifestPath string) (ModuleManifest, error) {
 		}
 		return ModuleManifest{}, err
 	}
+	return parseManifest(manifestBytes)
+}
+
+// parseManifest unmarshals raw meta.json bytes into a ModuleManifest. It is
+// shared by loadManifest (local file) and the remote-manifest fetch used to
+// validate a cloud build against the repo it will actually build.
+func parseManifest(manifestBytes []byte) (ModuleManifest, error) {
 	var manifest ModuleManifest
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return ModuleManifest{}, err
