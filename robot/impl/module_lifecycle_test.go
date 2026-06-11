@@ -139,19 +139,19 @@ func failedModules(r robot.LocalRobot) []string {
 	return modFailures
 }
 
-// getModuleState helper
-func getModuleState(t testing.TB, r robot.LocalRobot, modName string) modulestatus.State {
+// getModuleStatus helper
+func getModuleStatus(t testing.TB, r robot.LocalRobot, modName string) modulestatus.Status {
 	t.Helper()
 	ms, err := r.MachineStatus(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	for _, m := range ms.Modules {
 		if m.Name == modName {
-			return m.State
+			return m
 		}
 	}
 	// if we can't find the module, just fail, this should never happen in test
 	test.That(t, fmt.Sprintf("module %s is not known to local robot", modName), test.ShouldNotBeNil)
-	return modulestatus.ModuleStateUnknown
+	return modulestatus.Status{}
 }
 
 func TestRenamedModuleDependentRecovery(t *testing.T) {
@@ -433,8 +433,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
 		// MachineStatus should report the crashed module as unhealthy while its
 		// sibling module remains ready.
-		test.That(tb, getModuleState(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
-		test.That(tb, getModuleState(tb, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
+		test.That(tb, getModuleStatus(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, getModuleStatus(tb, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
 
 	// Wait for restart attempt in logs.
@@ -448,7 +448,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// Verify module is still in failedModules after reconfigure
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, getModuleState(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, getModuleStatus(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
 	})
 
@@ -488,8 +488,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// Test that restored module is removed from failedModules
 	test.That(t, failedModules(r), test.ShouldBeEmpty)
 	// MachineStatus should report the recovered module as ready again.
-	test.That(t, getModuleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
-	test.That(t, getModuleState(t, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, getModuleStatus(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, getModuleStatus(t, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
 
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
@@ -1008,13 +1008,28 @@ func TestModuleStatus(t *testing.T) {
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "1")
 	r := setupLocalRobot(t, ctx, cfg, logger)
 
-	test.That(t, getModuleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStatePending)
+	// type alias so the test can wrap the enum values and print the names of states when there is a mismatch
+	type p = pb.ModuleStatus_State
+
+	modStatus := getModuleStatus(t, r, "mod")
+	test.That(t, modStatus.State, test.ShouldEqual, p(modulestatus.ModuleStatePending))
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
+
+	r.Reconfigure(ctx, cfg)
+	modStatus = getModuleStatus(t, r, "mod")
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 1)
+
+	r.Reconfigure(ctx, cfg)
+	modStatus = getModuleStatus(t, r, "mod")
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 2)
 
 	// Allowing the first run script to succeed should let the module reach the ready state.
 	t.Setenv("VIAM_TEST_FAIL_RUN_FIRST", "")
 	r.Reconfigure(ctx, cfg)
+	modStatus = getModuleStatus(t, r, "mod")
 
-	test.That(t, getModuleState(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	test.That(t, modStatus.ConsecutiveFailures, test.ShouldEqual, 0)
 
 	// Adding a module that will hang without serving a socket, the module should stay in the starting state.
 	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "1s")
@@ -1031,15 +1046,17 @@ func TestModuleStatus(t *testing.T) {
 		r.Reconfigure(ctx, cfg)
 	}()
 
-	// type alias so the test can wrap the enum values and print the names of states when there is a mismatch
-	type p = pb.ModuleStatus_State
-
 	testutils.WaitForAssertion(t, func(tb testing.TB) {
-		test.That(tb, p(getModuleState(tb, r, "fake")), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
+		test.That(tb, p(getModuleStatus(tb, r, "fake").State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
 	})
 
 	// Once reconfigure has completed, fake should have fallen into the unhealthy state.
 	<-reconfigureDone
-	test.That(t, p(getModuleState(t, r, "fake")), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
-	test.That(t, p(getModuleState(t, r, "mod")), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	fakeModStatus := getModuleStatus(t, r, "fake")
+	test.That(t, p(fakeModStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, "error adding module; module: fake, error: error while starting module fake: module fake timed out after 1s during startup")
+	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 1*time.Millisecond)
+	fmt.Printf("%+v\n", fakeModStatus)
+
+	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 }
