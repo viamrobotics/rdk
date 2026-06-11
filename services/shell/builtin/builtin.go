@@ -131,8 +131,6 @@ func (svc *builtIn) Shell(ctx context.Context, extra map[string]interface{}) (
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		defer cancel()
-		// WaitProcess blocks until the shell exits, and kills it if ctxCancel is cancelled
-		// first (it also works around the Go runtime not reaping ConPTY processes on Windows).
 		if err := xpty.WaitProcess(ctxCancel, cmd); err != nil {
 			svc.logger.CDebugw(ctx, "error waiting for shell process", "error", err)
 		}
