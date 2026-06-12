@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 	grpcmetadata "google.golang.org/grpc/metadata"
@@ -119,6 +120,34 @@ func ContextWithMetadataClientToServerUnaryServerInterceptor(
 	ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
 
 	return handler(ctx, req)
+}
+
+// ContextWithMetadataClientToServerStreamServerInterceptor retrieves metadata from the incoming context and appends to the outgoing
+// context.
+func ContextWithMetadataClientToServerStreamServerInterceptor(
+	srv interface{},
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+) error {
+	ctx := ss.Context()
+	md, ok := grpcmetadata.FromIncomingContext(ctx)
+	if !ok {
+		return handler(srv, ss)
+	}
+
+	prefixedPairs := make([]string, 0, len(md))
+	for prefixedKey, vals := range md {
+		if strings.HasPrefix(prefixedKey, arbitraryMetadataKeyPrefix) {
+			for _, v := range vals {
+				prefixedPairs = append(prefixedPairs, prefixedKey, v)
+			}
+		}
+	}
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
+
+	wrapped := &grpc_middleware.WrappedServerStream{ServerStream: ss, WrappedContext: ctx}
+	return handler(srv, wrapped)
 }
 
 // ContextWithTimeoutIfNoDeadline returns a child timeout context derived from `ctx` if a

@@ -166,6 +166,7 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 	}
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
+		contextutils.ContextWithMetadataClientToServerStreamServerInterceptor,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
