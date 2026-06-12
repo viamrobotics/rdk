@@ -995,6 +995,8 @@ func TestModuleStatus(t *testing.T) {
 	// Precompile module to avoid timeout issues when building takes too long.
 	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
 
+	// make testmodule close slowly so we can observe its closing state later on
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "1s")
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
@@ -1052,10 +1054,55 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, fmt.Sprintf("error while starting module fake: module fake timed out after %s during startup", waitTime))
 	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
 
+	// But a good module should still be ready
+	modStatus = getModuleStatus(t, r, "mod")
+	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
 	r.Reconfigure(ctx, cfg)
 	fakeModStatus = getModuleStatus(t, r, "fake")
 	// Fail again without ever starting to see the failure count increment by 1
 	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 2)
 
-	test.That(t, p(getModuleStatus(t, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+	// add a local module with a bad path to test config validation failure
+	cfg.Modules = append(cfg.Modules, config.Module{
+		Name:    "doesnotexist",
+		ExePath: rutils.ResolveFile("doesnotexist"),
+		Type:    config.ModuleTypeLocal,
+	})
+
+	r.Reconfigure(ctx, cfg)
+	dneStatus := getModuleStatus(t, r, "doesnotexist")
+	test.That(t, dneStatus.Error.Error(), test.ShouldContainSubstring,
+		"module config validation error; skipping; module: doesnotexist, error: module  executable path error")
+	test.That(t, dneStatus.ConsecutiveFailures, test.ShouldEqual, 1)
+	test.That(t, p(dneStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+
+	// make sure we start ready before trying to close
+	modStatus = getModuleStatus(t, r, "mod")
+	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	// reconfigure to an empty config (without the testmodule)
+	reconfigureDone = make(chan struct{})
+	go func() {
+		defer close(reconfigureDone)
+		r.Reconfigure(ctx, &config.Config{})
+	}()
+
+	// while reconfiguring, we should see the testmodule enter the closing state
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		test.That(tb, p(getModuleStatus(tb, r, "mod").State), test.ShouldEqual, p(modulestatus.ModuleStateClosing))
+	})
+	<-reconfigureDone
+
+	// after reconfiguring, we should not be tracking "mod" anymore
+	ms, err := r.MachineStatus(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	modTrackedInMachineStatus := false
+	for _, m := range ms.Modules {
+		if m.Name == "mod" {
+			modTrackedInMachineStatus = true
+		}
+	}
+	test.That(t, modTrackedInMachineStatus, test.ShouldBeFalse)
 }
