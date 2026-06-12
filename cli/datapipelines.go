@@ -6,13 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"slices"
 	"time"
 
 	"github.com/urfave/cli/v3"
 	"github.com/yosuke-furukawa/json5/encoding/json5"
 	"go.mongodb.org/mongo-driver/bson"
-	pb "go.viam.com/api/app/data/v1"
 	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 )
 
@@ -25,33 +23,8 @@ var pipelineRunStatusMap = map[datapipelinespb.DataPipelineRunStatus]string{
 	datapipelinespb.DataPipelineRunStatus_DATA_PIPELINE_RUN_STATUS_FAILED:      "Failed",
 }
 
-// dataSourceTypeMap maps data source types to human-readable strings.
-var dataSourceTypeMap = map[pb.TabularDataSourceType]string{
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED:   "Unknown",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD:      "Standard",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE:   "Hot Storage",
-	pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
-}
-
-// dataSourceType constants for data source types.
-var (
-	StandardDataSourceType     = "standard"
-	HotStorageDataSourceType   = "hotstorage"
-	PipelineSinkDataSourceType = "pipelinesink"
-)
-
-// dataSourceTypeProtos maps user-facing data source names to their proto enum value.
-var dataSourceTypeProtos = map[string]pb.TabularDataSourceType{
-	StandardDataSourceType:     pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
-	HotStorageDataSourceType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
-	PipelineSinkDataSourceType: pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
-}
-
-var (
-	// pipeline data sources do not allow pipeline sinks.
-	pipelineDataSourceTypes         = []string{StandardDataSourceType, HotStorageDataSourceType}
-	tabularDataByMQLDataSourceTypes = []string{StandardDataSourceType, HotStorageDataSourceType, PipelineSinkDataSourceType}
-)
+// pipeline data sources do not allow pipeline sinks.
+var pipelineDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType}
 
 type datapipelineListArgs struct {
 	OrgID string
@@ -338,14 +311,4 @@ func mqlJSON(mql [][]byte) (string, error) {
 	}
 
 	return string(jsonBytes), nil
-}
-
-// dataSourceTypeToProto resolves the user-facing data source name to its proto enum value,
-// rejecting names that aren't in the allowed set for the calling surface.
-func dataSourceTypeToProto(name string, allowed []string) (pb.TabularDataSourceType, error) {
-	if slices.Contains(allowed, name) {
-		return dataSourceTypeProtos[name], nil
-	}
-	return pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
-		fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed)
 }

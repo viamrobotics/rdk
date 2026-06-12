@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -60,8 +61,8 @@ func TestDataQuerySQLAction(t *testing.T) {
 
 		_, ac, out, errOut := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
 		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{
-			OrgID:    "org-1",
-			SqlQuery: "SELECT * FROM readings",
+			OrgID: "org-1",
+			SQL:   "SELECT * FROM readings",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(errOut.messages), test.ShouldEqual, 0)
@@ -84,7 +85,7 @@ func TestDataQuerySQLAction(t *testing.T) {
 
 	t.Run("requires an org id", func(t *testing.T) {
 		_, ac, _, _ := setup(&inject.AppServiceClient{}, &inject.DataServiceClient{}, nil, nil, "token")
-		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{SqlQuery: "SELECT 1"})
+		err := ac.dataQuerySQLAction(context.Background(), dataQuerySQLArgs{SQL: "SELECT 1"})
 		test.That(t, err, test.ShouldBeError, errors.New("must provide an organization ID"))
 	})
 
@@ -115,7 +116,7 @@ func TestDataQueryMQLAction(t *testing.T) {
 		err := ac.dataQueryMQLAction(context.Background(), dataQueryMQLArgs{
 			OrgID:          "org-1",
 			MQL:            mql,
-			DataSourceType: PipelineSinkDataSourceType,
+			DataSourceType: pipelineSinkDataSourceType,
 			PipelineID:     "pipe-1",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -152,18 +153,20 @@ func TestDataQueryMQLAction(t *testing.T) {
 			args: dataQueryMQLArgs{
 				OrgID:          "org-1",
 				MQL:            mql,
-				DataSourceType: HotStorageDataSourceType,
+				DataSourceType: hotStorageDataSourceType,
 				PipelineID:     "pipe-1",
 			},
-			expectedErr: errors.New("--pipeline-id is only valid when --data-source-type=pipelinesink"),
+			expectedErr: fmt.Errorf("--%s is only valid when --%s=%s",
+				dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType),
 		},
 		"pipeline-sink requires a pipeline id": {
 			args: dataQueryMQLArgs{
 				OrgID:          "org-1",
 				MQL:            mql,
-				DataSourceType: PipelineSinkDataSourceType,
+				DataSourceType: pipelineSinkDataSourceType,
 			},
-			expectedErr: errors.New("--pipeline-id is required when --data-source-type=pipelinesink"),
+			expectedErr: fmt.Errorf("--%s is required when --%s=%s",
+				dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType),
 		},
 		"pipeline-id without a source type": {
 			args: dataQueryMQLArgs{
@@ -171,7 +174,8 @@ func TestDataQueryMQLAction(t *testing.T) {
 				MQL:        mql,
 				PipelineID: "pipe-1",
 			},
-			expectedErr: errors.New("--data-source-type is required when --pipeline-id is provided"),
+			expectedErr: fmt.Errorf("--%s is required when --%s is provided",
+				dataFlagDataSourceType, dataFlagPipelineID),
 		},
 		"missing mql query": {
 			args:        dataQueryMQLArgs{OrgID: "org-1"},
@@ -186,4 +190,37 @@ func TestDataQueryMQLAction(t *testing.T) {
 			test.That(t, err, test.ShouldBeError, tc.expectedErr)
 		})
 	}
+}
+
+func TestDataSourceTypeToProto(t *testing.T) {
+	t.Run("maps each name to its proto enum when in the allowed set", func(t *testing.T) {
+		all := []string{standardDataSourceType, hotStorageDataSourceType, pipelineSinkDataSourceType}
+		cases := map[string]datapb.TabularDataSourceType{
+			standardDataSourceType:     datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+			hotStorageDataSourceType:   datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
+			pipelineSinkDataSourceType: datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
+		}
+		for name, want := range cases {
+			got, err := dataSourceTypeToProto(name, all)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, got, test.ShouldEqual, want)
+		}
+	})
+
+	t.Run("rejects names not in the caller's allowed set", func(t *testing.T) {
+		// pipelinesink is a known proto value, but not a valid source for creating a pipeline.
+		_, err := dataSourceTypeToProto(pipelineSinkDataSourceType, pipelineDataSourceTypes)
+		test.That(t, err, test.ShouldBeError, fmt.Errorf(
+			"invalid data source type: %q. Supported values: %v",
+			pipelineSinkDataSourceType, pipelineDataSourceTypes))
+	})
+
+	t.Run("rejects unknown and empty names", func(t *testing.T) {
+		for _, name := range []string{"unknown", ""} {
+			_, err := dataSourceTypeToProto(name, tabularDataByMQLDataSourceTypes)
+			test.That(t, err, test.ShouldBeError, fmt.Errorf(
+				"invalid data source type: %q. Supported values: %v",
+				name, tabularDataByMQLDataSourceTypes))
+		}
+	})
 }

@@ -142,7 +142,7 @@ const (
 	dataFlagCollectionType                 = "collection-type"
 	dataFlagPipelineName                   = "pipeline-name"
 	dataFlagPipelineID                     = "pipeline-id"
-	dataFlagSQLQuery                       = "sql-query"
+	dataFlagSQL                            = "sql"
 	dataFlagMQL                            = "mql"
 	dataFlagMQLFile                        = "mql-path"
 	dataFlagDataSourceType                 = "data-source-type"
@@ -1418,7 +1418,7 @@ Note: There is no progress meter while copying is in progress.
 						{
 							Name:      "sql",
 							Usage:     "query tabular data using SQL",
-							UsageText: createUsageText("data query sql", []string{dataFlagSQLQuery}, true, false),
+							UsageText: createUsageText("data query sql", []string{dataFlagSQL}, true, false),
 							Flags: []cli.Flag{
 								&cli.StringFlag{
 									Name:        generalFlagOrgID,
@@ -1426,7 +1426,7 @@ Note: There is no progress meter while copying is in progress.
 									DefaultText: "default-org value if set",
 								},
 								&cli.StringFlag{
-									Name:     dataFlagSQLQuery,
+									Name:     dataFlagSQL,
 									Required: true,
 									Usage:    "SQL statement to query the organization's tabular data",
 								},
@@ -1467,7 +1467,7 @@ Note: There is no progress meter while copying is in progress.
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPipelineID,
-									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, PipelineSinkDataSourceType),
+									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:      generalFlagDestination,
@@ -1688,7 +1688,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
@@ -1716,7 +1716,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
@@ -1743,7 +1743,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPipelineName,

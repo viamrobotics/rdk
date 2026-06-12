@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -53,6 +54,30 @@ const (
 )
 
 var viamCaptureSubdirPattern = regexp.MustCompile(`.*` + viamCaptureDotSubdir)
+
+var (
+	standardDataSourceType     = "standard"
+	hotStorageDataSourceType   = "hot-storage"
+	pipelineSinkDataSourceType = "pipeline-sink"
+
+	// dataSourceTypeProtos maps user-facing data source names to their proto enum value.
+	dataSourceTypeProtos = map[string]datapb.TabularDataSourceType{
+		standardDataSourceType:     datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
+		hotStorageDataSourceType:   datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
+		pipelineSinkDataSourceType: datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
+	}
+
+	// dataSourceTypeMap maps the proto enum value back to a human-readable display name.
+	dataSourceTypeMap = map[datapb.TabularDataSourceType]string{
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED:   "Unknown",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD:      "Standard",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE:   "Hot Storage",
+		datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK: "Pipeline Sink",
+	}
+
+	// tabularDataByMQLDataSourceTypes is the set of data sources accepted by `data query mql`.
+	tabularDataByMQLDataSourceTypes = []string{standardDataSourceType, hotStorageDataSourceType, pipelineSinkDataSourceType}
+)
 
 type commonFilterArgs struct {
 	OrgIDs        []string
@@ -130,7 +155,7 @@ func DataExportTabularAction(ctx context.Context, cmd *cli.Command, args dataExp
 
 type dataQuerySQLArgs struct {
 	OrgID       string
-	SqlQuery    string //nolint:revive,stylecheck
+	SQL         string
 	Destination string
 }
 
@@ -431,13 +456,13 @@ func (c *viamClient) dataQuerySQLAction(ctx context.Context, args dataQuerySQLAr
 	if args.OrgID == "" {
 		return errors.New("must provide an organization ID")
 	}
-	if args.SqlQuery == "" {
+	if args.SQL == "" {
 		return errors.New("must provide a SQL query")
 	}
 
 	resp, err := c.dataClient.TabularDataBySQL(ctx, &datapb.TabularDataBySQLRequest{
 		OrganizationId: args.OrgID,
-		SqlQuery:       args.SqlQuery,
+		SqlQuery:       args.SQL,
 	})
 	if err != nil {
 		return errors.Wrap(err, serverErrorMessage)
@@ -454,13 +479,13 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 		return errors.Errorf("--%s is required when --%s is provided",
 			dataFlagDataSourceType, dataFlagPipelineID)
 	}
-	if args.DataSourceType == PipelineSinkDataSourceType && args.PipelineID == "" {
+	if args.DataSourceType == pipelineSinkDataSourceType && args.PipelineID == "" {
 		return errors.Errorf("--%s is required when --%s=%s",
-			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
+			dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType)
 	}
-	if args.DataSourceType != "" && args.DataSourceType != PipelineSinkDataSourceType && args.PipelineID != "" {
+	if args.DataSourceType != "" && args.DataSourceType != pipelineSinkDataSourceType && args.PipelineID != "" {
 		return errors.Errorf("--%s is only valid when --%s=%s",
-			dataFlagPipelineID, dataFlagDataSourceType, PipelineSinkDataSourceType)
+			dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType)
 	}
 
 	mqlBinary, err := parseMQL(args.MQL, args.MqlPath)
@@ -499,6 +524,16 @@ func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularD
 		source.PipelineId = &pipelineID
 	}
 	return source, nil
+}
+
+// dataSourceTypeToProto resolves the user-facing data source name to its proto enum value,
+// rejecting names that aren't in the allowed set for the calling surface.
+func dataSourceTypeToProto(name string, allowed []string) (datapb.TabularDataSourceType, error) {
+	if slices.Contains(allowed, name) {
+		return dataSourceTypeProtos[name], nil
+	}
+	return datapb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_UNSPECIFIED,
+		fmt.Errorf("invalid data source type: %q. Supported values: %v", name, allowed)
 }
 
 // writeQueryResults converts BSON-encoded rows to NDJSON (Relaxed Extended JSON) and writes them

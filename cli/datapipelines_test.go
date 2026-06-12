@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"go.mongodb.org/mongo-driver/bson"
-	pb "go.viam.com/api/app/data/v1"
 	"go.viam.com/test"
 )
 
@@ -145,56 +144,4 @@ func TestMQLJSON(t *testing.T) {
 	json, err := mqlJSON(bsonBytes)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, json, test.ShouldEqualJSON, expectedJSON)
-}
-
-func TestDataSourceTypeToProto(t *testing.T) {
-	testCases := map[string]struct {
-		dataSourceType string
-		allowed        []string
-		expectedType   pb.TabularDataSourceType
-		expectedError  bool
-	}{
-		"standard for pipeline": {
-			dataSourceType: "standard",
-			allowed:        pipelineDataSourceTypes,
-			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_STANDARD,
-		},
-		"hotstorage for pipeline": {
-			dataSourceType: "hotstorage",
-			allowed:        pipelineDataSourceTypes,
-			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_HOT_STORAGE,
-		},
-		"pipelinesink rejected for pipeline": {
-			dataSourceType: "pipelinesink",
-			allowed:        pipelineDataSourceTypes,
-			expectedError:  true,
-		},
-		"pipelinesink accepted for query": {
-			dataSourceType: "pipelinesink",
-			allowed:        tabularDataByMQLDataSourceTypes,
-			expectedType:   pb.TabularDataSourceType_TABULAR_DATA_SOURCE_TYPE_PIPELINE_SINK,
-		},
-		"unknown": {
-			dataSourceType: "unknown",
-			allowed:        tabularDataByMQLDataSourceTypes,
-			expectedError:  true,
-		},
-		"empty": {
-			dataSourceType: "",
-			allowed:        tabularDataByMQLDataSourceTypes,
-			expectedError:  true,
-		},
-	}
-
-	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			dataSourceType, err := dataSourceTypeToProto(tc.dataSourceType, tc.allowed)
-			if tc.expectedError {
-				test.That(t, err, test.ShouldNotBeNil)
-				return
-			}
-			test.That(t, err, test.ShouldBeNil)
-			test.That(t, dataSourceType, test.ShouldEqual, tc.expectedType)
-		})
-	}
 }
