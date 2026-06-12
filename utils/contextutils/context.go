@@ -142,30 +142,11 @@ func AppendMetadata(ctx context.Context, kv ...string) context.Context {
 
 // Metadata retrieves the Viam arbitrary metadata from the context.
 func Metadata(ctx context.Context) (ViamMD, bool) {
-	// RPC
-	if md, ok := fromIncomingContext(ctx); ok {
-		return md, true
-	}
-	// local
+	// ServerInterceptor already forwards MD's from FromIncomingContext to AppendToOutgoingContext, so we can use fromOutgoingContext here.
 	if md, ok := fromOutgoingContext(ctx); ok {
 		return md, true
 	}
 	return ViamMD{}, false
-}
-
-// fromIncomingContext functions like metadata.FromIncomingContext but strips the prefix added by appendToOutgoingContext.
-func fromIncomingContext(ctx context.Context) (ViamMD, bool) {
-	incomingMD, ok := grpcmetadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, false
-	}
-	md := ViamMD{}
-	for k, v := range incomingMD {
-		if strings.HasPrefix(k, arbitraryMetadataKeyPrefix) {
-			md[strings.TrimPrefix(k, arbitraryMetadataKeyPrefix)] = v
-		}
-	}
-	return md, true
 }
 
 // fromOutgoingContext functions like metadata.FromOutgoingContext but strips the prefix added by appendToOutgoingContext.
