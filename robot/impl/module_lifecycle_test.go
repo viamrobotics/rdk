@@ -1025,7 +1025,8 @@ func TestModuleStatus(t *testing.T) {
 
 	// Adding a module that will hang without serving socket - the module should stay in the starting state
 	// for the entire timeout, allowing us to observe that state
-	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "1s")
+	waitTime := "200ms"
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", waitTime)
 	cfg.Modules = append(cfg.Modules, config.Module{
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
@@ -1048,7 +1049,7 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, p(fakeModStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
 	// A failure should only increment ConsecutiveFailures by 1
 	test.That(t, fakeModStatus.ConsecutiveFailures, test.ShouldEqual, 1)
-	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, "error while starting module fake: module fake timed out after 1s during startup")
+	test.That(t, fakeModStatus.Error.Error(), test.ShouldEqual, fmt.Sprintf("error while starting module fake: module fake timed out after %s during startup", waitTime))
 	test.That(t, time.Since(fakeModStatus.LastUpdated), test.ShouldBeLessThan, 100*time.Millisecond)
 
 	r.Reconfigure(ctx, cfg)
