@@ -88,18 +88,20 @@ func TestTraceGetRemote(t *testing.T) {
 	})
 
 	t.Run("trace data exists", func(t *testing.T) {
-		tmpPartTracePath := filepath.Join(tfs.Root, partID)
-		err := os.Mkdir(tmpPartTracePath, 0o750)
+		tmpPartTracePath := filepath.Join(tfs.Root, tracesRelativePath, partID)
+		err := os.MkdirAll(tmpPartTracePath, 0o750)
 		test.That(t, err, test.ShouldBeNil)
 		t.Cleanup(func() {
 			err = os.RemoveAll(tmpPartTracePath)
+			test.That(t, err, test.ShouldBeNil)
+			err = os.RemoveAll(filepath.Join(tfs.Root, partID))
 			test.That(t, err, test.ShouldBeNil)
 		})
 		testData := []byte("test")
 		err = os.WriteFile(filepath.Join(tmpPartTracePath, "traces"), testData, 0o640)
 		test.That(t, err, test.ShouldBeNil)
 		originalTracePath := defaultTracesPath
-		defaultTracesPath = tfs.Root
+		defaultTracesPath = filepath.Join(tfs.Root, tracesRelativePath)
 		t.Cleanup(func() {
 			defaultTracesPath = originalTracePath
 		})
@@ -136,6 +138,31 @@ func TestTraceGetRemote(t *testing.T) {
 			fileContents, err := os.ReadFile(filepath.Join(output, subdir.Name(), "traces"))
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, fileContents, test.ShouldResemble, testData)
+		})
+
+		t.Run("trace data exists; VIAM_HOME changed", func(t *testing.T) {
+			testFlags := maps.Collect(maps.All(basePartFlags))
+			output := t.TempDir()
+
+			defaultTracesPath = originalTracePath
+			cCtx, viamClient, _, _ := setupWithRunningPart(
+				t, asc, nil, nil, testFlags, "token", partFqdn)
+			flagArgs := parseStructFromCtx[traceGetRemoteArgs](cCtx)
+
+			// checking default traces path -> not found
+			test.That(t,
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, flagArgs, output, false, true, logger),
+				test.ShouldNotBeNil)
+
+			// specify location of VIAM_HOME
+			flagArgs.ViamHomeDir = tfs.Root
+			test.That(t,
+				viamClient.tracesGetRemoteAction(context.Background(), cCtx, flagArgs, output, false, true, logger),
+				test.ShouldBeNil)
+
+			contents, err := os.ReadFile(filepath.Join(output, "traces"))
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, contents, test.ShouldResemble, testData)
 		})
 	})
 }
