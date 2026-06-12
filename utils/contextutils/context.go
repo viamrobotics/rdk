@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -25,12 +24,9 @@ const (
 	// MetadataContextKey is the key used to access metadata from a context with metadata.
 	MetadataContextKey = contextKey("viam-metadata")
 
-	// arbitraryMetadataKey records the metadata keys provided by the user (as opposed to those for internal use)
+	// arbitraryMetadataKeyPrefix helps differentiate between metadata keys provided by the user and those for internal use.
 	// It is automatically prefixed to all arbitrary keys behind the scenes to avoid conflicts with internal metadata.
-	arbitraryMetadataKey = string(MetadataContextKey)
-
-	// fwdArbitraryMetadataKey is used by the Server-to-Client arbitrary MD's interceptors to enable forwarding between modules.
-	fwdArbitraryMetadataKey = "fwd-" + arbitraryMetadataKey
+	arbitraryMetadataKeyPrefix = string(MetadataContextKey) + "-"
 
 	// TimeRequestedMetadataKey is optional metadata in the gRPC response header that correlates
 	// to the time right before the point cloud was captured.
@@ -100,22 +96,6 @@ func ContextWithMetadataUnaryClientInterceptor(
 	return nil
 }
 
-// toWireMD transforms the incoming ViamMD to a new one where all keys are previxed with arbitraryMetadataKey-
-// and adds a new mapping of arbitraryMetadataKey: [prefixedKeys]
-func toWireMD(md map[string][]string) grpcmetadata.MD {
-	wireMD := grpcmetadata.MD{}
-	prefixedKeys := make([]string, 0, len(md))
-	for k, v := range md {
-		wireKey := arbitraryMetadataKey + "-" + k
-		wireMD[wireKey] = v
-		prefixedKeys = append(prefixedKeys, wireKey)
-	}
-	if len(prefixedKeys) > 0 {
-		wireMD[arbitraryMetadataKey] = prefixedKeys
-	}
-	return wireMD
-}
-
 // ContextWithMetadataClientToServerUnaryServerInterceptor retrieves metadata from the incoming context and appends to the outgoing context.
 func ContextWithMetadataClientToServerUnaryServerInterceptor(
 	ctx context.Context,
@@ -128,17 +108,14 @@ func ContextWithMetadataClientToServerUnaryServerInterceptor(
 		return handler(ctx, req)
 	}
 
-	// dedupe key list to prevent duplicative appends with multiple hops
-	keys := slices.Clone(md.Get(arbitraryMetadataKey))
-	slices.Sort(keys)
-	keys = slices.Compact(keys)
-
-	for _, prefixedKeys := range keys {
-		ctx = grpcmetadata.AppendToOutgoingContext(ctx, arbitraryMetadataKey, prefixedKeys)
-		for _, val := range md.Get(prefixedKeys) {
-			ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedKeys, val)
+	for prefixedKey, vals := range md {
+		if strings.HasPrefix(prefixedKey, arbitraryMetadataKeyPrefix) {
+			for _, v := range vals {
+				ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedKey, v)
+			}
 		}
 	}
+
 	return handler(ctx, req)
 }
 
@@ -151,24 +128,12 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 	return context.WithCancel(ctx)
 }
 
-// appendToOutgoingContext functions like metadata.AppendToOutgoingContext, but also tracks the unique list of arbitrary keys
-// under the arbitraryMetadataKey key.
+// appendToOutgoingContext functions like metadata.AppendToOutgoingContext, but prefixes all keys with arbitraryMetadataKeyPrefix.
 func appendToOutgoingContext(ctx context.Context, kv ...string) context.Context {
-	seenKeys := make(map[string]struct{})
-	arbitraryKeys := make([]string, 0, len(kv))
-	prefixedPairs := make([]string, len(kv))
 	for i := 0; i+1 < len(kv); i += 2 {
-		wireKey := arbitraryMetadataKey + "-" + kv[i]
-		prefixedPairs[i] = wireKey
-		prefixedPairs[i+1] = kv[i+1]
-		if _, dup := seenKeys[kv[i]]; dup {
-			continue
-		}
-		seenKeys[kv[i]] = struct{}{}
-		arbitraryKeys = append(arbitraryKeys, arbitraryMetadataKey, wireKey)
+		ctx = grpcmetadata.AppendToOutgoingContext(ctx, arbitraryMetadataKeyPrefix+kv[i], kv[i+1])
 	}
-	ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
-	return grpcmetadata.AppendToOutgoingContext(ctx, arbitraryKeys...)
+	return ctx
 }
 
 // AppendMetadata appends Viam arbitrary metadata to the context.
@@ -197,8 +162,8 @@ func fromIncomingContext(ctx context.Context) (ViamMD, bool) {
 	}
 	md := ViamMD{}
 	for k, v := range incomingMD {
-		if strings.HasPrefix(k, arbitraryMetadataKey+"-") {
-			md[strings.TrimPrefix(k, arbitraryMetadataKey+"-")] = v
+		if strings.HasPrefix(k, arbitraryMetadataKeyPrefix) {
+			md[strings.TrimPrefix(k, arbitraryMetadataKeyPrefix)] = v
 		}
 	}
 	return md, true
@@ -212,8 +177,8 @@ func fromOutgoingContext(ctx context.Context) (ViamMD, bool) {
 	}
 	md := ViamMD{}
 	for k, v := range outgoingMD {
-		if strings.HasPrefix(k, arbitraryMetadataKey+"-") {
-			md[strings.TrimPrefix(k, arbitraryMetadataKey+"-")] = v
+		if strings.HasPrefix(k, arbitraryMetadataKeyPrefix) {
+			md[strings.TrimPrefix(k, arbitraryMetadataKeyPrefix)] = v
 		}
 	}
 	return md, true
