@@ -114,4 +114,20 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	// our (shadowed) opid made it to the end
 	_, err = giz.DoOneBiDiStream(callCtx, []string{"1.0"})
 	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-BiDiStream-good"))
+
+	// test ReplaceMetadata
+	replacedMDCtx := contextutils.ReplaceMetadata(callCtx, "new-k", "v")
+	replacedMD, ok := contextutils.Metadata(replacedMDCtx)
+
+	test.That(t, ok, test.ShouldEqual, true)
+	test.That(t, len(replacedMD), test.ShouldEqual, 1)
+	test.That(t, replacedMD["new-k"], test.ShouldResemble, []string{"v"})
+	_, ok = replacedMD["arbitrary-md-from-client"]
+	test.That(t, ok, test.ShouldBeFalse)
+
+	origMD, ok := contextutils.Metadata(callCtx)
+	test.That(t, ok, test.ShouldEqual, true)
+	test.That(t, len(origMD), test.ShouldEqual, 3)
+	_, ok = origMD["new-k"]
+	test.That(t, ok, test.ShouldBeFalse)
 }

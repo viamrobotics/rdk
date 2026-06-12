@@ -130,7 +130,7 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 	return context.WithCancel(ctx)
 }
 
-// AppendMetadata appends Viam arbitrary metadata to the context.
+// AppendMetadata returns a new context with the Viam arbitrary metadata appended.
 func AppendMetadata(ctx context.Context, kv ...string) context.Context {
 	prefixedPairs := make([]string, len(kv))
 	for i := 0; i+1 < len(kv); i += 2 {
@@ -138,6 +138,16 @@ func AppendMetadata(ctx context.Context, kv ...string) context.Context {
 		prefixedPairs[i+1] = kv[i+1]
 	}
 	return grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
+}
+
+// ReplaceMetadata returns a new context with old Viam arbitrary metadata cleared and new metadata added.
+func ReplaceMetadata(ctx context.Context, kv ...string) context.Context {
+	prefixedPairs := make([]string, len(kv))
+	for i := 0; i+1 < len(kv); i += 2 {
+		prefixedPairs[i] = arbitraryMetadataKeyPrefix + kv[i]
+		prefixedPairs[i+1] = kv[i+1]
+	}
+	return grpcmetadata.NewOutgoingContext(ctx, grpcmetadata.Pairs(prefixedPairs...))
 }
 
 // Metadata retrieves the Viam arbitrary metadata from the context.
