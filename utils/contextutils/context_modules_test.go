@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/examples/customresources/apis/gizmoapi"
@@ -83,37 +85,12 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	}
 	callCtx = localFunc(localFunc(callCtx))
 
-	md := make(contextutils.ViamMD)
-	callCtx = context.WithValue(callCtx, contextutils.MetadataContextKey, md)
 	_, err = giz.DoOne(callCtx, "1.0")
-	test.That(t, err, test.ShouldBeNil)
-
-	// Client to Server sending:
+	// Client to Server sending (see mysum.go for the checks):
 	// client to end md made it to the end
-	test.That(t, md["from_client_md_good"], test.ShouldResemble, []string{"true"})
-
 	// client to end md made that was modified twice by localFunc it to the end
-	test.That(t, md["from_client_md_modified_good"], test.ShouldResemble, []string{"true"})
-
 	// middle to end md made it to the end
-	test.That(t, md["from_middle_md_good"], test.ShouldResemble, []string{"true"})
-
-	// unknown arbitrary metadata made it to the end (maybe filtering not working)
-	test.That(t, md["unknown_metadata_found"], test.ShouldNotResemble, []string{"true"})
-
+	// no unknown arbitrary metadata made it to the end (filtering working)
 	// our (shadowed) opid made it to the end
-	test.That(t, md["custom_opid_good"], test.ShouldResemble, []string{"true"})
-
-	// Server to Client sending:
-	// end to client md made it to client
-	test.That(t, md["arbitrary-md-to-client-from-end"], test.ShouldResemble, []string{"arbitrary-md-to-client-from-end-val1"})
-
-	// end to client md was updated by middle and both made it to client
-	test.That(t, md["arbitrary-md-to-client-from-end2"], test.ShouldContain, "arbitrary-md-to-client-from-end2-val1")
-	test.That(t, md["arbitrary-md-to-client-from-end2"], test.ShouldContain, "arbitrary-md-to-client-from-end2-val-from-middle")
-	// no dups
-	test.That(t, len(md["arbitrary-md-to-client-from-end2"]), test.ShouldResemble, 2)
-
-	// middle to client md made it to client
-	test.That(t, md["arbitrary-md-to-client-from-middle"], test.ShouldResemble, []string{"arbitrary-md-to-client-from-middle"})
+	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-good"))
 }

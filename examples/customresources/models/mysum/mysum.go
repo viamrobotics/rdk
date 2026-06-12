@@ -59,7 +59,8 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 		return 0, errors.New("must provide at least one number to sum")
 	}
 
-	arbitraryMDFromServer := make(contextutils.ViamMD)
+	numGood := 0
+
 	foundKeys := 0
 	expectedKeys := 4
 	if incoming, ok := contextutils.Metadata(ctx); ok {
@@ -70,31 +71,31 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 				slices.Contains(vals, "arbitrary-md-from-client-val1") &&
 				slices.Contains(vals, "arbitrary-md-from-client-val2") &&
 				slices.Contains(vals, "arbitrary-md-from-client-val3-from-middle"):
-				arbitraryMDFromServer["from_client_md_good"] = []string{"true"}
+				numGood++
 			case k == "arbitrary-md-from-middle" &&
 				len(vals) == 1 &&
 				slices.Contains(vals, "arbitrary-md-from-middle-val1"):
-				arbitraryMDFromServer["from_middle_md_good"] = []string{"true"}
+				numGood++
 			case k == "opid":
 				// real opid is still present in metadata.FromIncomingContext
 				if len(vals) == 1 && slices.Contains(vals, "custom") {
-					arbitraryMDFromServer["custom_opid_good"] = []string{"true"}
+					numGood++
 				}
 			case k == "arbitrary-md-local-func-modify":
 				if len(vals) == 2 && vals[0] == "real" && vals[1] == "real" {
-					arbitraryMDFromServer["from_client_md_modified_good"] = []string{"true"}
+					numGood++
 				}
 			}
 			foundKeys++
 		}
 	}
-	if foundKeys != expectedKeys {
-		arbitraryMDFromServer["unknown_metadata_found"] = []string{"true"}
+	if foundKeys == expectedKeys {
+		numGood++
 	}
-	arbitraryMDFromServer["arbitrary-md-to-client-from-end"] = []string{"arbitrary-md-to-client-from-end-val1"}
-	arbitraryMDFromServer["arbitrary-md-to-client-from-end2"] = []string{"arbitrary-md-to-client-from-end2-val1"}
-	//nolint:errcheck
-	_ = contextutils.SetHeader(ctx, arbitraryMDFromServer)
+	if numGood == 5 {
+		// used for TestMetadataAcrossTwoModules test only. in other cases, numGood should be 0
+		return -1, errors.New("TestMetadataAcrossTwoModules-good")
+	}
 
 	var ret float64
 	for _, n := range nums {

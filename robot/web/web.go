@@ -318,7 +318,6 @@ func (svc *webService) startProtocolModuleParentServer(ctx context.Context, tcpM
 		opManager.UnaryServerInterceptor, logging.UnaryServerInterceptor)
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
-	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
 	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
 
 	// TODO(PRODUCT-343): Add session manager interceptors
@@ -669,7 +668,6 @@ func (svc *webService) initRPCOptions(listenerTCPAddr *net.TCPAddr, options webo
 	}
 	streamInterceptors = append(streamInterceptors, opManager.StreamServerInterceptor)
 
-	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataServerToClientUnaryServerInterceptor)
 	unaryInterceptors = append(unaryInterceptors, contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor)
 
 	rpcOpts = append(

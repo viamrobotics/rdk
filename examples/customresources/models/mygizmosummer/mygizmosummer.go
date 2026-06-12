@@ -104,13 +104,6 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
 	}
 
-	arbitraryMDToClient := make(contextutils.ViamMD)
-	arbitraryMDToClient["arbitrary-md-to-client-from-middle"] = []string{"arbitrary-md-to-client-from-middle"}
-	// test merge
-	arbitraryMDToClient["arbitrary-md-to-client-from-end2"] = []string{"arbitrary-md-to-client-from-end2-val-from-middle"}
-	//nolint:errcheck
-	_ = contextutils.SetHeader(ctx, arbitraryMDToClient)
-
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
 		return false, err

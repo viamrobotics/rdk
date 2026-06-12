@@ -662,7 +662,7 @@ func TestClientWithInterceptor(t *testing.T) {
 		context.Background(),
 		listener1.Addr().String(),
 		logger,
-		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor),
+		rpc.WithUnaryClientInterceptor(contextutils.ContextWithMetadataUnaryClientInterceptor),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	camera1Client, err := camera.NewClientFromConn(context.Background(), conn, "", camera.Named(testCameraName), logger)
@@ -671,8 +671,7 @@ func TestClientWithInterceptor(t *testing.T) {
 	// Construct a ContextWithMetadata to pass into NextPointCloud and check that the
 	// interceptor correctly injected the metadata from the gRPC response header into the
 	// context.
-	md := make(contextutils.ViamMD)
-	ctx := context.WithValue(context.Background(), contextutils.MetadataContextKey, md)
+	ctx, md := contextutils.ContextWithMetadata(context.Background())
 	pcB, err := camera1Client.NextPointCloud(ctx, nil)
 	test.That(t, err, test.ShouldBeNil)
 	_, got := pcB.At(5, 5, 5)

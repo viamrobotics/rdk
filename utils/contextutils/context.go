@@ -100,65 +100,6 @@ func ContextWithMetadataUnaryClientInterceptor(
 	return nil
 }
 
-// ContextWithMetadataServerToClientUnaryClientInterceptor attempts to read metadata from the gRPC header and
-// injects the metadata into the context if the caller has passed in a context with metadata.
-func ContextWithMetadataServerToClientUnaryClientInterceptor(
-	ctx context.Context,
-	method string,
-	req, reply interface{},
-	cc *grpc.ClientConn,
-	invoker grpc.UnaryInvoker,
-	opts ...grpc.CallOption,
-) error {
-	var header grpcmetadata.MD
-	md := ctx.Value(MetadataContextKey)
-	if _, ok := md.(ViamMD); ok {
-		opts = append(opts, grpc.Header(&header))
-		ctx = grpcmetadata.AppendToOutgoingContext(ctx, fwdArbitraryMetadataKey, "1")
-	}
-	err := invoker(ctx, method, req, reply, cc, opts...)
-	if err != nil {
-		return err
-	}
-
-	if len(header) > 0 {
-		if mdMap, ok := md.(ViamMD); ok {
-			for _, prefixedKeys := range header.Get(arbitraryMetadataKey) {
-				if v := header.Get(prefixedKeys); len(v) > 0 {
-					mdMap[strings.TrimPrefix(prefixedKeys, arbitraryMetadataKey+"-")] = v
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-// ContextWithMetadataServerToClientUnaryServerInterceptor upgrades the incoming context to a ContextWithMetadata,
-// before calling the handler function. After, it sets the header metadata to the metadata map (if any).
-func ContextWithMetadataServerToClientUnaryServerInterceptor(
-	ctx context.Context,
-	req any,
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler,
-) (any, error) {
-	incomingMD, ok := grpcmetadata.FromIncomingContext(ctx)
-	if !ok {
-		return handler(ctx, req)
-	}
-	if _, ok := incomingMD[fwdArbitraryMetadataKey]; !ok {
-		return handler(ctx, req)
-	}
-	md := ViamMD{}
-	ctx = context.WithValue(ctx, MetadataContextKey, md)
-	resp, err := handler(ctx, req)
-	if len(md) > 0 {
-		wire := toWireMD(md)
-		_ = grpc.SetHeader(ctx, wire) //nolint:errcheck
-	}
-	return resp, err
-}
-
 // toWireMD transforms the incoming ViamMD to a new one where all keys are previxed with arbitraryMetadataKey-
 // and adds a new mapping of arbitraryMetadataKey: [prefixedKeys]
 func toWireMD(md map[string][]string) grpcmetadata.MD {
@@ -276,30 +217,6 @@ func fromOutgoingContext(ctx context.Context) (ViamMD, bool) {
 		}
 	}
 	return md, true
-}
-
-// SetHeader functions like grpc.SetHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key
-// and prepends keys with the prefix arbitraryMetadataKey- to allow shadowing internal keys.
-func SetHeader(ctx context.Context, md ViamMD) error {
-	wireMD := grpcmetadata.MD{}
-	for k, v := range md {
-		wireKey := arbitraryMetadataKey + "-" + k
-		wireMD[wireKey] = v
-		wireMD.Append(arbitraryMetadataKey, wireKey)
-	}
-	return grpc.SetHeader(ctx, wireMD)
-}
-
-// SendHeader functions like grpc.SendHeader, but also tracks the unique list of arbitrary keys under the arbitraryMetadataKey key
-// and prepends keys with the prefix arbitraryMetadataKey- to allow shadowing internal keys.
-func SendHeader(ctx context.Context, md grpcmetadata.MD) error {
-	wireMD := grpcmetadata.MD{}
-	for k, v := range md {
-		wireKey := arbitraryMetadataKey + "-" + k
-		wireMD[wireKey] = v
-		wireMD.Append(arbitraryMetadataKey, wireKey)
-	}
-	return grpc.SendHeader(ctx, wireMD)
 }
 
 // GetTimeoutCtx returns a context [and its cancel function] with a timeout value determined by whether an environment variable is set,

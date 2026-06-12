@@ -38,7 +38,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot/packages"
 	rutils "go.viam.com/rdk/utils"
-	"go.viam.com/rdk/utils/contextutils"
 )
 
 type module struct {
@@ -92,7 +91,6 @@ func (m *module) dial() error {
 			rdkgrpc.EnsureTimeoutUnaryClientInterceptor,
 			grpc_retry.UnaryClientInterceptor(),
 			operation.UnaryClientInterceptor,
-			contextutils.ContextWithMetadataServerToClientUnaryClientInterceptor,
 		),
 		grpc.WithChainStreamInterceptor(
 			grpc_retry.StreamClientInterceptor(),
