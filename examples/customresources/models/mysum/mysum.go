@@ -4,7 +4,6 @@ package mysum
 import (
 	"context"
 	"errors"
-	"slices"
 	"sync"
 
 	"go.viam.com/rdk/examples/customresources/apis/summationapi"
@@ -63,31 +62,21 @@ func (m *mySum) Sum(ctx context.Context, nums []float64) (float64, error) {
 
 	foundKeys := 0
 	expectedKeys := 4
-	if incoming, ok := contextutils.Metadata(ctx); ok {
-		for k, vals := range incoming {
-			switch {
-			case k == "arbitrary-md-from-client" &&
-				len(vals) == 4 && // middle module adds val2 again, so there will be 2
-				slices.Contains(vals, "arbitrary-md-from-client-val1") &&
-				slices.Contains(vals, "arbitrary-md-from-client-val2") &&
-				slices.Contains(vals, "arbitrary-md-from-client-val3-from-middle"):
-				numGood++
-			case k == "arbitrary-md-from-middle" &&
-				len(vals) == 1 &&
-				slices.Contains(vals, "arbitrary-md-from-middle-val1"):
-				numGood++
-			case k == "opid":
-				// real opid is still present in metadata.FromIncomingContext
-				if len(vals) == 1 && slices.Contains(vals, "custom") {
-					numGood++
-				}
-			case k == "arbitrary-md-local-func-modify":
-				if len(vals) == 2 && vals[0] == "real" && vals[1] == "real" {
-					numGood++
-				}
-			}
-			foundKeys++
+	for k, v := range contextutils.All(ctx) {
+		switch {
+		case k == "arbitrary-md-from-client" && v == "arbitrary-md-from-client-val1":
+			numGood++
+		case k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val3-from-middle":
+			numGood++
+		case k == "arbitrary-md-from-middle" && v == "arbitrary-md-from-middle-val1":
+			numGood++
+		case k == "opid" && v == "custom":
+			// real opid is still present in metadata.FromIncomingContext
+			numGood++
+		case k == "arbitrary-md-local-func-modify" && v == "real":
+			numGood++
 		}
+		foundKeys++
 	}
 	if foundKeys == expectedKeys {
 		numGood++

@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
+	"maps"
 	"strconv"
 	"sync"
 
@@ -95,22 +95,21 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := contextutils.Metadata(ctx); ok {
-		for k, vals := range incoming {
-			if k == "arbitrary-md-from-client" && len(vals) == 2 {
-				// test merge
-				ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val2")
-				ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-client", "arbitrary-md-from-client-val3-from-middle")
-			}
+	for k, v := range contextutils.All(ctx) {
+		if k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val2" {
+			// test replacing one field
+			ctx = contextutils.Set(ctx, "arbitrary-md-from-client2", "arbitrary-md-from-client-val3-from-middle")
 		}
-		ctx = contextutils.AppendMetadata(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
+		ctx = contextutils.Set(ctx, "arbitrary-md-from-middle", "arbitrary-md-from-middle-val1")
 	}
 
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
 		return false, err
 	}
-	sum, err := g.mySummer.Sum(ctx, []float64{n})
+
+	var sum float64
+	sum, err = g.mySummer.Sum(ctx, []float64{n})
 	if err != nil {
 		return false, err
 	}
@@ -119,30 +118,29 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 
 func allExpectedMetadataPresentTestHelper(md contextutils.ViamMD) bool {
 	numGood := 0
-	for k, vals := range md {
+	for k, v := range md {
 		switch {
-		case k == "arbitrary-md-from-client" && len(vals) == 2 &&
-			slices.Contains(vals, "arbitrary-md-from-client-val1"):
+		case k == "arbitrary-md-from-client" && v == "arbitrary-md-from-client-val1":
 			numGood++
-		case k == "arbitrary-md-local-func-modify" && len(vals) == 2 && vals[0] == "real" && vals[1] == "real":
+		case k == "arbitrary-md-from-client2" && v == "arbitrary-md-from-client-val2":
 			numGood++
-		case k == "opid" && len(vals) == 1 && slices.Contains(vals, "custom"):
+		case k == "arbitrary-md-local-func-modify" && v == "real":
+			numGood++
+		case k == "opid" && v == "custom":
 			numGood++
 		default:
 			numGood--
 		}
 	}
-	return numGood == 3
+	return numGood == 4
 }
 
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := contextutils.Metadata(ctx); ok {
-		if allExpectedMetadataPresentTestHelper(incoming) {
-			return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
-		}
+	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+		return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
 	}
 
 	if len(arg1) == 0 {
@@ -167,10 +165,8 @@ func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]b
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := contextutils.Metadata(ctx); ok {
-		if allExpectedMetadataPresentTestHelper(incoming) {
-			return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
-		}
+	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
 	}
 
 	n, err := strconv.ParseFloat(arg1, 64)
@@ -188,10 +184,8 @@ func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]b
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
 
-	if incoming, ok := contextutils.Metadata(ctx); ok {
-		if allExpectedMetadataPresentTestHelper(incoming) {
-			return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
-		}
+	if allExpectedMetadataPresentTestHelper(maps.Collect(contextutils.All(ctx))) {
+		return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
 	}
 
 	var rets []bool

@@ -162,11 +162,11 @@ func NewModule(ctx context.Context, address string, logger logging.Logger) (*Mod
 		rgrpc.EnsureTimeoutUnaryServerInterceptor,
 		opMgr.UnaryServerInterceptor,
 		client.ViamClientInfoUnaryServerInterceptor,
-		contextutils.ContextWithMetadataClientToServerUnaryServerInterceptor,
+		contextutils.ViamClientToServerMetadataUnaryServerInterceptor,
 	}
 	streams := []grpc.StreamServerInterceptor{
 		opMgr.StreamServerInterceptor,
-		contextutils.ContextWithMetadataClientToServerStreamServerInterceptor,
+		contextutils.ViamClientToServerMetadataStreamServerInterceptor,
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())

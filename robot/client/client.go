@@ -326,6 +326,9 @@ func New(ctx context.Context, address string, clientLogger logging.ZapCompatible
 		rpc.WithStreamClientInterceptor(streamClientInterceptor()),
 		// sending traces across the network
 		rpc.WithDialStatsHandler(otelStatsHandler),
+		// arbitrary client-to-server metadata
+		rpc.WithUnaryClientInterceptor(contextutils.ViamClientToServerMetadataUnaryClientInterceptor),
+		rpc.WithStreamClientInterceptor(contextutils.ViamClientToServerMetadataStreamClientInterceptor),
 	)
 
 	// If we're a client running as part of a module, we annotate our requests with our module
