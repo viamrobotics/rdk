@@ -25,9 +25,28 @@ jobs:
             } catch (err) {
               core.info(`Non-fatal error ${err}, while trying to remove 'safe to test' label.`);
             }
-            let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: context.payload.sender.login});
-            if (orgResp.status === 204) {
-              // order of labeling events must be preserved, so two seperate calls
+            // Trusted bots that drive PRs but are not org members, so the
+            // membership API returns 404 for them. Only honored for same-repo
+            // branch PRs (never forks), so an external fork can never use a bot
+            // sender to bypass the membership check.
+            const trustedBots = ["viam-ci-org-reader[bot]"];
+            const pr = context.payload.pull_request;
+            // Optional chaining keeps this fail-closed: if the head fork repo
+            // was deleted, pr.head.repo is null and isFork becomes true, which
+            // denies the bot path and falls through to the membership check.
+            const isFork = pr.head.repo?.full_name !== pr.base.repo.full_name;
+            const sender = context.payload.sender.login;
+            let isAuthorized = !isFork && trustedBots.includes(sender);
+            if (!isAuthorized) {
+              try {
+                // checkMembershipForUser returns 204 for members and throws a 404 for non-members.
+                let orgResp = await github.rest.orgs.checkMembershipForUser({org: "viamrobotics", username: sender});
+                isAuthorized = orgResp.status === 204;
+              } catch (err) {
+                core.info(`User ${sender} is not an org member: ${err}`);
+              }
+            }
+            if (isAuthorized) {
               await github.rest.issues.addLabels({owner: "viamrobotics", repo: "rdk", issue_number: prNumber, labels: ["safe to test"]});
               return true;
             }

@@ -410,6 +410,7 @@ jobs:
       run: |
         brew update
         brew tap viamrobotics/brews
+        brew trust viamrobotics/brews
         brew install nlopt-static
         brew install x264
         # While it's not a requirement to actually run the viam-server binary, ffmpeg is
