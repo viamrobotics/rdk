@@ -173,7 +173,8 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 	return err
 }
 
-// dataFromPathUploader is the subset of the data manager service used by UploadDataFromPath.
+// dataFromPathUploader is the capability interface localRobot type-asserts the configured
+// data manager service for when UploadDataFromPath is called.
 type dataFromPathUploader interface {
 	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 		uint64, uint64, uint64, uint64, []string, error)
