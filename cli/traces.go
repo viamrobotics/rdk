@@ -22,13 +22,17 @@ import (
 	"go.viam.com/rdk/services/shell"
 )
 
-var tracesPath = path.Join("~", ".viam", "trace")
+// traces are stored at VIAM_HOME/trace/[part-id]/traces
+var tracesRootDir = path.Join("~", ".viam")
+var tracesRelativePath = path.Join("trace")
+var defaultTracesPath = path.Join(tracesRootDir, tracesRelativePath)
 
 type traceGetRemoteArgs struct {
 	Organization string
 	Location     string
 	Machine      string
 	Part         string
+	ViamHomeDir  string
 }
 
 type traceImportRemoteArgs struct {
@@ -100,7 +104,11 @@ func (c *viamClient) tracesGetRemoteAction(
 	// Intentional use of path instead of filepath: Windows understands both / and
 	// \ as path separators, and we don't want a cli running on Windows to send
 	// a path using \ to a *NIX machine.
-	src := path.Join(tracesPath, part.Id)
+	src := path.Join(defaultTracesPath, part.Id)
+	// if target part has a non-default VIAM_HOME, the caller can specify it.
+	if flagArgs.ViamHomeDir != "" {
+		src = path.Join(flagArgs.ViamHomeDir, tracesRelativePath, part.Id)
+	}
 	// if getAll is set then download the entire directory, including rotated
 	// files. Otherwise just get the current file.
 	if !getAll {

@@ -70,10 +70,10 @@ func TestTraceGetRemote(t *testing.T) {
 		output := t.TempDir()
 		testPartFlags := maps.Collect(maps.All(basePartFlags))
 
-		originalTracesPath := tracesPath
-		tracesPath = filepath.Join(tfs.Root, "FAKEDIR")
+		originalTracesPath := defaultTracesPath
+		defaultTracesPath = filepath.Join(tfs.Root, "FAKEDIR")
 		t.Cleanup(func() {
-			tracesPath = originalTracesPath
+			defaultTracesPath = originalTracesPath
 		})
 
 		cCtx, viamClient, _, _ := setupWithRunningPart(
@@ -98,10 +98,10 @@ func TestTraceGetRemote(t *testing.T) {
 		testData := []byte("test")
 		err = os.WriteFile(filepath.Join(tmpPartTracePath, "traces"), testData, 0o640)
 		test.That(t, err, test.ShouldBeNil)
-		originalTracePath := tracesPath
-		tracesPath = tfs.Root
+		originalTracePath := defaultTracesPath
+		defaultTracesPath = tfs.Root
 		t.Cleanup(func() {
-			tracesPath = originalTracePath
+			defaultTracesPath = originalTracePath
 		})
 
 		t.Run("only recent", func(t *testing.T) {

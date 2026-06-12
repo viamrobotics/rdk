@@ -222,6 +222,13 @@ var commonOtlpFlags = []cli.Flag{
 	},
 }
 
+var commonPathFlags = []cli.Flag{
+	&cli.StringFlag{
+		Name:  "viam-home-dir",
+		Usage: "location of the target machine's VIAM_HOME directory",
+	},
+}
+
 // matches all uppercase characters that follow lowercase chars and aren't at the [0] index of a string.
 // This is useful for converting camel case into kabob case when getting values out of a CLI Context
 // based on a flag name, and putting them into a struct with a camel cased field name.
@@ -573,6 +580,7 @@ Note: There is no progress meter while copying is in progress.
 					Flags: lo.Flatten([][]cli.Flag{
 						commonOtlpFlags,
 						commonPartFlags,
+						commonPathFlags,
 					}),
 					Action: createActionCommandWithT(traceImportRemoteAction),
 				},
@@ -592,7 +600,10 @@ In order to use the print-remote command, the machine must have a valid shell ty
 Organization and location are required flags if using name (rather than ID) for the part.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags:  commonPartFlags,
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+						commonPathFlags,
+					}),
 					Action: createActionCommandWithT(tracePrintRemoteAction),
 				},
 				{
@@ -606,7 +617,10 @@ Organization and location are required flags if using name (rather than ID) for 
 If [target] is not specified then the traces file will be saved to the current working directory.
 Note: There is no progress meter while copying is in progress.
 `,
-					Flags:  commonPartFlags,
+					Flags: lo.Flatten([][]cli.Flag{
+						commonPartFlags,
+						commonPathFlags,
+					}),
 					Action: createActionCommandWithT(traceGetRemoteAction),
 				},
 			},
