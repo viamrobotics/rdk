@@ -3,7 +3,9 @@ package mygizmosummer
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -115,9 +117,34 @@ func (g *myActualGizmo) DoOne(ctx context.Context, arg1 string) (bool, error) {
 	return sum == n, nil
 }
 
+func allExpectedMetadataPresentTestHelper(md contextutils.ViamMD) bool {
+	numGood := 0
+	for k, vals := range md {
+		switch {
+		case k == "arbitrary-md-from-client" && len(vals) == 2 &&
+			slices.Contains(vals, "arbitrary-md-from-client-val1"):
+			numGood++
+		case k == "arbitrary-md-local-func-modify" && len(vals) == 2 && vals[0] == "real" && vals[1] == "real":
+			numGood++
+		case k == "opid" && len(vals) == 1 && slices.Contains(vals, "custom"):
+			numGood++
+		default:
+			numGood--
+		}
+	}
+	return numGood == 3
+}
+
 func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if incoming, ok := contextutils.Metadata(ctx); ok {
+		if allExpectedMetadataPresentTestHelper(incoming) {
+			return false, errors.New("TestMetadataAcrossTwoModules-ClientStream-good")
+		}
+	}
+
 	if len(arg1) == 0 {
 		return false, nil
 	}
@@ -139,6 +166,13 @@ func (g *myActualGizmo) DoOneClientStream(ctx context.Context, arg1 []string) (b
 func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if incoming, ok := contextutils.Metadata(ctx); ok {
+		if allExpectedMetadataPresentTestHelper(incoming) {
+			return []bool{false}, errors.New("TestMetadataAcrossTwoModules-ServerStream-good")
+		}
+	}
+
 	n, err := strconv.ParseFloat(arg1, 64)
 	if err != nil {
 		return nil, err
@@ -153,6 +187,13 @@ func (g *myActualGizmo) DoOneServerStream(ctx context.Context, arg1 string) ([]b
 func (g *myActualGizmo) DoOneBiDiStream(ctx context.Context, arg1 []string) ([]bool, error) {
 	g.mySummerMu.Lock()
 	defer g.mySummerMu.Unlock()
+
+	if incoming, ok := contextutils.Metadata(ctx); ok {
+		if allExpectedMetadataPresentTestHelper(incoming) {
+			return []bool{false}, errors.New("TestMetadataAcrossTwoModules-BiDiStream-good")
+		}
+	}
+
 	var rets []bool
 	g.logger.Info(arg1)
 	for _, arg := range arg1 {

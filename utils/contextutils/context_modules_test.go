@@ -86,11 +86,32 @@ func TestMetadataAcrossTwoModules(t *testing.T) {
 	callCtx = localFunc(localFunc(callCtx))
 
 	_, err = giz.DoOne(callCtx, "1.0")
-	// Client to Server sending (see mysum.go for the checks):
+	// Unary: Client to Server sending (see mysum.go for the checks):
 	// client to end md made it to the end
 	// client to end md made that was modified twice by localFunc it to the end
 	// middle to end md made it to the end
 	// no unknown arbitrary metadata made it to the end (filtering working)
 	// our (shadowed) opid made it to the end
 	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-good"))
+
+	// ServerStream: Client to Server sending (see mygizmosummer.go for the checks):
+	// client to server MD made it to the end
+	// no unknown arbitrary metadata made it to the end (filtering working)
+	// our (shadowed) opid made it to the end
+	_, err = giz.DoOneServerStream(callCtx, "1.0")
+	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-ServerStream-good"))
+
+	// ClientStream: Client to Server sending (see mygizmosummer.go for the checks):
+	// client to server MD made it to the end
+	// no unknown arbitrary metadata made it to the end (filtering working)
+	// our (shadowed) opid made it to the end
+	_, err = giz.DoOneClientStream(callCtx, []string{"1.0"})
+	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-ClientStream-good"))
+
+	// BiDiStream: Client to Server sending (see mygizmosummer.go for the checks):
+	// client to server MD made it to the end
+	// no unknown arbitrary metadata made it to the end (filtering working)
+	// our (shadowed) opid made it to the end
+	_, err = giz.DoOneBiDiStream(callCtx, []string{"1.0"})
+	test.That(t, err, test.ShouldResemble, status.Error(codes.Unknown, "TestMetadataAcrossTwoModules-BiDiStream-good"))
 }
