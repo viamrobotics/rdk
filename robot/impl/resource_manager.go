@@ -67,8 +67,6 @@ type moduleManager interface {
 	FailedModules() []string
 	AddToFailedModules(moduleName string, err error)
 	AddToModuleStatusMap(moduleName string, state modulestatus.State)
-	UpdateModuleState(moduleName string, state modulestatus.State)
-	RemoveModuleState(moduleName string)
 	Status() []modulestatus.Status
 }
 
@@ -1275,7 +1273,7 @@ func (manager *resourceManager) updateResources(
 		// to reconfigure.
 		if err := mod.Validate(""); err != nil {
 			fullErr := fmt.Errorf("module config validation error; skipping. module: %s err: %s", mod.Name, err)
-			manager.logger.CErrorw(ctx, "error", fullErr)
+			manager.logger.CErrorw(ctx, "module config validation error; skipping", "module", mod.Name, "error", err)
 			manager.moduleManager.AddToFailedModules(mod.Name, fullErr)
 			continue
 		}

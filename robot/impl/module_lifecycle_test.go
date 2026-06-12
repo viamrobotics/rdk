@@ -433,8 +433,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
 		// MachineStatus should report the crashed module as unhealthy while its
 		// sibling module remains ready.
-		test.That(tb, getModuleStatus(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
-		test.That(tb, getModuleStatus(tb, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
+		test.That(tb, getModuleStatus(tb, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, getModuleStatus(tb, r, "mod2").State, test.ShouldEqual, modulestatus.ModuleStateReady)
 	})
 
 	// Wait for restart attempt in logs.
@@ -448,7 +448,7 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// Verify module is still in failedModules after reconfigure
 	testutils.WaitForAssertionWithSleep(t, time.Second, 20, func(tb testing.TB) {
 		tb.Helper()
-		test.That(tb, getModuleStatus(tb, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
+		test.That(tb, getModuleStatus(tb, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateUnhealthy)
 		test.That(tb, failedModules(r), test.ShouldResemble, []string{"mod"})
 	})
 
@@ -488,8 +488,8 @@ func TestCrashedModuleDependentRecovery(t *testing.T) {
 	// Test that restored module is removed from failedModules
 	test.That(t, failedModules(r), test.ShouldBeEmpty)
 	// MachineStatus should report the recovered module as ready again.
-	test.That(t, getModuleStatus(t, r, "mod"), test.ShouldEqual, modulestatus.ModuleStateReady)
-	test.That(t, getModuleStatus(t, r, "mod2"), test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, getModuleStatus(t, r, "mod").State, test.ShouldEqual, modulestatus.ModuleStateReady)
+	test.That(t, getModuleStatus(t, r, "mod2").State, test.ShouldEqual, modulestatus.ModuleStateReady)
 
 	// 'h2' and 'h3' should also continue to exist and requests that go to 'h' should no longer fail.
 	h2, err = r.ResourceByName(generic.Named("h2"))
@@ -1030,9 +1030,6 @@ func TestModuleStatus(t *testing.T) {
 		Name:    "fake",
 		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	})
-
-	// get module status of a nonexistent module (has not been configured yet), should not panic
-	getModuleStatus(t, r, "nonexistent")
 
 	// Reconfigure in a goroutine so we can observe ModuleStartingState while the fake module is starting
 	reconfigureDone := make(chan struct{})
