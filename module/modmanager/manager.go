@@ -529,6 +529,8 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
+		fullErr := fmt.Errorf("error while stopping module %s: %s", mod.cfg.Name, err)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 

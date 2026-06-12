@@ -150,7 +150,7 @@ func getModuleStatus(t testing.TB, r robot.LocalRobot, modName string) modulesta
 		}
 	}
 	// if we can't find the module, just fail, this should never happen in test
-	test.That(t, fmt.Sprintf("module %s is not known to local robot", modName), test.ShouldNotBeNil)
+	test.That(t, fmt.Sprintf("module %s is not known to local robot", modName), test.ShouldBeNil)
 	return modulestatus.Status{}
 }
 
