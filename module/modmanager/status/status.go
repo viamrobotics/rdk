@@ -12,11 +12,10 @@ type State uint8
 const (
 	ModuleStateUnknown State = iota
 	ModuleStatePending
-	ModuleStateFirstRun
 	ModuleStateStarting
 	ModuleStateReady
 	ModuleStateUnhealthy
-	ModuleStateRemoving
+	ModuleStateClosing
 )
 
 // Status encapsulates the current status of a module.

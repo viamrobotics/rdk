@@ -572,16 +572,14 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 			pbModStatus.State = pb.ModuleStatus_STATE_UNSPECIFIED
 		case modulestatus.ModuleStatePending:
 			pbModStatus.State = pb.ModuleStatus_STATE_PENDING
-		case modulestatus.ModuleStateFirstRun:
-			pbModStatus.State = pb.ModuleStatus_STATE_FIRST_RUN
 		case modulestatus.ModuleStateStarting:
 			pbModStatus.State = pb.ModuleStatus_STATE_STARTING
 		case modulestatus.ModuleStateReady:
 			pbModStatus.State = pb.ModuleStatus_STATE_READY
 		case modulestatus.ModuleStateUnhealthy:
 			pbModStatus.State = pb.ModuleStatus_STATE_UNHEALTHY
-		case modulestatus.ModuleStateRemoving:
-			pbModStatus.State = pb.ModuleStatus_STATE_REMOVING
+		case modulestatus.ModuleStateClosing:
+			pbModStatus.State = pb.ModuleStatus_STATE_CLOSING
 		}
 		if modStatus.Error != nil {
 			pbModStatus.Error = modStatus.Error.Error()

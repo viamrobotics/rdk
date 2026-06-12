@@ -1318,8 +1318,6 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				modStatus.State = modulestatus.ModuleStateUnknown
 			case pb.ModuleStatus_STATE_PENDING:
 				modStatus.State = modulestatus.ModuleStatePending
-			case pb.ModuleStatus_STATE_FIRST_RUN:
-				modStatus.State = modulestatus.ModuleStateFirstRun
 			case pb.ModuleStatus_STATE_STARTING:
 				modStatus.State = modulestatus.ModuleStateStarting
 			case pb.ModuleStatus_STATE_READY:
@@ -1329,8 +1327,8 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 				if pbModStatus.GetError() != "" {
 					modStatus.Error = errors.New(pbModStatus.GetError())
 				}
-			case pb.ModuleStatus_STATE_REMOVING:
-				modStatus.State = modulestatus.ModuleStateRemoving
+			case pb.ModuleStatus_STATE_CLOSING:
+				modStatus.State = modulestatus.ModuleStateClosing
 			}
 
 			mStatus.Modules = append(mStatus.Modules, modStatus)

@@ -500,7 +500,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateRemoving)
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateClosing)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
