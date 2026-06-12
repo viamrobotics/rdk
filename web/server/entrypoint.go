@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -143,7 +144,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
-		logging.RegisterEventLogger(rootLogger, "viam-server")
+		etwCloser, etwErr := logging.RegisterETWLogger(rootLogger,
+			filepath.Join(rutils.ViamDotDir, "logs"), logging.ServerETW)
+		if etwErr != nil {
+			rootLogger.CWarn(ctx, "failed to start ETW logger - using Event Logging for local logs", etwErr)
+			logging.RegisterEventLogger(rootLogger, logging.ServerETW.ProviderName)
+		}
+		defer func() {
+			utils.UncheckedError(etwCloser.Close())
+		}()
 	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 

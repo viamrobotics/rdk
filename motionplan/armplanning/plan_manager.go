@@ -227,6 +227,7 @@ func (pm *planManager) planSingleGoal(
 		return nil, err
 	}
 
+	pm.pc.planMeta.GoalsCBIRRTSolved++
 	return finalSteps.steps, nil
 }
 
