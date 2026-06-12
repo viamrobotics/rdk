@@ -56,6 +56,7 @@ import (
 	"go.viam.com/rdk/data"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/logging"
+	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -879,6 +880,70 @@ func TestClientDisconnect(t *testing.T) {
 	test.That(t, len(client.ResourceNames()), test.ShouldEqual, 0)
 	_, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeError, client.checkConnected())
+}
+
+func TestMachineStatusModulesRoundTrip(t *testing.T) {
+	logger := logging.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+
+	lastUpdated := time.Date(2026, 6, 12, 10, 0, 0, 0, time.UTC)
+	modules := []modulestatus.Status{
+		{Name: "pending", State: modulestatus.ModuleStatePending, LastUpdated: lastUpdated},
+		{Name: "starting", State: modulestatus.ModuleStateStarting, LastUpdated: lastUpdated},
+		{Name: "ready", State: modulestatus.ModuleStateReady, LastUpdated: lastUpdated},
+		{
+			Name:                "unhealthy",
+			State:               modulestatus.ModuleStateUnhealthy,
+			LastUpdated:         lastUpdated,
+			Error:               errors.New("kaboom"),
+			ConsecutiveFailures: 3,
+		},
+		// closing carries an error to pin the decode asymmetry: the client only
+		// reads the error field for unhealthy modules.
+		{
+			Name:        "closing",
+			State:       modulestatus.ModuleStateClosing,
+			LastUpdated: lastUpdated,
+			Error:       errors.New("dropped on the wire"),
+		},
+	}
+
+	injectRobot := &inject.Robot{}
+	injectRobot.ResourceRPCAPIsFunc = func() []resource.RPCAPI { return nil }
+	injectRobot.ResourceNamesFunc = func() []resource.Name { return nil }
+	injectRobot.MachineStatusFunc = func(ctx context.Context) (robot.MachineStatus, error) {
+		return robot.MachineStatus{State: robot.StateRunning, Modules: modules}, nil
+	}
+
+	gServer := grpc.NewServer()
+	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	client, err := New(context.Background(), listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, client.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	ms, err := client.MachineStatus(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(ms.Modules), test.ShouldEqual, len(modules))
+
+	for i, want := range modules {
+		got := ms.Modules[i]
+		test.That(t, got.Name, test.ShouldEqual, want.Name)
+		test.That(t, got.State, test.ShouldEqual, want.State)
+		test.That(t, got.LastUpdated.Equal(want.LastUpdated), test.ShouldBeTrue)
+		test.That(t, got.ConsecutiveFailures, test.ShouldEqual, want.ConsecutiveFailures)
+	}
+
+	// The error string survives the round trip for the unhealthy module and is
+	// dropped for every other state.
+	test.That(t, ms.Modules[3].Error, test.ShouldNotBeNil)
+	test.That(t, ms.Modules[3].Error.Error(), test.ShouldEqual, "kaboom")
+	test.That(t, ms.Modules[4].Error, test.ShouldBeNil)
 }
 
 func TestClientUnaryDisconnectHandler(t *testing.T) {
