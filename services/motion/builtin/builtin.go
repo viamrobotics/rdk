@@ -106,12 +106,10 @@ type Config struct {
 	// want the arm's own interpolation in place of the pipeline's EMA smoothing.
 	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
 	// TeleopSmoothAlpha is the smoothing factor for the exponential moving average (EMA) the
-	// pipeline applies to each joint's per-cycle velocity (the delta toward the planned target)
-	// before sending it to the arm: vel = alpha*planned_delta + (1-alpha)*prev_vel. Smoothing the
-	// velocity rather than the absolute position keeps motion smooth while still converging to the
-	// goal. Lower alpha means heavier smoothing (less jitter, more latency); higher alpha is more
-	// responsive and closer to the raw planned motion. The valid range is (0, 1]: 1 disables
-	// smoothing, and 0 (the zero value) selects the default of 0.5.
+	// pipeline applies to each joint's commanded position before sending it to the arm:
+	// out = alpha*target + (1-alpha)*previous. Lower alpha means heavier smoothing (less jitter,
+	// more latency); higher alpha is more responsive and closer to the raw planned motion. The
+	// valid range is (0, 1]: 1 disables smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
 }
 
