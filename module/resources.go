@@ -197,7 +197,7 @@ func addConvertedAttributes(cfg *resource.Config) error {
 	if ok && reg.AttributeMapConverter != nil {
 		converted, err := reg.AttributeMapConverter(cfg.Attributes)
 		if err != nil {
-			return fmt.Errorf("error converting attributes for resource")
+			return fmt.Errorf("error converting attributes for resource: %w", err)
 		}
 		cfg.ConvertedAttributes = converted
 	}
