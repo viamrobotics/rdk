@@ -74,7 +74,7 @@ func (s *Server) SendTraces(ctx context.Context, req *pb.SendTracesRequest) (*pb
 func (s *Server) UploadDataFromPath(ctx context.Context, req *pb.UploadDataFromPathRequest) (
 	*pb.UploadDataFromPathResponse, error,
 ) {
-	fu, ff, bu, bt, ids, err := s.robot.UploadDataFromPath(ctx, req.GetPath(), req.GetUploadMetadata())
+	fu, ff, bu, bt, ids, err := s.robot.UploadDataFromPath(ctx, req.GetPath(), req.GetUploadMetadata(), req.Extra.AsMap())
 	if err != nil {
 		return nil, err
 	}

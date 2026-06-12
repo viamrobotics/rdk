@@ -1354,12 +1354,17 @@ func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceS
 }
 
 // UploadDataFromPath uploads a file or directory from the robot to the cloud via the data manager.
-func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata) (
+func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 	uint64, uint64, uint64, uint64, []string, error,
 ) {
+	ext, err := protoutils.StructToStructPb(extra)
+	if err != nil {
+		return 0, 0, 0, 0, nil, err
+	}
 	resp, err := rc.client.UploadDataFromPath(ctx, &pb.UploadDataFromPathRequest{
 		Path:           path,
 		UploadMetadata: md,
+		Extra:          ext,
 	})
 	if err != nil {
 		return 0, 0, 0, 0, nil, err

@@ -199,7 +199,7 @@ type LocalRobot interface {
 	WriteTraceMessages(context.Context, []*otlpv1.ResourceSpans) error
 
 	// UploadDataFromPath uploads a file or directory at path to the cloud via the data manager.
-	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata) (
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 		filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, ids []string, err error)
 }
 

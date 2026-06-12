@@ -2373,6 +2373,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	var capturedPath string
 	var capturedMD *datasyncpb.UploadMetadata
+	var capturedExtra map[string]interface{}
 	injectRobot := &inject.Robot{
 		ResourceNamesFunc:   func() []resource.Name { return nil },
 		ResourceRPCAPIsFunc: func() []resource.RPCAPI { return nil },
@@ -2380,10 +2381,11 @@ func TestUploadDataFromPath(t *testing.T) {
 			return robot.MachineStatus{State: robot.StateRunning}, nil
 		},
 		UploadDataFromPathFunc: func(
-			ctx context.Context, path string, md *datasyncpb.UploadMetadata,
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
 		) (uint64, uint64, uint64, uint64, []string, error) {
 			capturedPath = path
 			capturedMD = md
+			capturedExtra = extra
 			return 2, 0, 512, 512, []string{"a", "b"}, nil
 		},
 	}
@@ -2400,7 +2402,8 @@ func TestUploadDataFromPath(t *testing.T) {
 	}()
 
 	md := &datasyncpb.UploadMetadata{Tags: []string{"tag1"}}
-	fu, ff, bu, bt, ids, err := client.UploadDataFromPath(context.Background(), "/data/foo", md)
+	extra := map[string]interface{}{"foo": "bar"}
+	fu, ff, bu, bt, ids, err := client.UploadDataFromPath(context.Background(), "/data/foo", md, extra)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fu, test.ShouldEqual, uint64(2))
 	test.That(t, ff, test.ShouldEqual, uint64(0))
@@ -2411,4 +2414,5 @@ func TestUploadDataFromPath(t *testing.T) {
 	// request fields actually crossed the wire
 	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
 	test.That(t, capturedMD.GetTags(), test.ShouldResemble, []string{"tag1"})
+	test.That(t, capturedExtra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 }

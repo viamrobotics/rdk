@@ -175,12 +175,12 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 
 // dataFromPathUploader is the subset of the data manager service used by UploadDataFromPath.
 type dataFromPathUploader interface {
-	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata) (
+	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 		uint64, uint64, uint64, uint64, []string, error)
 }
 
 // UploadDataFromPath uploads a file or directory to the cloud via the configured data manager service.
-func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata) (
+func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
 	uint64, uint64, uint64, uint64, []string, error,
 ) {
 	names := datamanager.NamesFromRobot(r)
@@ -195,7 +195,7 @@ func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *da
 	if !ok {
 		return 0, 0, 0, 0, nil, errors.New("data manager does not support UploadDataFromPath")
 	}
-	return uploader.UploadDataFromPath(ctx, path, md)
+	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }
 
 // FindBySimpleNameAndAPI finds a resource by its simple name and API. This is queried

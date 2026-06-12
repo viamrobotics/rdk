@@ -646,18 +646,23 @@ func TestServer(t *testing.T) {
 		injectRobot := &inject.Robot{}
 		server := server.New(injectRobot)
 
-		// success: request fields reach the robot, and counts/ids map back through.
+		ext, err := utilsproto.StructToStructPb(map[string]interface{}{"foo": "bar"})
+		test.That(t, err, test.ShouldBeNil)
+
+		// success: request fields (incl. extra) reach the robot, and counts/ids map back through.
 		injectRobot.UploadDataFromPathFunc = func(
-			ctx context.Context, path string, md *datasyncpb.UploadMetadata,
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
 		) (uint64, uint64, uint64, uint64, []string, error) {
 			test.That(t, path, test.ShouldEqual, "/data/foo")
 			test.That(t, md.GetTags(), test.ShouldResemble, []string{"tag1"})
+			test.That(t, extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
 			return 3, 1, 1024, 2048, []string{"id1", "id2", "id3"}, nil
 		}
 
 		resp, err := server.UploadDataFromPath(context.Background(), &pb.UploadDataFromPathRequest{
 			Path:           "/data/foo",
 			UploadMetadata: &datasyncpb.UploadMetadata{Tags: []string{"tag1"}},
+			Extra:          ext,
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetFilesUploaded(), test.ShouldEqual, uint64(3))
@@ -668,7 +673,7 @@ func TestServer(t *testing.T) {
 
 		// error is surfaced to the caller.
 		injectRobot.UploadDataFromPathFunc = func(
-			ctx context.Context, path string, md *datasyncpb.UploadMetadata,
+			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
 		) (uint64, uint64, uint64, uint64, []string, error) {
 			return 0, 0, 0, 0, nil, errors.New("no data manager service configured")
 		}
