@@ -47,7 +47,8 @@ func TestPlanMotionTrajGenUsesTrajex(t *testing.T) {
 	}).ToTrajGen()
 	test.That(t, err, test.ShouldBeNil)
 
-	plan, _, err := armplanning.PlanMotionTrajGen(ctx, logger, req, trajGen)
+	req.TrajGen = trajGen
+	plan, _, err := armplanning.PlanMotion(ctx, logger, req)
 	test.That(t, err, test.ShouldBeNil)
 
 	tgPlan, ok := plan.(*armplanning.TrajGenPlan)

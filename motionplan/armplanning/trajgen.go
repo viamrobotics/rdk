@@ -3,10 +3,8 @@ package armplanning
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils/trace"
 	"gorgonia.org/tensor"
 
 	"go.viam.com/rdk/logging"
@@ -212,7 +210,7 @@ type trajGenResult struct {
 }
 
 // trajGenLimitsMismatchError is returned by inferTrajGen when the configured per-joint velocity/
-// acceleration limits don't cover the plan trajectory's DOF. PlanMotionTrajGen treats it as a
+// acceleration limits don't cover the plan trajectory's DOF. planFromWaypoints treats it as a
 // signal to skip trajectory generation and fall back to the planned path, not as a hard error.
 type trajGenLimitsMismatchError struct {
 	configured, needed int
@@ -361,40 +359,28 @@ func inferTrajGen(
 	return result, nil
 }
 
-// PlanMotionTrajGen plans a motion from a provided plan request using a trajectory generator.
-func PlanMotionTrajGen(
-	ctx context.Context, parentLogger logging.Logger, request *PlanRequest, trajGen *TrajGen,
-) (motionplan.Plan, *PlanMeta, error) {
-	logger := parentLogger.Sublogger("mp")
-
-	start := time.Now()
-	meta := &PlanMeta{}
-	ctx, span := trace.StartSpan(ctx, "PlanMotion")
-	defer func() {
-		meta.Duration = time.Since(start)
-		span.End()
-	}()
-
-	trajAsInps, err := planWaypoints(ctx, logger, request, meta)
-	if err != nil {
-		return nil, meta, err
+// planFromWaypoints turns planned waypoints into a Plan. When request.TrajGen is set it runs the
+// trajectory generator on the planned path -- falling back to the plain path if the generator can't
+// cover this plan's DOF -- and validates the generated trajectory. With no generator it returns the
+// planned path directly. Called by PlanMotion; not a public entry point.
+func planFromWaypoints(
+	ctx context.Context, logger logging.Logger, request *PlanRequest, trajAsInps []*referenceframe.LinearInputs,
+) (motionplan.Plan, error) {
+	if request.TrajGen == nil {
+		return motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	}
 
 	logger.CInfof(ctx, "sending %d waypoints to traj-gen service", len(trajAsInps))
-	tgResult, err := inferTrajGen(ctx, request.FrameSystem, trajAsInps, trajGen)
+	tgResult, err := inferTrajGen(ctx, request.FrameSystem, trajAsInps, request.TrajGen)
 	var limitsMismatch trajGenLimitsMismatchError
 	if errors.As(err, &limitsMismatch) {
 		// A resource in the trajectory isn't covered by the trajectory generator config. Skip
 		// trajectory generation for this plan and return the planned path unmodified.
 		logger.CWarnf(ctx, "%s; skipping trajectory generation and returning the planned path", err)
-		simplePlan, err := motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
-		if err != nil {
-			return nil, meta, err
-		}
-		return simplePlan, meta, nil
+		return motionplan.NewSimplePlanFromTrajectory(trajAsInps, request.FrameSystem)
 	}
 	if err != nil {
-		return nil, meta, err
+		return nil, err
 	}
 
 	configs := []*referenceframe.LinearInputs{}
@@ -408,7 +394,7 @@ func PlanMotionTrajGen(
 
 	simplePlan, err := motionplan.NewSimplePlanFromTrajectory(configs, request.FrameSystem)
 	if err != nil {
-		return nil, meta, err
+		return nil, err
 	}
 
 	t := &TrajGenPlan{
@@ -422,8 +408,8 @@ func PlanMotionTrajGen(
 	}
 
 	if err := CheckPlanFromRequest(ctx, logger, request, t); err != nil {
-		return nil, meta, err
+		return nil, err
 	}
 
-	return t, meta, nil
+	return t, nil
 }

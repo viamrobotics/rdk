@@ -552,10 +552,9 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 	start := time.Now()
 	var plan motionplan.Plan
 	if !skipTrajGen && trajGen != nil {
-		plan, _, err = armplanning.PlanMotionTrajGen(ctx, logger, planRequest, trajGen)
-	} else {
-		plan, _, err = armplanning.PlanMotion(ctx, logger, planRequest)
+		planRequest.TrajGen = trajGen
 	}
+	plan, _, err = armplanning.PlanMotion(ctx, logger, planRequest)
 	if ms.conf.shouldWritePlan(start, err) {
 		var traceID string
 		if span := trace.FromContext(ctx); span != nil {
