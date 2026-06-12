@@ -98,15 +98,20 @@ type Config struct {
 	// example { "arm" : { "3" : { "min" : 0, "max" : 2 } } }
 	InputRangeOverride map[string]map[string]referenceframe.Limit `json:"input_range_override"`
 
-	// TeleopSmallMoveRad is the max joint displacement (radians) below which
-	// the arm's built-in interpolation is enabled for smooth motion. Default 0.005.
-	TeleopSmallMoveRad float64 `json:"teleop_small_move_rad"`
-	// TeleopInterpolateOverride when true forces interpolation ON for all teleop
-	// movements regardless of size. Useful for testing.
+	// TeleopInterpolateOverride controls the arm's built-in interpolation for teleop moves.
+	// When false (the default) each batch of joint targets is sent with interpolate=false and
+	// waitAtEnd=false, giving the lowest latency and the most responsive motion. When true,
+	// targets are sent with interpolate=true and waitAtEnd=true, which produces smoother motion
+	// at the cost of latency because each call blocks until the move completes. Set it when you
+	// want the arm's own interpolation in place of the pipeline's EMA smoothing.
 	TeleopInterpolateOverride bool `json:"teleop_interpolate_override"`
-	// TeleopSmoothAlpha is the EMA smoothing factor for joint positions (0-1).
-	// Lower = smoother but more latency, higher = more responsive but less smooth.
-	// 0 = frozen, 1 = no smoothing. Default 0.5.
+	// TeleopSmoothAlpha is the smoothing factor for the exponential moving average (EMA) the
+	// pipeline applies to each joint's per-cycle velocity (the delta toward the planned target)
+	// before sending it to the arm: vel = alpha*planned_delta + (1-alpha)*prev_vel. Smoothing the
+	// velocity rather than the absolute position keeps motion smooth while still converging to the
+	// goal. Lower alpha means heavier smoothing (less jitter, more latency); higher alpha is more
+	// responsive and closer to the raw planned motion. The valid range is (0, 1]: 1 disables
+	// smoothing, and 0 (the zero value) selects the default of 0.5.
 	TeleopSmoothAlpha float64 `json:"teleop_smooth_alpha"`
 }
 
@@ -135,6 +140,11 @@ func (c *Config) Validate(path string) ([]string, []string, error) {
 
 	if c.LogSlowPlanThresholdMS != 0 && c.PlanFilePath == "" {
 		return nil, nil, fmt.Errorf("need a plan_file_path if you sent LogSlowPlanThresholdMS to %v", c.LogSlowPlanThresholdMS)
+	}
+
+	// teleop_smooth_alpha must be in [0, 1]; 0 (the zero value) selects the default.
+	if c.TeleopSmoothAlpha < 0 || c.TeleopSmoothAlpha > 1 {
+		return nil, nil, fmt.Errorf("teleop_smooth_alpha must be in [0, 1] (0 selects the default), got %v", c.TeleopSmoothAlpha)
 	}
 
 	return []string{framesystem.InternalServiceName.String()}, nil, nil
@@ -545,7 +555,14 @@ func (ms *builtIn) plan(ctx context.Context, req motion.MoveReq, logger logging.
 
 // planTeleopMulti plans a trajectory for multiple components simultaneously.
 // It builds a multi-frame goal from the given poses map, allowing the planner
-// to find collision-free paths for all arms jointly.
+// to find paths for all arms jointly (self-collision between the arms is still
+// enforced by the frame system's default collision checking).
+//
+// NOTE: unlike plan(), this path intentionally omits WorldState and Constraints
+// from the PlanRequest. Teleop replans continuously at interactive rates, so it
+// trades external-obstacle and custom-constraint checking for planning latency.
+// If a teleop deployment needs world-obstacle avoidance, that tradeoff must be
+// revisited (thread WorldState/Constraints through from the component's MoveReq).
 func (ms *builtIn) planTeleopMulti(
 	ctx context.Context,
 	goals referenceframe.FrameSystemPoses,
@@ -675,7 +692,6 @@ func (ms *builtIn) execute(ctx context.Context, trajectory motionplan.Trajectory
 			if err != nil {
 				return err
 			}
-
 			if err := ie.GoToInputs(ctx, inputs...); err != nil {
 				// If there is an error on GoToInputs, stop the component if possible before returning the error
 				if actuator, ok := r.(inputEnabledActuator); ok {
