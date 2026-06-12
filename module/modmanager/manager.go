@@ -368,7 +368,9 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	if mod.dataDir != "" {
 		mod.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
-			return errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
+			fullErr := errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
+			mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+			return fullErr
 		}
 	}
 
@@ -448,15 +450,9 @@ func (mgr *Manager) Reconfigure(ctx context.Context, conf config.Module) ([]reso
 	mod.logger.CInfow(ctx, "Existing module process stopped. Starting new module process", "module", conf.Name)
 
 	if err := mgr.startModule(ctx, mod); err != nil {
-		// could not start module during reconfiguration, add it to moduleStatusMap
-		mgr.AddToFailedModules(conf.Name, err)
 		// If re-addition fails, assume all handled resources are orphaned.
 		return handledResourceNames, err
 	}
-
-	// reconfiguration successful, remove from failed modules
-	// mgr.deleteFromFailedModules(conf.Name)
-	mgr.UpdateModuleState(conf.Name, modulestatus.ModuleStateReady)
 
 	mod.logger.CInfow(ctx, "New module process is running and responding to gRPC requests", "module",
 		mod.cfg.Name, "module address", mod.addr)
@@ -972,13 +968,8 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 
 			err := mgr.attemptRestart(ctx, mod)
 			if err == nil {
-				// restart successful, remove module from moduleStatusMap
-				// mgr.deleteFromFailedModules(mod.cfg.Name)
-				mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
 				break
 			}
-			// could not restart crashed module, add it to moduleStatusMap
-			mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 			unlock()
 			utils.SelectContextOrWait(ctx, oueRestartInterval)
 		}
@@ -1064,6 +1055,8 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	}()
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
+		fullErr := fmt.Errorf("Error while restarting crashed module %s: %s", mod.cfg.Name, err)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
 		return err
@@ -1071,16 +1064,21 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	processRestarted = true
 
 	if err := mod.dial(); err != nil {
+		fullErr := fmt.Errorf("Error while dialing restarted module %s: %s", mod.cfg.Name, err)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return err
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
+		fullErr := fmt.Errorf("Error while waiting for restarted module to be ready %s: %s", mod.cfg.Name, err)
+		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return err
 	}
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
