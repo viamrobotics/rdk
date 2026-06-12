@@ -4550,7 +4550,11 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	out, err := exec.Command("powershell", "-Command",
 		`[Environment]::GetEnvironmentVariable("Path", "User")`).Output()
 	if err != nil {
-		return errors.Errorf("failed to read user PATH: %v", err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) && len(exitErr.Stderr) > 0 {
+			return errors.Errorf("failed to read user PATH:\n%s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return errors.Wrap(err, "failed to read user PATH")
 	}
 	currentPath := strings.TrimSpace(string(out))
 
@@ -4569,11 +4573,14 @@ func addToWindowsUserPATH(cmd *cli.Command, binaryDir string) error {
 	newPath += cleanDir
 
 	//nolint:gosec
-	if err := exec.Command("powershell", "-Command",
+	setCmd := exec.Command("powershell", "-Command",
 		fmt.Sprintf(`[Environment]::SetEnvironmentVariable("Path", "%s", "User")`,
-			strings.ReplaceAll(newPath, `"`, `\"`)),
-	).Run(); err != nil {
-		return errors.Errorf("failed to update user PATH: %v", err)
+			strings.ReplaceAll(newPath, `"`, `\"`)))
+	if out, err := setCmd.CombinedOutput(); err != nil {
+		if trimmed := strings.TrimSpace(string(out)); trimmed != "" {
+			return errors.Errorf("failed to update user PATH:\n%s", trimmed)
+		}
+		return errors.Wrap(err, "failed to update user PATH")
 	}
 
 	infof(cmd.Root().Writer, "Added %s to your user PATH. Restart your terminal to use 'viam' from anywhere.", cleanDir)
