@@ -141,13 +141,15 @@ const (
 	dataFlagTimeout                        = "timeout"
 	dataFlagCollectionType                 = "collection-type"
 	dataFlagPipelineName                   = "pipeline-name"
+	dataFlagPipelineID                     = "pipeline-id"
+	dataFlagSQL                            = "sql"
+	dataFlagMQL                            = "mql"
+	dataFlagMQLFile                        = "mql-path"
+	dataFlagDataSourceType                 = "data-source-type"
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
 
 	datapipelineFlagSchedule       = "schedule"
-	datapipelineFlagMQL            = "mql"
-	datapipelineFlagMQLFile        = "mql-path"
-	datapipelineFlagDataSourceType = "data-source-type"
 	datapipelineFlagEnableBackfill = "enable-backfill"
 
 	packageFlagFramework = "model-framework"
@@ -1408,6 +1410,76 @@ Note: There is no progress meter while copying is in progress.
 					},
 				},
 				{
+					Name:            "query",
+					Usage:           "query tabular data from Viam cloud",
+					UsageText:       createUsageText("data query", nil, false, true),
+					HideHelpCommand: true,
+					Commands: []*cli.Command{
+						{
+							Name:      "sql",
+							Usage:     "query tabular data using SQL",
+							UsageText: createUsageText("data query sql", []string{dataFlagSQL}, true, false),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID",
+									DefaultText: "default-org value if set",
+								},
+								&cli.StringFlag{
+									Name:     dataFlagSQL,
+									Required: true,
+									Usage:    "SQL statement to query the organization's tabular data",
+								},
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Usage:     "output directory for query results; prints to stdout if omitted",
+									TakesFile: true,
+								},
+							},
+							Action: createActionCommandWithT[dataQuerySQLArgs](DataQuerySQLAction),
+						},
+						{
+							Name:  "mql",
+							Usage: "query tabular data using MQL",
+							UsageText: createUsageText("data query mql",
+								nil, true, false,
+								fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
+									dataFlagMQL, dataFlagMQL,
+									dataFlagMQLFile, dataFlagMQLFile),
+							),
+							Flags: []cli.Flag{
+								&cli.StringFlag{
+									Name:        generalFlagOrgID,
+									Usage:       "organization ID",
+									DefaultText: "default-org value if set",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMQL,
+									Usage: "MQL query to query the organization's tabular data",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagMQLFile,
+									Usage: "path to a JSON file containing the MQL query",
+								},
+								&cli.StringFlag{
+									Name:  dataFlagDataSourceType,
+									Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
+								},
+								&cli.StringFlag{
+									Name:  dataFlagPipelineID,
+									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, pipelineSinkDataSourceType),
+								},
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Usage:     "output directory for query results; prints to stdout if omitted",
+									TakesFile: true,
+								},
+							},
+							Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
+						},
+					},
+				},
+				{
 					Name:            "delete",
 					Usage:           "delete data from Viam cloud",
 					UsageText:       createUsageText("data delete", nil, false, true),
@@ -1616,7 +1688,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
@@ -1644,7 +1716,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:     dataFlagPipelineName,
@@ -1671,7 +1743,7 @@ Note: There is no progress meter while copying is in progress.
 								&cli.StringFlag{
 									Name:     dataFlagCollectionType,
 									Required: true,
-									Usage:    formatAcceptedValues("collection type", "hot-storage", "pipeline-sink"),
+									Usage:    formatAcceptedValues("collection type", hotStorageDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:  dataFlagPipelineName,
@@ -1963,8 +2035,8 @@ Note: There is no progress meter while copying is in progress.
 					UsageText: createUsageText("datapipelines create",
 						[]string{generalFlagOrgID, generalFlagName, datapipelineFlagSchedule, datapipelineFlagEnableBackfill}, false, false,
 						fmt.Sprintf("[--%s=<%s> | --%s=<%s>]",
-							datapipelineFlagMQL, datapipelineFlagMQL,
-							datapipelineFlagMQLFile, datapipelineFlagMQLFile),
+							dataFlagMQL, dataFlagMQL,
+							dataFlagMQLFile, dataFlagMQLFile),
 					),
 					Flags: []cli.Flag{
 						&cli.StringFlag{
@@ -1982,11 +2054,11 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagMQL,
+							Name:  dataFlagMQL,
 							Usage: "MQL query for the new data pipeline",
 						},
 						&cli.StringFlag{
-							Name:  datapipelineFlagMQLFile,
+							Name:  dataFlagMQLFile,
 							Usage: "path to JSON file containing MQL query for the new data pipeline",
 						},
 						&cli.BoolFlag{
@@ -1995,12 +2067,8 @@ Note: There is no progress meter while copying is in progress.
 							Required: true,
 						},
 						&cli.StringFlag{
-							Name: datapipelineFlagDataSourceType,
-							Usage: formatAcceptedValues(
-								"data source type for the new data pipeline",
-								StandardDataSourceType,
-								HotStorageDataSourceType,
-							),
+							Name:  dataFlagDataSourceType,
+							Usage: formatAcceptedValues("data source type for the new data pipeline", pipelineDataSourceTypes...),
 						},
 					},
 					Action: createActionCommandWithT[datapipelineCreateArgs](DatapipelineCreateAction),
