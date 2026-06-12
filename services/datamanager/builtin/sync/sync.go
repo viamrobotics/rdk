@@ -447,7 +447,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 
 	if data.IsDataCaptureFile(f) {
-		s.syncDataCaptureFile(s.configCtx, f, config.CaptureDir, s.logger) //nolint:errcheck
+		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
 		//nolint:errcheck
 		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger,
@@ -455,7 +455,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 	}
 }
 
-func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir string, logger logging.Logger) error {
+func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging.Logger) {
 	captureFile, err := data.ReadCaptureFile(f)
 	// if you can't read the capture file's metadata field, close & move it to the failed directory
 	if err != nil {
@@ -469,7 +469,7 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 			s.logger.Error(err)
 		}
 		s.uploadStats.tabular.uploadFailedFileCount.Add(1)
-		return cause
+		return
 	}
 	isBinary := captureFile.ReadMetadata().GetType() == v1.DataType_DATA_TYPE_BINARY_SENSOR
 
@@ -481,7 +481,7 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 	}
 
 	// setup a retry struct that will try to upload the capture file
-	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
+	retry := newExponentialRetry(s.configCtx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		msg := "error uploading data capture file %s, size: %s, md: %s"
 		errMetadata := fmt.Sprintf(msg, captureFile.GetPath(), data.FormatBytesI64(captureFile.Size()), captureFile.ReadMetadata())
 		bytesUploaded, err := uploadDataCaptureFile(ctx, captureFile, s.cloudConn, logger, uploadingBytesCounter)
@@ -502,7 +502,7 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 		// if we stopped due to a cancelled context,
 		// return without deleting the file or moving it to the failed directory
 		if errors.Is(err, context.Canceled) {
-			return err
+			return
 		}
 
 		// otherwise we hit a terminal error, and we should move the file to the failed directory
@@ -514,7 +514,7 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 		} else {
 			s.uploadStats.tabular.uploadFailedFileCount.Add(1)
 		}
-		return err
+		return
 	}
 
 	// file was successfully uploaded, delete it and log an error if unable to delete
@@ -528,7 +528,6 @@ func (s *Sync) syncDataCaptureFile(ctx context.Context, f *os.File, captureDir s
 		s.uploadStats.tabular.uploadedFileCount.Add(1)
 		s.uploadStats.tabular.completedUploadBytes.Add(bytesUploaded)
 	}
-	return nil
 }
 
 func (s *Sync) syncArbitraryFile(
@@ -635,10 +634,6 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		return 0, 0, 0, 0, nil, err
 	}
 
-	s.configMu.Lock()
-	captureDir := s.config.CaptureDir
-	s.configMu.Unlock()
-
 	tags := uploadMetadata.GetTags()
 	datasetIDs := uploadMetadata.GetDatasetIds()
 
@@ -657,22 +652,13 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 			return
 		}
 
-		if data.IsDataCaptureFile(f) {
-			if syncErr := s.syncDataCaptureFile(ctx, f, captureDir, s.logger); syncErr != nil {
-				filesFailed++
-			} else {
-				filesUploaded++
-				bytesUploaded += uint64(fi.Size())
-			}
+		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, nil); syncErr != nil {
+			filesFailed++
 		} else {
-			if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, nil); syncErr != nil {
-				filesFailed++
-			} else {
-				filesUploaded++
-				bytesUploaded += uint64(fi.Size())
-				if id != "" {
-					ids = append(ids, id)
-				}
+			filesUploaded++
+			bytesUploaded += uint64(fi.Size())
+			if id != "" {
+				ids = append(ids, id)
 			}
 		}
 	}
