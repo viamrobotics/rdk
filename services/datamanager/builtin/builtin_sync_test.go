@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/camera"
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
+	rgrpc "go.viam.com/rdk/grpc/helpers"
 	"go.viam.com/rdk/internal/cloud"
 	cloudinject "go.viam.com/rdk/internal/testutils/inject"
 	"go.viam.com/rdk/logging"

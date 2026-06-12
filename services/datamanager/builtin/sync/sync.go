@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 
 	"go.viam.com/rdk/data"
-	rgrpc "go.viam.com/rdk/grpc"
+	rgrpc "go.viam.com/rdk/grpc/helpers"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/services/datamanager"
