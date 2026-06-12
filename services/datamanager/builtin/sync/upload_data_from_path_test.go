@@ -61,7 +61,7 @@ func TestUploadDataFromPath(t *testing.T) {
 	t.Run("not connected to the cloud", func(t *testing.T) {
 		dir := t.TempDir()
 		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, false)
-		_, _, _, _, _, err := s.UploadDataFromPath(ctx, writeTestFile(t, dir, "f.txt", []byte("hi")), nil)
+		_, _, _, _, _, err := s.UploadDataFromPath(ctx, writeTestFile(t, dir, "f.txt", []byte("hi")), nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to the cloud")
 	})
@@ -72,7 +72,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		contents := []byte("hello world")
 		fp := writeTestFile(t, dir, "f.txt", contents)
 
-		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, fp, nil)
+		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, fp, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fu, test.ShouldEqual, uint64(1))
 		test.That(t, ff, test.ShouldEqual, uint64(0))
@@ -95,7 +95,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		writeTestFile(t, uploadDir, "b.txt", b)
 		writeTestFile(t, uploadDir, "c.txt", c)
 
-		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, uploadDir, nil)
+		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fu, test.ShouldEqual, uint64(3))
 		test.That(t, ff, test.ShouldEqual, uint64(0))
@@ -122,7 +122,7 @@ func TestUploadDataFromPath(t *testing.T) {
 		test.That(t, os.Chmod(badPath, 0o000), test.ShouldBeNil)
 		t.Cleanup(func() { os.Chmod(badPath, 0o600) })
 
-		fu, ff, bu, bt, _, err := s.UploadDataFromPath(ctx, uploadDir, nil)
+		fu, ff, bu, bt, _, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, fu, test.ShouldEqual, uint64(1))
 		test.That(t, ff, test.ShouldEqual, uint64(1))

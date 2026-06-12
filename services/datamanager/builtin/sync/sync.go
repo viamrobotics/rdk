@@ -620,7 +620,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 // UploadDataFromPath uploads a file or all files in a directory at path to the cloud.
 // For directories, every file is attempted and per-file errors are counted; the call
 // returns aggregate counts of files and bytes uploaded/failed.
-func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata) (
+func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, _ map[string]interface{}) (
 	filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, ids []string, err error,
 ) {
 	select {
