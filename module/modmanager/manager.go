@@ -258,7 +258,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 
 		// Validate module configs before attempting to add.
 		if err := conf.Validate(""); err != nil {
-			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %w", conf.Name, err)
+			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %s", conf.Name, err)
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
 			mgr.AddToFailedModules(conf.Name, fullErr)
 
@@ -1078,12 +1078,12 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 			"module", mod.cfg.Name, "error", err)
 		return err
 	}
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
 
 	if pc := mod.sharedConn.PeerConn(); mgr.modPeerConnTracker != nil && pc != nil {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
+	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
 	success = true
 	return nil
 }
