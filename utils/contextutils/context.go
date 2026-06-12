@@ -108,13 +108,15 @@ func ContextWithMetadataClientToServerUnaryServerInterceptor(
 		return handler(ctx, req)
 	}
 
+	prefixedPairs := make([]string, 0, len(md))
 	for prefixedKey, vals := range md {
 		if strings.HasPrefix(prefixedKey, arbitraryMetadataKeyPrefix) {
 			for _, v := range vals {
-				ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedKey, v)
+				prefixedPairs = append(prefixedPairs, prefixedKey, v)
 			}
 		}
 	}
+	ctx = grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
 
 	return handler(ctx, req)
 }
@@ -128,17 +130,14 @@ func ContextWithTimeoutIfNoDeadline(ctx context.Context, timeout time.Duration) 
 	return context.WithCancel(ctx)
 }
 
-// appendToOutgoingContext functions like metadata.AppendToOutgoingContext, but prefixes all keys with arbitraryMetadataKeyPrefix.
-func appendToOutgoingContext(ctx context.Context, kv ...string) context.Context {
-	for i := 0; i+1 < len(kv); i += 2 {
-		ctx = grpcmetadata.AppendToOutgoingContext(ctx, arbitraryMetadataKeyPrefix+kv[i], kv[i+1])
-	}
-	return ctx
-}
-
 // AppendMetadata appends Viam arbitrary metadata to the context.
 func AppendMetadata(ctx context.Context, kv ...string) context.Context {
-	return appendToOutgoingContext(ctx, kv...)
+	prefixedPairs := make([]string, len(kv))
+	for i := 0; i+1 < len(kv); i += 2 {
+		prefixedPairs[i] = arbitraryMetadataKeyPrefix + kv[i]
+		prefixedPairs[i+1] = kv[i+1]
+	}
+	return grpcmetadata.AppendToOutgoingContext(ctx, prefixedPairs...)
 }
 
 // Metadata retrieves the Viam arbitrary metadata from the context.
