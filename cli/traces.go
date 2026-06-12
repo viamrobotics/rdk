@@ -23,9 +23,12 @@ import (
 )
 
 // traces are stored at VIAM_HOME/trace/[part-id]/traces
-var tracesRootDir = path.Join("~", ".viam")
-var tracesRelativePath = path.Join("trace")
-var defaultTracesPath = path.Join(tracesRootDir, tracesRelativePath)
+const tracesRelativePath = "trace"
+
+var (
+	tracesRootDir     = path.Join("~", ".viam")
+	defaultTracesPath = path.Join(tracesRootDir, tracesRelativePath)
+)
 
 type traceGetRemoteArgs struct {
 	Organization string
