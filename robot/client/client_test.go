@@ -2403,13 +2403,13 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	md := &datasyncpb.UploadMetadata{Tags: []string{"tag1"}}
 	extra := map[string]interface{}{"foo": "bar"}
-	fu, ff, bu, bt, ids, err := client.UploadDataFromPath(context.Background(), "/data/foo", md, extra)
+	res, err := client.UploadDataFromPath(context.Background(), "/data/foo", md, extra)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fu, test.ShouldEqual, uint64(2))
-	test.That(t, ff, test.ShouldEqual, uint64(0))
-	test.That(t, bu, test.ShouldEqual, uint64(512))
-	test.That(t, bt, test.ShouldEqual, uint64(512))
-	test.That(t, ids, test.ShouldResemble, []string{"a", "b"})
+	test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(2))
+	test.That(t, res.FilesFailed, test.ShouldEqual, uint64(0))
+	test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(512))
+	test.That(t, res.BytesTotal, test.ShouldEqual, uint64(512))
+	test.That(t, res.IDs, test.ShouldResemble, []string{"a", "b"})
 
 	// request fields actually crossed the wire
 	test.That(t, capturedPath, test.ShouldEqual, "/data/foo")
