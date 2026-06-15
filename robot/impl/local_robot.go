@@ -531,14 +531,14 @@ func newWithResources(
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
 			cfg.Cloud,
-			cfg.PackagePath,
+			config.DefaultPackagesDir(),
 			packageLogger,
 		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages, err = packages.NewLocalManager(cfg, packageLogger)
+	r.localPackages, err = packages.NewLocalManager(config.DefaultPackagesDir(), packageLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +597,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
-		cfg.PackagePath,
+		config.DefaultPackagesDir(),
 		r.webSvc.ModPeerConnTracker(),
 	); err != nil {
 		return nil, err

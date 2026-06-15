@@ -81,7 +81,13 @@ func getAgentInfo(logger logging.Logger) (*apppb.AgentInfo, error) {
 var viamPackagesDir string
 
 func init() {
-	viamPackagesDir = filepath.Join(rutils.ViamDotDir, PackagesDirName)
+	viamPackagesDir = DefaultPackagesDir()
+}
+
+// DefaultPackagesDir is the directory used to store packages locally: ~/.viam/packages.
+// It is read fresh from [rutils.ViamDotDir] on each call so tests can redirect it.
+func DefaultPackagesDir() string {
+	return filepath.Join(rutils.ViamDotDir, PackagesDirName)
 }
 
 func getCloudCacheFilePath(id string) string {

@@ -235,7 +235,8 @@ func isExpectedShutdownError(err error, testLogger logging.Logger) bool {
 
 // Tests that machine state properly reports initializing or running.
 func TestMachineState(t *testing.T) {
-	t.Parallel()
+	// NOTE: not parallel — this test redirects the global utils.ViamDotDir, which would race
+	// with other parallel tests that construct robots.
 	logger := logging.NewTestLogger(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -243,8 +244,12 @@ func TestMachineState(t *testing.T) {
 
 	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
 	// expected file tree of the local package manager. Place a single file `foo` in a
-	// `fake-module` directory.
+	// `fake-module` directory. Redirect the viam dir to this temp dir so the local package
+	// manager (which always uses config.DefaultPackagesDir()) looks here.
 	tempDir := t.TempDir()
+	origViamDotDir := utils.ViamDotDir
+	utils.ViamDotDir = tempDir
+	t.Cleanup(func() { utils.ViamDotDir = origViamDotDir })
 	fakePackagePath := filepath.Join(tempDir, fmt.Sprint("packages", config.LocalPackagesSuffix))
 	fakeModuleDataPath := filepath.Join(fakePackagePath, "data", "fake-module")
 	err := os.MkdirAll(fakeModuleDataPath, 0o777) // should create all dirs along path
@@ -289,9 +294,6 @@ func TestMachineState(t *testing.T) {
 		defer wg.Done()
 
 		cfg := &config.Config{
-			// Set PackagePath to temp dir created at top of test with the "-local" piece trimmed. Local
-			// package manager will automatically add that suffix.
-			PackagePath: strings.TrimSuffix(fakePackagePath, config.LocalPackagesSuffix),
 			Components: []resource.Config{
 				{
 					Name:  "slowpoke",
