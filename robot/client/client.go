@@ -1309,7 +1309,7 @@ func (rc *RobotClient) MachineStatus(ctx context.Context) (robot.MachineStatus, 
 			modStatus := modulestatus.Status{
 				Name:                pbModStatus.GetModuleName(),
 				LastUpdated:         pbModStatus.GetLastUpdated().AsTime(),
-				ConsecutiveFailures: int(pbModStatus.GetConsecutiveFailures()),
+				ConsecutiveFailures: uint(pbModStatus.GetConsecutiveFailures()),
 			}
 
 			switch pbModStatus.GetState() {

@@ -563,7 +563,7 @@ func (s *Server) GetMachineStatus(ctx context.Context, _ *pb.GetMachineStatusReq
 		pbModStatus := &pb.ModuleStatus{
 			ModuleName:          modStatus.Name,
 			LastUpdated:         timestamppb.New(modStatus.LastUpdated),
-			ConsecutiveFailures: int32(modStatus.ConsecutiveFailures),
+			ConsecutiveFailures: uint32(modStatus.ConsecutiveFailures),
 		}
 		switch modStatus.State {
 		case modulestatus.ModuleStateUnknown:
