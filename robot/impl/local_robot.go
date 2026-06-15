@@ -965,11 +965,11 @@ func (r *localRobot) newResource(
 	resName := conf.ResourceName()
 	resInfo, ok := resource.LookupRegistration(resName.API, conf.Model)
 	if !ok {
-		failedModules := r.manager.moduleManager.FailedModules()
+		unhealthyModules := r.manager.moduleManager.UnhealthyModules()
 		var modules string
-		if len(failedModules) > 0 {
-			sort.Strings(failedModules)
-			modules = fmt.Sprintf("May be in failing module: %v; ", failedModules)
+		if len(unhealthyModules) > 0 {
+			sort.Strings(unhealthyModules)
+			modules = fmt.Sprintf("May be in failing module: %v; ", unhealthyModules)
 		}
 		return nil, errors.Errorf("unknown resource type: API %v with model %v not registered; "+
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
