@@ -1466,8 +1466,14 @@ Note: There is no progress meter while copying is in progress.
 									Usage: formatAcceptedValues("data source to query against", tabularDataByMQLDataSourceTypes...),
 								},
 								&cli.StringFlag{
-									Name:  dataFlagPipelineID,
-									Usage: fmt.Sprintf("pipeline ID to query; required when --%s=%s", dataFlagDataSourceType, pipelineSinkDataSourceType),
+									Name: dataFlagPipelineID,
+									Usage: fmt.Sprintf("pipeline ID to query; one of --%s or --%s is required when --%s=%s",
+										dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
+								},
+								&cli.StringFlag{
+									Name: dataFlagPipelineName,
+									Usage: fmt.Sprintf("pipeline name to query; one of --%s or --%s is required when --%s=%s",
+										dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
 								},
 								&cli.StringFlag{
 									Name:      generalFlagDestination,

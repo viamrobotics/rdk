@@ -295,6 +295,23 @@ func parseMQL(mql, mqlFile string) ([][]byte, error) {
 	return mqlBinary, nil
 }
 
+// resolvePipelineIDByName looks up a data pipeline by name within the given org and returns its ID.
+// Pipeline names are unique within an org, so the first match is the only match.
+func (c *viamClient) resolvePipelineIDByName(ctx context.Context, orgID, name string) (string, error) {
+	resp, err := c.datapipelinesClient.ListDataPipelines(ctx, &datapipelinespb.ListDataPipelinesRequest{
+		OrganizationId: orgID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list data pipelines: %w", err)
+	}
+	for _, p := range resp.GetDataPipelines() {
+		if p.GetName() == name {
+			return p.GetId(), nil
+		}
+	}
+	return "", fmt.Errorf("no data pipeline found with name %q", name)
+}
+
 func mqlJSON(mql [][]byte) (string, error) {
 	var stages []bson.M
 	for _, bsonBytes := range mql {
