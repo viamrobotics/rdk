@@ -885,6 +885,11 @@ func (c *viamClient) downloadBinary(ctx context.Context, dst string, timeout uin
 		//nolint:gosec
 		if _, err := io.Copy(dataFile, r); err != nil {
 			debugf(c.c.Root().Writer, args.Debug, "Failed writing data to file %s: %s", id, err)
+			utils.UncheckedError(dataFile.Close())
+			return err
+		}
+		if err := dataFile.Close(); err != nil {
+			debugf(c.c.Root().Writer, args.Debug, "Failed closing file %s: %s", id, err)
 			return err
 		}
 		if err := r.Close(); err != nil {
