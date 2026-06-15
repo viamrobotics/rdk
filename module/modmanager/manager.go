@@ -260,7 +260,7 @@ func (mgr *Manager) Add(ctx context.Context, confs ...config.Module) error {
 		if err := conf.Validate(""); err != nil {
 			fullErr := fmt.Errorf("module config validation error; skipping; module: %s, error: %s", conf.Name, err)
 			mgr.logger.CErrorw(ctx, "Module config validation error; skipping", "module", conf.Name, "error", err)
-			mgr.AddToFailedModules(conf.Name, fullErr)
+			mgr.SetModuleStatusUnhealthy(conf.Name, fullErr)
 
 			errs[i] = err
 			continue
@@ -302,12 +302,12 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		return nil
 	}
 	// wait to track the module status until we know it doesn't already exist
-	mgr.SetModulePending(conf.Name)
+	mgr.SetModuleStatusPending(conf.Name)
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
 		err := errors.Errorf("An existing module %s already exists with the same executable path as module %s", existingName, conf.Name)
-		mgr.AddToFailedModules(conf.Name, err)
+		mgr.SetModuleStatusUnhealthy(conf.Name, err)
 		return err
 	}
 
@@ -318,7 +318,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		// TODO: why isn't conf.Name being sanitized like PackageConfig.SanitizedName?
 		moduleDataDir, err = rutils.SafeJoinDir(mgr.moduleDataParentDir, conf.Name)
 		if err != nil {
-			mgr.AddToFailedModules(conf.Name, err)
+			mgr.SetModuleStatusUnhealthy(conf.Name, err)
 			return err
 		}
 	}
@@ -346,7 +346,7 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
-	mgr.SetModuleStarting(mod.cfg.Name)
+	mgr.SetModuleStatusStarting(mod.cfg.Name)
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
@@ -369,7 +369,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 		mod.logger.Debugf("Creating data directory %q for module %q", mod.dataDir, mod.cfg.Name)
 		if err := os.MkdirAll(mod.dataDir, 0o750); err != nil {
 			fullErr := errors.WithMessage(err, "error while creating data directory for module "+mod.cfg.Name)
-			mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+			mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 			return fullErr
 		}
 	}
@@ -382,14 +382,14 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	moduleRestartCtx, mod.restartCancel = context.WithCancel(mgr.restartCtx)
 	if err := mgr.startModuleProcess(mod, mgr.newOnUnexpectedExitHandler(moduleRestartCtx, mod)); err != nil {
 		fullErr := errors.WithMessage(err, "error while starting module "+mod.cfg.Name)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		return fullErr
 	}
 
 	// Does a gRPC dial. Sets up a SharedConn with a PeerConnection that is not yet connected.
 	if err := mod.dial(); err != nil {
 		fullErr := errors.WithMessage(err, "error while dialing module "+mod.cfg.Name)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		return fullErr
 	}
 
@@ -397,7 +397,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	// after this, so long as the module supports it.
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
 		fullErr := errors.WithMessage(err, "error while waiting for module to be ready "+mod.cfg.Name)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		return fullErr
 	}
 
@@ -408,7 +408,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
-	mgr.SetModuleReady(mod.cfg.Name)
+	mgr.SetModuleStatusReady(mod.cfg.Name)
 
 	success = true
 	return nil
@@ -500,7 +500,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
-	mgr.SetModuleClosing(mod.cfg.Name)
+	mgr.SetModuleStatusClosing(mod.cfg.Name)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
@@ -526,7 +526,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 
 	if err := mod.stopProcess(); err != nil {
 		fullErr := fmt.Errorf("error while stopping module %s: %w", mod.cfg.Name, err)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
 
@@ -960,7 +960,7 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			if !cleanupPerformed {
 				// only record the failure inside the lock, and after mgr.Remove or mgr.Reconfigure have potentially touched it
 				fullErr := fmt.Errorf("module has unexpectedly exited; module: %s, exit_code: %d", mod.cfg.Name, exitCode)
-				mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+				mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 
 				mod.cleanupAfterCrash(mgr)
 				cleanupPerformed = true
@@ -1056,7 +1056,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
 		fullErr := fmt.Errorf("error while restarting crashed module %s: %w", mod.cfg.Name, err)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
 		return err
@@ -1065,7 +1065,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 
 	if err := mod.dial(); err != nil {
 		fullErr := fmt.Errorf("error while dialing restarted module %s: %w", mod.cfg.Name, err)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
 		return err
@@ -1073,7 +1073,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
 		fullErr := fmt.Errorf("error while waiting for restarted module to be ready %s: %w", mod.cfg.Name, err)
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+		mgr.SetModuleStatusUnhealthy(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
 		return err
@@ -1083,7 +1083,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
-	mgr.SetModuleReady(mod.cfg.Name)
+	mgr.SetModuleStatusReady(mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -1176,19 +1176,19 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-func (mgr *Manager) SetModulePending(name string) {
+func (mgr *Manager) SetModuleStatusPending(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
 }
-func (mgr *Manager) SetModuleStarting(name string) {
+func (mgr *Manager) SetModuleStatusStarting(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
 }
-func (mgr *Manager) SetModuleReady(name string) {
+func (mgr *Manager) SetModuleStatusReady(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
 }
-func (mgr *Manager) SetModuleClosing(name string) {
+func (mgr *Manager) SetModuleStatusClosing(name string) {
 	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
 }
-func (mgr *Manager) AddToFailedModules(name string, err error) {
+func (mgr *Manager) SetModuleStatusUnhealthy(name string, err error) {
 	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
 }
 
