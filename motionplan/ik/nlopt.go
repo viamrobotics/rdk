@@ -298,10 +298,5 @@ func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
 			jump = append(jump, testJump)
 		}
 	}
-	for i := range jump {
-		if jump[i] > testJump {
-			jump[i] = testJump
-		}
-	}
 	return jump
 }
