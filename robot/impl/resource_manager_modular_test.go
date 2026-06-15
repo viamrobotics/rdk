@@ -453,8 +453,11 @@ func (m *dummyModMan) FirstRun(ctx context.Context, conf config.Module) error {
 	return nil
 }
 
-func (m *dummyModMan) FailedModules() []string {
+func (m *dummyModMan) UnhealthyModules() []string {
 	return nil
+}
+
+func (m *dummyModMan) PruneModuleStatuses(confs []config.Module) {
 }
 
 func TestTwoModulesSameName(t *testing.T) {
