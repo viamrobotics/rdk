@@ -244,8 +244,9 @@ func TestMachineState(t *testing.T) {
 
 	// Create a fake package directory using `t.TempDir`. Set it up to be identical to the
 	// expected file tree of the local package manager. Place a single file `foo` in a
-	// `fake-module` directory. Redirect the viam dir to this temp dir so the local package
-	// manager (which always uses config.DefaultPackagesDir()) looks here.
+	// `fake-module` directory. The local package manager stores packages under
+	// <viam home>/packages-local, and the server (started via RunServer below) uses the global
+	// utils.ViamDotDir as its home dir, so redirect that to this temp dir to point it here.
 	tempDir := t.TempDir()
 	origViamDotDir := utils.ViamDotDir
 	utils.ViamDotDir = tempDir

@@ -45,8 +45,9 @@ type managedModule struct {
 
 type managedModuleMap map[string]*managedModule
 
-// NewLocalManager returns a noop package manager that does nothing. On path requests it returns the name of the package.
-// packagesParentDir is the parent directory packages are stored under (the local manager appends its own suffix).
+// NewLocalManager returns a manager that unpacks local tarball modules into the package directory.
+// On path requests it returns the name of the package. packagesParentDir is the parent directory
+// packages are stored under (the local manager appends its own suffix).
 func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(packagesParentDir)
 	packagesDataDir := filepath.Join(packagesDir, "data")
