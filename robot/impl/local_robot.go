@@ -1703,7 +1703,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Mark all new modules as pending now, before packagemanager starts doing anything.
 	for _, mod := range initialDiff.Added.Modules {
-		r.manager.moduleManager.SetModulePending(mod.Name)
+		r.manager.moduleManager.SetModuleStatusPending(mod.Name)
 	}
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages
