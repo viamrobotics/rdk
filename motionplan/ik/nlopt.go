@@ -286,7 +286,7 @@ func (ik *NloptIK) calcJump(ctx context.Context, testJump float64,
 				}
 			}
 
-			checkDist := minFunc(ctx, seed)
+			checkDist := minFunc(ctx, seedTest)
 
 			// Use the smallest value that yields a change in distance
 			if checkDist != seedDist {
