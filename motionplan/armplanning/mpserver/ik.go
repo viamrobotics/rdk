@@ -1,9 +1,10 @@
-//nolint // This is a self-contained program. Most lint errors do not help find bugs.
+// nolint // This is a self-contained program. Most lint errors do not help find bugs.
 package mpserver
 
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"time"
 
 	"go.viam.com/rdk/logging"
@@ -63,7 +64,7 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		return nil, err
 	}
 
-	solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Minute)
+	solver, err := ik.CreateNloptSolver(logger, -1, true, true, time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -84,22 +85,24 @@ func InspectIK(ctx context.Context, logger logging.Logger,
 		limits := [][]referenceframe.Limit{sss.SeedLimits[seedIdx]}
 
 		ctxWithCancel, cancel := context.WithCancel(ctx)
-		var solveErr error
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 		go func() {
-			_, _, solveErr = solver.Solve(ctxWithCancel, retChan, nil,
+			_, _, _ = solver.Solve(ctxWithCancel, retChan, nil,
 				seeds, limits, ikMinimizingFunc, randSeed.Int())
 			cancel()
+			wg.Done()
 		}()
 
 		rowIdx := len(ret.Rows)
 		ret.Rows = append(ret.Rows, make([]IKInspectCell, 0, 10))
+		cells := &ret.Rows[rowIdx]
 		for len(ret.Rows[rowIdx]) < 10 {
 			select {
 			case <-ctxWithCancel.Done():
 				// Solver error
-				return nil, solveErr
+				*cells = append(*cells, IKInspectCell{Cost: -1.0})
 			case solution := <-retChan:
-				cells := &ret.Rows[rowIdx]
 				inputs, err := linearSchema.FloatsToInputs(solution.Configuration)
 				if err != nil {
 					return nil, err
