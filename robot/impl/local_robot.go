@@ -472,6 +472,9 @@ func newWithResources(
 	if rOpts.viamHomeDir != "" {
 		homeDir = rOpts.viamHomeDir
 	}
+	// Derive the packages dir from this robot's home dir (rather than the global
+	// config.DefaultPackagesDir) so that WithViamHomeDir fully isolates package storage in tests.
+	packagesDir := filepath.Join(homeDir, config.PackagesDirName)
 
 	closeCtx, cancel := context.WithCancel(ctx)
 	r := &localRobot{
@@ -531,14 +534,14 @@ func newWithResources(
 				return packagespb.NewPackageServiceClient(cloudConn), err
 			},
 			cfg.Cloud,
-			config.DefaultPackagesDir(),
+			packagesDir,
 			packageLogger,
 		)
 	} else {
 		r.logger.CDebug(ctx, "Using no-op PackageManager when Cloud config is not available")
 		r.packageManager = packages.NewNoopManager()
 	}
-	r.localPackages, err = packages.NewLocalManager(config.DefaultPackagesDir(), packageLogger)
+	r.localPackages, err = packages.NewLocalManager(packagesDir, packageLogger)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +600,7 @@ func newWithResources(
 		homeDir,
 		cloudID,
 		logger,
-		config.DefaultPackagesDir(),
+		packagesDir,
 		r.webSvc.ModPeerConnTracker(),
 	); err != nil {
 		return nil, err

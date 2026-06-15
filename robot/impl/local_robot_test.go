@@ -1392,12 +1392,9 @@ func TestConfigPackages(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(fakePackageServer.Shutdown)
 
-	packageDir := t.TempDir()
-	// Packages are stored under config.DefaultPackagesDir() (~/.viam/packages). Redirect
-	// the viam dir to a temp dir so this test doesn't touch the real home directory.
-	origViamDotDir := rutils.ViamDotDir
-	rutils.ViamDotDir = packageDir
-	t.Cleanup(func() { rutils.ViamDotDir = origViamDotDir })
+	// Isolate package storage to a temp home dir (via WithViamHomeDir below) so this test
+	// doesn't touch the real home directory. Packages are stored under <homeDir>/packages.
+	viamHomeDir := t.TempDir()
 
 	robotConfig := &config.Config{
 		Packages: []config.PackageConfig{
@@ -1412,7 +1409,7 @@ func TestConfigPackages(t *testing.T) {
 		},
 	}
 
-	r := setupLocalRobot(t, ctx, robotConfig, logger)
+	r := setupLocalRobot(t, ctx, robotConfig, logger, WithViamHomeDir(viamHomeDir))
 
 	_, err = r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldEqual, packages.ErrPackageMissing)
@@ -1440,13 +1437,14 @@ func TestConfigPackages(t *testing.T) {
 	fakePackageServer.StorePackage(robotConfig2.Packages...)
 	r.Reconfigure(ctx, robotConfig2)
 
+	packagesDir := path.Join(viamHomeDir, config.PackagesDirName)
 	path1, err := r.PackageManager().PackagePath("some-name-1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path1, test.ShouldEqual, path.Join(config.DefaultPackagesDir(), "data", "ml_model", "package-1-v1"))
+	test.That(t, path1, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-1-v1"))
 
 	path2, err := r.PackageManager().PackagePath("some-name-2")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, path2, test.ShouldEqual, path.Join(config.DefaultPackagesDir(), "data", "ml_model", "package-2-v2"))
+	test.That(t, path2, test.ShouldEqual, path.Join(packagesDir, "data", "ml_model", "package-2-v2"))
 }
 
 // removeDefaultServices removes default services and returns the removed

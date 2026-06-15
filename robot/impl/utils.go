@@ -33,11 +33,10 @@ func setupLocalRobot(
 		test.That(t, err, test.ShouldBeNil)
 	}
 
-	// use a temporary home directory so that it doesn't collide with
-	// the user's/other tests' viam home directory
-	var rOpts []Option
+	// Default to a temporary home directory so that it doesn't collide with the user's/other
+	// tests' viam home directory. Listed first so a caller-supplied WithViamHomeDir wins.
+	rOpts := []Option{WithViamHomeDir(t.TempDir())}
 	rOpts = append(rOpts, opts...)
-	rOpts = append(rOpts, WithViamHomeDir(t.TempDir()))
 	r, err := New(ctx, cfg, conn, logger.Sublogger("rdk"), rOpts...)
 	test.That(t, err, test.ShouldBeNil)
 	t.Cleanup(func() {
