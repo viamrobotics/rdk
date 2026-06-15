@@ -1204,12 +1204,19 @@ func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, 
 	}
 	status.State = state
 	status.LastUpdated = time.Now()
-	status.Error = err
 	switch state {
 	case modulestatus.ModuleStateUnhealthy:
-		status.ConsecutiveFailures++
+		{
+			status.Error = err
+			status.ConsecutiveFailures++
+		}
 	case modulestatus.ModuleStateReady:
-		status.ConsecutiveFailures = 0
+		{
+			// Only clear the error on entering the ready state.
+			// This way, the last error will persist through intermediate states in a failure cycle
+			status.ConsecutiveFailures = 0
+			status.Error = nil
+		}
 	}
 
 	mgr.moduleStatusMap[moduleName] = status
@@ -1246,8 +1253,8 @@ func (mgr *Manager) PruneModuleStatuses(confs []config.Module) {
 	}
 }
 
-// FailedModules returns the names of all failing modules.
-func (mgr *Manager) FailedModules() []string {
+// UnhealthyModules returns the names of all unhealthy modules.
+func (mgr *Manager) UnhealthyModules() []string {
 	mgr.moduleStatusMu.RLock()
 	defer mgr.moduleStatusMu.RUnlock()
 	var failedModuleNames []string
