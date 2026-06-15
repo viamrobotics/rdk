@@ -10,6 +10,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	datapb "go.viam.com/api/app/data/v1"
+	datapipelinespb "go.viam.com/api/app/datapipelines/v1"
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 
@@ -128,6 +129,59 @@ func TestDataQueryMQLAction(t *testing.T) {
 		test.That(t, len(capturedReq.GetMqlBinary()), test.ShouldEqual, 1)
 	})
 
+	t.Run("resolves pipeline name to id", func(t *testing.T) {
+		var capturedReq *datapb.TabularDataByMQLRequest
+		dsc := &inject.DataServiceClient{
+			TabularDataByMQLFunc: func(ctx context.Context, in *datapb.TabularDataByMQLRequest, opts ...grpc.CallOption,
+			) (*datapb.TabularDataByMQLResponse, error) {
+				capturedReq = in
+				return &datapb.TabularDataByMQLResponse{RawData: [][]byte{row}}, nil
+			},
+		}
+		dpc := &inject.DataPipelinesServiceClient{
+			ListDataPipelinesFunc: func(ctx context.Context, in *datapipelinespb.ListDataPipelinesRequest, opts ...grpc.CallOption,
+			) (*datapipelinespb.ListDataPipelinesResponse, error) {
+				return &datapipelinespb.ListDataPipelinesResponse{
+					DataPipelines: []*datapipelinespb.DataPipeline{
+						{Id: "pipe-other-id", Name: "other"},
+						{Id: "pipe-matched-id", Name: "my-pipeline"},
+					},
+				}, nil
+			},
+		}
+
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, dsc, nil, nil, "token")
+		ac.datapipelinesClient = dpc
+		err := ac.dataQueryMQLAction(context.Background(), dataQueryMQLArgs{
+			OrgID:          "org-1",
+			MQL:            mql,
+			DataSourceType: pipelineSinkDataSourceType,
+			PipelineName:   "my-pipeline",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capturedReq.GetDataSource().GetPipelineId(), test.ShouldEqual, "pipe-matched-id")
+	})
+
+	t.Run("errors when pipeline name has no match", func(t *testing.T) {
+		dpc := &inject.DataPipelinesServiceClient{
+			ListDataPipelinesFunc: func(ctx context.Context, in *datapipelinespb.ListDataPipelinesRequest, opts ...grpc.CallOption,
+			) (*datapipelinespb.ListDataPipelinesResponse, error) {
+				return &datapipelinespb.ListDataPipelinesResponse{
+					DataPipelines: []*datapipelinespb.DataPipeline{{Id: "x", Name: "something-else"}},
+				}, nil
+			},
+		}
+		_, ac, _, _ := setup(&inject.AppServiceClient{}, &inject.DataServiceClient{}, nil, nil, "token")
+		ac.datapipelinesClient = dpc
+		err := ac.dataQueryMQLAction(context.Background(), dataQueryMQLArgs{
+			OrgID:          "org-1",
+			MQL:            mql,
+			DataSourceType: pipelineSinkDataSourceType,
+			PipelineName:   "missing",
+		})
+		test.That(t, err, test.ShouldBeError, fmt.Errorf("no data pipeline found with name %q", "missing"))
+	})
+
 	t.Run("omits data source when not provided", func(t *testing.T) {
 		var capturedReq *datapb.TabularDataByMQLRequest
 		dsc := &inject.DataServiceClient{
@@ -156,17 +210,17 @@ func TestDataQueryMQLAction(t *testing.T) {
 				DataSourceType: hotStorageDataSourceType,
 				PipelineID:     "pipe-1",
 			},
-			expectedErr: fmt.Errorf("--%s is only valid when --%s=%s",
-				dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType),
+			expectedErr: fmt.Errorf("--%s and --%s are only valid when --%s=%s",
+				dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
 		},
-		"pipeline-sink requires a pipeline id": {
+		"pipeline-sink requires a pipeline id or name": {
 			args: dataQueryMQLArgs{
 				OrgID:          "org-1",
 				MQL:            mql,
 				DataSourceType: pipelineSinkDataSourceType,
 			},
-			expectedErr: fmt.Errorf("--%s is required when --%s=%s",
-				dataFlagPipelineID, dataFlagDataSourceType, pipelineSinkDataSourceType),
+			expectedErr: fmt.Errorf("--%s or --%s is required when --%s=%s",
+				dataFlagPipelineID, dataFlagPipelineName, dataFlagDataSourceType, pipelineSinkDataSourceType),
 		},
 		"pipeline-id without a source type": {
 			args: dataQueryMQLArgs{
@@ -174,8 +228,19 @@ func TestDataQueryMQLAction(t *testing.T) {
 				MQL:        mql,
 				PipelineID: "pipe-1",
 			},
-			expectedErr: fmt.Errorf("--%s is required when --%s is provided",
-				dataFlagDataSourceType, dataFlagPipelineID),
+			expectedErr: fmt.Errorf("--%s is required when --%s or --%s is provided",
+				dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName),
+		},
+		"pipeline-id and pipeline-name are both provided": {
+			args: dataQueryMQLArgs{
+				OrgID:          "org-1",
+				MQL:            mql,
+				DataSourceType: pipelineSinkDataSourceType,
+				PipelineID:     "pipe-1",
+				PipelineName:   "my-pipeline",
+			},
+			expectedErr: fmt.Errorf("--%s and --%s cannot both be provided",
+				dataFlagPipelineID, dataFlagPipelineName),
 		},
 		"missing mql query": {
 			args:        dataQueryMQLArgs{OrgID: "org-1"},
