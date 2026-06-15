@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"slices"
@@ -143,7 +144,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	if os.Getenv(rutils.ViamNoWindowsEventLoggerEnvVar) == "" {
-		logging.RegisterEventLogger(rootLogger, "viam-server")
+		etwCloser, etwErr := logging.RegisterETWLogger(rootLogger,
+			filepath.Join(rutils.ViamDotDir, "logs"), logging.ServerETW)
+		if etwErr != nil {
+			rootLogger.CWarn(ctx, "failed to start ETW logger - using Event Logging for local logs", etwErr)
+			logging.RegisterEventLogger(rootLogger, logging.ServerETW.ProviderName)
+		}
+		defer func() {
+			utils.UncheckedError(etwCloser.Close())
+		}()
 	}
 	config.InitLoggingSettings(rootLogger, configLogger, argsParsed.Debug)
 
@@ -185,6 +194,15 @@ func RunServer(ctx context.Context, args []string, _ logging.Logger) (err error)
 	}
 
 	var appConn, signalingConn rpc.ClientConn
+
+	// Ensure VIAM_HOME is set in the environment so that config placeholder substitution
+	// (e.g. ${environment.VIAM_HOME}) and spawned modules see the same home directory we
+	// fall back to internally.
+	if _, ok := os.LookupEnv(rutils.HomeEnvVar); !ok {
+		if err := os.Setenv(rutils.HomeEnvVar, rutils.ViamDotDir); err != nil {
+			rootLogger.Warnw("failed to set VIAM_HOME environment variable", "error", err)
+		}
+	}
 
 	// Read the config from disk and use it to initialize the remote logger.
 	cfgFromDisk, err := config.ReadLocalConfig(argsParsed.ConfigFile, configLogger)

@@ -725,7 +725,7 @@ func (r *localRobot) handleOrphanedResources(ctx context.Context,
 //
 // - Weak dependencies
 //   - Specified at the time of resource registration by a set of `resource.Matcher`s
-//   - Can only be used with both non-modular resources
+//   - Can only be used with non-modular resources
 //   - Allow access to a `resource.Resource` or gRPC client referencing the dependency in
 //     the resource's constructor and reconfigure methods IFF that dependency exists and
 //     has been successfully constructed
@@ -736,10 +736,26 @@ func (r *localRobot) getDependencies(
 	rName resource.Name,
 	gNode *resource.GraphNode,
 ) (resource.Dependencies, error) {
+	deps, _, err := r.getDependenciesWithWeakOptionalSnapshot(rName, gNode)
+	return deps, err
+}
+
+// getDependenciesWithWeakOptionalSnapshot is the implementation helper of getDependencies
+// but also returns a snapshot of the graph-clock UpdatedAt value of every weak and optional
+// dependency that was resolved into deps. The snapshot is what updateWeakAndOptionalDependents
+// compares against to decide whether a resource actually needs to be reconfigured.
+//
+// Returning the snapshot from the same call that resolves dependencies guarantees the
+// snapshot reflects what was passed to the resource.
+func (r *localRobot) getDependenciesWithWeakOptionalSnapshot(
+	rName resource.Name,
+	gNode *resource.GraphNode,
+) (resource.Dependencies, map[resource.Name]int64, error) {
 	if deps := gNode.UnresolvedDependencies(); len(deps) != 0 {
-		return nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
+		return nil, nil, errors.Errorf("resource has unresolved dependencies not found in machine config or connected remotes: %v", deps)
 	}
 	allDeps := make(resource.Dependencies)
+	weakAndOptionalDepsSnapshot := map[resource.Name]int64{}
 
 	for _, dep := range r.manager.resources.GetAllParentsOf(rName) {
 		// Specifically call ResourceByName and not directly to the manager since this
@@ -747,25 +763,33 @@ func (r *localRobot) getDependencies(
 		// and no last error).
 		prefixedName, res, err := r.manager.ResourceByName(dep)
 		if err != nil {
-			return nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
+			return nil, nil, &resource.DependencyNotReadyError{Name: dep.Name, Reason: err}
 		}
 		allDeps[prefixedName] = res
 	}
 	nodeConf := gNode.Config()
-	for weakDepName, weakDepRes := range r.getWeakDependencies(rName, nodeConf.API, nodeConf.Model) {
+	weakDeps, weakSnap := r.getWeakDependenciesAndSnapshot(rName, nodeConf.API, nodeConf.Model)
+	for weakDepName, weakDepRes := range weakDeps {
 		if _, ok := allDeps[weakDepName]; ok {
 			continue
 		}
 		allDeps[weakDepName] = weakDepRes
 	}
-	for optionalDepName, optionalDepRes := range r.getOptionalDependencies(nodeConf) {
+	for name, clock := range weakSnap {
+		weakAndOptionalDepsSnapshot[name] = clock
+	}
+	optDeps, optSnap := r.getOptionalDependenciesAndSnapshot(nodeConf)
+	for optionalDepName, optionalDepRes := range optDeps {
 		if _, ok := allDeps[optionalDepName]; ok {
 			continue
 		}
 		allDeps[optionalDepName] = optionalDepRes
 	}
+	for name, clock := range optSnap {
+		weakAndOptionalDepsSnapshot[name] = clock
+	}
 
-	return allDeps, nil
+	return allDeps, weakAndOptionalDepsSnapshot, nil
 }
 
 func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.Model) []resource.Matcher {
@@ -776,8 +800,14 @@ func (r *localRobot) getWeakDependencyMatchers(api resource.API, model resource.
 	return reg.WeakDependencies
 }
 
-func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Dependencies {
+// getOptionalDependenciesAndSnapshot resolves each entry in conf.ImplicitOptionalDependsOn
+// and records its GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
+func (r *localRobot) getOptionalDependenciesAndSnapshot(
+	conf resource.Config,
+) (resource.Dependencies, map[resource.Name]int64) {
 	optDeps := make(resource.Dependencies)
+	snapshot := make(map[resource.Name]int64)
 	found := make([]resource.Name, 0)
 	for _, optionalDepNameString := range conf.ImplicitOptionalDependsOn {
 		// If the name string is a fully qualified resource name, skip trying to match
@@ -808,16 +838,26 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 				)
 				continue
 			}
-			resolvedOptionalDepName = matchingResourceNames[0]
-
 			// FindBySimpleName strips the prefix on the return, so set Name to the optionalDepNameString passed in
 			// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 			// dependency map in a resource constructor.
+			resolvedOptionalDepName = matchingResourceNames[0].PopRemote()
 			resolvedOptionalDepName.Name = optionalDepNameString
-			resolvedOptionalDepName = resolvedOptionalDepName.PopRemote()
 		}
 
-		optionalDep, err := r.ResourceByName(resolvedOptionalDepName)
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(resolvedOptionalDepName.Name, resolvedOptionalDepName.API)
+		if err != nil {
+			r.logger.Infow(
+				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
+				"dependency", resolvedOptionalDepName.String(),
+				"resource", conf.ResourceName().String(),
+				"error", err,
+			)
+			continue
+		}
+		optionalDep, err := node.Resource()
 		if err != nil {
 			r.logger.Infow(
 				"Optional dependency for resource is not available; not passing to constructor or reconfigure yet",
@@ -830,6 +870,7 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 
 		optDeps[resolvedOptionalDepName] = optionalDep
 		found = append(found, resolvedOptionalDepName)
+		snapshot[resolvedOptionalDepName] = node.UpdatedAt()
 	}
 	if len(conf.ImplicitOptionalDependsOn) > 0 {
 		r.logger.Infow(
@@ -839,20 +880,59 @@ func (r *localRobot) getOptionalDependencies(conf resource.Config) resource.Depe
 		)
 	}
 
-	return optDeps
+	return optDeps, snapshot
 }
 
-func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API, model resource.Model) resource.Dependencies {
+// weakOptionalDepClocksEqual reports whether two weak/optional dependency snapshots have
+// identical key sets and identical clock values. A nil argument (no snapshot yet recorded)
+// is never equal to any other.
+func weakOptionalDepClocksEqual(a, b map[resource.Name]int64) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for k, va := range a {
+		vb, ok := b[k]
+		if !ok || va != vb {
+			return false
+		}
+	}
+	return true
+}
+
+// getWeakDependenciesAndSnapshot matches all currently-available resources against the
+// caller's weak dependency matchers, returning the resolved dep map alongside a snapshot
+// of each matched dep's GraphNode.UpdatedAt at the moment of resolution. Resolving and
+// snapshotting in the same pass keeps them consistent.
+func (r *localRobot) getWeakDependenciesAndSnapshot(
+	resName resource.Name,
+	api resource.API,
+	model resource.Model,
+) (resource.Dependencies, map[resource.Name]int64) {
 	weakDepMatchers := r.getWeakDependencyMatchers(api, model)
 
 	allNames := r.manager.AllNonCollidingResourceNames()
 	deps := make(resource.Dependencies, len(allNames))
+	snapshot := make(map[resource.Name]int64)
 	for _, n := range allNames {
 		if !(n.API.IsComponent() || n.API.IsService()) || n == resName {
 			continue
 		}
-		res, err := r.ResourceByName(n)
+		// Resolve through FindBySimpleNameAndAPI so the Resource and its UpdatedAt
+		// come from one *GraphNode, keeping deps and snapshot in lockstep.
+		node, err := r.manager.resources.FindBySimpleNameAndAPI(n.Name, n.API)
 		if err != nil {
+			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
+				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
+			}
+			continue
+		}
+		res, err := node.Resource()
+		if err != nil {
+			// Wrap as NotAvailableError to match the prior ResourceByName behavior
+			err = resource.NewNotAvailableError(n, err)
 			if !resource.IsDependencyNotReadyError(err) && !resource.IsNotAvailableError(err) {
 				r.Logger().Debugw("error finding resource while getting weak dependencies", "resource", n, "error", err)
 			}
@@ -862,11 +942,14 @@ func (r *localRobot) getWeakDependencies(resName resource.Name, api resource.API
 			if matcher.IsMatch(res) {
 				// Pop the remote name off since callers won't be expecting it when accessing it in the resource
 				// dependency map in a resource constructor.
-				deps[n.PopRemote()] = res
+				popped := n.PopRemote()
+				deps[popped] = res
+				snapshot[popped] = node.UpdatedAt()
+				break
 			}
 		}
 	}
-	return deps
+	return deps, snapshot
 }
 
 func (r *localRobot) newResource(
@@ -892,7 +975,7 @@ func (r *localRobot) newResource(
 			"%sThere may be no module in config that provides this model", resName.API, conf.Model, modules)
 	}
 
-	deps, err := r.getDependencies(resName, gNode)
+	deps, weakOptionalSnapshot, err := r.getDependenciesWithWeakOptionalSnapshot(resName, gNode)
 	if err != nil {
 		return nil, err
 	}
@@ -925,6 +1008,9 @@ func (r *localRobot) newResource(
 		r.logger.CDebugw(ctx, "resource successfully constructed but context is done, closing constructed resource")
 		return nil, multierr.Combine(ctx.Err(), res.Close(r.closeContext))
 	}
+	// Record the snapshot before SwapResource so it reflects what the constructor
+	// actually received, not whatever the graph looks like by the time we get here.
+	gNode.SetLastWeakOptionalDepsClocks(weakOptionalSnapshot)
 	return res, nil
 }
 
@@ -1074,8 +1160,10 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			len(conf.ImplicitOptionalDependsOn) == 0 {
 			return
 		}
-		r.Logger().CDebugw(ctx, "handling weak/optional update for resource", "resource", resName)
-		deps, err := r.getDependencies(resName, resNode)
+
+		// Resolve deps and snapshot atomically so the snapshot reflects exactly what
+		// would be passed to Reconfigure right now.
+		deps, currentSnap, err := r.getDependenciesWithWeakOptionalSnapshot(resName, resNode)
 		if err != nil {
 			r.Logger().CErrorw(
 				ctx,
@@ -1085,6 +1173,14 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 			)
 			return
 		}
+
+		// Only reconfigure if the resolved weak/optional dependency set has actually
+		// changed or updated since the last time this resource was built or reconfigured.
+		if weakOptionalDepClocksEqual(resNode.LastWeakOptionalDepsClocks(), currentSnap) {
+			return
+		}
+
+		r.Logger().CInfow(ctx, "handling weak/optional update for resource", "resource", resName)
 
 		// Use the module manager to reconfigure the resource if it's a modular resource. This
 		// would be a modular resource that has optional dependencies.
@@ -1112,7 +1208,10 @@ func (r *localRobot) updateWeakAndOptionalDependents(ctx context.Context) {
 					"resource", resName,
 				)
 			}
+			// Do not advance the stored snapshot on failure so the next pass retries.
+			return
 		}
+		resNode.SetLastWeakOptionalDepsClocks(currentSnap)
 	}
 
 	cfg := r.Config()
@@ -1177,55 +1276,153 @@ func (r *localRobot) getLocalFrameSystemParts(ctx context.Context) ([]*reference
 	cfg := r.Config()
 
 	parts := make([]*referenceframe.FrameSystemPart, 0)
-	for _, component := range cfg.Components {
-		if component.Frame == nil { // no Frame means dont include in frame system.
+	// For each part we will see if there's a corollary frame configuration. For those that have
+	// one, we'll craft a `FrameSystemPart` containing that information. Furthermore, the
+	// FrameSystemPart may include geometry or model/kinematic information. Kinematics are always
+	// fetched from `InputEnabled` resources. Geometries can be specified in the robot config. If
+	// none exists, we will perform a `Geometries` query on the resource.
+	for _, resConfig := range cfg.Components {
+		if resConfig.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 
-		if component.Name == referenceframe.World {
-			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		logger := r.logger.Sublogger("framesystem").WithFields("ResName", resConfig.Name)
+		// Dan: Consider not doing frame validation at all in the robot impl code. Should probably
+		// live entirely in the `FrameSystemService.Reconfigure` method. The consequence of the code
+		// as it stands is that the frame system service does not know the difference of a frame
+		// that doesn't exist versus a frame that's misconfigured. Hence, when a motion request (or
+		// other thing that consumes a FrameSystem) comes in identifying a part/frame that the frame
+		// system service was not informed of, we cannot give back an error message better than
+		// "<foo> doesn't exist". A user must sift through robot configuration logs to know why a
+		// frame might be missing.
+		frameName := resConfig.Frame.ID
+		if frameName == "" {
+			frameName = resConfig.Name
 		}
-		if component.Frame.Parent == "" {
-			return nil, errors.Errorf("parent field in frame config for part %q is empty", component.Name)
-		}
-		cfgCopy := &referenceframe.LinkConfig{
-			ID:          component.Frame.ID,
-			Translation: component.Frame.Translation,
-			Orientation: component.Frame.Orientation,
-			Geometry:    component.Frame.Geometry,
-			Parent:      component.Frame.Parent,
-		}
-		if cfgCopy.ID == "" {
-			cfgCopy.ID = component.Name
+		if frameName == referenceframe.World {
+			logger.Warnw("Refusing to create frame named `world` for resource.",
+				"FrameID", resConfig.Frame.ID)
+			continue
 		}
 
-		var model referenceframe.Model
-		var err error
-		switch component.ResourceName().API.SubtypeName {
-		case arm.SubtypeName, gantry.SubtypeName, gripper.SubtypeName: // catch the case for all the ModelFramers
-			model, err = r.extractModelFrameJSON(ctx, component.ResourceName())
-			if resource.IsNotAvailableError(err) || resource.IsNotFoundError(err) {
-				// When we have non-nil errors here, it is because the resource is not yet available.
-				// In this case, we will exclude it from the FS. When it becomes available, it will be included.
+		if resConfig.Frame.Parent == "" {
+			logger.Warn("Frame config for resource is missing a parent.")
+			continue
+		}
+
+		res, resErr := r.ResourceByName(resConfig.ResourceName())
+		isAvailable := resErr == nil
+		resType := resConfig.ResourceName().API.SubtypeName
+		if resType == arm.SubtypeName || resType == gantry.SubtypeName || resType == gripper.SubtypeName {
+			// Components that have multiple degrees of freedom are required to be available and
+			// implement the `Kinematics` method to be used in the frame system.
+			if !isAvailable {
+				logger.Warnw("InputEnabled component is not available. Omitting from FrameSystem.", "err", resErr)
 				continue
 			}
 
-			if err != nil {
-				// If there is an error getting kinematics unrelated to resource availability, log a
-				// warning. It probably impacts correct operation of the application.
-				r.logger.Warnw(
-					"Error getting kinematics. Resource is added to the frame system, but modeling may not work correctly.",
-					"res", component, "err", err)
+			ie, ok := res.(framesystem.InputEnabled)
+			if !ok {
+				logger.Warnw("Resource type expected to have kinematics, but resource was not InputEnabled.",
+					"APISubtype", resType, "ResObjectType", fmt.Sprintf("%T", res))
+				continue
 			}
-		default:
-		}
-		lif, err := cfgCopy.ParseConfig()
-		if err != nil {
-			return nil, err
+
+			model, err := ie.Kinematics(ctx)
+			if err != nil {
+				// Dan: I've introduced a change in behavior here. Before, unavailable/not found
+				// errors, as this code does, would not add an item to the FrameSystem. But errors
+				// from the `Kinematics` call, or a resource that does not implement the
+				// `InputEnabled` interface would be added to the frame system without a model.
+				//
+				// I've chosen to not include the latter to the frame system. It's unclear if that
+				// distinction was meaningful.
+				logger.Warnw("Error getting kinematics for resource.", "err", err)
+				continue
+			}
+
+			if resConfig.Frame.Geometry != nil {
+				// Dan: It seems common to use vmodutils Obstacles which are grippers, but rather
+				// than configuring the gripper to return geometries, the frame itself is configured
+				// with a geometry. Which was unexpected to me. If one simply wanted frame
+				// geometries, any kind of component would do.
+				logger.Debug("An input enabled component with kinematics ambiguously included a frame geometry.")
+			}
+
+			linkInFrame, err := (&referenceframe.LinkConfig{
+				ID:          frameName,
+				Translation: resConfig.Frame.Translation,
+				Orientation: resConfig.Frame.Orientation,
+				Geometry:    resConfig.Frame.Geometry,
+				Parent:      resConfig.Frame.Parent,
+			}).ParseConfig()
+			if err != nil {
+				logger.Warnw("Failed to create LinkInFrame.", "err", err)
+				continue
+			}
+
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: model})
+			continue
 		}
 
-		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: lif, ModelFrame: model})
+		// Dan: Consider changing `LinkConfig.ParseConfig()` to `LinkInFrameFromConfig(LinkConfig)`.
+		linkInFrame, err := (&referenceframe.LinkConfig{
+			ID:          frameName,
+			Translation: resConfig.Frame.Translation,
+			Orientation: resConfig.Frame.Orientation,
+			Geometry:    resConfig.Frame.Geometry,
+			Parent:      resConfig.Frame.Parent,
+		}).ParseConfig()
+		if err != nil {
+			logger.Warnw("Failed to create LinkInFrame.", "err", err)
+			continue
+		}
+
+		// If the frame config included a geometry, prefer that to asking the resource. If the frame
+		// config does not include a geometry and the resource happens to be unavailable we won't be
+		// able to ask for a geometry, create a frame with what we have.
+		if linkInFrame.Geometry() != nil || !isAvailable {
+			parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
+			continue
+		}
+
+		// If the resource is available and the config didn't explicitly give a geometry, ask the
+		// resource if it has one.
+		shaper, isShaped := res.(resource.Shaped)
+		if isShaped {
+			resGeometries, err := shaper.Geometries(ctx, nil)
+			// Dan: I'm concerned that `Geometries` will return unimplemented errors? Leaving as
+			// Debug due to FUD.
+			if err != nil {
+				logger.Debugw("`Geometries` method returned error.", "err", err)
+			} else {
+				//nolint
+				switch len(resGeometries) {
+				case 0:
+				default: // > 1
+					logger.Warnw(
+						"`Geometries` returned more than one geometry, but the LinkInFrame does not support that."+
+							"Keeping the first one.", "Size", len(resGeometries))
+					fallthrough
+				case 1:
+					geom := resGeometries[0]
+					// Dan: I feel it's appropriate to re-label the geometry here by concatenating
+					// the resource name with the geometry label. But the FrameSystem construction
+					// is going to copy and re-label the resulting geometry anyways.
+					linkInFrame.SetGeometry(geom)
+				}
+			}
+		} else {
+			// All resources should have a `Geometries` method. Naturally, they're allowed to leave
+			// it unimplemented. This log implies programmer error within the viam-server. For
+			// example, sensors do not seem to be `Shaped`.
+			logger.Debugw("Resource missing `Geometries` method.",
+				"ResType", resType, "ResObjectType", fmt.Sprintf("%T", res))
+		}
+
+		parts = append(parts, &referenceframe.FrameSystemPart{FrameConfig: linkInFrame, ModelFrame: nil})
 	}
+
 	return parts, nil
 }
 
@@ -1283,19 +1480,6 @@ func (r *localRobot) getRemoteFrameSystemParts(ctx context.Context) ([]*referenc
 		remoteParts = append(remoteParts, remoteFsCfg.Parts...)
 	}
 	return remoteParts, nil
-}
-
-// extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
-// JSON []byte if it does, or nil if it doesn't.
-func (r *localRobot) extractModelFrameJSON(ctx context.Context, name resource.Name) (referenceframe.Model, error) {
-	part, err := r.ResourceByName(name)
-	if err != nil {
-		return nil, err
-	}
-	if k, ok := part.(framesystem.InputEnabled); ok {
-		return k.Kinematics(ctx)
-	}
-	return nil, referenceframe.ErrNoModelInformation
 }
 
 // GetPose returns the pose of the specified component in the given destination frame.
@@ -2133,5 +2317,9 @@ func (r *localRobot) ListTunnels(_ context.Context) ([]config.TrafficTunnelEndpo
 
 // GetResource implements resource.Provider for a localRobot by looking up a resource by name.
 func (r *localRobot) GetResource(name resource.Name) (resource.Resource, error) {
+	if name == framesystem.PublicServiceName {
+		return r.ResourceByName(framesystem.InternalServiceName)
+	}
+
 	return r.ResourceByName(name)
 }

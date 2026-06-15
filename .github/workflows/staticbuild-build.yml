@@ -228,6 +228,7 @@ jobs:
       run: |
         brew update
         brew tap viamrobotics/brews
+        brew trust viamrobotics/brews
         brew install nlopt-static
         brew install x264
 

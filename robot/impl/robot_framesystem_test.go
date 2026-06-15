@@ -12,12 +12,16 @@ import (
 
 	"go.viam.com/rdk/components/arm"
 	"go.viam.com/rdk/components/base"
+	"go.viam.com/rdk/components/camera"
+	fakecamera "go.viam.com/rdk/components/camera/fake"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/gripper"
+	fakegripper "go.viam.com/rdk/components/gripper/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/framesystem"
 	_ "go.viam.com/rdk/services/datamanager/builtin"
 	"go.viam.com/rdk/spatialmath"
 	rtestutils "go.viam.com/rdk/testutils"
@@ -482,4 +486,86 @@ func TestObserveArmKinematicReconfiguration(t *testing.T) {
 
 	postFSLabels := frameSystemGeometryLabels()
 	test.That(t, postFSLabels, test.ShouldResemble, postArmLabels)
+}
+
+func TestResourcesImplementingGeometriesInFrameSystem(t *testing.T) {
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+
+	// RSDK-14034: The fake camera implements a `Geometries` method. We want to assert that
+	// component's geometry shows up when constructing a frame system from the robot's frame system
+	// service. Such that it would be used as an obstacle for motion planning.
+	cfg := config.Config{
+		Components: []resource.Config{
+			{
+				Name:  "camera",
+				API:   camera.API,
+				Model: fakecamera.Model,
+				Frame: &referenceframe.LinkConfig{
+					ID:     "special-frame-name",
+					Parent: "world",
+				},
+				ConvertedAttributes: &fakecamera.Config{},
+			},
+			{
+				Name:  "gripper",
+				API:   gripper.API,
+				Model: fakegripper.Model,
+				Frame: &referenceframe.LinkConfig{
+					Parent: "world",
+					Geometry: &spatialmath.GeometryConfig{
+						Type: spatialmath.BoxType,
+						X:    10,
+						Y:    20,
+						Z:    30,
+					},
+				},
+				ConvertedAttributes: &fakegripper.Config{},
+			},
+		},
+	}
+
+	robot := setupLocalRobot(t, ctx, &cfg, logger.Sublogger("robot"))
+	fss, err := framesystem.FromProvider(robot)
+	test.That(t, err, test.ShouldBeNil)
+
+	fs, err := framesystem.NewFromService(ctx, fss, nil)
+	test.That(t, err, test.ShouldBeNil)
+
+	frame := fs.Frame("special-frame-name_origin")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	// Cameras exercise the non-InputEnabled code paths.
+	camGeomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, camGeomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+
+	camGeomFromFS := camGeomsInFrame.Geometries()[0]
+	test.That(t, camGeomFromFS.Label(), test.ShouldEqual, "special-frame-name_origin")
+
+	cam, err := camera.FromProvider(robot, "camera")
+	test.That(t, err, test.ShouldBeNil)
+	geoms, err := cam.Geometries(ctx, nil)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, geoms, test.ShouldHaveLength, 1)
+
+	camGeomFromCam := geoms[0]
+	test.That(t, camGeomFromCam.Label(), test.ShouldEqual, "box")
+	// Assert geometry identify by using `ToPoints` with the same resolution. The camera is parented
+	// with no translation to the world frame. Hence we can expect the X/Y/Z points of the frame
+	// system geometry to match the camera's.
+	test.That(t, camGeomFromCam.ToPoints(1), test.ShouldResemble, camGeomFromFS.ToPoints(1))
+
+	// Grippers exercise the InputEnabled code paths. Here we specifically care about the unusual
+	// case where we want to make sure that a geometry declared in the frame configuration comes
+	// through. When the gripper is not configured to return a useful kinematics model.
+	frame = fs.Frame("gripper_origin")
+	test.That(t, frame, test.ShouldNotBeNil)
+
+	gripperGeomsInFrame, err := frame.Geometries([]referenceframe.Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gripperGeomsInFrame.Geometries(), test.ShouldHaveLength, 1)
+
+	gripperGeomFromFS := gripperGeomsInFrame.Geometries()[0]
+	test.That(t, gripperGeomFromFS.Label(), test.ShouldEqual, "gripper_origin")
 }

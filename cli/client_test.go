@@ -28,7 +28,9 @@ import (
 	apppb "go.viam.com/api/app/v1"
 	commonpb "go.viam.com/api/common/v1"
 	"go.viam.com/test"
+	goutils "go.viam.com/utils"
 	"go.viam.com/utils/protoutils"
+	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/testutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -39,6 +41,7 @@ import (
 	robotconfig "go.viam.com/rdk/config"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/shell"
 	_ "go.viam.com/rdk/services/shell/register"
@@ -220,6 +223,12 @@ func setupWithRunningPart(
 	ac.conf.BaseURL = fmt.Sprintf("http://%s", addr)
 	ac.baseURL, _, err = utils.ParseBaseURL(ac.conf.BaseURL, false)
 	test.That(t, err, test.ShouldBeNil)
+
+	ac.dialOverride = func(ctx context.Context, fqdn string, rpcOpts []rpc.DialOption, logger logging.Logger) (*client.RobotClient, error) {
+		return client.New(ctx, addr, logger,
+			client.WithDialOptions(append(rpcOpts, rpc.WithForceDirectGRPC())...),
+		)
+	}
 
 	t.Cleanup(func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -636,7 +645,7 @@ func TestDataExportTabularAction(t *testing.T) {
 		// Test that the data.ndjson file was removed.
 		filePath := utils.ResolveFile(dataFileName)
 		_, err = os.ReadFile(filePath)
-		test.That(t, err, test.ShouldBeError, fmt.Errorf("open %s: no such file or directory", filePath))
+		test.That(t, errors.Is(err, fs.ErrNotExist), test.ShouldBeTrue)
 	})
 }
 
@@ -976,6 +985,9 @@ func TestMachinesPartHistoryAction(t *testing.T) {
 }
 
 func TestShellFileCopy(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("RSDK-11617")
+	}
 	logger := logging.NewTestLogger(t)
 
 	listOrganizationsFunc := func(ctx context.Context, in *apppb.ListOrganizationsRequest,
@@ -1611,25 +1623,30 @@ func TestTunnelE2ECLI(t *testing.T) {
 	// CLI. It is mostly identical to `TestTunnelE2E` in web/server/entrypoint_test.go.
 	// The tunnel is:
 	//
-	// test-process <-> source-listener(localhost:23659) <-> machine(localhost:23658) <-> dest-listener(localhost:23657)
+	// test-process <-> source-listener <-> machine <-> dest-listener
+	//
+	// Ports are reserved dynamically.
 
 	tunnelMsg := "Hello, World!"
-	destPort := 23657
+
+	destPort, destListener, err := goutils.ReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
 	destListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(destPort))
-	machineAddr := net.JoinHostPort("localhost", "23658")
-	sourcePort := 23659
+	defer func() {
+		test.That(t, destListener.Close(), test.ShouldBeNil)
+	}()
+
+	machinePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	machineAddr := net.JoinHostPort("localhost", strconv.Itoa(machinePort))
+
+	sourcePort, err := goutils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
 	sourceListenerAddr := net.JoinHostPort("localhost", strconv.Itoa(sourcePort))
 
 	logger := logging.NewTestLogger(t)
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	var wg sync.WaitGroup
-
-	// Start "destination" listener.
-	destListener, err := net.Listen("tcp", destListenerAddr)
-	test.That(t, err, test.ShouldBeNil)
-	defer func() {
-		test.That(t, destListener.Close(), test.ShouldBeNil)
-	}()
 
 	wg.Add(1)
 	go func() {

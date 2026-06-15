@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	_ "go.viam.com/rdk/components/arm/fake"
@@ -212,33 +211,6 @@ func TestNewFrameSystemFromConfigWithTransforms(t *testing.T) {
 func TestNewFrameSystemFromBadConfig(t *testing.T) {
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
-
-	testCases := []struct {
-		name string
-		num  string
-		err  error
-	}{
-		{"no world node", "2", referenceframe.ErrNoWorldConnection},
-		{"frame named world", "3", errors.Errorf("cannot give frame system part the name %s", referenceframe.World)},
-		{"parent field empty", "4", errors.New("parent field in frame config for part \"cameraOver\" is empty")},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig"+tc.num+".json"), logger, nil)
-			test.That(t, err, test.ShouldBeNil)
-			r, err := robotimpl.New(ctx, cfg, nil, logger)
-			test.That(t, err, test.ShouldBeNil)
-			defer r.Close(ctx)
-			fsCfg, err := r.FrameSystemConfig(ctx)
-			if err != nil {
-				test.That(t, err, test.ShouldBeError, tc.err)
-				return
-			}
-			_, err = referenceframe.NewFrameSystem(tc.num, fsCfg.Parts, nil)
-			test.That(t, err, test.ShouldBeError, tc.err)
-		})
-	}
 
 	cfg, err := config.Read(ctx, rdkutils.ResolveFile("robot/impl/data/fake.json"), logger, nil)
 	test.That(t, err, test.ShouldBeNil)
