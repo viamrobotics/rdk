@@ -33,7 +33,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/fullstorydev/grpcurl v1.8.6
 	github.com/go-co-op/gocron/v2 v2.18.0
-	github.com/go-git/go-billy/v5 v5.6.2
+	github.com/go-git/go-billy/v5 v5.9.0
 	github.com/go-git/go-git/v5 v5.16.5
 	github.com/go-gl/mathgl v1.0.0
 	github.com/go-nlopt/nlopt v0.0.0-20230219125344-443d3362dcb5
@@ -108,13 +108,13 @@ require (
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.25.0
 	golang.org/x/mobile v0.0.0-20240112133503-c713f31d574b
-	golang.org/x/net v0.49.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.42.0
-	golang.org/x/term v0.39.0
-	golang.org/x/text v0.33.0
+	golang.org/x/net v0.53.0
+	golang.org/x/sync v0.20.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/term v0.42.0
+	golang.org/x/text v0.36.0
 	golang.org/x/time v0.10.0
-	golang.org/x/tools v0.40.0
+	golang.org/x/tools v0.44.0
 	gonum.org/v1/gonum v0.17.0
 	gonum.org/v1/plot v0.15.2
 	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409
@@ -195,7 +195,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creack/pty v1.1.24 // indirect
-	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
+	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
@@ -334,8 +334,8 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20230525183740-e7c30c78aeb2 // indirect
 	golang.org/x/arch v0.23.0 // indirect
-	golang.org/x/crypto v0.47.0 // indirect
-	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/crypto v0.50.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.196.0 // indirect
@@ -353,5 +353,5 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/yosuke-furukawa/json5 v0.1.1
 	github.com/ziutek/mymysql v1.5.4 // indirect
-	golang.org/x/exp v0.0.0-20251113190631-e25ba8c21ef6
+	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
 )
