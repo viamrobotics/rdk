@@ -47,7 +47,6 @@ import (
 	"go.viam.com/rdk/internal/otlpfile"
 	"go.viam.com/rdk/logging"
 	"go.viam.com/rdk/module/modmanager"
-	modulestatus "go.viam.com/rdk/module/modmanager/status"
 	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/referenceframe"
@@ -1704,7 +1703,7 @@ func (r *localRobot) reconfigure(ctx context.Context, newConfig *config.Config, 
 
 	// Mark all new modules as pending now, before packagemanager starts doing anything.
 	for _, mod := range initialDiff.Added.Modules {
-		r.manager.moduleManager.AddToModuleStatusMap(mod.Name, modulestatus.ModuleStatePending)
+		r.manager.moduleManager.SetModulePending(mod.Name)
 	}
 
 	// Sync Packages before reconfiguring rest of robot and resolving references to any packages

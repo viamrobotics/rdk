@@ -302,7 +302,7 @@ func (mgr *Manager) add(ctx context.Context, conf config.Module, moduleLogger lo
 		return nil
 	}
 	// wait to track the module status until we know it doesn't already exist
-	mgr.AddToModuleStatusMap(conf.Name, modulestatus.ModuleStatePending)
+	mgr.SetModulePending(conf.Name)
 
 	exists, existingName := mgr.execPathAlreadyExists(&conf)
 	if exists {
@@ -346,7 +346,7 @@ func (mgr *Manager) parentAddr(mod *module) string {
 }
 
 func (mgr *Manager) startModuleProcess(mod *module, oue pexec.UnexpectedExitHandler) error {
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateStarting)
+	mgr.SetModuleStarting(mod.cfg.Name)
 	return mod.startProcess(
 		mgr.restartCtx,
 		mgr.parentAddr(mod),
@@ -408,7 +408,7 @@ func (mgr *Manager) startModule(ctx context.Context, mod *module) error {
 	mod.registerResourceModels(mgr)
 	mgr.modules.Store(mod.cfg.Name, mod)
 	mod.logger.Infow("Module successfully added", "module", mod.cfg.Name)
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
+	mgr.SetModuleReady(mod.cfg.Name)
 
 	success = true
 	return nil
@@ -500,7 +500,7 @@ func (mgr *Manager) Remove(modName string) ([]resource.Name, error) {
 // closeModule attempts to cleanly shut down the module process. It does not wait on module recovery processes,
 // as they are running outside code and may have unexpected behavior.
 func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateClosing)
+	mgr.SetModuleClosing(mod.cfg.Name)
 	// resource manager should've removed these cleanly if this isn't a reconfigure
 	if !reconfigure && len(mod.resources) != 0 {
 		mod.logger.Warnw("Forcing removal of module with active resources", "module", mod.cfg.Name)
@@ -1083,7 +1083,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 		mgr.modPeerConnTracker.Add(mod.cfg.Name, pc)
 	}
 	mod.registerResourceModels(mgr)
-	mgr.UpdateModuleState(mod.cfg.Name, modulestatus.ModuleStateReady)
+	mgr.SetModuleReady(mod.cfg.Name)
 	success = true
 	return nil
 }
@@ -1176,73 +1176,39 @@ func getModuleDataParentDirectory(options modmanageroptions.Options) string {
 	return filepath.Join(options.ViamHomeDir, parentModuleDataFolderName, robotID)
 }
 
-// AddToModuleStatusMap starts tracking the status of a module when the manager becomes aware of it
-func (mgr *Manager) AddToModuleStatusMap(moduleName string, state modulestatus.State) {
-	mgr.moduleStatusMu.Lock()
-	// guard since it's okay if the module already exists, we just want to make sure the status is
-	// up to date
-	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
-		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
-			Name:                moduleName,
-			State:               state,
-			LastUpdated:         time.Now(),
-			Error:               nil,
-			ConsecutiveFailures: 0,
-		}
-	} else {
-		status.State = state
-		status.LastUpdated = time.Now()
-
-		mgr.moduleStatusMap[moduleName] = status
-	}
-	mgr.moduleStatusMu.Unlock()
+func (mgr *Manager) SetModulePending(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStatePending, nil)
+}
+func (mgr *Manager) SetModuleStarting(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateStarting, nil)
+}
+func (mgr *Manager) SetModuleReady(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateReady, nil)
+}
+func (mgr *Manager) SetModuleClosing(name string) {
+	mgr.setModuleState(name, modulestatus.ModuleStateClosing, nil)
+}
+func (mgr *Manager) AddToFailedModules(name string, err error) {
+	mgr.setModuleState(name, modulestatus.ModuleStateUnhealthy, err)
 }
 
-// AddToFailedModules adds a failing module to the moduleStatusMap map.
-func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
+func (mgr *Manager) setModuleState(moduleName string, state modulestatus.State, err error) {
 	mgr.moduleStatusMu.Lock()
-	// Guard here since this signature is legacy from when we only tracked failed modules,
-	// and a module could be already tracked when this is called
-	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
-		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
-			Name:                moduleName,
-			State:               modulestatus.ModuleStateUnhealthy,
-			LastUpdated:         time.Now(),
-			Error:               err,
-			ConsecutiveFailures: 1,
-		}
-	} else {
-		status.State = modulestatus.ModuleStateUnhealthy
-		status.LastUpdated = time.Now()
-		status.Error = err
-		status.ConsecutiveFailures += 1
-
-		mgr.moduleStatusMap[moduleName] = status
+	status, ok := mgr.moduleStatusMap[moduleName]
+	if !ok {
+		status = modulestatus.Status{Name: moduleName}
 	}
-	mgr.moduleStatusMu.Unlock()
-}
-
-// UpdateModuleState changes the state
-func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.State) {
-	mgr.moduleStatusMu.Lock()
-	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
-		mgr.moduleStatusMap[moduleName] = modulestatus.Status{
-			Name:                moduleName,
-			State:               state,
-			LastUpdated:         time.Now(),
-			Error:               nil,
-			ConsecutiveFailures: 0,
-		}
-	} else {
-		status.State = state
-		status.LastUpdated = time.Now()
-
-		if state == modulestatus.ModuleStateReady {
-			status.ConsecutiveFailures = 0
-		}
-
-		mgr.moduleStatusMap[moduleName] = status
+	status.State = state
+	status.LastUpdated = time.Now()
+	status.Error = err
+	switch state {
+	case modulestatus.ModuleStateUnhealthy:
+		status.ConsecutiveFailures++
+	case modulestatus.ModuleStateReady:
+		status.ConsecutiveFailures = 0
 	}
+
+	mgr.moduleStatusMap[moduleName] = status
 
 	mgr.moduleStatusMu.Unlock()
 }
