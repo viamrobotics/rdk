@@ -148,6 +148,8 @@ const (
 	dataFlagDataSourceType                 = "data-source-type"
 	dataFlagIndexName                      = "index-name"
 	dataFlagIndexSpecFile                  = "index-path"
+	dataFlagIncludeBinaryData              = "include-binary"
+	dataFlagLimit                          = "limit"
 
 	datapipelineFlagSchedule       = "schedule"
 	datapipelineFlagEnableBackfill = "enable-backfill"
@@ -1476,6 +1478,27 @@ Note: There is no progress meter while copying is in progress.
 								},
 							},
 							Action: createActionCommandWithT[dataQueryMQLArgs](DataQueryMQLAction),
+						},
+						{
+							Name:      "binary",
+							Usage:     "query binary data metadata by filter",
+							UsageText: createUsageText("data query binary", nil, true, false),
+							Flags: append([]cli.Flag{
+								&cli.StringFlag{
+									Name:      generalFlagDestination,
+									Usage:     "output directory for query results; prints to stdout if omitted",
+									TakesFile: true,
+								},
+								&cli.BoolFlag{
+									Name:  dataFlagIncludeBinaryData,
+									Usage: "include the binary payload (base64-encoded) in each result; metadata only if omitted",
+								},
+								&cli.UintFlag{
+									Name:  dataFlagLimit,
+									Usage: "maximum number of results to return; 0 returns all matches",
+								},
+							}, commonFilterFlags...),
+							Action: createActionCommandWithT[dataQueryBinaryArgs](DataQueryBinaryAction),
 						},
 					},
 				},

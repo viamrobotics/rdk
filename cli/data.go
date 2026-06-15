@@ -188,6 +188,27 @@ func DataQueryMQLAction(ctx context.Context, cmd *cli.Command, args dataQueryMQL
 	return client.dataQueryMQLAction(ctx, args)
 }
 
+type dataQueryBinaryArgs struct {
+	Destination   string
+	IncludeBinary bool
+	Limit         uint
+}
+
+// DataQueryBinaryAction is the corresponding action for 'data query binary'.
+func DataQueryBinaryAction(ctx context.Context, cmd *cli.Command, args dataQueryBinaryArgs) error {
+	client, err := newViamClient(ctx, cmd)
+	if err != nil {
+		return err
+	}
+
+	filter, err := createDataFilter(cmd)
+	if err != nil {
+		return err
+	}
+
+	return client.dataQueryBinaryAction(ctx, args, filter)
+}
+
 type dataTagByFilterArgs struct {
 	Tags []string
 }
@@ -512,6 +533,76 @@ func (c *viamClient) dataQueryMQLAction(ctx context.Context, args dataQueryMQLAr
 	}
 
 	return writeQueryResults(c.c.Root().Writer, args.Destination, resp.GetRawData())
+}
+
+func (c *viamClient) dataQueryBinaryAction(ctx context.Context, args dataQueryBinaryArgs, filter *datapb.Filter) error {
+	// Output to a file under --destination, or stdout if omitted.
+	out := c.c.Root().Writer
+	var filePath string
+	if args.Destination != "" {
+		if err := makeDestinationDirs(args.Destination); err != nil {
+			return errors.Wrap(err, "could not create destination directory")
+		}
+		filePath = filepath.Join(args.Destination, dataFileName)
+		f, err := os.Create(filePath) //nolint:gosec
+		if err != nil {
+			return errors.Wrap(err, "could not create data file")
+		}
+		defer f.Close() //nolint:errcheck
+		out = f
+	}
+
+	bw := bufio.NewWriter(out)
+	var last string
+	var written uint
+	for {
+		// Cap each page at maxLimit (100); honor an overall --limit if set.
+		pageLimit := uint64(maxLimit)
+		if args.Limit > 0 {
+			remaining := args.Limit - written
+			if remaining == 0 {
+				break
+			}
+			if remaining < uint(maxLimit) {
+				pageLimit = uint64(remaining)
+			}
+		}
+
+		resp, err := c.dataClient.BinaryDataByFilter(ctx, &datapb.BinaryDataByFilterRequest{
+			DataRequest: &datapb.DataRequest{
+				Filter: filter,
+				Limit:  pageLimit,
+				Last:   last,
+			},
+			IncludeBinary: args.IncludeBinary,
+			CountOnly:     false,
+		})
+		if err != nil {
+			return errors.Wrap(err, serverErrorMessage)
+		}
+		if len(resp.GetData()) == 0 {
+			break
+		}
+		last = resp.GetLast()
+
+		for _, bd := range resp.GetData() {
+			jsonRow, err := protojson.Marshal(bd)
+			if err != nil {
+				return errors.Wrap(err, "error formatting query result")
+			}
+			if err := writeData(bw, jsonRow); err != nil {
+				return errors.Wrap(err, "error writing data")
+			}
+			written++
+		}
+	}
+	if err := bw.Flush(); err != nil {
+		return errors.Wrap(err, "error writing query results")
+	}
+	if filePath != "" {
+		printf(c.c.Root().Writer, "Wrote %d results to %s", written, filePath)
+	}
+	return nil
 }
 
 func buildTabularDataSource(dataSourceType, pipelineID string) (*datapb.TabularDataSource, error) {
