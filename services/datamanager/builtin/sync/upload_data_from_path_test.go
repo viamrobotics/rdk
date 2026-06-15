@@ -61,7 +61,7 @@ func TestUploadDataFromPath(t *testing.T) {
 	t.Run("not connected to the cloud", func(t *testing.T) {
 		dir := t.TempDir()
 		s := newTestSync(t, NoOpCloudClientConstructor(nil), dir, false)
-		_, _, _, _, _, err := s.UploadDataFromPath(ctx, writeTestFile(t, dir, "f.txt", []byte("hi")), nil, nil)
+		_, err := s.UploadDataFromPath(ctx, writeTestFile(t, dir, "f.txt", []byte("hi")), nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not connected to the cloud")
 	})
@@ -72,13 +72,13 @@ func TestUploadDataFromPath(t *testing.T) {
 		contents := []byte("hello world")
 		fp := writeTestFile(t, dir, "f.txt", contents)
 
-		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, fp, nil, nil)
+		res, err := s.UploadDataFromPath(ctx, fp, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fu, test.ShouldEqual, uint64(1))
-		test.That(t, ff, test.ShouldEqual, uint64(0))
-		test.That(t, bu, test.ShouldEqual, uint64(len(contents)))
-		test.That(t, bt, test.ShouldEqual, uint64(len(contents)))
-		test.That(t, ids, test.ShouldResemble, []string{"bin-1"})
+		test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(1))
+		test.That(t, res.FilesFailed, test.ShouldEqual, uint64(0))
+		test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(len(contents)))
+		test.That(t, res.BytesTotal, test.ShouldEqual, uint64(len(contents)))
+		test.That(t, res.IDs, test.ShouldResemble, []string{"bin-1"})
 
 		// arbitrary files are deleted after a successful upload
 		_, statErr := os.Stat(fp)
@@ -95,14 +95,14 @@ func TestUploadDataFromPath(t *testing.T) {
 		writeTestFile(t, uploadDir, "b.txt", b)
 		writeTestFile(t, uploadDir, "c.txt", c)
 
-		fu, ff, bu, bt, ids, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
+		res, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fu, test.ShouldEqual, uint64(3))
-		test.That(t, ff, test.ShouldEqual, uint64(0))
+		test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(3))
+		test.That(t, res.FilesFailed, test.ShouldEqual, uint64(0))
 		total := uint64(len(a) + len(b) + len(c))
-		test.That(t, bu, test.ShouldEqual, total)
-		test.That(t, bt, test.ShouldEqual, total)
-		test.That(t, len(ids), test.ShouldEqual, 3)
+		test.That(t, res.BytesUploaded, test.ShouldEqual, total)
+		test.That(t, res.BytesTotal, test.ShouldEqual, total)
+		test.That(t, len(res.IDs), test.ShouldEqual, 3)
 	})
 
 	t.Run("directory with a partial failure", func(t *testing.T) {
@@ -122,11 +122,11 @@ func TestUploadDataFromPath(t *testing.T) {
 		test.That(t, os.Chmod(badPath, 0o000), test.ShouldBeNil)
 		t.Cleanup(func() { os.Chmod(badPath, 0o600) })
 
-		fu, ff, bu, bt, _, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
+		res, err := s.UploadDataFromPath(ctx, uploadDir, nil, nil)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, fu, test.ShouldEqual, uint64(1))
-		test.That(t, ff, test.ShouldEqual, uint64(1))
-		test.That(t, bu, test.ShouldEqual, uint64(len(good)))          // only the good file uploaded
-		test.That(t, bt, test.ShouldEqual, uint64(len(good)+len(bad))) // both discovered
+		test.That(t, res.FilesUploaded, test.ShouldEqual, uint64(1))
+		test.That(t, res.FilesFailed, test.ShouldEqual, uint64(1))
+		test.That(t, res.BytesUploaded, test.ShouldEqual, uint64(len(good)))       // only the good file uploaded
+		test.That(t, res.BytesTotal, test.ShouldEqual, uint64(len(good)+len(bad))) // both discovered
 	})
 }

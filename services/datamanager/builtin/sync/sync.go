@@ -27,6 +27,7 @@ import (
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/internal/cloud"
 	"go.viam.com/rdk/logging"
+	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/utils"
 )
@@ -621,18 +622,26 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 // For directories, every file is attempted and per-file errors are counted; the call
 // returns aggregate counts of files and bytes uploaded/failed.
 func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *v1.UploadMetadata, _ map[string]interface{}) (
-	filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, ids []string, err error,
+	robot.UploadDataFromPathResult, error,
 ) {
 	select {
 	case <-s.cloudConn.ready:
 	default:
-		return 0, 0, 0, 0, nil, errors.New("not connected to the cloud")
+		return robot.UploadDataFromPathResult{}, errors.New("not connected to the cloud")
 	}
 
 	info, err := os.Stat(path)
 	if err != nil {
-		return 0, 0, 0, 0, nil, err
+		return robot.UploadDataFromPathResult{}, err
 	}
+
+	var (
+		filesUploaded uint64
+		filesFailed   uint64
+		bytesUploaded uint64
+		bytesTotal    uint64
+		ids           []string
+	)
 
 	tags := uploadMetadata.GetTags()
 	datasetIDs := uploadMetadata.GetDatasetIds()
@@ -676,7 +685,13 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 		uploadOne(path)
 	}
 
-	return filesUploaded, filesFailed, bytesUploaded, bytesTotal, ids, nil
+	return robot.UploadDataFromPathResult{
+		FilesUploaded: filesUploaded,
+		FilesFailed:   filesFailed,
+		BytesUploaded: bytesUploaded,
+		BytesTotal:    bytesTotal,
+		IDs:           ids,
+	}, nil
 }
 
 // moveFailedData takes any data that could not be synced in the parentDir and
