@@ -1077,6 +1077,44 @@ func TestModuleStatus(t *testing.T) {
 	test.That(t, dneStatus.ConsecutiveFailures, test.ShouldEqual, 1)
 	test.That(t, p(dneStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
 
+	// A module that crashes and restarts should leave the unhealthy state with its
+	// failure counter and error cleared.
+
+	// restore the default startup timeout so the restart isn't starved, and drop the
+	// failing modules so this reconfigure doesn't block on them
+	t.Setenv("VIAM_MODULE_STARTUP_TIMEOUT", "")
+	cfg.Modules = []config.Module{{Name: "mod", ExePath: testPath}}
+	cfg.Components = []resource.Config{{
+		Name:  "h",
+		Model: resource.NewModel("rdk", "test", "helper"),
+		API:   generic.API,
+	}}
+	r.Reconfigure(ctx, cfg)
+
+	modStatus = getModuleStatus(t, r, "mod")
+	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+
+	h, err := r.ResourceByName(generic.Named("h"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = h.DoCommand(ctx, map[string]any{"command": "kill_module"})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// the crash should record mod as unhealthy with a failure and error
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		s := getModuleStatus(tb, r, "mod")
+		test.That(tb, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateUnhealthy))
+		test.That(tb, s.ConsecutiveFailures, test.ShouldEqual, 1)
+		test.That(tb, s.Error, test.ShouldNotBeNil)
+	})
+
+	// after a successful restart the counter and error should be cleared
+	testutils.WaitForAssertion(t, func(tb testing.TB) {
+		s := getModuleStatus(tb, r, "mod")
+		test.That(tb, p(s.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
+		test.That(tb, s.ConsecutiveFailures, test.ShouldEqual, 0)
+		test.That(tb, s.Error, test.ShouldBeNil)
+	})
+
 	// make sure we start ready before trying to close
 	modStatus = getModuleStatus(t, r, "mod")
 	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
