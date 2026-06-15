@@ -451,8 +451,7 @@ func (s *Sync) syncFile(config Config, filePath string) {
 		s.syncDataCaptureFile(f, config.CaptureDir, s.logger)
 	} else {
 		//nolint:errcheck
-		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger,
-			&s.uploadStats.arbitrary.uploadingBytes)
+		s.syncArbitraryFile(s.configCtx, f, config.Tags, []string{}, config.FileLastModifiedMillis, s.logger)
 	}
 }
 
@@ -533,13 +532,13 @@ func (s *Sync) syncDataCaptureFile(f *os.File, captureDir string, logger logging
 
 func (s *Sync) syncArbitraryFile(
 	ctx context.Context, f *os.File, tags, datasetIDs []string, fileLastModifiedMillis int,
-	logger logging.Logger, bytesUploadingCounter *atomic.Uint64,
+	logger logging.Logger,
 ) (string, error) {
 	var uploadedID string
 	retry := newExponentialRetry(ctx, s.clock, s.logger, f.Name(), func(ctx context.Context) (uint64, error) {
 		errMetadata := fmt.Sprintf("error uploading arbitrary file %s", f.Name())
 		bytesUploaded, id, err := uploadArbitraryFile(
-			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, bytesUploadingCounter,
+			ctx, f, s.cloudConn, tags, datasetIDs, fileLastModifiedMillis, s.clock, logger, &s.uploadStats.arbitrary.uploadingBytes,
 		)
 		if err != nil {
 			return 0, errors.Wrap(err, errMetadata)
@@ -612,7 +611,7 @@ func (s *Sync) UploadBinaryDataToDatasets(ctx context.Context, binaryData []byte
 		}
 		// Since we wrote to the file, the file last modified time should be 0, indicating we should wait no time
 		// before deciding this file is ready for upload and is not still being written to.
-		s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, &s.uploadStats.arbitrary.uploadingBytes) //nolint:errcheck
+		s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger) //nolint:errcheck
 	}()
 
 	return <-errChan
@@ -661,7 +660,7 @@ func (s *Sync) UploadDataFromPath(ctx context.Context, path string, uploadMetada
 			return
 		}
 
-		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger, nil); syncErr != nil {
+		if id, syncErr := s.syncArbitraryFile(ctx, f, tags, datasetIDs, 0, s.logger); syncErr != nil {
 			filesFailed++
 		} else {
 			filesUploaded++
