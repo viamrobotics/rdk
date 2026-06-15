@@ -1680,6 +1680,11 @@ func TestTunnelE2ECLI(t *testing.T) {
 		// Create a temporary config file.
 		tempConfigFile, err := os.CreateTemp(t.TempDir(), "temp_config.json")
 		test.That(t, err, test.ShouldBeNil)
+		// we only use the filename, not the file handle in this test. Close immediately, instead of relying on GC.
+		// On Windows we otherwise may get:
+		// "The process cannot access the file because it is being used by another process."
+		test.That(t, tempConfigFile.Close(), test.ShouldBeNil)
+
 		cfg := &robotconfig.Config{
 			Network: robotconfig.NetworkConfig{
 				NetworkConfigData: robotconfig.NetworkConfigData{
