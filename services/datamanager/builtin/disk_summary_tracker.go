@@ -98,7 +98,7 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 	var totalFiles int64
 	var totalBytes int64
 	var earliestTime *time.Time
-	var earliestCompletedCaptureTime *time.Time
+	var earliestSyncableFileTime *time.Time
 
 	for i, summary := range summaries {
 		// Log any errors from the directory summary.
@@ -129,10 +129,11 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 			}
 		}
 
-		// Track earliest completed capture file time (excludes in-progress .prog files).
-		if summary.CompletedCaptureTimeRange != nil {
-			if earliestCompletedCaptureTime == nil || summary.CompletedCaptureTimeRange.Start.Before(*earliestCompletedCaptureTime) {
-				earliestCompletedCaptureTime = &summary.CompletedCaptureTimeRange.Start
+		// Track earliest syncable file time: completed capture (.capture) files and
+		// arbitrary files, excluding in-progress (.prog) files.
+		if summary.SyncableFileTimeRange != nil {
+			if earliestSyncableFileTime == nil || summary.SyncableFileTimeRange.Start.Before(*earliestSyncableFileTime) {
+				earliestSyncableFileTime = &summary.SyncableFileTimeRange.Start
 			}
 		}
 	}
@@ -141,7 +142,7 @@ func (poller *diskSummaryTracker) calculateAndSetSummary(ctx context.Context, di
 	diskSummary.SyncPaths.TotalSizeBytes = totalBytes
 	diskSummary.OldestCaptureFileTime = earliestTime
 
-	poller.checkAndLogStaleData(ctx, earliestCompletedCaptureTime, totalFiles, totalBytes)
+	poller.checkAndLogStaleData(ctx, earliestSyncableFileTime, totalFiles, totalBytes)
 	poller.setSummary(diskSummary)
 }
 
