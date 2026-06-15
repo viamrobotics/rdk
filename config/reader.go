@@ -193,13 +193,16 @@ func readFromCloud(
 	// process the config
 	cfg, err := processConfigFromCloud(unprocessedConfig, logger)
 	if err != nil {
-		// If we cannot process the config from the cache we should clear it.
 		if cached {
-			// clear cache
+			// We could not process the cached config; clear it so we don't keep reusing a bad cache.
 			logger.Warn("Detected failure to process the cached config, clearing cache.")
 			clearCache(cloudCfg.ID)
+			return nil, err
 		}
-		return nil, err
+		// A freshly fetched cloud config we cannot process is a rejection in all but name: the cloud
+		// served it but this robot cannot apply it, and it will fail identically on every refresh.
+		// Surface it as a rejection so callers log it loudly rather than hiding it at debug.
+		return nil, rejectedConfigError{err}
 	}
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
@@ -654,10 +657,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
-// rejectedConfigError wraps an error indicating the cloud responded but rejected this robot's
-// config (e.g. it is malformed), as opposed to a transient failure to reach the cloud. Callers can
-// detect it with IsRejectedConfigError to surface the failure loudly rather than treat it as a
-// routine, retryable error.
+// rejectedConfigError wraps an error indicating this robot's config was rejected and cannot be
+// applied — either the cloud responded and rejected it (e.g. it is malformed) or a freshly fetched
+// cloud config failed local processing — as opposed to a transient failure to reach the cloud.
+// Callers can detect it with IsRejectedConfigError to surface the failure loudly rather than treat
+// it as a routine, retryable error.
 type rejectedConfigError struct {
 	err error
 }
@@ -666,11 +670,33 @@ func (e rejectedConfigError) Error() string { return e.err.Error() }
 
 func (e rejectedConfigError) Unwrap() error { return e.err }
 
-// IsRejectedConfigError reports whether err indicates the cloud rejected this robot's config
-// (rather than a transient failure to reach the cloud).
+// IsRejectedConfigError reports whether err indicates this robot's config was rejected and cannot be
+// applied (rather than a transient failure to reach the cloud).
 func IsRejectedConfigError(err error) bool {
 	var rejErr rejectedConfigError
 	return errors.As(err, &rejErr)
+}
+
+// isCloudConfigRejection reports whether a cloud config-fetch error means the cloud responded and
+// rejected this robot's config (e.g. it is malformed), as opposed to a transient failure to reach
+// the cloud. Only a gRPC status returned by the cloud can be a rejection: a non-status error (e.g.
+// the rpc layer's "not connected", or a bare context error) never reached the cloud and is treated
+// as transient. Among status codes, the conversion failure that motivated this surfaces as
+// codes.Unknown, and a validating endpoint may instead use codes.InvalidArgument or
+// codes.FailedPrecondition. Every other code is transient: connectivity/timeout (Unavailable,
+// DeadlineExceeded, Canceled), rate-limiting (ResourceExhausted), auth (Unauthenticated,
+// PermissionDenied), NotFound, and server-side faults (Internal) are not config rejections.
+func isCloudConfigRejection(err error) bool {
+	st, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	switch st.Code() {
+	case codes.Unknown, codes.InvalidArgument, codes.FailedPrecondition:
+		return true
+	default:
+		return false
+	}
 }
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the
@@ -696,7 +722,7 @@ func getFromCloudOrCache(
 				if os.IsNotExist(cacheErr) {
 					// Return original error if failed to load from cache.
 					if rejected {
-						return nil, cached, errors.Wrap(err, "cloud rejected this robot's config and no cached config exists")
+						return nil, cached, errors.Wrap(err, "this robot's config was rejected and no cached config exists")
 					}
 					return nil, cached, errors.Wrap(
 						err,
@@ -714,7 +740,7 @@ func getFromCloudOrCache(
 			}
 			if rejected {
 				logger.Errorw(
-					"cloud rejected this robot's config; the new config was NOT applied. continuing on cached config",
+					"this robot's config was rejected; the new config was NOT applied. continuing on cached config",
 					"config last updated", lastUpdated, "error", err)
 			} else {
 				logger.Warnw("unable to get cloud config; using cached version", "config last updated", lastUpdated, "error", err)
@@ -746,12 +772,13 @@ func getFromCloudGRPC(
 	service := apppb.NewRobotServiceClient(conn)
 	res, err := service.Config(ctx, &apppb.ConfigRequest{Id: cloudCfg.ID, AgentInfo: agentInfo})
 	if err != nil {
-		// A connectivity or timeout error means we never reached the cloud and falling back to a cached
-		// config is expected. Any other status code means the cloud responded and rejected this robot's
-		// config (e.g. it is malformed), which we surface as a rejection.
-		code := status.Code(err)
+		// A response that rejects this robot's config (e.g. it is malformed) is surfaced as a rejection
+		// so callers can log it loudly. Anything else (connectivity, timeout, auth, rate-limiting,
+		// server-side faults, or a transport error that never reached the cloud) is transient, so we
+		// fall back to the cached config and retry quietly.
+		rejected := isCloudConfigRejection(err)
 		err = errors.WithMessage(err, "error getting config from config endpoint")
-		if code != codes.Unavailable && code != codes.DeadlineExceeded && code != codes.Canceled {
+		if rejected {
 			return nil, rejectedConfigError{err}
 		}
 		return nil, err

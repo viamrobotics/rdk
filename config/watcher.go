@@ -83,7 +83,7 @@ func newCloudWatcher(ctx context.Context, config *Config, logger logging.Logger,
 				// transient failure to reach the cloud stays at debug since the watcher simply retries.
 				if IsRejectedConfigError(err) {
 					logger.Errorw(
-						"cloud rejected this robot's config; the new config was NOT applied. keeping the current config",
+						"this robot's config was rejected; the new config was NOT applied. keeping the current config",
 						"error", err)
 				} else {
 					logger.Debugw("error reading cloud config; will try again", "error", err)

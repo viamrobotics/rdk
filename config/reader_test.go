@@ -237,7 +237,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cfg, test.ShouldNotBeNil)
 
 		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 1)
-		test.That(t, logs.FilterMessageSnippet("cloud rejected this robot's config").Len(), test.ShouldEqual, 0)
+		test.That(t, logs.FilterMessageSnippet("this robot's config was rejected").Len(), test.ShouldEqual, 0)
 	})
 
 	t.Run("rejected config is surfaced loudly and falls back to cache", func(t *testing.T) {
@@ -254,7 +254,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, cached, test.ShouldBeTrue)
 		test.That(t, cfg, test.ShouldNotBeNil)
 
-		rejected := logs.FilterMessageSnippet("cloud rejected this robot's config")
+		rejected := logs.FilterMessageSnippet("this robot's config was rejected")
 		test.That(t, rejected.Len(), test.ShouldEqual, 1)
 		test.That(t, rejected.All()[0].Level, test.ShouldEqual, zapcore.ErrorLevel)
 		test.That(t, logs.FilterMessageSnippet("unable to get cloud config; using cached version").Len(), test.ShouldEqual, 0)
@@ -270,7 +270,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		_, _, err := getFromCloudOrCache(ctx, cloudCfg, true, logger, appConn)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "cloud rejected this robot's config and no cached config exists")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "this robot's config was rejected and no cached config exists")
 		test.That(t, err.Error(), test.ShouldContainSubstring, "OrientationVectorDegrees has a normal of 0")
 	})
 
@@ -285,8 +285,122 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, IsRejectedConfigError(err), test.ShouldBeFalse)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "cached config does not exist")
-		test.That(t, err.Error(), test.ShouldNotContainSubstring, "cloud rejected this robot's config")
+		test.That(t, err.Error(), test.ShouldNotContainSubstring, "this robot's config was rejected")
 	})
+}
+
+// TestIsCloudConfigRejection pins down the classification that decides whether a cloud config-fetch
+// failure is a rejection (surfaced loudly) or a transient failure to reach the cloud (retried
+// quietly). Only a gRPC status with a rejection-class code is a rejection; a non-status error never
+// reached the cloud and is transient even though its implied code is Unknown.
+func TestIsCloudConfigRejection(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		rejected bool
+	}{
+		// Status codes the cloud uses to reject a config.
+		{"unknown (real conversion failure)", status.Error(codes.Unknown, "boom"), true},
+		{"invalid argument", status.Error(codes.InvalidArgument, "boom"), true},
+		{"failed precondition", status.Error(codes.FailedPrecondition, "boom"), true},
+		// Transient status codes are never a rejection. Internal is the notable one: it was previously
+		// treated as a rejection, but a server-side fault is not a config rejection.
+		{"unavailable", status.Error(codes.Unavailable, "boom"), false},
+		{"deadline exceeded", status.Error(codes.DeadlineExceeded, "boom"), false},
+		{"canceled", status.Error(codes.Canceled, "boom"), false},
+		{"internal", status.Error(codes.Internal, "boom"), false},
+		{"resource exhausted", status.Error(codes.ResourceExhausted, "boom"), false},
+		{"unauthenticated", status.Error(codes.Unauthenticated, "boom"), false},
+		{"permission denied", status.Error(codes.PermissionDenied, "boom"), false},
+		{"not found", status.Error(codes.NotFound, "boom"), false},
+		// Non-status errors never reached the cloud, so they are transient even though status.Code
+		// reports Unknown for them. "not connected" is what the rpc layer returns when the app
+		// connection was never established.
+		{"not connected (no gRPC status)", errors.New("not connected"), false},
+		{"bare context deadline", context.DeadlineExceeded, false},
+		// Wrapping must not hide a real rejection.
+		{"wrapped rejection", errors.WithMessage(status.Error(codes.Unknown, "boom"), "fetching config"), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.That(t, isCloudConfigRejection(tc.err), test.ShouldEqual, tc.rejected)
+		})
+	}
+}
+
+// TestGetFromCloudGRPCProtoDecodeFailureIsRejection verifies that a config the cloud serves but that
+// this robot cannot decode from proto is surfaced as a rejection, mirroring the reported
+// orientation-vector failure (here, an auth handler with an unsupported credential type).
+func TestGetFromCloudGRPCProtoDecodeFailureIsRejection(t *testing.T) {
+	const robotPartID = "forProtoDecodeTest"
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	clearCache(robotPartID)
+	defer clearCache(robotPartID)
+
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	cloudResponse := &Cloud{ID: robotPartID, Secret: testutils.FakeCredentialPayLoad, FQDN: "fqdn", SignalingInsecure: true}
+	cloudConfProto, err := CloudConfigToProto(cloudResponse)
+	test.That(t, err, test.ShouldBeNil)
+
+	// An auth handler with an unspecified credential type passes the wire but fails FromProto.
+	protoConfig := &pb.RobotConfig{
+		Cloud: cloudConfProto,
+		Auth:  &pb.AuthConfig{Handlers: []*pb.AuthHandlerConfig{{Type: pb.CredentialsType_CREDENTIALS_TYPE_UNSPECIFIED}}},
+	}
+	fakeServer.StoreDeviceConfig(robotPartID, protoConfig, nil)
+
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+	cloudCfg := &Cloud{ID: robotPartID, Secret: testutils.FakeCredentialPayLoad, AppAddress: appAddress}
+	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudCfg.GetCloudCredsDialOpt(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
+
+	cfg, err := getFromCloudGRPC(ctx, cloudCfg, logger, appConn)
+	test.That(t, cfg, test.ShouldBeNil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "converting config from proto")
+}
+
+// TestReadFromCloudRejectsUnprocessableConfig verifies that a config the cloud serves successfully
+// but that this robot cannot process locally (here, a component with an invalid name) is surfaced as
+// a rejection rather than hidden as a routine, retryable error.
+func TestReadFromCloudRejectsUnprocessableConfig(t *testing.T) {
+	const (
+		robotPartID = "forUnprocessableTest"
+		secret      = testutils.FakeCredentialPayLoad
+	)
+	ctx := context.Background()
+	logger := logging.NewTestLogger(t)
+	clearCache(robotPartID)
+	defer clearCache(robotPartID)
+
+	fakeServer, cleanup := testutils.NewFakeCloudServer(t, ctx, logger)
+	defer cleanup()
+
+	cloudResponse := &Cloud{ID: robotPartID, Secret: secret, FQDN: "fqdn", LocalFQDN: "localFqdn", SignalingInsecure: true}
+	cloudConfProto, err := CloudConfigToProto(cloudResponse)
+	test.That(t, err, test.ShouldBeNil)
+
+	// A bind address with no port passes proto conversion but fails local processing (Network.Validate
+	// in Ensure), mirroring a cloud config the cloud serves but this robot cannot apply.
+	networkConfProto, err := NetworkConfigToProto(&NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "no-port-here"}})
+	test.That(t, err, test.ShouldBeNil)
+
+	protoConfig := &pb.RobotConfig{Cloud: cloudConfProto, Network: networkConfProto}
+	fakeServer.StoreDeviceConfig(robotPartID, protoConfig, &pb.CertificateResponse{})
+
+	appAddress := fmt.Sprintf("http://%s", fakeServer.Addr().String())
+	appConn, err := grpc.NewAppConn(ctx, appAddress, robotPartID, cloudResponse.GetCloudCredsDialOpt(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer appConn.Close()
+
+	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
+	_, err = FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
 }
 
 func TestStoreToCache(t *testing.T) {
