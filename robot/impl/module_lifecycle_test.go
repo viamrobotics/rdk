@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/test"
 	"go.viam.com/utils/testutils"
 
-	pb "go.viam.com/api/robot/v1"
 	"go.viam.com/rdk/components/generic"
 	"go.viam.com/rdk/components/sensor"
 	"go.viam.com/rdk/config"
