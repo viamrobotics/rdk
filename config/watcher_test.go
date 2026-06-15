@@ -347,17 +347,16 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	// The fake server returns codes.Unknown while failing, which is a config rejection (not a
-	// connectivity error). The watcher should surface that loudly at ERROR on every failing refresh.
+	// The fake server returns codes.Unknown while failing, which is a config rejection.
+	// The watcher should surface that loudly at ERROR on every failing refresh.
 	rejectedLogs := logs.FilterMessageSnippet("the new config was NOT applied")
 	test.That(t, rejectedLogs.Len(), test.ShouldBeGreaterThan, 1)
 	for _, entry := range rejectedLogs.All() {
 		test.That(t, entry.Level, test.ShouldEqual, zapcore.ErrorLevel)
 	}
 
-	// A transient connectivity failure (codes.Unavailable) must NOT be surfaced as a rejection: the
-	// watcher logs it at debug and keeps retrying. Guard against a regression that turns every network
-	// blip into an ERROR.
+	// A transient connectivity failure must NOT be surfaced as a rejection. The
+	// watcher logs it at debug and keeps retrying.
 	rejectedCountBeforeTransient := rejectedLogs.Len()
 	debugRetryBeforeTransient := logs.FilterMessageSnippet("error reading cloud config; will try again").Len()
 	fakeServer.FailOnConfigAndCertsWith(status.Error(codes.Unavailable, "cloud is down"))

@@ -327,10 +327,9 @@ func TestIsCloudConfigRejection(t *testing.T) {
 	}
 }
 
-// TestGetFromCloudGRPCProtoDecodeFailureIsRejection verifies that a config the cloud serves but that
-// this robot cannot decode from proto is surfaced as a rejection, mirroring the reported
-// orientation-vector failure (here, an auth handler with an unsupported credential type).
-func TestGetFromCloudGRPCProtoDecodeFailureIsRejection(t *testing.T) {
+// TestGetFromCloudGRPCProtoDecodeFailureIsRejected verifies that a config the cloud serves but that
+// this robot cannot decode from proto is surfaced as a rejection.
+func TestGetFromCloudGRPCProtoDecodeFailureIsRejected(t *testing.T) {
 	const robotPartID = "forProtoDecodeTest"
 	ctx := context.Background()
 	logger := logging.NewTestLogger(t)
@@ -365,8 +364,8 @@ func TestGetFromCloudGRPCProtoDecodeFailureIsRejection(t *testing.T) {
 }
 
 // TestReadFromCloudRejectsUnprocessableConfig verifies that a config the cloud serves successfully
-// but that this robot cannot process locally (here, a component with an invalid name) is surfaced as
-// a rejection rather than hidden as a routine, retryable error.
+// but that this robot cannot process locally (here, a bind address with no port) is surfaced as a
+// rejection.
 func TestReadFromCloudRejectsUnprocessableConfig(t *testing.T) {
 	const (
 		robotPartID = "forUnprocessableTest"
@@ -398,9 +397,10 @@ func TestReadFromCloudRejectsUnprocessableConfig(t *testing.T) {
 	defer appConn.Close()
 
 	cfgText := fmt.Sprintf(`{"cloud":{"id":%q,"app_address":%q,"secret":%q}}`, robotPartID, appAddress, secret)
-	_, err = FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
+	cfg, err := FromReader(ctx, "", strings.NewReader(cfgText), logger, appConn)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, IsRejectedConfigError(err), test.ShouldBeTrue)
+	test.That(t, cfg, test.ShouldBeNil)
 }
 
 func TestStoreToCache(t *testing.T) {
