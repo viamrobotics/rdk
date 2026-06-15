@@ -657,11 +657,11 @@ func processConfig(unprocessedConfig *Config, fromCloud bool, logger logging.Log
 	return cfg, nil
 }
 
-// rejectedConfigError wraps an error indicating this robot's config was rejected and cannot be
-// applied — either the cloud responded and rejected it (e.g. it is malformed) or a freshly fetched
-// cloud config failed local processing — as opposed to a transient failure to reach the cloud.
+// rejectedConfigError wraps an error indicating this robot's config was rejected and cannot
+// be applied, as opposed to a transient failure to reach the cloud. Either the cloud responded
+// and rejected it (e.g. it is malformed) or a freshly fetchedcloud config failed local processing.
 // Callers can detect it with IsRejectedConfigError to surface the failure loudly rather than treat
-// it as a routine, retryable error.
+// it as a retryable error.
 type rejectedConfigError struct {
 	err error
 }
@@ -671,7 +671,7 @@ func (e rejectedConfigError) Error() string { return e.err.Error() }
 func (e rejectedConfigError) Unwrap() error { return e.err }
 
 // IsRejectedConfigError reports whether err indicates this robot's config was rejected and cannot be
-// applied (rather than a transient failure to reach the cloud).
+// applied.
 func IsRejectedConfigError(err error) bool {
 	var rejErr rejectedConfigError
 	return errors.As(err, &rejErr)
@@ -684,12 +684,8 @@ func isCloudConfigRejection(err error) bool {
 	if !ok {
 		return false
 	}
-	switch st.Code() {
-	case codes.Unknown, codes.InvalidArgument, codes.FailedPrecondition:
-		return true
-	default:
-		return false
-	}
+	code := st.Code()
+	return code == codes.Unknown || code == codes.InvalidArgument || code == codes.FailedPrecondition
 }
 
 // getFromCloudOrCache returns the config from the gRPC endpoint. If failures during cloud lookup fallback to the

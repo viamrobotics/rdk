@@ -189,7 +189,7 @@ func TestFromReader(t *testing.T) {
 
 // TestGetFromCloudOrCacheErrorClassification verifies that when the cloud config endpoint fails
 // and we fall back to a cached config, a connectivity error is logged quietly (Warn) while a
-// config rejection from the cloud is surfaced loudly (Error) so it is not silently hidden.
+// config rejection from the cloud is surfaced loudly (Error).
 func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 	const (
 		robotPartID = "forCachingTest"
@@ -290,9 +290,7 @@ func TestGetFromCloudOrCacheErrorClassification(t *testing.T) {
 }
 
 // TestIsCloudConfigRejection pins down the classification that decides whether a cloud config-fetch
-// failure is a rejection (surfaced loudly) or a transient failure to reach the cloud (retried
-// quietly). Only a gRPC status with a rejection-class code is a rejection; a non-status error never
-// reached the cloud and is transient even though its implied code is Unknown.
+// failure is a rejection or a transient failure to reach the cloud.
 func TestIsCloudConfigRejection(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
