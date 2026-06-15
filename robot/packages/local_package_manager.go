@@ -50,17 +50,9 @@ type managedModuleMap map[string]*managedModule
 func NewLocalManager(packagesParentDir string, logger logging.Logger) (ManagerSyncer, error) {
 	packagesDir := LocalPackagesDir(packagesParentDir)
 	packagesDataDir := filepath.Join(packagesDir, "data")
-	// if the package path isn't set, don't generate folders because they're not used and won't get deleted
-	if packagesParentDir != "" {
-		if err := os.MkdirAll(packagesDir, 0o700); err != nil {
-			return nil, err
-		}
-
-		if err := os.MkdirAll(packagesDataDir, 0o700); err != nil {
-			return nil, err
-		}
-	}
-
+	// Don't eagerly create the package directories: a robot with no local tarball modules never
+	// uses them, and creating them here would litter the package dir (~/.viam/packages-local) for
+	// every robot/test that doesn't sync local packages. installPackage creates them on demand.
 	return &localManager{
 		Named:           InternalServiceName.AsNamed(),
 		managedModules:  make(managedModuleMap),
