@@ -67,6 +67,7 @@ type moduleManager interface {
 	FailedModules() []string
 	AddToFailedModules(moduleName string, err error)
 	AddToModuleStatusMap(moduleName string, state modulestatus.State)
+	PruneModuleStatuses(confs []config.Module)
 	Status() []modulestatus.Status
 }
 
@@ -1290,6 +1291,9 @@ func (manager *resourceManager) updateResources(
 	// modules should have their implicit dependencies re-evaluated.
 	if manager.moduleManager != nil {
 		manager.moduleManager.ResolveImplicitDependencies(ctx, conf)
+
+		// Drop status entries for modules no longer in the config
+		manager.moduleManager.PruneModuleStatuses(conf.Right.Modules)
 	}
 
 	revision := conf.NewRevision()

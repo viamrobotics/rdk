@@ -911,10 +911,6 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 		mod.logger.Errorw(
 			"Module has unexpectedly exited.", "module", mod.cfg.Name, "exit_code", exitCode,
 		)
-		fullErr := fmt.Errorf("module has unexpectedly exited; module: %s, exit_code: %d", mod.cfg.Name, exitCode)
-
-		// Add to moduleStatusMap when crash is detected
-		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 
 		// There are two relevant calls that may race with a crashing module:
 		// 1. mgr.Remove, which wants to stop the module and remove it entirely
@@ -962,6 +958,10 @@ func (mgr *Manager) newOnUnexpectedExitHandler(ctx context.Context, mod *module)
 			}
 
 			if !cleanupPerformed {
+				// only record the failure inside the lock, and after mgr.Remove or mgr.Reconfigure have potentially touched it
+				fullErr := fmt.Errorf("module has unexpectedly exited; module: %s, exit_code: %d", mod.cfg.Name, exitCode)
+				mgr.AddToFailedModules(mod.cfg.Name, fullErr)
+
 				mod.cleanupAfterCrash(mgr)
 				cleanupPerformed = true
 			}
@@ -1250,6 +1250,29 @@ func (mgr *Manager) RemoveModuleState(moduleName string) {
 	mgr.moduleStatusMu.Lock()
 	delete(mgr.moduleStatusMap, moduleName)
 	mgr.moduleStatusMu.Unlock()
+}
+
+// PruneModuleStatuses stops tracking modules that are no longer in the desired
+// config and no longer backed by a live module
+func (mgr *Manager) PruneModuleStatuses(confs []config.Module) {
+	// make a map before iterating so lookups are cheaper
+	keep := make(map[string]struct{}, len(confs))
+	for _, conf := range confs {
+		keep[conf.Name] = struct{}{}
+	}
+	mgr.moduleStatusMu.Lock()
+	defer mgr.moduleStatusMu.Unlock()
+	for name := range mgr.moduleStatusMap {
+		// keep modules in the desired config
+		if _, inConfig := keep[name]; inConfig {
+			continue
+		}
+		// also keep modules that are still backed by a live module
+		if _, live := mgr.modules.Load(name); live {
+			continue
+		}
+		delete(mgr.moduleStatusMap, name)
+	}
 }
 
 // FailedModules returns the names of all failing modules.

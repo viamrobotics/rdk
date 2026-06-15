@@ -1094,15 +1094,11 @@ func TestModuleStatus(t *testing.T) {
 	})
 	<-reconfigureDone
 
-	// after reconfiguring, we should not be tracking "mod" anymore
+	// After reconfiguring to an empty config, no module statuses should remain.
+	// This covers the removed running module ("mod") as well as the modules that
+	// failed before ever starting ("fake", "doesnotexist"), which are pruned
+	// rather than removed since they never entered the module manager.
 	ms, err := r.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
-
-	modTrackedInMachineStatus := false
-	for _, m := range ms.Modules {
-		if m.Name == "mod" {
-			modTrackedInMachineStatus = true
-		}
-	}
-	test.That(t, modTrackedInMachineStatus, test.ShouldBeFalse)
+	test.That(t, ms.Modules, test.ShouldBeEmpty)
 }
