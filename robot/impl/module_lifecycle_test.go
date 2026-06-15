@@ -996,7 +996,7 @@ func TestModuleStatus(t *testing.T) {
 	testPath := rtestutils.BuildTempModuleWithFirstRun(t, "module/testmodule")
 
 	// make testmodule close slowly so we can observe its closing state later on
-	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "1s")
+	t.Setenv("VIAM_TESTMODULE_SLOW_CLOSE", "300ms")
 	cfg := &config.Config{
 		Modules: []config.Module{
 			{
@@ -1100,6 +1100,9 @@ func TestModuleStatus(t *testing.T) {
 	cfg.Modules = []config.Module{{
 		Name:    "mod",
 		ExePath: testPath,
+	}, {
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
 	}}
 	r.Reconfigure(ctx, cfg)
 
@@ -1115,7 +1118,11 @@ func TestModuleStatus(t *testing.T) {
 	modStatus = getModuleStatus(t, r, "mod")
 	test.That(t, p(modStatus.State), test.ShouldEqual, p(modulestatus.ModuleStateReady))
 
-	// reconfigure to an empty config (without the testmodule)
+	// reconfigure to a config without testmodule
+	cfg.Modules = []config.Module{{
+		Name:    "fake",
+		ExePath: rutils.ResolveFile("module/testmodule/fakemodule.sh"),
+	}}
 	reconfigureDone = make(chan struct{})
 	go func() {
 		defer close(reconfigureDone)
@@ -1128,8 +1135,16 @@ func TestModuleStatus(t *testing.T) {
 	})
 	<-reconfigureDone
 
-	// After reconfiguring to an empty config, no module statuses should remain.
+	// After reconfiguring to an empty config, testModule should be gone
+	// but fakeModule should still be tracked (and stuck in Starting)
 	ms, err := r.MachineStatus(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ms.Modules, test.ShouldBeEmpty)
+	for _, m := range ms.Modules {
+		switch m.Name {
+		case "mod":
+			test.That(t, "mod still present in config after removing", test.ShouldBeNil)
+		case "fakeMod":
+			test.That(t, p(m.State), test.ShouldEqual, p(modulestatus.ModuleStateStarting))
+		}
+	}
 }
