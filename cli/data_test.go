@@ -231,7 +231,7 @@ func TestDataQueryMQLAction(t *testing.T) {
 			expectedErr: fmt.Errorf("--%s is required when --%s or --%s is provided",
 				dataFlagDataSourceType, dataFlagPipelineID, dataFlagPipelineName),
 		},
-		"pipeline-id and pipeline-name are mutually exclusive": {
+		"pipeline-id and pipeline-name are both provided": {
 			args: dataQueryMQLArgs{
 				OrgID:          "org-1",
 				MQL:            mql,
