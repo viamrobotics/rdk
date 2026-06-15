@@ -1353,22 +1353,13 @@ func (rc *RobotClient) SendTraces(ctx context.Context, spans []*otlpv1.ResourceS
 	return err
 }
 
-// UploadFromPathResult is the aggregated result of an UploadDataFromPath call.
-type UploadFromPathResult struct {
-	FilesUploaded uint64
-	FilesFailed   uint64
-	BytesUploaded uint64
-	BytesTotal    uint64
-	IDs           []string
-}
-
 // UploadDataFromPath uploads a file or directory from the robot to the cloud via the data manager.
 func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
-	UploadFromPathResult, error,
+	robot.UploadDataFromPathResult, error,
 ) {
 	ext, err := protoutils.StructToStructPb(extra)
 	if err != nil {
-		return UploadFromPathResult{}, err
+		return robot.UploadDataFromPathResult{}, err
 	}
 	resp, err := rc.client.UploadDataFromPath(ctx, &pb.UploadDataFromPathRequest{
 		Path:           path,
@@ -1376,9 +1367,9 @@ func (rc *RobotClient) UploadDataFromPath(ctx context.Context, path string, md *
 		Extra:          ext,
 	})
 	if err != nil {
-		return UploadFromPathResult{}, err
+		return robot.UploadDataFromPathResult{}, err
 	}
-	return UploadFromPathResult{
+	return robot.UploadDataFromPathResult{
 		FilesUploaded: resp.GetFilesUploaded(),
 		FilesFailed:   resp.GetFilesFailed(),
 		BytesUploaded: resp.GetBytesUploaded(),

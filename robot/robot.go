@@ -44,6 +44,15 @@ func init() {
 	}
 }
 
+// UploadDataFromPathResult is the aggregated result of an UploadDataFromPath call.
+type UploadDataFromPathResult struct {
+	FilesUploaded uint64
+	FilesFailed   uint64
+	BytesUploaded uint64
+	BytesTotal    uint64
+	IDs           []string
+}
+
 // A Robot encompasses all functionality of some robot comprised
 // of parts, local and remote.
 //
@@ -200,7 +209,7 @@ type LocalRobot interface {
 
 	// UploadDataFromPath uploads a file or directory at path to the cloud via the data manager.
 	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
-		filesUploaded, filesFailed, bytesUploaded, bytesTotal uint64, ids []string, err error)
+		UploadDataFromPathResult, error)
 }
 
 // A RemoteRobot is a Robot that was created through a connection.

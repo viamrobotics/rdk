@@ -652,11 +652,17 @@ func TestServer(t *testing.T) {
 		// success: request fields (incl. extra) reach the robot, and counts/ids map back through.
 		injectRobot.UploadDataFromPathFunc = func(
 			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
-		) (uint64, uint64, uint64, uint64, []string, error) {
+		) (robot.UploadDataFromPathResult, error) {
 			test.That(t, path, test.ShouldEqual, "/data/foo")
 			test.That(t, md.GetTags(), test.ShouldResemble, []string{"tag1"})
 			test.That(t, extra, test.ShouldResemble, map[string]interface{}{"foo": "bar"})
-			return 3, 1, 1024, 2048, []string{"id1", "id2", "id3"}, nil
+			return robot.UploadDataFromPathResult{
+				FilesUploaded: 2,
+				FilesFailed:   0,
+				BytesUploaded: 512,
+				BytesTotal:    512,
+				IDs:           []string{"a", "b"},
+			}, nil
 		}
 
 		resp, err := server.UploadDataFromPath(context.Background(), &pb.UploadDataFromPathRequest{
@@ -665,17 +671,17 @@ func TestServer(t *testing.T) {
 			Extra:          ext,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.GetFilesUploaded(), test.ShouldEqual, uint64(3))
-		test.That(t, resp.GetFilesFailed(), test.ShouldEqual, uint64(1))
-		test.That(t, resp.GetBytesUploaded(), test.ShouldEqual, uint64(1024))
-		test.That(t, resp.GetBytesTotal(), test.ShouldEqual, uint64(2048))
-		test.That(t, resp.GetIds(), test.ShouldResemble, []string{"id1", "id2", "id3"})
+		test.That(t, resp.GetFilesUploaded(), test.ShouldEqual, uint64(2))
+		test.That(t, resp.GetFilesFailed(), test.ShouldEqual, uint64(0))
+		test.That(t, resp.GetBytesUploaded(), test.ShouldEqual, uint64(512))
+		test.That(t, resp.GetBytesTotal(), test.ShouldEqual, uint64(512))
+		test.That(t, resp.GetIds(), test.ShouldResemble, []string{"a", "b"})
 
 		// error is surfaced to the caller.
 		injectRobot.UploadDataFromPathFunc = func(
 			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
-		) (uint64, uint64, uint64, uint64, []string, error) {
-			return 0, 0, 0, 0, nil, errors.New("no data manager service configured")
+		) (robot.UploadDataFromPathResult, error) {
+			return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
 		}
 		_, err = server.UploadDataFromPath(context.Background(), &pb.UploadDataFromPathRequest{Path: "/data/foo"})
 		test.That(t, err, test.ShouldNotBeNil)

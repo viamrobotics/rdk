@@ -3257,7 +3257,7 @@ func TestUploadDataFromPath(t *testing.T) {
 
 	t.Run("no data manager configured", func(t *testing.T) {
 		r := setupLocalRobot(t, ctx, &config.Config{}, logger)
-		_, _, _, _, _, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
+		_, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no data manager")
 	})
@@ -3275,7 +3275,7 @@ func TestUploadDataFromPath(t *testing.T) {
 			},
 		}
 		r := setupLocalRobot(t, ctx, cfg, logger)
-		_, _, _, _, _, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
+		_, err := r.UploadDataFromPath(ctx, "/tmp/whatever", nil, nil)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "does not support")
 	})

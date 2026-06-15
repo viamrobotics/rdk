@@ -64,7 +64,7 @@ type Robot struct {
 		ctx context.Context,
 		path string,
 		uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{},
-	) (uint64, uint64, uint64, uint64, []string, error)
+	) (robot.UploadDataFromPathResult, error)
 
 	ops        *operation.Manager
 	SessMgr    session.Manager
@@ -382,7 +382,7 @@ func (r *Robot) ListTunnels(ctx context.Context) ([]config.TrafficTunnelEndpoint
 // UploadDataFromPath calls the injected UploadDataFromPath or the real one.
 func (r *Robot) UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata,
 	extra map[string]interface{}) (
-	uint64, uint64, uint64, uint64, []string, error,
+	robot.UploadDataFromPathResult, error,
 ) {
 	r.Mu.RLock()
 	defer r.Mu.RUnlock()

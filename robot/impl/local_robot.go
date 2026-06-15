@@ -177,24 +177,24 @@ func (r *localRobot) WriteTraceMessages(ctx context.Context, spans []*otlpv1.Res
 // data manager service for when UploadDataFromPath is called.
 type dataFromPathUploader interface {
 	UploadDataFromPath(ctx context.Context, path string, uploadMetadata *datasyncpb.UploadMetadata, extra map[string]interface{}) (
-		uint64, uint64, uint64, uint64, []string, error)
+		robot.UploadDataFromPathResult, error)
 }
 
 // UploadDataFromPath uploads a file or directory to the cloud via the configured data manager service.
 func (r *localRobot) UploadDataFromPath(ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{}) (
-	uint64, uint64, uint64, uint64, []string, error,
+	robot.UploadDataFromPathResult, error,
 ) {
 	names := datamanager.NamesFromRobot(r)
 	if len(names) == 0 {
-		return 0, 0, 0, 0, nil, errors.New("no data manager service configured")
+		return robot.UploadDataFromPathResult{}, errors.New("no data manager service configured")
 	}
 	svc, err := datamanager.FromProvider(r, names[0])
 	if err != nil {
-		return 0, 0, 0, 0, nil, err
+		return robot.UploadDataFromPathResult{}, err
 	}
 	uploader, ok := svc.(dataFromPathUploader)
 	if !ok {
-		return 0, 0, 0, 0, nil, errors.New("data manager does not support UploadDataFromPath")
+		return robot.UploadDataFromPathResult{}, errors.New("data manager does not support UploadDataFromPath")
 	}
 	return uploader.UploadDataFromPath(ctx, path, md, extra)
 }

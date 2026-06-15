@@ -2382,11 +2382,17 @@ func TestUploadDataFromPath(t *testing.T) {
 		},
 		UploadDataFromPathFunc: func(
 			ctx context.Context, path string, md *datasyncpb.UploadMetadata, extra map[string]interface{},
-		) (uint64, uint64, uint64, uint64, []string, error) {
+		) (robot.UploadDataFromPathResult, error) {
 			capturedPath = path
 			capturedMD = md
 			capturedExtra = extra
-			return 2, 0, 512, 512, []string{"a", "b"}, nil
+			return robot.UploadDataFromPathResult{
+				FilesUploaded: 2,
+				FilesFailed:   0,
+				BytesUploaded: 512,
+				BytesTotal:    512,
+				IDs:           []string{"a", "b"},
+			}, nil
 		},
 	}
 
