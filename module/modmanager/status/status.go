@@ -18,7 +18,7 @@ const (
 	ModuleStateClosing
 )
 
-// Status encapsulates the current status of a module.
+// Status represents the status of a module tracked by the module manager
 type Status struct {
 	Name                string
 	State               State

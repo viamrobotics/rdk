@@ -525,7 +525,7 @@ func (mgr *Manager) closeModule(mod *module, reconfigure bool) error {
 	}
 
 	if err := mod.stopProcess(); err != nil {
-		fullErr := fmt.Errorf("error while stopping module %s: %s", mod.cfg.Name, err)
+		fullErr := fmt.Errorf("error while stopping module %s: %w", mod.cfg.Name, err)
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		return errors.WithMessage(err, "error while stopping module "+mod.cfg.Name)
 	}
@@ -1055,7 +1055,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	}()
 
 	if err := mgr.startModuleProcess(mod, oue); err != nil {
-		fullErr := fmt.Errorf("Error while restarting crashed module %s: %s", mod.cfg.Name, err)
+		fullErr := fmt.Errorf("error while restarting crashed module %s: %w", mod.cfg.Name, err)
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.Errorw("Error while restarting crashed module",
 			"module", mod.cfg.Name, "error", err)
@@ -1064,7 +1064,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	processRestarted = true
 
 	if err := mod.dial(); err != nil {
-		fullErr := fmt.Errorf("Error while dialing restarted module %s: %s", mod.cfg.Name, err)
+		fullErr := fmt.Errorf("error while dialing restarted module %s: %w", mod.cfg.Name, err)
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while dialing restarted module",
 			"module", mod.cfg.Name, "error", err)
@@ -1072,7 +1072,7 @@ func (mgr *Manager) attemptRestart(ctx context.Context, mod *module) error {
 	}
 
 	if err := mod.checkReady(ctx, mgr.parentAddr(mod)); err != nil {
-		fullErr := fmt.Errorf("Error while waiting for restarted module to be ready %s: %s", mod.cfg.Name, err)
+		fullErr := fmt.Errorf("error while waiting for restarted module to be ready %s: %w", mod.cfg.Name, err)
 		mgr.AddToFailedModules(mod.cfg.Name, fullErr)
 		mgr.logger.CErrorw(ctx, "Error while waiting for restarted module to be ready",
 			"module", mod.cfg.Name, "error", err)
@@ -1222,6 +1222,7 @@ func (mgr *Manager) AddToFailedModules(moduleName string, err error) {
 	mgr.moduleStatusMu.Unlock()
 }
 
+// UpdateModuleState changes the state
 func (mgr *Manager) UpdateModuleState(moduleName string, state modulestatus.State) {
 	mgr.moduleStatusMu.Lock()
 	if status, ok := mgr.moduleStatusMap[moduleName]; !ok {
